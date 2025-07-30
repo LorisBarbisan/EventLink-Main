@@ -235,21 +235,13 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="rate">Rate (£)</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="rate"
-                  type="number"
-                  value={freelancerProfile.hourly_rate || ''}
-                  onChange={(e) => setFreelancerProfile(prev => ({ ...prev, hourly_rate: e.target.value ? parseFloat(e.target.value) : null }))}
-                  placeholder={freelancerProfile.rate_type === 'hourly' ? '50' : '400'}
-                  className="flex-1"
-                />
+              <div className="flex items-center gap-2">
+                <Label htmlFor="rate">Rate (£)</Label>
                 <Select 
                   value={freelancerProfile.rate_type} 
                   onValueChange={(value: 'hourly' | 'daily') => setFreelancerProfile(prev => ({ ...prev, rate_type: value }))}
                 >
-                  <SelectTrigger className="w-24">
+                  <SelectTrigger className="w-20 h-6 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -258,6 +250,13 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
                   </SelectContent>
                 </Select>
               </div>
+              <Input
+                id="rate"
+                type="number"
+                value={freelancerProfile.hourly_rate || ''}
+                onChange={(e) => setFreelancerProfile(prev => ({ ...prev, hourly_rate: e.target.value ? parseFloat(e.target.value) : null }))}
+                placeholder={freelancerProfile.rate_type === 'hourly' ? '50' : '400'}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="experience_years">Years of Experience</Label>
