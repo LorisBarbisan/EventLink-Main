@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -27,8 +27,13 @@ export default function Auth() {
   });
 
   // Redirect if already authenticated
+  useEffect(() => {
+    if (user) {
+      setLocation('/dashboard');
+    }
+  }, [user, setLocation]);
+
   if (user) {
-    setLocation('/dashboard');
     return <div>Redirecting...</div>;
   }
 

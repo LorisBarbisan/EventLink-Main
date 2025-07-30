@@ -56,13 +56,17 @@ export function RecruiterDashboard({ profile }: RecruiterDashboardProps) {
         setRecruiterProfile(data);
         setHasProfile(true);
       }
-    } catch (error) {
-      console.error('Error fetching recruiter profile:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load your profile",
-        variant: "destructive"
-      });
+    } catch (error: any) {
+      // Only show error toast if it's not a "Profile not found" error
+      if (error?.message !== "Profile not found" && !error?.message?.includes("404")) {
+        console.error('Error fetching recruiter profile:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load your profile",
+          variant: "destructive"
+        });
+      }
+      // For 404/not found errors, just continue without profile (new user case)
     } finally {
       setLoading(false);
     }

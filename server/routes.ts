@@ -83,6 +83,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = parseInt(req.params.userId);
       const profile = await storage.getFreelancerProfile(userId);
+      
+      if (!profile) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
       res.json(profile);
     } catch (error) {
       console.error("Get freelancer profile error:", error);
@@ -118,6 +123,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = parseInt(req.params.userId);
       const profile = await storage.getRecruiterProfile(userId);
+      
+      if (!profile) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
       res.json(profile);
     } catch (error) {
       console.error("Get recruiter profile error:", error);
