@@ -34,8 +34,8 @@ export const Layout = ({ children }: LayoutProps) => {
               <Link to="/freelancers" className="text-muted-foreground hover:text-foreground transition-colors">
                 Find Crew
               </Link>
-              <Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors">
-                About
+              <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
+                Dashboard
               </Link>
             </nav>
 
@@ -118,8 +118,8 @@ export const Layout = ({ children }: LayoutProps) => {
               <h4 className="font-semibold mb-3">For Freelancers</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link to="/jobs" className="hover:text-foreground">Browse Jobs</Link></li>
-                <li><Link to="/profile/create" className="hover:text-foreground">Create Profile</Link></li>
-                <li><Link to="/resources" className="hover:text-foreground">Resources</Link></li>
+                <li><Link to="/dashboard" className="hover:text-foreground">Create Profile</Link></li>
+                <li><Link to="/auth" className="hover:text-foreground">Sign Up</Link></li>
               </ul>
             </div>
             
@@ -127,17 +127,17 @@ export const Layout = ({ children }: LayoutProps) => {
               <h4 className="font-semibold mb-3">For Companies</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link to="/freelancers" className="hover:text-foreground">Find Crew</Link></li>
-                <li><Link to="/post-job" className="hover:text-foreground">Post a Job</Link></li>
-                <li><Link to="/pricing" className="hover:text-foreground">Pricing</Link></li>
+                <li><Link to="/dashboard" className="hover:text-foreground">Post a Job</Link></li>
+                <li><Link to="/auth" className="hover:text-foreground">Get Started</Link></li>
               </ul>
             </div>
             
             <div>
               <h4 className="font-semibold mb-3">Support</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link to="/help" className="hover:text-foreground">Help Center</Link></li>
-                <li><Link to="/contact" className="hover:text-foreground">Contact Us</Link></li>
-                <li><Link to="/terms" className="hover:text-foreground">Terms of Service</Link></li>
+                <li><Link to="/" className="hover:text-foreground">Help Center</Link></li>
+                <li><Link to="/" className="hover:text-foreground">Contact Us</Link></li>
+                <li><Link to="/" className="hover:text-foreground">Terms of Service</Link></li>
               </ul>
             </div>
           </div>

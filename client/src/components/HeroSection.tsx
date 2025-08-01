@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "wouter";
 import { ArrowRight, Users, Briefcase, Star, MapPin, Clock } from "lucide-react";
 import eventImage from "@assets/vecteezy_blurred-images-of-trade-fairs-in-the-big-hall-image-of_33496157_1753859139754.jpg";
 
@@ -32,14 +33,18 @@ export const HeroSection = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="bg-gradient-primary hover:bg-primary-hover text-lg px-8">
-                Find Jobs
-                <ArrowRight className="w-5 h-5 ml-2" />
+              <Button size="lg" className="bg-gradient-primary hover:bg-primary-hover text-lg px-8" asChild>
+                <Link to="/jobs">
+                  Find Jobs
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Link>
               </Button>
               
-              <Button variant="outline" size="lg" className="text-lg px-8">
-                Hire Crew
-                <Users className="w-5 h-5 ml-2" />
+              <Button variant="outline" size="lg" className="text-lg px-8" asChild>
+                <Link to="/freelancers">
+                  Hire Crew
+                  <Users className="w-5 h-5 ml-2" />
+                </Link>
               </Button>
             </div>
 
