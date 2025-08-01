@@ -60,7 +60,7 @@ export default function Jobs() {
                          job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          job.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesLocation = !locationFilter || job.location.toLowerCase().includes(locationFilter.toLowerCase());
-    const matchesCategory = !categoryFilter || job.category === categoryFilter;
+    const matchesCategory = !categoryFilter || categoryFilter === 'all' || job.category === categoryFilter;
     
     return matchesSearch && matchesLocation && matchesCategory;
   });
@@ -109,7 +109,7 @@ export default function Jobs() {
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Categories</SelectItem>
+                    <SelectItem value="all">All Categories</SelectItem>
                     <SelectItem value="Audio">Audio</SelectItem>
                     <SelectItem value="Lighting">Lighting</SelectItem>
                     <SelectItem value="AV">AV Systems</SelectItem>

@@ -77,7 +77,7 @@ export default function Freelancers() {
                          freelancer.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          freelancer.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesLocation = !locationFilter || freelancer.location.toLowerCase().includes(locationFilter.toLowerCase());
-    const matchesSkill = !skillFilter || freelancer.skills.some(skill => skill.toLowerCase().includes(skillFilter.toLowerCase()));
+    const matchesSkill = !skillFilter || skillFilter === 'all' || freelancer.skills.some(skill => skill.toLowerCase().includes(skillFilter.toLowerCase()));
     
     return matchesSearch && matchesLocation && matchesSkill;
   });
@@ -126,7 +126,7 @@ export default function Freelancers() {
                     <SelectValue placeholder="Skill" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Skills</SelectItem>
+                    <SelectItem value="all">All Skills</SelectItem>
                     <SelectItem value="sound engineering">Sound Engineering</SelectItem>
                     <SelectItem value="lighting design">Lighting Design</SelectItem>
                     <SelectItem value="av systems">AV Systems</SelectItem>
