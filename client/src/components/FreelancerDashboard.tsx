@@ -209,10 +209,48 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
+                      // Check file size (5MB limit)
+                      if (file.size > 5 * 1024 * 1024) {
+                        toast({
+                          title: "Error",
+                          description: "Image must be smaller than 5MB",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
+                      const canvas = document.createElement('canvas');
+                      const ctx = canvas.getContext('2d');
+                      const img = new Image();
+                      
+                      img.onload = () => {
+                        // Resize to max 400x400 to reduce file size
+                        const maxSize = 400;
+                        let { width, height } = img;
+                        
+                        if (width > height) {
+                          if (width > maxSize) {
+                            height = (height * maxSize) / width;
+                            width = maxSize;
+                          }
+                        } else {
+                          if (height > maxSize) {
+                            width = (width * maxSize) / height;
+                            height = maxSize;
+                          }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx?.drawImage(img, 0, 0, width, height);
+                        
+                        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                        setFreelancerProfile(prev => ({ ...prev, profile_photo_url: compressedDataUrl }));
+                      };
+                      
                       const reader = new FileReader();
                       reader.onload = (event) => {
-                        const result = event.target?.result as string;
-                        setFreelancerProfile(prev => ({ ...prev, profile_photo_url: result }));
+                        img.src = event.target?.result as string;
                       };
                       reader.readAsDataURL(file);
                     }

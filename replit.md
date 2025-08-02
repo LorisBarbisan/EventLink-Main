@@ -17,10 +17,14 @@ Event Crew is a freelancer marketplace platform specifically designed for the ev
 
 ## Recent Changes
 ### February 2, 2025
-- **Fixed Gradient Text Issues**: Resolved rendering problems across all pages with gradient backgrounds
+- **Fixed Gradient Text Issues**: Resolved rendering problems across all pages with gradient backgrounds  
 - **Enhanced Password Validation**: Added comprehensive signup form validation with real-time feedback
-- **Fixed Routing Issues**: Corrected NotFound component appearing at bottom of all pages
-- **Improved UX**: Added visual indicators for password matching and form validation
+- **Fixed Routing Issues**: Corrected NotFound component appearing at bottom of all pages using Switch component
+- **Profile Photo Upload**: Added photo upload functionality to FreelancerDashboard with image compression
+- **Company Logo Upload**: Added logo upload functionality to RecruiterDashboard with image compression  
+- **Fixed Data Validation**: Corrected user_id and hourly_rate type mismatches in profile saving
+- **Increased Payload Limit**: Set Express server to handle 10MB payloads for image uploads
+- **Image Optimization**: Implemented client-side image compression to reduce file sizes
 
 ### February 1, 2025
 - **Navigation System Complete**: Fixed all landing page buttons to navigate to proper pages
