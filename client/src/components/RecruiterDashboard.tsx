@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, Users, Briefcase } from 'lucide-react';
+import { Building2, Users, Briefcase, Camera, Upload } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -23,6 +23,7 @@ interface RecruiterProfile {
   description: string;
   website_url: string;
   linkedin_url: string;
+  company_logo_url?: string;
 }
 
 interface RecruiterDashboardProps {
@@ -38,7 +39,8 @@ export function RecruiterDashboard({ profile }: RecruiterDashboardProps) {
     location: '',
     description: '',
     website_url: '',
-    linkedin_url: ''
+    linkedin_url: '',
+    company_logo_url: ''
   });
   const [hasProfile, setHasProfile] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -138,6 +140,61 @@ export function RecruiterDashboard({ profile }: RecruiterDashboardProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Company Logo Upload */}
+            <div className="flex items-start gap-6 pb-6 border-b border-border/50">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-24 h-24 rounded-lg border-2 border-dashed border-primary/30 flex items-center justify-center bg-primary/5 overflow-hidden">
+                  {recruiterProfile.company_logo_url ? (
+                    <img 
+                      src={recruiterProfile.company_logo_url} 
+                      alt="Company Logo" 
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <Building2 className="w-8 h-8 text-primary/50" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const result = event.target?.result as string;
+                          setRecruiterProfile(prev => ({ ...prev, company_logo_url: result }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                    id="logo-upload"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => document.getElementById('logo-upload')?.click()}
+                    className="text-xs"
+                  >
+                    <Upload className="w-3 h-3 mr-1" />
+                    {recruiterProfile.company_logo_url ? 'Change' : 'Upload'}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg mb-2">Company Logo</h3>
+                <p className="text-sm text-muted-foreground">
+                  Upload your company logo to enhance your brand presence. This will be displayed on your company profile and in job listings.
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Recommended: Square or rectangular logo, at least 200x200 pixels
+                </p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="company_name">Company Name</Label>

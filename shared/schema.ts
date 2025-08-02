@@ -27,6 +27,7 @@ export const freelancer_profiles = pgTable("freelancer_profiles", {
   linkedin_url: text("linkedin_url"),
   website_url: text("website_url"),
   availability_status: text("availability_status").default('available').$type<'available' | 'busy' | 'unavailable'>(),
+  profile_photo_url: text("profile_photo_url"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -41,6 +42,7 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
   description: text("description"),
   website_url: text("website_url"),
   linkedin_url: text("linkedin_url"),
+  company_logo_url: text("company_logo_url"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -55,6 +57,9 @@ export const insertFreelancerProfileSchema = createInsertSchema(freelancer_profi
   id: true,
   created_at: true,
   updated_at: true,
+}).extend({
+  user_id: z.number(),
+  hourly_rate: z.number().nullable().transform((val) => val ? val.toString() : null),
 });
 
 export const insertRecruiterProfileSchema = createInsertSchema(recruiter_profiles).omit({

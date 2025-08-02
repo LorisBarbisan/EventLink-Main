@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { User, MapPin, DollarSign, Calendar, Plus, X, UserCheck } from 'lucide-react';
+import { User, MapPin, DollarSign, Calendar, Plus, X, UserCheck, Camera, Upload } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -32,6 +32,7 @@ interface FreelancerProfile {
   linkedin_url: string;
   website_url: string;
   availability_status: 'available' | 'busy' | 'unavailable';
+  profile_photo_url?: string;
 }
 
 interface FreelancerDashboardProps {
@@ -54,7 +55,8 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
     portfolio_url: '',
     linkedin_url: '',
     website_url: '',
-    availability_status: 'available'
+    availability_status: 'available',
+    profile_photo_url: ''
   });
   const [hasProfile, setHasProfile] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -97,7 +99,7 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
     try {
       const profileData = {
         ...freelancerProfile,
-        user_id: profile.id
+        user_id: parseInt(profile.id)
       };
 
       if (hasProfile) {
@@ -186,6 +188,61 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Profile Photo Upload */}
+          <div className="flex items-start gap-6 pb-6 border-b border-border/50">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-24 h-24 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center bg-primary/5 overflow-hidden">
+                {freelancerProfile.profile_photo_url ? (
+                  <img 
+                    src={freelancerProfile.profile_photo_url} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Camera className="w-8 h-8 text-primary/50" />
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const result = event.target?.result as string;
+                        setFreelancerProfile(prev => ({ ...prev, profile_photo_url: result }));
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="hidden"
+                  id="photo-upload"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => document.getElementById('photo-upload')?.click()}
+                  className="text-xs"
+                >
+                  <Upload className="w-3 h-3 mr-1" />
+                  {freelancerProfile.profile_photo_url ? 'Change' : 'Upload'}
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg mb-2">Profile Photo</h3>
+              <p className="text-sm text-muted-foreground">
+                Upload a professional headshot to make your profile stand out. This will be visible to recruiters and on your public profile.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Recommended: Square image, at least 400x400 pixels
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="first_name">First Name</Label>
