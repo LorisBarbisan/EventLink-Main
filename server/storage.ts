@@ -102,7 +102,10 @@ export class DatabaseStorage implements IStorage {
     if (profile.linkedin_url !== undefined) updateData.linkedin_url = profile.linkedin_url;
     if (profile.website_url !== undefined) updateData.website_url = profile.website_url;
     if (profile.availability_status !== undefined) updateData.availability_status = profile.availability_status as 'available' | 'busy' | 'unavailable';
-    if (profile.profile_photo_url !== undefined) updateData.profile_photo_url = profile.profile_photo_url;
+    if (profile.profile_photo_url !== undefined) {
+      console.log('Updating profile_photo_url:', profile.profile_photo_url ? profile.profile_photo_url.substring(0, 50) + '...' : 'null');
+      updateData.profile_photo_url = profile.profile_photo_url;
+    }
     
     const result = await db.update(freelancer_profiles)
       .set(updateData)

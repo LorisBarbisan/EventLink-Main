@@ -72,6 +72,7 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
       const data = await apiRequest(`/api/freelancer/${profile.id}`);
       
       if (data) {
+        console.log('Profile loaded, photo URL length:', data.profile_photo_url ? data.profile_photo_url.length : 0);
         setFreelancerProfile({
           ...data,
           availability_status: data.availability_status as 'available' | 'busy' | 'unavailable',
@@ -193,11 +194,19 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
           <div className="flex items-start gap-6 pb-6 border-b border-border/50">
             <div className="flex flex-col items-center gap-3">
               <div className="w-24 h-24 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center bg-primary/5 overflow-hidden">
-                {freelancerProfile.profile_photo_url && freelancerProfile.profile_photo_url.trim() !== '' && freelancerProfile.profile_photo_url !== 'null' ? (
+                {(freelancerProfile.profile_photo_url && 
+                  freelancerProfile.profile_photo_url.trim() !== '' && 
+                  freelancerProfile.profile_photo_url !== 'null' && 
+                  freelancerProfile.profile_photo_url.startsWith('data:')) ? (
                   <img 
                     src={freelancerProfile.profile_photo_url} 
                     alt="Profile" 
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      console.error('Image failed to load:', e);
+                      console.log('Photo URL starts with:', freelancerProfile.profile_photo_url.substring(0, 50));
+                    }}
+                    onLoad={() => console.log('Image loaded successfully')}
                   />
                 ) : (
                   <Camera className="w-8 h-8 text-primary/50" />
