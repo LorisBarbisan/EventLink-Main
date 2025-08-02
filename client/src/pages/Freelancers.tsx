@@ -7,11 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, MapPin, Star, User, DollarSign, Calendar, Filter } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 
 export default function Freelancers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [skillFilter, setSkillFilter] = useState('');
+  const [, setLocation] = useLocation();
 
   // Fetch real freelancer profiles from API
   const { data: realFreelancers = [], isLoading } = useQuery({
@@ -25,7 +27,7 @@ export default function Freelancers() {
 
   // Transform real freelancer data to match display format
   const transformedRealFreelancers = realFreelancers.map((profile: any) => ({
-    id: profile.user_id,
+    id: `real-${profile.user_id}`,
     name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
     title: profile.title || 'Event Professional',
     location: profile.location || 'Location not specified',
@@ -99,7 +101,7 @@ export default function Freelancers() {
       recentProjects: 4,
       avatar: '👨‍🎬'
     }
-  ].map(freelancer => ({ ...freelancer, isReal: false })); // Add isReal flag
+  ].map(freelancer => ({ ...freelancer, id: `mock-${freelancer.id}`, isReal: false })); // Add isReal flag and unique ID
 
   // Combine real and mock data, with real profiles first
   const allFreelancers = [...transformedRealFreelancers, ...mockFreelancers];
@@ -259,7 +261,19 @@ export default function Freelancers() {
                       <Button className="bg-gradient-primary hover:bg-primary-hover">
                         Contact
                       </Button>
-                      <Button variant="outline">
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          if (freelancer.isReal) {
+                            // Extract the real user ID from the prefixed ID
+                            const userId = freelancer.id.replace('real-', '');
+                            setLocation(`/profile/${userId}`);
+                          } else {
+                            // For mock profiles, show a message or handle differently
+                            alert('This is a demo profile. Only verified profiles have detailed pages.');
+                          }
+                        }}
+                      >
                         View Profile
                       </Button>
                     </div>
