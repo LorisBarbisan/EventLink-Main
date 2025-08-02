@@ -81,7 +81,7 @@ export class DatabaseStorage implements IStorage {
       availability_status: profile.availability_status as 'available' | 'busy' | 'unavailable',
       profile_photo_url: profile.profile_photo_url
     };
-    const result = await db.insert(freelancer_profiles).values(profileData).returning();
+    const result = await db.insert(freelancer_profiles).values([profileData]).returning();
     return result[0];
   }
 

@@ -193,7 +193,7 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
           <div className="flex items-start gap-6 pb-6 border-b border-border/50">
             <div className="flex flex-col items-center gap-3">
               <div className="w-24 h-24 rounded-full border-2 border-dashed border-primary/30 flex items-center justify-center bg-primary/5 overflow-hidden">
-                {freelancerProfile.profile_photo_url && freelancerProfile.profile_photo_url.trim() !== '' ? (
+                {freelancerProfile.profile_photo_url && freelancerProfile.profile_photo_url.trim() !== '' && freelancerProfile.profile_photo_url !== 'null' ? (
                   <img 
                     src={freelancerProfile.profile_photo_url} 
                     alt="Profile" 
@@ -246,6 +246,7 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
                         ctx?.drawImage(img, 0, 0, width, height);
                         
                         const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                        console.log('Photo compressed, size:', compressedDataUrl.length);
                         setFreelancerProfile(prev => ({ ...prev, profile_photo_url: compressedDataUrl }));
                       };
                       

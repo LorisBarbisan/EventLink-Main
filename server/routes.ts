@@ -110,6 +110,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = parseInt(req.params.userId);
       const profile = req.body;
+      console.log("Profile update data:", {
+        userId,
+        hasPhoto: !!profile.profile_photo_url,
+        photoLength: profile.profile_photo_url ? profile.profile_photo_url.length : 0
+      });
       const result = await storage.updateFreelancerProfile(userId, profile);
       res.json(result);
     } catch (error) {
