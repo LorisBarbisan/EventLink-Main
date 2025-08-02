@@ -39,31 +39,78 @@ export default function Auth() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Enhanced validation
+    if (!signUpData.email.trim()) {
+      toast({
+        title: "Error",
+        description: "Email is required",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!signUpData.password.trim()) {
+      toast({
+        title: "Error", 
+        description: "Password is required",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (signUpData.password.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!signUpData.confirmPassword.trim()) {
+      toast({
+        title: "Error",
+        description: "Please confirm your password",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (signUpData.password !== signUpData.confirmPassword) {
       toast({
         title: "Error",
-        description: "Passwords don't match",
+        description: "Passwords don't match. Please make sure both password fields are identical.",
         variant: "destructive"
       });
       return;
     }
 
     setLoading(true);
-    const { error } = await signUp(signUpData.email, signUpData.password, signUpData.role);
-    
-    if (error) {
+    try {
+      const { error } = await signUp(signUpData.email, signUpData.password, signUpData.role);
+      
+      if (error) {
+        toast({
+          title: "Sign Up Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Welcome to Event Crew!",
+          description: "Your account has been created successfully."
+        });
+      }
+    } catch (err) {
       toast({
-        title: "Sign Up Failed",
-        description: error.message,
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive"
       });
-    } else {
-      toast({
-        title: "Welcome to Event Crew!",
-        description: "Your account has been created successfully."
-      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -200,14 +247,34 @@ export default function Auth() {
                       placeholder="Confirm your password"
                       value={signUpData.confirmPassword}
                       onChange={(e) => setSignUpData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      className={
+                        signUpData.confirmPassword && signUpData.password && signUpData.confirmPassword !== signUpData.password
+                          ? "border-destructive focus:border-destructive"
+                          : signUpData.confirmPassword && signUpData.password && signUpData.confirmPassword === signUpData.password
+                          ? "border-success focus:border-success"
+                          : ""
+                      }
                       required
                     />
+                    {signUpData.confirmPassword && signUpData.password && signUpData.confirmPassword !== signUpData.password && (
+                      <p className="text-sm text-destructive">Passwords do not match</p>
+                    )}
+                    {signUpData.confirmPassword && signUpData.password && signUpData.confirmPassword === signUpData.password && (
+                      <p className="text-sm text-success">Passwords match</p>
+                    )}
                   </div>
 
                   <Button 
                     type="submit" 
                     className="w-full bg-gradient-primary hover:bg-primary-hover text-white font-semibold py-2 mt-4" 
-                    disabled={loading}
+                    disabled={
+                      loading || 
+                      !signUpData.email.trim() || 
+                      !signUpData.password.trim() || 
+                      !signUpData.confirmPassword.trim() || 
+                      signUpData.password !== signUpData.confirmPassword ||
+                      signUpData.password.length < 6
+                    }
                   >
                     {loading ? 'Creating Account...' : 'Create Account'}
                   </Button>
