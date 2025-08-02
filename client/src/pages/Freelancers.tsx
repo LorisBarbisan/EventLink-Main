@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,14 +6,43 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, MapPin, Star, User, DollarSign, Calendar, Filter } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 
 export default function Freelancers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [skillFilter, setSkillFilter] = useState('');
 
+  // Fetch real freelancer profiles from API
+  const { data: realFreelancers = [], isLoading } = useQuery({
+    queryKey: ['/api/freelancers'],
+    queryFn: async () => {
+      const response = await fetch('/api/freelancers');
+      if (!response.ok) throw new Error('Failed to fetch freelancers');
+      return response.json();
+    }
+  });
+
+  // Transform real freelancer data to match display format
+  const transformedRealFreelancers = realFreelancers.map((profile: any) => ({
+    id: profile.user_id,
+    name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
+    title: profile.title || 'Event Professional',
+    location: profile.location || 'Location not specified',
+    experience: profile.experience_years ? `${profile.experience_years} years` : 'Experience not specified',
+    rate: profile.hourly_rate ? `£${profile.hourly_rate}/${profile.rate_type || 'hour'}` : 'Rate on request',
+    rating: 5.0, // Default rating for real profiles
+    availability: profile.availability_status === 'available' ? 'Available' : 
+                 profile.availability_status === 'busy' ? 'Busy' : 'Unavailable',
+    skills: profile.skills || [],
+    bio: profile.bio || 'Professional event crew member',
+    recentProjects: Math.floor(Math.random() * 5) + 1, // Random for display
+    avatar: profile.profile_photo_url || null,
+    isReal: true // Flag to identify real profiles
+  }));
+
   // Mock freelancer data matching EventCrew design
-  const freelancers = [
+  const mockFreelancers = [
     {
       id: 1,
       name: 'Sarah Johnson',
@@ -70,9 +99,12 @@ export default function Freelancers() {
       recentProjects: 4,
       avatar: '👨‍🎬'
     }
-  ];
+  ].map(freelancer => ({ ...freelancer, isReal: false })); // Add isReal flag
 
-  const filteredFreelancers = freelancers.filter(freelancer => {
+  // Combine real and mock data, with real profiles first
+  const allFreelancers = [...transformedRealFreelancers, ...mockFreelancers];
+
+  const filteredFreelancers = allFreelancers.filter(freelancer => {
     const matchesSearch = freelancer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          freelancer.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          freelancer.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -156,11 +188,26 @@ export default function Freelancers() {
               <Card key={freelancer.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-accent">
                 <CardHeader>
                   <div className="flex items-start gap-4">
-                    <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center text-2xl">
-                      {freelancer.avatar}
+                    <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center text-2xl overflow-hidden">
+                      {freelancer.isReal && freelancer.avatar && freelancer.avatar.startsWith('data:') ? (
+                        <img 
+                          src={freelancer.avatar} 
+                          alt="Profile" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span>{freelancer.avatar || <User className="w-8 h-8 text-white" />}</span>
+                      )}
                     </div>
                     <div className="flex-1">
-                      <CardTitle className="text-xl">{freelancer.name}</CardTitle>
+                      <CardTitle className="text-xl">
+                        {freelancer.name}
+                        {freelancer.isReal && (
+                          <Badge variant="default" className="ml-2 bg-green-600 text-white text-xs">
+                            VERIFIED
+                          </Badge>
+                        )}
+                      </CardTitle>
                       <p className="text-muted-foreground font-medium">{freelancer.title}</p>
                       <div className="flex items-center gap-4 mt-2 text-sm">
                         <div className="flex items-center gap-1">

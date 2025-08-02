@@ -139,12 +139,12 @@ export default function Profile() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
                     <div className="h-20 w-20 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center overflow-hidden">
-                      {(freelancerProfile.profile_photo_url && 
-                        freelancerProfile.profile_photo_url.trim() !== '' && 
-                        freelancerProfile.profile_photo_url !== 'null' && 
-                        freelancerProfile.profile_photo_url.startsWith('data:')) ? (
+                      {((freelancerProfile as any).profile_photo_url && 
+                        (freelancerProfile as any).profile_photo_url.trim() !== '' && 
+                        (freelancerProfile as any).profile_photo_url !== 'null' && 
+                        (freelancerProfile as any).profile_photo_url.startsWith('data:')) ? (
                         <img 
-                          src={freelancerProfile.profile_photo_url} 
+                          src={(freelancerProfile as any).profile_photo_url} 
                           alt="Profile" 
                           className="w-full h-full object-cover"
                         />
