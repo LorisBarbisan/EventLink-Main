@@ -88,9 +88,11 @@ export const Layout = ({ children }: LayoutProps) => {
                         My Profile
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem disabled>
-                      <Settings className="w-4 h-4 mr-2" />
-                      Settings
+                    <DropdownMenuItem asChild>
+                      <Link to="/settings" className="flex items-center gap-2 w-full">
+                        <Settings className="w-4 h-4" />
+                        Settings
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
