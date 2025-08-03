@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { Layout } from '@/components/Layout';
-import { FreelancerDashboard } from '@/components/FreelancerDashboard';
+import { FreelancerDashboardTabs } from '@/components/FreelancerDashboardTabs';
 import { RecruiterDashboard } from '@/components/RecruiterDashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -83,7 +83,7 @@ export default function Dashboard() {
   return (
     <Layout>
       {profile.role === 'freelancer' ? (
-        <FreelancerDashboard profile={profile} />
+        <FreelancerDashboardTabs profile={profile} />
       ) : (
         <RecruiterDashboard profile={profile} />
       )}
