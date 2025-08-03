@@ -20,10 +20,16 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchProfile();
+    if (authLoading) return; // Wait for auth to load
+    
+    if (!user) {
+      // Redirect to auth page if not logged in
+      setLocation('/auth');
+      return;
     }
-  }, [user]);
+    
+    fetchProfile();
+  }, [user, authLoading, setLocation]);
 
   const fetchProfile = async () => {
     try {
@@ -56,9 +62,9 @@ export default function Dashboard() {
     );
   }
 
+  // If user is not authenticated, redirect will happen in useEffect
   if (!user) {
-    setLocation('/auth');
-    return <div>Redirecting...</div>;
+    return null;
   }
 
   if (!profile) {

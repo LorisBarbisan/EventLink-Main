@@ -34,9 +34,18 @@ export const Layout = ({ children }: LayoutProps) => {
               <Link to="/freelancers" className="text-muted-foreground hover:text-foreground transition-colors">
                 Find Crew
               </Link>
-              <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
+              <button 
+                onClick={() => {
+                  if (user) {
+                    setLocation('/dashboard');
+                  } else {
+                    setLocation('/auth');
+                  }
+                }}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
                 Dashboard
-              </Link>
+              </button>
             </nav>
 
             {/* Actions */}
@@ -118,7 +127,20 @@ export const Layout = ({ children }: LayoutProps) => {
               <h4 className="font-semibold mb-3">For Freelancers</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link to="/jobs" className="hover:text-foreground">Browse Jobs</Link></li>
-                <li><Link to="/dashboard" className="hover:text-foreground">Create Profile</Link></li>
+                <li>
+                  <button 
+                    onClick={() => {
+                      if (user) {
+                        setLocation('/dashboard');
+                      } else {
+                        setLocation('/auth');
+                      }
+                    }}
+                    className="hover:text-foreground"
+                  >
+                    Create Profile
+                  </button>
+                </li>
                 <li><Link to="/auth" className="hover:text-foreground">Sign Up</Link></li>
               </ul>
             </div>
@@ -127,7 +149,20 @@ export const Layout = ({ children }: LayoutProps) => {
               <h4 className="font-semibold mb-3">For Companies</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link to="/freelancers" className="hover:text-foreground">Find Crew</Link></li>
-                <li><Link to="/dashboard" className="hover:text-foreground">Post a Job</Link></li>
+                <li>
+                  <button 
+                    onClick={() => {
+                      if (user) {
+                        setLocation('/dashboard');
+                      } else {
+                        setLocation('/auth');
+                      }
+                    }}
+                    className="hover:text-foreground"
+                  >
+                    Post a Job
+                  </button>
+                </li>
                 <li><Link to="/auth" className="hover:text-foreground">Get Started</Link></li>
               </ul>
             </div>
