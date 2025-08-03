@@ -63,6 +63,7 @@ export default function Profile() {
       if (userProfile.role === 'freelancer') {
         try {
           const data = await apiRequest(`/api/freelancer/${userProfile.id}`);
+          console.log('Profile data received:', data);
           if (data) {
             setFreelancerProfile({
               id: data.id,
@@ -81,9 +82,12 @@ export default function Profile() {
               availability_status: data.availability_status || 'available',
               profile_photo_url: data.profile_photo_url || ''
             });
+            console.log('Freelancer profile set:', freelancerProfile);
+          } else {
+            console.log('No data received from API');
           }
         } catch (error) {
-          console.log('No freelancer profile found');
+          console.log('No freelancer profile found:', error);
         }
       }
     } catch (error) {
@@ -121,7 +125,8 @@ export default function Profile() {
     );
   }
 
-  if (profile.role === 'freelancer' && !freelancerProfile) {
+  if (profile?.role === 'freelancer' && !freelancerProfile) {
+    console.log('No freelancer profile found, showing create profile message');
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
