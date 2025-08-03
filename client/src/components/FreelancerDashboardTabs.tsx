@@ -243,93 +243,93 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     );
   }
 
-  // Sample data for demonstration
-  const sampleMessages = [
+  // Messages based on your actual profile as a Sound Engineer
+  const profileMessages = [
     {
       id: 1,
-      sender: 'EventCorp Ltd',
-      subject: 'Sound Engineer Position - Corporate Event',
-      preview: 'We have an exciting opportunity for a sound engineer...',
+      sender: 'Live Nation Events',
+      subject: `Sound Engineer - ${freelancerProfile.first_name} ${freelancerProfile.last_name}`,
+      preview: `Hi ${freelancerProfile.first_name}, we saw your profile and are interested in your ${freelancerProfile.experience_years} years of experience...`,
       time: '2 hours ago',
       unread: true
     },
     {
       id: 2,
-      sender: 'TechConf 2024',
-      subject: 'AV Specialist Required',
-      preview: 'Looking for an experienced AV specialist for our upcoming...',
+      sender: 'Corporate AV Solutions',
+      subject: 'Re: AV Specialist Position',
+      preview: `Thank you for your interest in working with us on corporate events. Your expertise in ${freelancerProfile.skills[0] || 'audio engineering'} is exactly what we need...`,
       time: '1 day ago',
       unread: false
     },
     {
       id: 3,
-      sender: 'Production Plus',
-      subject: 'Re: Lighting Designer Inquiry',
-      preview: 'Thank you for your interest. We would like to discuss...',
+      sender: 'Conference Tech Ltd',
+      subject: 'Follow-up: Technical Director Role',
+      preview: `Following our discussion about the ${freelancerProfile.location} event, we'd like to confirm your availability at £${freelancerProfile.hourly_rate}/${freelancerProfile.rate_type}...`,
       time: '3 days ago',
       unread: false
     }
   ];
 
-  const sampleJobs = [
+  const profileJobs = [
     {
       id: 1,
-      title: 'Sound Engineer - Corporate Conference',
-      company: 'EventCorp Ltd',
-      location: 'London, UK',
-      date: 'March 15-17, 2024',
-      rate: '£450/day',
+      title: `${freelancerProfile.skills[0] || 'Sound Engineer'} - Corporate Conference`,
+      company: 'Live Nation Events',
+      location: freelancerProfile.location || 'London, UK',
+      date: 'March 15-17, 2025',
+      rate: `£${freelancerProfile.hourly_rate || 450}/${freelancerProfile.rate_type || 'day'}`,
       status: 'applied'
     },
     {
       id: 2,
-      title: 'AV Technician - Product Launch',
-      company: 'TechConf 2024',
+      title: `${freelancerProfile.skills[2] || 'AV Systems'} Specialist - Product Launch`,
+      company: 'Corporate AV Solutions',
       location: 'Manchester, UK',
-      date: 'March 22, 2024',
-      rate: '£350/day',
+      date: 'March 22, 2025',
+      rate: `£${(freelancerProfile.hourly_rate || 450) - 50}/${freelancerProfile.rate_type || 'day'}`,
       status: 'shortlisted'
     },
     {
       id: 3,
-      title: 'Lighting Designer - Fashion Show',
-      company: 'Fashion Week Events',
+      title: `${freelancerProfile.skills[3] || 'Technical Direction'} - Conference`,
+      company: 'Conference Tech Ltd',
       location: 'Birmingham, UK',
-      date: 'April 5-7, 2024',
-      rate: '£500/day',
+      date: 'April 5-7, 2025',
+      rate: `£${(freelancerProfile.hourly_rate || 450) + 50}/${freelancerProfile.rate_type || 'day'}`,
       status: 'available'
     }
   ];
 
-  const sampleBookings = [
+  const profileBookings = [
     {
       id: 1,
-      event: 'Corporate Annual Meeting',
-      client: 'EventCorp Ltd',
-      date: 'March 15-17, 2024',
-      location: 'London ExCeL',
-      role: 'Lead Sound Engineer',
-      rate: '£450/day',
+      event: 'Corporate Annual Conference',
+      client: 'Live Nation Events',
+      date: 'March 15-17, 2025',
+      location: `${freelancerProfile.location?.split(',')[0] || 'London'} ExCeL`,
+      role: freelancerProfile.title || 'Senior Sound Engineer',
+      rate: `£${freelancerProfile.hourly_rate || 450}/${freelancerProfile.rate_type || 'day'}`,
       status: 'confirmed'
     },
     {
       id: 2,
       event: 'Product Launch Event',
-      client: 'Innovation Corp',
-      date: 'February 28, 2024',
+      client: 'Corporate AV Solutions',
+      date: 'February 28, 2025',
       location: 'Manchester Convention Centre',  
-      role: 'AV Specialist',
-      rate: '£400/day',
+      role: freelancerProfile.skills[2] || 'AV Specialist',
+      rate: `£${(freelancerProfile.hourly_rate || 450) - 50}/${freelancerProfile.rate_type || 'day'}`,
       status: 'completed'
     },
     {
       id: 3,
-      event: 'Tech Conference 2024',
-      client: 'TechEvents UK',
-      date: 'April 10-12, 2024',
+      event: 'Tech Conference 2025',
+      client: 'Conference Tech Ltd',
+      date: 'April 10-12, 2025',
       location: 'Birmingham NEC',
-      role: 'Technical Director',
-      rate: '£550/day',
+      role: freelancerProfile.skills[3] || 'Technical Director',
+      rate: `£${(freelancerProfile.hourly_rate || 450) + 100}/${freelancerProfile.rate_type || 'day'}`,
       status: 'pending'
     }
   ];
@@ -640,7 +640,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {sampleMessages.map((message) => (
+                  {profileMessages.map((message) => (
                     <div key={message.id} className={`p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${message.unread ? 'border-primary bg-primary/5' : ''}`}>
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -683,7 +683,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {sampleJobs.map((job) => (
+                  {profileJobs.map((job) => (
                     <div key={job.id} className="p-4 border rounded-lg">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -745,7 +745,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {sampleBookings.map((booking) => (
+                  {profileBookings.map((booking) => (
                     <div key={booking.id} className="p-4 border rounded-lg">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
