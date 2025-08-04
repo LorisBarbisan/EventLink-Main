@@ -198,14 +198,18 @@ export default function Freelancers() {
                   <CardHeader>
                     <div className="flex items-start gap-4">
                       <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center text-2xl overflow-hidden">
-                        {freelancer.avatar && freelancer.avatar.startsWith('data:') ? (
+                        {freelancer.avatar && freelancer.avatar.startsWith('data:image/') ? (
                           <img 
                             src={freelancer.avatar} 
                             alt={`${freelancer.name} profile photo`}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover rounded-full"
+                            onError={(e) => {
+                              console.error('Image failed to load for', freelancer.name);
+                              e.currentTarget.style.display = 'none';
+                            }}
                           />
                         ) : (
-                          <span>{freelancer.avatar || <User className="w-8 h-8 text-white" />}</span>
+                          <User className="w-8 h-8 text-white" />
                         )}
                       </div>
                     <div className="flex-1">
