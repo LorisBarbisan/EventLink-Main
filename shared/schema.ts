@@ -47,6 +47,20 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const jobs = pgTable("jobs", {
+  id: serial("id").primaryKey(),
+  recruiter_id: integer("recruiter_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  company: text("company").notNull(),
+  location: text("location").notNull(),
+  type: text("type").notNull().$type<'full-time' | 'part-time' | 'contract' | 'temporary' | 'freelance'>(),
+  rate: text("rate").notNull(),
+  description: text("description").notNull(),
+  status: text("status").default('active').$type<'active' | 'paused' | 'closed'>(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
@@ -70,9 +84,19 @@ export const insertRecruiterProfileSchema = createInsertSchema(recruiter_profile
   user_id: z.number(),
 });
 
+export const insertJobSchema = createInsertSchema(jobs).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+}).extend({
+  recruiter_id: z.number(),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type FreelancerProfile = typeof freelancer_profiles.$inferSelect;
 export type RecruiterProfile = typeof recruiter_profiles.$inferSelect;
+export type Job = typeof jobs.$inferSelect;
 export type InsertFreelancerProfile = z.infer<typeof insertFreelancerProfileSchema>;
 export type InsertRecruiterProfile = z.infer<typeof insertRecruiterProfileSchema>;
+export type InsertJob = z.infer<typeof insertJobSchema>;

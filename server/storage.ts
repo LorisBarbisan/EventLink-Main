@@ -4,12 +4,15 @@ import {
   users, 
   freelancer_profiles, 
   recruiter_profiles,
+  jobs,
   type User, 
   type InsertUser,
   type FreelancerProfile,
   type RecruiterProfile,
   type InsertFreelancerProfile,
-  type InsertRecruiterProfile
+  type InsertRecruiterProfile,
+  type Job,
+  type InsertJob
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
@@ -32,6 +35,13 @@ export interface IStorage {
   getRecruiterProfile(userId: number): Promise<RecruiterProfile | undefined>;
   createRecruiterProfile(profile: InsertRecruiterProfile): Promise<RecruiterProfile>;
   updateRecruiterProfile(userId: number, profile: Partial<InsertRecruiterProfile>): Promise<RecruiterProfile | undefined>;
+  
+  // Job management
+  getAllJobs(): Promise<Job[]>;
+  getJobsByRecruiterId(recruiterId: number): Promise<Job[]>;
+  createJob(job: InsertJob): Promise<Job>;
+  updateJob(jobId: number, job: Partial<InsertJob>): Promise<Job | undefined>;
+  deleteJob(jobId: number): Promise<void>;
   
   // Get all freelancer profiles for listings
   getAllFreelancerProfiles(): Promise<FreelancerProfile[]>;
@@ -146,6 +156,43 @@ export class DatabaseStorage implements IStorage {
 
   async getAllFreelancerProfiles(): Promise<FreelancerProfile[]> {
     return await db.select().from(freelancer_profiles);
+  }
+
+  // Job management methods
+  async getAllJobs(): Promise<Job[]> {
+    return await db.select().from(jobs);
+  }
+
+  async getJobsByRecruiterId(recruiterId: number): Promise<Job[]> {
+    return await db.select().from(jobs).where(eq(jobs.recruiter_id, recruiterId));
+  }
+
+  async createJob(job: InsertJob): Promise<Job> {
+    const result = await db.insert(jobs).values([job]).returning();
+    return result[0];
+  }
+
+  async updateJob(jobId: number, job: Partial<InsertJob>): Promise<Job | undefined> {
+    const updateData: any = { updated_at: new Date() };
+    
+    // Only include defined fields
+    if (job.title !== undefined) updateData.title = job.title;
+    if (job.company !== undefined) updateData.company = job.company;
+    if (job.location !== undefined) updateData.location = job.location;
+    if (job.type !== undefined) updateData.type = job.type;
+    if (job.rate !== undefined) updateData.rate = job.rate;
+    if (job.description !== undefined) updateData.description = job.description;
+    if (job.status !== undefined) updateData.status = job.status;
+    
+    const result = await db.update(jobs)
+      .set(updateData)
+      .where(eq(jobs.id, jobId))
+      .returning();
+    return result[0];
+  }
+
+  async deleteJob(jobId: number): Promise<void> {
+    await db.delete(jobs).where(eq(jobs.id, jobId));
   }
 }
 

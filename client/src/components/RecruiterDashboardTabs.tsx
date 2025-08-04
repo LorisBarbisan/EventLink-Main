@@ -174,47 +174,64 @@ export default function RecruiterDashboardTabs() {
     }
   };
 
+  const createJobMutation = useMutation({
+    mutationFn: async (jobData: any) => {
+      return await apiRequest('/api/jobs', {
+        method: 'POST',
+        body: JSON.stringify(jobData),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      toast({
+        title: 'Job posted',
+        description: `${jobTitle} has been posted successfully.`,
+      });
+      setShowJobForm(false);
+      setJobTitle('');
+      setJobType('');
+      setJobLocation('');
+      setJobRate('');
+      setJobDescription('');
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to post job.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleJobPost = () => {
-    // In a real application, this would submit to a jobs API
-    toast({
-      title: 'Job posted',
-      description: `${jobTitle} has been posted successfully.`,
-    });
-    setShowJobForm(false);
-    setJobTitle('');
-    setJobType('');
-    setJobLocation('');
-    setJobRate('');
-    setJobDescription('');
+    if (!user?.id || !profile?.company_name) {
+      toast({
+        title: 'Error',
+        description: 'Please complete your company profile first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const jobData = {
+      recruiter_id: user.id,
+      title: jobTitle,
+      company: profile.company_name,
+      location: jobLocation,
+      type: jobType,
+      rate: jobRate,
+      description: jobDescription,
+      status: 'active',
+    };
+
+    createJobMutation.mutate(jobData);
   };
 
-  // Sample data for demonstration
-  const sampleJobs: Job[] = [
-    {
-      id: 1,
-      title: 'Senior Sound Engineer',
-      company: companyName || 'Your Company',
-      location: 'London, UK',
-      type: 'Contract',
-      rate: '£450/day',
-      status: 'active',
-      applicants: 12,
-      posted_date: '2025-08-01',
-      description: 'Seeking experienced sound engineer for corporate conference.'
-    },
-    {
-      id: 2,
-      title: 'AV Technician',
-      company: companyName || 'Your Company',
-      location: 'Manchester, UK',
-      type: 'Temporary',
-      rate: '£250/day',
-      status: 'paused',
-      applicants: 8,
-      posted_date: '2025-07-28',
-      description: 'AV support needed for multi-day event.'
-    }
-  ];
+  const { data: myJobs = [], isLoading: jobsLoading } = useQuery({
+    queryKey: ['/api/jobs/recruiter', user?.id],
+    enabled: !!user?.id,
+  });
 
   const sampleMessages: Message[] = [
     {
@@ -573,7 +590,10 @@ export default function RecruiterDashboardTabs() {
           )}
 
           <div className="space-y-4">
-            {sampleJobs.map((job) => (
+            {jobsLoading ? (
+              <div className="flex justify-center p-8">Loading jobs...</div>
+            ) : myJobs.length > 0 ? (
+              myJobs.map((job: any) => (
               <Card key={job.id}>
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
@@ -595,13 +615,13 @@ export default function RecruiterDashboardTabs() {
                         </div>
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
-                          Posted {job.posted_date}
+                          Posted {new Date(job.created_at).toLocaleDateString()}
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">{job.description}</p>
                       <div className="flex items-center gap-1 text-sm">
                         <Users className="w-4 h-4" />
-                        <span>{job.applicants} applicants</span>
+                        <span>0 applicants</span>
                       </div>
                     </div>
                     <div className="flex gap-2 ml-4">
@@ -633,7 +653,19 @@ export default function RecruiterDashboardTabs() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <Briefcase className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Jobs Posted Yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Start by posting your first job to find talented crew members.
+                </p>
+                <Button onClick={() => setShowJobForm(true)} data-testid="button-post-first-job">
+                  Post Your First Job
+                </Button>
+              </div>
+            )}
           </div>
         </TabsContent>
 

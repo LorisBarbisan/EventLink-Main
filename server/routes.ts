@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
-import { insertUserSchema, insertFreelancerProfileSchema, insertRecruiterProfileSchema } from "@shared/schema";
+import { insertUserSchema, insertFreelancerProfileSchema, insertRecruiterProfileSchema, insertJobSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -170,6 +170,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(profiles);
     } catch (error) {
       console.error("Get all freelancers error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Job management routes
+  app.get("/api/jobs", async (req, res) => {
+    try {
+      const jobs = await storage.getAllJobs();
+      res.json(jobs);
+    } catch (error) {
+      console.error("Get all jobs error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/jobs/recruiter/:recruiterId", async (req, res) => {
+    try {
+      const recruiterId = parseInt(req.params.recruiterId);
+      const jobs = await storage.getJobsByRecruiterId(recruiterId);
+      res.json(jobs);
+    } catch (error) {
+      console.error("Get recruiter jobs error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/jobs", async (req, res) => {
+    try {
+      const job = insertJobSchema.parse(req.body);
+      const result = await storage.createJob(job);
+      res.json(result);
+    } catch (error) {
+      console.error("Create job error:", error);
+      res.status(400).json({ error: "Invalid input" });
+    }
+  });
+
+  app.put("/api/jobs/:jobId", async (req, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const job = req.body;
+      const result = await storage.updateJob(jobId, job);
+      res.json(result);
+    } catch (error) {
+      console.error("Update job error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/jobs/:jobId", async (req, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      await storage.deleteJob(jobId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete job error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

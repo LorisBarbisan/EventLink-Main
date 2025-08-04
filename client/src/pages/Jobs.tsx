@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,8 +13,13 @@ export default function Jobs() {
   const [locationFilter, setLocationFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
 
-  // Mock jobs data matching EventCrew design
-  const jobs = [
+  // Fetch real jobs data from API
+  const { data: jobs = [], isLoading } = useQuery({
+    queryKey: ['/api/jobs'],
+  });
+
+  // Mock jobs data as fallback for demonstration
+  const mockJobs = [
     {
       id: 1,
       title: 'Audio Engineer - Tech Conference',
@@ -55,12 +61,14 @@ export default function Jobs() {
     }
   ];
 
-  const filteredJobs = jobs.filter(job => {
+  // Use real jobs data if available, otherwise show loading or mock data for demo
+  const jobsToShow = jobs.length > 0 ? jobs : mockJobs;
+  
+  const filteredJobs = jobsToShow.filter((job: any) => {
     const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         job.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
+                         job.company.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesLocation = !locationFilter || job.location.toLowerCase().includes(locationFilter.toLowerCase());
-    const matchesCategory = !categoryFilter || categoryFilter === 'all' || job.category === categoryFilter;
+    const matchesCategory = !categoryFilter || categoryFilter === 'all';
     
     return matchesSearch && matchesLocation && matchesCategory;
   });
@@ -134,7 +142,20 @@ export default function Jobs() {
             </div>
           </div>
 
-          {filteredJobs.map((job) => (
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading jobs...</p>
+              </div>
+            </div>
+          ) : filteredJobs.length === 0 ? (
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium mb-2">No jobs found</h3>
+              <p className="text-muted-foreground">Try adjusting your search criteria.</p>
+            </div>
+          ) : (
+            filteredJobs.map((job: any) => (
             <Card key={job.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-primary">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -143,23 +164,15 @@ export default function Jobs() {
                     <p className="text-muted-foreground font-medium">{job.company}</p>
                   </div>
                   <Badge variant="secondary" className="bg-primary/10 text-primary">
-                    {job.category}
+                    {job.type}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <p className="text-muted-foreground">{job.description}</p>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {job.skills.map((skill) => (
-                      <Badge key={skill} variant="outline" className="text-xs">
-                        {skill}
-                      </Badge>
-                    ))}
-                  </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-muted-foreground" />
                       <span>{job.location}</span>
@@ -169,12 +182,8 @@ export default function Jobs() {
                       <span>{job.rate}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>{job.duration}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>{job.posted}</span>
+                      <span>{new Date(job.created_at || new Date()).toLocaleDateString()}</span>
                     </div>
                   </div>
 
@@ -189,20 +198,9 @@ export default function Jobs() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            ))
+          )}
         </div>
-
-        {filteredJobs.length === 0 && (
-          <Card className="text-center py-12">
-            <CardContent>
-              <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No jobs found</h3>
-              <p className="text-muted-foreground">
-                Try adjusting your search criteria or check back later for new opportunities.
-              </p>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </Layout>
   );
