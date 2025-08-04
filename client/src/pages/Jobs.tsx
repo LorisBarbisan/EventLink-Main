@@ -61,14 +61,14 @@ export default function Jobs() {
     }
   ];
 
-  // Use real jobs data if available, otherwise show loading or mock data for demo
-  const jobsToShow = jobs.length > 0 ? jobs : mockJobs;
+  // Use real jobs data first, then mock data for demonstration
+  const jobsToShow = [...jobs, ...mockJobs];
   
   const filteredJobs = jobsToShow.filter((job: any) => {
     const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          job.company.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesLocation = !locationFilter || job.location.toLowerCase().includes(locationFilter.toLowerCase());
-    const matchesCategory = !categoryFilter || categoryFilter === 'all';
+    const matchesCategory = !categoryFilter || categoryFilter === 'all' || job.type === categoryFilter;
     
     return matchesSearch && matchesLocation && matchesCategory;
   });
@@ -183,7 +183,7 @@ export default function Jobs() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>{new Date(job.created_at || new Date()).toLocaleDateString()}</span>
+                      <span>{job.created_at ? new Date(job.created_at).toLocaleDateString() : job.posted}</span>
                     </div>
                   </div>
 

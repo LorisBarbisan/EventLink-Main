@@ -116,9 +116,9 @@ export default function Freelancers() {
   const filteredFreelancers = allFreelancers.filter(freelancer => {
     const matchesSearch = freelancer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          freelancer.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         freelancer.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
+                         freelancer.skills.some((skill: any) => skill.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesLocation = !locationFilter || freelancer.location.toLowerCase().includes(locationFilter.toLowerCase());
-    const matchesSkill = !skillFilter || skillFilter === 'all' || freelancer.skills.some(skill => skill.toLowerCase().includes(skillFilter.toLowerCase()));
+    const matchesSkill = !skillFilter || skillFilter === 'all' || freelancer.skills.some((skill: any) => skill.toLowerCase().includes(skillFilter.toLowerCase()));
     
     return matchesSearch && matchesLocation && matchesSkill;
   });
@@ -238,7 +238,7 @@ export default function Freelancers() {
                     <p className="text-muted-foreground text-sm">{freelancer.bio}</p>
                     
                     <div className="flex flex-wrap gap-2">
-                      {freelancer.skills.map((skill) => (
+                      {freelancer.skills.map((skill: any) => (
                         <Badge key={skill} variant="outline" className="text-xs">
                           {skill}
                         </Badge>
