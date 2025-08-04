@@ -111,6 +111,9 @@ export default function Freelancers() {
 
   // Combine real and mock data, with real profiles first
   const allFreelancers = [...transformedRealFreelancers, ...mockFreelancers];
+  console.log('API data length:', realFreelancers.length);
+  console.log('Transformed real freelancers length:', transformedRealFreelancers.length);
+  console.log('Mock freelancers length:', mockFreelancers.length);
   console.log('All freelancers:', allFreelancers.length, allFreelancers);
 
   const filteredFreelancers = allFreelancers.filter(freelancer => {
@@ -192,22 +195,35 @@ export default function Freelancers() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredFreelancers.map((freelancer) => (
-              <Card key={freelancer.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-accent">
-                <CardHeader>
-                  <div className="flex items-start gap-4">
-                    <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center text-2xl overflow-hidden">
-                      {freelancer.isReal && freelancer.avatar && freelancer.avatar.startsWith('data:') ? (
-                        <img 
-                          src={freelancer.avatar} 
-                          alt="Profile" 
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span>{freelancer.avatar || <User className="w-8 h-8 text-white" />}</span>
-                      )}
-                    </div>
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading freelancers...</p>
+              </div>
+            </div>
+          ) : filteredFreelancers.length === 0 ? (
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium mb-2">No freelancers found</h3>
+              <p className="text-muted-foreground">Try adjusting your search criteria.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {filteredFreelancers.map((freelancer) => (
+                <Card key={freelancer.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-accent">
+                  <CardHeader>
+                    <div className="flex items-start gap-4">
+                      <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center text-2xl overflow-hidden">
+                        {freelancer.isReal && freelancer.avatar && freelancer.avatar.startsWith('data:') ? (
+                          <img 
+                            src={freelancer.avatar} 
+                            alt="Profile" 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span>{freelancer.avatar || <User className="w-8 h-8 text-white" />}</span>
+                        )}
+                      </div>
                     <div className="flex-1">
                       <CardTitle className="text-xl">
                         {freelancer.name}
@@ -287,21 +303,10 @@ export default function Freelancers() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
-
-        {filteredFreelancers.length === 0 && (
-          <Card className="text-center py-12">
-            <CardContent>
-              <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No freelancers found</h3>
-              <p className="text-muted-foreground">
-                Try adjusting your search criteria or check back later for new profiles.
-              </p>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </Layout>
   );
