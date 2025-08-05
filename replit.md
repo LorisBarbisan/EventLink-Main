@@ -16,6 +16,13 @@ Event Crew is a freelancer marketplace platform specifically designed for the ev
 - **Recruiter Profiles**: Company information and contact details
 
 ## Recent Changes
+### August 5, 2025
+- **User Profile Display Fix**: Fixed account dashboard to display actual user names instead of just email addresses
+- **Enhanced Profile Management**: Created useProfile hook to fetch complete user profile data for both freelancers and recruiters
+- **Avatar Improvements**: Updated avatar initials to use actual names when available, with intelligent fallbacks
+- **Currency Symbol Standardization**: Replaced all dollar signs ($) with unmarked coin symbols (¤) while preserving British pound (£) symbols
+- **Icon Updates**: Updated all DollarSign imports to Coins throughout the platform
+
 ### August 4, 2025
 - **Recruiter Multi-Tab Dashboard**: Complete redesign of recruiter dashboard with 4 main tabs (Company Profile, My Jobs, Messages, Applications)
 - **Job Posting System**: Added comprehensive job posting functionality with form validation and management
