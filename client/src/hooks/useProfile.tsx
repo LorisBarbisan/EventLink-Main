@@ -63,8 +63,10 @@ export const useProfile = () => {
       }
     }
     
-    // Fallback to email username
-    return user.email.split('@')[0];
+    // Fallback to email username, but make it more readable
+    const emailName = user.email.split('@')[0];
+    // Convert dots/underscores to spaces and capitalize
+    return emailName.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const getInitials = () => {
@@ -86,8 +88,13 @@ export const useProfile = () => {
       }
     }
     
-    // Fallback to email initials
-    return user.email.substring(0, 2).toUpperCase();
+    // Better fallback using email name
+    const emailName = user.email.split('@')[0];
+    const words = emailName.split(/[._]/);
+    if (words.length > 1) {
+      return `${words[0][0]}${words[1][0]}`.toUpperCase();
+    }
+    return emailName.substring(0, 2).toUpperCase();
   };
 
   return {
