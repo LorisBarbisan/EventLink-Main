@@ -519,72 +519,81 @@ export default function RecruiterDashboardTabs() {
                 <CardDescription>Create a new job listing to find the perfect crew member</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="job-title">Job Title</Label>
-                    <Input
-                      id="job-title"
-                      value={jobTitle}
-                      onChange={(e) => setJobTitle(e.target.value)}
-                      placeholder="e.g. Senior Sound Engineer"
-                      data-testid="input-job-title"
-                    />
-                  </div>
-                  <div>
+                {/* Step 1: Job Type Selection */}
+                <div className="space-y-4">
+                  <div className="max-w-md">
                     <Label htmlFor="job-type">Job Type</Label>
                     <Select value={jobType} onValueChange={setJobType}>
                       <SelectTrigger data-testid="select-job-type">
                         <SelectValue placeholder="Select job type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="full-time">Full-time</SelectItem>
-                        <SelectItem value="part-time">Part-time</SelectItem>
                         <SelectItem value="contract">Contract</SelectItem>
-                        <SelectItem value="temporary">Temporary</SelectItem>
                         <SelectItem value="freelance">Freelance</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label htmlFor="job-location">Location</Label>
-                    <Input
-                      id="job-location"
-                      value={jobLocation}
-                      onChange={(e) => setJobLocation(e.target.value)}
-                      placeholder="City, Country"
-                      data-testid="input-job-location"
-                    />
+                </div>
+
+                {/* Step 2: Rest of the form - only show after job type is selected */}
+                {jobType && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="job-title">Job Title</Label>
+                        <Input
+                          id="job-title"
+                          value={jobTitle}
+                          onChange={(e) => setJobTitle(e.target.value)}
+                          placeholder="e.g. Senior Sound Engineer"
+                          data-testid="input-job-title"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="job-location">Location</Label>
+                        <Input
+                          id="job-location"
+                          value={jobLocation}
+                          onChange={(e) => setJobLocation(e.target.value)}
+                          placeholder="City, Country"
+                          data-testid="input-job-location"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="job-rate">Rate</Label>
+                        <Input
+                          id="job-rate"
+                          value={jobRate}
+                          onChange={(e) => setJobRate(e.target.value)}
+                          placeholder="e.g. £450/day"
+                          data-testid="input-job-rate"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="job-description">Job Description</Label>
+                      <Textarea
+                        id="job-description"
+                        value={jobDescription}
+                        onChange={(e) => setJobDescription(e.target.value)}
+                        placeholder="Describe the role, requirements, and responsibilities..."
+                        rows={4}
+                        data-testid="textarea-job-description"
+                      />
+                    </div>
+                  </>
+                )}
+                {/* Submit buttons - only show when job type is selected */}
+                {jobType && (
+                  <div className="flex gap-2">
+                    <Button onClick={handleJobPost} data-testid="button-submit-job">
+                      Post Job
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowJobForm(false)} data-testid="button-cancel-job">
+                      Cancel
+                    </Button>
                   </div>
-                  <div>
-                    <Label htmlFor="job-rate">Rate</Label>
-                    <Input
-                      id="job-rate"
-                      value={jobRate}
-                      onChange={(e) => setJobRate(e.target.value)}
-                      placeholder="e.g. £450/day"
-                      data-testid="input-job-rate"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="job-description">Job Description</Label>
-                  <Textarea
-                    id="job-description"
-                    value={jobDescription}
-                    onChange={(e) => setJobDescription(e.target.value)}
-                    placeholder="Describe the role, requirements, and responsibilities..."
-                    rows={4}
-                    data-testid="textarea-job-description"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleJobPost} data-testid="button-submit-job">
-                    Post Job
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowJobForm(false)} data-testid="button-cancel-job">
-                    Cancel
-                  </Button>
-                </div>
+                )}
               </CardContent>
             </Card>
           )}
