@@ -87,7 +87,13 @@ export const CTASection = () => {
                 </ul>
 
                 <Button 
-                  className="w-full bg-gradient-accent hover:opacity-90 text-white font-semibold py-3 px-6 rounded-lg shadow-lg"
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-8 rounded-lg shadow-xl border-2 border-purple-500 min-h-[3rem] z-10 relative"
+                  style={{
+                    backgroundColor: '#7c3aed',
+                    color: '#ffffff',
+                    fontWeight: 'bold',
+                    fontSize: '16px'
+                  }}
                   onClick={() => setLocation('/auth')}
                   data-testid="button-post-first-job"
                 >
