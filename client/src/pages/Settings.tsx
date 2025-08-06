@@ -213,8 +213,8 @@ export default function Settings() {
                 <div className="flex gap-2">
                   <Input
                     id="password"
-                    type={showPassword ? "text" : "password"}
-                    value="••••••••••••"
+                    type="text"
+                    value={showPassword ? "Current password (hidden for security)" : "••••••••••••"}
                     disabled
                     className="flex-1 bg-muted"
                     data-testid="input-password"
