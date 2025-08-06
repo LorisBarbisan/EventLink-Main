@@ -17,6 +17,10 @@ Event Crew is a freelancer marketplace platform specifically designed for the ev
 
 ## Recent Changes
 ### August 6, 2025
+- **Job Posting Form Enhancement**: Simplified job posting to start with Job Type dropdown (Contract/Freelance only)
+- **Dynamic Form Fields**: Contract jobs show additional Contract Type selection (Full Time/Part Time Contract) and "Salary" field instead of "Rate"
+- **Enhanced Job Form Flow**: Progressive disclosure - fields appear based on job type selection, submit buttons only show when required fields are completed
+- **CTA Button Visibility Fix**: Fixed "Post Your First Job" button styling with EventCrew brand colors (#1e90ff) for proper visibility
 - **Settings Page Enhancement**: Enhanced Settings page with account holder name display, password status indicator, and password change functionality
 - **Password Change System**: Added secure password change popup with form validation (old password, new password, confirm password)
 - **Account Information Display**: Settings now shows actual user name from profile data with intelligent fallbacks
