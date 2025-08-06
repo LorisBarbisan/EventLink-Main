@@ -7,21 +7,33 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { Layout } from '@/components/Layout';
-import { User, Bell, Shield, Trash2, Mail, Eye, EyeOff } from 'lucide-react';
+import { User, Bell, Shield, Trash2, Mail, Eye, EyeOff, Lock, Key } from 'lucide-react';
+import { apiRequest } from '@/lib/queryClient';
 
 export default function Settings() {
   const [, setLocation] = useLocation();
   const { user, signOut } = useAuth();
+  const { profile } = useProfile();
   const { toast } = useToast();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [profileVisibility, setProfileVisibility] = useState(true);
   const [showEmail, setShowEmail] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   if (!user) {
     setLocation('/auth');
@@ -45,18 +57,59 @@ export default function Settings() {
   };
 
   const handlePasswordChange = async () => {
+    if (!passwordData.oldPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all password fields.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: 'Error',
+        description: 'New passwords do not match.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast({
+        title: 'Error',
+        description: 'Password must be at least 6 characters long.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsChangingPassword(true);
     try {
-      // API call to change password would go here
+      await apiRequest('/api/auth/change-password', {
+        method: 'PUT',
+        body: JSON.stringify({
+          userId: user.id,
+          oldPassword: passwordData.oldPassword,
+          newPassword: passwordData.newPassword
+        }),
+      });
+
       toast({
         title: 'Password changed',
         description: 'Your password has been updated successfully.',
       });
-    } catch (error) {
+      
+      setIsPasswordDialogOpen(false);
+      setPasswordData({ oldPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Failed to update password.',
+        description: error.message || 'Failed to update password.',
         variant: 'destructive',
       });
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -116,6 +169,21 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid w-full max-w-sm items-center gap-1.5">
+                <Label htmlFor="account-name">Account Holder Name</Label>
+                <Input
+                  id="account-name"
+                  type="text"
+                  value={profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Not set' : 'Loading...'}
+                  disabled
+                  className="bg-muted"
+                  data-testid="input-account-name"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Update your name in your {user.role} profile to change this.
+                </p>
+              </div>
+
+              <div className="grid w-full max-w-sm items-center gap-1.5">
                 <Label htmlFor="email">Email Address</Label>
                 <div className="flex gap-2">
                   <Input
@@ -123,13 +191,14 @@ export default function Settings() {
                     type={showEmail ? "text" : "password"}
                     value={user.email}
                     disabled
-                    className="flex-1"
+                    className="flex-1 bg-muted"
+                    data-testid="input-email"
                   />
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setShowEmail(!showEmail)}
-                    data-testid="toggle-email-visibility"
+                    data-testid="button-toggle-email-visibility"
                   >
                     {showEmail ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </Button>
@@ -137,6 +206,109 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground">
                   Contact support to change your email address.
                 </p>
+              </div>
+
+              <div className="grid w-full max-w-sm items-center gap-1.5">
+                <Label htmlFor="password">Current Password</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value="••••••••••••"
+                    disabled
+                    className="flex-1 bg-muted"
+                    data-testid="input-password"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowPassword(!showPassword)}
+                    data-testid="button-toggle-password-visibility"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    Password set on account creation.
+                  </p>
+                  <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" data-testid="button-change-password">
+                        <Key className="w-4 h-4 mr-2" />
+                        Change Password
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Change Password</DialogTitle>
+                        <DialogDescription>
+                          Enter your current password and choose a new one.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="old-password" className="text-right">
+                            Current
+                          </Label>
+                          <Input
+                            id="old-password"
+                            type="password"
+                            placeholder="Enter current password"
+                            className="col-span-3"
+                            value={passwordData.oldPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, oldPassword: e.target.value }))}
+                            data-testid="input-old-password"
+                          />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="new-password" className="text-right">
+                            New
+                          </Label>
+                          <Input
+                            id="new-password"
+                            type="password"
+                            placeholder="Enter new password"
+                            className="col-span-3"
+                            value={passwordData.newPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                            data-testid="input-new-password"
+                          />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="confirm-password" className="text-right">
+                            Confirm
+                          </Label>
+                          <Input
+                            id="confirm-password"
+                            type="password"
+                            placeholder="Confirm new password"
+                            className="col-span-3"
+                            value={passwordData.confirmPassword}
+                            onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                            data-testid="input-confirm-password"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setIsPasswordDialogOpen(false)}
+                          data-testid="button-cancel-password-change"
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={handlePasswordChange}
+                          disabled={isChangingPassword}
+                          data-testid="button-save-password-change"
+                        >
+                          {isChangingPassword ? 'Changing...' : 'Change Password'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
 
               <div className="grid w-full max-w-sm items-center gap-1.5">
@@ -150,14 +322,6 @@ export default function Settings() {
                   </p>
                 </div>
               </div>
-
-              <Button 
-                variant="outline"
-                onClick={handlePasswordChange}
-                data-testid="button-change-password"
-              >
-                Change Password
-              </Button>
             </CardContent>
           </Card>
 

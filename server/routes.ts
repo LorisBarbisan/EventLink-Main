@@ -65,6 +65,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Password change endpoint
+  app.put("/api/auth/change-password", async (req, res) => {
+    try {
+      const { userId, oldPassword, newPassword } = req.body;
+      
+      // Get user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Verify old password
+      const isValidOldPassword = await bcrypt.compare(oldPassword, user.password);
+      if (!isValidOldPassword) {
+        return res.status(400).json({ error: "Current password is incorrect" });
+      }
+
+      // Hash new password
+      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+      
+      // Update password
+      await storage.updateUserPassword(userId, hashedNewPassword);
+      
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Password change error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // User profile routes
   app.get("/api/user/:id", async (req, res) => {
     try {

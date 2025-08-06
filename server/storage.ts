@@ -25,6 +25,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserPassword(userId: number, hashedPassword: string): Promise<void>;
   
   // Freelancer profile management
   getFreelancerProfile(userId: number): Promise<FreelancerProfile | undefined>;
@@ -66,6 +67,15 @@ export class DatabaseStorage implements IStorage {
     };
     const result = await db.insert(users).values(userData).returning();
     return result[0];
+  }
+
+  async updateUserPassword(userId: number, hashedPassword: string): Promise<void> {
+    await db.update(users)
+      .set({ 
+        password: hashedPassword,
+        updated_at: new Date()
+      })
+      .where(eq(users.id, userId));
   }
 
   async getFreelancerProfile(userId: number): Promise<FreelancerProfile | undefined> {
