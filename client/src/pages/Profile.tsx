@@ -57,16 +57,21 @@ export default function Profile() {
   const [isOwnProfile, setIsOwnProfile] = useState(false);
 
   useEffect(() => {
+    console.log('Profile useEffect triggered:', { user, authLoading, userId });
     if (!authLoading) {
       if (userId) {
         // Viewing someone else's profile
+        console.log('Fetching other profile for userId:', userId);
+        setIsOwnProfile(false);
         fetchOtherProfile(userId);
       } else if (user) {
         // Viewing own profile
+        console.log('Fetching own profile for user:', user);
         setIsOwnProfile(true);
         fetchProfile();
       } else {
         // Not logged in and no userId specified
+        console.log('No user found, redirecting to auth');
         setLocation('/auth');
       }
     }
@@ -74,11 +79,13 @@ export default function Profile() {
 
   const fetchProfile = async () => {
     try {
+      console.log('fetchProfile called with user:', user);
       const userProfile: Profile = {
         id: user!.id.toString(),
         role: user!.role as 'freelancer' | 'recruiter',
         email: user!.email
       };
+      console.log('Setting profile:', userProfile);
       setProfile(userProfile);
 
       if (userProfile.role === 'freelancer') {
