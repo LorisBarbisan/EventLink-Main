@@ -212,7 +212,7 @@ export default function Freelancers() {
                         ) : (
                           <div className="w-full h-full bg-blue-600 rounded-full flex items-center justify-center">
                             <span className="text-white font-bold text-lg">
-                              {freelancer.name.split(' ').map(n => n[0]).join('')}
+                              {freelancer.name.split(' ').map((n: string) => n[0]).join('')}
                             </span>
                           </div>
                         )}
@@ -247,8 +247,8 @@ export default function Freelancers() {
                     <p className="text-muted-foreground text-sm">{freelancer.bio}</p>
                     
                     <div className="flex flex-wrap gap-2">
-                      {freelancer.skills.map((skill: any) => (
-                        <Badge key={skill} variant="outline" className="text-xs">
+                      {freelancer.skills.map((skill: any, index: number) => (
+                        <Badge key={index} variant="outline" className="text-xs">
                           {skill}
                         </Badge>
                       ))}

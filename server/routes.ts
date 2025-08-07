@@ -95,8 +95,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // User profile routes
-  app.get("/api/user/:id", async (req, res) => {
+  // User profile routes  
+  app.get("/api/users/:id", async (req, res) => {
     try {
       const userId = parseInt(req.params.id);
       const user = await storage.getUser(userId);

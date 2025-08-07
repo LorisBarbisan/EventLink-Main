@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'wouter';
+import { useLocation, useParams } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { Layout } from '@/components/Layout';
@@ -35,21 +35,28 @@ interface FreelancerProfile {
 
 export default function Profile() {
   const [, setLocation] = useLocation();
+  const { userId } = useParams();
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [freelancerProfile, setFreelancerProfile] = useState<FreelancerProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      setLocation('/auth');
-      return;
+    if (!authLoading) {
+      if (userId) {
+        // Viewing someone else's profile
+        fetchOtherProfile(userId);
+      } else if (user) {
+        // Viewing own profile
+        setIsOwnProfile(true);
+        fetchProfile();
+      } else {
+        // Not logged in and no userId specified
+        setLocation('/auth');
+      }
     }
-
-    if (user) {
-      fetchProfile();
-    }
-  }, [user, authLoading, setLocation]);
+  }, [user, authLoading, userId, setLocation]);
 
   const fetchProfile = async () => {
     try {
@@ -92,6 +99,50 @@ export default function Profile() {
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchOtherProfile = async (targetUserId: string) => {
+    try {
+      // First get the user basic info to determine their role
+      const userData = await apiRequest(`/api/users/${targetUserId}`);
+      const userProfile: Profile = {
+        id: targetUserId,
+        role: userData.role as 'freelancer' | 'recruiter',
+        email: userData.email
+      };
+      setProfile(userProfile);
+
+      if (userProfile.role === 'freelancer') {
+        try {
+          const data = await apiRequest(`/api/freelancer/${targetUserId}`);
+          if (data) {
+            setFreelancerProfile({
+              id: data.id,
+              first_name: data.first_name || '',
+              last_name: data.last_name || '',
+              title: data.title || '',
+              bio: data.bio || '',
+              location: data.location || '',
+              hourly_rate: data.hourly_rate ? parseFloat(data.hourly_rate) : null,
+              rate_type: data.rate_type || 'hourly',
+              experience_years: data.experience_years || null,
+              skills: data.skills || [],
+              portfolio_url: data.portfolio_url || '',
+              linkedin_url: data.linkedin_url || '',
+              website_url: data.website_url || '',
+              availability_status: data.availability_status || 'available',
+              profile_photo_url: data.profile_photo_url || ''
+            });
+          }
+        } catch (error) {
+          console.log('No freelancer profile found for user:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching other user profile:', error);
     } finally {
       setLoading(false);
     }
@@ -153,7 +204,7 @@ export default function Profile() {
   const handleContactClick = () => {
     const subject = encodeURIComponent(`EventCrew Inquiry - ${freelancerProfile?.first_name} ${freelancerProfile?.last_name}`);
     const body = encodeURIComponent(`Hi ${freelancerProfile?.first_name},\n\nI found your profile on EventCrew and I'm interested in discussing a potential collaboration for an upcoming event.\n\nPlease let me know your availability.\n\nBest regards`);
-    window.open(`mailto:${profile.email}?subject=${subject}&body=${body}`, '_blank');
+    window.open(`mailto:${profile?.email}?subject=${subject}&body=${body}`, '_blank');
   };
 
   return (
@@ -227,12 +278,14 @@ export default function Profile() {
                       <Mail className="w-4 h-4 mr-2" />
                       Contact
                     </Button>
-                    <Button 
-                      variant="outline"
-                      onClick={() => setLocation('/dashboard')}
-                    >
-                      Edit Profile
-                    </Button>
+                    {isOwnProfile && (
+                      <Button 
+                        variant="outline"
+                        onClick={() => setLocation('/dashboard')}
+                      >
+                        Edit Profile
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
