@@ -55,6 +55,7 @@ export default function Profile() {
   const [recruiterProfile, setRecruiterProfile] = useState<RecruiterProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [profileDataLoaded, setProfileDataLoaded] = useState(false);
 
   useEffect(() => {
     console.log('Profile useEffect triggered:', { user, authLoading, userId });
@@ -279,7 +280,7 @@ export default function Profile() {
     );
   }
 
-  if (profile?.role === 'recruiter' && !recruiterProfile) {
+  if (profile?.role === 'recruiter' && !recruiterProfile && !loading) {
     console.log('No recruiter profile found, showing create profile message');
     console.log('Current recruiterProfile state:', recruiterProfile);
     console.log('Profile role:', profile?.role);
