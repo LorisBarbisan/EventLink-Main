@@ -16,6 +16,13 @@ Event Crew is a freelancer marketplace platform specifically designed for the ev
 - **Recruiter Profiles**: Company information and contact details
 
 ## Recent Changes
+### August 8, 2025
+- **Critical Profile Bug Resolution**: Fixed major database and UI issue where wrong user profile data was being displayed
+- **Database Cleanup**: Removed duplicate recruiter profile records that were causing API to return oldest instead of newest profile data  
+- **Profile Display Fix**: Resolved React state timing issue that was showing "create profile" message even when profile data existed
+- **User Data Accuracy**: Fixed display of actual registered user name "Alan Stevensdaughter" and company "STARBOKKI" instead of old "Loris Barbisan"/"Event Solutions Ltd" data
+- **API Query Enhancement**: Ensured recruiter profile API returns most recent profile record for users with multiple profile entries
+
 ### August 6, 2025
 - **Job Posting Form Enhancement**: Simplified job posting to start with Job Type dropdown (Contract/Freelance only)
 - **Dynamic Form Fields**: Contract jobs show additional Contract Type selection (Full Time/Part Time Contract) and "Salary" field instead of "Rate"
