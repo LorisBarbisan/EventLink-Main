@@ -596,6 +596,7 @@ export default function RecruiterDashboardTabs() {
                             <SelectContent>
                               <SelectItem value="full-time">Full Time Contract</SelectItem>
                               <SelectItem value="part-time">Part Time Contract</SelectItem>
+                              <SelectItem value="fixed-term">Fixed-Term Contract</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
