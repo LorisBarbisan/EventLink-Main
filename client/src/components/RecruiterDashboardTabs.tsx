@@ -96,6 +96,13 @@ export default function RecruiterDashboardTabs() {
     enabled: !!user?.id,
   });
 
+  // Debug logging
+  useEffect(() => {
+    console.log('RecruiterDashboardTabs - Profile data:', profile);
+    console.log('RecruiterDashboardTabs - Is loading:', isLoading);
+    console.log('RecruiterDashboardTabs - User ID:', user?.id);
+  }, [profile, isLoading, user?.id]);
+
   const updateMutation = useMutation({
     mutationFn: async (profileData: any) => {
       return await apiRequest(`/api/recruiter/${user?.id}`, {
