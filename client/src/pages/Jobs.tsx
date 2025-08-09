@@ -59,6 +59,7 @@ export default function Jobs() {
       company: 'EventTech Solutions',
       location: 'London, UK',
       type: 'Freelance',
+      contract_type: 'Gig',
       duration: '3 days',
       rate: '£350/day',
       posted: '2 days ago',
@@ -71,7 +72,8 @@ export default function Jobs() {
       title: 'Lighting Technician - Corporate Event',
       company: 'Bright Events Ltd',
       location: 'Manchester, UK',
-      type: 'Contract',
+      type: 'Contract', 
+      contract_type: 'Fixed term',
       duration: '1 week',
       rate: '£280/day',
       posted: '1 day ago',
@@ -85,6 +87,7 @@ export default function Jobs() {
       company: 'ExpoTech Events',
       location: 'Birmingham, UK',
       type: 'Freelance',
+      contract_type: 'Temporary',
       duration: '5 days',
       rate: '£400/day',
       posted: '3 hours ago',
@@ -111,7 +114,9 @@ export default function Jobs() {
     const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          job.company.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesLocation = !locationFilter || job.location.toLowerCase().includes(locationFilter.toLowerCase());
-    const matchesCategory = !categoryFilter || categoryFilter === 'all' || job.type === categoryFilter;
+    // Filter by contract type instead of job type
+    const jobContractType = job.contract_type || job.employmentType || job.type || 'Gig';
+    const matchesCategory = !categoryFilter || categoryFilter === 'all' || jobContractType === categoryFilter;
     
     return matchesSearch && matchesLocation && matchesCategory;
   });
@@ -157,15 +162,15 @@ export default function Jobs() {
               <div>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Category" />
+                    <SelectValue placeholder="Contract Type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="Audio">Audio</SelectItem>
-                    <SelectItem value="Lighting">Lighting</SelectItem>
-                    <SelectItem value="AV">AV Systems</SelectItem>
-                    <SelectItem value="Video">Video Production</SelectItem>
-                    <SelectItem value="Stage">Stage Management</SelectItem>
+                    <SelectItem value="all">All Contract Types</SelectItem>
+                    <SelectItem value="Full-Time">Full-Time</SelectItem>
+                    <SelectItem value="Part-Time">Part-Time</SelectItem>
+                    <SelectItem value="Fixed term">Fixed term</SelectItem>
+                    <SelectItem value="Temporary">Temporary</SelectItem>
+                    <SelectItem value="Gig">Gig</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
