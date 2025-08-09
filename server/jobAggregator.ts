@@ -58,6 +58,11 @@ export class JobAggregator {
     this.reedApiKey = process.env.REED_API_KEY;
     this.adzunaApiKey = process.env.ADZUNA_API_KEY;
     this.adzunaAppId = process.env.ADZUNA_APP_ID;
+    
+    console.log('JobAggregator initialized:');
+    console.log(`Reed API key: ${this.reedApiKey ? 'CONFIGURED' : 'MISSING'}`);
+    console.log(`Adzuna API key: ${this.adzunaApiKey ? 'CONFIGURED' : 'MISSING'}`);
+    console.log(`Adzuna App ID: ${this.adzunaAppId ? 'CONFIGURED' : 'MISSING'}`);
   }
 
   /**
@@ -75,7 +80,7 @@ export class JobAggregator {
    * - postedByRecruitmentAgency: true/false
    */
   async fetchReedJobs(
-    keywords = 'events audio video lighting AV production technical crew stage', 
+    keywords = 'events', 
     location = 'UK',
     options: {
       resultsToTake?: number;
@@ -106,6 +111,8 @@ export class JobAggregator {
       if (options.graduate !== undefined) params.append('graduate', options.graduate.toString());
       if (options.postedByRecruitmentAgency !== undefined) params.append('postedByRecruitmentAgency', options.postedByRecruitmentAgency.toString());
 
+      console.log(`Reed API URL: https://www.reed.co.uk/api/1.0/search?${params.toString()}`);
+
       const response = await fetch(
         `https://www.reed.co.uk/api/1.0/search?${params.toString()}`,
         {
@@ -117,11 +124,14 @@ export class JobAggregator {
       );
 
       if (!response.ok) {
-        console.error('Reed API error:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Reed API error:', response.status, response.statusText, errorText);
         return [];
       }
 
       const data = await response.json();
+      console.log(`Reed API returned ${data.results?.length || 0} jobs`);
+      console.log('Reed API response sample:', JSON.stringify(data, null, 2));
       const jobs = data.results || [];
 
       return jobs.map((job: ReedJobResponse): ExternalJob => ({
@@ -154,7 +164,7 @@ export class JobAggregator {
    * - contract_type: 'permanent', 'contract', 'part_time', 'temporary'
    */
   async fetchAdzunaJobs(
-    keywords = 'events audio video lighting AV production technical crew stage',
+    keywords = 'events',
     country = 'gb',
     options: {
       location?: string;
@@ -185,16 +195,21 @@ export class JobAggregator {
       if (options.salary_max) params.append('salary_max', options.salary_max.toString());
       if (options.contract_type) params.append('category', options.contract_type);
 
+      console.log(`Adzuna API URL: https://api.adzuna.com/v1/api/jobs/${country}/search/1?${params.toString()}`);
+
       const response = await fetch(
         `https://api.adzuna.com/v1/api/jobs/${country}/search/1?${params.toString()}`
       );
 
       if (!response.ok) {
-        console.error('Adzuna API error:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Adzuna API error:', response.status, response.statusText, errorText);
         return [];
       }
 
       const data = await response.json();
+      console.log(`Adzuna API returned ${data.results?.length || 0} jobs`);
+      console.log('Adzuna API response sample:', JSON.stringify(data, null, 2));
       const jobs = data.results || [];
 
       return jobs.map((job: AdzunaJobResponse): ExternalJob => ({
@@ -222,16 +237,26 @@ export class JobAggregator {
     reedOptions?: Parameters<typeof this.fetchReedJobs>[2],
     adzunaOptions?: Parameters<typeof this.fetchAdzunaJobs>[2]
   ): Promise<ExternalJob[]> {
+    console.log('Starting fetchAllExternalJobs...');
+    
     const [reedJobs, adzunaJobs] = await Promise.all([
       this.fetchReedJobs(undefined, undefined, reedOptions),
       this.fetchAdzunaJobs(undefined, undefined, adzunaOptions)
     ]);
 
+    console.log(`Reed returned ${reedJobs.length} jobs, Adzuna returned ${adzunaJobs.length} jobs`);
+
     // Combine and deduplicate jobs
     const allJobs = [...reedJobs, ...adzunaJobs];
+    console.log(`Combined total: ${allJobs.length} jobs`);
+    
     const uniqueJobs = this.deduplicateJobs(allJobs);
+    console.log(`After deduplication: ${uniqueJobs.length} jobs`);
 
-    return uniqueJobs.slice(0, 50); // Limit to 50 jobs
+    const finalJobs = uniqueJobs.slice(0, 50);
+    console.log(`Final jobs to return: ${finalJobs.length} jobs`);
+    
+    return finalJobs;
   }
 
   /**

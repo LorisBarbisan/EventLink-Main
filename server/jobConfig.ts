@@ -40,7 +40,7 @@ export interface JobSearchConfig {
 export const DEFAULT_JOB_CONFIG: JobSearchConfig = {
   reed: {
     // Keywords to search for on Reed
-    keywords: 'events audio video lighting AV production technical crew stage sound engineer',
+    keywords: 'events',
     // Geographic area (can be city, region, or country)
     location: 'UK',
     options: {
@@ -64,7 +64,7 @@ export const DEFAULT_JOB_CONFIG: JobSearchConfig = {
   
   adzuna: {
     // Keywords to search for on Adzuna
-    keywords: 'events audio video lighting AV production technical crew stage sound engineer',
+    keywords: 'events',
     // Country code (gb = UK, us = USA, au = Australia, etc.)
     country: 'gb',
     options: {
