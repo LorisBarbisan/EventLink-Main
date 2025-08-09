@@ -1,6 +1,48 @@
 import { storage } from './storage';
 import { DEFAULT_JOB_CONFIG, type JobSearchConfig } from './jobConfig';
 
+// Event industry specific roles to filter for
+const EVENT_INDUSTRY_ROLES = [
+  'AV technician',
+  'lighting technician', 
+  'lighting engineer',
+  'Camera operator',
+  'photographer',
+  'video mixer',
+  'streaming engineer',
+  'Powerpoint technician',
+  'Stage manager'
+];
+
+// Keywords that indicate event industry roles
+const EVENT_ROLE_KEYWORDS = [
+  // Core specified roles
+  'av technician', 'audio visual technician', 'audiovisual technician',
+  'lighting technician', 'lighting engineer', 'lighting operator',
+  'camera operator', 'cameraman', 'video operator',
+  'photographer', 'photography', 'photo',
+  'video mixer', 'video engineer', 'video technician',
+  'streaming engineer', 'stream', 'broadcast engineer',
+  'powerpoint technician', 'presentation technician', 'slides technician',
+  'stage manager', 'stage management', 'production manager',
+  
+  // Related technical roles
+  'sound engineer', 'audio engineer', 'sound technician', 'audio technician',
+  'event technician', 'event crew', 'event staff', 'technical crew',
+  'live events', 'live streaming', 'live production',
+  'event production', 'production crew', 'production assistant',
+  'technical support', 'technical coordinator',
+  
+  // Equipment and venue specific
+  'rigging', 'staging', 'set up', 'audio visual',
+  'conference technician', 'exhibition', 'trade show',
+  'corporate events', 'wedding photographer', 'event photographer',
+  
+  // Broadcasting and media
+  'vision mixer', 'video production', 'live broadcast',
+  'streaming technician', 'media technician', 'broadcast technician'
+];
+
 interface ExternalJob {
   id: string;
   title: string;
@@ -80,7 +122,7 @@ export class JobAggregator {
    * - postedByRecruitmentAgency: true/false
    */
   async fetchReedJobs(
-    keywords = 'events', 
+    keywords = 'AV technician OR lighting technician OR camera operator OR photographer OR video mixer OR streaming engineer OR stage manager OR sound engineer', 
     location = 'UK',
     options: {
       resultsToTake?: number;
@@ -164,7 +206,7 @@ export class JobAggregator {
    * - contract_type: 'permanent', 'contract', 'part_time', 'temporary'
    */
   async fetchAdzunaJobs(
-    keywords = 'events',
+    keywords = 'AV technician lighting technician camera operator photographer video mixer streaming engineer stage manager sound engineer',
     country = 'gb',
     options: {
       location?: string;
@@ -246,11 +288,14 @@ export class JobAggregator {
 
     console.log(`Reed returned ${reedJobs.length} jobs, Adzuna returned ${adzunaJobs.length} jobs`);
 
-    // Combine and deduplicate jobs
+    // Combine and filter for event industry jobs first
     const allJobs = [...reedJobs, ...adzunaJobs];
     console.log(`Combined total: ${allJobs.length} jobs`);
     
-    const uniqueJobs = this.deduplicateJobs(allJobs);
+    const eventJobs = this.filterEventIndustryJobs(allJobs);
+    console.log(`After filtering for event industry: ${eventJobs.length} jobs`);
+    
+    const uniqueJobs = this.deduplicateJobs(eventJobs);
     console.log(`After deduplication: ${uniqueJobs.length} jobs`);
 
     const finalJobs = uniqueJobs.slice(0, 50);
@@ -265,10 +310,11 @@ export class JobAggregator {
   async syncExternalJobs(config: JobSearchConfig = DEFAULT_JOB_CONFIG): Promise<void> {
     try {
       const externalJobs = await this.fetchAllExternalJobs();
-      // Apply config limits
+      // Apply event industry filtering first, then config limits
+      const eventFilteredJobs = this.filterEventIndustryJobs(externalJobs);
       const limitedJobs = config.general.enableDeduplication 
-        ? this.deduplicateJobs(externalJobs)
-        : externalJobs;
+        ? this.deduplicateJobs(eventFilteredJobs)
+        : eventFilteredJobs;
       
       const finalJobs = limitedJobs.slice(0, config.general.maxTotalJobs);
       console.log(`Synced ${finalJobs.length} external jobs`);
@@ -332,6 +378,33 @@ export class JobAggregator {
     }
     
     return 'Salary not specified';
+  }
+
+  /**
+   * Filter jobs to only include event industry roles
+   */
+  private filterEventIndustryJobs(jobs: ExternalJob[]): ExternalJob[] {
+    console.log(`Filtering ${jobs.length} jobs for event industry roles...`);
+    
+    const filteredJobs = jobs.filter(job => {
+      const titleLower = job.title.toLowerCase();
+      const descriptionLower = job.description.toLowerCase();
+      const combinedText = `${titleLower} ${descriptionLower}`;
+      
+      // Check if job title or description contains event industry keywords
+      const isEventRole = EVENT_ROLE_KEYWORDS.some(keyword => 
+        combinedText.includes(keyword.toLowerCase())
+      );
+      
+      if (isEventRole) {
+        console.log(`✓ Keeping job: ${job.title} (${job.company})`);
+      }
+      
+      return isEventRole;
+    });
+    
+    console.log(`Filtered down to ${filteredJobs.length} event industry jobs`);
+    return filteredJobs;
   }
 
   private deduplicateJobs(jobs: ExternalJob[]): ExternalJob[] {

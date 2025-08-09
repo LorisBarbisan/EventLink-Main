@@ -39,8 +39,8 @@ export interface JobSearchConfig {
  */
 export const DEFAULT_JOB_CONFIG: JobSearchConfig = {
   reed: {
-    // Keywords to search for on Reed
-    keywords: 'events',
+    // Keywords to search for on Reed - specific event industry roles
+    keywords: 'AV technician OR lighting technician OR camera operator OR photographer OR video mixer OR streaming engineer OR stage manager OR sound engineer',
     // Geographic area (can be city, region, or country)
     location: 'UK',
     options: {
@@ -63,8 +63,8 @@ export const DEFAULT_JOB_CONFIG: JobSearchConfig = {
   },
   
   adzuna: {
-    // Keywords to search for on Adzuna
-    keywords: 'events',
+    // Keywords to search for on Adzuna - specific event industry roles
+    keywords: 'AV technician lighting technician camera operator photographer video mixer streaming engineer stage manager sound engineer',
     // Country code (gb = UK, us = USA, au = Australia, etc.)
     country: 'gb',
     options: {
