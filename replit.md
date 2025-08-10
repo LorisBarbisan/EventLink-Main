@@ -16,6 +16,11 @@ Event Crew is a freelancer marketplace platform specifically designed for the ev
 - **Recruiter Profiles**: Company information and contact details
 
 ## Recent Changes
+### August 10, 2025
+- **Contract Type Filtering**: Updated Jobs page Category filter from skills-based to contract type filtering (Full-Time, Part-Time, Fixed term, Temporary, Gig)
+- **UI Alignment Fix**: Resolved Messages tab notification badge alignment issues in both freelancer and recruiter dashboards
+- **Enhanced Filter Logic**: Modified job filtering to use contract_type field instead of job skills categories for better job categorization
+
 ### August 9, 2025
 - **Event Industry Role Filtering**: Implemented targeted job filtering to limit external job results to specific event industry roles: AV technician, lighting technician, lighting engineer, Camera operator, photographer, video mixer, streaming engineer, Powerpoint technician, Stage manager
 - **Enhanced Search Strategy**: Updated external job APIs to use targeted search terms instead of generic "events" keyword, resulting in more relevant job matches
