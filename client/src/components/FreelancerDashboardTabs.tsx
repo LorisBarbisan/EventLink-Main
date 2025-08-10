@@ -388,8 +388,8 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
             </TabsTrigger>
             <TabsTrigger value="messages" className="flex items-center gap-2">
               <MessageCircle className="h-4 w-4" />
-              Messages
-              <Badge variant="secondary" className="ml-1 text-xs">3</Badge>
+              <span>Messages</span>
+              <Badge variant="secondary" className="ml-auto text-xs">3</Badge>
             </TabsTrigger>
             <TabsTrigger value="jobs" className="flex items-center gap-2">
               <Briefcase className="h-4 w-4" />
