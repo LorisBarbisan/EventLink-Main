@@ -8,11 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { Search, MapPin, Clock, Coins, Calendar, Filter, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function Jobs() {
   const { toast } = useToast();
+  const { user: currentUser, loading: userLoading } = useAuth();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,19 +56,8 @@ export default function Jobs() {
     },
   });
 
-  // Get current user for application functionality
-  const { data: currentUser, isLoading: userLoading } = useQuery({
-    queryKey: ['/api/auth/user'],
-    queryFn: async () => {
-      const response = await fetch('/api/auth/user');
-      if (response.status === 401) return null;
-      if (!response.ok) throw new Error('Failed to fetch user');
-      const userData = await response.json();
-      console.log('Current user loaded:', userData);
-      return userData;
-    },
-    retry: false,
-  });
+  // Current user is now available from useAuth hook
+  console.log('Current user from useAuth:', currentUser);
 
   // Job application mutation
   const applyToJobMutation = useMutation({
