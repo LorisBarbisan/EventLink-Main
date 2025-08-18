@@ -337,11 +337,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Job application routes
   app.post("/api/jobs/:jobId/apply", async (req, res) => {
     try {
-      const jobId = parseInt(req.params.jobId);
+      const jobIdParam = req.params.jobId;
       const { freelancerId, coverLetter } = req.body;
       
       console.log("Job application request:", {
-        jobId,
+        jobIdParam,
         freelancerId,
         coverLetter,
         body: req.body
@@ -351,6 +351,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Missing freelancer ID in request");
         return res.status(400).json({ error: "Freelancer ID is required" });
       }
+
+      // Handle both numeric IDs (internal jobs) and string IDs (external jobs)
+      let jobId: number;
+      if (jobIdParam.startsWith('real-')) {
+        // This is an external job ID, extract the numeric part
+        const numericPart = jobIdParam.replace('real-', '');
+        jobId = parseInt(numericPart);
+      } else {
+        // This is an internal job ID
+        jobId = parseInt(jobIdParam);
+      }
+      
+      if (isNaN(jobId)) {
+        console.log("Invalid job ID:", jobIdParam);
+        return res.status(400).json({ error: "Invalid job ID" });
+      }
+      
+      console.log("Parsed job ID:", jobId);
 
       // Check if application already exists
       try {
