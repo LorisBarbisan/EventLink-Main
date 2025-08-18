@@ -5,6 +5,7 @@ import {
   freelancer_profiles, 
   recruiter_profiles,
   jobs,
+  job_applications,
   type User, 
   type InsertUser,
   type FreelancerProfile,
@@ -12,7 +13,9 @@ import {
   type InsertFreelancerProfile,
   type InsertRecruiterProfile,
   type Job,
-  type InsertJob
+  type InsertJob,
+  type JobApplication,
+  type InsertJobApplication
 } from "@shared/schema";
 import { eq, desc, isNull, and } from "drizzle-orm";
 
@@ -52,6 +55,11 @@ export interface IStorage {
   
   // Get all freelancer profiles for listings
   getAllFreelancerProfiles(): Promise<FreelancerProfile[]>;
+  
+  // Job application management
+  createJobApplication(application: InsertJobApplication): Promise<JobApplication>;
+  getFreelancerApplications(freelancerId: number): Promise<JobApplication[]>;
+  getJobApplications(jobId: number): Promise<JobApplication[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -191,7 +199,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createJob(job: InsertJob): Promise<Job> {
-    const result = await db.insert(jobs).values([job]).returning();
+    const result = await db.insert(jobs).values([job as any]).returning();
     return result[0];
   }
 
@@ -224,7 +232,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createExternalJob(job: any): Promise<Job> {
-    const result = await db.insert(jobs).values(job).returning();
+    const result = await db.insert(jobs).values([job]).returning();
     return result[0];
   }
 
@@ -235,6 +243,20 @@ export class DatabaseStorage implements IStorage {
         eq(jobs.type, 'external')
       )
     ); // External jobs have recruiter_id = null and type = 'external'
+  }
+
+  // Job application methods
+  async createJobApplication(application: InsertJobApplication): Promise<JobApplication> {
+    const result = await db.insert(job_applications).values([application as any]).returning();
+    return result[0];
+  }
+
+  async getFreelancerApplications(freelancerId: number): Promise<JobApplication[]> {
+    return await db.select().from(job_applications).where(eq(job_applications.freelancer_id, freelancerId));
+  }
+
+  async getJobApplications(jobId: number): Promise<JobApplication[]> {
+    return await db.select().from(job_applications).where(eq(job_applications.job_id, jobId));
   }
 }
 

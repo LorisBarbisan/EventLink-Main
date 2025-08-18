@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
-import { insertUserSchema, insertFreelancerProfileSchema, insertRecruiterProfileSchema, insertJobSchema } from "@shared/schema";
+import { insertUserSchema, insertFreelancerProfileSchema, insertRecruiterProfileSchema, insertJobSchema, insertJobApplicationSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -330,6 +330,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       console.error("Delete job error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Job application routes
+  app.post("/api/jobs/:jobId/apply", async (req, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const { freelancerId, coverLetter } = req.body;
+      
+      if (!freelancerId) {
+        return res.status(400).json({ error: "Freelancer ID is required" });
+      }
+
+      const application = await storage.createJobApplication({
+        job_id: jobId,
+        freelancer_id: freelancerId,
+        cover_letter: coverLetter || null,
+      });
+      
+      res.json(application);
+    } catch (error) {
+      console.error("Create job application error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/freelancer/:freelancerId/applications", async (req, res) => {
+    try {
+      const freelancerId = parseInt(req.params.freelancerId);
+      const applications = await storage.getFreelancerApplications(freelancerId);
+      res.json(applications);
+    } catch (error) {
+      console.error("Get freelancer applications error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/jobs/:jobId/applications", async (req, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const applications = await storage.getJobApplications(jobId);
+      res.json(applications);
+    } catch (error) {
+      console.error("Get job applications error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

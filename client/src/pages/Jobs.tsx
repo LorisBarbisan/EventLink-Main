@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,14 +9,16 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { Search, MapPin, Clock, Coins, Calendar, Filter, RefreshCw } from 'lucide-react';
+import { Search, MapPin, Clock, Coins, Calendar, Filter, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function Jobs() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
   // Fetch real jobs data from API
   const { data: jobs = [], isLoading } = useQuery({
@@ -50,6 +53,78 @@ export default function Jobs() {
       });
     },
   });
+
+  // Get current user for application functionality
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/auth/user'],
+    queryFn: async () => {
+      const response = await fetch('/api/auth/user');
+      if (response.status === 401) return null;
+      if (!response.ok) throw new Error('Failed to fetch user');
+      return response.json();
+    },
+    retry: false,
+  });
+
+  // Job application mutation
+  const applyToJobMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      if (!currentUser?.id) {
+        throw new Error('Please log in to apply for jobs');
+      }
+      
+      return await apiRequest(`/api/jobs/${jobId}/apply`, {
+        method: 'POST',
+        body: JSON.stringify({
+          freelancerId: currentUser.id,
+          coverLetter: null
+        }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Application submitted',
+        description: 'Your job application has been submitted successfully. Redirecting to dashboard...',
+      });
+      // Redirect to dashboard Jobs tab after 1 second
+      setTimeout(() => {
+        setLocation('/dashboard?tab=jobs');
+      }, 1000);
+    },
+    onError: (error: any) => {
+      if (error.message.includes('log in')) {
+        toast({
+          title: 'Authentication required',
+          description: 'Please log in to apply for jobs.',
+          variant: 'destructive',
+        });
+        setLocation('/auth');
+      } else {
+        toast({
+          title: 'Application failed',
+          description: error.message || 'Failed to submit job application.',
+          variant: 'destructive',
+        });
+      }
+    },
+  });
+
+  const handleApplyNow = (job: any) => {
+    if (job.external_url) {
+      // For external jobs, open the external URL
+      window.open(job.external_url, '_blank');
+    } else {
+      // For internal jobs, apply through our system
+      applyToJobMutation.mutate(job.id);
+    }
+  };
+
+  const toggleJobExpansion = (jobId: string) => {
+    setExpandedJobId(expandedJobId === jobId ? null : jobId);
+  };
 
   // Mock jobs data as fallback for demonstration  
   const mockJobs = [
@@ -241,6 +316,47 @@ export default function Jobs() {
                     </div>
                   </div>
 
+                  {/* Expanded details - shown when expanded */}
+                  {expandedJobId === job.id.toString() && (
+                    <div className="border-t pt-4 space-y-4">
+                      {job.contract_type && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span>Contract Type: {job.contract_type}</span>
+                          </div>
+                          {job.duration && (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              <span>Duration: {job.duration}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Additional job details */}
+                      <div>
+                        <h4 className="font-medium mb-2">Full Description:</h4>
+                        <p className="text-muted-foreground text-sm whitespace-pre-wrap">
+                          {job.description}
+                        </p>
+                      </div>
+                      
+                      {job.skills && job.skills.length > 0 && (
+                        <div>
+                          <h4 className="font-medium mb-2">Required Skills:</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {job.skills.map((skill: string, index: number) => (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                {skill}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex gap-3 pt-4">
                     {job.external_url ? (
                       <Button asChild className="bg-gradient-primary hover:bg-primary-hover">
@@ -249,11 +365,24 @@ export default function Jobs() {
                         </a>
                       </Button>
                     ) : (
-                      <Button className="bg-gradient-primary hover:bg-primary-hover">
-                        Apply Now
+                      <Button
+                        onClick={() => handleApplyNow(job)}
+                        disabled={applyToJobMutation.isPending}
+                        className="bg-gradient-primary hover:bg-primary-hover"
+                        data-testid={`button-apply-${job.id}`}
+                      >
+                        {applyToJobMutation.isPending ? 'Applying...' : 'Apply Now'}
                       </Button>
                     )}
-                    <Button variant="outline">
+                    <Button
+                      variant="outline"
+                      onClick={() => toggleJobExpansion(job.id.toString())}
+                      data-testid={`button-expand-${job.id}`}
+                    >
+                      {expandedJobId === job.id.toString() ? <ChevronUp className="w-4 h-4 mr-1" /> : <ChevronDown className="w-4 h-4 mr-1" />}
+                      {expandedJobId === job.id.toString() ? 'Less Details' : 'More Details'}
+                    </Button>
+                    <Button variant="outline" data-testid={`button-save-${job.id}`}>
                       Save Job
                     </Button>
                   </div>

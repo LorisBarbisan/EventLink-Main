@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,8 +66,28 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
   const [newSkill, setNewSkill] = useState('');
   const [activeTab, setActiveTab] = useState('profile');
 
+  // Get user's job applications
+  const { data: jobApplications = [], isLoading: applicationsLoading } = useQuery({
+    queryKey: ['/api/freelancer/applications', profile.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/freelancer/${profile.id}/applications`);
+      if (!response.ok) {
+        if (response.status === 404) return [];
+        throw new Error('Failed to fetch applications');
+      }
+      return response.json();
+    },
+    retry: false,
+  });
+
   useEffect(() => {
     fetchFreelancerProfile();
+    // Set active tab based on URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
   }, []);
 
   const fetchFreelancerProfile = async () => {
@@ -271,35 +292,19 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     }
   ];
 
-  const profileJobs = [
-    {
-      id: 1,
-      title: `${freelancerProfile.skills[0] || 'Sound Engineer'} - Corporate Conference`,
-      company: 'Live Nation Events',
-      location: freelancerProfile.location || 'London, UK',
-      date: 'March 15-17, 2025',
-      rate: `£${freelancerProfile.hourly_rate || 450}/${freelancerProfile.rate_type || 'day'}`,
-      status: 'applied'
-    },
-    {
-      id: 2,
-      title: `${freelancerProfile.skills[2] || 'AV Systems'} Specialist - Product Launch`,
-      company: 'Corporate AV Solutions',
-      location: 'Manchester, UK',
-      date: 'March 22, 2025',
-      rate: `£${(freelancerProfile.hourly_rate || 450) - 50}/${freelancerProfile.rate_type || 'day'}`,
-      status: 'shortlisted'
-    },
-    {
-      id: 3,
-      title: `${freelancerProfile.skills[3] || 'Technical Direction'} - Conference`,
-      company: 'Conference Tech Ltd',
-      location: 'Birmingham, UK',
-      date: 'April 5-7, 2025',
-      rate: `£${(freelancerProfile.hourly_rate || 450) + 50}/${freelancerProfile.rate_type || 'day'}`,
-      status: 'available'
-    }
-  ];
+  // Transform job applications data for display
+  const profileJobs = jobApplications.map((application: any) => ({
+    id: application.id,
+    title: application.job?.title || 'Job Title',
+    company: application.job?.company || 'Company',
+    location: application.job?.location || 'Location',
+    date: application.job?.created_at ? new Date(application.job.created_at).toLocaleDateString() : 'Date',
+    rate: application.job?.rate || 'Rate',
+    status: application.status || 'applied',
+    applicationDate: application.created_at ? new Date(application.created_at).toLocaleDateString() : '',
+    jobId: application.job_id,
+    externalUrl: application.job?.external_url
+  }));
 
   const profileBookings = [
     {
@@ -682,54 +687,91 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {profileJobs.map((job) => (
-                    <div key={job.id} className="p-4 border rounded-lg">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-semibold">{job.title}</h4>
-                            <Badge 
-                              variant={job.status === 'applied' ? 'default' : 
-                                     job.status === 'shortlisted' ? 'secondary' : 'outline'}
-                              className="text-xs"
-                            >
-                              {job.status === 'applied' ? 'Applied' : 
-                               job.status === 'shortlisted' ? 'Shortlisted' : 'Available'}
-                            </Badge>
-                          </div>
-                          <div className="space-y-1 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-4">
-                              <span className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                {job.location}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {job.date}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Coins className="h-3 w-3" />
-                                {job.rate}
-                              </span>
+                {applicationsLoading ? (
+                  <div className="text-center py-8">Loading your applications...</div>
+                ) : profileJobs.length === 0 ? (
+                  <div className="text-center py-8 space-y-4">
+                    <div className="text-muted-foreground">
+                      <Briefcase className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                      <p className="text-lg font-medium">No job applications yet</p>
+                      <p className="text-sm">Start browsing jobs and apply to see your applications here.</p>
+                    </div>
+                    <Button 
+                      onClick={() => setLocation('/jobs')} 
+                      className="bg-gradient-primary hover:bg-primary-hover"
+                      data-testid="button-browse-jobs"
+                    >
+                      Browse Jobs
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {profileJobs.map((job) => (
+                      <div key={job.id} className="p-4 border rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h4 className="font-semibold">{job.title}</h4>
+                              <Badge 
+                                variant={job.status === 'applied' ? 'default' : 
+                                       job.status === 'reviewed' ? 'secondary' : 
+                                       job.status === 'shortlisted' ? 'default' : 
+                                       job.status === 'rejected' ? 'destructive' : 
+                                       job.status === 'hired' ? 'default' : 'outline'}
+                                className={`text-xs ${
+                                  job.status === 'applied' ? 'bg-blue-100 text-blue-800' :
+                                  job.status === 'reviewed' ? 'bg-yellow-100 text-yellow-800' :
+                                  job.status === 'shortlisted' ? 'bg-green-100 text-green-800' :
+                                  job.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                  job.status === 'hired' ? 'bg-purple-100 text-purple-800' : ''
+                                }`}
+                              >
+                                {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                              </Badge>
                             </div>
-                            <p className="font-medium text-foreground">{job.company}</p>
+                            <div className="space-y-1 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-4">
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {job.location}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  Applied: {job.applicationDate}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Coins className="h-3 w-3" />
+                                  {job.rate}
+                                </span>
+                              </div>
+                              <p className="font-medium text-foreground">{job.company}</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex gap-2">
-                          {job.status === 'available' && (
-                            <Button size="sm" className="bg-gradient-primary hover:bg-primary-hover">
-                              Apply Now
-                            </Button>
-                          )}
-                          <Button size="sm" variant="outline">
-                            View Details
-                          </Button>
+                          <div className="flex gap-2">
+                            {job.externalUrl ? (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => window.open(job.externalUrl, '_blank')}
+                                data-testid={`button-view-external-${job.id}`}
+                              >
+                                View on Site
+                              </Button>
+                            ) : (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                data-testid={`button-view-details-${job.id}`}
+                              >
+                                View Details
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
