@@ -100,7 +100,7 @@ export const CTASection = () => {
         </div>
 
         {/* Bottom Stats */}
-        <div className="mt-16 text-center">
+        <div className="mt-16 text-center hidden">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto">
             <div>
               <div className="text-3xl font-bold text-primary mb-2">98%</div>

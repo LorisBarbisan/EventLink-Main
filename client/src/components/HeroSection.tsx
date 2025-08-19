@@ -14,7 +14,7 @@ export const HeroSection = () => {
           {/* Left Column - Content */}
           <div className="space-y-8 animate-fade-in">
             <div className="space-y-4">
-              <Badge variant="secondary" className="w-fit">
+              <Badge variant="secondary" className="w-fit hidden">
                 <Star className="w-3 h-3 mr-1" />
                 Trusted by 500+ companies
               </Badge>
@@ -49,7 +49,7 @@ export const HeroSection = () => {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-8 pt-8 border-t">
+            <div className="grid grid-cols-3 gap-8 pt-8 border-t hidden">
               <div className="text-center">
                 <div className="text-2xl font-bold text-primary">2,500+</div>
                 <div className="text-sm text-muted-foreground">Active Freelancers</div>
