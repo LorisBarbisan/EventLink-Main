@@ -77,7 +77,7 @@ export const HeroSection = () => {
             </div>
 
             {/* Floating Job Cards - matching Event Link design */}
-            <Card className="absolute -top-4 -left-4 p-3 shadow-lg bg-card/95 backdrop-blur-sm animate-fade-in border-l-4 border-l-primary">
+            <Card className="absolute -top-4 -left-4 p-3 shadow-lg bg-card/95 backdrop-blur-sm animate-fade-in border-l-4 border-l-primary hidden">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
                   <div className="w-2 h-2 bg-primary rounded-full" />
@@ -92,7 +92,7 @@ export const HeroSection = () => {
               </div>
             </Card>
 
-            <Card className="absolute -bottom-4 -right-4 p-3 shadow-lg bg-card/95 backdrop-blur-sm animate-fade-in border-l-4 border-l-accent">
+            <Card className="absolute -bottom-4 -right-4 p-3 shadow-lg bg-card/95 backdrop-blur-sm animate-fade-in border-l-4 border-l-accent hidden">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-accent/10 rounded-lg flex items-center justify-center">
                   <div className="w-2 h-2 bg-accent rounded-full" />
