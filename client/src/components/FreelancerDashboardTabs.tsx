@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { User, MapPin, Coins, Calendar, Plus, X, UserCheck, Camera, Upload, MessageCircle, Briefcase, BookOpen, CheckCircle, Clock, AlertCircle, Send, Mail, Phone } from 'lucide-react';
 import { CVUploader } from './CVUploader';
+import { MessagingInterface } from './MessagingInterface';
+import { NewConversationModal } from './NewConversationModal';
 
 interface Profile {
   id: string;
@@ -659,45 +661,18 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
 
           {/* Messages Tab */}
           <TabsContent value="messages" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageCircle className="h-5 w-5" />
-                  Messages
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {profileMessages.map((message) => (
-                    <div key={message.id} className={`p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors ${message.unread ? 'border-primary bg-primary/5' : ''}`}>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className={`font-semibold ${message.unread ? 'text-primary' : ''}`}>
-                              {message.sender}
-                            </h4>
-                            {message.unread && (
-                              <Badge variant="default" className="text-xs">New</Badge>
-                            )}
-                          </div>
-                          <h5 className="font-medium mb-1">{message.subject}</h5>
-                          <p className="text-sm text-muted-foreground">{message.preview}</p>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {message.time}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-6 pt-4 border-t">
-                  <Button className="bg-gradient-primary hover:bg-primary-hover">
-                    <Send className="h-4 w-4 mr-2" />
-                    Compose Message
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold">Messages</h2>
+                <p className="text-muted-foreground">Communicate with recruiters and potential employers</p>
+              </div>
+              <NewConversationModal 
+                currentUser={{ id: parseInt(profile.id), email: profile.email, role: 'freelancer' }}
+              />
+            </div>
+            <MessagingInterface 
+              currentUser={{ id: parseInt(profile.id), email: profile.email, role: 'freelancer' }}
+            />
           </TabsContent>
 
           {/* Jobs Tab */}

@@ -6,6 +6,8 @@ import {
   recruiter_profiles,
   jobs,
   job_applications,
+  conversations,
+  messages,
   type User, 
   type InsertUser,
   type FreelancerProfile,
@@ -15,9 +17,13 @@ import {
   type Job,
   type InsertJob,
   type JobApplication,
-  type InsertJobApplication
+  type InsertJobApplication,
+  type Conversation,
+  type Message,
+  type InsertConversation,
+  type InsertMessage
 } from "@shared/schema";
-import { eq, desc, isNull, and } from "drizzle-orm";
+import { eq, desc, isNull, and, or, sql } from "drizzle-orm";
 
 const connectionString = process.env.DATABASE_URL!;
 const client = postgres(connectionString);
@@ -60,6 +66,14 @@ export interface IStorage {
   createJobApplication(application: InsertJobApplication): Promise<JobApplication>;
   getFreelancerApplications(freelancerId: number): Promise<JobApplication[]>;
   getJobApplications(jobId: number): Promise<JobApplication[]>;
+  
+  // Messaging management
+  getOrCreateConversation(userOneId: number, userTwoId: number): Promise<Conversation>;
+  getConversationsByUserId(userId: number): Promise<Array<Conversation & { otherUser: User }>>;
+  sendMessage(message: InsertMessage): Promise<Message>;
+  getConversationMessages(conversationId: number): Promise<Array<Message & { sender: User }>>;
+  markMessagesAsRead(conversationId: number, userId: number): Promise<void>;
+  getUnreadMessageCount(userId: number): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -261,6 +275,160 @@ export class DatabaseStorage implements IStorage {
 
   async getJobApplicationsByFreelancer(freelancerId: number): Promise<JobApplication[]> {
     return await db.select().from(job_applications).where(eq(job_applications.freelancer_id, freelancerId));
+  }
+
+  // Messaging methods
+  async getOrCreateConversation(userOneId: number, userTwoId: number): Promise<Conversation> {
+    // First try to find existing conversation
+    const existing = await db.select().from(conversations)
+      .where(
+        or(
+          and(eq(conversations.participant_one_id, userOneId), eq(conversations.participant_two_id, userTwoId)),
+          and(eq(conversations.participant_one_id, userTwoId), eq(conversations.participant_two_id, userOneId))
+        )
+      )
+      .limit(1);
+
+    if (existing[0]) {
+      return existing[0];
+    }
+
+    // Create new conversation
+    const result = await db.insert(conversations).values({
+      participant_one_id: userOneId,
+      participant_two_id: userTwoId
+    }).returning();
+    return result[0];
+  }
+
+  async getConversationsByUserId(userId: number): Promise<Array<Conversation & { otherUser: User }>> {
+    const result = await db.select({
+      id: conversations.id,
+      participant_one_id: conversations.participant_one_id,
+      participant_two_id: conversations.participant_two_id,
+      last_message_at: conversations.last_message_at,
+      created_at: conversations.created_at,
+      otherUserId: sql<number>`CASE 
+        WHEN ${conversations.participant_one_id} = ${userId} THEN ${conversations.participant_two_id}
+        ELSE ${conversations.participant_one_id}
+      END`,
+      otherUserEmail: sql<string>`u.email`,
+      otherUserRole: sql<string>`u.role`
+    })
+    .from(conversations)
+    .leftJoin(
+      users,
+      sql`u.id = CASE 
+        WHEN ${conversations.participant_one_id} = ${userId} THEN ${conversations.participant_two_id}
+        ELSE ${conversations.participant_one_id}
+      END`
+    )
+    .where(
+      or(
+        eq(conversations.participant_one_id, userId),
+        eq(conversations.participant_two_id, userId)
+      )
+    )
+    .orderBy(desc(conversations.last_message_at));
+
+    return result.map(row => ({
+      id: row.id,
+      participant_one_id: row.participant_one_id,
+      participant_two_id: row.participant_two_id,
+      last_message_at: row.last_message_at,
+      created_at: row.created_at,
+      otherUser: {
+        id: row.otherUserId,
+        email: row.otherUserEmail,
+        role: (row.otherUserRole as 'freelancer' | 'recruiter') || 'freelancer',
+        password: '',
+        created_at: new Date(),
+        updated_at: new Date()
+      }
+    }));
+  }
+
+  async sendMessage(message: InsertMessage): Promise<Message> {
+    const result = await db.insert(messages).values(message).returning();
+    
+    // Update conversation last_message_at
+    await db.update(conversations)
+      .set({ last_message_at: new Date() })
+      .where(eq(conversations.id, message.conversation_id));
+
+    return result[0];
+  }
+
+  async getConversationMessages(conversationId: number): Promise<Array<Message & { sender: User }>> {
+    const result = await db.select({
+      id: messages.id,
+      conversation_id: messages.conversation_id,
+      sender_id: messages.sender_id,
+      content: messages.content,
+      is_read: messages.is_read,
+      created_at: messages.created_at,
+      senderEmail: users.email,
+      senderRole: users.role
+    })
+    .from(messages)
+    .leftJoin(users, eq(messages.sender_id, users.id))
+    .where(eq(messages.conversation_id, conversationId))
+    .orderBy(messages.created_at);
+
+    return result.map(row => ({
+      id: row.id,
+      conversation_id: row.conversation_id,
+      sender_id: row.sender_id,
+      content: row.content,
+      is_read: row.is_read,
+      created_at: row.created_at,
+      sender: {
+        id: row.sender_id,
+        email: row.senderEmail || '',
+        role: (row.senderRole as 'freelancer' | 'recruiter') || 'freelancer',
+        password: '',
+        created_at: new Date(),
+        updated_at: new Date()
+      }
+    }));
+  }
+
+  async markMessagesAsRead(conversationId: number, userId: number): Promise<void> {
+    await db.update(messages)
+      .set({ is_read: true })
+      .where(
+        and(
+          eq(messages.conversation_id, conversationId),
+          sql`${messages.sender_id} != ${userId}` // Don't mark own messages as read
+        )
+      );
+  }
+
+  async getUnreadMessageCount(userId: number): Promise<number> {
+    const userConversations = await db.select({ id: conversations.id })
+      .from(conversations)
+      .where(
+        or(
+          eq(conversations.participant_one_id, userId),
+          eq(conversations.participant_two_id, userId)
+        )
+      );
+
+    if (userConversations.length === 0) return 0;
+
+    const conversationIds = userConversations.map(c => c.id);
+    
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(messages)
+      .where(
+        and(
+          sql`${messages.conversation_id} IN (${conversationIds.join(',')})`,
+          eq(messages.is_read, false),
+          sql`${messages.sender_id} != ${userId}`
+        )
+      );
+
+    return result[0]?.count || 0;
   }
 }
 

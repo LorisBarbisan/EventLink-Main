@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { Building2, MapPin, Globe, Calendar, Users, Briefcase, MessageSquare, Settings, Plus, Edit, Trash2, Coins, Clock } from 'lucide-react';
+import { MessagingInterface } from './MessagingInterface';
+import { NewConversationModal } from './NewConversationModal';
 import { ImageUpload } from '@/components/ImageUpload';
 import ExternalJobsSection from '@/components/ExternalJobsSection';
 
@@ -774,39 +776,22 @@ export default function RecruiterDashboardTabs() {
 
         {/* Messages Tab */}
         <TabsContent value="messages" className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold">Messages</h2>
-            <p className="text-muted-foreground">Communication with applicants and freelancers</p>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-2xl font-bold">Messages</h2>
+              <p className="text-muted-foreground">Communicate with freelancers and applicants</p>
+            </div>
+            {user && (
+              <NewConversationModal 
+                currentUser={{ id: user.id, email: user.email, role: 'recruiter' }}
+              />
+            )}
           </div>
-
-          <div className="space-y-4">
-            {sampleMessages.map((message) => (
-              <Card key={message.id} className={message.unread ? 'border-blue-200 bg-blue-50/30' : ''}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium">{message.from}</h4>
-                        <Badge variant={message.type === 'application' ? 'default' : message.type === 'system' ? 'secondary' : 'outline'}>
-                          {message.type}
-                        </Badge>
-                        {message.unread && <Badge variant="destructive" className="h-2 w-2 p-0"></Badge>}
-                      </div>
-                      <h5 className="text-sm font-medium mb-2">{message.subject}</h5>
-                      <p className="text-sm text-muted-foreground mb-2">{message.content}</p>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="w-3 h-3" />
-                        {message.time}
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm" data-testid={`button-reply-${message.id}`}>
-                      Reply
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {user && (
+            <MessagingInterface 
+              currentUser={{ id: user.id, email: user.email, role: 'recruiter' }}
+            />
+          )}
         </TabsContent>
 
         {/* Applications Tab */}

@@ -1,8 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertUserSchema, insertFreelancerProfileSchema, insertRecruiterProfileSchema, insertJobSchema, insertJobApplicationSchema } from "@shared/schema";
+import { insertUserSchema, insertFreelancerProfileSchema, insertRecruiterProfileSchema, insertJobSchema, insertJobApplicationSchema, insertMessageSchema } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 
@@ -534,6 +535,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Messaging routes
+  app.get("/api/conversations", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      const conversations = await storage.getConversationsByUserId(parseInt(userId));
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error getting conversations:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/conversations/:id/messages", async (req, res) => {
+    try {
+      const conversationId = parseInt(req.params.id);
+      const userId = req.query.userId as string;
+
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      const messages = await storage.getConversationMessages(conversationId);
+      await storage.markMessagesAsRead(conversationId, parseInt(userId));
+      
+      res.json(messages);
+    } catch (error) {
+      console.error("Error getting messages:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/conversations", async (req, res) => {
+    try {
+      const { userOneId, userTwoId } = req.body;
+      
+      if (!userOneId || !userTwoId) {
+        return res.status(400).json({ error: "Both user IDs are required" });
+      }
+
+      const conversation = await storage.getOrCreateConversation(userOneId, userTwoId);
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/messages", async (req, res) => {
+    try {
+      const messageData = insertMessageSchema.parse(req.body);
+      const message = await storage.sendMessage(messageData);
+      
+      // Broadcast message to WebSocket clients
+      const messageWithSender = {
+        ...message,
+        sender: await storage.getUser(message.sender_id)
+      };
+      
+      broadcastToConversation(message.conversation_id, messageWithSender);
+      
+      res.json(message);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/messages/unread-count", async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      const count = await storage.getUnreadMessageCount(parseInt(userId));
+      res.json({ count });
+    } catch (error) {
+      console.error("Error getting unread count:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Serve CV files
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
@@ -550,5 +637,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+
+  // WebSocket setup for real-time messaging
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  const clients = new Map<number, Set<WebSocket>>();
+
+  wss.on('connection', (ws, req) => {
+    console.log('New WebSocket connection');
+    
+    let userId: number | null = null;
+
+    ws.on('message', (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        
+        if (message.type === 'authenticate') {
+          userId = message.userId;
+          if (userId) {
+            if (!clients.has(userId)) {
+              clients.set(userId, new Set());
+            }
+            clients.get(userId)!.add(ws);
+            console.log(`User ${userId} authenticated and added to WebSocket clients`);
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    });
+
+    ws.on('close', () => {
+      if (userId) {
+        const userClients = clients.get(userId);
+        if (userClients) {
+          userClients.delete(ws);
+          if (userClients.size === 0) {
+            clients.delete(userId);
+          }
+        }
+        console.log(`User ${userId} disconnected from WebSocket`);
+      }
+    });
+  });
+
+  // Function to broadcast messages to conversation participants
+  function broadcastToConversation(conversationId: number, message: any) {
+    // Find conversation participants and send message to connected clients
+    storage.getConversationMessages(conversationId).then(messages => {
+      if (messages.length > 0) {
+        // Get conversation to find participants
+        const conversation = messages[0].conversation_id;
+        // This is a simplified approach - in production you'd store conversation participants
+        clients.forEach((clientSet, userId) => {
+          clientSet.forEach(ws => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({
+                type: 'new_message',
+                message
+              }));
+            }
+          });
+        });
+      }
+    }).catch(error => {
+      console.error('Error broadcasting message:', error);
+    });
+  }
+
   return httpServer;
 }

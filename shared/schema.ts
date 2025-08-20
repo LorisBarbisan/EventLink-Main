@@ -79,6 +79,23 @@ export const job_applications = pgTable("job_applications", {
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  participant_one_id: integer("participant_one_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  participant_two_id: integer("participant_two_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  last_message_at: timestamp("last_message_at").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  conversation_id: integer("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  sender_id: integer("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  is_read: boolean("is_read").default(false).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
@@ -119,6 +136,23 @@ export const insertJobApplicationSchema = createInsertSchema(job_applications).o
   freelancer_id: z.number(),
 });
 
+export const insertConversationSchema = createInsertSchema(conversations).omit({
+  id: true,
+  created_at: true,
+  last_message_at: true,
+}).extend({
+  participant_one_id: z.number(),
+  participant_two_id: z.number(),
+});
+
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  id: true,
+  created_at: true,
+}).extend({
+  conversation_id: z.number(),
+  sender_id: z.number(),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type FreelancerProfile = typeof freelancer_profiles.$inferSelect;
@@ -129,3 +163,7 @@ export type InsertRecruiterProfile = z.infer<typeof insertRecruiterProfileSchema
 export type InsertJob = z.infer<typeof insertJobSchema>;
 export type JobApplication = typeof job_applications.$inferSelect;
 export type InsertJobApplication = z.infer<typeof insertJobApplicationSchema>;
+export type Conversation = typeof conversations.$inferSelect;
+export type Message = typeof messages.$inferSelect;
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
