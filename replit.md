@@ -16,6 +16,13 @@ Event Link is a freelancer marketplace platform specifically designed for the ev
 - **Recruiter Profiles**: Company information and contact details
 
 ## Recent Changes
+### August 20, 2025
+- **Deployment Configuration Fix**: Resolved NPM dependency conflict between Vite 6.3.5 and @tailwindcss/vite plugin
+- **Dependency Cleanup**: Removed conflicting @tailwindcss/vite plugin and standardized on PostCSS-based Tailwind CSS setup
+- **Package Optimization**: Updated package-lock.json and resolved esbuild security vulnerabilities
+- **Build Verification**: Confirmed production build process works correctly with standard Tailwind/PostCSS configuration
+- **Deployment Ready**: Application now builds successfully without dependency conflicts for deployment
+
 ### August 13, 2025
 - **Catering Job Exclusion**: Fixed external job filtering to exclude catering and hospitality jobs (Head Chef, etc.) that were bypassing event industry filters
 - **Enhanced Job Filtering**: Added comprehensive exclusion keywords for non-technical roles like catering, food service, general hospitality, and administrative positions
