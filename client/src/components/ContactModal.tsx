@@ -29,7 +29,6 @@ interface ContactModalProps {
 }
 
 export function ContactModal({ isOpen, onClose, freelancer, currentUser }: ContactModalProps) {
-  const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -63,7 +62,6 @@ export function ContactModal({ isOpen, onClose, freelancer, currentUser }: Conta
       });
       
       // Clear form and close modal
-      setSubject("");
       setMessage("");
       onClose();
       
@@ -97,15 +95,11 @@ export function ContactModal({ isOpen, onClose, freelancer, currentUser }: Conta
     }
 
     setIsLoading(true);
-    
-    const fullMessage = subject.trim() 
-      ? `Subject: ${subject}\n\n${message}`
-      : message;
 
     sendMessageMutation.mutate({
       userOneId: currentUser.id,
       userTwoId: freelancer.user_id,
-      content: fullMessage.trim(),
+      content: message.trim(),
     });
   };
 
@@ -145,24 +139,13 @@ export function ContactModal({ isOpen, onClose, freelancer, currentUser }: Conta
           {/* Message Form */}
           <form onSubmit={handleSendMessage} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="subject">Subject (Optional)</Label>
-              <Input
-                id="subject"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Enter message subject..."
-                data-testid="input-subject"
-              />
-            </div>
-            
-            <div className="space-y-2">
               <Label htmlFor="message">Message *</Label>
               <Textarea
                 id="message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Type your message here..."
-                rows={4}
+                rows={6}
                 required
                 data-testid="textarea-message"
               />
