@@ -8,12 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search, MapPin, Star, User, Coins, Calendar, Filter } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
+import { ContactModal } from '@/components/ContactModal';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Freelancers() {
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [skillFilter, setSkillFilter] = useState('');
   const [, setLocation] = useLocation();
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [selectedFreelancer, setSelectedFreelancer] = useState<any>(null);
+  const { user: currentUser } = useAuth();
 
   // Fetch real freelancer profiles from API
   const { data: realFreelancers = [], isLoading } = useQuery({
@@ -274,7 +279,22 @@ export default function Freelancers() {
                     </div>
 
                     <div className="flex gap-3 pt-4">
-                      <Button className="bg-gradient-primary hover:bg-primary-hover">
+                      <Button 
+                        className="bg-gradient-primary hover:bg-primary-hover"
+                        onClick={() => {
+                          if (!currentUser) {
+                            alert('Please log in to contact freelancers');
+                            return;
+                          }
+                          if (currentUser.role !== 'recruiter') {
+                            alert('Only recruiters can contact freelancers');
+                            return;
+                          }
+                          setSelectedFreelancer(freelancer);
+                          setContactModalOpen(true);
+                        }}
+                        data-testid={`button-contact-${freelancer.id}`}
+                      >
                         Contact
                       </Button>
                       <Button 
@@ -300,6 +320,30 @@ export default function Freelancers() {
           </div>
         </div>
       </div>
+
+      {/* Contact Modal */}
+      {selectedFreelancer && currentUser && (
+        <ContactModal
+          isOpen={contactModalOpen}
+          onClose={() => {
+            setContactModalOpen(false);
+            setSelectedFreelancer(null);
+          }}
+          freelancer={{
+            id: selectedFreelancer.isReal ? 
+              parseInt(selectedFreelancer.id.replace('real-', '')) : 
+              selectedFreelancer.id,
+            user_id: selectedFreelancer.isReal ? 
+              parseInt(selectedFreelancer.id.replace('real-', '')) : 
+              selectedFreelancer.id,
+            first_name: selectedFreelancer.name.split(' ')[0] || '',
+            last_name: selectedFreelancer.name.split(' ').slice(1).join(' ') || '',
+            title: selectedFreelancer.title,
+            photo_url: selectedFreelancer.avatar,
+          }}
+          currentUser={currentUser}
+        />
+      )}
     </Layout>
   );
 }
