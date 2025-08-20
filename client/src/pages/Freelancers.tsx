@@ -286,10 +286,6 @@ export default function Freelancers() {
                             alert('Please log in to contact freelancers');
                             return;
                           }
-                          if (currentUser.role !== 'recruiter') {
-                            alert('Only recruiters can contact freelancers');
-                            return;
-                          }
                           setSelectedFreelancer(freelancer);
                           setContactModalOpen(true);
                         }}
