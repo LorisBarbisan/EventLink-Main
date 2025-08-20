@@ -66,7 +66,7 @@ export const CTASection = () => {
                 <div className="space-y-3">
                   <h3 className="text-2xl font-bold">Hire Technical Crew</h3>
                   <p className="text-muted-foreground">
-                    Find qualified technical professionals for your events. 
+                    Find qualified professionals for your events. 
                     Post jobs, review portfolios, and hire with confidence.
                   </p>
                 </div>
