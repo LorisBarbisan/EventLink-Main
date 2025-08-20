@@ -22,7 +22,7 @@ export const CTASection = () => {
                 <div className="space-y-3">
                   <h3 className="text-2xl font-bold">Join as a Freelancer</h3>
                   <p className="text-muted-foreground">
-                    Connect with leading event companies and find your next technical gig. 
+                    Connect with leading event companies and find your next gig. 
                     Build your reputation and grow your career in the events industry.
                   </p>
                 </div>
