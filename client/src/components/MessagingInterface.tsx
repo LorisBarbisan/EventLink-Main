@@ -55,9 +55,16 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
   // Fetch messages for selected conversation
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['/api/conversations', selectedConversation, 'messages'],
-    queryFn: () => selectedConversation 
-      ? apiRequest(`/api/conversations/${selectedConversation}/messages?userId=${currentUser.id}`)
-      : Promise.resolve([]),
+    queryFn: async () => {
+      if (!selectedConversation) return Promise.resolve([]);
+      
+      const result = await apiRequest(`/api/conversations/${selectedConversation}/messages?userId=${currentUser.id}`);
+      
+      // Invalidate unread count after messages are fetched (and marked as read on backend)
+      queryClient.invalidateQueries({ queryKey: ['/api/messages/unread-count', currentUser.id] });
+      
+      return result;
+    },
     enabled: !!selectedConversation,
   });
 
