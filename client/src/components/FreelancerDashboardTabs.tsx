@@ -73,6 +73,13 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
   const [newSkill, setNewSkill] = useState('');
   const [activeTab, setActiveTab] = useState('profile');
 
+  // Fetch unread message count
+  const { data: unreadCount } = useQuery({
+    queryKey: ['/api/messages/unread-count', profile.id],
+    queryFn: () => apiRequest(`/api/messages/unread-count?userId=${profile.id}`),
+    refetchInterval: 10000, // Refetch every 10 seconds
+  });
+
   // Get user's job applications
   const { data: jobApplications = [], isLoading: applicationsLoading } = useQuery({
     queryKey: ['/api/freelancer/applications', profile.id],
@@ -402,7 +409,11 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
             <TabsTrigger value="messages" className="flex items-center gap-2">
               <MessageCircle className="h-4 w-4" />
               <span>Messages</span>
-              <Badge variant="secondary" className="text-xs flex items-center justify-center ml-1">3</Badge>
+              {unreadCount && unreadCount.count > 0 && (
+                <Badge variant="destructive" className="text-xs flex items-center justify-center ml-1">
+                  {unreadCount.count}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="jobs" className="flex items-center gap-2">
               <Briefcase className="h-4 w-4" />
@@ -704,7 +715,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {profileJobs.map((job) => (
+                    {profileJobs.map((job: any) => (
                       <div key={job.id} className="p-4 border rounded-lg">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">

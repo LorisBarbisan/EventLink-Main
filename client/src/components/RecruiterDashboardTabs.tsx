@@ -73,6 +73,14 @@ export default function RecruiterDashboardTabs() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('profile');
+
+  // Fetch unread message count
+  const { data: unreadCount } = useQuery({
+    queryKey: ['/api/messages/unread-count', user?.id],
+    queryFn: () => apiRequest(`/api/messages/unread-count?userId=${user?.id}`),
+    refetchInterval: 10000, // Refetch every 10 seconds
+    enabled: !!user?.id,
+  });
   const [isEditing, setIsEditing] = useState(false);
 
   // Form states for profile editing
@@ -364,9 +372,9 @@ export default function RecruiterDashboardTabs() {
           <TabsTrigger value="messages" className="flex items-center gap-2">
             <MessageSquare className="w-4 h-4" />
             <span>Messages</span>
-            {sampleMessages.filter(m => m.unread).length > 0 && (
+            {unreadCount && unreadCount.count > 0 && (
               <Badge variant="destructive" className="h-5 w-5 p-0 text-xs flex items-center justify-center ml-1">
-                {sampleMessages.filter(m => m.unread).length}
+                {unreadCount.count}
               </Badge>
             )}
           </TabsTrigger>
