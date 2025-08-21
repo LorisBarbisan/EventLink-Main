@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Building2, MapPin, Globe, Calendar, Users, Briefcase, MessageSquare, Settings, Plus, Edit, Trash2, Coins, Clock } from 'lucide-react';
 import { MessagingInterface } from './MessagingInterface';
 import { NewConversationModal } from './NewConversationModal';
@@ -915,6 +915,16 @@ export default function RecruiterDashboardTabs() {
                             </Button>
                           </>
                         )}
+                        {application.status === 'rejected' && (
+                          <span className="text-sm text-muted-foreground px-3 py-1">
+                            Application declined
+                          </span>
+                        )}
+                        {application.status === 'hired' && (
+                          <span className="text-sm text-green-600 px-3 py-1 font-medium">
+                            Hired
+                          </span>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -955,13 +965,33 @@ export default function RecruiterDashboardTabs() {
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction 
-              onClick={() => {
-                // Here you would handle the decline logic
-                // For now, we'll just show a toast
-                toast({
-                  title: 'Application Declined',
-                  description: `${selectedApplication?.candidate_name}'s application has been declined${declineMessage ? ' with a message' : ''}.`,
-                });
+              onClick={async () => {
+                if (!selectedApplication) return;
+                
+                try {
+                  // Call API to decline the application
+                  await apiRequest(`/api/applications/${selectedApplication.id}/reject`, {
+                    method: 'PUT',
+                  });
+                  
+                  // Invalidate queries to refresh the applications list
+                  queryClient.invalidateQueries({ queryKey: ['/api/recruiter', user?.id, 'applications'] });
+                  
+                  toast({
+                    title: 'Application Declined',
+                    description: `${selectedApplication.freelancer_profile ? 
+                      `${selectedApplication.freelancer_profile.first_name} ${selectedApplication.freelancer_profile.last_name}` : 
+                      'The applicant'}'s application has been declined${declineMessage ? ' with a message' : ''}.`,
+                  });
+                } catch (error) {
+                  console.error('Error declining application:', error);
+                  toast({
+                    title: 'Error',
+                    description: 'Failed to decline application. Please try again.',
+                    variant: 'destructive',
+                  });
+                }
+                
                 setDeclineDialogOpen(false);
                 setSelectedApplication(null);
                 setDeclineMessage('');

@@ -16,7 +16,14 @@ E8 is a freelancer marketplace platform specifically designed for the events ind
 - **Recruiter Profiles**: Company information and contact details
 
 ## Recent Changes
-### August 20, 2025 (Latest)
+### August 21, 2025 (Latest)
+- **Application Decline Bug Fix**: Fixed critical issue where declined applications disappeared from recruiter dashboard
+- **API Integration**: Implemented proper API call to `/api/applications/:id/reject` when declining applications
+- **UI Enhancement**: Added status indicators for declined and hired applications to remain visible in dashboard
+- **Cache Management**: Added query invalidation to refresh applications list after status changes
+- **Error Handling**: Added proper error handling and user feedback for application decline operations
+
+### August 20, 2025
 - **Comprehensive Security Audit & Bug Fixes**: Identified and resolved critical security vulnerabilities and performance issues
   - **Authentication Security**: Added input validation for signin endpoint to prevent injection attacks and improved error handling
   - **WebSocket Memory Leak Fix**: Resolved memory leaks in MessagingInterface by implementing proper event listener cleanup
