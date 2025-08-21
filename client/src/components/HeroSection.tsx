@@ -13,7 +13,27 @@ export const HeroSection = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Column - Content */}
           <div className="space-y-8 animate-fade-in">
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Large E8 Logo */}
+              <div className="flex justify-center lg:justify-start mb-4">
+                <div className="relative">
+                  <svg width="120" height="120" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-lg">
+                    <defs>
+                      <linearGradient id="heroLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#4FC3F7" />
+                        <stop offset="50%" stopColor="#29B6F6" />
+                        <stop offset="100%" stopColor="#1976D2" />
+                      </linearGradient>
+                      <filter id="logoShadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="4" stdDeviation="3" floodOpacity="0.2"/>
+                      </filter>
+                    </defs>
+                    <rect width="100" height="100" rx="20" ry="20" fill="url(#heroLogoGradient)" filter="url(#logoShadow)" />
+                    <text x="50" y="65" fontSize="42" fontFamily="Arial, sans-serif" fontWeight="bold" fill="white" textAnchor="middle">E8</text>
+                  </svg>
+                </div>
+              </div>
+
               <Badge variant="secondary" className="w-fit hidden">
                 <Star className="w-3 h-3 mr-1" />
                 Trusted by 500+ companies
