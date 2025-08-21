@@ -5,7 +5,7 @@ import { Search, Menu, User, LogOut, Settings, UserCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-import e8Logo from "@/assets/e8-logo.png";
+// import e8Logo from "@/assets/e8-logo.png";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -25,7 +25,9 @@ export const Layout = ({ children }: LayoutProps) => {
           <div className="flex items-center justify-between">
             {/* Logo */}
             <Link to="/" className="flex items-center space-x-3" data-testid="logo-header">
-              <img src={`${e8Logo}?v=${Date.now()}`} alt="E8 Logo" className="w-12 h-12 object-contain" data-testid="logo-image" />
+              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">E8</span>
+              </div>
               <span className="text-2xl font-bold text-foreground">Event Link</span>
             </Link>
 
@@ -140,7 +142,9 @@ export const Layout = ({ children }: LayoutProps) => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center space-x-2 mb-4">
-                <img src={e8Logo} alt="E8 Logo" className="w-10 h-10 object-contain" />
+                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">E8</span>
+                </div>
                 <span className="font-semibold text-lg">Event Link</span>
               </div>
               <p className="text-sm text-muted-foreground">
