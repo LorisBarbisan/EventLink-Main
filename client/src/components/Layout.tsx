@@ -5,18 +5,15 @@ import { Search, Menu, User, LogOut, Settings, UserCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-// Inline SVG logo for reliable display
+import e8Logo from "@assets/Eventlink Logo 1_1755805231857.png";
+// E8 Logo component using the authentic logo image
 const EventLinkLogo = ({ size = 48 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#4FC3F7" />
-        <stop offset="100%" stopColor="#29B6F6" />
-      </linearGradient>
-    </defs>
-    <rect width="100" height="100" rx="20" ry="20" fill="url(#logoGradient)" />
-    <text x="50" y="65" fontSize="40" fontFamily="Arial, sans-serif" fontWeight="bold" fill="white" textAnchor="middle">E8</text>
-  </svg>
+  <img 
+    src={e8Logo} 
+    alt="E8 Logo" 
+    style={{ width: size, height: size }}
+    className="drop-shadow-sm"
+  />
 );
 
 interface LayoutProps {
@@ -38,7 +35,7 @@ export const Layout = ({ children }: LayoutProps) => {
             {/* Logo */}
             <Link to="/" className="flex items-center space-x-3" data-testid="logo-header">
               <EventLinkLogo size={48} />
-              <span className="text-2xl font-bold text-foreground">Event Link</span>
+              <span className="text-2xl font-bold text-foreground">E8</span>
             </Link>
 
             {/* Navigation */}
@@ -153,7 +150,7 @@ export const Layout = ({ children }: LayoutProps) => {
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <EventLinkLogo size={40} />
-                <span className="font-semibold text-lg">Event Link</span>
+                <span className="font-semibold text-lg">E8</span>
               </div>
               <p className="text-sm text-muted-foreground">
                 Connecting technical professionals with event opportunities in the corporate events sector.
