@@ -35,7 +35,7 @@ export const Layout = ({ children }: LayoutProps) => {
             {/* Logo */}
             <Link to="/" className="flex items-center space-x-3" data-testid="logo-header">
               <EventLinkLogo size={48} />
-              <span className="text-2xl font-bold text-foreground">E8</span>
+              <span className="text-2xl font-bold text-foreground">Event Link</span>
             </Link>
 
             {/* Navigation */}
@@ -150,7 +150,7 @@ export const Layout = ({ children }: LayoutProps) => {
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <EventLinkLogo size={40} />
-                <span className="font-semibold text-lg">E8</span>
+                <span className="font-semibold text-lg">Event Link</span>
               </div>
               <p className="text-sm text-muted-foreground">
                 Connecting technical professionals with event opportunities in the corporate events sector.
