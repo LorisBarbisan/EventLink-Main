@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { ArrowRight, Users, Briefcase, Star, MapPin, Clock } from "lucide-react";
 import eventImage from "@assets/vecteezy_blurred-images-of-trade-fairs-in-the-big-hall-image-of_33496157_1753859139754.jpg";
-import e8Logo from "@assets/Logo_1755756384612.png";
+import e8Logo from "@assets/Eventlink Logo 1_1755805231857.png";
 
 export const HeroSection = () => {
   return (
