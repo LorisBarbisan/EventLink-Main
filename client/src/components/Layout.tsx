@@ -5,8 +5,19 @@ import { Search, Menu, User, LogOut, Settings, UserCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-// Use public folder for reliable access
-const eventLinkLogo = "/eventlink-logo.png";
+// Inline SVG logo for reliable display
+const EventLinkLogo = ({ size = 48 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#4FC3F7" />
+        <stop offset="100%" stopColor="#29B6F6" />
+      </linearGradient>
+    </defs>
+    <rect width="100" height="100" rx="20" ry="20" fill="url(#logoGradient)" />
+    <text x="50" y="65" fontSize="40" fontFamily="Arial, sans-serif" fontWeight="bold" fill="white" textAnchor="middle">E8</text>
+  </svg>
+);
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -26,20 +37,7 @@ export const Layout = ({ children }: LayoutProps) => {
           <div className="flex items-center justify-between">
             {/* Logo */}
             <Link to="/" className="flex items-center space-x-3" data-testid="logo-header">
-              <img 
-                src={eventLinkLogo} 
-                alt="Event Link Logo" 
-                className="w-12 h-12 object-contain" 
-                data-testid="logo-image"
-                onError={(e) => {
-                  // Fallback to a CSS-based logo if image fails to load
-                  e.currentTarget.style.display = 'none';
-                  const fallback = document.createElement('div');
-                  fallback.className = 'w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center';
-                  fallback.innerHTML = '<span class="text-white font-bold text-lg">E8</span>';
-                  e.currentTarget.parentNode?.insertBefore(fallback, e.currentTarget);
-                }}
-              />
+              <EventLinkLogo size={48} />
               <span className="text-2xl font-bold text-foreground">Event Link</span>
             </Link>
 
@@ -154,7 +152,7 @@ export const Layout = ({ children }: LayoutProps) => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center space-x-2 mb-4">
-                <img src={eventLinkLogo} alt="Event Link Logo" className="w-10 h-10 object-contain" />
+                <EventLinkLogo size={40} />
                 <span className="font-semibold text-lg">Event Link</span>
               </div>
               <p className="text-sm text-muted-foreground">
