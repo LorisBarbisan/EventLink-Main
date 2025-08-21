@@ -75,6 +75,7 @@ export const job_applications = pgTable("job_applications", {
   freelancer_id: integer("freelancer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   status: text("status").default('applied').$type<'applied' | 'reviewed' | 'shortlisted' | 'rejected' | 'hired'>(),
   cover_letter: text("cover_letter"),
+  rejection_message: text("rejection_message"), // Message explaining rejection
   applied_at: timestamp("applied_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });

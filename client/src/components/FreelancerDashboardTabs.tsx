@@ -15,6 +15,8 @@ import { User, MapPin, Coins, Calendar, Plus, X, UserCheck, Camera, Upload, Mess
 import { CVUploader } from './CVUploader';
 import { MessagingInterface } from './MessagingInterface';
 import { NewConversationModal } from './NewConversationModal';
+import { JobApplication } from '../../../shared/schema';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface Profile {
   id: string;
@@ -336,7 +338,8 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     status: application.status || 'applied',
     applicationDate: application.created_at ? new Date(application.created_at).toLocaleDateString() : '',
     jobId: application.job_id,
-    externalUrl: application.job?.external_url
+    externalUrl: application.job?.external_url,
+    rejectionMessage: application.rejection_message
   }));
 
   const profileBookings = [
@@ -439,17 +442,17 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
               Jobs
               {(() => {
                 const updatedApplications = jobApplications.filter((app: any) => 
-                  ['rejected', 'hired'].includes(app.status) && 
-                  new Date(app.updated_at || app.created_at).getTime() > lastViewedJobs
+                  ['rejected', 'hired'].includes(app.status || 'applied') && 
+                  new Date(app.updated_at || app.applied_at).getTime() > lastViewedJobs
                 );
                 console.log('Notification check:', {
                   apps: jobApplications.length,
                   updatedApps: updatedApplications.length,
                   lastViewed: lastViewedJobs,
-                  appTimes: jobApplications.map(app => ({
+                  appTimes: jobApplications.map((app: any) => ({
                     id: app.id,
                     status: app.status,
-                    updated: new Date(app.updated_at || app.created_at).getTime()
+                    updated: new Date(app.updated_at || app.applied_at).getTime()
                   }))
                 });
                 return updatedApplications.length > 0 && (
@@ -806,14 +809,44 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                               >
                                 View on Site
                               </Button>
+                            ) : job.status === 'rejected' && job.rejectionMessage ? (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    data-testid={`button-view-details-${job.id}`}
+                                  >
+                                    View Details
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-md">
+                                  <DialogHeader>
+                                    <DialogTitle>Application Declined</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                                      <div className="flex items-start space-x-3">
+                                        <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
+                                        <div>
+                                          <h4 className="font-medium text-red-800">Rejection Message</h4>
+                                          <p className="text-red-700 mt-1">{job.rejectionMessage}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
                             ) : (
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                data-testid={`button-view-details-${job.id}`}
-                              >
-                                View Details
-                              </Button>
+                              job.status !== 'rejected' && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  data-testid={`button-view-details-${job.id}`}
+                                >
+                                  View Details
+                                </Button>
+                              )
                             )}
                           </div>
                         </div>

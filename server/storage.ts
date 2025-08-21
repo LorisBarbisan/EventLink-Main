@@ -278,12 +278,18 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(job_applications).where(eq(job_applications.freelancer_id, freelancerId));
   }
 
-  async updateApplicationStatus(applicationId: number, status: 'applied' | 'reviewed' | 'shortlisted' | 'rejected' | 'hired'): Promise<JobApplication> {
+  async updateApplicationStatus(applicationId: number, status: 'applied' | 'reviewed' | 'shortlisted' | 'rejected' | 'hired', rejectionMessage?: string): Promise<JobApplication> {
+    const updateData: any = { 
+      status: status,
+      updated_at: sql`now()`
+    };
+    
+    if (status === 'rejected' && rejectionMessage) {
+      updateData.rejection_message = rejectionMessage;
+    }
+    
     const result = await db.update(job_applications)
-      .set({ 
-        status: status,
-        updated_at: sql`now()`
-      })
+      .set(updateData)
       .where(eq(job_applications.id, applicationId))
       .returning();
     return result[0];

@@ -493,7 +493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const applicationId = parseInt(req.params.applicationId);
       const { message: declineMessage } = req.body || {};
       
-      const updatedApplication = await storage.updateApplicationStatus(applicationId, 'rejected');
+      const updatedApplication = await storage.updateApplicationStatus(applicationId, 'rejected', declineMessage);
       
       // Send notification message to freelancer
       try {
