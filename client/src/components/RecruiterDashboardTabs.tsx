@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { Building2, MapPin, Globe, Calendar, Users, Briefcase, MessageSquare, Settings, Plus, Edit, Trash2, Coins, Clock } from 'lucide-react';
+import { Building2, MapPin, Globe, Calendar, Users, Briefcase, MessageSquare, Settings, Plus, Edit, Trash2, Coins, Clock, ChevronDown, ChevronUp, User, MessageCircle, Eye } from 'lucide-react';
 import { MessagingInterface } from './MessagingInterface';
 import { NewConversationModal } from './NewConversationModal';
 import { ImageUpload } from '@/components/ImageUpload';
@@ -108,6 +108,7 @@ export default function RecruiterDashboardTabs() {
     }
   };
   const [isEditing, setIsEditing] = useState(false);
+  const [expandedJobs, setExpandedJobs] = useState<Set<number>>(new Set());
 
   // Form states for profile editing
   const [companyName, setCompanyName] = useState('');
@@ -293,7 +294,26 @@ export default function RecruiterDashboardTabs() {
     setJobRate('');
     setJobDescription('');
     setShowJobForm(false);
-  };;
+  };
+
+  // Toggle job expansion
+  const toggleJobExpansion = (jobId: number) => {
+    const newExpanded = new Set(expandedJobs);
+    if (newExpanded.has(jobId)) {
+      newExpanded.delete(jobId);
+    } else {
+      newExpanded.add(jobId);
+    }
+    setExpandedJobs(newExpanded);
+  };
+
+  // Get hired applicants for a specific job
+  const getHiredApplicantsForJob = (jobId: number) => {
+    if (!applications) return [];
+    return applications.filter((app: any) => 
+      app.job_id === jobId && app.status === 'hired'
+    );
+  };
 
   const { data: myJobs = [], isLoading: jobsLoading } = useQuery({
     queryKey: ['/api/jobs/recruiter', user?.id],
@@ -767,67 +787,167 @@ export default function RecruiterDashboardTabs() {
             {jobsLoading ? (
               <div className="flex justify-center p-8">Loading jobs...</div>
             ) : myJobs.length > 0 ? (
-              myJobs.map((job: any) => (
-              <Card key={job.id}>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-lg font-semibold">{job.title}</h3>
-                        <Badge variant={job.status === 'active' ? 'default' : job.status === 'paused' ? 'secondary' : 'outline'}>
-                          {job.status}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground mb-3">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          {job.location}
+              myJobs.map((job: any) => {
+                const hiredApplicants = getHiredApplicantsForJob(job.id);
+                const isExpanded = expandedJobs.has(job.id);
+                
+                return (
+                  <Card key={job.id}>
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="text-lg font-semibold">{job.title}</h3>
+                            <Badge variant={job.status === 'active' ? 'default' : job.status === 'paused' ? 'secondary' : 'outline'}>
+                              {job.status}
+                            </Badge>
+                            {hiredApplicants.length > 0 && (
+                              <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                                {hiredApplicants.length} hired
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground mb-3">
+                            <div className="flex items-center gap-1">
+                              <MapPin className="w-4 h-4" />
+                              {job.location}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Coins className="w-4 h-4" />
+                              {job.rate}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-4 h-4" />
+                              Posted {new Date(job.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">{job.description}</p>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1 text-sm">
+                              <Users className="w-4 h-4" />
+                              <span>0 applicants</span>
+                            </div>
+                            {hiredApplicants.length > 0 && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => toggleJobExpansion(job.id)}
+                                data-testid={`button-expand-job-${job.id}`}
+                                className="text-sm"
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <ChevronUp className="w-4 h-4 mr-1" />
+                                    Hide Details
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="w-4 h-4 mr-1" />
+                                    View Hired ({hiredApplicants.length})
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Coins className="w-4 h-4" />
-                          {job.rate}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          Posted {new Date(job.created_at).toLocaleDateString()}
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">{job.description}</p>
-                      <div className="flex items-center gap-1 text-sm">
-                        <Users className="w-4 h-4" />
-                        <span>0 applicants</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 ml-4">
-                      <Button variant="outline" size="sm" data-testid={`button-edit-job-${job.id}`}>
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm" data-testid={`button-delete-job-${job.id}`}>
-                            <Trash2 className="w-4 h-4" />
+                        <div className="flex gap-2 ml-4">
+                          <Button variant="outline" size="sm" data-testid={`button-edit-job-${job.id}`}>
+                            <Edit className="w-4 h-4" />
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Job Posting</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{job.title}"? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              ))
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm" data-testid={`button-delete-job-${job.id}`}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Job Posting</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete "{job.title}"? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+
+                      {/* Hired Applicants Details - Expandable Section */}
+                      {isExpanded && hiredApplicants.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-border">
+                          <h4 className="font-medium mb-3 flex items-center gap-2">
+                            <User className="w-4 h-4" />
+                            Hired Freelancers
+                          </h4>
+                          <div className="space-y-3">
+                            {hiredApplicants.map((applicant: any) => (
+                              <div 
+                                key={applicant.id}
+                                className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800"
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h5 className="font-medium">
+                                      {applicant.freelancer_profile ? 
+                                        `${applicant.freelancer_profile.first_name} ${applicant.freelancer_profile.last_name}` : 
+                                        'Freelancer'
+                                      }
+                                    </h5>
+                                    <Badge variant="default" className="bg-green-600 text-white">
+                                      Hired
+                                    </Badge>
+                                  </div>
+                                  {applicant.freelancer_profile?.title && (
+                                    <p className="text-sm text-muted-foreground">
+                                      {applicant.freelancer_profile.title}
+                                    </p>
+                                  )}
+                                  <div className="text-sm text-muted-foreground mt-1">
+                                    Rate: {applicant.freelancer_profile?.hourly_rate ? 
+                                      `£${applicant.freelancer_profile.hourly_rate}/${applicant.freelancer_profile.rate_type}` : 
+                                      'Not specified'
+                                    }
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => window.open(`/freelancer-profile/${applicant.freelancer_profile?.user_id}`, '_blank')}
+                                    data-testid={`button-view-profile-${applicant.freelancer_profile?.user_id}`}
+                                  >
+                                    <Eye className="w-4 h-4 mr-1" />
+                                    Profile
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => {
+                                      setActiveTab('messages');
+                                      // Auto-start conversation with this freelancer
+                                      // This will be handled by the messaging interface
+                                    }}
+                                    data-testid={`button-message-${applicant.freelancer_profile?.user_id}`}
+                                  >
+                                    <MessageCircle className="w-4 h-4 mr-1" />
+                                    Message
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })
             ) : (
               <div className="text-center py-8">
                 <Briefcase className="w-12 h-12 text-muted-foreground mx-auto mb-4" />

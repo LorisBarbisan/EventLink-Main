@@ -17,6 +17,11 @@ E8 is a freelancer marketplace platform specifically designed for the events ind
 
 ## Recent Changes
 ### August 21, 2025 (Latest)
+- **Hired Applicants Display**: Implemented expandable hired applicants section in recruiter's "My Jobs" tab
+  - Shows green "hired" badge on job cards when freelancers are hired for that position
+  - Expandable details reveal hired freelancer profiles with rates, titles, and contact information
+  - Direct links to freelancer profiles and messaging functionality from hired applicants view
+  - Visual distinction with green styling to highlight successful hires
 - **Application Decline Bug Fix**: Fixed critical issue where declined applications disappeared from recruiter dashboard
 - **API Integration**: Implemented proper API call to `/api/applications/:id/reject` when declining applications
 - **UI Enhancement**: Added status indicators for declined and hired applications to remain visible in dashboard
