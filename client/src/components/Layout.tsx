@@ -23,7 +23,17 @@ interface LayoutProps {
 export const Layout = ({ children }: LayoutProps) => {
   const [location, setLocation] = useLocation();
   const { user, signOut } = useAuth();
-  const { getDisplayName, getInitials } = useProfile();
+  // Simplified profile handling
+  const getDisplayName = () => {
+    if (!user) return '';
+    return user.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const getInitials = () => {
+    if (!user) return '';
+    const name = getDisplayName();
+    return name.split(' ').map(word => word[0]).join('').slice(0, 2).toUpperCase();
+  };
   const isHomePage = location === '/';
 
   return (

@@ -3,8 +3,8 @@ import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { Layout } from '@/components/Layout';
-import { FreelancerDashboardTabs } from '@/components/FreelancerDashboardTabs';
-import RecruiterDashboardTabs from '@/components/RecruiterDashboardTabs';
+import SimplifiedFreelancerDashboard from '@/components/SimplifiedFreelancerDashboard';
+import SimplifiedRecruiterDashboard from '@/components/SimplifiedRecruiterDashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Profile {
@@ -84,9 +84,9 @@ export default function Dashboard() {
     <Layout>
       <div className="container mx-auto px-4 py-8">
         {profile.role === 'freelancer' ? (
-          <FreelancerDashboardTabs profile={profile} />
+          <SimplifiedFreelancerDashboard />
         ) : (
-          <RecruiterDashboardTabs />
+          <SimplifiedRecruiterDashboard />
         )}
       </div>
     </Layout>
