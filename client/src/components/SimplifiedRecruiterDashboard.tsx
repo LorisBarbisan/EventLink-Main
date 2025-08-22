@@ -31,9 +31,10 @@ export default function SimplifiedRecruiterDashboard() {
     userType: 'recruiter'
   });
 
-  const { notifyApplicationUpdate } = useNotifications({
-    userId: user?.id
-  });
+  // Remove the problematic notification hook for now
+  // const { notifyApplicationUpdate } = useNotifications({
+  //   userId: user?.id
+  // });
 
   // Fetch jobs
   const { data: myJobs = [], isLoading: jobsLoading } = useQuery({
@@ -91,11 +92,6 @@ export default function SimplifiedRecruiterDashboard() {
   // Helper functions
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    if (tab === 'applications') {
-      markAsViewed('applications');
-    } else if (tab === 'jobs') {
-      markAsViewed('jobs');
-    }
   };
 
   const toggleJobExpansion = (jobId: number) => {
@@ -130,11 +126,11 @@ export default function SimplifiedRecruiterDashboard() {
     return <div>Please log in to access the dashboard.</div>;
   }
 
-  // Check for new notifications
-  const hasNewApplications = hasNewNotifications(applications, lastViewed.applications);
-  const hasNewJobUpdates = hasNewNotifications(applications.filter((app: JobApplication) => 
+  // Simplified notification indicators
+  const hasNewApplications = applications.some((app: JobApplication) => app.status === 'pending');
+  const hasNewJobUpdates = applications.some((app: JobApplication) => 
     app.status === 'rejected' || app.status === 'hired'
-  ), lastViewed.jobs, 'updated_at');
+  );
 
   return (
     <div className="container mx-auto p-6">
@@ -146,23 +142,17 @@ export default function SimplifiedRecruiterDashboard() {
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="profile">Company Profile</TabsTrigger>
-          <TabsTrigger value="jobs" className="relative">
+          <TabsTrigger value="jobs">
             My Jobs
-            {hasNewJobUpdates && (
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
-            )}
           </TabsTrigger>
           <TabsTrigger value="messages" className="relative">
             Messages
-            {unreadCount > 0 && (
+            {unreadCount?.count > 0 && (
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
             )}
           </TabsTrigger>
-          <TabsTrigger value="applications" className="relative">
+          <TabsTrigger value="applications">
             Applications
-            {hasNewApplications && (
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
-            )}
           </TabsTrigger>
         </TabsList>
 
