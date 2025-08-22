@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertUserSchema, insertFreelancerProfileSchema, insertRecruiterProfileSchema, insertJobSchema, insertJobApplicationSchema, insertMessageSchema } from "@shared/schema";
+import { insertUserSchema, insertFreelancerProfileSchema, insertRecruiterProfileSchema, insertJobSchema, insertJobApplicationSchema, insertMessageSchema, insertNotificationSchema } from "@shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 
@@ -714,6 +714,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Notification routes
+  app.get("/api/notifications", async (req, res) => {
+    try {
+      const { userId, limit } = req.query;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      const notifications = await storage.getUserNotifications(
+        Number(userId), 
+        limit ? Number(limit) : 50
+      );
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error getting notifications:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", async (req, res) => {
+    try {
+      const { userId } = req.query;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      const count = await storage.getUnreadNotificationCount(Number(userId));
+      res.json({ count });
+    } catch (error) {
+      console.error("Error getting unread notification count:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/notifications", async (req, res) => {
+    try {
+      const notification = insertNotificationSchema.parse(req.body);
+      const result = await createAndBroadcastNotification(notification);
+      res.json(result);
+    } catch (error) {
+      console.error("Error creating notification:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", async (req, res) => {
+    try {
+      const notificationId = Number(req.params.id);
+      await storage.markNotificationAsRead(notificationId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/notifications/mark-all-read", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      await storage.markAllNotificationsAsRead(Number(userId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/notifications/:id", async (req, res) => {
+    try {
+      const notificationId = Number(req.params.id);
+      await storage.deleteNotification(notificationId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Serve CV files
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
@@ -799,6 +884,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }).catch(error => {
       console.error('Error broadcasting message:', error);
     });
+  }
+
+  // Function to broadcast notifications to specific user
+  function broadcastNotificationToUser(userId: number, notification: any) {
+    const userClients = clients.get(userId);
+    if (userClients) {
+      userClients.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'new_notification',
+            notification
+          }));
+        }
+      });
+    }
+  }
+
+  // Enhanced notification creation with WebSocket broadcast
+  async function createAndBroadcastNotification(notificationData: any) {
+    const notification = await storage.createNotification(notificationData);
+    broadcastNotificationToUser(notificationData.user_id, notification);
+    return notification;
   }
 
   return httpServer;

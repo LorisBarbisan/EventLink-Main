@@ -5,6 +5,8 @@ import { Search, Menu, User, LogOut, Settings, UserCircle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useNotifications } from "@/hooks/useNotifications";
+import { NotificationSystem } from "@/components/NotificationSystem";
 import e8Logo from "@assets/Eventlink Logo 1_1755805231857.png";
 // E8 Logo component using the authentic logo image
 const EventLinkLogo = ({ size = 48 }: { size?: number }) => (
@@ -23,6 +25,10 @@ interface LayoutProps {
 export const Layout = ({ children }: LayoutProps) => {
   const [location, setLocation] = useLocation();
   const { user, signOut } = useAuth();
+  
+  // Initialize notifications hook
+  useNotifications({ userId: user?.id });
+  
   // Simplified profile handling
   const getDisplayName = () => {
     if (!user) return '';
@@ -84,17 +90,19 @@ export const Layout = ({ children }: LayoutProps) => {
               )}
               
               {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="flex items-center gap-2">
-                      <Avatar className="w-6 h-6">
-                        <AvatarFallback className="bg-gradient-primary text-white text-xs">
-                          {getInitials()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="hidden md:inline">{getDisplayName()}</span>
-                    </Button>
-                  </DropdownMenuTrigger>
+                <div className="flex items-center gap-3">
+                  <NotificationSystem userId={user.id} />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex items-center gap-2">
+                        <Avatar className="w-6 h-6">
+                          <AvatarFallback className="bg-gradient-primary text-white text-xs">
+                            {getInitials()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="hidden md:inline">{getDisplayName()}</span>
+                      </Button>
+                    </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuItem asChild>
                       <Link to="/dashboard" className="flex items-center gap-2 w-full">
@@ -126,7 +134,8 @@ export const Layout = ({ children }: LayoutProps) => {
                       Sign Out
                     </DropdownMenuItem>
                   </DropdownMenuContent>
-                </DropdownMenu>
+                  </DropdownMenu>
+                </div>
               ) : (
                 <>
                   <Button variant="outline" size="sm" asChild>

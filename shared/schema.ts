@@ -97,6 +97,22 @@ export const messages = pgTable("messages", {
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull().$type<'application_update' | 'new_message' | 'job_update' | 'profile_view' | 'system'>(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  is_read: boolean("is_read").default(false).notNull(),
+  priority: text("priority").default('normal').$type<'low' | 'normal' | 'high' | 'urgent'>(),
+  related_entity_type: text("related_entity_type").$type<'job' | 'application' | 'message' | 'profile' | null>(),
+  related_entity_id: integer("related_entity_id"),
+  action_url: text("action_url"), // URL to navigate to when clicked
+  metadata: text("metadata"), // JSON string for additional data
+  expires_at: timestamp("expires_at"), // Optional expiration for temporary notifications
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
@@ -154,6 +170,13 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   sender_id: z.number(),
 });
 
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  created_at: true,
+}).extend({
+  user_id: z.number(),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type FreelancerProfile = typeof freelancer_profiles.$inferSelect;
@@ -168,3 +191,5 @@ export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;

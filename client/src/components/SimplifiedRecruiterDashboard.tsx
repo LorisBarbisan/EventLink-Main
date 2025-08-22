@@ -31,9 +31,8 @@ export default function SimplifiedRecruiterDashboard() {
     userType: 'recruiter'
   });
 
-  const { lastViewed, markAsViewed, hasNewNotifications } = useNotifications({
-    userId: user?.id || 0,
-    userType: 'recruiter'
+  const { notifyApplicationUpdate } = useNotifications({
+    userId: user?.id
   });
 
   // Fetch jobs

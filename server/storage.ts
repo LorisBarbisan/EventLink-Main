@@ -8,6 +8,7 @@ import {
   job_applications,
   conversations,
   messages,
+  notifications,
   type User, 
   type InsertUser,
   type FreelancerProfile,
@@ -21,7 +22,9 @@ import {
   type Conversation,
   type Message,
   type InsertConversation,
-  type InsertMessage
+  type InsertMessage,
+  type Notification,
+  type InsertNotification
 } from "@shared/schema";
 import { eq, desc, isNull, and, or, sql } from "drizzle-orm";
 
@@ -75,6 +78,15 @@ export interface IStorage {
   getConversationMessages(conversationId: number): Promise<Array<Message & { sender: User }>>;
   markMessagesAsRead(conversationId: number, userId: number): Promise<void>;
   getUnreadMessageCount(userId: number): Promise<number>;
+  
+  // Notification management
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getUserNotifications(userId: number, limit?: number): Promise<Notification[]>;
+  getUnreadNotificationCount(userId: number): Promise<number>;
+  markNotificationAsRead(notificationId: number): Promise<void>;
+  markAllNotificationsAsRead(userId: number): Promise<void>;
+  deleteNotification(notificationId: number): Promise<void>;
+  deleteExpiredNotifications(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -447,6 +459,69 @@ export class DatabaseStorage implements IStorage {
       );
 
     return Number(result[0]?.count || 0);
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const result = await db.insert(notifications).values([notification]).returning();
+    return result[0];
+  }
+
+  async getUserNotifications(userId: number, limit: number = 50): Promise<Notification[]> {
+    const result = await db.select()
+      .from(notifications)
+      .where(and(
+        eq(notifications.user_id, userId),
+        or(
+          isNull(notifications.expires_at),
+          sql`${notifications.expires_at} > NOW()`
+        )
+      ))
+      .orderBy(desc(notifications.created_at))
+      .limit(limit);
+    return result;
+  }
+
+  async getUnreadNotificationCount(userId: number): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(notifications)
+      .where(and(
+        eq(notifications.user_id, userId),
+        eq(notifications.is_read, false),
+        or(
+          isNull(notifications.expires_at),
+          sql`${notifications.expires_at} > NOW()`
+        )
+      ));
+    return Number(result[0]?.count || 0);
+  }
+
+  async markNotificationAsRead(notificationId: number): Promise<void> {
+    await db.update(notifications)
+      .set({ is_read: true })
+      .where(eq(notifications.id, notificationId));
+  }
+
+  async markAllNotificationsAsRead(userId: number): Promise<void> {
+    await db.update(notifications)
+      .set({ is_read: true })
+      .where(and(
+        eq(notifications.user_id, userId),
+        eq(notifications.is_read, false)
+      ));
+  }
+
+  async deleteNotification(notificationId: number): Promise<void> {
+    await db.delete(notifications).where(eq(notifications.id, notificationId));
+  }
+
+  async deleteExpiredNotifications(): Promise<void> {
+    await db.delete(notifications)
+      .where(
+        and(
+          sql`${notifications.expires_at} IS NOT NULL`,
+          sql`${notifications.expires_at} < NOW()`
+        )
+      );
   }
 }
 
