@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useNotifications } from "@/hooks/useNotifications";
 import { NotificationSystem } from "@/components/NotificationSystem";
-import e8Logo from "@assets/Eventlink Logo 1_1755805231857.png";
+import e8Logo from "@assets/E8 LOGO_1756038316799.png";
 // E8 Logo component using the authentic logo image
 const EventLinkLogo = ({ size = 48 }: { size?: number }) => (
   <img 
