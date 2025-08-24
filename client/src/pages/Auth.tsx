@@ -17,6 +17,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [showResendOption, setShowResendOption] = useState(false);
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
+  const [showDirectLink, setShowDirectLink] = useState<string | null>(null);
   const [signUpData, setSignUpData] = useState({
     email: '',
     password: '',
@@ -108,13 +109,15 @@ export default function Auth() {
         } else {
           toast({
             title: "Registration Successful!",
-            description: "Account created but email service is temporarily unavailable. Check the browser console for a direct verification link.",
+            description: "Email service is temporarily unavailable. Your verification link will appear below.",
             variant: "default"
           });
           // Log the dev URL for easy access
           if (devVerificationUrl) {
             console.log('🔗 VERIFICATION LINK:', devVerificationUrl);
             console.log('👆 Click the link above to verify your email');
+            // Also show it in the UI
+            setShowDirectLink(devVerificationUrl);
           }
         }
         
@@ -349,8 +352,44 @@ export default function Auth() {
           </CardContent>
         </Card>
 
+        {/* Direct Verification Link (when email fails) */}
+        {showDirectLink && (
+          <Card className="mt-4 border-blue-200 bg-blue-50">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-sm text-blue-800 mb-3">
+                  Click the verification link below to verify your account:
+                </p>
+                <div className="bg-white p-3 rounded border border-blue-200 mb-4">
+                  <a 
+                    href={showDirectLink} 
+                    className="text-blue-600 hover:text-blue-800 underline break-all text-sm"
+                    data-testid="link-direct-verification"
+                  >
+                    {showDirectLink}
+                  </a>
+                </div>
+                <Button 
+                  onClick={() => window.open(showDirectLink, '_blank')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  data-testid="button-open-verification"
+                >
+                  Open Verification Link
+                </Button>
+                <button
+                  onClick={() => setShowDirectLink(null)}
+                  className="ml-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                  data-testid="button-dismiss-link"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Resend Verification Email Option */}
-        {showResendOption && pendingVerificationEmail && (
+        {showResendOption && pendingVerificationEmail && !showDirectLink && (
           <Card className="mt-4 border-yellow-200 bg-yellow-50">
             <CardContent className="pt-6">
               <div className="text-center">
