@@ -40,6 +40,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send verification email
       const baseUrl = req.protocol + '://' + req.get('host');
+      const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
       const emailSent = await sendVerificationEmail(
         user.email,
         verificationToken,
@@ -48,18 +49,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!emailSent) {
         console.error('Failed to send verification email to:', user.email);
-        console.log('TEMP DEV INFO: Verification URL:', `${baseUrl}/verify-email?token=${verificationToken}`);
+        console.log('🔗 DIRECT VERIFICATION LINK:', verificationUrl);
+        console.log('👆 User can click this link to verify their email');
       }
 
       // Return success message without user data (user must verify email first)
       res.json({ 
         message: emailSent 
           ? "Registration successful! Please check your email to verify your account before signing in."
-          : "Registration successful! Email service is temporarily unavailable. Please contact support or try the verification link in the console logs.",
+          : "Registration successful! Email delivery failed, but your account was created. Use the direct verification link provided.",
         emailSent,
-        // DEV ONLY: Include verification URL in response when email fails
+        // Always include verification URL in development when email fails
         ...(process.env.NODE_ENV === 'development' && !emailSent && {
-          devVerificationUrl: `${baseUrl}/verify-email?token=${verificationToken}`
+          devVerificationUrl: verificationUrl
         })
       });
     } catch (error) {
@@ -227,7 +229,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (emailSent) {
         res.json({ message: "Verification email sent successfully" });
       } else {
-        res.status(500).json({ error: "Failed to send verification email" });
+        // Instead of returning error, provide helpful info about email service issues
+        const baseUrl = req.protocol + '://' + req.get('host');
+        const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
+        console.log('🔗 DIRECT VERIFICATION LINK for', user.email + ':', verificationUrl);
+        res.json({ 
+          message: "Email service is temporarily unavailable. Please contact support for a direct verification link.",
+          ...(process.env.NODE_ENV === 'development' && {
+            devVerificationUrl: verificationUrl
+          })
+        });
       }
     } catch (error) {
       console.error("Resend verification error:", error);
