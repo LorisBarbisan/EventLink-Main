@@ -139,6 +139,6 @@ The E8 Team
     }
   }
   
-  console.log('All sender addresses failed. User will need to verify manually.');
+  console.log('All sender addresses failed.');
   return false;
 }
