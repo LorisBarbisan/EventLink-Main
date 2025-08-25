@@ -40,7 +40,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send verification email
       const baseUrl = req.protocol + '://' + req.get('host');
-      const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
       const emailSent = await sendVerificationEmail(
         user.email,
         verificationToken,
@@ -49,20 +48,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!emailSent) {
         console.error('Failed to send verification email to:', user.email);
-        console.log('🔗 DIRECT VERIFICATION LINK:', verificationUrl);
-        console.log('👆 User can click this link to verify their email');
+        return res.status(500).json({ 
+          error: "Failed to send verification email. Please try again or contact support." 
+        });
       }
 
       // Return success message without user data (user must verify email first)
       res.json({ 
-        message: emailSent 
-          ? "Registration successful! Please check your email to verify your account before signing in."
-          : "Registration successful! Email delivery failed, but your account was created. Use the direct verification link provided.",
-        emailSent,
-        // Always include verification URL in development when email fails
-        ...(process.env.NODE_ENV === 'development' && !emailSent && {
-          devVerificationUrl: verificationUrl
-        })
+        message: "Registration successful! Please check your email to verify your account before signing in.",
+        emailSent: true
       });
     } catch (error) {
       console.error("Signup error:", error);
@@ -229,15 +223,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (emailSent) {
         res.json({ message: "Verification email sent successfully" });
       } else {
-        // Instead of returning error, provide helpful info about email service issues
-        const baseUrl = req.protocol + '://' + req.get('host');
-        const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
-        console.log('🔗 DIRECT VERIFICATION LINK for', user.email + ':', verificationUrl);
-        res.json({ 
-          message: "Email service is temporarily unavailable. Please contact support for a direct verification link.",
-          ...(process.env.NODE_ENV === 'development' && {
-            devVerificationUrl: verificationUrl
-          })
+        console.error('Failed to resend verification email to:', user.email);
+        res.status(500).json({ 
+          error: "Failed to send verification email. Please try again or contact support." 
         });
       }
     } catch (error) {
