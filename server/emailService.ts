@@ -120,7 +120,7 @@ The E8 Team
   // Use verified SendGrid sender address
   return await sendEmail({
     to: email,
-    from: 'regristration@eventlink.one', // Your verified SendGrid sender
+    from: 'register@eventlink.one', // Your verified SendGrid sender
     subject: 'Verify Your E8 Account',
     html: htmlContent,
     text: textContent,
