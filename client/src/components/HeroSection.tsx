@@ -32,47 +32,48 @@ export const HeroSection = () => {
               </Badge>
               
               <h1 className="text-4xl lg:text-6xl font-bold leading-tight">
-                Connect with 
-                <span className="text-primary"> Technical</span>
-                <span className="text-accent"> Crew</span> for Events
+                The Future of 
+                <span className="text-primary"> Event</span>
+                <span className="text-accent"> Staffing</span>
               </h1>
               
               <p className="text-xl text-muted-foreground leading-relaxed">
-                The premier platform connecting freelance technical professionals with event companies. 
-                Find your next gig or hire skilled crew for conferences, exhibitions, and corporate events.
+                <strong>E8</strong> connects top event industry professionals with companies worldwide. 
+                Whether you're seeking skilled technical crew or looking for your next opportunity, 
+                we make professional connections that drive successful events.
               </p>
             </div>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="bg-gradient-primary hover:bg-primary-hover text-lg px-8" asChild>
-                <Link to="/jobs">
-                  Find Jobs
+              <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-lg px-8 shadow-lg hover:shadow-xl transition-all duration-200" asChild>
+                <Link to="/auth">
+                  Get Started
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
               </Button>
               
-              <Button variant="outline" size="lg" className="text-lg px-8" asChild>
-                <Link to="/freelancers">
-                  Hire Crew
-                  <Users className="w-5 h-5 ml-2" />
+              <Button variant="outline" size="lg" className="text-lg px-8 border-2 hover:bg-muted/50" asChild>
+                <Link to="/jobs">
+                  Browse Opportunities
+                  <Briefcase className="w-5 h-5 ml-2" />
                 </Link>
               </Button>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-8 pt-8 border-t hidden">
+            <div className="grid grid-cols-3 gap-8 pt-8 border-t">
               <div className="text-center">
-                <div className="text-2xl font-bold text-primary">2,500+</div>
-                <div className="text-sm text-muted-foreground">Active Freelancers</div>
+                <div className="text-2xl font-bold text-primary">100+</div>
+                <div className="text-sm text-muted-foreground">Event Professionals</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-primary">1,200+</div>
-                <div className="text-sm text-muted-foreground">Jobs Posted</div>
+                <div className="text-2xl font-bold text-primary">50+</div>
+                <div className="text-sm text-muted-foreground">Successful Placements</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-primary">500+</div>
-                <div className="text-sm text-muted-foreground">Companies</div>
+                <div className="text-2xl font-bold text-primary">25+</div>
+                <div className="text-sm text-muted-foreground">Partner Companies</div>
               </div>
             </div>
           </div>
