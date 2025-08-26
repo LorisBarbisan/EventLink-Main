@@ -32,9 +32,9 @@ export const HeroSection = () => {
               </Badge>
               
               <h1 className="text-4xl lg:text-6xl font-bold leading-tight">
-                The Future of 
-                <span className="text-primary"> Event</span>
-                <span className="text-accent"> Staffing</span>
+                Connect with 
+                <span className="text-primary"> Technical</span>
+                <span className="text-accent"> Crew</span> for Events
               </h1>
               
               <p className="text-xl text-muted-foreground leading-relaxed">
