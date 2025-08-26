@@ -249,7 +249,7 @@ The E8 Team
   // Use verified SendGrid sender address
   return await sendEmail({
     to: email,
-    from: 'lorisbarbisan@gmail.com', // Your verified Gmail sender
+    from: 'verification@eventlink.one', // Verified sender identity
     subject: 'Verify Your E8 Account',
     html: htmlContent,
     text: textContent,
