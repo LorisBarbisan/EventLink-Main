@@ -205,7 +205,7 @@ export async function sendVerificationEmail(
           <p>To complete your registration and start connecting with exciting opportunities, please verify your email address by clicking the button below:</p>
           
           <div class="button-container">
-            <a href="${verificationUrl}" class="button">Verify Email Address</a>
+            <a href="${verificationUrl}" class="button" target="_blank" rel="noopener noreferrer">Verify Email Address</a>
           </div>
           
           <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
