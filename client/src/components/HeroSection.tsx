@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { ArrowRight, Users, Briefcase, Star, MapPin, Clock } from "lucide-react";
 import eventImage from "@assets/vecteezy_blurred-images-of-trade-fairs-in-the-big-hall-image-of_33496157_1753859139754.jpg";
-import e8Logo from "@assets/E8 LOGO_1756038316799.png";
+import eventlinkLogo from "@assets/Eventlink Logo 1_1755805231857.png";
 
 export const HeroSection = () => {
   return (
@@ -15,12 +15,12 @@ export const HeroSection = () => {
           {/* Left Column - Content */}
           <div className="space-y-8 animate-fade-in">
             <div className="space-y-6">
-              {/* Large E8 Logo */}
+              {/* Large EventLink Logo */}
               <div className="flex justify-center lg:justify-start mb-4">
                 <div className="relative">
                   <img 
-                    src={e8Logo} 
-                    alt="E8 Logo" 
+                    src={eventlinkLogo} 
+                    alt="EventLink Logo" 
                     className="w-32 h-32 drop-shadow-lg"
                   />
                 </div>
@@ -38,7 +38,7 @@ export const HeroSection = () => {
               </h1>
               
               <p className="text-xl text-muted-foreground leading-relaxed">
-                <strong>E8</strong> connects top event industry professionals with companies worldwide. 
+                <strong>EventLink</strong> connects top event industry professionals with companies worldwide. 
                 Whether you're seeking skilled technical crew or looking for your next opportunity, 
                 we make professional connections that drive successful events.
               </p>

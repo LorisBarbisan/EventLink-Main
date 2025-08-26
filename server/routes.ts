@@ -150,8 +150,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <div style="max-width: 600px; margin: 0 auto;">
               <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 32px; font-weight: bold; margin: 0 auto 20px;">✓</div>
               <h1 style="color: #16a34a;">Email Verified Successfully!</h1>
-              <p>Your email address has been verified. You can now sign in to your E8 account.</p>
-              <a href="/auth" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px;">Sign In to E8</a>
+              <p>Your email address has been verified. You can now sign in to your EventLink account.</p>
+              <a href="/auth" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px;">Sign In to EventLink</a>
             </div>
           </body>
           </html>

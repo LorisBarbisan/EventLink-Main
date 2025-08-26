@@ -78,7 +78,7 @@ export async function sendVerificationEmail(
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Verify Your E8 Account</title>
+      <title>Verify Your EventLink Account</title>
       <style>
         body { 
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
@@ -194,13 +194,13 @@ export async function sendVerificationEmail(
       <div class="container">
         <div class="header">
           <div class="logo">
-            <div style="width: 120px; height: 120px; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px; font-weight: bold; margin: 0 auto; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2);">E8</div>
+            <div style="width: 120px; height: 120px; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; margin: 0 auto; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2);">EventLink</div>
           </div>
-          <h1>Welcome to E8!</h1>
+          <h1>Welcome to EventLink!</h1>
         </div>
         
         <div class="content">
-          <p>Thank you for joining <strong>E8</strong>, the premier platform for event industry professionals.</p>
+          <p>Thank you for joining <strong>EventLink</strong>, the premier platform for event industry professionals.</p>
           
           <p>To complete your registration and start connecting with exciting opportunities, please verify your email address by clicking the button below:</p>
           
@@ -215,12 +215,12 @@ export async function sendVerificationEmail(
             <strong>⏰ This verification link will expire in 24 hours.</strong>
           </div>
           
-          <p style="font-size: 14px; color: #64748b;">If you didn't create an account with E8, you can safely ignore this email.</p>
+          <p style="font-size: 14px; color: #64748b;">If you didn't create an account with EventLink, you can safely ignore this email.</p>
         </div>
         
         <div class="footer">
-          <p class="signature">Best regards,<br><strong>The E8 Team</strong></p>
-          <p>© 2025 E8. All rights reserved.</p>
+          <p class="signature">Best regards,<br><strong>The EventLink Team</strong></p>
+          <p>© 2025 EventLink. All rights reserved.</p>
         </div>
       </div>
     </body>
@@ -228,9 +228,9 @@ export async function sendVerificationEmail(
   `;
 
   const textContent = `
-Welcome to E8!
+Welcome to EventLink!
 
-Thank you for joining E8, the premier platform for event industry professionals.
+Thank you for joining EventLink, the premier platform for event industry professionals.
 
 To complete your registration and start connecting with opportunities, please verify your email address by visiting:
 
@@ -238,19 +238,19 @@ ${verificationUrl}
 
 This verification link will expire in 24 hours.
 
-If you didn't create an account with E8, you can safely ignore this email.
+If you didn't create an account with EventLink, you can safely ignore this email.
 
 Best regards,
-The E8 Team
+The EventLink Team
 
-© 2024 E8. All rights reserved.
+© 2025 EventLink. All rights reserved.
   `;
 
   // Use verified SendGrid sender address
   return await sendEmail({
     to: email,
     from: 'verification@eventlink.one', // Verified sender identity
-    subject: 'Verify Your E8 Account',
+    subject: 'Verify Your EventLink Account',
     html: htmlContent,
     text: textContent,
   });
