@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { Eye, EyeOff, Trash2, Key } from 'lucide-react';
 import type { User } from '@shared/types';
@@ -16,6 +17,7 @@ interface SettingsFormProps {
 
 export function SettingsForm({ user }: SettingsFormProps) {
   const { toast } = useToast();
+  const { signOut } = useAuth();
   const [showEmail, setShowEmail] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -107,10 +109,13 @@ export function SettingsForm({ user }: SettingsFormProps) {
       setDeletePassword('');
       setShowDeleteDialog(false);
       
-      // Redirect to home page after a delay
+      // Immediately log out the user and clear their session
+      await signOut();
+      
+      // Redirect to landing page immediately after logout
       setTimeout(() => {
         window.location.href = '/';
-      }, 2000);
+      }, 1000);
       
     } catch (error: any) {
       toast({
