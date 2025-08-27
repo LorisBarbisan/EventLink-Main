@@ -194,7 +194,7 @@ export async function sendVerificationEmail(
       <div class="container">
         <div class="header">
           <div class="logo">
-            <div style="width: 120px; height: 120px; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; font-weight: bold; margin: 0 auto; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2); text-align: center; line-height: 1.2;">EventLink</div>
+            <div style="width: 120px; height: 120px; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px; font-weight: bold; margin: 0 auto; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2); text-align: center; line-height: 1;">E8</div>
           </div>
           <h1>Welcome to EventLink!</h1>
         </div>
@@ -205,11 +205,13 @@ export async function sendVerificationEmail(
           <p>To complete your registration and start connecting with exciting opportunities, please verify your email address by clicking the button below:</p>
           
           <div class="button-container">
-            <a href="${verificationUrl}" class="button" target="_blank" rel="noopener noreferrer">Verify Email Address</a>
+            <a href="${verificationUrl}" class="button" target="_blank" rel="noopener noreferrer" style="color: white !important; text-decoration: none !important;">Verify Email Address</a>
           </div>
           
           <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-          <div class="link-text">${verificationUrl}</div>
+          <div class="link-text">
+            <a href="${verificationUrl}" style="color: #3b82f6; text-decoration: none;">${verificationUrl}</a>
+          </div>
           
           <div class="warning">
             <strong>⏰ This verification link will expire in 24 hours.</strong>
