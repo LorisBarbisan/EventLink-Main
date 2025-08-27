@@ -84,7 +84,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Find user (case-insensitive email lookup)
       const user = await storage.getUserByEmail(email.toLowerCase());
       if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
+        return res.status(401).json({ error: "User does not exist or invalid credentials" });
       }
 
       // Check if email is verified
@@ -98,7 +98,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isValid = await bcrypt.compare(password, user.password);
       
       if (!isValid) {
-        return res.status(401).json({ error: "Invalid credentials" });
+        return res.status(401).json({ error: "User does not exist or invalid credentials" });
       }
 
       // Remove password from response
@@ -106,17 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ user: userWithoutPassword });
     } catch (error) {
       console.error("Signin error:", error);
-      // Return temporary user for demo purposes when database is unavailable
-      res.json({ 
-        user: { 
-          id: 1, 
-          email: req.body.email?.toLowerCase() || "demo@example.com", 
-          role: "freelancer",
-          email_verified: true,
-          created_at: new Date(),
-          updated_at: new Date()
-        } 
-      });
+      return res.status(500).json({ error: "Server error occurred. Please try again." });
     }
   });
 
