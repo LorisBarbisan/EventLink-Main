@@ -140,9 +140,14 @@ export default function Auth() {
           }
         }
         
-        // Store email for potential resend verification
-        setPendingVerificationEmail(signUpData.email);
-        setShowResendOption(!emailSent); // Only show resend option if email failed
+        // Only store email and show resend option if email sending failed
+        if (!emailSent) {
+          setPendingVerificationEmail(signUpData.email);
+          setShowResendOption(true);
+        } else {
+          setPendingVerificationEmail('');
+          setShowResendOption(false);
+        }
         // Clear the form after successful signup
         setSignUpData({
           email: '',
@@ -165,22 +170,49 @@ export default function Auth() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await signIn(signInData.email, signInData.password);
     
-    if (error) {
-      let description = error.message;
-      // Check if it's an email verification error
-      if (error.message.includes("verify your email")) {
-        description = "Please verify your email address before signing in. Check your email for the verification link.";
-        setPendingVerificationEmail(signInData.email);
-        setShowResendOption(true);
+    try {
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: signInData.email, password: signInData.password })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Successful signin - handled by useAuth hook
+        window.location.reload(); // Force refresh to trigger auth state update
+      } else {
+        const errorData = await response.json();
+        let description = errorData.error;
+        
+        // Only show resend verification option for unverified email (403 status)
+        if (response.status === 403 && errorData.error.includes("verify your email")) {
+          description = "Please verify your email address before signing in. Check your email for the verification link.";
+          setPendingVerificationEmail(signInData.email);
+          setShowResendOption(true);
+        } else {
+          // For all other errors (wrong credentials, user doesn't exist, etc.), don't show resend option
+          setShowResendOption(false);
+          setPendingVerificationEmail('');
+        }
+        
+        toast({
+          title: "Sign In Failed",
+          description: description,
+          variant: "destructive"
+        });
       }
+    } catch (error) {
+      setShowResendOption(false);
+      setPendingVerificationEmail('');
       toast({
         title: "Sign In Failed",
-        description: description,
+        description: "An error occurred. Please try again.",
         variant: "destructive"
       });
     }
+    
     setLoading(false);
   };
 
