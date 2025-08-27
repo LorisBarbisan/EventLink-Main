@@ -33,15 +33,30 @@ export default function Auth() {
     password: ''
   });
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (but only after loading is complete to ensure validation is done)
   useEffect(() => {
-    if (user) {
+    if (user && !loading) {
       setLocation('/dashboard');
     }
-  }, [user, setLocation]);
+  }, [user, loading, setLocation]);
+
+  // Show loading during validation to prevent premature redirects
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        <p>Loading...</p>
+      </div>
+    </div>;
+  }
 
   if (user) {
-    return <div>Redirecting...</div>;
+    return <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        <p>Redirecting to dashboard...</p>
+      </div>
+    </div>;
   }
 
   const handleSignUp = async (e: React.FormEvent) => {

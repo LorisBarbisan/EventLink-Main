@@ -335,8 +335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(userWithoutPassword);
     } catch (error) {
       console.error("Get user error:", error);
-      // Return demo user instead of 500 error to keep platform online
-      res.json({ id: parseInt(req.params.id), email: 'demo@example.com', created_at: new Date(), updated_at: new Date() });
+      return res.status(500).json({ error: "Server error occurred" });
     }
   });
 

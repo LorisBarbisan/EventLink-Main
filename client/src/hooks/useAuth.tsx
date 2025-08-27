@@ -27,10 +27,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const parsedUser = JSON.parse(storedUser);
           // Validate the user still exists on the server
           try {
-            await apiRequest(`/api/users/${parsedUser.id}`);
-            setUser(parsedUser);
+            const response = await apiRequest(`/api/users/${parsedUser.id}`);
+            // Only set user if we get a valid response with user data
+            if (response && response.id && response.email) {
+              setUser(parsedUser);
+            } else {
+              // Invalid response, clear cache
+              console.log('Invalid user validation response, clearing cache');
+              localStorage.removeItem('user');
+              setUser(null);
+            }
           } catch (error) {
-            // User no longer exists on server, clear cache
+            // User no longer exists on server or any API error, clear cache
+            console.log('User validation failed, clearing cache:', error);
             localStorage.removeItem('user');
             setUser(null);
           }
