@@ -9,6 +9,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
   resendVerificationEmail: (email: string) => Promise<{ error: any; message?: string }>;
+  clearAllCache: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,16 +19,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored user session
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        localStorage.removeItem('user');
+    // Check for stored user session and validate it against the server
+    const validateStoredUser = async () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          // Validate the user still exists on the server
+          try {
+            await apiRequest(`/api/users/${parsedUser.id}`);
+            setUser(parsedUser);
+          } catch (error) {
+            // User no longer exists on server, clear cache
+            localStorage.removeItem('user');
+            setUser(null);
+          }
+        } catch (error) {
+          localStorage.removeItem('user');
+          setUser(null);
+        }
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    };
+    
+    validateStoredUser();
   }, []);
 
   const signUp = async (email: string, password: string, role: 'freelancer' | 'recruiter') => {
@@ -75,6 +90,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const clearAllCache = () => {
+    // Clear all localStorage data for this application
+    localStorage.clear();
+    // Clear any sessionStorage as well
+    sessionStorage.clear();
+    // Reset user state
+    setUser(null);
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -82,7 +106,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       signUp,
       signIn,
       signOut,
-      resendVerificationEmail
+      resendVerificationEmail,
+      clearAllCache
     }}>
       {children}
     </AuthContext.Provider>
