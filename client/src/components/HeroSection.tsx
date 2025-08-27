@@ -26,7 +26,7 @@ export const HeroSection = () => {
                   />
                 </div>
                 <div className="text-3xl font-bold text-gray-800 dark:text-gray-200">
-                  Event Link
+                  EvenLink
                 </div>
               </div>
 
@@ -42,7 +42,7 @@ export const HeroSection = () => {
               </h1>
               
               <p className="text-xl text-muted-foreground leading-relaxed">
-                <strong>EventLink</strong> connects top event industry professionals with companies worldwide. 
+                <strong>EvenLink</strong> connects top event industry professionals with companies worldwide. 
                 Whether you're seeking skilled technical crew or looking for your next opportunity, 
                 we make professional connections that drive successful events.
               </p>

@@ -1,7 +1,7 @@
-# EventLink - Replit Migration
+# EvenLink - Replit Migration
 
 ## Overview
-EventLink is a freelance marketplace platform specifically designed for the events industry. It connects event professionals (freelancers) with recruiters/companies seeking skilled crew members. The platform aims to streamline the hiring process for event staff, offering detailed profiles, job posting capabilities, and integrated communication tools.
+EvenLink is a freelance marketplace platform specifically designed for the events industry. It connects event professionals (freelancers) with recruiters/companies seeking skilled crew members. The platform aims to streamline the hiring process for event staff, offering detailed profiles, job posting capabilities, and integrated communication tools.
 
 ## User Preferences
 - Security-focused development with proper client/server separation
@@ -10,7 +10,7 @@ EventLink is a freelance marketplace platform specifically designed for the even
 - Maximum system efficiency and performance optimization
 
 ## System Architecture
-The EventLink platform utilizes a modern web application stack with recent optimization improvements.
+The EvenLink platform utilizes a modern web application stack with recent optimization improvements.
 
 ### Current Production System
 - **Frontend**: React and TypeScript with Wouter routing, Tailwind CSS and shadcn/ui components

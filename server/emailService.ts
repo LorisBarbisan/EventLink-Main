@@ -196,11 +196,11 @@ export async function sendVerificationEmail(
           <div class="logo">
             <div style="width: 120px; height: 120px; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px; font-weight: bold; margin: 0 auto; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2); text-align: center; line-height: 1;">E8</div>
           </div>
-          <h1>Welcome to EventLink!</h1>
+          <h1>Welcome to EvenLink!</h1>
         </div>
         
         <div class="content">
-          <p>Thank you for joining <strong>EventLink</strong>, the premier platform for event industry professionals.</p>
+          <p>Thank you for joining <strong>EvenLink</strong>, the premier platform for event industry professionals.</p>
           
           <p>To complete your registration and start connecting with exciting opportunities, please verify your email address by clicking the button below:</p>
           
@@ -217,12 +217,12 @@ export async function sendVerificationEmail(
             <strong>⏰ This verification link will expire in 24 hours.</strong>
           </div>
           
-          <p style="font-size: 14px; color: #64748b;">If you didn't create an account with EventLink, you can safely ignore this email.</p>
+          <p style="font-size: 14px; color: #64748b;">If you didn't create an account with EvenLink, you can safely ignore this email.</p>
         </div>
         
         <div class="footer">
-          <p class="signature">Best regards,<br><strong>The EventLink Team</strong></p>
-          <p>© 2025 EventLink. All rights reserved.</p>
+          <p class="signature">Best regards,<br><strong>The EvenLink Team</strong></p>
+          <p>© 2025 EvenLink. All rights reserved.</p>
         </div>
       </div>
     </body>
@@ -230,9 +230,9 @@ export async function sendVerificationEmail(
   `;
 
   const textContent = `
-Welcome to EventLink!
+Welcome to EvenLink!
 
-Thank you for joining EventLink, the premier platform for event industry professionals.
+Thank you for joining EvenLink, the premier platform for event industry professionals.
 
 To complete your registration and start connecting with opportunities, please verify your email address by visiting:
 
@@ -240,19 +240,19 @@ ${verificationUrl}
 
 This verification link will expire in 24 hours.
 
-If you didn't create an account with EventLink, you can safely ignore this email.
+If you didn't create an account with EvenLink, you can safely ignore this email.
 
 Best regards,
-The EventLink Team
+The EvenLink Team
 
-© 2025 EventLink. All rights reserved.
+© 2025 EvenLink. All rights reserved.
   `;
 
   // Use verified SendGrid sender address
   return await sendEmail({
     to: email,
     from: 'verification@eventlink.one', // Verified sender identity
-    subject: 'Verify Your EventLink Account',
+    subject: 'Verify Your EvenLink Account',
     html: htmlContent,
     text: textContent,
   });

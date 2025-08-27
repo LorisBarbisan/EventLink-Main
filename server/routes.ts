@@ -127,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           <!DOCTYPE html>
           <html>
           <head>
-            <title>Invalid Verification Link - EventLink</title>
+            <title>Invalid Verification Link - EvenLink</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
           </head>
           <body style="font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; text-align: center; background-color: #f8fafc; margin: 0;">
@@ -135,7 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               <div style="width: 80px; height: 80px; background: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 32px; font-weight: bold; margin: 0 auto 20px;">✕</div>
               <h1 style="color: #dc2626; margin: 0 0 16px;">Invalid Verification Link</h1>
               <p style="color: #64748b; margin-bottom: 24px;">The verification link is invalid or malformed. Please check your email for the correct link.</p>
-              <a href="/auth" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Return to EventLink</a>
+              <a href="/auth" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Return to EvenLink</a>
             </div>
           </body>
           </html>
@@ -149,16 +149,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           <!DOCTYPE html>
           <html>
           <head>
-            <title>Email Verified Successfully - EventLink</title>
+            <title>Email Verified Successfully - EvenLink</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
           </head>
           <body style="font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; text-align: center; background-color: #f8fafc; margin: 0;">
             <div style="max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
               <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 32px; font-weight: bold; margin: 0 auto 20px;">✓</div>
               <h1 style="color: #059669; margin: 0 0 16px;">Email Verified Successfully!</h1>
-              <p style="color: #64748b; font-size: 16px; margin-bottom: 24px;">Welcome to EventLink! Your email address has been verified and your account is now active.</p>
+              <p style="color: #64748b; font-size: 16px; margin-bottom: 24px;">Welcome to EvenLink! Your email address has been verified and your account is now active.</p>
               <p style="color: #64748b; font-size: 14px; margin-bottom: 32px;">You can now sign in and start connecting with event industry opportunities.</p>
-              <a href="/" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);" onclick="window.location.href='/'; return false;">Continue to EventLink</a>
+              <a href="/" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);" onclick="window.location.href='/'; return false;">Continue to EvenLink</a>
               <script>
                 // Auto-redirect after 3 seconds
                 setTimeout(function() {
@@ -174,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           <!DOCTYPE html>
           <html>
           <head>
-            <title>Verification Failed - EventLink</title>
+            <title>Verification Failed - EvenLink</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
           </head>
           <body style="font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; text-align: center; background-color: #f8fafc; margin: 0;">
@@ -183,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               <h1 style="color: #dc2626; margin: 0 0 16px;">Verification Failed</h1>
               <p style="color: #64748b; margin-bottom: 24px;">The verification link is invalid, expired, or has already been used.</p>
               <p style="color: #64748b; font-size: 14px; margin-bottom: 32px;">Please try registering again or contact support if you continue to have issues.</p>
-              <a href="/auth" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Return to EventLink</a>
+              <a href="/auth" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Return to EvenLink</a>
             </div>
           </body>
           </html>

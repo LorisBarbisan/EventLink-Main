@@ -1,7 +1,7 @@
-// Clear all browser cache and localStorage for EventLink
+// Clear all browser cache and localStorage for EvenLink
 // Run this in browser console to clear all traces
 
-console.log('🧹 Clearing all EventLink data...');
+console.log('🧹 Clearing all EvenLink data...');
 
 // Clear localStorage
 localStorage.clear();
@@ -39,7 +39,7 @@ document.cookie.split(";").forEach(cookie => {
 });
 console.log('✅ Cookies cleared');
 
-console.log('🎉 All EventLink data cleared! Refresh the page.');
+console.log('🎉 All EvenLink data cleared! Refresh the page.');
 
 // Force reload to ensure clean state
 setTimeout(() => {
