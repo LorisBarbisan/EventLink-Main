@@ -232,6 +232,30 @@ export class DatabaseStorage implements IStorage {
       .set(updateData)
       .where(eq(freelancer_profiles.user_id, userId))
       .returning();
+    
+    // If no existing profile found, create one
+    if (result.length === 0) {
+      const newProfile = {
+        user_id: userId,
+        first_name: updateData.first_name || '',
+        last_name: updateData.last_name || '',
+        title: updateData.title || '',
+        bio: updateData.bio || '',
+        location: updateData.location || '',
+        hourly_rate: updateData.hourly_rate || null,
+        rate_type: updateData.rate_type || 'hourly',
+        experience_years: updateData.experience_years || null,
+        skills: updateData.skills || [],
+        portfolio_url: updateData.portfolio_url || '',
+        linkedin_url: updateData.linkedin_url || '',
+        website_url: updateData.website_url || '',
+        availability_status: updateData.availability_status || 'available',
+        profile_photo_url: updateData.profile_photo_url || ''
+      };
+      const createResult = await db.insert(freelancer_profiles).values([newProfile]).returning();
+      return createResult[0];
+    }
+    
     return result[0];
   }
 
