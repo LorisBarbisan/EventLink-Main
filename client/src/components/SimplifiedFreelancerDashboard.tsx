@@ -17,9 +17,10 @@ export default function SimplifiedFreelancerDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
 
-  // Use custom hooks
-  const { profile, loading: profileLoading } = useProfile();
-  const notifications = useNotifications({ userId: user?.id });
+  // Use custom hooks - temporarily disabled to prevent errors
+  // const { profile } = useProfile();
+  // const notifications = useNotifications({ userId: user?.id });
+  const profile = null; // Temporary placeholder
 
   // Get user's job applications
   const { data: jobApplications = [], isLoading: applicationsLoading } = useQuery({
