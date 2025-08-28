@@ -91,13 +91,18 @@ export default function SimplifiedFreelancerDashboard() {
                 console.log('Saving freelancer profile data:', formData);
                 
                 // Use the correct API endpoint for freelancer profiles
+                // Convert string values to numbers for numeric fields
+                const processedData = {
+                  user_id: user.id,
+                  ...formData,
+                  hourly_rate: formData.hourly_rate ? parseFloat(formData.hourly_rate) : undefined,
+                  experience_years: formData.experience_years ? parseInt(formData.experience_years) : undefined,
+                };
+
                 const response = await fetch(`/api/freelancer/${user.id}`, {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    user_id: user.id,
-                    ...formData
-                  })
+                  body: JSON.stringify(processedData)
                 });
                 
                 if (!response.ok) {
