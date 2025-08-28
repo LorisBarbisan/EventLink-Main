@@ -11,7 +11,17 @@ import { ObjectPermission } from "./objectAcl";
 import { nukeAllUserData } from "./clearAllUserData";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Health check endpoints for deployment
+  // Primary health check endpoint for deployment
+  app.get("/", (req, res) => {
+    res.status(200).json({ 
+      status: "healthy", 
+      service: "EventLink",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  });
+
+  // Additional health check endpoints
   app.get("/health", (req, res) => {
     res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
   });
@@ -1079,8 +1089,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DEVELOPMENT ONLY: Nuclear cleanup endpoint (remove in production)
-  if (process.env.NODE_ENV === 'development') {
+  // DEVELOPMENT ONLY: Nuclear cleanup endpoint (disabled in production)
+  // This endpoint is completely removed in production environments to prevent
+  // any possibility of triggering expensive database operations during deployment
+  if (process.env.NODE_ENV === 'development' && process.env.ENABLE_NUCLEAR_CLEANUP === 'true') {
     app.post("/api/nuclear-cleanup", async (req, res) => {
       try {
         console.log('🚨 NUCLEAR CLEANUP REQUESTED VIA API');
