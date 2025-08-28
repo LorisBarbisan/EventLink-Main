@@ -207,24 +207,28 @@ export function SettingsForm({ user }: SettingsFormProps) {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="first_name">First Name</Label>
+              <Label htmlFor="first_name">
+                First Name{user.role === 'recruiter' ? ' (Optional)' : ''}
+              </Label>
               <Input
                 id="first_name"
                 type="text"
                 value={accountForm.first_name}
                 onChange={(e) => setAccountForm(prev => ({ ...prev, first_name: e.target.value }))}
-                placeholder="Enter your first name"
+                placeholder={user.role === 'recruiter' ? "Enter your first name (optional)" : "Enter your first name"}
                 data-testid="input-first-name"
               />
             </div>
             <div>
-              <Label htmlFor="last_name">Last Name</Label>
+              <Label htmlFor="last_name">
+                Last Name{user.role === 'recruiter' ? ' (Optional)' : ''}
+              </Label>
               <Input
                 id="last_name"
                 type="text"
                 value={accountForm.last_name}
                 onChange={(e) => setAccountForm(prev => ({ ...prev, last_name: e.target.value }))}
-                placeholder="Enter your last name"
+                placeholder={user.role === 'recruiter' ? "Enter your last name (optional)" : "Enter your last name"}
                 data-testid="input-last-name"
               />
             </div>
