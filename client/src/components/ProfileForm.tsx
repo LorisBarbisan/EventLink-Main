@@ -311,7 +311,7 @@ function FreelancerFormFields({
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="first_name">First Name</Label>
+          <Label htmlFor="first_name">First Name (Optional)</Label>
           <Input
             id="first_name"
             value={formData.first_name}
@@ -320,7 +320,7 @@ function FreelancerFormFields({
           />
         </div>
         <div>
-          <Label htmlFor="last_name">Last Name</Label>
+          <Label htmlFor="last_name">Last Name (Optional)</Label>
           <Input
             id="last_name"
             value={formData.last_name}
@@ -331,7 +331,7 @@ function FreelancerFormFields({
       </div>
 
       <div>
-        <Label htmlFor="title">Professional Title</Label>
+        <Label htmlFor="title">Professional Title (Optional)</Label>
         <Input
           id="title"
           value={formData.title}
@@ -342,7 +342,7 @@ function FreelancerFormFields({
       </div>
 
       <div>
-        <Label htmlFor="bio">Bio</Label>
+        <Label htmlFor="bio">Bio (Optional)</Label>
         <Textarea
           id="bio"
           value={formData.bio}
@@ -354,7 +354,7 @@ function FreelancerFormFields({
       </div>
 
       <div>
-        <Label htmlFor="location">Location</Label>
+        <Label htmlFor="location">Location (Optional)</Label>
         <Input
           id="location"
           value={formData.location}
@@ -366,7 +366,7 @@ function FreelancerFormFields({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <Label htmlFor="hourly_rate">Rate</Label>
+          <Label htmlFor="hourly_rate">Rate (Optional)</Label>
           <Input
             id="hourly_rate"
             type="number"
@@ -389,7 +389,7 @@ function FreelancerFormFields({
           </Select>
         </div>
         <div>
-          <Label htmlFor="experience_years">Years of Experience</Label>
+          <Label htmlFor="experience_years">Years of Experience (Optional)</Label>
           <Input
             id="experience_years"
             type="number"
@@ -402,7 +402,7 @@ function FreelancerFormFields({
       </div>
 
       <div>
-        <Label>Skills</Label>
+        <Label>Skills (Optional)</Label>
         <div className="flex gap-2 mb-2">
           <Input
             value={newSkill}
@@ -470,7 +470,7 @@ function FreelancerFormFields({
 
       <div>
         <ImageUpload
-          label="Profile Photo"
+          label="Profile Photo (Optional)"
           value={formData.profile_photo_url}
           onChange={(url: string) => onInputChange('profile_photo_url', url)}
         />
