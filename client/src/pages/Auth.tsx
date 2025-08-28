@@ -192,43 +192,18 @@ export default function Auth() {
     setLoading(true);
     
     try {
-      const response = await fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: signInData.email, password: signInData.password })
-      });
+      // Use the useAuth hook's signIn method instead of direct fetch
+      const { error, user } = await signIn(signInData.email, signInData.password);
       
-      if (response.ok) {
-        const data = await response.json();
-        // Store user data with timestamp for fresh login detection
-        const userWithTimestamp = { ...data.user, timestamp: Date.now() };
-        localStorage.setItem('user', JSON.stringify(userWithTimestamp));
-        // Also update app version to prevent cache clearing
-        localStorage.setItem('app_version', '2025-08-28-auth-fix-v2');
+      if (error) {
+        console.log('Sign in error:', error);
+        const description = error.message || 'An error occurred';
         
-        // Show success message
-        toast({
-          title: "Welcome back!",
-          description: "You have been successfully signed in.",
-          variant: "default"
-        });
-        
-        // Redirect to dashboard after a short delay to ensure state updates
-        setTimeout(() => {
-          setLocation('/dashboard');
-        }, 500);
-        return;
-      } else {
-        const errorData = await response.json();
-        let description = errorData.error;
-        
-        // Only show resend verification option for unverified email (403 status)
-        if (response.status === 403 && errorData.error.includes("verify your email")) {
-          description = "Please verify your email address before signing in. Check your email for the verification link.";
-          setPendingVerificationEmail(signInData.email);
+        // Enhanced error handling for verification
+        if (description.includes('verify your email')) {
           setShowResendOption(true);
+          setPendingVerificationEmail(signInData.email);
         } else {
-          // For all other errors (wrong credentials, user doesn't exist, etc.), don't show resend option
           setShowResendOption(false);
           setPendingVerificationEmail('');
         }
@@ -238,6 +213,16 @@ export default function Auth() {
           description: description,
           variant: "destructive"
         });
+      } else if (user) {
+        // Successfully signed in, show success message
+        toast({
+          title: "Welcome back!",
+          description: "You have been successfully signed in.",
+          variant: "default"
+        });
+        
+        // The useAuth hook will handle state updates, redirect immediately
+        setLocation('/dashboard');
       }
     } catch (error) {
       setShowResendOption(false);
