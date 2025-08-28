@@ -124,9 +124,9 @@ export function ImageUpload({
         </div>
       ) : (
         <div
-          className={`border-2 border-dashed border-muted rounded-lg p-6 text-center transition-colors ${
+          className={`border-2 border-dashed border-muted rounded-lg p-8 text-center transition-colors ${
             isDragging ? 'border-primary bg-primary/5' : 'hover:border-primary/50'
-          } ${aspectRatio === 'square' ? 'aspect-square' : 'min-h-32'}`}
+          } ${aspectRatio === 'square' ? 'aspect-square' : 'min-h-48'}`}
           onDrop={handleDrop}
           onDragOver={(e) => {
             e.preventDefault();

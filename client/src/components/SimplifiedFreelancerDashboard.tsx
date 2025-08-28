@@ -86,7 +86,33 @@ export default function SimplifiedFreelancerDashboard() {
           <ProfileForm
             profile={profile}
             userType="freelancer"
-            onSave={() => {}}
+            onSave={async (formData) => {
+              try {
+                console.log('Saving profile data:', formData);
+                // Create or update profile via API
+                const response = await fetch('/api/profiles', {
+                  method: profile ? 'PUT' : 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ ...formData, user_id: user.id })
+                });
+                
+                if (!response.ok) {
+                  throw new Error('Failed to save profile');
+                }
+                
+                const savedProfile = await response.json();
+                console.log('Profile saved successfully:', savedProfile);
+                
+                // Show success message
+                alert('Profile saved successfully!');
+                
+                // Optionally reload the page or update state
+                window.location.reload();
+              } catch (error) {
+                console.error('Error saving profile:', error);
+                alert('Failed to save profile. Please try again.');
+              }
+            }}
             isSaving={false}
           />
         </TabsContent>
