@@ -58,12 +58,5 @@ export async function nukeAllUserData(): Promise<void> {
   }
 }
 
-// Only run immediately if executed directly, not when imported
-if (import.meta.url === `file://${process.argv[1]}`) {
-  nukeAllUserData().then(() => {
-    process.exit(0);
-  }).catch((error) => {
-    console.error('Fatal cleanup error:', error);
-    process.exit(1);
-  });
-}
+// Export only - do not run automatically
+// This prevents the cleanup from running during server startup or imports

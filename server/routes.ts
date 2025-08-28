@@ -11,6 +11,20 @@ import { ObjectPermission } from "./objectAcl";
 import { nukeAllUserData } from "./clearAllUserData";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoints for deployment
+  app.get("/health", (req, res) => {
+    res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
+  });
+
+  app.get("/api/health", (req, res) => {
+    res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
+  });
+
+  // API root endpoint health check  
+  app.get("/api", (req, res) => {
+    res.status(200).send("EventLink API is running");
+  });
+
   // Authentication routes
   app.post("/api/auth/signup", async (req, res) => {
     try {
