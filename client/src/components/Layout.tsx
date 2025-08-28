@@ -224,9 +224,9 @@ export const Layout = ({ children }: LayoutProps) => {
             <div>
               <h4 className="font-semibold mb-3">Support</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link to="/" className="hover:text-foreground">Help Center</Link></li>
-                <li><Link to="/" className="hover:text-foreground">Contact Us</Link></li>
-                <li><Link to="/" className="hover:text-foreground">Terms of Service</Link></li>
+                <li><a href="mailto:support@eventlink.com" className="hover:text-foreground">Contact Us</a></li>
+                <li><Link to="/jobs" className="hover:text-foreground">Browse Jobs</Link></li>
+                <li><Link to="/freelancers" className="hover:text-foreground">Find Professionals</Link></li>
               </ul>
             </div>
           </div>

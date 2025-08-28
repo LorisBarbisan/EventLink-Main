@@ -188,10 +188,11 @@ export function SettingsForm({ user }: SettingsFormProps) {
 
   // Update form when profile data loads
   React.useEffect(() => {
-    if (profile && user.role === 'recruiter' && 'company_name' in profile) {
+    if (user.role === 'recruiter') {
+      // Load company name from user profile if available
       setAccountForm(prev => ({
         ...prev,
-        company_name: profile.company_name || '',
+        company_name: '',
       }));
     }
   }, [profile, user.role]);
