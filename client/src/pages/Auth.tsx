@@ -466,18 +466,21 @@ export default function Auth() {
 
         {/* Resend Verification Email Option */}
         {showResendOption && pendingVerificationEmail && !showDirectLink && (
-          <Card className="mt-4 border-yellow-200 bg-yellow-50">
+          <Card className="mt-4 border-red-200 bg-red-50">
             <CardContent className="pt-6">
               <div className="text-center">
-                <p className="text-sm text-yellow-800 mb-3">
-                  Need to verify your email? We can resend the verification link to:
+                <h3 className="text-lg font-semibold text-red-800 mb-2">Email Verification Required</h3>
+                <p className="text-sm text-red-700 mb-3">
+                  Please check your email and click the verification link before signing in.
                 </p>
-                <p className="font-medium text-yellow-900 mb-4">{pendingVerificationEmail}</p>
+                <p className="text-sm text-red-700 mb-3">
+                  Didn't receive the email? We can resend it to:
+                </p>
+                <p className="font-medium text-red-900 mb-4">{pendingVerificationEmail}</p>
                 <Button 
                   onClick={handleResendVerification}
                   disabled={loading}
-                  variant="outline"
-                  className="border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                  className="bg-red-600 hover:bg-red-700 text-white"
                   data-testid="button-resend-verification"
                 >
                   {loading ? "Sending..." : "Resend Verification Email"}
