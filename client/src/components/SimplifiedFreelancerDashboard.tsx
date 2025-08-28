@@ -19,10 +19,24 @@ export default function SimplifiedFreelancerDashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('profile');
 
-  // Use custom hooks - temporarily disabled to prevent errors
-  // const { profile } = useProfile();
-  // const notifications = useNotifications({ userId: user?.id });
-  const profile = undefined; // Temporary placeholder
+  // Fetch freelancer profile data
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['/api/freelancer/profile', user?.id],
+    queryFn: async () => {
+      console.log('Fetching own profile for user:', user);
+      if (!user?.id) return null;
+      const response = await fetch(`/api/freelancer/${user.id}`);
+      if (!response.ok) {
+        if (response.status === 404) return null;
+        throw new Error('Failed to fetch profile');
+      }
+      const data = await response.json();
+      console.log('Profile data received:', data);
+      return data;
+    },
+    retry: false,
+    enabled: !!user?.id,
+  });
 
   // Get user's job applications
   const { data: jobApplications = [], isLoading: applicationsLoading } = useQuery({
