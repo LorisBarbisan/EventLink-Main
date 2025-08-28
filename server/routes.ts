@@ -209,8 +209,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
               <div style="width: 80px; height: 80px; background: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 32px; font-weight: bold; margin: 0 auto 20px;">✕</div>
               <h1 style="color: #dc2626; margin: 0 0 16px;">Verification Failed</h1>
               <p style="color: #64748b; margin-bottom: 24px;">The verification link is invalid, expired, or has already been used.</p>
-              <p style="color: #64748b; font-size: 14px; margin-bottom: 32px;">Please try registering again or contact support if you continue to have issues.</p>
+              <p style="color: #64748b; font-size: 14px; margin-bottom: 32px;">Don't worry! You can request a new verification email below.</p>
+              
+              <div style="margin-bottom: 24px;">
+                <input type="email" id="resendEmail" placeholder="Enter your email address" style="padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px; width: 100%; max-width: 300px; font-size: 16px; margin-bottom: 16px;">
+                <br>
+                <button onclick="resendVerification()" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 12px 24px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px;">Resend Verification Email</button>
+              </div>
+              
+              <div id="message" style="margin: 16px 0; font-weight: bold; display: none;"></div>
+              
               <a href="/auth" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Return to EventLink</a>
+              
+              <script>
+                async function resendVerification() {
+                  const email = document.getElementById('resendEmail').value;
+                  const messageDiv = document.getElementById('message');
+                  
+                  if (!email) {
+                    messageDiv.style.color = '#dc2626';
+                    messageDiv.textContent = 'Please enter your email address';
+                    messageDiv.style.display = 'block';
+                    return;
+                  }
+                  
+                  try {
+                    const response = await fetch('/api/auth/resend-verification', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                      messageDiv.style.color = '#059669';
+                      messageDiv.textContent = 'Verification email sent! Check your inbox.';
+                    } else {
+                      messageDiv.style.color = '#dc2626';
+                      messageDiv.textContent = data.error || 'Failed to send email';
+                    }
+                  } catch (error) {
+                    messageDiv.style.color = '#dc2626';
+                    messageDiv.textContent = 'Network error. Please try again.';
+                  }
+                  
+                  messageDiv.style.display = 'block';
+                }
+              </script>
             </div>
           </body>
           </html>
