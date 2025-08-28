@@ -124,9 +124,9 @@ export function ImageUpload({
         </div>
       ) : (
         <div
-          className={`border-2 border-dashed border-muted rounded-lg p-8 text-center transition-colors ${
+          className={`border-2 border-dashed border-muted rounded-lg p-12 text-center transition-colors ${
             isDragging ? 'border-primary bg-primary/5' : 'hover:border-primary/50'
-          } ${aspectRatio === 'square' ? 'aspect-square' : 'min-h-48'}`}
+          } ${aspectRatio === 'square' ? 'aspect-square' : 'min-h-64'}`}
           onDrop={handleDrop}
           onDragOver={(e) => {
             e.preventDefault();
@@ -135,19 +135,20 @@ export function ImageUpload({
           onDragLeave={() => setIsDragging(false)}
           data-testid={testId}
         >
-          <div className="flex flex-col items-center justify-center space-y-2">
-            <ImageIcon className="w-8 h-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{placeholder}</p>
-            <p className="text-xs text-muted-foreground">
+          <div className="flex flex-col items-center justify-center space-y-3">
+            <ImageIcon className="w-12 h-12 text-muted-foreground" />
+            <p className="text-base text-muted-foreground font-medium">{placeholder}</p>
+            <p className="text-sm text-muted-foreground">
               Drag and drop or click to browse
             </p>
             <Button
               variant="outline"
-              size="sm"
+              size="default"
               onClick={() => fileInputRef.current?.click()}
               data-testid={`${testId}-button`}
+              className="px-6 py-2"
             >
-              <Upload className="w-4 h-4 mr-2" />
+              <Upload className="w-5 h-5 mr-2" />
               Choose File
             </Button>
           </div>

@@ -20,7 +20,7 @@ export default function SimplifiedFreelancerDashboard() {
   // Use custom hooks - temporarily disabled to prevent errors
   // const { profile } = useProfile();
   // const notifications = useNotifications({ userId: user?.id });
-  const profile = null; // Temporary placeholder
+  const profile = undefined; // Temporary placeholder
 
   // Get user's job applications
   const { data: jobApplications = [], isLoading: applicationsLoading } = useQuery({
@@ -88,29 +88,32 @@ export default function SimplifiedFreelancerDashboard() {
             userType="freelancer"
             onSave={async (formData) => {
               try {
-                console.log('Saving profile data:', formData);
-                // Create or update profile via API
-                const response = await fetch('/api/profiles', {
-                  method: profile ? 'PUT' : 'POST',
+                console.log('Saving freelancer profile data:', formData);
+                
+                // Use the correct API endpoint for freelancer profiles
+                const response = await fetch('/api/freelancers/profile', {
+                  method: 'PUT',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ ...formData, user_id: user.id })
+                  body: JSON.stringify({ 
+                    userId: user.id,
+                    ...formData
+                  })
                 });
                 
                 if (!response.ok) {
-                  throw new Error('Failed to save profile');
+                  const errorData = await response.json().catch(() => ({}));
+                  throw new Error(errorData.error || 'Failed to save profile');
                 }
                 
                 const savedProfile = await response.json();
                 console.log('Profile saved successfully:', savedProfile);
                 
                 // Show success message
-                alert('Profile saved successfully!');
+                alert('Profile saved successfully! Your changes have been updated.');
                 
-                // Optionally reload the page or update state
-                window.location.reload();
               } catch (error) {
                 console.error('Error saving profile:', error);
-                alert('Failed to save profile. Please try again.');
+                alert(`Failed to save profile: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
               }
             }}
             isSaving={false}
