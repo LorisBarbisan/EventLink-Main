@@ -19,7 +19,7 @@ export default function SimplifiedFreelancerDashboard() {
 
   // Use custom hooks
   const { profile, loading: profileLoading } = useProfile();
-  const notifications = useNotifications();
+  const notifications = useNotifications({ userId: user?.id });
 
   // Get user's job applications
   const { data: jobApplications = [], isLoading: applicationsLoading } = useQuery({

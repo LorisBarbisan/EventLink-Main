@@ -20,7 +20,7 @@ interface SettingsFormProps {
 export function SettingsForm({ user }: SettingsFormProps) {
   const { toast } = useToast();
   const { signOut } = useAuth();
-  const { profile } = useProfile();
+  // const { profile } = useProfile(); // Temporarily disabled to prevent errors
   const [showEmail, setShowEmail] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -186,7 +186,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
     }
   };
 
-  // Update form when profile data loads
+  // Update form when user data loads
   React.useEffect(() => {
     if (user.role === 'recruiter') {
       // Load company name from user profile if available
@@ -195,7 +195,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
         company_name: '',
       }));
     }
-  }, [profile, user.role]);
+  }, [user.role]);
 
   return (
     <div className="space-y-6">
