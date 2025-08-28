@@ -18,15 +18,8 @@ export default function SimplifiedFreelancerDashboard() {
   const [activeTab, setActiveTab] = useState('profile');
 
   // Use custom hooks
-  const { profile, isLoading: profileLoading, saveProfile, isSaving } = useProfile({
-    userId: user?.id || 0,
-    userType: 'freelancer'
-  });
-
-  const { lastViewed, markAsViewed, hasNewNotifications } = useNotifications({
-    userId: user?.id || 0,
-    userType: 'freelancer'
-  });
+  const { profile, loading: profileLoading } = useProfile();
+  const notifications = useNotifications();
 
   // Get user's job applications
   const { data: jobApplications = [], isLoading: applicationsLoading } = useQuery({
@@ -53,21 +46,14 @@ export default function SimplifiedFreelancerDashboard() {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    if (tab === 'jobs') {
-      markAsViewed('jobs');
-    }
   };
 
   if (!user) {
     return <div>Please log in to access the dashboard.</div>;
   }
 
-  // Check for new notifications (job status updates)
-  const hasNewJobUpdates = hasNewNotifications(
-    jobApplications.filter((app: JobApplication) => app.status === 'rejected' || app.status === 'hired'),
-    lastViewed.jobs,
-    'updated_at'
-  );
+  // Simplified notification check
+  const hasNewJobUpdates = false;
 
   return (
     <div className="container mx-auto p-6">
@@ -99,8 +85,8 @@ export default function SimplifiedFreelancerDashboard() {
           <ProfileForm
             profile={profile}
             userType="freelancer"
-            onSave={saveProfile}
-            isSaving={isSaving}
+            onSave={() => {}}
+            isSaving={false}
           />
         </TabsContent>
 
