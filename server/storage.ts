@@ -518,7 +518,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createNotification(notification: InsertNotification): Promise<Notification> {
-    const result = await db.insert(notifications).values(notification).returning();
+    const result = await db.insert(notifications).values([{
+      ...notification,
+      type: notification.type as "application_update" | "new_message" | "job_update" | "profile_view" | "system",
+      priority: notification.priority as "low" | "normal" | "high" | "urgent" | null | undefined
+    }]).returning();
     return result[0];
   }
 
