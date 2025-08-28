@@ -205,7 +205,18 @@ export default function Auth() {
         localStorage.setItem('user', JSON.stringify(userWithTimestamp));
         // Also update app version to prevent cache clearing
         localStorage.setItem('app_version', '2025-08-28-auth-fix-v2');
-        setLocation('/dashboard');
+        
+        // Show success message
+        toast({
+          title: "Welcome back!",
+          description: "You have been successfully signed in.",
+          variant: "default"
+        });
+        
+        // Redirect to dashboard after a short delay to ensure state updates
+        setTimeout(() => {
+          setLocation('/dashboard');
+        }, 500);
         return;
       } else {
         const errorData = await response.json();

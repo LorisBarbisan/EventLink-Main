@@ -106,9 +106,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      setUser(result.user);
-      localStorage.setItem('user', JSON.stringify(result.user));
-      return { error: null };
+      
+      // Add timestamp for fresh login detection
+      const userWithTimestamp = {
+        ...result.user,
+        timestamp: Date.now()
+      };
+      
+      setUser(userWithTimestamp);
+      localStorage.setItem('user', JSON.stringify(userWithTimestamp));
+      return { error: null, user: userWithTimestamp };
     } catch (error) {
       return { error: { message: error instanceof Error ? error.message : 'Sign in failed' } };
     }
