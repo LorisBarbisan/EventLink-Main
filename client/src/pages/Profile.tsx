@@ -165,6 +165,7 @@ export default function Profile() {
       console.error('Error fetching profile:', error);
     } finally {
       setLoading(false);
+      setProfileDataLoaded(true);
     }
   };
 
@@ -260,7 +261,7 @@ export default function Profile() {
     );
   }
 
-  if (profile?.role === 'freelancer' && !freelancerProfile) {
+  if (profile?.role === 'freelancer' && !freelancerProfile && !loading && profileDataLoaded) {
     console.log('No freelancer profile found, showing create profile message');
     return (
       <Layout>
