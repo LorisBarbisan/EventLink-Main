@@ -61,6 +61,35 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
+  // Create conversation mutation - moved here to ensure hooks are always called
+  const createConversationMutation = useMutation({
+    mutationFn: async (otherUserId: number) => {
+      return apiRequest('/api/conversations', {
+        method: 'POST',
+        body: JSON.stringify({
+          userOneId: user!.id,
+          userTwoId: otherUserId
+        }),
+      });
+    },
+    onSuccess: (conversation) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+      toast({
+        title: "Conversation started",
+        description: "You can now message this user from your Messages tab.",
+      });
+      setLocation('/dashboard');
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to start conversation. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
   useEffect(() => {
     console.log('Profile useEffect triggered:', { user, authLoading, userId });
     if (!authLoading) {
@@ -313,33 +342,7 @@ export default function Profile() {
     );
   }
 
-  // Create conversation mutation
-  const createConversationMutation = useMutation({
-    mutationFn: async (otherUserId: number) => {
-      return apiRequest('/api/conversations', {
-        method: 'POST',
-        body: JSON.stringify({
-          userOneId: user!.id,
-          userTwoId: otherUserId
-        }),
-      });
-    },
-    onSuccess: (conversation) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
-      toast({
-        title: "Conversation started",
-        description: "You can now message this user from your Messages tab.",
-      });
-      setLocation('/dashboard');
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to start conversation. Please try again.",
-        variant: "destructive"
-      });
-    }
-  });
+  // Mutation hook moved to top - no longer duplicated here
 
   const handleContactClick = () => {
     if (!user) {
