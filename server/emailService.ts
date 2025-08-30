@@ -226,7 +226,7 @@ export async function sendVerificationEmail(
         <div class="header">
           <div class="logo">
             <div style="width: 120px; height: 120px; margin: 0 auto 20px; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2);">
-              <span style="color: white; font-size: 24px; font-weight: 900; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); letter-spacing: -1px;">EventLink</span>
+              <span style="color: white; font-size: 48px; font-weight: 900; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); letter-spacing: -2px;">E8</span>
             </div>
           </div>
           <h1>Welcome to EventLink!</h1>
@@ -238,7 +238,7 @@ export async function sendVerificationEmail(
           <p>To complete your registration and start connecting with exciting opportunities, please verify your email address by clicking the button below:</p>
           
           <div class="button-container">
-            <a href="${verificationUrl}" class="button" style="color: white !important; text-decoration: none !important; display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); padding: 16px 32px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">Verify Email Address</a>
+            <a href="${verificationUrl}" class="button" style="color: white !important; text-decoration: none !important; display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); padding: 16px 32px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);" target="_blank" rel="noopener noreferrer">Verify Email Address</a>
           </div>
           
           <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
@@ -288,6 +288,7 @@ The EventLink Team
     subject: 'Verify Your EventLink Account',
     html: htmlContent,
     text: textContent,
+
   });
 }
 
@@ -422,7 +423,7 @@ export async function sendPasswordResetEmail(
         <div class="header">
           <div class="logo">
             <div style="width: 120px; height: 120px; margin: 0 auto 20px; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2);">
-              <span style="color: white; font-size: 24px; font-weight: 900; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); letter-spacing: -1px;">EventLink</span>
+              <span style="color: white; font-size: 48px; font-weight: 900; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); letter-spacing: -2px;">E8</span>
             </div>
           </div>
           <h1>Password Reset Request</h1>
@@ -436,7 +437,7 @@ export async function sendPasswordResetEmail(
           <p>To reset your password, click the button below:</p>
           
           <div class="button-container">
-            <a href="${resetUrl}" class="button" style="color: white !important; text-decoration: none !important; display: inline-block; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 16px 32px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">Reset Password</a>
+            <a href="${resetUrl}" class="button" style="color: white !important; text-decoration: none !important; display: inline-block; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 16px 32px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);" target="_blank" rel="noopener noreferrer">Reset Password</a>
           </div>
           
           <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
@@ -487,5 +488,6 @@ The EventLink Team
     subject: 'Password Reset Request – EventLink',
     html: htmlContent,
     text: textContent,
+
   });
 }
