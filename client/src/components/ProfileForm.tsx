@@ -481,6 +481,7 @@ function FreelancerFormFields({
           label="Profile Photo (Optional)"
           value={formData.profile_photo_url}
           onChange={(url: string) => onInputChange('profile_photo_url', url)}
+          shape="circle"
         />
       </div>
 

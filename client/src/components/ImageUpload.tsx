@@ -11,6 +11,7 @@ interface ImageUploadProps {
   maxSizeMB?: number;
   aspectRatio?: 'square' | 'landscape' | 'auto';
   testId?: string;
+  shape?: 'square' | 'circle';
 }
 
 export function ImageUpload({
@@ -20,7 +21,8 @@ export function ImageUpload({
   placeholder = "Upload image",
   maxSizeMB = 2,
   aspectRatio = 'auto',
-  testId = 'image-upload'
+  testId = 'image-upload',
+  shape = 'square'
 }: ImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -102,7 +104,11 @@ export function ImageUpload({
       
       {value ? (
         <div className="relative">
-          <div className={`relative overflow-hidden rounded-lg border-2 border-dashed border-muted ${
+          <div className={`relative overflow-hidden ${
+            shape === 'circle' ? 'rounded-full w-32 h-32 bg-gradient-primary border-2 border-muted' : 
+            'rounded-lg border-2 border-dashed border-muted'
+          } ${
+            shape === 'circle' ? '' :
             aspectRatio === 'square' ? 'aspect-square' : 
             aspectRatio === 'landscape' ? 'aspect-video' : 'max-h-48'
           }`}>
@@ -124,9 +130,15 @@ export function ImageUpload({
         </div>
       ) : (
         <div
-          className={`border-2 border-dashed border-muted rounded-lg p-12 text-center transition-colors ${
+          className={`border-2 border-dashed border-muted text-center transition-colors ${
+            shape === 'circle' ? 'rounded-full w-32 h-32 flex items-center justify-center' : 
+            'rounded-lg p-12'
+          } ${
             isDragging ? 'border-primary bg-primary/5' : 'hover:border-primary/50'
-          } ${aspectRatio === 'square' ? 'aspect-square' : 'min-h-64'}`}
+          } ${
+            shape === 'circle' ? '' :
+            aspectRatio === 'square' ? 'aspect-square' : 'min-h-64'
+          }`}
           onDrop={handleDrop}
           onDragOver={(e) => {
             e.preventDefault();
@@ -135,21 +147,25 @@ export function ImageUpload({
           onDragLeave={() => setIsDragging(false)}
           data-testid={testId}
         >
-          <div className="flex flex-col items-center justify-center space-y-3">
-            <ImageIcon className="w-12 h-12 text-muted-foreground" />
-            <p className="text-base text-muted-foreground font-medium">{placeholder}</p>
-            <p className="text-sm text-muted-foreground">
-              Drag and drop or click to browse
-            </p>
+          <div className={`flex flex-col items-center justify-center ${shape === 'circle' ? 'space-y-1' : 'space-y-3'}`}>
+            <ImageIcon className={`${shape === 'circle' ? 'w-8 h-8' : 'w-12 h-12'} text-muted-foreground`} />
+            {shape !== 'circle' && (
+              <>
+                <p className="text-base text-muted-foreground font-medium">{placeholder}</p>
+                <p className="text-sm text-muted-foreground">
+                  Drag and drop or click to browse
+                </p>
+              </>
+            )}
             <Button
               variant="outline"
-              size="default"
+              size={shape === 'circle' ? 'sm' : 'default'}
               onClick={() => fileInputRef.current?.click()}
               data-testid={`${testId}-button`}
-              className="px-6 py-2"
+              className={shape === 'circle' ? 'text-xs px-2 py-1' : 'px-6 py-2'}
             >
-              <Upload className="w-5 h-5 mr-2" />
-              Choose File
+              <Upload className={`${shape === 'circle' ? 'w-3 h-3 mr-1' : 'w-5 h-5 mr-2'}`} />
+              {shape === 'circle' ? 'Add' : 'Choose File'}
             </Button>
           </div>
         </div>
