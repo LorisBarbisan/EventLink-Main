@@ -205,6 +205,14 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
 }
 
 function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
+  console.log('FreelancerProfileView - Full profile data:', profile);
+  console.log('FreelancerProfileView - CV fields:', {
+    cv_file_url: profile.cv_file_url,
+    cv_file_name: profile.cv_file_name,
+    cv_file_type: profile.cv_file_type,
+    cv_file_size: profile.cv_file_size
+  });
+  
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
@@ -250,6 +258,15 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
         </div>
       )}
       <CVViewerSection profile={profile} />
+      
+      {/* Temporary debug section */}
+      <div className="mt-4 p-4 bg-gray-100 rounded">
+        <h5 className="font-bold">DEBUG - CV Data:</h5>
+        <p>CV URL: {profile.cv_file_url || 'Not set'}</p>
+        <p>CV Name: {profile.cv_file_name || 'Not set'}</p>
+        <p>CV Type: {profile.cv_file_type || 'Not set'}</p>
+        <p>CV Size: {profile.cv_file_size || 'Not set'}</p>
+      </div>
     </div>
   );
 }
