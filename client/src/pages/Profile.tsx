@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { User, MapPin, Coins, Calendar, Globe, Linkedin, ExternalLink, Mail, Phone, Star, MessageCircle } from 'lucide-react';
+import { User, MapPin, Coins, Calendar, Globe, Linkedin, ExternalLink, Mail, Phone, Star, MessageCircle, FileText, Download } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,6 +19,7 @@ interface Profile {
 
 interface FreelancerProfile {
   id?: string;
+  user_id: number;
   first_name: string;
   last_name: string;
   title: string;
@@ -33,6 +34,10 @@ interface FreelancerProfile {
   website_url: string;
   availability_status: 'available' | 'busy' | 'unavailable';
   profile_photo_url?: string;
+  cv_file_url?: string;
+  cv_file_name?: string;
+  cv_file_type?: string;
+  cv_file_size?: number;
 }
 
 interface RecruiterProfile {
@@ -60,6 +65,65 @@ export default function Profile() {
   const [profileDataLoaded, setProfileDataLoaded] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Helper function to format file size
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Handle CV download
+  const handleDownloadCV = async (profile: FreelancerProfile) => {
+    if (!profile.cv_file_url || !user) {
+      toast({
+        title: "Error",
+        description: "CV not available for download",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/cv/download/${profile.user_id}?userId=${user.id}`,
+        {
+          method: 'GET',
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to download CV');
+      }
+
+      // Create blob and download file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = profile.cv_file_name || `${profile.first_name}_${profile.last_name}_CV.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Success",
+        description: "CV downloaded successfully",
+      });
+    } catch (error) {
+      console.error('Error downloading CV:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to download CV",
+        variant: "destructive"
+      });
+    }
+  };
 
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   // Create conversation mutation - moved here to ensure hooks are always called
@@ -129,6 +193,7 @@ export default function Profile() {
           if (data) {
             setFreelancerProfile({
               id: data.id,
+              user_id: data.user_id,
               first_name: data.first_name || '',
               last_name: data.last_name || '',
               title: data.title || '',
@@ -142,7 +207,11 @@ export default function Profile() {
               linkedin_url: data.linkedin_url || '',
               website_url: data.website_url || '',
               availability_status: data.availability_status || 'available',
-              profile_photo_url: data.profile_photo_url || ''
+              profile_photo_url: data.profile_photo_url || '',
+              cv_file_url: data.cv_file_url || '',
+              cv_file_name: data.cv_file_name || '',
+              cv_file_type: data.cv_file_type || '',
+              cv_file_size: data.cv_file_size || null
             });
             console.log('Freelancer profile set:', data);
           } else {
@@ -215,6 +284,7 @@ export default function Profile() {
           if (data) {
             setFreelancerProfile({
               id: data.id,
+              user_id: data.user_id,
               first_name: data.first_name || '',
               last_name: data.last_name || '',
               title: data.title || '',
@@ -228,7 +298,11 @@ export default function Profile() {
               linkedin_url: data.linkedin_url || '',
               website_url: data.website_url || '',
               availability_status: data.availability_status || 'available',
-              profile_photo_url: data.profile_photo_url || ''
+              profile_photo_url: data.profile_photo_url || '',
+              cv_file_url: data.cv_file_url || '',
+              cv_file_name: data.cv_file_name || '',
+              cv_file_type: data.cv_file_type || '',
+              cv_file_size: data.cv_file_size || null
             });
           }
         } catch (error) {
@@ -547,6 +621,47 @@ export default function Profile() {
                     <p className="text-muted-foreground">No skills added yet.</p>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* CV Section (Freelancers only) */}
+          {profile?.role === 'freelancer' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>CV</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {freelancerProfile?.cv_file_url ? (
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-8 h-8 text-blue-600" />
+                      <div>
+                        <p className="font-medium">{freelancerProfile.cv_file_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {freelancerProfile.cv_file_type} • {freelancerProfile.cv_file_size ? formatFileSize(freelancerProfile.cv_file_size) : 'Unknown size'}
+                        </p>
+                      </div>
+                    </div>
+                    {(user?.role === 'recruiter' || user?.id === freelancerProfile.user_id) && (
+                      <Button
+                        onClick={() => handleDownloadCV(freelancerProfile)}
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download CV
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-muted-foreground">This freelancer has not uploaded a CV yet.</p>
+                    {/* Debug info */}
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Debug - CV URL: {freelancerProfile?.cv_file_url || 'null'} | User ID: {user?.id} | Profile User ID: {freelancerProfile?.user_id}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
