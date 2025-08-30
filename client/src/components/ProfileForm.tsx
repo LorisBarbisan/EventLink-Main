@@ -260,12 +260,16 @@ function CVViewerSection({ profile }: { profile: FreelancerProfile }) {
   const { toast } = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Only show CV section if user is a recruiter or if viewing own profile
-  const canViewCV = user?.role === 'recruiter' || user?.id === profile.user_id;
-  
-  if (!canViewCV) {
-    return null;
-  }
+  // Debug logging
+  console.log('CVViewerSection - user:', user);
+  console.log('CVViewerSection - profile:', profile);
+  console.log('CVViewerSection - profile.cv_file_url:', profile.cv_file_url);
+
+  // Always show CV section for now to debug
+  // const canViewCV = user?.role === 'recruiter' || user?.id === profile.user_id;
+  // if (!canViewCV) {
+  //   return null;
+  // }
 
   const handleDownloadCV = async () => {
     if (!profile.cv_file_url || !user) {
@@ -345,7 +349,7 @@ function CVViewerSection({ profile }: { profile: FreelancerProfile }) {
                     </p>
                   </div>
                 </div>
-                {user?.role === 'recruiter' && (
+                {(user?.role === 'recruiter' || user?.id === profile.user_id) && (
                   <Button
                     onClick={handleDownloadCV}
                     disabled={isDownloading}
@@ -359,7 +363,12 @@ function CVViewerSection({ profile }: { profile: FreelancerProfile }) {
             </CardContent>
           </Card>
         ) : (
-          <p className="text-muted-foreground">This freelancer has not uploaded a CV yet.</p>
+          <div>
+            <p className="text-muted-foreground mb-2">This freelancer has not uploaded a CV yet.</p>
+            <p className="text-xs text-muted-foreground">
+              Debug - CV URL: {profile.cv_file_url || 'null'} | User ID: {user?.id} | Profile User ID: {profile.user_id}
+            </p>
+          </div>
         )}
       </div>
     </div>
