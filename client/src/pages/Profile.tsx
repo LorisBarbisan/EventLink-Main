@@ -635,31 +635,6 @@ export default function Profile() {
             </Card>
           )}
 
-          {/* CV Section (Freelancers only) */}
-          {profile?.role === 'freelancer' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>CV</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {freelancerProfile?.cv_file_url ? (
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-8 h-8 text-blue-600" />
-                      <div>
-                        <p className="font-medium">{freelancerProfile.cv_file_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {freelancerProfile.cv_file_type} • {freelancerProfile.cv_file_size ? formatFileSize(freelancerProfile.cv_file_size) : 'Unknown size'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">This freelancer has not uploaded a CV yet.</p>
-                )}
-              </CardContent>
-            </Card>
-          )}
 
           {/* Links Section */}
           {((profile?.role === 'freelancer' && (freelancerProfile?.portfolio_url || freelancerProfile?.linkedin_url || freelancerProfile?.website_url)) ||
