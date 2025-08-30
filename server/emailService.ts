@@ -225,8 +225,8 @@ export async function sendVerificationEmail(
       <div class="container">
         <div class="header">
           <div class="logo">
-            <div style="width: 120px; height: 120px; margin: 0 auto 20px; background: #4fadff; border-radius: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 16px rgba(79, 173, 255, 0.2);">
-              <span style="color: white; font-size: 48px; font-weight: 900; letter-spacing: -2px;">E8</span>
+            <div style="width: 120px; height: 120px; margin: 0 auto 20px; background: linear-gradient(135deg, #4fadff 0%, #359dff 100%); border-radius: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(79, 173, 255, 0.3);">
+              <span style="color: white; font-size: 52px; font-weight: 900; letter-spacing: -3px; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">E8</span>
             </div>
           </div>
           <h1>Welcome to EventLink!</h1>
@@ -422,8 +422,8 @@ export async function sendPasswordResetEmail(
       <div class="container">
         <div class="header">
           <div class="logo">
-            <div style="width: 120px; height: 120px; margin: 0 auto 20px; background: #4fadff; border-radius: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 16px rgba(79, 173, 255, 0.2);">
-              <span style="color: white; font-size: 48px; font-weight: 900; letter-spacing: -2px;">E8</span>
+            <div style="width: 120px; height: 120px; margin: 0 auto 20px; background: linear-gradient(135deg, #4fadff 0%, #359dff 100%); border-radius: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(79, 173, 255, 0.3);">
+              <span style="color: white; font-size: 52px; font-weight: 900; letter-spacing: -3px; text-shadow: 1px 1px 2px rgba(0,0,0,0.1);">E8</span>
             </div>
           </div>
           <h1>Password Reset Request</h1>
