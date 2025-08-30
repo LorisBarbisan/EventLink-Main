@@ -205,13 +205,6 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
 }
 
 function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
-  console.log('FreelancerProfileView - Full profile data:', profile);
-  console.log('FreelancerProfileView - CV fields:', {
-    cv_file_url: profile.cv_file_url,
-    cv_file_name: profile.cv_file_name,
-    cv_file_type: profile.cv_file_type,
-    cv_file_size: profile.cv_file_size
-  });
   
   return (
     <div className="space-y-4">
