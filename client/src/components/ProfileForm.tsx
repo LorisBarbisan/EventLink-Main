@@ -175,6 +175,7 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
         {userType === 'freelancer' ? (
           <FreelancerFormFields
             formData={formData as FreelancerFormData}
+            profile={profile as FreelancerProfile}
             onInputChange={handleInputChange}
             newSkill={newSkill}
             setNewSkill={setNewSkill}
@@ -410,7 +411,8 @@ function RecruiterProfileView({ profile }: { profile: RecruiterProfile }) {
 }
 
 function FreelancerFormFields({ 
-  formData, 
+  formData,
+  profile,
   onInputChange, 
   newSkill, 
   setNewSkill, 
@@ -418,6 +420,7 @@ function FreelancerFormFields({
   onSkillRemove 
 }: {
   formData: FreelancerFormData;
+  profile?: FreelancerProfile;
   onInputChange: (field: string, value: string) => void;
   newSkill: string;
   setNewSkill: (value: string) => void;
@@ -598,14 +601,14 @@ function FreelancerFormFields({
         <p className="text-sm text-muted-foreground mb-2">
           Upload your CV for recruiters to view. Accepted formats: PDF, DOC, DOCX (max 5MB)
         </p>
-        <CVUploadSection />
+        <CVUploadSection profile={profile as FreelancerProfile} />
       </div>
     </>
   );
 }
 
 // CV Upload section for freelancers when editing their profile
-function CVUploadSection() {
+function CVUploadSection({ profile }: { profile?: FreelancerProfile }) {
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -614,20 +617,27 @@ function CVUploadSection() {
     return null;
   }
 
-  // Get current CV from the freelancer profile if available
-  // This would need to be passed down from parent component or fetched
-  // For now, we'll use the CVUploader component which handles this internally
-  
   const handleUploadComplete = () => {
     toast({
       title: "Success",
       description: "Your CV has been uploaded successfully!",
     });
+    // Force a page refresh to show the updated CV
+    window.location.reload();
   };
+
+  // Prepare current CV data for CVUploader
+  const currentCV = profile && profile.cv_file_url ? {
+    fileName: profile.cv_file_name,
+    fileType: profile.cv_file_type,
+    fileSize: profile.cv_file_size,
+    fileUrl: profile.cv_file_url
+  } : undefined;
 
   return (
     <CVUploader 
       userId={user.id}
+      currentCV={currentCV}
       onUploadComplete={handleUploadComplete}
       data-testid="cv-uploader"
     />
