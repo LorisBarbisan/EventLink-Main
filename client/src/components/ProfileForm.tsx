@@ -214,8 +214,17 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center overflow-hidden">
-          {profile.profile_photo_url ? (
-            <img src={profile.profile_photo_url} alt="Profile" className="w-full h-full object-cover" />
+          {profile.profile_photo_url && 
+           profile.profile_photo_url.trim() !== '' && 
+           profile.profile_photo_url !== 'null' ? (
+            <img 
+              src={profile.profile_photo_url} 
+              alt="Profile" 
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                console.log('Profile photo failed to load:', profile.profile_photo_url?.substring(0, 50));
+              }}
+            />
           ) : (
             <User className="w-8 h-8 text-white" />
           )}
@@ -264,8 +273,17 @@ function RecruiterProfileView({ profile }: { profile: RecruiterProfile }) {
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <div className="w-16 h-16 bg-gradient-primary rounded-lg flex items-center justify-center overflow-hidden">
-          {profile.company_logo_url ? (
-            <img src={profile.company_logo_url} alt={`${profile.company_name} logo`} className="w-full h-full object-cover" />
+          {profile.company_logo_url && 
+           profile.company_logo_url.trim() !== '' && 
+           profile.company_logo_url !== 'null' ? (
+            <img 
+              src={profile.company_logo_url} 
+              alt={`${profile.company_name} logo`} 
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                console.log('Company logo failed to load:', profile.company_logo_url?.substring(0, 50));
+              }}
+            />
           ) : (
             <Building2 className="w-8 h-8 text-white" />
           )}

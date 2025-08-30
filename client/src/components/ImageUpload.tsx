@@ -103,7 +103,7 @@ export function ImageUpload({
     <div className="space-y-2">
       <Label>{label}</Label>
       
-      {value ? (
+      {value && value.trim() !== '' && value !== 'null' ? (
         <div className="relative">
           <div className={`relative overflow-hidden ${
             shape === 'circle' ? 'rounded-full w-32 h-32 bg-gradient-primary border-2 border-muted' : 
@@ -117,6 +117,14 @@ export function ImageUpload({
               src={value} 
               alt="Uploaded" 
               className="w-full h-full object-cover"
+              onError={(e) => {
+                console.log('ImageUpload: Image failed to load:', value?.substring(0, 50));
+                // Hide the image preview if it fails to load
+                onChange('');
+              }}
+              onLoad={() => {
+                console.log('ImageUpload: Image loaded successfully');
+              }}
             />
             <Button
               variant="destructive"
