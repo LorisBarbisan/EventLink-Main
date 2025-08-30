@@ -169,7 +169,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => window.open(`/freelancer-profile/${application.freelancer_profile?.user_id}`, '_blank')}
+                  onClick={() => window.open(`/profile/${application.freelancer_profile?.user_id}`, '_blank')}
                   data-testid={`button-view-profile-${application.freelancer_profile.user_id}`}
                 >
                   <Eye className="w-4 h-4 mr-1" />

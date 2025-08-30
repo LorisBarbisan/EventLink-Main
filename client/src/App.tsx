@@ -14,7 +14,6 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import Jobs from "./pages/Jobs";
 import Freelancers from "./pages/Freelancers";
-import FreelancerProfile from "./pages/FreelancerProfile";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
@@ -35,7 +34,6 @@ const App = () => (
             <Route path="/settings" component={Settings} />
             <Route path="/jobs" component={Jobs} />
             <Route path="/freelancers" component={Freelancers} />
-            <Route path="/freelancer-profile/:userId" component={FreelancerProfile} />
             <Route component={NotFound} />
           </Switch>
         </Router>

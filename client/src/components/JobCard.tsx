@@ -33,7 +33,7 @@ export function JobCard({
 
   const handleProfileView = (userId: number) => {
     // Navigate directly to the freelancer's profile page
-    window.open(`/freelancer-profile/${userId}`, '_blank');
+    window.open(`/profile/${userId}`, '_blank');
   };
 
   const handleMessageFreelancer = (applicant: JobApplication) => {
