@@ -3,10 +3,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
-import { Eye, MessageCircle, CheckCircle, X, AlertCircle } from 'lucide-react';
+import { Eye, MessageCircle, CheckCircle, X, AlertCircle, UserCheck, UserX } from 'lucide-react';
 import type { JobApplication } from '@shared/types';
 
 interface ApplicationCardProps {
@@ -19,20 +22,24 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
+  const [showHireConfirm, setShowHireConfirm] = useState(false);
+  const [rejectionMessage, setRejectionMessage] = useState('');
 
   const rejectMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest(`/api/applications/${application.id}/reject`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: rejectionMessage }),
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/recruiter', currentUserId, 'applications'] });
       setShowRejectionDialog(false);
+      setRejectionMessage('');
       toast({
         title: 'Application rejected',
-        description: 'The applicant has been notified.',
+        description: 'The applicant has been notified with your message.',
       });
     },
     onError: () => {
@@ -46,15 +53,16 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
 
   const hireMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest(`/api/applications/${application.id}/hire`, {
+      return await apiRequest(`/api/applications/${application.id}/accept`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/recruiter', currentUserId, 'applications'] });
+      setShowHireConfirm(false);
       toast({
-        title: 'Applicant hired',
+        title: 'Applicant hired!',
         description: 'The applicant has been notified of their successful application.',
       });
     },
@@ -66,6 +74,19 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
       });
     },
   });
+
+  const handleRejectClick = () => {
+    setRejectionMessage('');
+    setShowRejectionDialog(true);
+  };
+
+  const handleConfirmReject = () => {
+    rejectMutation.mutate();
+  };
+
+  const handleConfirmHire = () => {
+    hireMutation.mutate();
+  };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -184,28 +205,121 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                   Message
                 </Button>
                 
-                {application.status === 'pending' && (
+                {(application.status === 'applied' || application.status === 'reviewed') && (
                   <>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => hireMutation.mutate()}
-                      disabled={hireMutation.isPending}
-                      data-testid={`button-hire-${application.id}`}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      {hireMutation.isPending ? 'Hiring...' : 'Hire'}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => rejectMutation.mutate()}
-                      disabled={rejectMutation.isPending}
-                      data-testid={`button-reject-${application.id}`}
-                    >
-                      <X className="w-4 h-4 mr-1" />
-                      {rejectMutation.isPending ? 'Rejecting...' : 'Reject'}
-                    </Button>
+                    {/* Hire Confirmation Dialog */}
+                    <AlertDialog open={showHireConfirm} onOpenChange={setShowHireConfirm}>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          disabled={hireMutation.isPending}
+                          data-testid={`button-hire-${application.id}`}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <UserCheck className="w-4 h-4 mr-1" />
+                          Accept
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Accept Application</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to accept this application from{' '}
+                            <strong>
+                              {application.freelancer_profile ? 
+                                `${application.freelancer_profile.first_name} ${application.freelancer_profile.last_name}` : 
+                                'this freelancer'
+                              }
+                            </strong> for the position <strong>"{application.job_title}"</strong>?
+                            
+                            <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                              <p className="text-sm text-green-700 dark:text-green-300">
+                                The applicant will be notified immediately and can start coordination with you.
+                              </p>
+                            </div>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={hireMutation.isPending}>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={handleConfirmHire}
+                            disabled={hireMutation.isPending}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            data-testid={`button-confirm-hire-${application.id}`}
+                          >
+                            {hireMutation.isPending ? 'Accepting...' : 'Yes, Accept Application'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
+                    {/* Reject Dialog with Message Input */}
+                    <Dialog open={showRejectionDialog} onOpenChange={setShowRejectionDialog}>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          disabled={rejectMutation.isPending}
+                          data-testid={`button-reject-${application.id}`}
+                          className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        >
+                          <UserX className="w-4 h-4 mr-1" />
+                          Reject
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Reject Application</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">
+                              You are about to reject the application from{' '}
+                              <strong>
+                                {application.freelancer_profile ? 
+                                  `${application.freelancer_profile.first_name} ${application.freelancer_profile.last_name}` : 
+                                  'this freelancer'
+                                }
+                              </strong> for <strong>"{application.job_title}"</strong>.
+                            </p>
+                          </div>
+                          <div>
+                            <Label htmlFor="rejection-message">
+                              Rejection message <span className="text-muted-foreground">(optional but recommended)</span>
+                            </Label>
+                            <Textarea
+                              id="rejection-message"
+                              placeholder="Provide constructive feedback to help the applicant improve future applications..."
+                              value={rejectionMessage}
+                              onChange={(e) => setRejectionMessage(e.target.value)}
+                              className="mt-2 min-h-[100px]"
+                              data-testid={`textarea-rejection-message-${application.id}`}
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              This message will be sent to the applicant along with the rejection notification.
+                            </p>
+                          </div>
+                        </div>
+                        <DialogFooter className="gap-2">
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setShowRejectionDialog(false)}
+                            disabled={rejectMutation.isPending}
+                          >
+                            Cancel
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            onClick={handleConfirmReject}
+                            disabled={rejectMutation.isPending}
+                            data-testid={`button-confirm-reject-${application.id}`}
+                          >
+                            {rejectMutation.isPending ? 'Rejecting...' : 'Reject Application'}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </>
                 )}
               </>
