@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Layout } from '@/components/Layout';
 import { useAuth } from '@/hooks/useAuth';
 import { useFreelancerRatings, useFreelancerAverageRating } from '@/hooks/useRatings';
 import { RatingDisplay, StarRating } from '@/components/StarRating';
@@ -15,26 +16,31 @@ export function RatingDashboard() {
 
   if (!user) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">
-          <p>Please log in to view your ratings.</p>
+      <Layout>
+        <div className="container mx-auto p-6">
+          <div className="text-center">
+            <p>Please log in to view your ratings.</p>
+          </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   if (user.role !== 'freelancer') {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">
-          <p>This page is only available for freelancers.</p>
+      <Layout>
+        <div className="container mx-auto p-6">
+          <div className="text-center">
+            <p>This page is only available for freelancers.</p>
+          </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <Layout>
+      <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Award className="w-8 h-8 text-yellow-500" />
         <div>
@@ -185,6 +191,7 @@ export function RatingDashboard() {
           </ul>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </Layout>
   );
 }
