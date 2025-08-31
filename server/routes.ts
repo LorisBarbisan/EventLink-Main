@@ -94,6 +94,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { email, password } = req.body;
       
+      console.log("=== DEBUG SIGNIN ===");
+      console.log("Raw email:", email);
+      console.log("Raw password:", password);
+      
       // Input validation
       if (!email || !password) {
         return res.status(400).json({ error: "Email and password are required" });
@@ -103,13 +107,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid input types" });
       }
       
+      const normalizedEmail = email.toLowerCase();
+      console.log("Normalized email:", normalizedEmail);
+      
       // Find user (case-insensitive email lookup)
-      const user = await storage.getUserByEmail(email.toLowerCase());
+      const user = await storage.getUserByEmail(normalizedEmail);
+      console.log("User found:", user ? `ID ${user.id}, email: ${user.email}` : "null");
+      
       if (!user) {
         return res.status(401).json({ error: "User does not exist or invalid credentials" });
       }
 
       // Check if email is verified
+      console.log("Email verified:", user.email_verified);
       if (!user.email_verified) {
         return res.status(403).json({ 
           error: "Please verify your email address before signing in. Check your email for the verification link." 
@@ -117,7 +127,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check password
+      console.log("Password from request:", password);
+      console.log("Password hash from DB:", user.password);
       const isValid = await bcrypt.compare(password, user.password);
+      console.log("Password valid:", isValid);
       
       if (!isValid) {
         return res.status(401).json({ error: "User does not exist or invalid credentials" });
