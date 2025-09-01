@@ -6,8 +6,7 @@ import { storage } from "./storage";
 import { insertUserSchema, insertFreelancerProfileSchema, insertRecruiterProfileSchema, insertJobSchema, insertJobApplicationSchema, insertMessageSchema, insertNotificationSchema } from "@shared/schema";
 import { sendVerificationEmail, sendEmail, sendPasswordResetEmail } from "./emailService";
 import { randomBytes } from "crypto";
-// Object storage removed as part of optimization
-// Object ACL removed as part of optimization
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { nukeAllUserData } from "./clearAllUserData";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1048,16 +1047,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // CV Upload routes - temporarily disabled
+  // CV Upload routes
   app.post("/api/cv/upload-url", async (req, res) => {
     try {
-      return res.status(503).json({ 
-        error: "CV upload temporarily unavailable", 
-        message: "CV upload functionality is being updated. Please try again later."
-      });
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getCVUploadURL();
+      res.json({ uploadURL });
     } catch (error) {
       console.error("Error generating CV upload URL:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ 
+        error: "Failed to generate upload URL", 
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
@@ -1085,10 +1086,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid file size" });
       }
 
-      // Temporarily disable CV uploads while file storage is being optimized
-      return res.status(503).json({ 
-        error: "CV upload temporarily unavailable", 
-        message: "CV upload functionality is being updated. Please try again later."
+      const objectStorageService = new ObjectStorageService();
+      const normalizedPath = objectStorageService.normalizeCVPath(fileUrl);
+
+      // Update freelancer profile with CV information
+      const freelancerProfile = await storage.getFreelancerProfile(userId);
+      if (freelancerProfile) {
+        await storage.updateFreelancerProfile(userId, {
+          ...freelancerProfile,
+          cv_file_url: normalizedPath,
+          cv_file_name: fileName,
+          cv_file_type: fileType,
+          cv_file_size: fileSize,
+        });
+      }
+
+      res.json({
+        success: true,
+        cv_file_url: normalizedPath,
+        cv_file_name: fileName,
+        cv_file_type: fileType,
+        cv_file_size: fileSize,
       });
     } catch (error) {
       console.error("Error saving CV:", error);
@@ -1145,13 +1163,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "CV not found" });
       }
 
-      // For now, provide a placeholder response indicating CV downloads are temporarily unavailable
-      // TODO: Implement proper file storage mechanism when object storage is restored
-      return res.status(503).json({ 
-        error: "CV download temporarily unavailable", 
-        message: "CV download functionality is being updated. Please try again later.",
-        details: "The file storage system is currently being optimized"
-      });
+      // Use object storage service to download the CV file
+      const objectStorageService = new ObjectStorageService();
+      const file = await objectStorageService.getCVFile(freelancerProfile.cv_file_url);
+      
+      // Set appropriate filename for download
+      const filename = freelancerProfile.cv_file_name || `${freelancerProfile.first_name}_${freelancerProfile.last_name}_CV.pdf`;
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      
+      // Stream the file to response
+      await objectStorageService.downloadObject(file, res, 0); // No caching for CVs
     } catch (error) {
       console.error("Error downloading CV:", error);
       if (!res.headersSent) {
@@ -1345,7 +1366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
       const objectStorageService = new ObjectStorageService();
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const objectFile = await objectStorageService.getCVFile(req.path);
       objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
       console.error("Error accessing CV file:", error);

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Building2, MapPin, Globe, Plus, X, User, FileText, Download } from 'lucide-react';
 import { ImageUpload } from '@/components/ImageUpload';
-// CVUploader removed as part of optimization
+import { CVUploader } from '@/components/CVUploader';
 import { RatingDisplay } from './StarRating';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -561,10 +561,12 @@ function CVUploadSection({ profile }: { profile?: FreelancerProfile }) {
   } : undefined;
 
   return (
-    <div className="flex items-center gap-2 text-muted-foreground p-3 border border-dashed rounded-md" data-testid="cv-uploader">
-      <FileText className="h-4 w-4" />
-      <span>CV upload temporarily disabled</span>
-    </div>
+    <CVUploader 
+      userId={user.id}
+      currentCV={currentCV}
+      onUploadComplete={handleUploadComplete}
+      data-testid="cv-uploader"
+    />
   );
 }
 
