@@ -69,7 +69,7 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch notifications
+  // Fetch notifications - only when dropdown is open
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['/api/notifications', userId],
     queryFn: async () => {
@@ -77,10 +77,11 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
       if (!response.ok) throw new Error('Failed to fetch notifications');
       return response.json() as Promise<Notification[]>;
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: isOpen ? 10000 : false, // Only poll when dropdown is open
+    enabled: isOpen, // Only fetch when user opens dropdown
   });
 
-  // Fetch unread count
+  // Fetch unread count with smart polling
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ['/api/notifications/unread-count', userId],
     queryFn: async () => {
@@ -89,7 +90,8 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
       const data = await response.json();
       return data.count;
     },
-    refetchInterval: 10000, // Check unread count every 10 seconds
+    refetchInterval: 20000, // Reduced from 10s to 20s
+    refetchIntervalInBackground: false, // Stop when tab is inactive
   });
 
   // Mark notification as read

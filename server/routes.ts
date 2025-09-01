@@ -6,8 +6,8 @@ import { storage } from "./storage";
 import { insertUserSchema, insertFreelancerProfileSchema, insertRecruiterProfileSchema, insertJobSchema, insertJobApplicationSchema, insertMessageSchema, insertNotificationSchema } from "@shared/schema";
 import { sendVerificationEmail, sendEmail, sendPasswordResetEmail } from "./emailService";
 import { randomBytes } from "crypto";
-import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { ObjectPermission } from "./objectAcl";
+// Object storage removed as part of optimization
+// Object ACL removed as part of optimization
 import { nukeAllUserData } from "./clearAllUserData";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -440,7 +440,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Resend verification error:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ 
+        error: "Failed to resend verification email", 
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
@@ -470,8 +473,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Password updated successfully" });
     } catch (error) {
       console.error("Password change error:", error);
-      // Return success response instead of 500 error to keep platform online
-      res.json({ message: "Password updated successfully" });
+      res.status(500).json({ 
+        error: "Failed to update password", 
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
@@ -1036,8 +1041,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedApplication);
     } catch (error) {
       console.error("Reject application error:", error);
-      // Return success response instead of 500 error to keep platform online
-      res.json({ success: true, status: 'rejected' });
+      res.status(500).json({ 
+        error: "Failed to reject application", 
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

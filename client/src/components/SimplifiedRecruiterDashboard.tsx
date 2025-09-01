@@ -50,11 +50,12 @@ export default function SimplifiedRecruiterDashboard() {
     enabled: !!user?.id,
   });
 
-  // Fetch unread message count
+  // Fetch unread message count with optimized polling
   const { data: unreadCount } = useQuery({
     queryKey: ['/api/messages/unread-count', user?.id],
     queryFn: () => apiRequest(`/api/messages/unread-count?userId=${user?.id}`),
-    refetchInterval: 10000,
+    refetchInterval: activeTab === 'messages' ? 15000 : 30000, // Poll faster only when on messages tab
+    refetchIntervalInBackground: false, // Stop when tab is inactive
     enabled: !!user?.id,
   });
 

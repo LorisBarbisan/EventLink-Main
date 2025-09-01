@@ -45,14 +45,15 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
-  // Fetch conversations
+  // Fetch conversations - less frequent polling
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
     queryKey: ['/api/conversations', currentUser.id],
     queryFn: () => apiRequest(`/api/conversations?userId=${currentUser.id}`),
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 60000, // Reduced from 30s to 60s
+    refetchIntervalInBackground: false, // Stop when tab is inactive
   });
 
-  // Fetch messages for selected conversation
+  // Fetch messages for selected conversation - no polling, rely on WebSocket
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['/api/conversations', selectedConversation, 'messages'],
     queryFn: async () => {
@@ -66,13 +67,15 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
       return result;
     },
     enabled: !!selectedConversation,
+    refetchInterval: false, // No polling - rely on WebSocket updates
   });
 
-  // Fetch unread message count
+  // Fetch unread message count - reduced frequency
   const { data: unreadCount = { count: 0 } } = useQuery({
     queryKey: ['/api/messages/unread-count', currentUser.id],
     queryFn: () => apiRequest(`/api/messages/unread-count?userId=${currentUser.id}`),
-    refetchInterval: 10000, // Refetch every 10 seconds
+    refetchInterval: 25000, // Reduced from 10s to 25s
+    refetchIntervalInBackground: false, // Stop when tab is inactive
   });
 
   // Send message mutation

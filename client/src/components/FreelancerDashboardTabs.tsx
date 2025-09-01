@@ -80,11 +80,12 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     return stored ? parseInt(stored) : Date.now() - (24 * 60 * 60 * 1000); // 24 hours ago
   });
 
-  // Fetch unread message count
+  // Fetch unread message count with optimized polling
   const { data: unreadCount } = useQuery({
     queryKey: ['/api/messages/unread-count', profile.id],
     queryFn: () => apiRequest(`/api/messages/unread-count?userId=${profile.id}`),
-    refetchInterval: 5000, // Refetch every 5 seconds for testing
+    refetchInterval: activeTab === 'messages' ? 15000 : 30000, // Poll faster only when on messages tab
+    refetchIntervalInBackground: false, // Stop when tab is inactive
   });
 
   // Get user's job applications

@@ -38,6 +38,47 @@ const connectionString = process.env.DATABASE_URL!;
 const client = postgres(connectionString);
 const db = drizzle(client);
 
+// Simple in-memory cache for frequently accessed data
+class SimpleCache {
+  private cache = new Map<string, { data: any; expiry: number }>();
+  
+  set(key: string, data: any, ttlSeconds: number = 300) {
+    const expiry = Date.now() + (ttlSeconds * 1000);
+    this.cache.set(key, { data, expiry });
+  }
+  
+  get<T>(key: string): T | null {
+    const item = this.cache.get(key);
+    if (!item) return null;
+    
+    if (Date.now() > item.expiry) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    return item.data as T;
+  }
+  
+  delete(key: string) {
+    this.cache.delete(key);
+  }
+  
+  clear() {
+    this.cache.clear();
+  }
+  
+  // Clear cache entries that start with a pattern
+  clearPattern(pattern: string) {
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(pattern)) {
+        this.cache.delete(key);
+      }
+    }
+  }
+}
+
+const cache = new SimpleCache();
+
 export interface IStorage {
   // User management
   getUser(id: number): Promise<User | undefined>;
@@ -119,12 +160,49 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
+    const cacheKey = `user:${id}`;
+    const cached = cache.get<User>(cacheKey);
+    if (cached) return cached;
+
     const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (result[0]) {
+      cache.set(cacheKey, result[0], 300); // Cache for 5 minutes
+    }
     return result[0];
   }
 
+  // Optimized method to get user with profile data in single query
+  async getUserWithProfile(id: number): Promise<(User & { profile?: FreelancerProfile | RecruiterProfile }) | undefined> {
+    const cacheKey = `user_with_profile:${id}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
+
+    const user = await this.getUser(id);
+    if (!user) return undefined;
+
+    let profile: FreelancerProfile | RecruiterProfile | undefined;
+    if (user.role === 'freelancer') {
+      profile = await this.getFreelancerProfile(id);
+    } else if (user.role === 'recruiter') {
+      profile = await this.getRecruiterProfile(id);
+    }
+
+    const result = { ...user, profile };
+    cache.set(cacheKey, result, 300);
+    return result;
+  }
+
   async getUserByEmail(email: string): Promise<User | undefined> {
+    const cacheKey = `user:email:${email}`;
+    const cached = cache.get<User>(cacheKey);
+    if (cached) return cached;
+
     const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    if (result[0]) {
+      cache.set(cacheKey, result[0], 300); // Cache for 5 minutes
+      // Also cache by ID for consistency
+      cache.set(`user:${result[0].id}`, result[0], 300);
+    }
     return result[0];
   }
 
@@ -257,7 +335,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getFreelancerProfile(userId: number): Promise<FreelancerProfile | undefined> {
+    const cacheKey = `freelancer_profile:${userId}`;
+    const cached = cache.get<FreelancerProfile>(cacheKey);
+    if (cached) return cached;
+
     const result = await db.select().from(freelancer_profiles).where(eq(freelancer_profiles.user_id, userId)).limit(1);
+    if (result[0]) {
+      cache.set(cacheKey, result[0], 600); // Cache for 10 minutes (profiles change less frequently)
+    }
     return result[0];
   }
 
