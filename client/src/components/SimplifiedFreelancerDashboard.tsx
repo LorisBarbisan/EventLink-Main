@@ -6,7 +6,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useNotifications } from '@/hooks/useNotifications';
 import { apiRequest } from '@/lib/queryClient';
-import { Briefcase, BookOpen, CheckCircle, Clock, AlertCircle, MessageCircle } from 'lucide-react';
+import { Briefcase, BookOpen, CheckCircle, Clock, AlertCircle, MessageCircle, Star } from 'lucide-react';
+import { RatingDisplay } from '@/components/StarRating';
+import { useFreelancerAverageRating } from '@/hooks/useRatings';
 import { useToast } from '@/hooks/use-toast';
 import { ProfileForm } from './ProfileForm';
 import { ApplicationCard } from './ApplicationCard';
@@ -18,6 +20,9 @@ export default function SimplifiedFreelancerDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Get rating data for current user
+  const { data: averageRating } = useFreelancerAverageRating(user?.id || 0);
   const [activeTab, setActiveTab] = useState('profile');
 
   // Fetch freelancer profile data
@@ -191,7 +196,7 @@ export default function SimplifiedFreelancerDashboard() {
             <Card>
               <CardContent className="p-6">
                 <h3 className="font-medium mb-4">Application Summary</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div className="text-center">
                     <div className="flex items-center justify-center w-8 h-8 bg-yellow-100 dark:bg-yellow-900/20 rounded-full mx-auto mb-2">
                       <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
@@ -227,6 +232,15 @@ export default function SimplifiedFreelancerDashboard() {
                       {jobApplications.filter((app: JobApplication) => app.status === 'rejected').length}
                     </div>
                     <div className="text-sm text-muted-foreground">Rejected</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center w-8 h-8 bg-yellow-100 dark:bg-yellow-900/20 rounded-full mx-auto mb-2">
+                      <Star className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                    </div>
+                    <div className="text-2xl font-bold">
+                      {averageRating?.count || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Ratings</div>
                   </div>
                 </div>
               </CardContent>

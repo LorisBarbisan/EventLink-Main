@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { User, MapPin, Coins, Calendar, Globe, Linkedin, ExternalLink, Mail, Phone, Star, MessageCircle, FileText, Download } from 'lucide-react';
+import { RatingDisplay } from '@/components/StarRating';
+import { useFreelancerAverageRating } from '@/hooks/useRatings';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 
@@ -65,6 +67,11 @@ export default function Profile() {
   const [profileDataLoaded, setProfileDataLoaded] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Get rating data for freelancer profiles
+  const { data: averageRating } = useFreelancerAverageRating(
+    freelancerProfile?.user_id || 0
+  );
 
   // Helper function to format file size
   const formatFileSize = (bytes: number) => {
@@ -498,6 +505,17 @@ export default function Profile() {
                           <Coins className="w-4 h-4" />
                           £{freelancerProfile?.hourly_rate}/{freelancerProfile?.rate_type}
                         </div>
+                        {averageRating && (
+                          <div className="flex items-center gap-1">
+                            <Star className="w-4 h-4" />
+                            <RatingDisplay 
+                              average={averageRating.average} 
+                              count={averageRating.count} 
+                              size="sm"
+                              showText={true}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
 
