@@ -5,7 +5,7 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
-  password: text("password").notNull(),
+  password: text("password"), // Made nullable for social auth users
   role: text("role").notNull().$type<'freelancer' | 'recruiter'>(),
   first_name: text("first_name"),
   last_name: text("last_name"),
@@ -14,6 +14,14 @@ export const users = pgTable("users", {
   email_verification_expires: timestamp("email_verification_expires"),
   password_reset_token: text("password_reset_token"),
   password_reset_expires: timestamp("password_reset_expires"),
+  // Social auth fields
+  auth_provider: text("auth_provider").default('email').$type<'email' | 'google' | 'facebook' | 'apple'>(),
+  google_id: text("google_id"),
+  facebook_id: text("facebook_id"),
+  apple_id: text("apple_id"),
+  profile_photo_url: text("profile_photo_url"), // For social auth profile photos
+  last_login_method: text("last_login_method").$type<'email' | 'google' | 'facebook' | 'apple'>(),
+  last_login_at: timestamp("last_login_at"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -142,10 +150,28 @@ export const rating_requests = pgTable("rating_requests", {
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Schema for email/password registration (password required)
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
   role: true,
+}).extend({
+  password: z.string().min(1, "Password is required"),
+});
+
+// Schema for social auth registration  
+export const insertSocialUserSchema = createInsertSchema(users).pick({
+  email: true,
+  role: true,
+  first_name: true,
+  last_name: true,
+  auth_provider: true,
+  google_id: true,
+  facebook_id: true,
+  apple_id: true,
+  profile_photo_url: true,
+}).extend({
+  password: z.string().optional(),
 });
 
 export const insertFreelancerProfileSchema = createInsertSchema(freelancer_profiles).omit({
@@ -229,6 +255,7 @@ export const insertRatingRequestSchema = createInsertSchema(rating_requests).omi
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertSocialUser = z.infer<typeof insertSocialUserSchema>;
 export type User = typeof users.$inferSelect;
 export type FreelancerProfile = typeof freelancer_profiles.$inferSelect;
 export type RecruiterProfile = typeof recruiter_profiles.$inferSelect;

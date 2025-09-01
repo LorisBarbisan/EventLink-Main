@@ -8,8 +8,27 @@ import { sendVerificationEmail, sendEmail, sendPasswordResetEmail } from "./emai
 import { randomBytes } from "crypto";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { nukeAllUserData } from "./clearAllUserData";
+import passport from "passport";
+import session from "express-session";
+import { initializePassport } from "./passport";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Session configuration for OAuth
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'eventlink-dev-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  }));
+
+  // Initialize Passport
+  app.use(passport.initialize());
+  app.use(passport.session());
+  initializePassport();
+
   // Health check endpoints
   app.get("/health", (req, res) => {
     res.status(200).json({ 
@@ -27,6 +46,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API root endpoint health check  
   app.get("/api", (req, res) => {
     res.status(200).send("EventLink API is running");
+  });
+
+  // OAuth Routes
+  // Google OAuth
+  app.get('/api/auth/google', passport.authenticate('google', { 
+    scope: ['profile', 'email'] 
+  }));
+
+  app.get('/api/auth/google/callback', 
+    passport.authenticate('google', { failureRedirect: '/auth?error=google_auth_failed' }),
+    (req, res) => {
+      // Successful authentication, redirect to frontend
+      res.redirect('/dashboard');
+    }
+  );
+
+  // Facebook OAuth  
+  app.get('/api/auth/facebook', passport.authenticate('facebook', { 
+    scope: ['email'] 
+  }));
+
+  app.get('/api/auth/facebook/callback',
+    passport.authenticate('facebook', { failureRedirect: '/auth?error=facebook_auth_failed' }),
+    (req, res) => {
+      // Successful authentication, redirect to frontend
+      res.redirect('/dashboard');
+    }
+  );
+
+  // Apple OAuth
+  app.get('/api/auth/apple', passport.authenticate('apple', { 
+    scope: ['name', 'email'] 
+  }));
+
+  app.get('/api/auth/apple/callback',
+    passport.authenticate('apple', { failureRedirect: '/auth?error=apple_auth_failed' }),
+    (req, res) => {
+      // Successful authentication, redirect to frontend  
+      res.redirect('/dashboard');
+    }
+  );
+
+  // Get current user session info
+  app.get('/api/auth/session', (req, res) => {
+    if (req.user) {
+      const { password: _, ...userWithoutPassword } = req.user as any;
+      res.json({ user: userWithoutPassword });
+    } else {
+      res.status(401).json({ error: 'Not authenticated' });
+    }
+  });
+
+  // Logout endpoint that clears session
+  app.post('/api/auth/logout', (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Logout failed' });
+      }
+      res.json({ message: 'Logged out successfully' });
+    });
   });
 
   // Authentication routes
@@ -112,6 +191,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user.email_verified) {
         return res.status(403).json({ 
           error: "Please verify your email address before signing in. Check your email for the verification link." 
+        });
+      }
+
+      // Check if user uses social auth (no password set)
+      if (!user.password) {
+        return res.status(400).json({ 
+          error: "This account uses social login. Please sign in with your social provider." 
         });
       }
 
@@ -371,7 +457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get current user to check if new password is different
       const user = await storage.getUser(userId);
-      if (user) {
+      if (user && user.password) {
         const isSamePassword = await bcrypt.compare(password, user.password);
         if (isSamePassword) {
           return res.status(400).json({ error: "New password cannot be the same as the old password." });
@@ -457,6 +543,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
+      // Check if user has a password (not a social auth user)
+      if (!user.password) {
+        return res.status(400).json({ 
+          error: "Cannot change password for social login accounts. Please manage your password through your social provider." 
+        });
+      }
+
       // Verify old password
       const isValidOldPassword = await bcrypt.compare(oldPassword, user.password);
       if (!isValidOldPassword) {
@@ -519,6 +612,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
       
+      // Check if user has a password (not a social auth user)
+      if (!user.password) {
+        return res.status(400).json({ 
+          error: "Social login accounts cannot delete account using password. Please contact support." 
+        });
+      }
+
       // Verify password before deletion
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {

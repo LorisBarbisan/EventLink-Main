@@ -1,0 +1,145 @@
+📌 Epic: Social Login Integration
+
+As a user, I want to sign up and log in using Google, Facebook, or Apple accounts so that I can access the platform quickly without creating a new password.
+
+✅ User Story 1: Google Sign-Up/Login
+
+Tasks:
+
+Front-End
+
+Add “Continue with Google” button to sign-up and login pages.
+
+Ensure consistent design with existing buttons.
+
+Back-End
+
+Implement Google OAuth 2.0 flow (using a library like Passport.js, Firebase Auth, or OAuth2 client).
+
+Configure Google API Console (client ID, secret, redirect URIs).
+
+Store unique Google user ID + email in DB.
+
+Database
+
+Update user schema to store provider type (Google) and external ID.
+
+Ensure no duplicate accounts for same email.
+
+Error Handling & Security
+
+Handle Google login errors (expired token, revoked permission).
+
+Ensure HTTPS is enforced for OAuth callback.
+
+Testing
+
+Test new user signup via Google.
+
+Test returning user login via Google.
+
+Test logout/login cycle.
+
+✅ User Story 2: Facebook Sign-Up/Login
+
+Tasks:
+
+Front-End
+
+Add “Continue with Facebook” button.
+
+Back-End
+
+Implement Facebook OAuth 2.0 (Facebook Developer Console setup).
+
+Store unique Facebook ID + email in DB.
+
+Database
+
+Extend schema to support Facebook login.
+
+Error Handling & Security
+
+Handle denied permissions or missing email.
+
+HTTPS callback enforcement.
+
+Testing
+
+Verify login flow.
+
+Verify error cases (invalid token).
+
+✅ User Story 3: Apple Sign-Up/Login
+
+Tasks:
+
+Front-End
+
+Add “Continue with Apple” button.
+
+Back-End
+
+Implement Apple Sign in with OAuth 2.0 + JWT verification.
+
+Support Apple’s "Hide My Email" feature (generate relay email if chosen).
+
+Store Apple ID + email in DB.
+
+Database
+
+Extend schema to support Apple login.
+
+Error Handling & Security
+
+Handle cases where user hides email.
+
+Support Apple’s strict token refresh rules.
+
+Testing
+
+Verify sign-up/login flow.
+
+Verify with hidden email case.
+
+✅ User Story 4: Unified Social Login Handling
+
+Tasks:
+
+Back-End
+
+Create unified OAuth handler that supports multiple providers.
+
+Ensure profile merging if same email exists across providers.
+
+Allow fallback to email/password login if user sets credentials later.
+
+Database
+
+Update schema to allow multiple linked auth providers per user.
+
+Add audit trail (login method + timestamp).
+
+Admin Features
+
+Add toggle in Admin panel to enable/disable providers.
+
+Testing
+
+Try logging in with multiple providers for the same email.
+
+Verify profile consistency.
+
+Run regression test on standard login.
+
+🔒 Security Considerations
+
+Use OAuth 2.0 best practices (short-lived access tokens + refresh tokens).
+
+Store only provider IDs, not full OAuth tokens.
+
+Enforce JWT signature validation (esp. Apple).
+
+Use HTTPS for all redirects/callbacks.
+
+Rate-limit login attempts to prevent abuse.

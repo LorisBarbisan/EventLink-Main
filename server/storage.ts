@@ -92,6 +92,12 @@ export interface IStorage {
   verifyEmail(token: string): Promise<boolean>;
   updateUserVerificationToken(userId: number, token: string | null, expires: Date | null): Promise<void>;
   
+  // Social auth methods
+  getUserBySocialProvider(provider: 'google' | 'facebook' | 'apple', providerId: string): Promise<User | undefined>;
+  createSocialUser(user: any): Promise<User>;
+  linkSocialProvider(userId: number, provider: 'google' | 'facebook' | 'apple', providerId: string, profilePhotoUrl?: string): Promise<void>;
+  updateUserLastLogin(userId: number, method: 'email' | 'google' | 'facebook' | 'apple'): Promise<void>;
+  
   // Freelancer profile management
   getFreelancerProfile(userId: number): Promise<FreelancerProfile | undefined>;
   createFreelancerProfile(profile: InsertFreelancerProfile): Promise<FreelancerProfile>;
@@ -259,6 +265,109 @@ export class DatabaseStorage implements IStorage {
         updated_at: new Date()
       })
       .where(eq(users.id, userId));
+  }
+
+  // Social auth methods
+  async getUserBySocialProvider(provider: 'google' | 'facebook' | 'apple', providerId: string): Promise<User | undefined> {
+    const cacheKey = `user:${provider}:${providerId}`;
+    const cached = cache.get<User>(cacheKey);
+    if (cached) return cached;
+
+    let condition;
+    switch (provider) {
+      case 'google':
+        condition = eq(users.google_id, providerId);
+        break;
+      case 'facebook':
+        condition = eq(users.facebook_id, providerId);
+        break;
+      case 'apple':
+        condition = eq(users.apple_id, providerId);
+        break;
+    }
+
+    const result = await db.select().from(users).where(condition).limit(1);
+    if (result[0]) {
+      cache.set(cacheKey, result[0], 300);
+    }
+    return result[0];
+  }
+
+  async createSocialUser(userData: {
+    email: string;
+    first_name?: string;
+    last_name?: string;
+    auth_provider: 'google' | 'facebook' | 'apple';
+    google_id?: string;
+    facebook_id?: string;
+    apple_id?: string;
+    profile_photo_url?: string;
+    email_verified: boolean;
+    role: 'freelancer' | 'recruiter';
+  }): Promise<User> {
+    const user = {
+      email: userData.email,
+      first_name: userData.first_name,
+      last_name: userData.last_name,
+      password: null, // Social auth users don't have passwords
+      role: userData.role,
+      auth_provider: userData.auth_provider,
+      google_id: userData.google_id,
+      facebook_id: userData.facebook_id,
+      apple_id: userData.apple_id,
+      profile_photo_url: userData.profile_photo_url,
+      email_verified: userData.email_verified,
+      last_login_method: userData.auth_provider,
+      last_login_at: new Date()
+    };
+
+    const result = await db.insert(users).values(user).returning();
+    
+    // Clear cache since we added a new user
+    cache.clearPattern('user:');
+    
+    return result[0];
+  }
+
+  async linkSocialProvider(userId: number, provider: 'google' | 'facebook' | 'apple', providerId: string, profilePhotoUrl?: string): Promise<void> {
+    const updateData: any = { updated_at: new Date() };
+    
+    switch (provider) {
+      case 'google':
+        updateData.google_id = providerId;
+        break;
+      case 'facebook':
+        updateData.facebook_id = providerId;
+        break;
+      case 'apple':
+        updateData.apple_id = providerId;
+        break;
+    }
+
+    if (profilePhotoUrl) {
+      updateData.profile_photo_url = profilePhotoUrl;
+    }
+
+    await db.update(users)
+      .set(updateData)
+      .where(eq(users.id, userId));
+
+    // Clear cache for this user
+    cache.clearPattern(`user:${userId}`);
+    cache.clearPattern(`user:${provider}:`);
+  }
+
+  async updateUserLastLogin(userId: number, method: 'email' | 'google' | 'facebook' | 'apple'): Promise<void> {
+    await db.update(users)
+      .set({
+        last_login_method: method,
+        last_login_at: new Date(),
+        updated_at: new Date()
+      })
+      .where(eq(users.id, userId));
+
+    // Clear cache for this user
+    cache.clearPattern(`user:${userId}`);
   }
 
   async updateUserPassword(userId: number, hashedPassword: string): Promise<void> {
