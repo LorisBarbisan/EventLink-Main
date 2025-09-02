@@ -96,27 +96,8 @@ export function UKLocationInput({
     setError(null)
 
     try {
-      const searchParams = new URLSearchParams({
-        q: query,
-        format: 'json',
-        countrycodes: 'gb',
-        limit: '10',
-        addressdetails: '1',
-        'accept-language': 'en'
-      })
-
-      // For postcode searches, use different parameters
-      if (isPostcodeInput(query)) {
-        searchParams.set('postalcode', query.replace(/\s/g, ''))
-      }
-
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?${searchParams}`,
-        {
-          headers: {
-            'User-Agent': 'EventLink/1.0'
-          }
-        }
+        `/api/locations/search?q=${encodeURIComponent(query)}`
       )
 
       if (!response.ok) {

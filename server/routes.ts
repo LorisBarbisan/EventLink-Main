@@ -1810,5 +1810,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // UK Location search proxy to avoid CORS issues
+  app.get("/api/locations/search", async (req, res) => {
+    try {
+      const { q } = req.query;
+      
+      if (!q || typeof q !== 'string' || q.length < 3) {
+        return res.json([]);
+      }
+
+      const searchParams = new URLSearchParams({
+        q: q as string,
+        format: 'json',
+        countrycodes: 'gb',
+        limit: '10',
+        addressdetails: '1',
+        'accept-language': 'en'
+      });
+
+      // For postcode searches, use different parameters
+      const isPostcodeInput = (input: string) => {
+        const cleaned = input.replace(/\s/g, '').toUpperCase();
+        return cleaned.length >= 2 && /^[A-Z]{1,2}[0-9]/.test(cleaned);
+      };
+
+      if (isPostcodeInput(q as string)) {
+        searchParams.set('postalcode', (q as string).replace(/\s/g, ''));
+      }
+
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?${searchParams}`,
+        {
+          headers: {
+            'User-Agent': 'EventLink/1.0'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Location service unavailable');
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error) {
+      console.error('Location search error:', error);
+      res.status(500).json({ error: 'Location service unavailable' });
+    }
+  });
+
   return httpServer;
 }
