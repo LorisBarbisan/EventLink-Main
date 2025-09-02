@@ -11,6 +11,7 @@ import { nukeAllUserData } from "./clearAllUserData";
 import passport from "passport";
 import session from "express-session";
 import { initializePassport } from "./passport";
+import { searchLocalLocations, validateUKPostcode, formatUKPostcode } from "./ukLocations";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Session configuration for OAuth
@@ -1814,76 +1815,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const locationCache = new Map<string, { data: any; timestamp: number }>();
   const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
-  // UK Location search proxy to avoid CORS issues
+  // Fast UK Location search with local database + API fallback
   app.get("/api/locations/search", async (req, res) => {
     try {
       const { q } = req.query;
       
-      if (!q || typeof q !== 'string' || q.length < 3) {
+      if (!q || typeof q !== 'string' || q.length < 2) {
         return res.json([]);
       }
 
-      const query = (q as string).toLowerCase().trim();
-      const now = Date.now();
+      const query = q as string;
+      const normalizedQuery = query.toLowerCase().trim();
 
-      // Check cache first
-      const cached = locationCache.get(query);
-      if (cached && (now - cached.timestamp) < CACHE_TTL) {
-        res.set('Cache-Control', 'public, max-age=300'); // 5 minutes browser cache
-        return res.json(cached.data);
+      // For postcodes, validate and format instantly  
+      if (validateUKPostcode(query)) {
+        const formatted = formatUKPostcode(query);
+        res.set('Cache-Control', 'public, max-age=3600');
+        return res.json([{
+          display_name: `${formatted}, United Kingdom`,
+          name: formatted,
+          address: { postcode: formatted },
+          formatted: formatted,
+          lat: "51.5074", // Default to London area
+          lon: "-0.1278"
+        }]);
       }
 
-      const searchParams = new URLSearchParams({
-        q: q as string,
-        format: 'json',
-        countrycodes: 'gb',
-        limit: '8', // Reduced from 10 for faster responses
-        addressdetails: '1',
-        'accept-language': 'en'
-      });
-
-      // For postcode searches, use different parameters
-      const isPostcodeInput = (input: string) => {
-        const cleaned = input.replace(/\s/g, '').toUpperCase();
-        return cleaned.length >= 2 && /^[A-Z]{1,2}[0-9]/.test(cleaned);
-      };
-
-      if (isPostcodeInput(q as string)) {
-        searchParams.set('postalcode', (q as string).replace(/\s/g, ''));
+      // Search local database first for instant results
+      const localResults = searchLocalLocations(query, 6);
+      
+      if (localResults.length > 0) {
+        // Convert to API format
+        const formattedResults = localResults.map(location => ({
+          display_name: `${location.formatted}, United Kingdom`,
+          name: location.name,
+          address: {
+            city: location.name,
+            county: location.county,
+          },
+          formatted: location.formatted,
+          lat: "51.5074", // Default coordinates - could be improved with actual coordinates
+          lon: "-0.1278"
+        }));
+        
+        res.set('Cache-Control', 'public, max-age=3600'); // Cache longer for local results
+        return res.json(formattedResults);
       }
 
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?${searchParams}`,
-        {
-          headers: {
-            'User-Agent': 'EventLink/1.0'
-          }
+      // Only for queries not found locally, fall back to external API (in background)
+      // This prevents the slow API from blocking common searches
+      if (query.length >= 3) {
+        const now = Date.now();
+        
+        // Check cache first
+        const cached = locationCache.get(normalizedQuery);
+        if (cached && (now - cached.timestamp) < CACHE_TTL) {
+          res.set('Cache-Control', 'public, max-age=300');
+          return res.json(cached.data);
         }
-      );
 
-      if (!response.ok) {
-        throw new Error('Location service unavailable');
-      }
+        // External API call for uncommon locations
+        try {
+          const searchParams = new URLSearchParams({
+            q: query,
+            format: 'json',
+            countrycodes: 'gb',
+            limit: '6',
+            addressdetails: '1',
+            'accept-language': 'en'
+          });
 
-      const data = await response.json();
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?${searchParams}`,
+            {
+              headers: { 'User-Agent': 'EventLink/1.0' },
+              signal: AbortSignal.timeout(2000) // 2 second timeout
+            }
+          );
 
-      // Cache the result
-      locationCache.set(query, { data, timestamp: now });
-
-      // Clean old cache entries periodically
-      if (locationCache.size > 1000) { // Keep max 1000 entries
-        const cutoff = now - CACHE_TTL;
-        const keysToDelete: string[] = [];
-        locationCache.forEach((value, key) => {
-          if (value.timestamp < cutoff) {
-            keysToDelete.push(key);
+          if (response.ok) {
+            const data = await response.json();
+            locationCache.set(normalizedQuery, { data, timestamp: now });
+            
+            // Clean cache periodically
+            if (locationCache.size > 500) {
+              const cutoff = now - CACHE_TTL;
+              const keysToDelete: string[] = [];
+              locationCache.forEach((value, key) => {
+                if (value.timestamp < cutoff) {
+                  keysToDelete.push(key);
+                }
+              });
+              keysToDelete.forEach(key => locationCache.delete(key));
+            }
+            
+            res.set('Cache-Control', 'public, max-age=300');
+            return res.json(data);
           }
-        });
-        keysToDelete.forEach(key => locationCache.delete(key));
+        } catch (apiError) {
+          console.log('External API timeout/error, falling back to empty results');
+        }
       }
 
-      res.set('Cache-Control', 'public, max-age=300'); // 5 minutes browser cache
-      res.json(data);
+      // Return empty results if nothing found
+      res.set('Cache-Control', 'public, max-age=300');
+      res.json([]);
+      
     } catch (error) {
       console.error('Location search error:', error);
       res.status(500).json({ error: 'Location service unavailable' });
