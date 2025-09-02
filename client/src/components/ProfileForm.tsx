@@ -11,6 +11,7 @@ import { Building2, MapPin, Globe, Plus, X, User, FileText, Download } from 'luc
 import { ImageUpload } from '@/components/ImageUpload';
 import { CVUploader } from '@/components/CVUploader';
 import { RatingDisplay } from './StarRating';
+import { UKLocationInput } from '@/components/ui/uk-location-input';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useFreelancerAverageRating } from '@/hooks/useRatings';
@@ -101,6 +102,11 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleLocationChange = (value: string, locationData?: any) => {
+    console.log('ProfileForm handleLocationChange:', { value, locationData });
+    setFormData(prev => ({ ...prev, location: value }));
+  };
+
   const handleSkillAdd = () => {
     if (newSkill.trim() && userType === 'freelancer') {
       const freelancerData = formData as FreelancerFormData;
@@ -184,6 +190,7 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
             formData={formData as FreelancerFormData}
             profile={profile as FreelancerProfile}
             onInputChange={handleInputChange}
+            onLocationChange={handleLocationChange}
             newSkill={newSkill}
             setNewSkill={setNewSkill}
             onSkillAdd={handleSkillAdd}
@@ -193,6 +200,7 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
           <RecruiterFormFields
             formData={formData as RecruiterFormData}
             onInputChange={handleInputChange}
+            onLocationChange={handleLocationChange}
           />
         )}
         
@@ -338,7 +346,8 @@ function RecruiterProfileView({ profile }: { profile: RecruiterProfile }) {
 function FreelancerFormFields({ 
   formData,
   profile,
-  onInputChange, 
+  onInputChange,
+  onLocationChange, 
   newSkill, 
   setNewSkill, 
   onSkillAdd, 
@@ -347,6 +356,7 @@ function FreelancerFormFields({
   formData: FreelancerFormData;
   profile?: FreelancerProfile;
   onInputChange: (field: string, value: string) => void;
+  onLocationChange: (value: string, locationData?: any) => void;
   newSkill: string;
   setNewSkill: (value: string) => void;
   onSkillAdd: () => void;
@@ -399,12 +409,12 @@ function FreelancerFormFields({
       </div>
 
       <div>
-        <Label htmlFor="location">Location (Optional)</Label>
-        <Input
+        <UKLocationInput
           id="location"
+          label="Location (Optional)"
           value={formData.location}
-          onChange={(e) => onInputChange('location', e.target.value)}
-          placeholder="City, Country"
+          onChange={onLocationChange}
+          placeholder="Start typing a UK location..."
           data-testid="input-location"
         />
       </div>
@@ -572,10 +582,12 @@ function CVUploadSection({ profile }: { profile?: FreelancerProfile }) {
 
 function RecruiterFormFields({ 
   formData, 
-  onInputChange 
+  onInputChange,
+  onLocationChange 
 }: {
   formData: RecruiterFormData;
   onInputChange: (field: string, value: string) => void;
+  onLocationChange: (value: string, locationData?: any) => void;
 }) {
   return (
     <>
@@ -618,12 +630,12 @@ function RecruiterFormFields({
           </Select>
         </div>
         <div>
-          <Label htmlFor="location">Location</Label>
-          <Input
+          <UKLocationInput
             id="location"
+            label="Location"
             value={formData.location}
-            onChange={(e) => onInputChange('location', e.target.value)}
-            placeholder="City, Country"
+            onChange={onLocationChange}
+            placeholder="Start typing a UK location..."
             data-testid="input-location"
           />
         </div>

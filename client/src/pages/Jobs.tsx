@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { UKLocationInput } from '@/components/ui/uk-location-input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
@@ -255,10 +256,10 @@ export default function Jobs() {
                 />
               </div>
               <div>
-                <Input
-                  placeholder="Location"
+                <UKLocationInput
+                  placeholder="Filter by UK location..."
                   value={locationFilter}
-                  onChange={(e) => setLocationFilter(e.target.value)}
+                  onChange={(value) => setLocationFilter(value)}
                 />
               </div>
               <div>

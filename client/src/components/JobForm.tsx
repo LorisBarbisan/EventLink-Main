@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { UKLocationInput } from '@/components/ui/uk-location-input';
 import type { JobFormData } from '@shared/types';
 
 interface JobFormProps {
@@ -25,6 +26,10 @@ export function JobForm({ onSubmit, onCancel, isSubmitting }: JobFormProps) {
 
   const handleInputChange = (field: keyof JobFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleLocationChange = (value: string, locationData?: any) => {
+    setFormData(prev => ({ ...prev, location: value }));
   };
 
   const handleSubmit = () => {
@@ -104,12 +109,12 @@ export function JobForm({ onSubmit, onCancel, isSubmitting }: JobFormProps) {
                 />
               </div>
               <div>
-                <Label htmlFor="job-location">Location</Label>
-                <Input
+                <UKLocationInput
                   id="job-location"
+                  label="Location"
                   value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  placeholder="City, Country"
+                  onChange={handleLocationChange}
+                  placeholder="Start typing a UK location..."
                   data-testid="input-job-location"
                 />
               </div>
