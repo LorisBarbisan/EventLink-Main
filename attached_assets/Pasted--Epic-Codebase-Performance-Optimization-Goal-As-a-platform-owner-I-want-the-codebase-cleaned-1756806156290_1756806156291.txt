@@ -1,0 +1,96 @@
+📌 Epic: Codebase & Performance Optimization
+
+Goal: As a platform owner, I want the codebase cleaned and optimized, so that pages (especially with images) load fast, and the database wiring and memory usage are efficient, ensuring a smoother user experience and a scalable foundation.
+
+📝 User Stories
+Story 1 — Codebase Cleanup
+
+As a developer, I want to review the entire codebase, identify redundant or unused code, and refactor complex logic into simpler, modular functions so that the system is easier to maintain, faster, and less error-prone.
+
+Acceptance Criteria:
+
+ All unused code, libraries, and dependencies are removed.
+
+ Complex functions are broken into smaller, testable units.
+
+ Code duplication is eliminated.
+
+ Linting and formatting rules applied consistently.
+
+ Unit tests still pass after refactoring.
+
+Story 2 — Image Optimization
+
+As a user, I want images to load quickly without quality loss, so that pages are fast and responsive even on slower connections.
+
+Acceptance Criteria:
+
+ All images are compressed and optimized (e.g., WebP/AVIF formats).
+
+ Lazy-loading is implemented for below-the-fold images.
+
+ Caching headers set for static assets.
+
+ CDN is configured to serve images geographically closer to users.
+
+ Page load times improve to under 2 seconds on standard 4G test.
+
+Story 3 — Database Query Optimization
+
+As a developer, I want to review all database queries and relationships, so that data retrieval is efficient and reduces unnecessary load.
+
+Acceptance Criteria:
+
+ Slow queries are identified with query analysis tools (e.g., EXPLAIN).
+
+ Proper indexes are created for frequently queried fields.
+
+ Joins are optimized; N+1 queries eliminated.
+
+ Database schema reviewed for normalization/denormalization opportunities.
+
+ Query response times under 100ms for common requests.
+
+Story 4 — Database Wiring & Memory Usage
+
+As a platform owner, I want the database connections and memory management optimized, so that the platform runs reliably without bottlenecks or excessive resource use.
+
+Acceptance Criteria:
+
+ Connection pooling implemented where possible.
+
+ Memory leaks identified and patched.
+
+ Resource usage monitored with alerts in place.
+
+ Cloud DB configured with auto-scaling (if available).
+
+ Database downtime or crashes reduced to zero in load testing.
+
+Story 5 — Caching Strategy
+
+As a user, I want frequently accessed content to load instantly, so that I don’t have to wait for repeat data fetches.
+
+Acceptance Criteria:
+
+ In-memory caching (e.g., Redis) implemented for high-use queries.
+
+ API responses cached appropriately.
+
+ User sessions managed efficiently.
+
+ Cache invalidation rules documented and tested.
+
+Story 6 — Performance Monitoring & Alerts
+
+As a developer, I want real-time monitoring of performance metrics, so that bottlenecks are detected early and fixed quickly.
+
+Acceptance Criteria:
+
+ Monitoring tools integrated (e.g., New Relic, Datadog, or open-source).
+
+ Alerts set for slow queries, high CPU/memory usage, or failed requests.
+
+ Regular performance reports generated.
+
+ Regression tests confirm no slowdowns after future updates.

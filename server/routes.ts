@@ -12,8 +12,26 @@ import passport from "passport";
 import session from "express-session";
 import { initializePassport } from "./passport";
 import { searchLocalLocations, validateUKPostcode, formatUKPostcode } from "./ukLocations";
+import { setCacheByEndpoint } from "./cacheHeaders";
+import { performanceMonitor } from "./performanceMonitor";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Add performance monitoring middleware
+  app.use(performanceMonitor.middleware());
+
+  // Health check endpoint for monitoring
+  app.get('/api/health', (req, res) => {
+    const healthData = performanceMonitor.getHealthCheck();
+    res.json(healthData);
+  });
+
+  // Performance analytics endpoint (protected in production)
+  app.get('/api/admin/analytics', (req, res) => {
+    const hours = parseInt(req.query.hours as string) || 1;
+    const analytics = performanceMonitor.getAnalytics(hours);
+    res.json(analytics);
+  });
+
   // Session configuration for OAuth
   app.use(session({
     secret: process.env.SESSION_SECRET || 'eventlink-dev-secret-key',

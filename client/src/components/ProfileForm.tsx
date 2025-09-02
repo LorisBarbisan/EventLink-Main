@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Building2, MapPin, Globe, Plus, X, User, FileText, Download } from 'lucide-react';
+import { Building2, MapPin, Globe, Plus, X } from 'lucide-react';
 import { ImageUpload } from '@/components/ImageUpload';
 import { CVUploader } from '@/components/CVUploader';
 import { RatingDisplay } from './StarRating';
@@ -238,7 +238,7 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
               }}
             />
           ) : (
-            <User className="w-8 h-8 text-white" />
+            <span className="w-8 h-8 text-white text-2xl">👤</span>
           )}
         </div>
         <div className="flex-1">

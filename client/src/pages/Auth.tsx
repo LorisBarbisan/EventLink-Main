@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { UserCheck, Building2 } from 'lucide-react';
+// Removed unused imports: UserCheck, Building2
 import { FaGoogle, FaFacebook, FaApple } from 'react-icons/fa';
 
 export default function Auth() {
@@ -403,14 +403,14 @@ export default function Auth() {
                       <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-accent/50 transition-colors">
                         <RadioGroupItem value="freelancer" id="freelancer" />
                         <div className="flex items-center space-x-2">
-                          <UserCheck className="h-4 w-4 text-primary" />
+                          <span className="h-4 w-4 text-primary">👤</span>
                           <Label htmlFor="freelancer" className="cursor-pointer">Freelancer</Label>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-accent/50 transition-colors">
                         <RadioGroupItem value="recruiter" id="recruiter" />
                         <div className="flex items-center space-x-2">
-                          <Building2 className="h-4 w-4 text-primary" />
+                          <span className="h-4 w-4 text-primary">🏢</span>
                           <Label htmlFor="recruiter" className="cursor-pointer">Recruiter</Label>
                         </div>
                       </div>

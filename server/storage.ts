@@ -35,7 +35,17 @@ import {
 import { eq, desc, isNull, and, or, sql } from "drizzle-orm";
 
 const connectionString = process.env.DATABASE_URL!;
-const client = postgres(connectionString);
+const client = postgres(connectionString, {
+  max: 20,          // Maximum connections in the pool
+  idle_timeout: 20, // Close idle connections after 20 seconds
+  connect_timeout: 10, // Connection timeout in seconds
+  prepare: false,   // Disable prepared statements to reduce memory usage
+  transform: {
+    undefined: null // Transform undefined to null for better SQL compatibility
+  },
+  debug: process.env.NODE_ENV === 'development' ? false : false, // Disable debug in production
+  onnotice: process.env.NODE_ENV === 'development' ? console.log : () => {} // Log notices only in dev
+});
 const db = drizzle(client);
 
 // Simple in-memory cache for frequently accessed data
@@ -69,11 +79,13 @@ class SimpleCache {
   
   // Clear cache entries that start with a pattern
   clearPattern(pattern: string) {
-    for (const key of this.cache.keys()) {
+    const keysToDelete: string[] = [];
+    this.cache.forEach((_, key) => {
       if (key.startsWith(pattern)) {
-        this.cache.delete(key);
+        keysToDelete.push(key);
       }
-    }
+    });
+    keysToDelete.forEach(key => this.cache.delete(key));
   }
 }
 
