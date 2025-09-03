@@ -194,7 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     app.get('/api/auth/google/callback', 
       passport.authenticate('google', { 
-        failureRedirect: '/auth?error=google_auth_failed',
+        failureRedirect: '/auth?oauth_error=google_failed&provider=Google&message=Authentication failed',
         failureMessage: true 
       }),
       (req, res) => {
@@ -220,7 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     app.get('/api/auth/facebook/callback',
       passport.authenticate('facebook', { 
-        failureRedirect: '/auth?error=facebook_auth_failed',
+        failureRedirect: '/auth?oauth_error=facebook_failed&provider=Facebook&message=Authentication failed',
         failureMessage: true 
       }),
       (req, res) => {
@@ -247,7 +247,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     app.get('/api/auth/linkedin/callback',
       passport.authenticate('linkedin', { 
-        failureRedirect: '/auth?error=linkedin_auth_failed',
+        failureRedirect: '/auth?oauth_error=linkedin_failed&provider=LinkedIn&message=Authentication failed',
         failureMessage: true 
       }),
       (req, res) => {

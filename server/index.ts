@@ -6,6 +6,9 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
+// Configure trust proxy for Replit environment
+app.set('trust proxy', 1);
+
 // Security middleware - must come first
 app.use(helmet({
   contentSecurityPolicy: {
