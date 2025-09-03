@@ -61,7 +61,7 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
   description: text("description"),
   website_url: text("website_url"),
   linkedin_url: text("linkedin_url"),
-  company_logo_url: text("company_logo_url"),
+  company_logo_url: text("company_logo_url"), // No character limit for base64 image data
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });

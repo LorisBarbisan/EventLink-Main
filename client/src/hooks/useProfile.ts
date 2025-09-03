@@ -63,17 +63,20 @@ export function useProfile({ userId, userType }: UseProfileProps) {
         headers: { 'Content-Type': 'application/json' },
       });
     },
-    onSuccess: () => {
+    onSuccess: (newProfile) => {
+      // Invalidate and refetch to get the newly created profile
       queryClient.invalidateQueries({ queryKey: [`/api/${userType}`, userId] });
+      queryClient.refetchQueries({ queryKey: [`/api/${userType}`, userId] });
       toast({
         title: 'Profile created',
         description: 'Your profile has been created successfully.',
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Profile creation error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create profile.',
+        description: 'Failed to create profile. Please try again.',
         variant: 'destructive',
       });
     },
