@@ -113,6 +113,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
   }
 
+  // LinkedIn OAuth
+  if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
+    app.get('/api/auth/linkedin', passport.authenticate('linkedin', { 
+      scope: ['r_liteprofile', 'r_emailaddress'] 
+    }));
+
+    app.get('/api/auth/linkedin/callback',
+      passport.authenticate('linkedin', { failureRedirect: '/auth?error=linkedin_auth_failed' }),
+      (req, res) => {
+        // Successful authentication, redirect to frontend
+        res.redirect('/dashboard');
+      }
+    );
+  }
+
   // Get current user session info
   app.get('/api/auth/session', (req, res) => {
     if (req.user) {

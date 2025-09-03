@@ -15,12 +15,13 @@ export const users = pgTable("users", {
   password_reset_token: text("password_reset_token"),
   password_reset_expires: timestamp("password_reset_expires"),
   // Social auth fields
-  auth_provider: text("auth_provider").default('email').$type<'email' | 'google' | 'facebook' | 'apple'>(),
+  auth_provider: text("auth_provider").default('email').$type<'email' | 'google' | 'facebook' | 'apple' | 'linkedin'>(),
   google_id: text("google_id"),
   facebook_id: text("facebook_id"),
   apple_id: text("apple_id"),
+  linkedin_id: text("linkedin_id"),
   profile_photo_url: text("profile_photo_url"), // For social auth profile photos
-  last_login_method: text("last_login_method").$type<'email' | 'google' | 'facebook' | 'apple'>(),
+  last_login_method: text("last_login_method").$type<'email' | 'google' | 'facebook' | 'apple' | 'linkedin'>(),
   last_login_at: timestamp("last_login_at"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),

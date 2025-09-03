@@ -2,6 +2,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { Strategy as FacebookStrategy } from 'passport-facebook';
 import { Strategy as AppleStrategy } from 'passport-apple';
+import { Strategy as LinkedInStrategy } from 'passport-linkedin-oauth2';
 import { storage } from './storage';
 import type { User } from '@shared/schema';
 
@@ -28,7 +29,7 @@ export function initializePassport() {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: "/api/auth/google/callback"
-    }, async (accessToken, refreshToken, profile, done) => {
+    }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
       try {
         // Check if user already exists with Google ID
         const existingUser = await storage.getUserBySocialProvider('google', profile.id);
@@ -77,7 +78,7 @@ export function initializePassport() {
       clientSecret: process.env.FACEBOOK_APP_SECRET,
       callbackURL: "/api/auth/facebook/callback",
       profileFields: ['id', 'emails', 'name', 'picture.type(large)']
-    }, async (accessToken, refreshToken, profile, done) => {
+    }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
       try {
         // Check if user already exists with Facebook ID
         const existingUser = await storage.getUserBySocialProvider('facebook', profile.id);
@@ -127,13 +128,13 @@ export function initializePassport() {
       privateKeyLocation: process.env.APPLE_PRIVATE_KEY_PATH,
       callbackURL: "/api/auth/apple/callback",
       scope: ['name', 'email']
-    }, async (accessToken, refreshToken, idToken, profile, done) => {
+    }, async (accessToken: any, refreshToken: any, idToken: any, profile: any, done: any) => {
       try {
         // Apple provides user info differently
         const appleId = profile.id;
-        const email = profile.email || (typeof idToken === 'object' ? idToken?.payload?.email : undefined);
-        const firstName = profile.name?.firstName;
-        const lastName = profile.name?.lastName;
+        const email = profile.emails?.[0]?.value || '';
+        const firstName = profile.name?.givenName;
+        const lastName = profile.name?.familyName;
 
         // Check if user already exists with Apple ID
         const existingUser = await storage.getUserBySocialProvider('apple', appleId);
@@ -170,6 +171,54 @@ export function initializePassport() {
         return done(null, newUser);
       } catch (error) {
         console.error('Apple OAuth error:', error);
+        return done(error as Error, undefined);
+      }
+    }));
+  }
+
+  // LinkedIn OAuth Strategy (only if credentials are available)
+  if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
+    passport.use(new LinkedInStrategy({
+      clientID: process.env.LINKEDIN_CLIENT_ID,
+      clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+      callbackURL: "/api/auth/linkedin/callback",
+      scope: ['r_liteprofile', 'r_emailaddress']
+    }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
+      try {
+        // Check if user already exists with LinkedIn ID
+        const existingUser = await storage.getUserBySocialProvider('linkedin', profile.id);
+        
+        if (existingUser) {
+          await storage.updateUserLastLogin(existingUser.id, 'linkedin');
+          return done(null, existingUser);
+        }
+
+        // Check if user exists with same email
+        const emailUser = await storage.getUserByEmail(profile.emails?.[0]?.value || '');
+        
+        if (emailUser) {
+          // Link LinkedIn account to existing email user
+          await storage.linkSocialProvider(emailUser.id, 'linkedin', profile.id, profile.photos?.[0]?.value);
+          await storage.updateUserLastLogin(emailUser.id, 'linkedin');
+          return done(null, emailUser);
+        }
+
+        // Create new user with LinkedIn auth
+        const newUser = await storage.createSocialUser({
+          email: profile.emails?.[0]?.value || '',
+          first_name: profile.name?.givenName,
+          last_name: profile.name?.familyName,
+          auth_provider: 'linkedin',
+          linkedin_id: profile.id,
+          profile_photo_url: profile.photos?.[0]?.value,
+          email_verified: true, // LinkedIn accounts are pre-verified
+          role: 'freelancer' as const, // Default role, can be changed later
+        });
+
+        await storage.updateUserLastLogin(newUser.id, 'linkedin');
+        return done(null, newUser);
+      } catch (error) {
+        console.error('LinkedIn OAuth error:', error);
         return done(error as Error, undefined);
       }
     }));
