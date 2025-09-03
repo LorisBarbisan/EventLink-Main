@@ -27,9 +27,7 @@ export function initializePassport() {
     passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.NODE_ENV === 'production' 
-        ? `https://${process.env.REPLIT_DOMAINS?.split(',')[0] || 'your-app.replit.app'}/api/auth/google/callback`
-        : "/api/auth/google/callback"
+      callbackURL: `https://${process.env.REPLIT_DOMAINS}/api/auth/google/callback`
     }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
       try {
         // Check if user already exists with Google ID
@@ -77,9 +75,7 @@ export function initializePassport() {
     passport.use(new FacebookStrategy({
       clientID: process.env.FACEBOOK_APP_ID,
       clientSecret: process.env.FACEBOOK_APP_SECRET,
-      callbackURL: process.env.NODE_ENV === 'production'
-        ? `https://${process.env.REPLIT_DOMAINS?.split(',')[0] || 'your-app.replit.app'}/api/auth/facebook/callback`
-        : "/api/auth/facebook/callback",
+      callbackURL: `https://${process.env.REPLIT_DOMAINS}/api/auth/facebook/callback`,
       profileFields: ['id', 'emails', 'name', 'picture.type(large)']
     }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
       try {
@@ -128,9 +124,7 @@ export function initializePassport() {
     passport.use(new LinkedInStrategy({
       clientID: process.env.LINKEDIN_CLIENT_ID,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-      callbackURL: process.env.NODE_ENV === 'production'
-        ? `https://${process.env.REPLIT_DOMAINS?.split(',')[0] || 'your-app.replit.app'}/api/auth/linkedin/callback`
-        : "/api/auth/linkedin/callback",
+      callbackURL: `https://${process.env.REPLIT_DOMAINS}/api/auth/linkedin/callback`,
       scope: ['r_liteprofile', 'r_emailaddress']
     }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
       try {

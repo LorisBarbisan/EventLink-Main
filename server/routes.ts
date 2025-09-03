@@ -104,6 +104,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).send("EventLink API is running");
   });
 
+  // OAuth configuration helper endpoint
+  app.get("/api/oauth-config", (req, res) => {
+    const domain = process.env.REPLIT_DOMAINS;
+    res.json({
+      domain: domain,
+      callbackUrls: {
+        google: `https://${domain}/api/auth/google/callback`,
+        facebook: `https://${domain}/api/auth/facebook/callback`,
+        linkedin: `https://${domain}/api/auth/linkedin/callback`
+      },
+      instructions: {
+        facebook: {
+          step1: "Go to https://developers.facebook.com/apps/",
+          step2: "Select your app and go to 'App Settings' > 'Basic'",
+          step3: `Add '${domain}' to 'App Domains'`,
+          step4: `Add 'https://${domain}/api/auth/facebook/callback' to 'Valid OAuth Redirect URIs'`
+        },
+        google: {
+          step1: "Go to https://console.developers.google.com/",
+          step2: "Select your project and go to 'Credentials'",
+          step3: `Add 'https://${domain}/api/auth/google/callback' to 'Authorized redirect URIs'`
+        },
+        linkedin: {
+          step1: "Go to https://www.linkedin.com/developers/apps/",
+          step2: "Select your app and go to 'Auth' tab",
+          step3: `Add 'https://${domain}/api/auth/linkedin/callback' to 'Authorized redirect URLs for your app'`
+        }
+      }
+    });
+  });
+
   // OAuth Routes (only if corresponding strategies are configured)
   // Google OAuth
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
