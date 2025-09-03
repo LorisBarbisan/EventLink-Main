@@ -357,12 +357,29 @@ export default function Auth() {
                       type="button"
                       variant="outline"
                       className="w-full flex items-center justify-center gap-3 py-2"
-                      onClick={() => window.location.href = '/api/auth/facebook'}
+                      onClick={() => {
+                        // Show configuration message for Facebook
+                        toast({
+                          title: "Facebook Configuration Required",
+                          description: "Please configure your Facebook app domains first. Check console for details.",
+                          variant: "destructive",
+                        });
+                        console.log("Facebook OAuth Configuration Needed:");
+                        console.log("1. Go to https://developers.facebook.com/apps/");
+                        console.log("2. Select your app → Settings → Basic");
+                        console.log("3. Add this domain to 'App Domains':", window.location.hostname);
+                        console.log("4. Add this URL to 'Valid OAuth Redirect URIs':", window.location.origin + '/api/auth/facebook/callback');
+                        console.log("5. Then try Facebook login again");
+                        // Still attempt the OAuth for testing
+                        setTimeout(() => {
+                          window.location.href = '/api/auth/facebook';
+                        }, 3000);
+                      }}
                       disabled={loading}
                       data-testid="button-facebook-signin"
                     >
                       <FaFacebook className="text-blue-600" />
-                      Continue with Facebook
+                      Continue with Facebook (Configure First)
                     </Button>
 
                     <Button
@@ -511,12 +528,29 @@ export default function Auth() {
                       type="button"
                       variant="outline"
                       className="w-full flex items-center justify-center gap-3 py-2"
-                      onClick={() => window.location.href = '/api/auth/facebook'}
+                      onClick={() => {
+                        // Show configuration message for Facebook
+                        toast({
+                          title: "Facebook Configuration Required",
+                          description: "Please configure your Facebook app domains first. Check console for details.",
+                          variant: "destructive",
+                        });
+                        console.log("Facebook OAuth Configuration Needed:");
+                        console.log("1. Go to https://developers.facebook.com/apps/");
+                        console.log("2. Select your app → Settings → Basic");
+                        console.log("3. Add this domain to 'App Domains':", window.location.hostname);
+                        console.log("4. Add this URL to 'Valid OAuth Redirect URIs':", window.location.origin + '/api/auth/facebook/callback');
+                        console.log("5. Then try Facebook login again");
+                        // Still attempt the OAuth for testing
+                        setTimeout(() => {
+                          window.location.href = '/api/auth/facebook';
+                        }, 3000);
+                      }}
                       disabled={loading}
                       data-testid="button-facebook-signup"
                     >
                       <FaFacebook className="text-blue-600" />
-                      Continue with Facebook
+                      Continue with Facebook (Configure First)
                     </Button>
 
                     <Button
