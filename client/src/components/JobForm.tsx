@@ -9,19 +9,21 @@ import { UKLocationInput } from '@/components/ui/uk-location-input';
 import type { JobFormData } from '@shared/types';
 
 interface JobFormProps {
+  initialData?: any; // Job data for editing
   onSubmit: (data: JobFormData) => void;
   onCancel: () => void;
   isSubmitting: boolean;
+  isEditing?: boolean;
 }
 
-export function JobForm({ onSubmit, onCancel, isSubmitting }: JobFormProps) {
+export function JobForm({ initialData, onSubmit, onCancel, isSubmitting, isEditing = false }: JobFormProps) {
   const [formData, setFormData] = useState<JobFormData>({
-    title: '',
-    type: '',
-    contract_type: '',
-    location: '',
-    rate: '',
-    description: '',
+    title: initialData?.title || '',
+    type: initialData?.type || '',
+    contract_type: initialData?.contract_type || '',
+    location: initialData?.location || '',
+    rate: initialData?.rate || '',
+    description: initialData?.description || '',
   });
 
   const handleInputChange = (field: keyof JobFormData, value: string) => {
@@ -34,15 +36,17 @@ export function JobForm({ onSubmit, onCancel, isSubmitting }: JobFormProps) {
 
   const handleSubmit = () => {
     onSubmit(formData);
-    // Reset form
-    setFormData({
-      title: '',
-      type: '',
-      contract_type: '',
-      location: '',
-      rate: '',
-      description: '',
-    });
+    // Reset form only when creating new job
+    if (!isEditing) {
+      setFormData({
+        title: '',
+        type: '',
+        contract_type: '',
+        location: '',
+        rate: '',
+        description: '',
+      });
+    }
   };
 
   const isValid = formData.title && formData.type && formData.location && formData.rate && formData.description &&
@@ -51,8 +55,13 @@ export function JobForm({ onSubmit, onCancel, isSubmitting }: JobFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Post New Job</CardTitle>
-        <CardDescription>Create a new job listing to find the perfect crew member</CardDescription>
+        <CardTitle>{isEditing ? 'Edit Job' : 'Post New Job'}</CardTitle>
+        <CardDescription>
+          {isEditing 
+            ? 'Update your job listing details' 
+            : 'Create a new job listing to find the perfect crew member'
+          }
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Step 1: Job Type Selection */}

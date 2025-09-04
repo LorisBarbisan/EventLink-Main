@@ -23,6 +23,7 @@ export default function SimplifiedRecruiterDashboard() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('profile');
   const [showJobForm, setShowJobForm] = useState(false);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [expandedJobs, setExpandedJobs] = useState<Set<number>>(new Set());
 
   // Use custom hooks - only call when user ID is available
@@ -90,6 +91,55 @@ export default function SimplifiedRecruiterDashboard() {
     },
   });
 
+  // Update job mutation
+  const updateJobMutation = useMutation({
+    mutationFn: async (jobData: JobFormData & { id: number }) => {
+      return await apiRequest(`/api/jobs/${jobData.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(jobData),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs/recruiter', user?.id] });
+      setEditingJob(null);
+      toast({
+        title: 'Success',
+        description: 'Job updated successfully!',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to update job. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Delete job mutation
+  const deleteJobMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      return await apiRequest(`/api/jobs/${jobId}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs/recruiter', user?.id] });
+      toast({
+        title: 'Success',
+        description: 'Job deleted successfully!',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete job. Please try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Helper functions
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -112,15 +162,35 @@ export default function SimplifiedRecruiterDashboard() {
   };
 
   const handleJobSubmit = (jobData: JobFormData) => {
-    if (!user?.id || !(profile as any)?.company_name) {
-      toast({
-        title: 'Error',
-        description: 'Please complete your company profile first.',
-        variant: 'destructive',
-      });
-      return;
+    if (editingJob) {
+      updateJobMutation.mutate({ ...jobData, id: editingJob.id });
+    } else {
+      if (!user?.id || !(profile as any)?.company_name) {
+        toast({
+          title: 'Error',
+          description: 'Please complete your company profile first.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      createJobMutation.mutate(jobData);
     }
-    createJobMutation.mutate(jobData);
+  };
+
+  const handleJobEdit = (jobId: number) => {
+    const job = myJobs.find((j: Job) => j.id === jobId);
+    if (job) {
+      setEditingJob(job);
+    }
+  };
+
+  const handleJobDelete = (jobId: number) => {
+    deleteJobMutation.mutate(jobId);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingJob(null);
+    setShowJobForm(false);
   };
 
   if (!user) {
@@ -180,11 +250,13 @@ export default function SimplifiedRecruiterDashboard() {
             </Button>
           </div>
 
-          {showJobForm && (
+          {(showJobForm || editingJob) && (
             <JobForm
+              initialData={editingJob}
               onSubmit={handleJobSubmit}
-              onCancel={() => setShowJobForm(false)}
-              isSubmitting={createJobMutation.isPending}
+              onCancel={handleCancelEdit}
+              isSubmitting={createJobMutation.isPending || updateJobMutation.isPending}
+              isEditing={!!editingJob}
             />
           )}
 
@@ -197,6 +269,8 @@ export default function SimplifiedRecruiterDashboard() {
                   key={job.id}
                   job={job}
                   hiredApplicants={getHiredApplicantsForJob(job.id)}
+                  onEdit={handleJobEdit}
+                  onDelete={handleJobDelete}
                   onExpandToggle={toggleJobExpansion}
                   isExpanded={expandedJobs.has(job.id)}
                   showHiredSection={true}
