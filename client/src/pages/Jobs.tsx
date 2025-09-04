@@ -214,6 +214,9 @@ export default function Jobs() {
   const displayJobs = isLoading ? [] : jobsToShow;
   
   const filteredJobs = displayJobs.filter((job: any) => {
+    // Exclude closed jobs (when someone has been hired)
+    const isActive = job.status !== 'closed';
+    
     const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          job.company.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesLocation = !locationFilter || job.location.toLowerCase().includes(locationFilter.toLowerCase());
@@ -221,7 +224,7 @@ export default function Jobs() {
     const jobContractType = job.contract_type || job.employmentType || job.type || 'Gig';
     const matchesCategory = !categoryFilter || categoryFilter === 'all' || jobContractType === categoryFilter;
     
-    return matchesSearch && matchesLocation && matchesCategory;
+    return isActive && matchesSearch && matchesLocation && matchesCategory;
   });
 
   return (

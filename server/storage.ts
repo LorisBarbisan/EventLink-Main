@@ -691,6 +691,20 @@ export class DatabaseStorage implements IStorage {
       .set(updateData)
       .where(eq(job_applications.id, applicationId))
       .returning();
+
+    // If hiring a freelancer, close the job posting
+    if (status === 'hired') {
+      const application = result[0];
+      if (application?.job_id) {
+        await db.update(jobs)
+          .set({ 
+            status: 'closed',
+            updated_at: sql`now()`
+          })
+          .where(eq(jobs.id, application.job_id));
+      }
+    }
+    
     return result[0];
   }
 

@@ -72,10 +72,11 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/recruiter', currentUserId, 'applications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] }); // Refresh jobs list to hide closed jobs
       setShowHireConfirm(false);
       toast({
         title: 'Applicant hired!',
-        description: 'The applicant has been notified of their successful application.',
+        description: 'The applicant has been notified of their successful application. The job has been closed.',
       });
     },
     onError: () => {
