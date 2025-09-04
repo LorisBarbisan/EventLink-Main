@@ -112,22 +112,27 @@ export function RatingDisplay({
 }: RatingDisplayProps) {
   if (count === 0) {
     return (
-      <div className={cn("flex items-center gap-1", className)}>
+      <div className={cn("inline-flex items-center gap-2 px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800", className)}>
         <StarRating rating={0} readonly size={size} />
         {showText && (
-          <span className="text-sm text-muted-foreground">No ratings yet</span>
+          <span className="text-sm text-muted-foreground font-medium">No ratings yet</span>
         )}
       </div>
     );
   }
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
+    <div className={cn("inline-flex items-center gap-2 px-2 py-1 rounded-md bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border border-yellow-200/50 dark:border-yellow-700/50", className)}>
       <StarRating rating={Math.round(average)} readonly size={size} />
       {showText && (
-        <span className="text-sm text-muted-foreground">
-          {average.toFixed(1)} ({count} {count === 1 ? 'rating' : 'ratings'})
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="text-sm font-semibold text-yellow-700 dark:text-yellow-300">
+            {average.toFixed(1)}
+          </span>
+          <span className="text-xs text-muted-foreground font-medium">
+            ({count} {count === 1 ? 'rating' : 'ratings'})
+          </span>
+        </div>
       )}
     </div>
   );
