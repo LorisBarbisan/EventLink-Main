@@ -32,7 +32,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
 
   // Fetch full job details when dialog opens
-  const { data: jobDetails } = useQuery<Job>({
+  const { data: jobDetails, isLoading: jobDetailsLoading } = useQuery<Job>({
     queryKey: [`/api/jobs/${application.job_id}`],
     enabled: showJobDetailsDialog && !!application.job_id,
   });
@@ -362,99 +362,147 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                       View Details
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-2xl">
+                  <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Job Details</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <p className="font-medium text-sm text-muted-foreground mb-1">Job Title</p>
-                          <p className="font-semibold">{jobDetails?.title || application.job_title}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm text-muted-foreground mb-1">Company</p>
-                          <p className="font-semibold">{jobDetails?.company || application.job_company}</p>
+                    
+                    {jobDetailsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                          <p className="text-sm text-muted-foreground mt-2">Loading job details...</p>
                         </div>
                       </div>
-
-                      {jobDetails && (
-                        <>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Header Info */}
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-lg">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <p className="font-medium text-sm text-muted-foreground mb-1">Location</p>
-                              <p>{jobDetails.location}</p>
+                              <p className="font-medium text-sm text-muted-foreground mb-1">Job Title</p>
+                              <p className="font-bold text-lg">{jobDetails?.title || application.job_title || 'No title available'}</p>
                             </div>
                             <div>
-                              <p className="font-medium text-sm text-muted-foreground mb-1">Job Type</p>
-                              <p className="capitalize">{jobDetails.type}</p>
+                              <p className="font-medium text-sm text-muted-foreground mb-1">Company</p>
+                              <p className="font-semibold text-lg">{jobDetails?.company || application.job_company || 'Company not specified'}</p>
                             </div>
                           </div>
+                        </div>
 
+                        {/* Job Information */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           <div>
-                            <p className="font-medium text-sm text-muted-foreground mb-1">Rate</p>
-                            <p>{jobDetails.rate}</p>
+                            <p className="font-medium text-sm text-muted-foreground mb-1">Location</p>
+                            <p className="font-medium">{jobDetails?.location || 'Location not specified'}</p>
                           </div>
+                          <div>
+                            <p className="font-medium text-sm text-muted-foreground mb-1">Job Type</p>
+                            <p className="capitalize font-medium">{jobDetails?.type || 'Type not specified'}</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-muted-foreground mb-1">Status</p>
+                            <p className="capitalize font-medium">{jobDetails?.status || 'Not specified'}</p>
+                          </div>
+                        </div>
 
-                          {jobDetails.description && (
-                            <div>
-                              <p className="font-medium text-sm text-muted-foreground mb-2">Job Description</p>
-                              <div className="p-3 bg-muted rounded-lg max-h-40 overflow-y-auto">
-                                <p className="text-sm whitespace-pre-wrap">{jobDetails.description}</p>
-                              </div>
+                        {/* Rate */}
+                        <div>
+                          <p className="font-medium text-sm text-muted-foreground mb-1">Rate/Salary</p>
+                          <p className="font-medium text-green-600">{jobDetails?.rate || 'Rate not specified'}</p>
+                        </div>
+
+                        {/* Description */}
+                        {jobDetails?.description && (
+                          <div>
+                            <p className="font-medium text-sm text-muted-foreground mb-2">Job Description</p>
+                            <div className="p-4 bg-muted rounded-lg max-h-48 overflow-y-auto">
+                              <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                                {jobDetails.description}
+                              </p>
                             </div>
-                          )}
-                        </>
-                      )}
-                      
-                      <div>
-                        <p className="font-medium text-sm text-muted-foreground mb-1">Application Status</p>
-                        <Badge variant={
-                          application.status === 'hired' ? 'default' :
-                          application.status === 'rejected' ? 'destructive' :
-                          application.status === 'reviewed' ? 'secondary' : 'outline'
-                        }>
-                          {application.status === 'hired' ? 'Hired' :
-                           application.status === 'rejected' ? 'Rejected' :
-                           application.status === 'reviewed' ? 'Under Review' : 'Pending'}
-                        </Badge>
+                          </div>
+                        )}
+
+                        {/* Job Status */}
+                        <div>
+                          <p className="font-medium text-sm text-muted-foreground mb-1">Job Status</p>
+                          <Badge variant={jobDetails?.status === 'active' ? 'default' : 'secondary'}>
+                            {jobDetails?.status ? jobDetails.status.charAt(0).toUpperCase() + jobDetails.status.slice(1) : 'Unknown'}
+                          </Badge>
+                        </div>
+
+                        {/* Job Dates */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                          <div>
+                            <p className="font-medium mb-1">Job Posted</p>
+                            <p>{jobDetails?.created_at ? new Date(jobDetails.created_at).toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            }) : 'Date not available'}</p>
+                          </div>
+                          <div>
+                            <p className="font-medium mb-1">Last Updated</p>
+                            <p>{jobDetails?.updated_at ? new Date(jobDetails.updated_at).toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            }) : 'Date not available'}</p>
+                          </div>
+                        </div>
+                        
+                        {/* Application Status */}
+                        <div>
+                          <p className="font-medium text-sm text-muted-foreground mb-1">Application Status</p>
+                          <Badge variant={
+                            application.status === 'hired' ? 'default' :
+                            application.status === 'rejected' ? 'destructive' :
+                            application.status === 'reviewed' ? 'secondary' : 'outline'
+                          }>
+                            {application.status === 'hired' ? 'Hired' :
+                             application.status === 'rejected' ? 'Rejected' :
+                             application.status === 'reviewed' ? 'Under Review' : 'Pending'}
+                          </Badge>
+                        </div>
                       </div>
+                    )}
 
-                      {application.cover_letter && (
-                        <div>
-                          <p className="font-medium text-sm text-muted-foreground mb-2">Your Cover Letter</p>
-                          <div className="p-3 bg-muted rounded-lg">
-                            <p className="text-sm whitespace-pre-wrap">{application.cover_letter}</p>
-                          </div>
+                    {/* Application-specific information - always shown */}
+                    {application.cover_letter && (
+                      <div>
+                        <p className="font-medium text-sm text-muted-foreground mb-2">Your Cover Letter</p>
+                        <div className="p-3 bg-muted rounded-lg">
+                          <p className="text-sm whitespace-pre-wrap">{application.cover_letter}</p>
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {application.rejection_message && application.status === 'rejected' && (
-                        <div>
-                          <p className="font-medium text-sm text-muted-foreground mb-2">Rejection Message</p>
-                          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                            <p className="text-sm text-red-700 dark:text-red-300">{application.rejection_message}</p>
-                          </div>
+                    {application.rejection_message && application.status === 'rejected' && (
+                      <div>
+                        <p className="font-medium text-sm text-muted-foreground mb-2">Rejection Message</p>
+                        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                          <p className="text-sm text-red-700 dark:text-red-300">{application.rejection_message}</p>
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
-                        <div>
-                          <p className="font-medium mb-1">Applied On</p>
-                          <p>{new Date(application.applied_at).toLocaleDateString('en-GB', {
-                            day: '2-digit',
-                            month: '2-digit', 
-                            year: 'numeric'
-                          })}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium mb-1">Last Updated</p>
-                          <p>{new Date(application.updated_at).toLocaleDateString('en-GB', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric'
-                          })}</p>
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                      <div>
+                        <p className="font-medium mb-1">Applied On</p>
+                        <p>{new Date(application.applied_at).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: '2-digit', 
+                          year: 'numeric'
+                        })}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium mb-1">Last Updated</p>
+                        <p>{new Date(application.updated_at).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric'
+                        })}</p>
                       </div>
                     </div>
                   </DialogContent>

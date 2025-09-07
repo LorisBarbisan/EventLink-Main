@@ -1,0 +1,150 @@
+
+📌 Epic: User Feedback Collection
+As a platform owner,
+I want users to be able to easily provide feedback from anywhere on the site,
+So that I can collect suggestions, identify malfunctions, and improve the platform experience.
+________________________________________
+User Story 1: Feedback Link in Header
+As a user,
+I want a “Feedback” link in the header of every page,
+So that I can submit feedback at any time without searching for it.
+Acceptance Criteria:
+•	A “Feedback” link is present in the header of all pages.
+•	Clicking the link opens the feedback form in a modal or separate page.
+•	The link is always visible, regardless of login status.
+________________________________________
+User Story 2: Pop-up Feedback Prompt
+As a user,
+I want to be occasionally prompted with a pop-up asking for feedback,
+So that I am reminded to share my experience while using the platform.
+Acceptance Criteria:
+•	After browsing for at least 3 minutes and visiting 3 different pages, a feedback pop-up is shown.
+•	The pop-up contains the same feedback form as the header link.
+•	The pop-up can be dismissed without submitting feedback.
+•	The pop-up does not reappear during the same session once dismissed or completed.
+________________________________________
+User Story 3: Feedback Form Fields
+As a user,
+I want to select a feedback type and enter my message,
+So that my feedback is structured and clear.
+Acceptance Criteria:
+•	The feedback form includes a dropdown menu with at least:
+o	Malfunction
+o	Feature Missing
+o	Suggestion
+o	Other
+•	The form includes a required text area for the feedback message.
+•	Form is usable whether or not the user is logged in.
+•	Form has a “Submit” button and a “Cancel/Close” option.
+________________________________________
+User Story 4: Feedback Submission
+As a user,
+I want my feedback to be submitted and sent via email to the platform owner,
+So that my issues or ideas reach the right person.
+Acceptance Criteria:
+•	When the form is submitted, an email is sent to loris.barbisan@outlook.com containing:
+o	Feedback type (from dropdown)
+o	Feedback message (from text box)
+o	Optional metadata (page URL, timestamp, user ID if logged in, else mark “guest”).
+•	A confirmation message is shown to the user (“Thank you for your feedback”).
+•	If submission fails (e.g., email server error), the user sees an error message and can retry.
+________________________________________
+User Story 5: Non-Logged-In Users
+As a guest user,
+I want to be able to submit feedback without logging in,
+So that I can share my thoughts quickly without barriers.
+Acceptance Criteria:
+•	Feedback form works even if the user is not signed in.
+•	Submitted feedback from guests includes “Guest User” in the metadata.
+•	No personal data is required for guest submissions.
+________________________________________
+User Story 6: Admin/Owner Email Handling
+As a platform owner,
+I want feedback emails formatted in a structured way,
+So that I can easily review and categorize submissions.
+Acceptance Criteria:
+•	Email subject includes feedback type (e.g., [Feedback: Suggestion]).
+•	Email body contains:
+o	Feedback type
+o	Feedback message
+o	User metadata (if available)
+o	Page URL where submitted
+o	Timestamp
+
+⚙️ Technical Implementation Breakdown
+1. Frontend (Feedback Form & Links)
+•	Header Link
+o	Place a “Feedback” button in the site’s global header.
+o	Clicking it triggers a modal with the feedback form (recommended for smooth UX).
+•	Feedback Pop-up Prompt
+o	Implement a session-based timer:
+	Trigger after 3 minutes of activity + 3 page loads.
+	Ensure the pop-up shows only once per session.
+o	Store dismissal/submission state in session storage (to prevent repeat prompts).
+•	Feedback Form Fields
+o	Dropdown: Malfunction, Feature Missing, Suggestion, Other.
+o	Required textarea for message input.
+o	Submit + Cancel/Close buttons.
+o	Lightweight validation (required fields).
+________________________________________
+2. Backend (Feedback Processing & Email Sending)
+•	API Endpoint
+o	Create POST /api/feedback endpoint.
+o	Accepts:
+o	{
+o	  "feedbackType": "Suggestion",
+o	  "message": "I’d love to see a dark mode option!",
+o	  "userId": "12345", // optional
+o	  "pageUrl": "/jobs/23",
+o	  "timestamp": "2025-09-05T12:34:56Z"
+o	}
+•	Email Delivery
+o	Integrate with an email service provider (cheap & reliable options):
+	SendGrid (free tier: 100 emails/day).
+	Mailgun (free tier for devs).
+	Postmark (focuses on transactional emails).
+	Or plain SMTP (Gmail/Outlook SMTP, but limited and less reliable).
+o	Email subject format:
+o	[Feedback: <FeedbackType>] from <UserID or Guest>
+o	Email body format:
+o	Feedback Type: Suggestion
+o	Message: I’d love to see a dark mode option!
+o	User: 12345 (logged in) or Guest
+o	Page: /jobs/23
+o	Timestamp: 2025-09-05 12:34 UTC
+o	Recipient: loris.barbisan@outlook.com
+________________________________________
+3. Non-Logged-In Users
+•	If userId is missing, mark as Guest User.
+•	Capture IP address (optional, GDPR caution).
+•	No authentication required for the feedback endpoint.
+________________________________________
+4. Error Handling
+•	If email sending fails:
+o	Return 500 error.
+o	Show user message: “Something went wrong. Please try again later.”
+•	Log error for monitoring (e.g., Sentry, Rollbar).
+________________________________________
+5. Analytics Integration (Optional but Powerful)
+•	Track feedback submission events in Google Analytics / Mixpanel.
+•	Metrics:
+o	Submission rate.
+o	Feedback type distribution.
+o	Logged-in vs guest feedback.
+________________________________________
+6. Security & Anti-Spam Measures
+•	Add a rate limit (e.g., max 3 feedback submissions per user per hour).
+•	Add lightweight CAPTCHA (e.g., Google reCAPTCHA v3) if spam becomes an issue.
+•	Validate input server-side (avoid injection attacks).
+________________________________________
+🚀 Suggested Tech Stack
+•	Frontend:
+o	Modal form built in React / Vue / Vanilla JS.
+o	Session handling with sessionStorage.
+•	Backend:
+o	Node.js (Express) / Python (Flask/Django) / PHP (Laravel).
+o	Email service via SendGrid / Mailgun.
+•	Storage (optional, future):
+o	Save feedback submissions in DB (Postgres/MongoDB) for analytics & trend tracking.
+o	Not mandatory if email-only is enough at MVP stage.
+
