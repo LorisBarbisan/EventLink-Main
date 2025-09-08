@@ -2273,5 +2273,189 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin authentication middleware
+  const requireAdminAuth = async (req: any, res: any, next: any) => {
+    try {
+      if (!req.isAuthenticated || !req.isAuthenticated()) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const user = req.user as any;
+      const userData = await storage.getUserByEmail(user.email);
+      
+      if (!userData || userData.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+
+      req.adminUser = userData;
+      next();
+    } catch (error) {
+      console.error('Admin auth error:', error);
+      res.status(500).json({ error: 'Authentication error' });
+    }
+  };
+
+  // Admin Feedback Management API Endpoints
+  app.get("/api/admin/feedback", requireAdminAuth, async (req, res) => {
+    try {
+      const { status, type, limit = 50, offset = 0 } = req.query;
+      
+      let feedbackList;
+      
+      if (status && typeof status === 'string') {
+        feedbackList = await storage.getFeedbackByStatus(status as 'pending' | 'in_review' | 'resolved' | 'closed');
+      } else {
+        feedbackList = await storage.getAllFeedback();
+      }
+      
+      // Apply type filter if provided
+      if (type && typeof type === 'string') {
+        feedbackList = feedbackList.filter(f => f.feedback_type === type);
+      }
+      
+      // Apply pagination
+      const paginatedList = feedbackList.slice(Number(offset), Number(offset) + Number(limit));
+      
+      res.json({
+        feedback: paginatedList,
+        total: feedbackList.length,
+        offset: Number(offset),
+        limit: Number(limit)
+      });
+    } catch (error) {
+      console.error('Get feedback error:', error);
+      res.status(500).json({ error: 'Failed to fetch feedback' });
+    }
+  });
+
+  app.get("/api/admin/feedback/stats", requireAdminAuth, async (req, res) => {
+    try {
+      const stats = await storage.getFeedbackStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('Get feedback stats error:', error);
+      res.status(500).json({ error: 'Failed to fetch feedback statistics' });
+    }
+  });
+
+  app.put("/api/admin/feedback/:id/status", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const adminUser = req.adminUser;
+
+      if (!['pending', 'in_review', 'resolved', 'closed'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status value' });
+      }
+
+      const updatedFeedback = await storage.updateFeedbackStatus(Number(id), status, adminUser.id);
+      res.json({ success: true, feedback: updatedFeedback });
+    } catch (error) {
+      console.error('Update feedback status error:', error);
+      res.status(500).json({ error: 'Failed to update feedback status' });
+    }
+  });
+
+  app.put("/api/admin/feedback/:id/response", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { response } = req.body;
+      const adminUser = req.adminUser;
+
+      if (!response || typeof response !== 'string') {
+        return res.status(400).json({ error: 'Response is required' });
+      }
+
+      const updatedFeedback = await storage.addAdminResponse(Number(id), response, adminUser.id);
+      res.json({ success: true, feedback: updatedFeedback });
+    } catch (error) {
+      console.error('Add admin response error:', error);
+      res.status(500).json({ error: 'Failed to add admin response' });
+    }
+  });
+
+  // Admin User Management API Endpoints
+  app.get("/api/admin/users", requireAdminAuth, async (req, res) => {
+    try {
+      const { role, limit = 50, offset = 0 } = req.query;
+      
+      // Get all users with basic stats
+      const allUsers = await db.select({
+        id: users.id,
+        email: users.email,
+        role: users.role,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        email_verified: users.email_verified,
+        auth_provider: users.auth_provider,
+        last_login_at: users.last_login_at,
+        created_at: users.created_at,
+      }).from(users).orderBy(desc(users.created_at));
+
+      // Apply role filter if provided
+      let filteredUsers = allUsers;
+      if (role && typeof role === 'string') {
+        filteredUsers = allUsers.filter(u => u.role === role);
+      }
+
+      // Apply pagination
+      const paginatedUsers = filteredUsers.slice(Number(offset), Number(offset) + Number(limit));
+
+      res.json({
+        users: paginatedUsers,
+        total: filteredUsers.length,
+        offset: Number(offset),
+        limit: Number(limit)
+      });
+    } catch (error) {
+      console.error('Get users error:', error);
+      res.status(500).json({ error: 'Failed to fetch users' });
+    }
+  });
+
+  app.get("/api/admin/analytics/overview", requireAdminAuth, async (req, res) => {
+    try {
+      // Get platform overview statistics
+      const [userStats, jobStats, applicationStats] = await Promise.all([
+        db.select({
+          total: sql<number>`count(*)::int`,
+          freelancers: sql<number>`count(case when role = 'freelancer' then 1 end)::int`,
+          recruiters: sql<number>`count(case when role = 'recruiter' then 1 end)::int`,
+          verified: sql<number>`count(case when email_verified = true then 1 end)::int`,
+          thisMonth: sql<number>`count(case when created_at >= date_trunc('month', now()) then 1 end)::int`
+        }).from(users),
+        
+        db.select({
+          total: sql<number>`count(*)::int`,
+          active: sql<number>`count(case when status = 'active' then 1 end)::int`,
+          thisMonth: sql<number>`count(case when created_at >= date_trunc('month', now()) then 1 end)::int`
+        }).from(jobs),
+        
+        db.select({
+          total: sql<number>`count(*)::int`,
+          applied: sql<number>`count(case when status = 'applied' then 1 end)::int`,
+          hired: sql<number>`count(case when status = 'hired' then 1 end)::int`,
+          thisMonth: sql<number>`count(case when created_at >= date_trunc('month', now()) then 1 end)::int`
+        }).from(job_applications)
+      ]);
+
+      res.json({
+        users: userStats[0],
+        jobs: jobStats[0],
+        applications: applicationStats[0],
+        generated_at: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Get analytics error:', error);
+      res.status(500).json({ error: 'Failed to fetch analytics data' });
+    }
+  });
+
+  // Admin Dashboard Route (will be handled by frontend routing)
+  app.get("/admin/*", (req, res, next) => {
+    // This will be handled by the frontend router
+    next();
+  });
+
   return httpServer;
 }
