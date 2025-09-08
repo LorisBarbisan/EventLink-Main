@@ -6,7 +6,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
   password: text("password"), // Made nullable for social auth users
-  role: text("role").notNull().$type<'freelancer' | 'recruiter'>(),
+  role: text("role").notNull().$type<'freelancer' | 'recruiter' | 'admin'>(),
   first_name: text("first_name"),
   last_name: text("last_name"),
   email_verified: boolean("email_verified").default(false).notNull(),
@@ -243,6 +243,25 @@ export const insertRatingSchema = createInsertSchema(ratings).omit({
   rating: z.number().min(1).max(5),
 });
 
+// Feedback table for admin dashboard
+export const feedback = pgTable("feedback", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").references(() => users.id, { onDelete: "set null" }), // Nullable for guest users
+  feedback_type: text("feedback_type").notNull().$type<'malfunction' | 'feature-missing' | 'suggestion' | 'other'>(),
+  message: text("message").notNull(),
+  page_url: text("page_url"),
+  source: text("source").$type<'header' | 'popup'>(),
+  user_email: text("user_email"), // Store email for guest users
+  user_name: text("user_name"), // Store name for guest users or logged-in users
+  status: text("status").default('pending').$type<'pending' | 'in_review' | 'resolved' | 'closed'>(),
+  admin_response: text("admin_response"),
+  admin_user_id: integer("admin_user_id").references(() => users.id, { onDelete: "set null" }),
+  priority: text("priority").default('normal').$type<'low' | 'normal' | 'high' | 'urgent'>(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  resolved_at: timestamp("resolved_at"),
+});
+
 export const insertRatingRequestSchema = createInsertSchema(rating_requests).omit({
   id: true,
   requested_at: true,
@@ -275,3 +294,14 @@ export type Rating = typeof ratings.$inferSelect;
 export type InsertRating = z.infer<typeof insertRatingSchema>;
 export type RatingRequest = typeof rating_requests.$inferSelect;
 export type InsertRatingRequest = z.infer<typeof insertRatingRequestSchema>;
+
+// Feedback schemas and types
+export const insertFeedbackSchema = createInsertSchema(feedback).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+  resolved_at: true,
+});
+
+export type Feedback = typeof feedback.$inferSelect;
+export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
