@@ -19,6 +19,7 @@ import Settings from "./pages/Settings";
 import Jobs from "./pages/Jobs";
 import Freelancers from "./pages/Freelancers";
 import { RatingDashboard } from "./pages/RatingDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 function AppRouter() {
@@ -38,6 +39,7 @@ function AppRouter() {
       <Route path="/jobs" component={Jobs} />
       <Route path="/freelancers" component={Freelancers} />
       <Route path="/ratings" component={RatingDashboard} />
+      <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
   );

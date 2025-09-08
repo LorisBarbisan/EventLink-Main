@@ -198,6 +198,17 @@ export const Layout = ({ children }: LayoutProps) => {
                         Settings
                       </Link>
                     </DropdownMenuItem>
+                    {user?.role === 'admin' && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link to="/admin" className="flex items-center gap-2 w-full text-purple-600">
+                            <Settings className="w-4 h-4" />
+                            Admin Dashboard
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
                       onClick={async () => {

@@ -23,6 +23,7 @@ import {
   Calendar,
   ChevronRight
 } from 'lucide-react';
+import { AdminGuard } from '@/components/AdminGuard';
 
 interface FeedbackItem {
   id: number;
@@ -77,7 +78,7 @@ interface AnalyticsData {
   };
 }
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
@@ -571,5 +572,13 @@ export default function AdminDashboard() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <AdminGuard>
+      <AdminDashboardContent />
+    </AdminGuard>
   );
 }
