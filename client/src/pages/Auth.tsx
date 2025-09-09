@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { FaGoogle, FaFacebook, FaLinkedin } from 'react-icons/fa';
 
 export default function Auth() {
-  const { user, signUp, signIn, resendVerificationEmail, loading: authLoading } = useAuth();
+  const { user, signUp, signIn, loading: authLoading } = useOptimizedAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
