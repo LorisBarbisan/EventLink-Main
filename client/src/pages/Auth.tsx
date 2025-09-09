@@ -161,7 +161,7 @@ export default function Auth() {
 
     setLoading(true);
     try {
-      const { error, message, emailSent, devVerificationUrl } = await signUp(signUpData.email, signUpData.password, signUpData.role);
+      const { error, message } = await signUp(signUpData.email, signUpData.password, signUpData.role);
       
       if (error) {
         toast({
@@ -170,35 +170,10 @@ export default function Auth() {
           variant: "destructive"
         });
       } else {
-        // Show different messages based on email delivery status
-        if (emailSent) {
-          toast({
-            title: "Registration Successful!",
-            description: message || "Please check your email to verify your account before signing in."
-          });
-        } else {
-          toast({
-            title: "Registration Successful!",
-            description: "Email service is temporarily unavailable. Your verification link will appear below.",
-            variant: "default"
-          });
-          // Log the dev URL for easy access
-          if (devVerificationUrl) {
-            console.log('🔗 VERIFICATION LINK:', devVerificationUrl);
-            console.log('👆 Click the link above to verify your email');
-            // Also show it in the UI
-            setShowDirectLink(devVerificationUrl);
-          }
-        }
-        
-        // Only store email and show resend option if email sending failed
-        if (!emailSent) {
-          setPendingVerificationEmail(signUpData.email);
-          setShowResendOption(true);
-        } else {
-          setPendingVerificationEmail('');
-          setShowResendOption(false);
-        }
+        toast({
+          title: "Registration Successful!",
+          description: message || "Please check your email to verify your account before signing in."
+        });
         // Clear the form after successful signup
         setSignUpData({
           email: '',
@@ -224,7 +199,7 @@ export default function Auth() {
     
     try {
       // Use the useAuth hook's signIn method instead of direct fetch
-      const { error, user } = await signIn(signInData.email, signInData.password);
+      const { error } = await signIn(signInData.email, signInData.password);
       
       if (error) {
         console.log('Sign in error:', error);
@@ -244,7 +219,7 @@ export default function Auth() {
           description: description,
           variant: "destructive"
         });
-      } else if (user) {
+      } else {
         // Successfully signed in, show success message
         toast({
           title: "Welcome back!",
@@ -273,21 +248,13 @@ export default function Auth() {
     
     setLoading(true);
     try {
-      const { error, message } = await resendVerificationEmail(pendingVerificationEmail);
-      
-      if (error) {
-        toast({
-          title: "Failed to Resend",
-          description: error.message,
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Verification Email Sent",
-          description: message || "Please check your email for the verification link."
-        });
-        setShowResendOption(false);
-      }
+      // For now, just show a message since resendVerificationEmail is not in optimized auth
+      toast({
+        title: "Feature Unavailable",
+        description: "Please try signing up again to get a new verification email.",
+        variant: "default"
+      });
+      setShowResendOption(false);
     } catch (err) {
       toast({
         title: "Error",
