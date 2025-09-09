@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { Layout } from '@/components/Layout';
@@ -11,17 +11,53 @@ import { UKLocationInput } from '@/components/ui/uk-location-input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
-import { Search, MapPin, Clock, Coins, Calendar, Filter, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, MapPin, Clock, Coins, Calendar, Filter, RefreshCw, ChevronDown, ChevronUp, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Jobs() {
   const { toast } = useToast();
   const { user: currentUser, loading: userLoading } = useAuth();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const jobsPerPage = 10;
+
+  // Initialize search state from URL parameters
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+
+  // Load initial search parameters from URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSearch = urlParams.get('search') || '';
+    const urlLocation = urlParams.get('location') || '';
+    const urlCategory = urlParams.get('category') || '';
+    const urlPage = parseInt(urlParams.get('page') || '1');
+
+    setSearchQuery(urlSearch);
+    setLocationFilter(urlLocation);
+    setCategoryFilter(urlCategory);
+    setCurrentPage(urlPage);
+  }, []);
+
+  // Update URL when search parameters change
+  useEffect(() => {
+    const urlParams = new URLSearchParams();
+    
+    if (searchQuery) urlParams.set('search', searchQuery);
+    if (locationFilter) urlParams.set('location', locationFilter);
+    if (categoryFilter && categoryFilter !== 'all') urlParams.set('category', categoryFilter);
+    if (currentPage > 1) urlParams.set('page', currentPage.toString());
+
+    const newUrl = `${window.location.pathname}${urlParams.toString() ? `?${urlParams.toString()}` : ''}`;
+    window.history.replaceState({}, '', newUrl);
+  }, [searchQuery, locationFilter, categoryFilter, currentPage]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, locationFilter, categoryFilter]);
 
   // Fetch real jobs data from API
   const { data: jobs = [], isLoading } = useQuery({
@@ -217,9 +253,16 @@ export default function Jobs() {
     // Exclude closed jobs (when someone has been hired)
     const isActive = job.status !== 'closed';
     
-    const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         job.company.toLowerCase().includes(searchQuery.toLowerCase());
+    // Enhanced keyword search: job title, company name, and skills
+    const searchTerm = searchQuery.toLowerCase();
+    const matchesSearch = !searchTerm || 
+      job.title.toLowerCase().includes(searchTerm) ||
+      job.company.toLowerCase().includes(searchTerm) ||
+      job.description.toLowerCase().includes(searchTerm) ||
+      (job.skills && job.skills.some((skill: string) => skill.toLowerCase().includes(searchTerm)));
+    
     const matchesLocation = !locationFilter || job.location.toLowerCase().includes(locationFilter.toLowerCase());
+    
     // Filter by contract type instead of job type
     const jobContractType = job.contract_type || job.employmentType || job.type || 'Gig';
     const matchesCategory = !categoryFilter || categoryFilter === 'all' || jobContractType === categoryFilter;
@@ -249,37 +292,64 @@ export default function Jobs() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2">
-                <Input
-                  placeholder="Search jobs, companies, or skills..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full"
-                />
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="md:col-span-2">
+                  <Input
+                    placeholder="Search jobs, companies, or skills..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full"
+                    data-testid="input-search-jobs"
+                  />
+                </div>
+                <div>
+                  <UKLocationInput
+                    placeholder="Filter by UK location..."
+                    value={locationFilter}
+                    onChange={(value) => setLocationFilter(value)}
+                    data-testid="input-location-filter"
+                  />
+                </div>
+                <div>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger data-testid="select-contract-type">
+                      <SelectValue placeholder="Contract Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Contract Types</SelectItem>
+                      <SelectItem value="Freelance">Freelance</SelectItem>
+                      <SelectItem value="Full-Time">Full-Time</SelectItem>
+                      <SelectItem value="Part-Time">Part-Time</SelectItem>
+                      <SelectItem value="Contract">Contract</SelectItem>
+                      <SelectItem value="Fixed term">Fixed term</SelectItem>
+                      <SelectItem value="Temporary">Temporary</SelectItem>
+                      <SelectItem value="Gig">Gig</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div>
-                <UKLocationInput
-                  placeholder="Filter by UK location..."
-                  value={locationFilter}
-                  onChange={(value) => setLocationFilter(value)}
-                />
-              </div>
-              <div>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Contract Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Contract Types</SelectItem>
-                    <SelectItem value="Full-Time">Full-Time</SelectItem>
-                    <SelectItem value="Part-Time">Part-Time</SelectItem>
-                    <SelectItem value="Fixed term">Fixed term</SelectItem>
-                    <SelectItem value="Temporary">Temporary</SelectItem>
-                    <SelectItem value="Gig">Gig</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              
+              {/* Clear Filters Button */}
+              {(searchQuery || locationFilter || (categoryFilter && categoryFilter !== 'all')) && (
+                <div className="flex justify-start">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setLocationFilter('');
+                      setCategoryFilter('');
+                      setCurrentPage(1);
+                    }}
+                    className="flex items-center gap-2"
+                    data-testid="button-clear-filters"
+                  >
+                    <X className="w-4 h-4" />
+                    Clear Filters
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -308,7 +378,45 @@ export default function Jobs() {
             </div>
           </div>
 
-          {filteredJobs.map((job: any) => (
+          {/* No Results Message */}
+          {filteredJobs.length === 0 && !isLoading && (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Search className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">No jobs match your search</h3>
+                <p className="text-muted-foreground mb-4">
+                  Try adjusting your search criteria or removing some filters.
+                </p>
+                {(searchQuery || locationFilter || (categoryFilter && categoryFilter !== 'all')) && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setLocationFilter('');
+                      setCategoryFilter('');
+                      setCurrentPage(1);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                    Clear All Filters
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Pagination Logic */}
+          {filteredJobs.length > 0 && (() => {
+            const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
+            const startIndex = (currentPage - 1) * jobsPerPage;
+            const endIndex = startIndex + jobsPerPage;
+            const currentJobs = filteredJobs.slice(startIndex, endIndex);
+
+            return (
+              <>
+                {/* Job Cards */}
+                {currentJobs.map((job: any) => (
             <Card key={job.id} className="hover:shadow-lg transition-shadow border-l-4 border-l-primary">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -420,9 +528,66 @@ export default function Jobs() {
                 </div>
               </CardContent>
             </Card>
-            ))
-          }
+                ))}
 
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-6">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {startIndex + 1}-{Math.min(endIndex, filteredJobs.length)} of {filteredJobs.length} jobs
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Previous
+                      </Button>
+                      
+                      {/* Page Numbers */}
+                      <div className="flex gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                          .filter(pageNum => 
+                            pageNum === 1 || 
+                            pageNum === totalPages || 
+                            Math.abs(pageNum - currentPage) <= 1
+                          )
+                          .map((pageNum, index, array) => (
+                            <div key={pageNum} className="flex items-center">
+                              {index > 0 && array[index - 1] !== pageNum - 1 && (
+                                <span className="px-2 text-muted-foreground">...</span>
+                              )}
+                              <Button
+                                variant={currentPage === pageNum ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(pageNum)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {pageNum}
+                              </Button>
+                            </div>
+                          ))
+                        }
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
         </div>
       </div>
