@@ -1,0 +1,54 @@
+Got it ✅ — here’s a highly detailed prompt you can use with an AI coding agent (like Replit’s AI, Cursor, or GitHub Copilot Chat) to run a deep debugging and optimization pass over your system. It explicitly requests multiple review passes with increasing depth:
+
+⸻
+
+🔧 Debugging & Optimization Prompt
+
+Prompt:
+
+You are an expert software architect and full-stack developer.  
+Your task is to perform a complete debugging and optimization review of my entire codebase, including frontend, backend, and database structure.  
+
+Step 1: Verify and Fix
+- Verify that ALL links, routes, and navigation paths are working correctly.  
+- Verify that ALL APIs are correctly connected, returning expected responses, and handle errors gracefully.  
+- Fix or flag any broken links, endpoints, or miswired calls.  
+
+Step 2: Simplify & Streamline
+- Review the code for unnecessary complexity, duplication, or redundant logic.  
+- Simplify functions, components, and workflows without changing functionality.  
+- Ensure naming conventions are consistent and intuitive across the entire project.  
+
+Step 3: Action/Reaction Validation
+- Review every user action (e.g., form submission, button click, login, feedback, job search, etc.).  
+- Confirm that each action consistently triggers the correct reaction (e.g., notification, API call, database update, UI refresh).  
+- Fix any mismatches where an action does not correctly map to the intended outcome.  
+
+Step 4: Notifications & Messaging
+- Verify that all notification systems (email, in-app, push, SMS if applicable) are wired correctly.  
+- Ensure that notifications are sent at the right trigger points with correct content.  
+- Streamline notification handling for efficiency and scalability.  
+
+Step 5: Performance
+- Identify all performance bottlenecks (e.g., slow image loads, heavy queries, blocking scripts).  
+- Propose and implement fixes such as lazy loading, query optimization, caching, and image compression.  
+- Ensure that all pages load quickly and smoothly across devices.  
+
+Step 6: Multi-Pass Deep Review
+- Perform 3 full passes through the entire system:  
+   - **Pass 1:** Surface-level review to catch obvious bugs and inefficiencies.  
+   - **Pass 2:** Deeper review focusing on structural issues, logic flow, and optimization.  
+   - **Pass 3:** Deepest review with an eye for edge cases, error handling, and long-term maintainability.  
+- After each pass, summarize issues found, fixes applied, and any remaining risks.  
+
+Deliverables:
+- Provide a clean, debugged, and optimized version of the codebase.  
+- Provide a structured report highlighting fixes, improvements, and next steps.  
+- Ensure the final system is efficient, reliable, fast, and easy to maintain.  
+
+
+⸻
+
+👉 This prompt forces the AI to work in layers rather than just a one-shot refactor, so you’ll get progressively deeper improvements.
+
+Do you want me to also create a shorter “one-liner” version of this prompt for when you need a quicker optimization pass (instead of the full 3-stage audit)?

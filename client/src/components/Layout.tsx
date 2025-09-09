@@ -10,6 +10,7 @@ import { NotificationSystem } from "@/components/NotificationSystem";
 import { FeedbackForm } from "@/components/FeedbackForm";
 import e8Logo from "@assets/E8 LOGO_1756038316799.png";
 import { useState } from "react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 // E8 Logo component using the authentic logo image
 const EventLinkLogo = ({ size = 48 }: { size?: number }) => (
   <img 
@@ -172,14 +173,23 @@ export const Layout = ({ children }: LayoutProps) => {
                     type="text" 
                     placeholder="Search jobs..." 
                     className="bg-transparent border-none outline-none text-sm w-32"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const query = e.currentTarget.value.trim();
+                        if (query) {
+                          setLocation(`/jobs?search=${encodeURIComponent(query)}`);
+                        } else {
+                          setLocation('/jobs');
+                        }
+                      }
+                    }}
                   />
                 </div>
               )}
               
               {user ? (
                 <div className="flex items-center gap-3">
-                  {/* Temporarily disable notification system to debug black screen */}
-                  {/* <NotificationSystem userId={user.id} /> */}
+                  <NotificationSystem userId={user.id} />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button 
@@ -277,9 +287,52 @@ export const Layout = ({ children }: LayoutProps) => {
                 </>
               )}
 
-              <Button variant="outline" size="sm" className="md:hidden">
-                <Menu className="w-4 h-4" />
-              </Button>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm" className="md:hidden">
+                    <Menu className="w-4 h-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-80">
+                  <nav className="flex flex-col space-y-4 mt-8">
+                    <Link to="/jobs" className="text-foreground hover:text-primary transition-colors py-2 px-4 rounded-md hover:bg-muted">
+                      Find Jobs
+                    </Link>
+                    <Link to="/freelancers" className="text-foreground hover:text-primary transition-colors py-2 px-4 rounded-md hover:bg-muted">
+                      Find Crew
+                    </Link>
+                    <button 
+                      onClick={() => {
+                        if (user) {
+                          setLocation('/dashboard');
+                        } else {
+                          setLocation('/auth');
+                        }
+                      }}
+                      className="text-left text-foreground hover:text-primary transition-colors py-2 px-4 rounded-md hover:bg-muted"
+                    >
+                      Dashboard
+                    </button>
+                    <button 
+                      onClick={() => setShowFeedback(true)}
+                      className="text-left text-foreground hover:text-primary transition-colors py-2 px-4 rounded-md hover:bg-muted flex items-center gap-2"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Feedback
+                    </button>
+                    {!user && (
+                      <>
+                        <Link to="/auth" className="text-foreground hover:text-primary transition-colors py-2 px-4 rounded-md hover:bg-muted">
+                          Sign In
+                        </Link>
+                        <Link to="/auth?tab=signup" className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-hover transition-colors">
+                          Get Started
+                        </Link>
+                      </>
+                    )}
+                  </nav>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
         </div>
