@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { useAuth } from '@/hooks/useAuth';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { Layout } from '@/components/Layout';
 import SimplifiedFreelancerDashboard from '@/components/SimplifiedFreelancerDashboard';
@@ -9,12 +9,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface Profile {
   id: string;
-  role: 'freelancer' | 'recruiter';
+  role: 'freelancer' | 'recruiter' | 'admin';
   email: string;
 }
 
 export default function Dashboard() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useOptimizedAuth();
   const [, setLocation] = useLocation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
