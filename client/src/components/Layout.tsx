@@ -40,6 +40,14 @@ export const Layout = ({ children }: LayoutProps) => {
   const getDisplayName = () => {
     if (!user) return '';
     
+    // Handle admin users first
+    if (user.role === 'admin') {
+      const firstName = user.first_name || '';
+      const lastName = user.last_name || '';
+      const fullName = `${firstName} ${lastName}`.trim();
+      return fullName || user.email.split('@')[0];
+    }
+    
     // Use user account data (what shows in Account Information)
     if (user.role === 'freelancer') {
       const firstName = user.first_name || '';
@@ -61,6 +69,17 @@ export const Layout = ({ children }: LayoutProps) => {
 
   const getInitials = () => {
     if (!user) return '';
+    
+    // Handle admin users first
+    if (user.role === 'admin') {
+      const firstName = user.first_name || '';
+      const lastName = user.last_name || '';
+      if (firstName && lastName) {
+        return `${firstName[0]}${lastName[0]}`.toUpperCase();
+      } else if (firstName) {
+        return firstName[0].toUpperCase();
+      }
+    }
     
     // Use user account data for freelancers
     if (user.role === 'freelancer') {
@@ -198,7 +217,7 @@ export const Layout = ({ children }: LayoutProps) => {
                         Settings
                       </Link>
                     </DropdownMenuItem>
-                    {user?.role === 'admin' && (
+                    {(user?.role === 'admin' || user?.role === 'recruiter') && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
