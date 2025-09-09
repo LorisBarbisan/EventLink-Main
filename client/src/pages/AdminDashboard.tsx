@@ -91,6 +91,7 @@ function AdminDashboardContent() {
   // Analytics query
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
     queryKey: ['/api/admin/analytics/overview'],
+    queryFn: () => apiRequest('/api/admin/analytics/overview'),
     retry: 1,
   });
 
@@ -110,12 +111,14 @@ function AdminDashboardContent() {
   // Feedback stats query
   const { data: feedbackStats } = useQuery({
     queryKey: ['/api/admin/feedback/stats'],
+    queryFn: () => apiRequest('/api/admin/feedback/stats'),
     retry: 1,
   });
 
   // Users query
   const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['/api/admin/users'],
+    queryFn: () => apiRequest('/api/admin/users'),
     retry: 1,
   });
 
