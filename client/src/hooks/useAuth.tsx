@@ -66,6 +66,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               const response = await apiRequest(`/api/users/${parsedUser.id}`);
               if (response && response.id && response.email && response.id == parsedUser.id) {
                 console.log('User validation successful, updating with fresh data from server');
+                console.log('Server user role:', response.role, 'Cached user role:', parsedUser.role);
                 const freshUserWithTimestamp = {
                   ...response,
                   timestamp: Date.now()

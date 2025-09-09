@@ -335,7 +335,6 @@ export default function Auth() {
                       value={signInData.email}
                       onChange={(e) => setSignInData(prev => ({ ...prev, email: e.target.value }))}
                       required
-                      noValidate
                     />
                   </div>
                   
