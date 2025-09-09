@@ -61,12 +61,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             console.log('Recent login detected, trusting stored user data');
             setUser(parsedUser);
           } else {
-            // For older sessions, validate with server
+            // For older sessions, validate with server and UPDATE user data
             try {
               const response = await apiRequest(`/api/users/${parsedUser.id}`);
               if (response && response.id && response.email && response.id == parsedUser.id) {
-                console.log('User validation successful, setting user');
-                setUser(parsedUser);
+                console.log('User validation successful, updating with fresh data from server');
+                const freshUserWithTimestamp = {
+                  ...response,
+                  timestamp: Date.now()
+                };
+                setUser(freshUserWithTimestamp);
+                localStorage.setItem('user', JSON.stringify(freshUserWithTimestamp));
               } else {
                 console.log('Invalid user validation response, clearing cache');
                 clearAuthState();

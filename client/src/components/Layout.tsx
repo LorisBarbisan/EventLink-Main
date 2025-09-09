@@ -26,7 +26,7 @@ interface LayoutProps {
 
 export const Layout = ({ children }: LayoutProps) => {
   const [location, setLocation] = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshUser } = useAuth();
   const [showFeedback, setShowFeedback] = useState(false);
   
   // Get profile data based on user role
@@ -210,6 +210,17 @@ export const Layout = ({ children }: LayoutProps) => {
                       </>
                     )}
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={async () => {
+                        console.log('Refreshing user data...');
+                        await refreshUser();
+                        window.location.reload();
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Refresh Account
+                    </DropdownMenuItem>
                     <DropdownMenuItem 
                       onClick={async () => {
                         await signOut();
