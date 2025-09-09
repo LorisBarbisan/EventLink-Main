@@ -40,12 +40,17 @@ export const Layout = ({ children }: LayoutProps) => {
   const getDisplayName = () => {
     if (!user) return '';
     
-    // Handle admin users first
+    console.log('Layout getDisplayName - user data:', user);
+    
+    // For admin users, always use first_name + last_name from user data
     if (user.role === 'admin') {
       const firstName = user.first_name || '';
       const lastName = user.last_name || '';
+      console.log('Admin user - firstName:', firstName, 'lastName:', lastName);
       const fullName = `${firstName} ${lastName}`.trim();
-      return fullName || user.email.split('@')[0];
+      const result = fullName || user.email.split('@')[0];
+      console.log('Admin display name result:', result);
+      return result;
     }
     
     // Use user account data (what shows in Account Information)
@@ -63,8 +68,9 @@ export const Layout = ({ children }: LayoutProps) => {
       }
     }
     
-    // Fallback to email-based name
-    return user.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    // Fallback to clean email-based name
+    const emailName = user.email.split('@')[0];
+    return emailName.replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const getInitials = () => {
@@ -231,17 +237,17 @@ export const Layout = ({ children }: LayoutProps) => {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
                       onClick={async () => {
-                        console.log('Refreshing user data...');
-                        await refreshUser();
-                        // Force a hard refresh to ensure admin role is loaded
-                        setTimeout(() => {
-                          window.location.reload();
-                        }, 100);
+                        console.log('Force clearing all cache and refreshing...');
+                        // Clear all localStorage and sessionStorage
+                        localStorage.clear();
+                        sessionStorage.clear();
+                        // Force reload to get fresh data
+                        window.location.reload();
                       }}
                       className="cursor-pointer"
                     >
                       <Settings className="w-4 h-4 mr-2" />
-                      Refresh Account
+                      Clear Cache & Refresh
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       onClick={async () => {
