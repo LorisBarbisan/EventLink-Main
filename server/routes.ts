@@ -1118,13 +1118,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const jobId = parseInt(req.params.jobId);
       
       // Get job details first for notifications
-      const job = await storage.getJob(jobId);
+      const job = await storage.getJobById(jobId);
       if (!job) {
         return res.json({ success: true });
       }
       
       // Get hired freelancers for this job
-      const hiredApplications = await storage.getJobApplications(jobId);
+      const hiredApplications = await storage.getJobApplicationsByJob(jobId);
       const hiredFreelancers = hiredApplications.filter(app => app.status === 'hired');
       
       // Send notifications to hired freelancers
@@ -1135,7 +1135,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             type: 'job_deleted',
             title: 'Job Cancelled',
             message: `The job "${job.title}" at ${job.company} has been cancelled by the recruiter. You will be contacted directly if there are any questions.`,
-            related_id: jobId,
+            related_entity_type: 'job',
+            related_entity_id: jobId,
             is_read: false
           });
         } catch (notificationError) {
