@@ -24,6 +24,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { AdminGuard } from '@/components/AdminGuard';
+import { Layout } from '@/components/Layout';
 
 interface FeedbackItem {
   id: number;
@@ -581,7 +582,9 @@ function AdminDashboardContent() {
 export default function AdminDashboard() {
   return (
     <AdminGuard>
-      <AdminDashboardContent />
+      <Layout>
+        <AdminDashboardContent />
+      </Layout>
     </AdminGuard>
   );
 }

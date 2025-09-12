@@ -35,7 +35,7 @@ export function AdminGuard({ children }: AdminGuardProps) {
     return null;
   }
 
-  // Handle non-admin users - block rendering completely
+  // Handle non-admin users - block rendering completely and redirect immediately
   if (user.role !== 'admin') {
     console.log('Admin access denied for user:', user.email, 'Role:', user.role);
     toast({
@@ -43,8 +43,16 @@ export function AdminGuard({ children }: AdminGuardProps) {
       description: 'Admin privileges are required to access this page.',
       variant: 'destructive',
     });
-    setLocation('/dashboard');
-    return null;
+    // Immediate redirect for non-admin users
+    setTimeout(() => setLocation('/dashboard'), 0);
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-destructive mx-auto"></div>
+          <p className="text-muted-foreground">Access denied. Redirecting...</p>
+        </div>
+      </div>
+    );
   }
 
   // Debug logging for admin users

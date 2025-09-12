@@ -2259,29 +2259,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let userData = null;
 
+      // Debug session data
+      console.log('Admin auth check - Session data:', {
+        hasSession: !!req.session,
+        sessionUserId: req.session?.userId,
+        sessionUser: req.session?.user?.email,
+        isAuthenticated: req.isAuthenticated?.(),
+        passportUser: req.user?.email
+      });
+
       // Check Passport authentication first (OAuth users)
       if (req.isAuthenticated && req.isAuthenticated() && req.user) {
         const user = req.user as any;
         userData = await storage.getUserByEmail(user.email);
+        console.log('Admin auth - Found via Passport:', userData?.email, userData?.role);
       } 
       // Check custom authentication via session (email/password users)
       else if (req.session && req.session.userId) {
         userData = await storage.getUser(req.session.userId);
+        console.log('Admin auth - Found via session userId:', userData?.email, userData?.role);
       }
       // Also check if user data is directly in session (fallback)
       else if (req.session && req.session.user) {
         const sessionUser = req.session.user;
         userData = await storage.getUserByEmail(sessionUser.email);
+        console.log('Admin auth - Found via session user:', userData?.email, userData?.role);
       }
 
       if (!userData) {
+        console.log('Admin auth - No user data found');
         return res.status(401).json({ error: 'Authentication required' });
       }
       
       if (userData.role !== 'admin') {
+        console.log('Admin auth - User not admin:', userData.email, userData.role);
         return res.status(403).json({ error: 'Admin access required' });
       }
 
+      console.log('Admin auth - Success for:', userData.email);
       req.adminUser = userData;
       next();
     } catch (error) {
