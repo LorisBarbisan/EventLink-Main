@@ -12,24 +12,6 @@ export function AdminGuard({ children }: AdminGuardProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      toast({
-        title: 'Authentication Required',
-        description: 'Please sign in to access the admin dashboard.',
-        variant: 'destructive',
-      });
-      setLocation('/auth');
-    } else if (!isLoading && user && user.role !== 'admin') {
-      toast({
-        title: 'Access Denied',
-        description: 'Admin privileges are required to access this page.',
-        variant: 'destructive',
-      });
-      setLocation('/dashboard');
-    }
-  }, [user, isLoading, setLocation, toast]);
-
   // Show loading while checking authentication
   if (isLoading) {
     return (
@@ -42,10 +24,31 @@ export function AdminGuard({ children }: AdminGuardProps) {
     );
   }
 
-  // Don't render admin content for non-admin users
-  if (!user || user.role !== 'admin') {
+  // Handle unauthenticated users
+  if (!user) {
+    toast({
+      title: 'Authentication Required',
+      description: 'Please sign in to access the admin dashboard.',
+      variant: 'destructive',
+    });
+    setLocation('/auth');
     return null;
   }
+
+  // Handle non-admin users - block rendering completely
+  if (user.role !== 'admin') {
+    console.log('Admin access denied for user:', user.email, 'Role:', user.role);
+    toast({
+      title: 'Access Denied',
+      description: 'Admin privileges are required to access this page.',
+      variant: 'destructive',
+    });
+    setLocation('/dashboard');
+    return null;
+  }
+
+  // Debug logging for admin users
+  console.log('Admin access granted for user:', user.email, 'Role:', user.role);
 
   // Render admin dashboard for authenticated admin users
   return <>{children}</>;
