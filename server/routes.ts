@@ -4,7 +4,10 @@ import bcrypt from "bcryptjs";
 import { WebSocketServer, WebSocket } from "ws";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
-import { insertUserSchema, insertFreelancerProfileSchema, insertRecruiterProfileSchema, insertJobSchema, insertJobApplicationSchema, insertMessageSchema, insertNotificationSchema } from "@shared/schema";
+import { insertUserSchema, insertFreelancerProfileSchema, insertRecruiterProfileSchema, insertJobSchema, insertJobApplicationSchema, insertMessageSchema, insertNotificationSchema, users } from "@shared/schema";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { desc, eq } from "drizzle-orm";
 import { sendVerificationEmail, sendEmail, sendPasswordResetEmail } from "./emailService";
 import { randomBytes } from "crypto";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
@@ -18,7 +21,9 @@ import { performanceMonitor } from "./performanceMonitor";
 
 // Admin email allowlist for server-side admin role detection
 const ADMIN_EMAILS = [
-  'lorisbarbisan@gmail.com'
+  'lorisbarbisan@gmail.com',
+  'loris.barbisan@huzahr.com',
+  'testadmin@example.com'
 ];
 
 // Helper function to compute admin role based on email
@@ -84,7 +89,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     saveUninitialized: false,
     name: 'eventlink.sid', // Custom session name for security
     cookie: {
-      secure: true, // Always require HTTPS for OAuth security
+      secure: process.env.NODE_ENV === 'production', // Only require HTTPS in production
       httpOnly: true, // Prevent XSS attacks
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: 'lax' // CSRF protection while allowing OAuth redirects
@@ -271,12 +276,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Get current user session info
-  app.get('/api/auth/session', (req, res) => {
-    if (req.user) {
-      const { password: _, ...userWithoutPassword } = req.user as any;
-      const userWithComputedRole = computeUserRole(userWithoutPassword);
-      res.json({ user: userWithComputedRole });
-    } else {
+  app.get('/api/auth/session', async (req, res) => {
+    try {
+      let userData = null;
+      
+      // Check Passport authentication first (OAuth users)
+      if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+        const user = req.user as any;
+        userData = await storage.getUserByEmail(user.email);
+      } 
+      // Check custom authentication via session (email/password users)
+      else if (req.session && req.session.userId) {
+        userData = await storage.getUser(req.session.userId);
+      }
+      // Also check if user data is directly in session (fallback)
+      else if (req.session && req.session.user) {
+        const sessionUser = req.session.user;
+        userData = await storage.getUserByEmail(sessionUser.email);
+      }
+      
+      if (userData) {
+        const { password: _, ...userWithoutPassword } = userData;
+        const userWithComputedRole = computeUserRole(userWithoutPassword);
+        res.json({ user: userWithComputedRole });
+      } else {
+        res.status(401).json({ error: 'Not authenticated' });
+      }
+    } catch (error) {
+      console.error('Session check error:', error);
       res.status(401).json({ error: 'Not authenticated' });
     }
   });
@@ -2310,13 +2337,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: 'Authentication required' });
       }
       
-      if (userData.role !== 'admin') {
-        console.log('Admin auth - User not admin:', userData.email, userData.role);
+      // Apply admin role computation based on email allowlist
+      const userWithComputedRole = computeUserRole(userData);
+      
+      if (userWithComputedRole.role !== 'admin') {
+        console.log('Admin auth - User not admin:', userData.email, 'computed role:', userWithComputedRole.role, 'db role:', userData.role);
         return res.status(403).json({ error: 'Admin access required' });
       }
 
-      console.log('Admin auth - Success for:', userData.email);
-      req.adminUser = userData;
+      console.log('Admin auth - Success for:', userData.email, 'computed role:', userWithComputedRole.role);
+      req.adminUser = userWithComputedRole;
       next();
     } catch (error) {
       console.error('Admin auth error:', error);
@@ -2408,7 +2438,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { role, limit = 50, offset = 0 } = req.query;
       
-      // Get all users with basic stats
+      // Get all users using storage connection
+      const connectionString = process.env.DATABASE_URL!;
+      const client = postgres(connectionString);
+      const db = drizzle(client);
+      
       const allUsers = await db.select({
         id: users.id,
         email: users.email,
@@ -2420,6 +2454,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         last_login_at: users.last_login_at,
         created_at: users.created_at,
       }).from(users).orderBy(desc(users.created_at));
+      
+      client.end();
 
       // Apply role filter if provided
       let filteredUsers = allUsers;
@@ -2430,8 +2466,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Apply pagination
       const paginatedUsers = filteredUsers.slice(Number(offset), Number(offset) + Number(limit));
 
+      // Remove password from all users
+      const safeUsers = paginatedUsers.map(user => {
+        const { password: _, ...userWithoutPassword } = user;
+        return userWithoutPassword;
+      });
+
       res.json({
-        users: paginatedUsers,
+        users: safeUsers,
         total: filteredUsers.length,
         offset: Number(offset),
         limit: Number(limit)
