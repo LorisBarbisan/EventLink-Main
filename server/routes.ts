@@ -275,6 +275,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
   }
 
+  // Debug endpoint to verify cookie roundtrip functionality
+  app.get('/api/auth/debug', (req, res) => {
+    console.log('Debug endpoint hit:', {
+      sessionID: req.sessionID,
+      hasSession: !!req.session,
+      userId: req.session?.userId,
+      cookies: req.headers.cookie,
+      sessionCookie: req.headers.cookie?.includes('eventlink.sid'),
+      timestamp: new Date().toISOString()
+    });
+    
+    res.json({
+      session: !!req.session,
+      sessionID: req.sessionID || null,
+      userId: req.session?.userId || null,
+      userEmail: req.session?.user?.email || null,
+      hasCookies: !!req.headers.cookie,
+      sessionCookiePresent: req.headers.cookie?.includes('eventlink.sid') || false,
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Get current user session info
   app.get('/api/auth/session', async (req, res) => {
     try {
@@ -430,14 +452,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User does not exist or invalid credentials" });
       }
 
-      // Store user in session for backend authentication
-      req.session.userId = user.id;
-      req.session.user = user;
+      // Regenerate session for security and store user data
+      req.session.regenerate((err) => {
+        if (err) {
+          console.error('Session regeneration error:', err);
+          return res.status(500).json({ error: "Authentication failed. Please try again." });
+        }
 
-      // Remove password from response and compute admin role
-      const { password: _, ...userWithoutPassword } = user;
-      const userWithComputedRole = computeUserRole(userWithoutPassword);
-      res.json({ user: userWithComputedRole });
+        // Store user in session for backend authentication
+        req.session.userId = user.id;
+        req.session.user = { id: user.id, email: user.email, role: user.role };
+
+        // Save session before responding
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error('Session save error:', saveErr);
+            return res.status(500).json({ error: "Authentication failed. Please try again." });
+          }
+
+          console.log(`Session created for user ${user.email}, session ID: ${req.sessionID}`);
+          
+          // Remove password from response and compute admin role
+          const { password: _, ...userWithoutPassword } = user;
+          const userWithComputedRole = computeUserRole(userWithoutPassword);
+          res.json({ user: userWithComputedRole });
+        });
+      });
     } catch (error) {
       console.error("Signin error:", error);
       return res.status(500).json({ error: "Server error occurred. Please try again." });
