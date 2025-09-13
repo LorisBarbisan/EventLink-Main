@@ -3,8 +3,8 @@ export interface User {
   id: number;
   email: string;
   role: 'freelancer' | 'recruiter' | 'admin';
-  first_name?: string | null;
-  last_name?: string | null;
+  first_name: string | null;
+  last_name: string | null;
   created_at: string | Date;
   updated_at: string | Date;
 }

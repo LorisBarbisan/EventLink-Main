@@ -1,16 +1,8 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { apiRequest } from '@/lib/queryClient';
+import { User } from '@shared/types';
 
 // OPTIMIZED AUTH HOOK: Simplified authentication with essential features only
-
-interface User {
-  id: number;
-  email: string;
-  role: 'freelancer' | 'recruiter' | 'admin';
-  email_verified: boolean;
-  created_at: string;
-  updated_at: string;
-}
 
 interface OptimizedAuthContextType {
   user: User | null;
