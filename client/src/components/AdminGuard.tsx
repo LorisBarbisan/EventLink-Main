@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +11,34 @@ export function AdminGuard({ children }: AdminGuardProps) {
   const { user, loading: isLoading } = useOptimizedAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const hasToasted = useRef(false);
+
+  // Handle authentication and authorization with proper state management
+  useEffect(() => {
+    // Prevent multiple toasts and redirects
+    if (hasToasted.current) return;
+    
+    if (!isLoading && !user) {
+      hasToasted.current = true;
+      toast({
+        title: 'Authentication Required',
+        description: 'Please sign in to access the admin dashboard.',
+        variant: 'destructive',
+      });
+      setLocation('/auth');
+    } else if (!isLoading && user && user.role !== 'admin') {
+      hasToasted.current = true;
+      console.log('Admin access denied for user:', user.email, 'Role:', user.role);
+      toast({
+        title: 'Access Denied',
+        description: 'Admin privileges are required to access this page.',
+        variant: 'destructive',
+      });
+      setLocation('/dashboard');
+    } else if (!isLoading && user && user.role === 'admin') {
+      console.log('Admin access granted for user:', user.email, 'Role:', user.role);
+    }
+  }, [user, isLoading, toast, setLocation]);
 
   // Show loading while checking authentication
   if (isLoading) {
@@ -26,25 +54,18 @@ export function AdminGuard({ children }: AdminGuardProps) {
 
   // Handle unauthenticated users
   if (!user) {
-    toast({
-      title: 'Authentication Required',
-      description: 'Please sign in to access the admin dashboard.',
-      variant: 'destructive',
-    });
-    setLocation('/auth');
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-destructive mx-auto"></div>
+          <p className="text-muted-foreground">Authentication required. Redirecting...</p>
+        </div>
+      </div>
+    );
   }
 
-  // Handle non-admin users - block rendering completely and redirect immediately
+  // Handle non-admin users
   if (user.role !== 'admin') {
-    console.log('Admin access denied for user:', user.email, 'Role:', user.role);
-    toast({
-      title: 'Access Denied',
-      description: 'Admin privileges are required to access this page.',
-      variant: 'destructive',
-    });
-    // Immediate redirect for non-admin users
-    setTimeout(() => setLocation('/dashboard'), 0);
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -54,9 +75,6 @@ export function AdminGuard({ children }: AdminGuardProps) {
       </div>
     );
   }
-
-  // Debug logging for admin users
-  console.log('Admin access granted for user:', user.email, 'Role:', user.role);
 
   // Render admin dashboard for authenticated admin users
   return <>{children}</>;

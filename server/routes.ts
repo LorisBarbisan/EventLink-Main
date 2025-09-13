@@ -2487,6 +2487,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(analytics);
   });
 
+  // Admin Management Routes
+  app.get("/api/admin/users/admins", requireAdminAuth, async (req, res) => {
+    try {
+      const adminUsers = await storage.getAdminUsers();
+      res.json(adminUsers);
+    } catch (error) {
+      console.error('Get admin users error:', error);
+      res.status(500).json({ error: 'Failed to fetch admin users' });
+    }
+  });
+
+  app.post("/api/admin/users/grant-admin", requireAdminAuth, async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim().toLowerCase())) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email.trim().toLowerCase());
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      if (user.role === 'admin') {
+        return res.status(400).json({ error: 'User is already an admin' });
+      }
+
+      // Grant admin role
+      const updatedUser = await storage.updateUserRole(user.id, 'admin');
+      
+      res.json({ 
+        message: 'Admin status granted successfully',
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          first_name: updatedUser.first_name,
+          last_name: updatedUser.last_name
+        }
+      });
+    } catch (error) {
+      console.error('Grant admin error:', error);
+      res.status(500).json({ error: 'Failed to grant admin status' });
+    }
+  });
+
+  // Helper function to determine original user role from profiles
+  const determineOriginalRole = async (userId: number): Promise<'freelancer' | 'recruiter'> => {
+    try {
+      // Check if user has a recruiter profile first (recruiters are rarer)
+      const recruiterProfile = await storage.getRecruiterProfile(userId);
+      if (recruiterProfile) {
+        return 'recruiter';
+      }
+      
+      // Check if user has a freelancer profile
+      const freelancerProfile = await storage.getFreelancerProfile(userId);
+      if (freelancerProfile) {
+        return 'freelancer';
+      }
+      
+      // Default to freelancer if no profiles exist
+      return 'freelancer';
+    } catch (error) {
+      console.warn('Could not determine original role, defaulting to freelancer:', error);
+      return 'freelancer';
+    }
+  };
+
+  app.post("/api/admin/users/revoke-admin", requireAdminAuth, async (req, res) => {
+    try {
+      const { email } = req.body;
+      const currentAdminId = (req as any).adminUser.id; // Fix: Use adminUser.id instead of user.id
+      
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim().toLowerCase())) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email.trim().toLowerCase());
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      if (user.role !== 'admin') {
+        return res.status(400).json({ error: 'User is not an admin' });
+      }
+
+      // Prevent self-revocation
+      if (user.id === currentAdminId) {
+        return res.status(400).json({ error: 'Cannot revoke your own admin status' });
+      }
+
+      // Prevent revoking admin from allowlisted emails
+      if (ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+        return res.status(400).json({ 
+          error: 'Cannot revoke admin status from allowlisted admin accounts. This user has permanent admin privileges.' 
+        });
+      }
+
+      // Determine original role from user profiles to preserve it
+      const originalRole = await determineOriginalRole(user.id);
+      
+      // Revoke admin role and restore original role
+      const updatedUser = await storage.updateUserRole(user.id, originalRole);
+      
+      res.json({ 
+        message: 'Admin status revoked successfully',
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          first_name: updatedUser.first_name,
+          last_name: updatedUser.last_name
+        }
+      });
+    } catch (error) {
+      console.error('Revoke admin error:', error);
+      res.status(500).json({ error: 'Failed to revoke admin status' });
+    }
+  });
+
   // Admin Dashboard Route (will be handled by frontend routing)
   app.get("/admin/*", (req, res, next) => {
     // This will be handled by the frontend router

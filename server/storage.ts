@@ -186,6 +186,10 @@ export interface IStorage {
   addAdminResponse(id: number, response: string, adminUserId: number): Promise<Feedback>;
   getFeedbackByStatus(status: 'pending' | 'in_review' | 'resolved' | 'closed'): Promise<Array<Feedback & { user?: User }>>;
   getFeedbackStats(): Promise<{ total: number; pending: number; resolved: number; byType: Record<string, number> }>;
+  
+  // Admin management
+  updateUserRole(userId: number, role: 'freelancer' | 'recruiter' | 'admin'): Promise<User>;
+  getAdminUsers(): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1356,6 +1360,49 @@ export class DatabaseStorage implements IStorage {
       resolved: Number((stats?.resolved || 0) + (stats?.closed || 0)),
       byType
     };
+  }
+
+  // Admin management methods
+  async updateUserRole(userId: number, role: 'freelancer' | 'recruiter' | 'admin'): Promise<User> {
+    const result = await db.update(users)
+      .set({ role })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (!result[0]) {
+      throw new Error('User not found');
+    }
+
+    // Clear cache for this user
+    cache.delete(`user:${userId}`);
+    cache.clearPattern(`user_with_profile:${userId}`);
+
+    return result[0];
+  }
+
+  async getAdminUsers(): Promise<User[]> {
+    const cacheKey = 'admin_users';
+    const cached = cache.get<User[]>(cacheKey);
+    if (cached) return cached;
+
+    const result = await db.select({
+      id: users.id,
+      email: users.email,
+      role: users.role,
+      first_name: users.first_name,
+      last_name: users.last_name,
+      email_verified: users.email_verified,
+      auth_provider: users.auth_provider,
+      created_at: users.created_at,
+      last_login_at: users.last_login_at
+    })
+    .from(users)
+    .where(eq(users.role, 'admin'))
+    .orderBy(desc(users.created_at));
+
+    const adminUsers = result as User[];
+    cache.set(cacheKey, adminUsers, 60); // Cache for 1 minute
+    return adminUsers;
   }
 }
 

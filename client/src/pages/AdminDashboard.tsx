@@ -88,6 +88,12 @@ function AdminDashboardContent() {
     status: 'all',
     type: 'all'
   });
+  
+  // Admin management state
+  const [grantAdminEmail, setGrantAdminEmail] = useState('');
+  const [revokeAdminEmail, setRevokeAdminEmail] = useState('');
+  const [isGrantingAdmin, setIsGrantingAdmin] = useState(false);
+  const [isRevokingAdmin, setIsRevokingAdmin] = useState(false);
 
   // Analytics query
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
@@ -120,6 +126,13 @@ function AdminDashboardContent() {
   const { data: usersData, isLoading: usersLoading } = useQuery({
     queryKey: ['/api/admin/users'],
     queryFn: () => apiRequest('/api/admin/users'),
+    retry: 1,
+  });
+
+  // Admin users query
+  const { data: adminUsers, isLoading: adminUsersLoading, refetch: refetchAdminUsers } = useQuery({
+    queryKey: ['/api/admin/users/admins'],
+    queryFn: () => apiRequest('/api/admin/users/admins'),
     retry: 1,
   });
 
@@ -173,6 +186,67 @@ function AdminDashboardContent() {
     }
   };
 
+  // Admin management functions
+  const handleGrantAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!grantAdminEmail.trim()) return;
+
+    setIsGrantingAdmin(true);
+    try {
+      await apiRequest('/api/admin/users/grant-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: grantAdminEmail.trim() }),
+      });
+
+      toast({
+        title: 'Admin Status Granted',
+        description: `Admin privileges have been granted to ${grantAdminEmail}`,
+      });
+
+      setGrantAdminEmail('');
+      refetchAdminUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Grant Admin Failed',
+        description: error.response?.data?.error || 'Failed to grant admin status',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGrantingAdmin(false);
+    }
+  };
+
+  const handleRevokeAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!revokeAdminEmail.trim()) return;
+
+    setIsRevokingAdmin(true);
+    try {
+      await apiRequest('/api/admin/users/revoke-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: revokeAdminEmail.trim() }),
+      });
+
+      toast({
+        title: 'Admin Status Revoked',
+        description: `Admin privileges have been revoked from ${revokeAdminEmail}`,
+      });
+
+      setRevokeAdminEmail('');
+      refetchAdminUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Revoke Admin Failed',
+        description: error.response?.data?.error || 'Failed to revoke admin status',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRevokingAdmin(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
@@ -201,7 +275,7 @@ function AdminDashboardContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
             Overview
@@ -213,6 +287,10 @@ function AdminDashboardContent() {
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
             Users
+          </TabsTrigger>
+          <TabsTrigger value="admin-management" className="flex items-center gap-2">
+            <UserCheck className="w-4 h-4" />
+            Admin Management
           </TabsTrigger>
           <TabsTrigger value="analytics" className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
@@ -498,6 +576,168 @@ function AdminDashboardContent() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Admin Management Tab */}
+        <TabsContent value="admin-management" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Grant Admin Access */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCheck className="w-5 h-5" />
+                  Grant Admin Access
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleGrantAdmin} className="space-y-4">
+                  <div>
+                    <label htmlFor="grant-email" className="text-sm font-medium">
+                      User Email
+                    </label>
+                    <Input
+                      id="grant-email"
+                      data-testid="input-grant-admin-email"
+                      type="email"
+                      placeholder="user@example.com"
+                      value={grantAdminEmail}
+                      onChange={(e) => setGrantAdminEmail(e.target.value)}
+                      disabled={isGrantingAdmin}
+                      required
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    data-testid="button-grant-admin"
+                    disabled={isGrantingAdmin || !grantAdminEmail.trim()}
+                    className="w-full"
+                  >
+                    {isGrantingAdmin ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Granting Admin...
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="w-4 h-4 mr-2" />
+                        Grant Admin Access
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Revoke Admin Access */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Revoke Admin Access
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleRevokeAdmin} className="space-y-4">
+                  <div>
+                    <label htmlFor="revoke-email" className="text-sm font-medium">
+                      Admin Email
+                    </label>
+                    <Input
+                      id="revoke-email"
+                      data-testid="input-revoke-admin-email"
+                      type="email"
+                      placeholder="admin@example.com"
+                      value={revokeAdminEmail}
+                      onChange={(e) => setRevokeAdminEmail(e.target.value)}
+                      disabled={isRevokingAdmin}
+                      required
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    data-testid="button-revoke-admin"
+                    variant="destructive"
+                    disabled={isRevokingAdmin || !revokeAdminEmail.trim()}
+                    className="w-full"
+                  >
+                    {isRevokingAdmin ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Revoking Admin...
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-4 h-4 mr-2" />
+                        Revoke Admin Access
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Current Admin Users List */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Current Admin Users
+                </span>
+                {adminUsers && (
+                  <Badge variant="secondary" data-testid="text-admin-count">
+                    {adminUsers.length} {adminUsers.length === 1 ? 'Admin' : 'Admins'}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {adminUsersLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  <span className="ml-2 text-muted-foreground">Loading admin users...</span>
+                </div>
+              ) : adminUsers && adminUsers.length > 0 ? (
+                <div className="space-y-3">
+                  {adminUsers.map((admin: User, index: number) => (
+                    <div
+                      key={admin.id}
+                      data-testid={`card-admin-${admin.id}`}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                          <UserCheck className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium" data-testid={`text-admin-email-${admin.id}`}>
+                            {admin.email}
+                          </p>
+                          {(admin.first_name || admin.last_name) && (
+                            <p className="text-sm text-muted-foreground">
+                              {admin.first_name} {admin.last_name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="default">Admin</Badge>
+                        <Badge variant="outline">
+                          {admin.auth_provider || 'Email'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>No admin users found</p>
                 </div>
               )}
             </CardContent>
