@@ -16,9 +16,9 @@ export function AdminGuard({ children }: AdminGuardProps) {
   // Handle authentication and authorization with proper state management
   useEffect(() => {
     // Prevent multiple toasts and redirects
-    if (hasToasted.current) return;
+    if (hasToasted.current || isLoading) return;
     
-    if (!isLoading && !user) {
+    if (!user) {
       hasToasted.current = true;
       toast({
         title: 'Authentication Required',
@@ -26,7 +26,7 @@ export function AdminGuard({ children }: AdminGuardProps) {
         variant: 'destructive',
       });
       setLocation('/auth');
-    } else if (!isLoading && user && user.role !== 'admin') {
+    } else if (user.role !== 'admin') {
       hasToasted.current = true;
       console.log('Admin access denied for user:', user.email, 'Role:', user.role);
       toast({
@@ -35,10 +35,10 @@ export function AdminGuard({ children }: AdminGuardProps) {
         variant: 'destructive',
       });
       setLocation('/dashboard');
-    } else if (!isLoading && user && user.role === 'admin') {
+    } else if (user.role === 'admin') {
       console.log('Admin access granted for user:', user.email, 'Role:', user.role);
     }
-  }, [user, isLoading, toast, setLocation]);
+  }, [user, isLoading]); // Removed toast and setLocation from dependencies
 
   // Show loading while checking authentication
   if (isLoading) {
