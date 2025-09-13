@@ -233,7 +233,12 @@ export const Layout = ({ children }: LayoutProps) => {
                         Settings
                       </Link>
                     </DropdownMenuItem>
-                    {user?.role === 'admin' && (
+                    {(() => {
+                      console.log('Admin menu check - user:', user);
+                      console.log('Admin menu check - user.role:', user?.role);
+                      console.log('Admin menu check - condition result:', user?.role === 'admin');
+                      return user?.role === 'admin';
+                    })() && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
