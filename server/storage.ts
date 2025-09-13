@@ -35,7 +35,7 @@ import {
   type Feedback,
   type InsertFeedback
 } from "@shared/schema";
-import { eq, desc, isNull, and, or, sql } from "drizzle-orm";
+import { eq, desc, isNull, and, or, sql, inArray } from "drizzle-orm";
 
 const connectionString = process.env.DATABASE_URL!;
 const client = postgres(connectionString, {
@@ -1376,6 +1376,9 @@ export class DatabaseStorage implements IStorage {
     // Clear cache for this user
     cache.delete(`user:${userId}`);
     cache.clearPattern(`user_with_profile:${userId}`);
+    
+    // Clear admin users cache when admin roles change
+    cache.delete('admin_users');
 
     return result[0];
   }
@@ -1385,7 +1388,8 @@ export class DatabaseStorage implements IStorage {
     const cached = cache.get<User[]>(cacheKey);
     if (cached) return cached;
 
-    const result = await db.select({
+    // Get users with admin role from database
+    const dbAdmins = await db.select({
       id: users.id,
       email: users.email,
       role: users.role,
@@ -1400,7 +1404,43 @@ export class DatabaseStorage implements IStorage {
     .where(eq(users.role, 'admin'))
     .orderBy(desc(users.created_at));
 
-    const adminUsers = result as User[];
+    // Hardcoded admin emails (from server/routes.ts)
+    const ADMIN_EMAILS = [
+      'lorisbarbisan@gmail.com',
+      'loris.barbisan@huzahr.com',
+      'testadmin@example.com'
+    ];
+
+    // Get hardcoded admin users from database (regardless of their role column)
+    const hardcodedAdmins = await db.select({
+      id: users.id,
+      email: users.email,
+      role: users.role,
+      first_name: users.first_name,
+      last_name: users.last_name,
+      email_verified: users.email_verified,
+      auth_provider: users.auth_provider,
+      created_at: users.created_at,
+      last_login_at: users.last_login_at
+    })
+    .from(users)
+    .where(or(
+      ...ADMIN_EMAILS.map(email => eq(sql`LOWER(${users.email})`, email.toLowerCase()))
+    ))
+    .orderBy(desc(users.created_at));
+
+    // Combine and deduplicate admin users
+    const allAdmins = [...dbAdmins, ...hardcodedAdmins];
+    const uniqueAdmins = allAdmins.filter((admin, index, arr) => 
+      arr.findIndex(a => a.id === admin.id) === index
+    );
+
+    // Apply computed role for hardcoded admins
+    const adminUsers = uniqueAdmins.map(admin => ({
+      ...admin,
+      role: ADMIN_EMAILS.includes(admin.email.toLowerCase()) ? 'admin' as const : admin.role
+    })) as User[];
+
     cache.set(cacheKey, adminUsers, 60); // Cache for 1 minute
     return adminUsers;
   }

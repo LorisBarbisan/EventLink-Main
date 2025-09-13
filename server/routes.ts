@@ -2560,6 +2560,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'User not found' });
       }
 
+      // Check if user is in hardcoded admin list
+      if (ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+        return res.status(400).json({ 
+          error: 'This user already has permanent admin privileges through the system allowlist. No database update needed.' 
+        });
+      }
+
       if (user.role === 'admin') {
         return res.status(400).json({ error: 'User is already an admin' });
       }
