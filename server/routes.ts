@@ -58,12 +58,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(healthData);
   });
 
-  // Performance analytics endpoint (protected in production)
-  app.get('/api/admin/analytics', (req, res) => {
-    const hours = parseInt(req.query.hours as string) || 1;
-    const analytics = performanceMonitor.getAnalytics(hours);
-    res.json(analytics);
-  });
 
   // Enhanced session configuration for OAuth with security
   app.use(session({
@@ -2463,6 +2457,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Get analytics error:', error);
       res.status(500).json({ error: 'Failed to fetch analytics data' });
     }
+  });
+
+  // Performance analytics endpoint (protected)
+  app.get('/api/admin/analytics', requireAdminAuth, (req, res) => {
+    const hours = parseInt(req.query.hours as string) || 1;
+    const analytics = performanceMonitor.getAnalytics(hours);
+    res.json(analytics);
   });
 
   // Admin Dashboard Route (will be handled by frontend routing)

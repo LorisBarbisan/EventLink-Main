@@ -244,18 +244,6 @@ export const Layout = ({ children }: LayoutProps) => {
                         </DropdownMenuItem>
                       </>
                     )}
-                    {/* Force admin menu for testing */}
-                    {user?.email === 'lorisbarbisan@gmail.com' && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <Link to="/admin" className="flex items-center gap-2 w-full text-red-600">
-                            <Settings className="w-4 h-4" />
-                            🔴 ADMIN DASHBOARD (FORCED)
-                          </Link>
-                        </DropdownMenuItem>
-                      </>
-                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
                       onClick={async () => {
