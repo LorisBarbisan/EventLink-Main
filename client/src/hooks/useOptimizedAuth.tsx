@@ -21,7 +21,7 @@ export const OptimizedAuthProvider = ({ children }: { children: React.ReactNode 
   useEffect(() => {
     const validateStoredUser = async () => {
       // Version-based cache clearing
-      const APP_VERSION = "2025-08-27-nuclear-reset-v2"; 
+      const APP_VERSION = "2025-09-13-admin-cache-fix"; 
       const storedVersion = localStorage.getItem('app_version');
       
       if (storedVersion !== APP_VERSION) {
@@ -39,7 +39,9 @@ export const OptimizedAuthProvider = ({ children }: { children: React.ReactNode 
           try {
             const response = await apiRequest(`/api/users/${parsedUser.id}`);
             if (response && response.id && response.email) {
-              setUser(parsedUser);
+              // Update cached user with server's current data (fixes admin role not showing)
+              setUser(response);
+              localStorage.setItem('user', JSON.stringify(response));
             } else {
               localStorage.removeItem('user');
               setUser(null);
