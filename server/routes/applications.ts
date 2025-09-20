@@ -133,7 +133,7 @@ export function registerApplicationRoutes(app: Express) {
       }
 
       // Get all jobs by this recruiter, then get applications for those jobs
-      const jobs = await storage.getJobsByRecruiter(recruiterId);
+      const jobs = await storage.getJobsByRecruiterId(recruiterId);
       const allApplications = [];
       
       for (const job of jobs) {

@@ -102,7 +102,7 @@ export function registerJobRoutes(app: Express) {
   app.get("/api/jobs/recruiter/:recruiterId", async (req, res) => {
     try {
       const recruiterId = parseInt(req.params.recruiterId);
-      const jobs = await storage.getJobsByRecruiter(recruiterId);
+      const jobs = await storage.getJobsByRecruiterId(recruiterId);
       res.json(jobs);
     } catch (error) {
       console.error("Get recruiter jobs error:", error);
