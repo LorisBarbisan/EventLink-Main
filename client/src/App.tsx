@@ -25,7 +25,7 @@ import NotFound from "./pages/NotFound";
 function AppRouter() {
   // Track page views when routes change
   useAnalytics();
-  
+
   return (
     <Switch>
       <Route path="/" component={Index} />
@@ -50,7 +50,7 @@ function App() {
   useEffect(() => {
     // Verify required environment variable is present
     if (!import.meta.env.VITE_GA_MEASUREMENT_ID) {
-      console.warn('Missing required Google Analytics key: VITE_GA_MEASUREMENT_ID');
+      console.warn("Missing required Google Analytics key: VITE_GA_MEASUREMENT_ID");
     } else {
       initGA();
     }

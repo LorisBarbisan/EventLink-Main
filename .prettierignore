@@ -1,0 +1,6 @@
+dist/
+node_modules/
+.git/
+*.log
+*.lock
+package-lock.json
