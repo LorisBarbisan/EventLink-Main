@@ -23,7 +23,7 @@ export function useTabNotifications({ userId, enabled = true }: UseTabNotificati
     },
     refetchInterval: pollingInterval,
     refetchIntervalInBackground: false, // Stop polling when tab is inactive
-    enabled: enabled && !!userId,
+    enabled: false, // Temporarily disabled to prevent 401 errors that might cause rendering issues
   });
 
   // Smart polling: adapt frequency based on activity (using useEffect instead of onSuccess)
