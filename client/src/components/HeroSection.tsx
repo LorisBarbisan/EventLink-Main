@@ -79,7 +79,6 @@ export const HeroSection = () => {
                 alt="Professional trade fair and exhibition hall with lighting and event displays"
                 className="w-full h-[500px] object-cover"
                 loading="eager"
-                fetchpriority="high"
                 decoding="async"
                 width="1200"
                 height="500"
