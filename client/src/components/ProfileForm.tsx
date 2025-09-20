@@ -291,20 +291,25 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
 
 
 function RecruiterProfileView({ profile }: { profile: RecruiterProfile }) {
+  const [logoError, setLogoError] = useState(false);
+  
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center overflow-hidden">
           {profile.company_logo_url && 
            profile.company_logo_url.trim() !== '' && 
-           profile.company_logo_url !== 'null' ? (
+           profile.company_logo_url !== 'null' && 
+           !logoError ? (
             <img 
               src={profile.company_logo_url} 
               alt={`${profile.company_name} logo`} 
               className="w-full h-full object-cover"
               onError={(e) => {
                 console.log('Company logo failed to load:', profile.company_logo_url?.substring(0, 50));
+                setLogoError(true);
               }}
+              onLoad={() => setLogoError(false)}
             />
           ) : (
             <Building2 className="w-8 h-8 text-white" />

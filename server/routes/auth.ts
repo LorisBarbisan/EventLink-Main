@@ -357,8 +357,8 @@ export function registerAuthRoutes(app: Express) {
         return res.status(409).json({ error: "User already exists" });
       }
 
-      // Hash password
-      const saltRounds = 12;
+      // Hash password (optimized for performance)
+      const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
 
       // Generate email verification token
@@ -571,8 +571,8 @@ export function registerAuthRoutes(app: Express) {
         return res.status(400).json({ error: "Invalid or expired reset token" });
       }
 
-      // Hash new password
-      const saltRounds = 12;
+      // Hash new password (optimized for performance)
+      const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
 
       // Update user password and clear reset token
@@ -660,8 +660,8 @@ export function registerAuthRoutes(app: Express) {
         return res.status(400).json({ error: "Current password is incorrect" });
       }
 
-      // Hash new password
-      const saltRounds = 12;
+      // Hash new password (optimized for performance)
+      const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
       // Update password
