@@ -1,4 +1,4 @@
-import e8Logo from "@assets/E8-Logo-Orange.png";
+import e8Logo from "@assets/E8-Logo-Orange-New.png";
 
 interface LogoProps {
   size?: number;
