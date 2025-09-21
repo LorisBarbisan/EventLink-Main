@@ -133,4 +133,5 @@ export interface JobFormData {
   location: string;
   rate: string;
   description: string;
+  event_date: string;
 }

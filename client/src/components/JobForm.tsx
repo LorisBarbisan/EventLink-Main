@@ -24,6 +24,7 @@ export function JobForm({ initialData, onSubmit, onCancel, isSubmitting, isEditi
     location: initialData?.location || '',
     rate: initialData?.rate || '',
     description: initialData?.description || '',
+    event_date: initialData?.event_date || '',
   });
 
   const handleInputChange = (field: keyof JobFormData, value: string) => {
@@ -45,12 +46,13 @@ export function JobForm({ initialData, onSubmit, onCancel, isSubmitting, isEditi
         location: '',
         rate: '',
         description: '',
+        event_date: '',
       });
     }
   };
 
-  const isValid = formData.title && formData.type && formData.location && formData.rate && formData.description &&
-                  (formData.type !== 'contract' || formData.contract_type);
+  const isValid = formData.title && formData.type && formData.location && formData.rate && formData.description && 
+                  formData.event_date && (formData.type !== 'contract' || formData.contract_type);
 
   return (
     <Card>
@@ -129,17 +131,29 @@ export function JobForm({ initialData, onSubmit, onCancel, isSubmitting, isEditi
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="job-rate">
-                {formData.type === 'contract' ? 'Salary' : 'Rate'}
-              </Label>
-              <Input
-                id="job-rate"
-                value={formData.rate}
-                onChange={(e) => handleInputChange('rate', e.target.value)}
-                placeholder={formData.type === 'contract' ? "£45,000 per year" : "£450 per day"}
-                data-testid="input-job-rate"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="job-rate">
+                  {formData.type === 'contract' ? 'Salary' : 'Rate'}
+                </Label>
+                <Input
+                  id="job-rate"
+                  value={formData.rate}
+                  onChange={(e) => handleInputChange('rate', e.target.value)}
+                  placeholder={formData.type === 'contract' ? "£45,000 per year" : "£450 per day"}
+                  data-testid="input-job-rate"
+                />
+              </div>
+              <div>
+                <Label htmlFor="event-date">Event Date</Label>
+                <Input
+                  id="event-date"
+                  type="date"
+                  value={formData.event_date}
+                  onChange={(e) => handleInputChange('event_date', e.target.value)}
+                  data-testid="input-event-date"
+                />
+              </div>
             </div>
 
             <div>
