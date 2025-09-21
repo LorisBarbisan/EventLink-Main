@@ -16,7 +16,7 @@ import { MessageModal } from '@/components/MessageModal';
 
 interface Profile {
   id: string;
-  role: 'freelancer' | 'recruiter';
+  role: 'freelancer' | 'recruiter' | 'admin';
   email: string;
 }
 
@@ -182,16 +182,17 @@ export default function Profile() {
       console.log('fetchProfile called with user:', user);
       const userProfile: Profile = {
         id: user!.id.toString(),
-        role: user!.role as 'freelancer' | 'recruiter',
+        role: user!.role as 'freelancer' | 'recruiter' | 'admin',
         email: user!.email
       };
       console.log('Setting profile:', userProfile);
       setProfile(userProfile);
 
-      if (userProfile.role === 'freelancer') {
+      // Try to fetch freelancer profile for freelancer and admin users
+      if (userProfile.role === 'freelancer' || userProfile.role === 'admin') {
         try {
           const data = await apiRequest(`/api/freelancer/${userProfile.id}`);
-          console.log('Profile data received:', data);
+          console.log('Freelancer profile data received:', data);
           if (data) {
             setFreelancerProfile({
               id: data.id,
@@ -217,13 +218,17 @@ export default function Profile() {
             });
             console.log('Freelancer profile set:', data);
           } else {
-            console.log('No freelancer profile found, showing create profile message');
+            console.log('No freelancer profile found');
             setFreelancerProfile(null);
           }
         } catch (error) {
           console.log('No freelancer profile found:', error);
+          setFreelancerProfile(null);
         }
-      } else if (userProfile.role === 'recruiter') {
+      }
+
+      // Try to fetch recruiter profile for recruiter and admin users
+      if (userProfile.role === 'recruiter' || userProfile.role === 'admin') {
         try {
           const data = await apiRequest(`/api/recruiter/${userProfile.id}`);
           console.log('Recruiter profile data received:', data);
@@ -242,23 +247,13 @@ export default function Profile() {
               company_logo_url: data.company_logo_url || ''
             });
             console.log('Recruiter profile set successfully');
-            console.log('New recruiterProfile state should be:', {
-              id: data.id?.toString(),
-              company_name: data.company_name || '',
-              contact_name: data.contact_name || '',
-              company_type: data.company_type || '',
-              company_description: data.company_description || '',
-              location: data.location || '',
-              website_url: data.website_url || '',
-              linkedin_url: data.linkedin_url || '',
-              phone: data.phone || '',
-              company_logo_url: data.company_logo_url || ''
-            });
           } else {
             console.log('No recruiter profile data received from API');
+            setRecruiterProfile(null);
           }
         } catch (error) {
           console.log('No recruiter profile found:', error);
+          setRecruiterProfile(null);
         }
       }
     } catch (error) {
@@ -395,7 +390,8 @@ export default function Profile() {
     );
   }
 
-  if (profile?.role === 'recruiter' && !recruiterProfile && !loading) {
+  // Show create profile message for users who should have recruiter profiles but don't
+  if ((profile?.role === 'recruiter' || (profile?.role === 'admin' && !freelancerProfile)) && !recruiterProfile && !loading) {
     console.log('No recruiter profile found, showing create profile message');
     console.log('Current recruiterProfile state:', recruiterProfile);
     console.log('Profile role:', profile?.role);
@@ -440,7 +436,7 @@ export default function Profile() {
           {/* Profile Header */}
           <Card>
             <CardContent className="p-8">
-              {profile?.role === 'freelancer' ? (
+              {(freelancerProfile && profile?.role !== 'admin') || (profile?.role === 'admin' && freelancerProfile && !recruiterProfile) ? (
                 <div className="flex flex-col md:flex-row items-start gap-6">
                   <div className="w-32 h-32 bg-gradient-primary rounded-full flex items-center justify-center overflow-hidden">
                     {freelancerProfile?.profile_photo_url && 
@@ -617,11 +613,11 @@ export default function Profile() {
           {/* About Section */}
           <Card>
             <CardHeader>
-              <CardTitle>{profile?.role === 'freelancer' ? 'About' : 'Company Description'}</CardTitle>
+              <CardTitle>{(freelancerProfile && profile?.role !== 'admin') || (profile?.role === 'admin' && freelancerProfile && !recruiterProfile) ? 'About' : 'Company Description'}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground leading-relaxed">
-                {profile?.role === 'freelancer' 
+                {(freelancerProfile && profile?.role !== 'admin') || (profile?.role === 'admin' && freelancerProfile && !recruiterProfile)
                   ? (freelancerProfile?.bio || 'No bio available.')
                   : (recruiterProfile?.company_description || 'No company description available.')
                 }
@@ -630,7 +626,7 @@ export default function Profile() {
           </Card>
 
           {/* Skills Section (Freelancers only) */}
-          {profile?.role === 'freelancer' && (
+          {((freelancerProfile && profile?.role !== 'admin') || (profile?.role === 'admin' && freelancerProfile && !recruiterProfile)) && (
             <Card>
               <CardHeader>
                 <CardTitle>Skills & Expertise</CardTitle>
@@ -652,15 +648,22 @@ export default function Profile() {
 
 
           {/* Links Section */}
-          {((profile?.role === 'freelancer' && (freelancerProfile?.portfolio_url || freelancerProfile?.linkedin_url || freelancerProfile?.website_url)) ||
-            (profile?.role === 'recruiter' && (recruiterProfile?.website_url || recruiterProfile?.linkedin_url))) && (
+          {(() => {
+            const showFreelancerProfile = (freelancerProfile && profile?.role !== 'admin') || (profile?.role === 'admin' && freelancerProfile && !recruiterProfile);
+            const hasFreelancerLinks = freelancerProfile?.portfolio_url || freelancerProfile?.linkedin_url || freelancerProfile?.website_url;
+            const hasRecruiterLinks = recruiterProfile?.website_url || recruiterProfile?.linkedin_url;
+            return (showFreelancerProfile && hasFreelancerLinks) || (recruiterProfile && hasRecruiterLinks);
+          })() && (
             <Card>
               <CardHeader>
                 <CardTitle>Links</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {profile?.role === 'freelancer' ? (
+                  {(() => {
+                    const showFreelancerProfile = (freelancerProfile && profile?.role !== 'admin') || (profile?.role === 'admin' && freelancerProfile && !recruiterProfile);
+                    return showFreelancerProfile;
+                  })() ? (
                     <>
                       {freelancerProfile?.portfolio_url && (
                         <a 
