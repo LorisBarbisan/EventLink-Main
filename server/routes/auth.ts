@@ -569,8 +569,9 @@ export function registerAuthRoutes(app: Express) {
         return res.status(400).json({ error: "Password must be at least 8 characters long" });
       }
 
-      const user = await storage.getUserByResetToken(token);
-      if (!user || !user.password_reset_expires || user.password_reset_expires < new Date()) {
+      // Validate reset token
+      const tokenValidation = await storage.validatePasswordResetToken(token);
+      if (!tokenValidation.isValid || !tokenValidation.userId) {
         return res.status(400).json({ error: "Invalid or expired reset token" });
       }
 
@@ -579,11 +580,10 @@ export function registerAuthRoutes(app: Express) {
       const hashedPassword = await bcrypt.hash(password, saltRounds);
 
       // Update user password and clear reset token
-      await storage.updateUser(user.id, {
-        password: hashedPassword,
-        password_reset_token: null,
-        password_reset_expires: null
-      });
+      const resetSuccessful = await storage.resetPassword(tokenValidation.userId, hashedPassword);
+      if (!resetSuccessful) {
+        return res.status(500).json({ error: "Failed to reset password" });
+      }
 
       res.json({ message: "Password reset successful" });
     } catch (error) {
