@@ -615,10 +615,7 @@ export function registerAuthRoutes(app: Express) {
       const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
       // Update user with new token
-      await storage.updateUser(user.id, {
-        email_verification_token: emailVerificationToken,
-        email_verification_expires: emailVerificationExpires
-      });
+      await storage.updateUserVerificationToken(user.id, emailVerificationToken, emailVerificationExpires);
 
       // Send verification email
       try {
@@ -668,7 +665,7 @@ export function registerAuthRoutes(app: Express) {
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
       // Update password
-      await storage.updateUser(user.id, { password: hashedPassword });
+      await storage.updateUserPassword(user.id, hashedPassword);
 
       res.json({ message: "Password changed successfully" });
     } catch (error) {
@@ -686,16 +683,17 @@ export function registerAuthRoutes(app: Express) {
 
       const { first_name, last_name } = req.body;
 
-      const updatedUser = await storage.updateUser(req.user.id, {
+      await storage.updateUserAccount(req.user.id, {
         first_name,
         last_name
       });
 
+      // Get updated user and apply role computation
+      const updatedUser = await storage.getUser(req.user.id);
       if (!updatedUser) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      // Apply role computation and update session
       const userWithRole = computeUserRole(updatedUser);
       req.user = userWithRole;
 
