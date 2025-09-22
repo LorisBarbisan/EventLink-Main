@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
     company_name: '',
   });
   const [isSavingAccount, setIsSavingAccount] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [privacySettings, setPrivacySettings] = useState({
     profileVisible: true,
     emailNotifications: true,
@@ -159,16 +160,34 @@ export function SettingsForm({ user }: SettingsFormProps) {
       });
 
       // Update profile info for recruiters (company_name)
-      if (user.role === 'recruiter' && accountForm.company_name) {
-        await apiRequest(`/api/recruiter/${user.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            company_name: accountForm.company_name,
-          }),
-        });
+      if (user.role === 'recruiter') {
+        try {
+          await apiRequest(`/api/recruiter/${user.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              company_name: accountForm.company_name || '',
+            }),
+          });
+        } catch (error: any) {
+          // If profile doesn't exist (404), create it
+          if (error.message?.includes('Profile not found') || error.status === 404) {
+            await apiRequest('/api/recruiter', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                user_id: user.id,
+                company_name: accountForm.company_name || '',
+              }),
+            });
+          } else {
+            throw error; // Re-throw other errors
+          }
+        }
       }
 
       // Refresh user data to update the display
@@ -189,16 +208,28 @@ export function SettingsForm({ user }: SettingsFormProps) {
     }
   };
 
-  // Update form when user data loads
-  React.useEffect(() => {
-    if (user.role === 'recruiter') {
-      // Load company name from user profile if available
-      setAccountForm(prev => ({
-        ...prev,
-        company_name: '',
-      }));
-    }
-  }, [user.role]);
+  // Load recruiter profile data when user is a recruiter
+  useEffect(() => {
+    const loadRecruiterProfile = async () => {
+      if (user.role === 'recruiter') {
+        setIsLoadingProfile(true);
+        try {
+          const profile = await apiRequest(`/api/recruiter/${user.id}`);
+          setAccountForm(prev => ({
+            ...prev,
+            company_name: profile.company_name || '',
+          }));
+        } catch (error) {
+          // Profile might not exist yet, which is fine
+          console.log('No recruiter profile found yet');
+        } finally {
+          setIsLoadingProfile(false);
+        }
+      }
+    };
+
+    loadRecruiterProfile();
+  }, [user.id, user.role]);
 
   return (
     <div className="space-y-6">
@@ -255,10 +286,10 @@ export function SettingsForm({ user }: SettingsFormProps) {
           <div className="flex justify-end">
             <Button 
               onClick={handleAccountSave}
-              disabled={isSavingAccount}
+              disabled={isSavingAccount || isLoadingProfile}
               data-testid="button-save-account"
             >
-              {isSavingAccount ? 'Saving...' : 'Save Changes'}
+              {isSavingAccount ? 'Saving...' : isLoadingProfile ? 'Loading...' : 'Save Changes'}
             </Button>
           </div>
 
