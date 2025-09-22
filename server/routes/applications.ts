@@ -13,9 +13,9 @@ export function registerApplicationRoutes(app: Express) {
         return res.status(403).json({ error: "Not authorized to view these bookings" });
       }
 
-      const applications = await storage.getApplicationsByFreelancer(freelancerId);
-      // Filter only accepted applications for bookings
-      const bookings = applications.filter(app => app.status === 'accepted');
+      const applications = await storage.getFreelancerApplications(freelancerId);
+      // Filter only hired applications for bookings
+      const bookings = applications.filter(app => app.status === 'hired');
       
       res.json(bookings);
     } catch (error) {
@@ -34,13 +34,13 @@ export function registerApplicationRoutes(app: Express) {
       }
 
       // Check if job exists
-      const job = await storage.getJob(jobId);
+      const job = await storage.getJobById(jobId);
       if (!job) {
         return res.status(404).json({ error: "Job not found" });
       }
 
       // Check if already applied
-      const existingApplications = await storage.getApplicationsByFreelancer(req.user.id);
+      const existingApplications = await storage.getFreelancerApplications(req.user.id);
       const alreadyApplied = existingApplications.some(app => app.job_id === jobId);
       
       if (alreadyApplied) {
@@ -87,7 +87,7 @@ export function registerApplicationRoutes(app: Express) {
         return res.status(403).json({ error: "Not authorized to view these applications" });
       }
 
-      const applications = await storage.getApplicationsByFreelancer(freelancerId);
+      const applications = await storage.getFreelancerApplications(freelancerId);
       res.json(applications);
     } catch (error) {
       console.error("Get freelancer applications error:", error);
@@ -105,7 +105,7 @@ export function registerApplicationRoutes(app: Express) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const job = await storage.getJob(jobId);
+      const job = await storage.getJobById(jobId);
       if (!job) {
         return res.status(404).json({ error: "Job not found" });
       }
@@ -114,7 +114,7 @@ export function registerApplicationRoutes(app: Express) {
         return res.status(403).json({ error: "Not authorized to view applications for this job" });
       }
 
-      const applications = await storage.getApplicationsByJob(jobId);
+      const applications = await storage.getJobByIdApplications(jobId);
       res.json(applications);
     } catch (error) {
       console.error("Get job applications error:", error);
@@ -133,11 +133,11 @@ export function registerApplicationRoutes(app: Express) {
       }
 
       // Get all jobs by this recruiter, then get applications for those jobs
-      const jobs = await storage.getJobsByRecruiterId(recruiterId);
+      const jobs = await storage.getJobByIdsByRecruiterId(recruiterId);
       const allApplications = [];
       
       for (const job of jobs) {
-        const jobApplications = await storage.getApplicationsByJob(job.id);
+        const jobApplications = await storage.getJobByIdApplications(job.id);
         allApplications.push(...jobApplications);
       }
 
@@ -158,17 +158,17 @@ export function registerApplicationRoutes(app: Express) {
       }
 
       // Check if user is authorized to accept this application
-      const application = await storage.getJobApplication(applicationId);
+      const application = await storage.getJobByIdApplication(applicationId);
       if (!application) {
         return res.status(404).json({ error: "Application not found" });
       }
 
-      const job = await storage.getJob(application.job_id);
+      const job = await storage.getJobById(application.job_id);
       if (!job || (req.user.role !== 'admin' && job.recruiter_id !== req.user.id)) {
         return res.status(403).json({ error: "Not authorized to accept this application" });
       }
 
-      await storage.updateApplicationStatus(applicationId, 'accepted');
+      await storage.updateApplicationStatus(applicationId, 'hired');
       
       // Create notification for freelancer
       await storage.createNotification({
@@ -196,12 +196,12 @@ export function registerApplicationRoutes(app: Express) {
       }
 
       // Check if user is authorized to reject this application
-      const application = await storage.getJobApplication(applicationId);
+      const application = await storage.getJobByIdApplication(applicationId);
       if (!application) {
         return res.status(404).json({ error: "Application not found" });
       }
 
-      const job = await storage.getJob(application.job_id);
+      const job = await storage.getJobById(application.job_id);
       if (!job || (req.user.role !== 'admin' && job.recruiter_id !== req.user.id)) {
         return res.status(403).json({ error: "Not authorized to reject this application" });
       }

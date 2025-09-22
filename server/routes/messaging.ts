@@ -10,7 +10,7 @@ export function registerMessagingRoutes(app: Express) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const conversations = await storage.getUserConversations(req.user.id);
+      const conversations = await storage.getConversationsByUserId(req.user.id);
       res.json(conversations);
     } catch (error) {
       console.error("Get conversations error:", error);
@@ -27,11 +27,14 @@ export function registerMessagingRoutes(app: Express) {
 
       const otherUserId = parseInt(req.params.id);
       
-      // Get messages between current user and the other user
-      const messages = await storage.getMessagesBetweenUsers(req.user.id, otherUserId);
+      // Get or create conversation between users
+      const conversation = await storage.getOrCreateConversation(req.user.id, otherUserId);
+      
+      // Get messages for this conversation
+      const messages = await storage.getConversationMessages(conversation.id);
       
       // Mark messages as read
-      await storage.markMessagesAsRead(otherUserId, req.user.id);
+      await storage.markMessagesAsRead(conversation.id, req.user.id);
       
       res.json(messages);
     } catch (error) {
