@@ -9,7 +9,7 @@ interface OptimizedAuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, role: 'freelancer' | 'recruiter') => Promise<{ error: any; message?: string }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 }
 
 const OptimizedAuthContext = createContext<OptimizedAuthContextType | undefined>(undefined);
@@ -35,19 +35,19 @@ export const OptimizedAuthProvider = ({ children }: { children: React.ReactNode 
       if (storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
-          // Validate user still exists on server
+          // Validate user session on server
           try {
-            const response = await apiRequest(`/api/users/${parsedUser.id}`);
-            if (response && response.id && response.email) {
-              // Update cached user with server's current data (fixes admin role not showing)
-              setUser(response);
-              localStorage.setItem('user', JSON.stringify(response));
+            const response = await apiRequest(`/api/auth/session`);
+            if (response && response.user && response.user.id && response.user.email) {
+              // Update cached user with server's current session data (fixes admin role not showing)
+              setUser(response.user);
+              localStorage.setItem('user', JSON.stringify(response.user));
             } else {
               localStorage.removeItem('user');
               setUser(null);
             }
           } catch (error) {
-            console.log('User validation failed, clearing cache');
+            console.log('Session validation failed, clearing cache');
             localStorage.removeItem('user');
             setUser(null);
           }
@@ -83,17 +83,34 @@ export const OptimizedAuthProvider = ({ children }: { children: React.ReactNode 
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      setUser(result.user);
-      localStorage.setItem('user', JSON.stringify(result.user));
+      
+      // After successful login, get fresh session data
+      const sessionResponse = await apiRequest('/api/auth/session');
+      if (sessionResponse && sessionResponse.user) {
+        setUser(sessionResponse.user);
+        localStorage.setItem('user', JSON.stringify(sessionResponse.user));
+      } else {
+        setUser(result.user);
+        localStorage.setItem('user', JSON.stringify(result.user));
+      }
+      
       return { error: null };
     } catch (error) {
       return { error: { message: error instanceof Error ? error.message : 'Sign in failed' } };
     }
   };
 
-  const signOut = () => {
+  const signOut = async () => {
+    try {
+      // Call server signout to clear session
+      await apiRequest('/api/auth/signout', { method: 'POST' });
+    } catch (error) {
+      console.log('Server signout failed, clearing local state anyway');
+    }
+    
     setUser(null);
     localStorage.removeItem('user');
+    sessionStorage.clear();
   };
 
   return (
