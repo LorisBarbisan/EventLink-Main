@@ -32,6 +32,19 @@ export async function apiRequest(url: string, options?: RequestInit) {
   });
 
   if (!response.ok) {
+    // Handle 401 Unauthorized errors globally
+    if (response.status === 401) {
+      // Clear user state and redirect to auth
+      localStorage.removeItem('user');
+      sessionStorage.clear();
+      
+      // Only redirect if not already on auth page
+      if (window.location.pathname !== '/auth') {
+        window.location.href = '/auth';
+        return;
+      }
+    }
+    
     const error = await response.json().catch(() => ({ error: "Network error" }));
     throw new Error(error.error || `HTTP ${response.status}`);
   }
