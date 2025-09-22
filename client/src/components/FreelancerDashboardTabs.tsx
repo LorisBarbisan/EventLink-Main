@@ -83,7 +83,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
   // Fetch unread message count with optimized polling
   const { data: unreadCount } = useQuery({
     queryKey: ['/api/messages/unread-count', profile.id],
-    queryFn: () => apiRequest(`/api/messages/unread-count?userId=${profile.id}`),
+    queryFn: () => apiRequest(`/api/messages/unread-count`),
     refetchInterval: activeTab === 'messages' ? 15000 : 30000, // Poll faster only when on messages tab
     refetchIntervalInBackground: false, // Stop when tab is inactive
   });

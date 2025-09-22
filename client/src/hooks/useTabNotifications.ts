@@ -16,14 +16,14 @@ export function useTabNotifications({ userId, enabled = true }: UseTabNotificati
     queryKey: ['/api/notifications/unread-count', userId],
     queryFn: async (): Promise<number> => {
       if (!userId) return 0;
-      const response = await fetch(`/api/notifications/unread-count?userId=${userId}`);
+      const response = await fetch(`/api/notifications/unread-count`);
       if (!response.ok) return 0;
       const data = await response.json();
       return data.count as number;
     },
     refetchInterval: pollingInterval,
     refetchIntervalInBackground: false, // Stop polling when tab is inactive
-    enabled: false, // Temporarily disabled to prevent 401 errors that might cause rendering issues
+    enabled: enabled && !!userId
   });
 
   // Smart polling: adapt frequency based on activity (using useEffect instead of onSuccess)

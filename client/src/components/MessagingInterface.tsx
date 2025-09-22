@@ -48,7 +48,7 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
   // Fetch conversations - less frequent polling
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
     queryKey: ['/api/conversations', currentUser.id],
-    queryFn: () => apiRequest(`/api/conversations?userId=${currentUser.id}`),
+    queryFn: () => apiRequest(`/api/conversations`),
     refetchInterval: 60000, // Reduced from 30s to 60s
     refetchIntervalInBackground: false, // Stop when tab is inactive
   });
@@ -59,7 +59,7 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
     queryFn: async () => {
       if (!selectedConversation) return Promise.resolve([]);
       
-      const result = await apiRequest(`/api/conversations/${selectedConversation}/messages?userId=${currentUser.id}`);
+      const result = await apiRequest(`/api/conversations/${selectedConversation}/messages`);
       
       // Invalidate unread count after messages are fetched (and marked as read on backend)
       queryClient.invalidateQueries({ queryKey: ['/api/messages/unread-count', currentUser.id] });
@@ -73,7 +73,7 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
   // Fetch unread message count - reduced frequency
   const { data: unreadCount = { count: 0 } } = useQuery({
     queryKey: ['/api/messages/unread-count', currentUser.id],
-    queryFn: () => apiRequest(`/api/messages/unread-count?userId=${currentUser.id}`),
+    queryFn: () => apiRequest(`/api/messages/unread-count`),
     refetchInterval: 25000, // Reduced from 10s to 25s
     refetchIntervalInBackground: false, // Stop when tab is inactive
   });
