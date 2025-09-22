@@ -228,7 +228,7 @@ export async function sendVerificationEmail(
       <div class="container">
         <div class="header">
           <div class="logo">
-            <img src="${baseUrl.replace(/\/$/, '')}/e8-logo.png" width="120" height="120" alt="EventLink Logo" style="display: block; margin: 0 auto 20px; border-radius: 28px; box-shadow: 0 8px 20px rgba(216, 105, 14, 0.3);" />
+            <img src="${baseUrl.replace(/\/$/, '')}/e8-logo.png" width="64" height="64" alt="EventLink Logo" style="display: block; margin: 0 auto 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(216, 105, 14, 0.3);" />
           </div>
           <h1>Welcome to EventLink!</h1>
         </div>
@@ -423,7 +423,7 @@ export async function sendPasswordResetEmail(
       <div class="container">
         <div class="header">
           <div class="logo">
-            <img src="${baseUrl.replace(/\/$/, '')}/e8-logo.png" width="120" height="120" alt="EventLink Logo" style="display: block; margin: 0 auto 20px; border-radius: 28px; box-shadow: 0 8px 20px rgba(216, 105, 14, 0.3);" />
+            <img src="${baseUrl.replace(/\/$/, '')}/e8-logo.png" width="64" height="64" alt="EventLink Logo" style="display: block; margin: 0 auto 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(216, 105, 14, 0.3);" />
           </div>
           <h1>Password Reset Request</h1>
         </div>
