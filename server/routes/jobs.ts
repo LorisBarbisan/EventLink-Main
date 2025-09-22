@@ -3,45 +3,11 @@ import { storage } from "../storage";
 import { insertJobSchema } from "@shared/schema";
 
 export function registerJobRoutes(app: Express) {
-  // Get all jobs with filters
-  app.get("/api/jobs", async (req, res) => {
-    try {
-      const jobs = await storage.getAllJobs();
-      res.json(jobs);
-    } catch (error) {
-      console.error("Get jobs error:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
+  // Get all jobs endpoint implemented in main routes.ts
 
-  // Get specific job by ID
-  app.get("/api/jobs/:id", async (req, res) => {
-    try {
-      const jobId = parseInt(req.params.id);
-      const job = await storage.getJob(jobId);
-      
-      if (!job) {
-        return res.status(404).json({ error: "Job not found" });
-      }
+  // Job by ID endpoint implemented in main routes.ts
 
-      res.json(job);
-    } catch (error) {
-      console.error("Get job error:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  // Sync external jobs (placeholder for job aggregator)
-  app.post("/api/jobs/sync-external", async (req, res) => {
-    try {
-      // This would integrate with external job boards
-      // For now, return success message
-      res.json({ message: "External job sync initiated" });
-    } catch (error) {
-      console.error("Sync external jobs error:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
+  // External job sync endpoint implemented in main routes.ts
 
   // Get job posting presets
   app.get("/api/jobs/presets", async (req, res) => {
@@ -74,29 +40,9 @@ export function registerJobRoutes(app: Express) {
     }
   });
 
-  // Sync preset job template
-  app.post("/api/jobs/sync-preset/:preset", async (req, res) => {
-    try {
-      const presetId = req.params.preset;
-      
-      // This would apply a preset template to a job posting
-      res.json({ message: `Preset ${presetId} applied successfully` });
-    } catch (error) {
-      console.error("Sync preset error:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
+  // Job preset sync endpoint implemented in main routes.ts
 
-  // Get external jobs (from aggregators)
-  app.get("/api/jobs/external", async (req, res) => {
-    try {
-      // This would fetch from external job sources
-      res.json([]);
-    } catch (error) {
-      console.error("Get external jobs error:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
+  // External jobs endpoint implemented in main routes.ts
 
   // Get jobs by recruiter
   app.get("/api/jobs/recruiter/:recruiterId", async (req, res) => {
