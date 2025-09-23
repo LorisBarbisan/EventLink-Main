@@ -2,9 +2,22 @@
 export interface User {
   id: number;
   email: string;
+  password?: string | null;
   role: 'freelancer' | 'recruiter' | 'admin';
   first_name: string | null;
   last_name: string | null;
+  email_verified: boolean;
+  email_verification_token?: string | null;
+  email_verification_expires?: Date | null;
+  password_reset_token?: string | null;
+  password_reset_expires?: Date | null;
+  auth_provider?: 'email' | 'google' | 'facebook' | 'linkedin';
+  google_id?: string | null;
+  facebook_id?: string | null;
+  linkedin_id?: string | null;
+  profile_photo_url?: string | null;
+  last_login_method?: 'email' | 'google' | 'facebook' | 'linkedin';
+  last_login_at?: Date | null;
   created_at: string | Date;
   updated_at: string | Date;
 }

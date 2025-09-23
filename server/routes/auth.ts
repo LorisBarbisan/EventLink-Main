@@ -43,11 +43,11 @@ const sanitizeAuthInput = (req: any, res: any, next: any) => {
 };
 
 export function registerAuthRoutes(app: Express) {
-  // Strict rate limiting for password operations
+  // Relaxed rate limiting for password operations (temporarily for testing)
   const passwordRateLimit = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 3, // Only 3 password attempts per 15 minutes
-    message: { error: 'Too many password attempts. Please try again in 15 minutes.' },
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 10, // 10 password attempts per 5 minutes
+    message: { error: 'Too many password attempts. Please try again in 5 minutes.' },
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: true, // Don't count successful requests
@@ -664,6 +664,9 @@ export function registerAuthRoutes(app: Express) {
       }
 
       // Verify current password
+      if (!user.password) {
+        return res.status(400).json({ error: "Account does not have a password set" });
+      }
       const validPassword = await bcrypt.compare(currentPassword, user.password);
       if (!validPassword) {
         return res.status(400).json({ error: "Current password is incorrect" });

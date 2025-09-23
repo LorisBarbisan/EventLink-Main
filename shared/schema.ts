@@ -156,6 +156,8 @@ export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
   role: true,
+  first_name: true,
+  last_name: true,
 }).extend({
   password: z.string().min(1, "Password is required"),
 });
