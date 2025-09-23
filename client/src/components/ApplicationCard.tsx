@@ -98,7 +98,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
     },
     onSuccess: () => {
       if (userType === 'freelancer') {
-        queryClient.invalidateQueries({ queryKey: ['/api/freelancer', currentUserId, 'applications'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/freelancer/applications', currentUserId] });
       } else {
         queryClient.invalidateQueries({ queryKey: ['/api/recruiter', currentUserId, 'applications'] });
       }
