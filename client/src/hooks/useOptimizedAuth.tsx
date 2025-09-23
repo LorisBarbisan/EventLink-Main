@@ -98,12 +98,8 @@ export const OptimizedAuthProvider = ({ children }: { children: React.ReactNode 
         body: JSON.stringify({ email, password }),
       });
       
-      // After successful login, get fresh session data
-      const sessionResponse = await apiRequest('/api/auth/session');
-      if (sessionResponse && sessionResponse.user) {
-        setUser(sessionResponse.user);
-        localStorage.setItem('user', JSON.stringify(sessionResponse.user));
-      } else {
+      // Use the user data directly from signin response
+      if (result && result.user) {
         setUser(result.user);
         localStorage.setItem('user', JSON.stringify(result.user));
       }
