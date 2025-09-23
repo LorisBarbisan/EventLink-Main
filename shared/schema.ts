@@ -92,6 +92,8 @@ export const job_applications = pgTable("job_applications", {
   status: text("status").default('applied').$type<'applied' | 'reviewed' | 'shortlisted' | 'rejected' | 'hired'>(),
   cover_letter: text("cover_letter"),
   rejection_message: text("rejection_message"), // Message explaining rejection
+  freelancer_deleted: boolean("freelancer_deleted").default(false).notNull(), // Soft delete flag for freelancer view
+  recruiter_deleted: boolean("recruiter_deleted").default(false).notNull(), // Soft delete flag for recruiter view
   applied_at: timestamp("applied_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -110,6 +112,14 @@ export const messages = pgTable("messages", {
   sender_id: integer("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   is_read: boolean("is_read").default(false).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const message_user_states = pgTable("message_user_states", {
+  id: serial("id").primaryKey(),
+  message_id: integer("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
+  user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  deleted_at: timestamp("deleted_at").defaultNow().notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -171,7 +181,7 @@ export const insertSocialUserSchema = createInsertSchema(users).pick({
   auth_provider: true,
   google_id: true,
   facebook_id: true,
-  apple_id: true,
+  linkedin_id: true,
   profile_photo_url: true,
 }).extend({
   password: z.string().optional(),
@@ -206,9 +216,17 @@ export const insertJobApplicationSchema = createInsertSchema(job_applications).o
   id: true,
   applied_at: true,
   updated_at: true,
+  freelancer_deleted: true, // Auto-generated field
+  recruiter_deleted: true, // Auto-generated field
 }).extend({
   job_id: z.number(),
   freelancer_id: z.number(),
+});
+
+export const insertMessageUserStateSchema = createInsertSchema(message_user_states).omit({
+  id: true,
+  created_at: true,
+  deleted_at: true, // Auto-generated field
 });
 
 export const insertConversationSchema = createInsertSchema(conversations).omit({
@@ -289,8 +307,10 @@ export type JobApplication = typeof job_applications.$inferSelect;
 export type InsertJobApplication = z.infer<typeof insertJobApplicationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
+export type MessageUserState = typeof message_user_states.$inferSelect;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type InsertMessageUserState = z.infer<typeof insertMessageUserStateSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Rating = typeof ratings.$inferSelect;
