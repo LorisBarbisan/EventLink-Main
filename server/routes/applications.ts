@@ -51,7 +51,7 @@ export function registerApplicationRoutes(app: Express) {
         job_id: jobId,
         freelancer_id: req.user.id,
         cover_letter: req.body.cover_letter || '',
-        status: 'pending' as const
+        status: 'applied' as const
       };
 
       const result = insertJobApplicationSchema.safeParse(applicationData);
@@ -62,13 +62,17 @@ export function registerApplicationRoutes(app: Express) {
       const application = await storage.createJobApplication(result.data);
       
       // Create notification for recruiter
-      await storage.createNotification({
-        user_id: job.recruiter_id,
-        type: 'application_received',
-        title: 'New Job Application',
-        message: `A freelancer has applied to your job: ${job.title}`,
-        data: { job_id: jobId, application_id: application.id }
-      });
+      if (job.recruiter_id) {
+        await storage.createNotification({
+          user_id: job.recruiter_id,
+          type: 'application_received',
+          title: 'New Job Application',
+          message: `A freelancer has applied to your job: ${job.title}`,
+          related_entity_type: 'job',
+          related_entity_id: jobId,
+          metadata: JSON.stringify({ application_id: application.id })
+        });
+      }
 
       res.status(201).json(application);
     } catch (error) {
@@ -158,7 +162,7 @@ export function registerApplicationRoutes(app: Express) {
       }
 
       // Check if user is authorized to accept this application
-      const application = await storage.getJobByIdApplication(applicationId);
+      const application = await storage.getJobApplicationById(applicationId);
       if (!application) {
         return res.status(404).json({ error: "Application not found" });
       }
@@ -176,7 +180,9 @@ export function registerApplicationRoutes(app: Express) {
         type: 'application_accepted',
         title: 'Application Accepted!',
         message: `Your application for "${job.title}" has been accepted!`,
-        data: { job_id: job.id, application_id: applicationId }
+        related_entity_type: 'job',
+        related_entity_id: job.id,
+        metadata: JSON.stringify({ application_id: applicationId })
       });
 
       res.json({ message: "Application accepted successfully" });
@@ -196,7 +202,7 @@ export function registerApplicationRoutes(app: Express) {
       }
 
       // Check if user is authorized to reject this application
-      const application = await storage.getJobByIdApplication(applicationId);
+      const application = await storage.getJobApplicationById(applicationId);
       if (!application) {
         return res.status(404).json({ error: "Application not found" });
       }
@@ -214,12 +220,71 @@ export function registerApplicationRoutes(app: Express) {
         type: 'application_rejected',
         title: 'Application Update',
         message: `Your application for "${job.title}" was not selected this time.`,
-        data: { job_id: job.id, application_id: applicationId }
+        related_entity_type: 'job',
+        related_entity_id: job.id,
+        metadata: JSON.stringify({ application_id: applicationId })
       });
 
       res.json({ message: "Application rejected successfully" });
     } catch (error) {
       console.error("Reject application error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete application (soft delete with role-based permissions)
+  app.delete("/api/applications/:applicationId", async (req, res) => {
+    try {
+      const applicationId = parseInt(req.params.applicationId);
+      
+      if (Number.isNaN(applicationId)) {
+        return res.status(400).json({ error: "Invalid application ID" });
+      }
+      
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Get the application
+      const application = await storage.getJobApplicationById(applicationId);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      // Check authorization and determine delete type
+      let userRole: 'freelancer' | 'recruiter';
+      
+      if (req.user.role === 'freelancer' && application.freelancer_id === req.user.id) {
+        // Freelancer can delete their own applications
+        userRole = 'freelancer';
+      } else if (req.user.role === 'recruiter' || req.user.role === 'admin') {
+        // Recruiter/admin can hide applications from jobs they own
+        const job = await storage.getJobById(application.job_id);
+        if (!job) {
+          return res.status(404).json({ error: "Job not found" });
+        }
+        
+        if (req.user.role === 'admin' || job.recruiter_id === req.user.id) {
+          userRole = 'recruiter';
+        } else {
+          return res.status(403).json({ error: "Not authorized to delete this application" });
+        }
+      } else {
+        return res.status(403).json({ error: "Not authorized to delete this application" });
+      }
+
+      // Perform soft delete
+      await storage.softDeleteApplication(applicationId, userRole);
+      
+      res.set('Cache-Control', 'no-store');
+      res.json({ 
+        success: true, 
+        deletedFor: userRole,
+        applicationId: applicationId,
+        message: `Application ${userRole === 'freelancer' ? 'removed' : 'hidden'} successfully`
+      });
+    } catch (error) {
+      console.error("Delete application error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
