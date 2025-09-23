@@ -4,6 +4,36 @@ import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes-modular";
 import { setupVite, serveStatic, log } from "./vite";
 
+// PII-safe logging utility
+function sanitizeLogData(data: any): any {
+  if (!data || typeof data !== 'object') return {};
+  
+  const sensitiveFields = [
+    'password', 'token', 'secret', 'key', 'email', 'phone', 'ssn',
+    'first_name', 'last_name', 'address', 'credit_card', 'auth_token',
+    'session_id', 'refresh_token', 'access_token', 'api_key'
+  ];
+  
+  const result: any = {};
+  
+  for (const [key, value] of Object.entries(data)) {
+    const lowerKey = key.toLowerCase();
+    const isSensitive = sensitiveFields.some(field => lowerKey.includes(field));
+    
+    if (isSensitive) {
+      result[key] = '[REDACTED]';
+    } else if (key === 'error' || key === 'message' || key === 'status') {
+      result[key] = value; // Keep error messages for debugging
+    } else if (typeof value === 'number' || typeof value === 'boolean') {
+      result[key] = value; // Keep non-sensitive primitive values
+    } else if (key === 'id' || key === 'count' || key === 'total') {
+      result[key] = value; // Keep IDs and counts
+    }
+  }
+  
+  return result;
+}
+
 const app = express();
 
 // Configure trust proxy for Replit environment
@@ -99,12 +129,17 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      
+      // Add sanitized response info (no PII exposure)
       if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        const sanitizedResponse = sanitizeLogData(capturedJsonResponse);
+        if (Object.keys(sanitizedResponse).length > 0) {
+          logLine += ` :: ${JSON.stringify(sanitizedResponse)}`;
+        }
       }
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
+      if (logLine.length > 120) {
+        logLine = logLine.slice(0, 119) + "…";
       }
 
       log(logLine);
