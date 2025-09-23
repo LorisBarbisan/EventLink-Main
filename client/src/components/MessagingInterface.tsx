@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, MessageCircle, Clock, User } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Send, MessageCircle, Clock, User, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -42,8 +44,10 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
+  const [deleteMessageId, setDeleteMessageId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Fetch conversations - less frequent polling
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
@@ -91,6 +95,32 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
       queryClient.invalidateQueries({ queryKey: ['/api/conversations', selectedConversation, 'messages'] });
       queryClient.invalidateQueries({ queryKey: ['/api/conversations', currentUser.id] });
       queryClient.invalidateQueries({ queryKey: ['/api/messages/unread-count', currentUser.id] });
+    },
+  });
+
+  // Delete message mutation
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (messageId: number) => {
+      return apiRequest(`/api/messages/${messageId}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      setDeleteMessageId(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations', selectedConversation, 'messages'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations', currentUser.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/messages/unread-count', currentUser.id] });
+      toast({
+        title: 'Success',
+        description: 'Message deleted successfully',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete message. Please try again.',
+        variant: 'destructive',
+      });
     },
   });
 
@@ -288,21 +318,68 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
                     messages.map((message: Message) => (
                       <div
                         key={message.id}
-                        className={`flex ${
+                        className={`flex group ${
                           message.sender_id === currentUser.id ? 'justify-end' : 'justify-start'
                         }`}
                       >
                         <div
-                          className={`max-w-[70%] p-3 rounded-lg ${
+                          className={`max-w-[70%] p-3 rounded-lg relative ${
                             message.sender_id === currentUser.id
                               ? 'bg-primary text-primary-foreground ml-auto'
                               : 'bg-muted'
                           }`}
                         >
                           <p className="text-sm">{message.content}</p>
-                          <p className="text-xs opacity-70 mt-1">
-                            {formatTime(message.created_at)}
-                          </p>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-xs opacity-70">
+                              {formatTime(message.created_at)}
+                            </p>
+                            {/* Delete button for user's own messages */}
+                            {message.sender_id === currentUser.id && (
+                              <AlertDialog 
+                                open={deleteMessageId === message.id} 
+                                onOpenChange={(open) => !open && setDeleteMessageId(null)}
+                              >
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setDeleteMessageId(message.id)}
+                                    disabled={deleteMessageMutation.isPending}
+                                    data-testid={`button-delete-message-${message.id}`}
+                                    className={`h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ${
+                                      message.sender_id === currentUser.id
+                                        ? 'hover:bg-primary-foreground/20 text-primary-foreground/70 hover:text-primary-foreground'
+                                        : 'hover:bg-muted-foreground/20'
+                                    }`}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Message</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete this message? This action cannot be undone and the message will be removed from your view.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel disabled={deleteMessageMutation.isPending}>
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => deleteMessageMutation.mutate(message.id)}
+                                      disabled={deleteMessageMutation.isPending}
+                                      data-testid={`button-confirm-delete-message-${message.id}`}
+                                      className="bg-red-600 hover:bg-red-700 text-white"
+                                    >
+                                      {deleteMessageMutation.isPending ? 'Deleting...' : 'Yes, Delete Message'}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))
