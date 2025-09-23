@@ -79,22 +79,12 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Rate limiting for authentication endpoints
-const authRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // limit each IP to 10 requests per windowMs for auth
-  message: { error: 'Too many authentication attempts, please try again later' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Apply rate limiting to auth routes
-app.use('/api/auth', authRateLimit);
-
-// General rate limiting
+// Consolidated rate limiting - individual routes handle their own specific limits
+// General rate limiting for all API routes (generous base limit)
 const generalRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes  
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // generous base limit - sensitive routes have their own specific limits
+  message: { error: 'Too many requests from this IP, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
 });

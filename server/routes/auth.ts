@@ -43,11 +43,11 @@ const sanitizeAuthInput = (req: any, res: any, next: any) => {
 };
 
 export function registerAuthRoutes(app: Express) {
-  // Relaxed rate limiting for password operations (temporarily for testing)
+  // Reasonable rate limiting for password operations
   const passwordRateLimit = rateLimit({
-    windowMs: 5 * 60 * 1000, // 5 minutes
-    max: 10, // 10 password attempts per 5 minutes
-    message: { error: 'Too many password attempts. Please try again in 5 minutes.' },
+    windowMs: 15 * 60 * 1000, // 15 minutes (aligned with general rate limiter)
+    max: 10, // 10 password attempts per 15 minutes
+    message: { error: 'Too many password attempts. Please try again in 15 minutes.' },
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: true, // Don't count successful requests
