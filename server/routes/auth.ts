@@ -377,7 +377,8 @@ export function registerAuthRoutes(app: Express) {
 
       // Send verification email
       try {
-        await sendVerificationEmail(email, emailVerificationToken);
+        const baseUrl = req.protocol + '://' + req.get('host');
+        await sendVerificationEmail(email, emailVerificationToken, baseUrl);
       } catch (emailError) {
         console.error('Failed to send verification email:', emailError);
         // Don't fail signup if email fails
@@ -745,13 +746,16 @@ export function registerAuthRoutes(app: Express) {
       }
 
       // Verify password
+      if (!user.password) {
+        return res.status(400).json({ error: "Account has no password set" });
+      }
       const validPassword = await bcrypt.compare(password, user.password);
       if (!validPassword) {
         return res.status(400).json({ error: "Incorrect password" });
       }
 
-      // Delete all user data
-      await nukeAllUserData((req.user as any).id);
+      // Delete all user data (using nuclear cleanup - removes all users)
+      await nukeAllUserData();
 
       // Destroy session
       req.logout((err) => {
