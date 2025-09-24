@@ -32,6 +32,7 @@ export default defineConfig({
       host: "0.0.0.0",
       port: 5173,
       hmr: {
+        port: 5173,
         clientPort: process.env.REPL_ID ? 443 : 5173,
         host: process.env.REPL_ID ? process.env.REPLIT_DOMAINS?.split(',')[0] : 'localhost',
       },
