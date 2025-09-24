@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -117,6 +117,12 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
           body: JSON.stringify(profileData),
         });
         console.log('✅ PUT Response:', response);
+        // ✅ CRITICAL FIX: Update local state with saved data
+        setFreelancerProfile({
+          ...response,
+          availability_status: response.availability_status as 'available' | 'busy' | 'unavailable',
+          profile_photo_url: response.profile_photo_url || ''
+        });
       } else {
         console.log('🆕 Creating new profile via POST request...');
         const response = await apiRequest('/api/freelancer', {
@@ -124,8 +130,21 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
           body: JSON.stringify(profileData),
         });
         console.log('✅ POST Response:', response);
+        // ✅ CRITICAL FIX: Update local state with saved data
+        setFreelancerProfile({
+          ...response,
+          availability_status: response.availability_status as 'available' | 'busy' | 'unavailable',
+          profile_photo_url: response.profile_photo_url || ''
+        });
         setHasProfile(true);
       }
+
+      // ✅ CRITICAL FIX: Invalidate React Query cache to refresh data everywhere
+      await queryClient.invalidateQueries({ 
+        queryKey: ['/api/freelancer/profile', profile.id] 
+      });
+      
+      console.log('🔄 Cache invalidated, UI should now show updated data');
 
       toast({
         title: "Success",
