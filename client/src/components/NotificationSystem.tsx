@@ -72,11 +72,7 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
   // Fetch notifications - only when dropdown is open
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['/api/notifications', userId],
-    queryFn: async () => {
-      const response = await fetch(`/api/notifications?userId=${userId}`);
-      if (!response.ok) throw new Error('Failed to fetch notifications');
-      return response.json() as Promise<Notification[]>;
-    },
+    queryFn: () => apiRequest(`/api/notifications?userId=${userId}`) as Promise<Notification[]>,
     refetchInterval: isOpen ? 10000 : false, // Only poll when dropdown is open
     enabled: isOpen, // Only fetch when user opens dropdown
   });
@@ -85,9 +81,7 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ['/api/notifications/unread-count', userId],
     queryFn: async () => {
-      const response = await fetch(`/api/notifications/unread-count?userId=${userId}`);
-      if (!response.ok) throw new Error('Failed to fetch unread count');
-      const data = await response.json();
+      const data = await apiRequest(`/api/notifications/unread-count?userId=${userId}`);
       return data.count;
     },
     refetchInterval: 20000, // Reduced from 10s to 20s

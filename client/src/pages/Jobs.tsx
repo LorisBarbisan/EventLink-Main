@@ -62,12 +62,7 @@ export default function Jobs() {
   // Fetch real jobs data from API
   const { data: jobs = [], isLoading } = useQuery({
     queryKey: ['/api/jobs'],
-    queryFn: async () => {
-      const response = await fetch('/api/jobs');
-      if (!response.ok) throw new Error('Failed to fetch jobs');
-      const data = await response.json();
-      return data;
-    }
+    queryFn: () => apiRequest('/api/jobs')
   });
 
   // Sync external jobs mutation

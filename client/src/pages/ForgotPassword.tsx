@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Mail } from 'lucide-react';
+import { apiRequest } from '@/lib/queryClient';
 
 export default function ForgotPassword() {
   const [, setLocation] = useLocation();
@@ -40,29 +41,16 @@ export default function ForgotPassword() {
     setLoading(true);
     
     try {
-      const response = await fetch('/api/auth/forgot-password', {
+      const data = await apiRequest('/api/auth/forgot-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ email: email.trim() })
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setSubmitted(true);
-        toast({
-          title: "Request Sent",
-          description: data.message
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Something went wrong. Please try again.",
-          variant: "destructive"
-        });
-      }
+      setSubmitted(true);
+      toast({
+        title: "Request Sent",
+        description: data.message
+      });
     } catch (error) {
       console.error('Password reset request error:', error);
       toast({

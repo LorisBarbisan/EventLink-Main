@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 interface UseTabNotificationsProps {
   userId: number | null | undefined;
@@ -16,10 +17,12 @@ export function useTabNotifications({ userId, enabled = true }: UseTabNotificati
     queryKey: ['/api/notifications/unread-count', userId],
     queryFn: async (): Promise<number> => {
       if (!userId) return 0;
-      const response = await fetch(`/api/notifications/unread-count`);
-      if (!response.ok) return 0;
-      const data = await response.json();
-      return data.count as number;
+      try {
+        const data = await apiRequest(`/api/notifications/unread-count`);
+        return data.count as number;
+      } catch {
+        return 0;
+      }
     },
     refetchInterval: pollingInterval,
     refetchIntervalInBackground: false, // Stop polling when tab is inactive
