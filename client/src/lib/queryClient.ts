@@ -36,7 +36,7 @@ export async function apiRequest(url: string, options?: RequestInit & { skipAuth
     if (response.status === 401 && !options?.skipAuthRedirect) {
       // Clear user state and redirect to auth
       localStorage.removeItem('user');
-      sessionStorage.clear();
+      // DON'T clear sessionStorage - preserve other session data
       
       // Only redirect if not already on auth page
       if (window.location.pathname !== '/auth') {

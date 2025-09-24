@@ -206,7 +206,7 @@ export function FreelancerDashboard({ profile }: FreelancerDashboardProps) {
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       console.error('Image failed to load:', e);
-                      console.log('Photo URL starts with:', freelancerProfile.profile_photo_url.substring(0, 50));
+                      console.log('Photo URL starts with:', freelancerProfile.profile_photo_url?.substring(0, 50) || 'undefined');
                     }}
                     onLoad={() => console.log('Image loaded successfully')}
                   />

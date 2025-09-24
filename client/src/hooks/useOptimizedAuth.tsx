@@ -21,25 +21,13 @@ export const OptimizedAuthProvider = ({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     const validateStoredUser = async () => {
-      // Version-based cache clearing - FIXED: Don't clear if user is already authenticated
-      const APP_VERSION = "2025-09-24-save-fix"; 
+      // Version-based cache clearing - COMPLETELY DISABLED for session persistence
+      const APP_VERSION = "2025-09-24-session-persist"; 
       const storedVersion = localStorage.getItem('app_version');
       
+      // Only update version, never clear cache to preserve sessions
       if (storedVersion !== APP_VERSION) {
-        console.log('App version updated, clearing cache');
-        // Only clear if there's no valid session
-        try {
-          const sessionResponse = await apiRequest(`/api/auth/session`, { skipAuthRedirect: true });
-          if (!sessionResponse?.user) {
-            // No valid session, safe to clear
-            localStorage.clear();
-            sessionStorage.clear();
-          }
-        } catch {
-          // No session, clear cache
-          localStorage.clear();
-          sessionStorage.clear();
-        }
+        console.log('App version updated, preserving authentication state');
         localStorage.setItem('app_version', APP_VERSION);
       }
       
