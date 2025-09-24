@@ -148,6 +148,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Additional utility endpoints that don't fit into specific domains
 
+  // External job sync endpoints
+  app.post("/api/jobs/sync-external", async (req, res) => {
+    try {
+      const { jobAggregator } = await import('./jobAggregator');
+      const config = req.body.config; // Optional configuration
+      await jobAggregator.syncExternalJobs(config);
+      res.json({ message: "External jobs synced successfully" });
+    } catch (error) {
+      console.error("Sync external jobs error:", error);
+      res.status(500).json({ error: "Failed to sync external jobs" });
+    }
+  });
+
+  // Get external jobs only
+  app.get("/api/jobs/external", async (req, res) => {
+    try {
+      const externalJobs = await storage.getExternalJobs();
+      res.json(externalJobs);
+    } catch (error) {
+      console.error("Get external jobs error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Location search endpoint
   app.get("/api/locations/search", async (req, res) => {
     try {
