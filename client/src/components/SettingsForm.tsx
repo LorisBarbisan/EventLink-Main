@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +37,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
     first_name: user.first_name || '',
     last_name: user.last_name || '',
     company_name: '',
+    role: user.role || 'freelancer',
   });
   const [isSavingAccount, setIsSavingAccount] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
@@ -151,7 +153,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
         throw new Error('You must be logged in to save account information');
       }
 
-      // Update user account info (first_name, last_name)
+      // Update user account info (first_name, last_name, role)
       const updateResponse = await apiRequest('/api/auth/update-account', {
         method: 'PUT',
         headers: {
@@ -160,11 +162,12 @@ export function SettingsForm({ user }: SettingsFormProps) {
         body: JSON.stringify({
           first_name: accountForm.first_name,
           last_name: accountForm.last_name,
+          role: accountForm.role,
         }),
       });
 
       // Update profile info for recruiters (company_name)
-      if (user.role === 'recruiter') {
+      if (accountForm.role === 'recruiter') {
         try {
           await apiRequest(`/api/recruiter/${user.id}`, {
             method: 'PUT',
@@ -202,6 +205,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
           ...prev,
           first_name: updateResponse.user.first_name || '',
           last_name: updateResponse.user.last_name || '',
+          role: updateResponse.user.role || 'freelancer',
         }));
       }
 
@@ -344,13 +348,18 @@ export function SettingsForm({ user }: SettingsFormProps) {
             </div>
             <div>
               <Label htmlFor="role">Account Type</Label>
-              <Input
-                id="role"
-                value={user.role === 'freelancer' ? 'Freelancer' : 'Recruiter'}
-                readOnly
-                className="bg-muted capitalize"
-                data-testid="input-role"
-              />
+              <Select 
+                value={accountForm.role} 
+                onValueChange={(value) => setAccountForm(prev => ({ ...prev, role: value as 'freelancer' | 'recruiter' }))}
+              >
+                <SelectTrigger data-testid="select-account-type">
+                  <SelectValue placeholder="Select account type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="freelancer">Freelancer</SelectItem>
+                  <SelectItem value="recruiter">Recruiter</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
