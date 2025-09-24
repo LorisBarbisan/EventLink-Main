@@ -694,12 +694,13 @@ export function registerAuthRoutes(app: Express) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const { first_name, last_name } = req.body;
+      const { first_name, last_name, role } = req.body;
       const user = req.user as any; // Fix TypeScript issue
 
       await storage.updateUserAccount(user.id, {
         first_name,
-        last_name
+        last_name,
+        role
       });
 
       // Get updated user and apply role computation
