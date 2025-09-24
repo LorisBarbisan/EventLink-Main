@@ -53,6 +53,40 @@ const verifyJWTToken = (token: string) => {
   }
 };
 
+// JWT Authentication Middleware
+export const authenticateJWT = async (req: any, res: any, next: any) => {
+  try {
+    // Check for JWT token in Authorization header
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith('Bearer ') 
+      ? authHeader.substring(7) 
+      : null;
+
+    if (!token) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    // Verify JWT token
+    const decoded = verifyJWTToken(token);
+    if (!decoded || typeof decoded !== 'object') {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    // Get fresh user data from database and populate req.user
+    const user = await storage.getUser((decoded as any).id);
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    // Apply role computation and set req.user
+    req.user = computeUserRole(user);
+    next();
+  } catch (error) {
+    console.error("JWT authentication error:", error);
+    res.status(500).json({ error: "Authentication failed" });
+  }
+};
+
 // Input sanitization middleware for authentication
 const sanitizeAuthInput = (req: any, res: any, next: any) => {
   if (req.body) {

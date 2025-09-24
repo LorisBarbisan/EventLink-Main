@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { storage } from "../storage";
 import { insertMessageSchema } from "@shared/schema";
+import { authenticateJWT } from "./auth";
 
 export function registerMessagingRoutes(app: Express) {
   // Get all conversations for the current user
@@ -142,12 +143,8 @@ export function registerMessagingRoutes(app: Express) {
   });
 
   // Get unread message count
-  app.get("/api/messages/unread-count", async (req, res) => {
+  app.get("/api/messages/unread-count", authenticateJWT, async (req, res) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-
       const unreadCount = await storage.getUnreadMessageCount(req.user.id);
       res.json({ count: unreadCount });
     } catch (error) {

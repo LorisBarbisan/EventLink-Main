@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { storage } from "../storage";
 import { insertNotificationSchema } from "@shared/schema";
+import { authenticateJWT } from "./auth";
 
 export function registerNotificationRoutes(app: Express) {
   // Get user notifications
@@ -19,12 +20,8 @@ export function registerNotificationRoutes(app: Express) {
   });
 
   // Get unread notification count
-  app.get("/api/notifications/unread-count", async (req, res) => {
+  app.get("/api/notifications/unread-count", authenticateJWT, async (req, res) => {
     try {
-      if (!req.user) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-
       const unreadCount = await storage.getUnreadNotificationCount(req.user.id);
       res.json({ count: unreadCount });
     } catch (error) {
