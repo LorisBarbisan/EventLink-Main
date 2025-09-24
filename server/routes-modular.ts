@@ -161,9 +161,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get external jobs only
+  // Get external jobs only (public endpoint - no authentication required)
   app.get("/api/jobs/external", async (req, res) => {
     try {
+      console.log('📤 External jobs requested - returning', await storage.getExternalJobs().then(jobs => jobs.length), 'jobs');
       const externalJobs = await storage.getExternalJobs();
       res.json(externalJobs);
     } catch (error) {
