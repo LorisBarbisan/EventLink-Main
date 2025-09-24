@@ -36,8 +36,8 @@ function sanitizeLogData(data: any): any {
 
 const app = express();
 
-// Configure trust proxy for Replit environment
-app.set('trust proxy', 1);
+// REMOVED: Trust proxy was forcing secure cookies even when secure: false  
+// app.set('trust proxy', 1);
 
 // Security middleware - disable CSP in development
 if (process.env.NODE_ENV === 'production') {

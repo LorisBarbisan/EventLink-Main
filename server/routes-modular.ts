@@ -87,8 +87,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.use('/api/', generalRateLimit);
 
-  // CRITICAL: Trust proxy for Replit environment to enable secure cookies
-  app.set('trust proxy', 1);
+  // REMOVED: Trust proxy was forcing secure cookies even when secure: false
+  // app.set('trust proxy', 1);
 
   // Enhanced session configuration for OAuth with security
   app.use(session({
@@ -97,10 +97,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     saveUninitialized: false,
     name: 'eventlink.sid', // Custom session name for security
     cookie: {
-      secure: false, // FIXED: Don't require HTTPS for Replit environment
+      secure: false, // EXPLICIT: Never use secure cookies
       httpOnly: true, // Prevent XSS attacks
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: 'lax' // CSRF protection while allowing OAuth redirects
+      sameSite: false // EXPLICIT: Disable SameSite to prevent cookie blocking
     },
     rolling: true // Reset expiry on activity
   }));
