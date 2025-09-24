@@ -100,8 +100,9 @@ export const OptimizedAuthProvider = ({ children }: { children: React.ReactNode 
         body: JSON.stringify({ email, password }),
       });
       
-      // Use the user data directly from signin response
-      if (result && result.user) {
+      // Store JWT token and user data from signin response
+      if (result && result.user && result.token) {
+        localStorage.setItem('auth_token', result.token);
         setUser(result.user);
         localStorage.setItem('user', JSON.stringify(result.user));
       }
@@ -122,6 +123,7 @@ export const OptimizedAuthProvider = ({ children }: { children: React.ReactNode 
     
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('auth_token'); // Clear JWT token
     sessionStorage.clear();
   };
 

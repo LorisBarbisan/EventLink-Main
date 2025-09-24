@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 import { randomBytes } from "crypto";
 import { storage } from "../storage";
@@ -25,6 +26,30 @@ const computeUserRole = (user: any) => {
     ...user,
     role: isAdmin ? 'admin' : (user.role || 'freelancer')
   };
+};
+
+// JWT utility functions
+const JWT_SECRET = process.env.JWT_SECRET || 'eventlink-jwt-secret-change-in-production';
+
+const generateJWTToken = (user: any) => {
+  const userWithRole = computeUserRole(user);
+  return jwt.sign(
+    { 
+      id: userWithRole.id, 
+      email: userWithRole.email, 
+      role: userWithRole.role 
+    },
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+};
+
+const verifyJWTToken = (token: string) => {
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return null;
+  }
 };
 
 // Input sanitization middleware for authentication
@@ -313,20 +338,33 @@ export function registerAuthRoutes(app: Express) {
     })(req, res, next);
   });
 
-  // Get current user session
+  // Get current user session (JWT-based)
   app.get("/api/auth/session", async (req, res) => {
     try {
-      if (!req.user) {
+      // Check for JWT token in Authorization header
+      const authHeader = req.headers.authorization;
+      const token = authHeader && authHeader.startsWith('Bearer ') 
+        ? authHeader.substring(7) 
+        : null;
+
+      if (!token) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      // Apply role computation to the session user
-      const userWithRole = computeUserRole(req.user);
-      
-      // Update the session if the role changed
-      if (userWithRole.role !== (req.user as any).role) {
-        req.user = userWithRole;
+      // Verify JWT token
+      const decoded = verifyJWTToken(token);
+      if (!decoded || typeof decoded !== 'object') {
+        return res.status(401).json({ error: "Invalid token" });
       }
+
+      // Get fresh user data from database
+      const user = await storage.getUser((decoded as any).id);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      // Apply role computation to fresh user data
+      const userWithRole = computeUserRole(user);
 
       res.json({ 
         user: userWithRole
@@ -441,24 +479,20 @@ export function registerAuthRoutes(app: Express) {
       // Apply role computation
       const userWithRole = computeUserRole(user);
 
-      // Create session
-      req.logIn(userWithRole, (err) => {
-        if (err) {
-          console.error('Login session error:', err);
-          return res.status(500).json({ error: "Failed to create session" });
-        }
+      // Generate JWT token instead of session
+      const token = generateJWTToken(userWithRole);
 
-        res.json({ 
-          message: "Sign in successful",
-          user: {
-            id: (userWithRole as any).id,
-            email: (userWithRole as any).email,
-            first_name: (userWithRole as any).first_name,
-            last_name: (userWithRole as any).last_name,
-            role: (userWithRole as any).role,
-            email_verified: (userWithRole as any).email_verified
-          }
-        });
+      res.json({ 
+        message: "Sign in successful",
+        token: token,
+        user: {
+          id: (userWithRole as any).id,
+          email: (userWithRole as any).email,
+          first_name: (userWithRole as any).first_name,
+          last_name: (userWithRole as any).last_name,
+          role: (userWithRole as any).role,
+          email_verified: (userWithRole as any).email_verified
+        }
       });
 
     } catch (error) {

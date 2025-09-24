@@ -22,11 +22,15 @@ export const queryClient = new QueryClient({
 });
 
 export async function apiRequest(url: string, options?: RequestInit & { skipAuthRedirect?: boolean }) {
+  // Get JWT token from localStorage
+  const token = localStorage.getItem('auth_token');
+  
   const response = await fetch(url, {
     ...options,
-    credentials: 'include', // Critical: Include session cookies in all API requests
+    credentials: 'include', // Keep for backward compatibility
     headers: {
       "Content-Type": "application/json",
+      ...(token && { 'Authorization': `Bearer ${token}` }), // Add JWT token to headers
       ...options?.headers,
     },
   });
