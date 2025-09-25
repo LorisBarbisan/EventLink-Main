@@ -43,9 +43,29 @@ export const OptimizedAuthProvider = ({ children }: { children: React.ReactNode 
       if (storedUser && storedToken) {
         try {
           const parsedUser = JSON.parse(storedUser);
-          // Trust stored JWT token and user data - no server validation on load
-          setUser(parsedUser);
-          console.log('✅ Restored user from local storage:', parsedUser.email);
+          
+          // CRITICAL FIX: Validate token with server before trusting it
+          apiRequest('/api/auth/session', { skipAuthRedirect: true })
+            .then((sessionData) => {
+              if (sessionData && sessionData.user) {
+                // Token is valid, use fresh data from server
+                setUser(sessionData.user);
+                localStorage.setItem('user', JSON.stringify(sessionData.user));
+                console.log('✅ Token validated, user restored:', sessionData.user.email);
+              } else {
+                throw new Error('Invalid session response');
+              }
+              setLoading(false);
+            })
+            .catch((error) => {
+              console.log('❌ Token validation failed, clearing auth state:', error.message);
+              localStorage.removeItem('user');
+              localStorage.removeItem('auth_token');
+              setUser(null);
+              setLoading(false);
+            });
+          
+          return; // Exit early, let validation complete async
         } catch (error) {
           console.log('❌ Failed to parse stored user, clearing cache');
           localStorage.removeItem('user');
