@@ -15,12 +15,14 @@ import { JobCard } from './JobCard';
 import { ApplicationCard } from './ApplicationCard';
 import { MessagingInterface } from './MessagingInterface';
 import { NewConversationModal } from './NewConversationModal';
+import { useLocation } from 'wouter';
 import type { Job, JobApplication, JobFormData } from '@shared/types';
 
 export default function SimplifiedRecruiterDashboard() {
   const { user } = useOptimizedAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [location] = useLocation();
   const [activeTab, setActiveTab] = useState('profile');
   const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
@@ -28,17 +30,47 @@ export default function SimplifiedRecruiterDashboard() {
 
   // Handle URL parameters for direct navigation to job posting
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const tabParam = urlParams.get('tab');
-    const actionParam = urlParams.get('action');
-    
-    if (tabParam === 'jobs') {
-      setActiveTab('jobs');
-      if (actionParam === 'post') {
-        setShowJobForm(true);
+    const handleSearchParams = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      const actionParam = urlParams.get('action');
+      
+      if (tabParam === 'jobs') {
+        setActiveTab('jobs');
+        if (actionParam === 'post') {
+          setShowJobForm(true);
+          // Clear the action parameter to prevent repeated triggers
+          urlParams.delete('action');
+          const newUrl = `${window.location.pathname}${urlParams.toString() ? `?${urlParams.toString()}` : ''}`;
+          window.history.replaceState({}, '', newUrl);
+        }
       }
-    }
-  }, []);
+    };
+
+    // Check on mount
+    handleSearchParams();
+
+    // Listen for navigation events (including search parameter changes)
+    const handlePopState = () => handleSearchParams();
+    window.addEventListener('popstate', handlePopState);
+    
+    // For programmatic navigation (our case), we need to listen for location changes
+    // Since wouter doesn't trigger popstate for programmatic navigation, 
+    // we'll use a MutationObserver approach or check periodically
+    let lastSearch = window.location.search;
+    const checkSearch = () => {
+      if (window.location.search !== lastSearch) {
+        lastSearch = window.location.search;
+        handleSearchParams();
+      }
+    };
+    const intervalId = setInterval(checkSearch, 100);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      clearInterval(intervalId);
+    };
+  }, []); // Only run once on mount
 
   // Use custom hooks - only call when user ID is available
   const { profile, isLoading: profileLoading, saveProfile, isSaving } = useProfile({
