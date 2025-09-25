@@ -1,5 +1,17 @@
 import { QueryClient } from "@tanstack/react-query";
 
+// Custom error class for authentication errors
+export class AuthError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code: string = 'UNKNOWN'
+  ) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -36,16 +48,36 @@ export async function apiRequest(url: string, options?: RequestInit & { skipAuth
   });
 
   if (!response.ok) {
-    // Handle 401 Unauthorized errors globally unless skipAuthRedirect is true
-    if (response.status === 401 && !options?.skipAuthRedirect) {
-      // Clear user state and redirect to auth
-      localStorage.removeItem('user');
-      // DON'T clear sessionStorage - preserve other session data
+    // Handle 401 Unauthorized errors with session validation
+    if (response.status === 401) {
+      if (options?.skipAuthRedirect) {
+        // Just throw the error for calls that don't want auth handling
+        const error = await response.json().catch(() => ({ error: "Unauthorized" }));
+        throw new AuthError(error.error || 'Unauthorized', 401, 'UNAUTHORIZED');
+      }
       
-      // Only redirect if not already on auth page
-      if (window.location.pathname !== '/auth') {
-        window.location.href = '/auth';
-        return;
+      // Verify if the session is actually invalid before logging out
+      try {
+        const sessionResponse = await fetch('/api/auth/session', {
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          }
+        });
+        
+        if (sessionResponse.ok) {
+          // Session is valid, this is just a permission/authorization issue
+          const error = await response.json().catch(() => ({ error: "Access denied" }));
+          throw new AuthError(error.error || 'Access denied', 401, 'UNAUTHORIZED_REQUEST');
+        } else {
+          // Session is invalid, dispatch auth:invalid event for cleanup
+          window.dispatchEvent(new CustomEvent('auth:invalid'));
+          throw new AuthError('Session expired', 401, 'INVALID_SESSION');
+        }
+      } catch (sessionError) {
+        // If session check fails, assume invalid session
+        window.dispatchEvent(new CustomEvent('auth:invalid'));
+        throw new AuthError('Session expired', 401, 'INVALID_SESSION');
       }
     }
     
