@@ -846,6 +846,7 @@ export class DatabaseStorage implements IStorage {
         profile_photo_url: null,
         last_login_method: null,
         last_login_at: null,
+        deleted_at: null,
         created_at: new Date(),
         updated_at: new Date()
       }
@@ -870,6 +871,7 @@ export class DatabaseStorage implements IStorage {
       sender_id: messages.sender_id,
       content: messages.content,
       is_read: messages.is_read,
+      is_system_message: messages.is_system_message,
       created_at: messages.created_at,
       senderEmail: users.email,
       senderRole: users.role
@@ -886,6 +888,7 @@ export class DatabaseStorage implements IStorage {
       sender_id: row.sender_id,
       content: row.content,
       is_read: row.is_read,
+      is_system_message: row.is_system_message,
       created_at: row.created_at,
       sender: {
         id: row.sender_id,
@@ -906,6 +909,7 @@ export class DatabaseStorage implements IStorage {
         profile_photo_url: null,
         last_login_method: null,
         last_login_at: null,
+        deleted_at: null,
         created_at: new Date(),
         updated_at: new Date()
       }
@@ -920,6 +924,7 @@ export class DatabaseStorage implements IStorage {
       sender_id: messages.sender_id,
       content: messages.content,
       is_read: messages.is_read,
+      is_system_message: messages.is_system_message,
       created_at: messages.created_at,
       senderEmail: users.email,
       senderRole: users.role
@@ -942,6 +947,7 @@ export class DatabaseStorage implements IStorage {
       sender_id: row.sender_id,
       content: row.content,
       is_read: row.is_read,
+      is_system_message: row.is_system_message,
       created_at: row.created_at,
       sender: {
         id: row.sender_id,
@@ -962,6 +968,7 @@ export class DatabaseStorage implements IStorage {
         profile_photo_url: null,
         last_login_method: null,
         last_login_at: null,
+        deleted_at: null,
         created_at: new Date(),
         updated_at: new Date()
       }
@@ -1083,11 +1090,16 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUserAccount(userId: number): Promise<void> {
     try {
-      // Start a transaction to ensure all deletions succeed or all fail
+      // Start a transaction to ensure all operations succeed or all fail
       await db.transaction(async (tx) => {
-        // 1. Delete all conversations where user is a participant
-        // This will cascade delete all messages in those conversations
-        await tx.delete(conversations)
+        // 1. Get user info before soft deletion
+        const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+        if (!user.length) {
+          throw new Error('User not found');
+        }
+
+        // 2. Get all conversations where this user is a participant
+        const userConversations = await tx.select().from(conversations)
           .where(
             or(
               eq(conversations.participant_one_id, userId),
@@ -1095,34 +1107,51 @@ export class DatabaseStorage implements IStorage {
             )
           );
 
-        // 2. Delete all job applications by this user
-        await tx.delete(job_applications)
-          .where(eq(job_applications.freelancer_id, userId));
+        // 3. Add system message to each conversation indicating account deletion
+        for (const conversation of userConversations) {
+          await tx.insert(messages).values({
+            conversation_id: conversation.id,
+            sender_id: null, // null for system messages
+            content: "Account Deleted",
+            is_read: false,
+            is_system_message: true
+          });
 
-        // 3. Delete all jobs posted by this user (if recruiter)
-        // This will cascade delete all job applications for those jobs
-        await tx.delete(jobs)
-          .where(eq(jobs.recruiter_id, userId));
+          // Update conversation's last_message_at timestamp
+          await tx.update(conversations)
+            .set({ last_message_at: new Date() })
+            .where(eq(conversations.id, conversation.id));
+        }
 
-        // 4. Delete all notifications for this user
-        await tx.delete(notifications)
-          .where(eq(notifications.user_id, userId));
-
-        // 5. Delete user profiles (freelancer or recruiter)
-        // These should cascade delete due to foreign key constraints
+        // 4. Soft delete user profiles (keep data but mark as deleted)
         await tx.delete(freelancer_profiles)
           .where(eq(freelancer_profiles.user_id, userId));
         
         await tx.delete(recruiter_profiles)
           .where(eq(recruiter_profiles.user_id, userId));
 
-        // 6. Finally, delete the user record
-        // This ensures referential integrity is maintained
-        await tx.delete(users)
+        // 5. Delete job applications by this user (hard delete as these become invalid)
+        await tx.delete(job_applications)
+          .where(eq(job_applications.freelancer_id, userId));
+
+        // 6. Delete jobs posted by this user (hard delete as these become invalid)
+        await tx.delete(jobs)
+          .where(eq(jobs.recruiter_id, userId));
+
+        // 7. Delete notifications for this user (hard delete as they're no longer needed)
+        await tx.delete(notifications)
+          .where(eq(notifications.user_id, userId));
+
+        // 8. Soft delete the user record (mark as deleted instead of removing)
+        await tx.update(users)
+          .set({ 
+            deleted_at: new Date(),
+            email: `deleted_${userId}_${user[0].email}` // Prevent email conflicts for new registrations
+          })
           .where(eq(users.id, userId));
       });
 
-      console.log(`Successfully deleted all data for user ID: ${userId}`);
+      console.log(`Successfully soft-deleted user account for user ID: ${userId}`);
     } catch (error) {
       console.error('Error during account deletion:', error);
       throw new Error('Failed to delete user account. Please try again.');
