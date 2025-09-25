@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { User, MapPin, Coins, Calendar, Plus, X, UserCheck, Camera, Upload, MessageCircle, Briefcase, BookOpen, CheckCircle, Clock, AlertCircle, Send, Mail, Phone } from 'lucide-react';
+import { User, MapPin, Coins, Calendar, Plus, X, UserCheck, Camera, Upload, MessageCircle, Briefcase, BookOpen, CheckCircle, Clock, AlertCircle, Send, Mail, Phone, Search } from 'lucide-react';
 import { CVUploader } from './CVUploader';
 import { MessagingInterface } from './MessagingInterface';
 import { NewConversationModal } from './NewConversationModal';
@@ -26,6 +26,7 @@ interface Profile {
 
 interface FreelancerProfile {
   id?: string;
+  user_id?: number;
   first_name: string;
   last_name: string;
   title: string;

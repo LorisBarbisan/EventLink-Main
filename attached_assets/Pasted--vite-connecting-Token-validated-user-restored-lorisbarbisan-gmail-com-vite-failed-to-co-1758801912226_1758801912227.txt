@@ -1,0 +1,30 @@
+[vite] connecting...
+✅ Token validated, user restored: lorisbarbisan@gmail.com
+[vite] failed to connect to websocket.
+your current setup:
+  (browser) 3738a33b-ae67-4f94-b452-5ef389a24a26-00-1xlwkdsw5r0ar.worf.replit.dev/ <--[HTTP]--> localhost:5173/ (server)
+  (browser) 3738a33b-ae67-4f94-b452-5ef389a24a26-00-1xlwkdsw5r0ar.worf.replit.dev:/ <--[WebSocket (failing)]--> localhost:5173/ (server)
+Check out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .
+your current setup:
+(browser) 3738a33b-ae67-4f94-b452-5ef389a24a26-00-1xlwkdsw5r0ar.worf.replit.dev/ &lt;--[HTTP]--&gt; localhost:5173/ (server)
+(browser) 3738a33b-ae67-4f94-b452-5ef389a24a26-00-1xlwkdsw5r0ar.worf.replit.dev:/ &lt;--[WebSocket (failing)]--&gt; localhost:5173/ (server)
+Check out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .
+at t.value (https://3738a33b-ae67-4f94-b452-5ef389a24a26-00-1xlwkdsw5r0ar.worf.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://3738a33b-ae67-4f94-b452-5ef389a24a26-00-1xlwkdsw5r0ar.worf.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://3738a33b-ae67-4f94-b452-5ef389a24a26-00-1xlwkdsw5r0ar.worf.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://3738a33b-ae67-4f94-b452-5ef389a24a26-00-1xlwkdsw5r0ar.worf.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Transforming profile: Loris Avatar data exists: true
+Image loaded successfully for Loris Darbisan
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+Dashboard fetchProfile - user data: 
+Object {id: 5, role: "freelancer", email: "lorisbarbisan@gmail.com"}
+Dashboard fetchProfile - setting profile data: 
+Object {id: "5", role: "freelancer", email: "lorisbarbisan@gmail.com"}
+Dashboard render - profile data: 
+Object {id: "5", role: "freelancer", email: "lorisbarbisan@gmail.com"}
+Dashboard render - showing: FreelancerDashboard
+Fetching own profile for user: 
+Object {id: 5, email: "lorisbarbisan@gmail.com", first_name: "Loris", last_name: "Barbisan", role: "freelancer", …}
+Profile data received: 
+Object {id: 1, user_id: 5, first_name: "Loris", last_name: "Darbisan", title: "Sound Engineerer", …}
+ImageUpload: Image loaded successfully
