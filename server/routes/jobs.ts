@@ -136,6 +136,29 @@ export function registerJobRoutes(app: Express) {
         return res.status(403).json({ error: "Not authorized to delete this job" });
       }
 
+      // Find all hired freelancers for this job before deletion
+      const jobApplications = await storage.getJobApplications(jobId);
+      const hiredApplications = jobApplications.filter(app => app.status === 'hired');
+      
+      // Create cancellation notifications for hired freelancers
+      for (const application of hiredApplications) {
+        await storage.createNotification({
+          user_id: application.freelancer_id,
+          type: 'job_update',
+          title: 'Job Cancelled',
+          message: `Unfortunately, the job "${job.title}" at ${job.company} has been cancelled by the employer.`,
+          priority: 'high',
+          related_entity_type: 'job',
+          related_entity_id: jobId,
+          metadata: JSON.stringify({ 
+            reason: 'job_deleted',
+            application_id: application.id,
+            job_title: job.title,
+            company: job.company
+          })
+        });
+      }
+
       await storage.deleteJob(jobId);
       
       res.set('Cache-Control', 'no-store');
