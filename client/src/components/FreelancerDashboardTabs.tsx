@@ -31,8 +31,6 @@ interface FreelancerProfile {
   title: string;
   bio: string;
   location: string;
-  hourly_rate: number | null;
-  rate_type: 'hourly' | 'daily';
   experience_years: number | null;
   skills: string[];
   portfolio_url: string;
@@ -59,8 +57,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     title: '',
     bio: '',
     location: '',
-    hourly_rate: null,
-    rate_type: 'hourly',
     experience_years: null,
     skills: [],
     portfolio_url: '',
@@ -139,8 +135,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
           title: data.title || '',
           bio: data.bio || '',
           location: data.location || '',
-          hourly_rate: data.hourly_rate ? parseFloat(data.hourly_rate) : null,
-          rate_type: data.rate_type || 'hourly',
           experience_years: data.experience_years || null,
           skills: data.skills || [],
           portfolio_url: data.portfolio_url || '',
@@ -169,8 +163,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
         title: freelancerProfile.title,
         bio: freelancerProfile.bio,
         location: freelancerProfile.location,
-        hourly_rate: freelancerProfile.hourly_rate,
-        rate_type: freelancerProfile.rate_type,
         experience_years: freelancerProfile.experience_years,
         skills: freelancerProfile.skills,
         portfolio_url: freelancerProfile.portfolio_url,
@@ -322,7 +314,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
       id: 3,
       sender: 'Conference Tech Ltd',
       subject: 'Follow-up: Technical Director Role',
-      preview: `Following our discussion about the ${freelancerProfile.location} event, we'd like to confirm your availability at £${freelancerProfile.hourly_rate}/${freelancerProfile.rate_type}...`,
+      preview: `Following our discussion about the ${freelancerProfile.location} event, we'd like to confirm your availability...`,
       time: '3 days ago',
       unread: false
     }
@@ -543,7 +535,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="location">Location (Optional)</Label>
                     <Input
@@ -551,30 +543,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                       value={freelancerProfile.location}
                       onChange={(e) => setFreelancerProfile(prev => ({ ...prev, location: e.target.value }))}
                       placeholder="City, Country"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="rate">Rate (£) (Optional)</Label>
-                      <Select 
-                        value={freelancerProfile.rate_type} 
-                        onValueChange={(value: 'hourly' | 'daily') => setFreelancerProfile(prev => ({ ...prev, rate_type: value }))}
-                      >
-                        <SelectTrigger className="w-20 h-6 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="hourly">Hourly</SelectItem>
-                          <SelectItem value="daily">Daily</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Input
-                      id="rate"
-                      type="number"
-                      value={freelancerProfile.hourly_rate || ''}
-                      onChange={(e) => setFreelancerProfile(prev => ({ ...prev, hourly_rate: e.target.value ? parseFloat(e.target.value) : null }))}
-                      placeholder={freelancerProfile.rate_type === 'hourly' ? '50' : '400'}
                     />
                   </div>
                   <div className="space-y-2">
@@ -615,7 +583,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="portfolio_url">Portfolio URL</Label>
                     <Input

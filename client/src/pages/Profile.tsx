@@ -28,8 +28,6 @@ interface FreelancerProfile {
   title: string;
   bio: string;
   location: string;
-  hourly_rate: number | null;
-  rate_type: 'hourly' | 'daily';
   experience_years: number | null;
   skills: string[];
   portfolio_url: string;
@@ -202,8 +200,7 @@ export default function Profile() {
               title: data.title || '',
               bio: data.bio || '',
               location: data.location || '',
-              hourly_rate: data.hourly_rate ? parseFloat(data.hourly_rate) : null,
-              rate_type: data.rate_type || 'hourly',
+
               experience_years: data.experience_years || null,
               skills: data.skills || [],
               portfolio_url: data.portfolio_url || '',
@@ -291,8 +288,7 @@ export default function Profile() {
               title: data.title || '',
               bio: data.bio || '',
               location: data.location || '',
-              hourly_rate: data.hourly_rate ? parseFloat(data.hourly_rate) : null,
-              rate_type: data.rate_type || 'hourly',
+
               experience_years: data.experience_years || null,
               skills: data.skills || [],
               portfolio_url: data.portfolio_url || '',
@@ -474,10 +470,6 @@ export default function Profile() {
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
                           {freelancerProfile?.experience_years} years experience
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Coins className="w-4 h-4" />
-                          £{freelancerProfile?.hourly_rate}/{freelancerProfile?.rate_type}
                         </div>
                         {averageRating && (
                           <div className="flex items-center gap-1">
