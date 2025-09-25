@@ -105,6 +105,8 @@ export interface IStorage {
   updateUserPassword(userId: number, hashedPassword: string): Promise<void>;
   updateUserAccount(userId: number, accountData: { first_name?: string; last_name?: string }): Promise<void>;
   deleteUserAccount(userId: number): Promise<void>;
+  isUserDeleted(userId: number): Promise<boolean>;
+  canSendMessageToUser(senderId: number, recipientId: number): Promise<{ canSend: boolean; error?: string }>;
   
   // Email verification methods
   verifyEmail(token: string): Promise<boolean>;
@@ -1156,6 +1158,36 @@ export class DatabaseStorage implements IStorage {
       console.error('Error during account deletion:', error);
       throw new Error('Failed to delete user account. Please try again.');
     }
+  }
+
+  // User deletion helper methods
+  async isUserDeleted(userId: number): Promise<boolean> {
+    const user = await db.select({ deleted_at: users.deleted_at })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    
+    return user.length > 0 && user[0].deleted_at !== null;
+  }
+
+  async canSendMessageToUser(senderId: number, recipientId: number): Promise<{ canSend: boolean; error?: string }> {
+    // Check if recipient is deleted
+    if (await this.isUserDeleted(recipientId)) {
+      return { 
+        canSend: false, 
+        error: "This account has been deleted and can no longer receive messages." 
+      };
+    }
+
+    // Check if sender is deleted (shouldn't happen if auth is working, but for safety)
+    if (await this.isUserDeleted(senderId)) {
+      return { 
+        canSend: false, 
+        error: "You cannot send messages from a deleted account." 
+      };
+    }
+
+    return { canSend: true };
   }
 
   // Rating management methods
