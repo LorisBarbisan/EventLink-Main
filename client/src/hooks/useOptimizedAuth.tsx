@@ -82,6 +82,28 @@ export const OptimizedAuthProvider = ({ children }: { children: React.ReactNode 
     restoreStoredUser();
   }, []); // Remove user dependency to prevent infinite loops
 
+  // Listen for auth:invalid events and handle logout
+  useEffect(() => {
+    const handleAuthInvalid = () => {
+      console.log('🔄 Invalid session detected, clearing authentication');
+      setUser(null);
+      localStorage.removeItem('user');
+      localStorage.removeItem('auth_token');
+      sessionStorage.clear();
+      
+      // Navigate to auth page if not already there
+      if (window.location.pathname !== '/auth') {
+        window.location.href = '/auth';
+      }
+    };
+
+    window.addEventListener('auth:invalid', handleAuthInvalid);
+    
+    return () => {
+      window.removeEventListener('auth:invalid', handleAuthInvalid);
+    };
+  }, []);
+
   const signUp = async (email: string, password: string, role: 'freelancer' | 'recruiter') => {
     try {
       const result = await apiRequest('/api/auth/signup', {
