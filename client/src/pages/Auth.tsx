@@ -63,12 +63,14 @@ export default function Auth() {
 
   // Handle OAuth success and error messages from URL parameters
   useEffect(() => {
+    // SECURITY FIX: Read OAuth success from URL fragment (not query params) to prevent JWT leakage
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const urlParams = new URLSearchParams(window.location.search);
     
-    // CRITICAL FIX: Handle OAuth success with JWT token
-    const oauthSuccess = urlParams.get('oauth_success');
-    const token = urlParams.get('token');
-    const userParam = urlParams.get('user');
+    // CRITICAL FIX: Handle OAuth success with JWT token from URL fragment
+    const oauthSuccess = hashParams.get('oauth_success');
+    const token = hashParams.get('token');
+    const userParam = hashParams.get('user');
 
     if (oauthSuccess === 'true' && token && userParam) {
       try {
@@ -87,7 +89,7 @@ export default function Auth() {
           description: `Successfully signed in via OAuth.`,
         });
         
-        // Clean up URL and redirect to dashboard
+        // Clean up URL fragment and redirect to dashboard
         const newUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, document.title, newUrl);
         setLocation('/dashboard');

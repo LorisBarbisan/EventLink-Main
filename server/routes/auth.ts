@@ -248,7 +248,8 @@ export function registerAuthRoutes(app: Express) {
             ? process.env.REPL_DOMAINS
             : 'http://localhost:5173';
           
-          const redirectUrl = `${frontendUrl}/auth?oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
+          // SECURITY FIX: Use URL fragment instead of query params to prevent JWT leakage
+          const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
             id: userWithRole.id,
             email: userWithRole.email,
             first_name: userWithRole.first_name,
@@ -308,7 +309,8 @@ export function registerAuthRoutes(app: Express) {
             ? process.env.REPL_DOMAINS
             : 'http://localhost:5173';
           
-          const redirectUrl = `${frontendUrl}/auth?oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
+          // SECURITY FIX: Use URL fragment instead of query params to prevent JWT leakage
+          const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
             id: userWithRole.id,
             email: userWithRole.email,
             first_name: userWithRole.first_name,
@@ -366,7 +368,8 @@ export function registerAuthRoutes(app: Express) {
             ? process.env.REPL_DOMAINS
             : 'http://localhost:5173';
           
-          const redirectUrl = `${frontendUrl}/auth?oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
+          // SECURITY FIX: Use URL fragment instead of query params to prevent JWT leakage
+          const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
             id: userWithRole.id,
             email: userWithRole.email,
             first_name: userWithRole.first_name,
@@ -426,7 +429,8 @@ export function registerAuthRoutes(app: Express) {
             ? process.env.REPL_DOMAINS
             : 'http://localhost:5173';
           
-          const redirectUrl = `${frontendUrl}/auth?oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
+          // SECURITY FIX: Use URL fragment instead of query params to prevent JWT leakage
+          const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
             id: userWithRole.id,
             email: userWithRole.email,
             first_name: userWithRole.first_name,
