@@ -556,8 +556,6 @@ export class DatabaseStorage implements IStorage {
         title: updateData.title || '',
         bio: updateData.bio || '',
         location: updateData.location || '',
-        hourly_rate: updateData.hourly_rate || null,
-        rate_type: updateData.rate_type || 'hourly',
         experience_years: updateData.experience_years || null,
         skills: updateData.skills || [],
         portfolio_url: updateData.portfolio_url || '',
