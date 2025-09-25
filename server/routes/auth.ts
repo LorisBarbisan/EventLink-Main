@@ -861,7 +861,7 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // Update account information endpoint (authenticated)
-  app.put("/api/auth/update-account", async (req, res) => {
+  app.put("/api/auth/update-account", authenticateJWT, async (req, res) => {
     console.log('🔄 Backend: Update account request received');
     console.log('📤 Request body:', req.body);
     console.log('👤 Current user:', req.user ? { id: (req.user as any).id, email: (req.user as any).email, role: (req.user as any).role } : 'NOT AUTHENTICATED');
