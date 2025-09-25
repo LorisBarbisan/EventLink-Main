@@ -36,8 +36,15 @@ function sanitizeLogData(data: any): any {
 
 const app = express();
 
-// REMOVED: Trust proxy was forcing secure cookies even when secure: false  
-// app.set('trust proxy', 1);
+// CRITICAL: Enable trust proxy for production deployment behind reverse proxy (Replit)
+// This fixes rate limiting and IP detection issues in production
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1); // Trust first proxy (Replit's reverse proxy)
+  console.log('✅ Trust proxy enabled for production');
+} else {
+  app.set('trust proxy', true); // Enable in development for testing
+  console.log('✅ Trust proxy enabled for development');
+}
 
 // Security middleware - disable CSP in development
 if (process.env.NODE_ENV === 'production') {
