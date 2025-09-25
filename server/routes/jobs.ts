@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { storage } from "../storage";
 import { insertJobSchema } from "@shared/schema";
+import { authenticateJWT } from "./auth";
 
 export function registerJobRoutes(app: Express) {
   // Get all jobs endpoint implemented in main routes.ts
@@ -57,7 +58,7 @@ export function registerJobRoutes(app: Express) {
   });
 
   // Create new job
-  app.post("/api/jobs", async (req, res) => {
+  app.post("/api/jobs", authenticateJWT, async (req, res) => {
     try {
       if (!req.user || (req.user as any).role !== 'recruiter') {
         return res.status(403).json({ error: "Only recruiters can create jobs" });
@@ -77,7 +78,7 @@ export function registerJobRoutes(app: Express) {
   });
 
   // Update job
-  app.put("/api/jobs/:jobId", async (req, res) => {
+  app.put("/api/jobs/:jobId", authenticateJWT, async (req, res) => {
     try {
       const jobId = parseInt(req.params.jobId);
       
@@ -113,7 +114,7 @@ export function registerJobRoutes(app: Express) {
   });
 
   // Delete job
-  app.delete("/api/jobs/:jobId", async (req, res) => {
+  app.delete("/api/jobs/:jobId", authenticateJWT, async (req, res) => {
     try {
       const jobId = parseInt(req.params.jobId);
       
