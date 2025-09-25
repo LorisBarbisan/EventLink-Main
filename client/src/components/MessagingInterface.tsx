@@ -16,6 +16,9 @@ interface User {
   email: string;
   role: 'freelancer' | 'recruiter';
   deleted_at?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  company_name?: string | null;
 }
 
 interface Message {
@@ -41,6 +44,35 @@ interface Conversation {
 // Helper function to check if a user is deleted
 const isUserDeleted = (user: User | undefined): boolean => {
   return user?.deleted_at !== null && user?.deleted_at !== undefined;
+};
+
+// Helper function to get display name for user
+const getDisplayName = (user: User): string => {
+  if (user.role === 'recruiter') {
+    return user.company_name || 'Company';
+  } else {
+    const firstName = user.first_name || '';
+    const lastName = user.last_name || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName || 'User';
+  }
+};
+
+// Helper function to get avatar initials
+const getAvatarInitials = (user: User): string => {
+  if (user.role === 'recruiter') {
+    const companyName = user.company_name || 'Company';
+    return companyName.substring(0, 2).toUpperCase();
+  } else {
+    const firstName = user.first_name || '';
+    const lastName = user.last_name || '';
+    if (firstName && lastName) {
+      return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+    } else if (firstName) {
+      return firstName.substring(0, 2).toUpperCase();
+    }
+    return user.email.substring(0, 2).toUpperCase();
+  }
 };
 
 interface MessagingInterfaceProps {
@@ -265,13 +297,13 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
                         <AvatarFallback className="bg-gradient-primary text-white">
-                          {conversation.otherUser.email.substring(0, 2).toUpperCase()}
+                          {getAvatarInitials(conversation.otherUser)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="font-medium truncate">
-                            {conversation.otherUser.email}
+                            {getDisplayName(conversation.otherUser)}
                           </p>
                           {isUserDeleted(conversation.otherUser) && (
                             <Badge variant="secondary" className="text-xs px-2 py-0 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">

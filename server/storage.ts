@@ -849,7 +849,13 @@ export class DatabaseStorage implements IStorage {
         ELSE ${conversations.participant_one_id}
       END`,
       otherUserEmail: users.email,
-      otherUserRole: users.role
+      otherUserRole: users.role,
+      otherUserDeleted: users.deleted_at,
+      // Profile data for freelancers
+      freelancerFirstName: freelancer_profiles.first_name,
+      freelancerLastName: freelancer_profiles.last_name,
+      // Profile data for recruiters
+      recruiterCompanyName: recruiter_profiles.company_name
     })
     .from(conversations)
     .leftJoin(
@@ -858,6 +864,20 @@ export class DatabaseStorage implements IStorage {
         WHEN ${conversations.participant_one_id} = ${userId} THEN ${conversations.participant_two_id}
         ELSE ${conversations.participant_one_id}
       END`
+    )
+    .leftJoin(
+      freelancer_profiles,
+      eq(freelancer_profiles.user_id, sql`CASE 
+        WHEN ${conversations.participant_one_id} = ${userId} THEN ${conversations.participant_two_id}
+        ELSE ${conversations.participant_one_id}
+      END`)
+    )
+    .leftJoin(
+      recruiter_profiles,
+      eq(recruiter_profiles.user_id, sql`CASE 
+        WHEN ${conversations.participant_one_id} = ${userId} THEN ${conversations.participant_two_id}
+        ELSE ${conversations.participant_one_id}
+      END`)
     )
     .where(
       or(
@@ -878,8 +898,9 @@ export class DatabaseStorage implements IStorage {
         email: row.otherUserEmail || '',
         role: (row.otherUserRole as 'freelancer' | 'recruiter' | 'admin') || 'freelancer',
         password: '',
-        first_name: null,
-        last_name: null,
+        first_name: row.freelancerFirstName,
+        last_name: row.freelancerLastName,
+        company_name: row.recruiterCompanyName,
         email_verified: false,
         email_verification_token: null,
         email_verification_expires: null,
@@ -892,7 +913,7 @@ export class DatabaseStorage implements IStorage {
         profile_photo_url: null,
         last_login_method: null,
         last_login_at: null,
-        deleted_at: null,
+        deleted_at: row.otherUserDeleted,
         created_at: new Date(),
         updated_at: new Date()
       }
