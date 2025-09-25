@@ -567,29 +567,14 @@ export function registerAuthRoutes(app: Express) {
   // User signin endpoint
   app.post("/api/auth/signin", async (req, res) => {
     try {
-      const startTime = Date.now();
       const { email, password } = req.body;
-      
-      console.log(`🔍 SIGNIN DEBUG - Email received: "${email}", Password length: ${password ? password.length : 0}`);
 
       if (!email || !password) {
         return res.status(400).json({ error: "Email and password are required" });
       }
 
-      const normalizedEmail = email.toLowerCase().trim();
-      console.log(`🔍 SIGNIN DEBUG - Normalized email: "${normalizedEmail}"`);
-      
-      const lookupStart = Date.now();
-      const user = await storage.getUserByEmail(normalizedEmail);
-      const lookupTime = Date.now() - lookupStart;
-      
-      console.log(`🔍 SIGNIN DEBUG - User lookup took ${lookupTime}ms, Found user: ${!!user}`);
-      if (user) {
-        console.log(`🔍 SIGNIN DEBUG - User found: ID=${user.id}, Email="${user.email}", HasPassword: ${!!user.password}, EmailVerified: ${user.email_verified}`);
-      }
-      
+      const user = await storage.getUserByEmail(email.toLowerCase().trim());
       if (!user) {
-        console.log(`❌ SIGNIN FAILED - User not found for email: "${normalizedEmail}"`);
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
@@ -600,20 +585,13 @@ export function registerAuthRoutes(app: Express) {
         });
       }
 
-      const bcryptStart = Date.now();
       const validPassword = await bcrypt.compare(password, user.password!);
-      const bcryptTime = Date.now() - bcryptStart;
-      
-      console.log(`🔍 SIGNIN DEBUG - Password validation took ${bcryptTime}ms, Valid: ${validPassword}`);
-      
       if (!validPassword) {
-        console.log(`❌ SIGNIN FAILED - Invalid password for user: ${user.id}`);
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
       // Check if email is verified
       if (!user.email_verified) {
-        console.log(`❌ SIGNIN FAILED - Email not verified for user: ${user.id}`);
         return res.status(403).json({ 
           error: "Please verify your email address before signing in",
           code: "EMAIL_NOT_VERIFIED"
@@ -626,9 +604,6 @@ export function registerAuthRoutes(app: Express) {
       // Generate JWT token instead of session
       const token = generateJWTToken(userWithRole);
 
-      const totalTime = Date.now() - startTime;
-      console.log(`✅ SIGNIN SUCCESS - User ${user.id} signed in successfully (${totalTime}ms total)`);
-      
       res.json({ 
         message: "Sign in successful",
         token: token,
