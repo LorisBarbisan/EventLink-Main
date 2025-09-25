@@ -22,6 +22,16 @@ export const computeUserRole = (user: any) => {
   // Check if email is in admin allowlist
   const isAdmin = ADMIN_EMAILS.includes(user.email?.toLowerCase());
   
+  // If user should be admin but isn't in database, update the database in background
+  if (isAdmin && user.role !== 'admin') {
+    // Update database role in the background (don't await)
+    storage.updateUserRole(user.id, 'admin').then(() => {
+      console.log(`✅ Updated ${user.email} to admin role in database`);
+    }).catch((error) => {
+      console.error(`❌ Failed to update admin role for ${user.email}:`, error);
+    });
+  }
+  
   return {
     ...user,
     role: isAdmin ? 'admin' : (user.role || 'freelancer'), // Set role to admin if in allowlist
