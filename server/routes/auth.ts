@@ -233,6 +233,9 @@ export function registerAuthRoutes(app: Express) {
           // Update the session with the computed role
           req.user = userWithRole;
           
+          // CRITICAL FIX: Generate JWT token for OAuth users
+          const jwtToken = generateJWTToken(userWithRole);
+          
           console.log('Google OAuth successful login:', {
             id: user.id,
             email: user.email,
@@ -240,10 +243,19 @@ export function registerAuthRoutes(app: Express) {
             sessionId: req.session?.id
           });
 
-          // Redirect to frontend dashboard
-          const redirectUrl = process.env.NODE_ENV === 'production'
-            ? `${process.env.REPL_DOMAINS}/dashboard`
-            : 'http://localhost:5173/dashboard';
+          // Redirect to frontend with JWT token for storage
+          const frontendUrl = process.env.NODE_ENV === 'production'
+            ? process.env.REPL_DOMAINS
+            : 'http://localhost:5173';
+          
+          const redirectUrl = `${frontendUrl}/auth?oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
+            id: userWithRole.id,
+            email: userWithRole.email,
+            first_name: userWithRole.first_name,
+            last_name: userWithRole.last_name,
+            role: userWithRole.role,
+            email_verified: userWithRole.email_verified
+          }))}`;
           
           return res.redirect(redirectUrl);
         });
@@ -282,15 +294,28 @@ export function registerAuthRoutes(app: Express) {
           const userWithRole = computeUserRole(user);
           req.user = userWithRole;
           
+          // CRITICAL FIX: Generate JWT token for OAuth users
+          const jwtToken = generateJWTToken(userWithRole);
+          
           console.log('Facebook OAuth successful login:', {
             id: user.id,
             email: user.email,
             role: userWithRole.role
           });
 
-          const redirectUrl = process.env.NODE_ENV === 'production'
-            ? `${process.env.REPL_DOMAINS}/dashboard`
-            : 'http://localhost:5173/dashboard';
+          // Redirect to frontend with JWT token for storage
+          const frontendUrl = process.env.NODE_ENV === 'production'
+            ? process.env.REPL_DOMAINS
+            : 'http://localhost:5173';
+          
+          const redirectUrl = `${frontendUrl}/auth?oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
+            id: userWithRole.id,
+            email: userWithRole.email,
+            first_name: userWithRole.first_name,
+            last_name: userWithRole.last_name,
+            role: userWithRole.role,
+            email_verified: userWithRole.email_verified
+          }))}`;
           
           return res.redirect(redirectUrl);
         });
@@ -327,15 +352,28 @@ export function registerAuthRoutes(app: Express) {
           const userWithRole = computeUserRole(user);
           req.user = userWithRole;
           
+          // CRITICAL FIX: Generate JWT token for OAuth users
+          const jwtToken = generateJWTToken(userWithRole);
+          
           console.log('Apple OAuth successful login:', {
             id: user.id,
             email: user.email,
             role: userWithRole.role
           });
 
-          const redirectUrl = process.env.NODE_ENV === 'production'
-            ? `${process.env.REPL_DOMAINS}/dashboard`
-            : 'http://localhost:5173/dashboard';
+          // Redirect to frontend with JWT token for storage
+          const frontendUrl = process.env.NODE_ENV === 'production'
+            ? process.env.REPL_DOMAINS
+            : 'http://localhost:5173';
+          
+          const redirectUrl = `${frontendUrl}/auth?oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
+            id: userWithRole.id,
+            email: userWithRole.email,
+            first_name: userWithRole.first_name,
+            last_name: userWithRole.last_name,
+            role: userWithRole.role,
+            email_verified: userWithRole.email_verified
+          }))}`;
           
           return res.redirect(redirectUrl);
         });
@@ -374,15 +412,28 @@ export function registerAuthRoutes(app: Express) {
           const userWithRole = computeUserRole(user);
           req.user = userWithRole;
           
+          // CRITICAL FIX: Generate JWT token for OAuth users
+          const jwtToken = generateJWTToken(userWithRole);
+          
           console.log('LinkedIn OAuth successful login:', {
             id: user.id,
             email: user.email,
             role: userWithRole.role
           });
 
-          const redirectUrl = process.env.NODE_ENV === 'production'
-            ? `${process.env.REPL_DOMAINS}/dashboard`
-            : 'http://localhost:5173/dashboard';
+          // Redirect to frontend with JWT token for storage
+          const frontendUrl = process.env.NODE_ENV === 'production'
+            ? process.env.REPL_DOMAINS
+            : 'http://localhost:5173';
+          
+          const redirectUrl = `${frontendUrl}/auth?oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
+            id: userWithRole.id,
+            email: userWithRole.email,
+            first_name: userWithRole.first_name,
+            last_name: userWithRole.last_name,
+            role: userWithRole.role,
+            email_verified: userWithRole.email_verified
+          }))}`;
           
           return res.redirect(redirectUrl);
         });
@@ -404,6 +455,11 @@ export function registerAuthRoutes(app: Express) {
 
       if (!token) {
         return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // CRITICAL FIX: Check if token is blacklisted (logged out)
+      if (isTokenBlacklisted(token)) {
+        return res.status(401).json({ error: "Token has been invalidated" });
       }
 
       // Verify JWT token

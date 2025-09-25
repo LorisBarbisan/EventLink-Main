@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { FaGoogle, FaFacebook, FaLinkedin } from 'react-icons/fa';
 
 export default function Auth() {
-  const { user, signUp, signIn, loading: authLoading } = useOptimizedAuth();
+  const { user, signUp, signIn, updateUser, loading: authLoading } = useOptimizedAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
@@ -61,9 +61,48 @@ export default function Auth() {
     }
   }, [user, authLoading, setLocation]);
 
-  // Handle OAuth error messages from URL parameters
+  // Handle OAuth success and error messages from URL parameters
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // CRITICAL FIX: Handle OAuth success with JWT token
+    const oauthSuccess = urlParams.get('oauth_success');
+    const token = urlParams.get('token');
+    const userParam = urlParams.get('user');
+
+    if (oauthSuccess === 'true' && token && userParam) {
+      try {
+        // Decode JWT token and user data from URL parameters
+        const userData = JSON.parse(decodeURIComponent(userParam));
+        
+        // Store JWT token and user data
+        localStorage.setItem('auth_token', decodeURIComponent(token));
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        // Update auth context
+        updateUser(userData);
+        
+        toast({
+          title: "Welcome back!",
+          description: `Successfully signed in via OAuth.`,
+        });
+        
+        // Clean up URL and redirect to dashboard
+        const newUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+        setLocation('/dashboard');
+        return;
+      } catch (error) {
+        console.error('OAuth success processing error:', error);
+        toast({
+          title: "Authentication Error",
+          description: "Failed to process OAuth login. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+
+    // Handle OAuth error messages
     const oauthError = urlParams.get('oauth_error');
     const provider = urlParams.get('provider');
     const message = urlParams.get('message');

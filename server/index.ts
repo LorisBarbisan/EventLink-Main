@@ -42,7 +42,8 @@ if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1); // Trust first proxy (Replit's reverse proxy)
   console.log('✅ Trust proxy enabled for production');
 } else {
-  app.set('trust proxy', true); // Enable in development for testing
+  // More specific trust proxy for development to avoid rate limiting warnings
+  app.set('trust proxy', 'loopback, linklocal, uniquelocal');
   console.log('✅ Trust proxy enabled for development');
 }
 
@@ -75,14 +76,25 @@ if (process.env.NODE_ENV === 'production') {
   }));
 }
 
-// HTTPS enforcement in production
+// HTTPS enforcement and additional security middleware in production
 if (process.env.NODE_ENV === 'production') {
+  // HTTPS redirection
   app.use((req, res, next) => {
     if (req.header('x-forwarded-proto') !== 'https') {
       res.redirect(`https://${req.header('host')}${req.url}`);
     } else {
       next();
     }
+  });
+  
+  // Additional production security headers
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    next();
   });
 }
 
@@ -96,10 +108,8 @@ const generalRateLimit = rateLimit({
   // Critical: Skip failed requests so users don't get locked out during save failures
   skipFailedRequests: true,
   skipSuccessfulRequests: false,
-  // Proper key generation for proxied environments
-  keyGenerator: (req) => {
-    return req.ip; // Works correctly with trust proxy enabled
-  },
+  // Remove custom keyGenerator to use default (IPv6 compatible)
+  // Uses req.ip with proper IPv6 handling when trust proxy is enabled
 });
 
 // More restrictive rate limiting for data-saving operations
