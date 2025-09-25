@@ -30,8 +30,6 @@ export interface FreelancerProfile {
   title?: string;
   bio?: string;
   location?: string;
-  hourly_rate?: string;
-  rate_type: 'hourly' | 'daily';
   experience_years?: number;
   skills: string[];
   portfolio_url?: string;
@@ -117,8 +115,6 @@ export interface FreelancerFormData {
   title: string;
   bio: string;
   location: string;
-  hourly_rate: string;
-  rate_type: 'hourly' | 'daily';
   experience_years: string;
   skills: string[];
   portfolio_url: string;

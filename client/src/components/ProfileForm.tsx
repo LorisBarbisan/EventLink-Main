@@ -257,9 +257,6 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
           <MapPin className="w-4 h-4 text-muted-foreground" />
           <span>{profile.location}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span>Rate: £{profile.hourly_rate}/{profile.rate_type}</span>
-        </div>
       </div>
       {profile.bio && (
         <div>
@@ -418,30 +415,7 @@ function FreelancerFormFields({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <Label htmlFor="hourly_rate">Rate (Optional)</Label>
-          <Input
-            id="hourly_rate"
-            type="number"
-            value={formData.hourly_rate}
-            onChange={(e) => onInputChange('hourly_rate', e.target.value)}
-            placeholder="0"
-            data-testid="input-hourly-rate"
-          />
-        </div>
-        <div>
-          <Label htmlFor="rate_type">Rate Type</Label>
-          <Select value={formData.rate_type} onValueChange={(value) => onInputChange('rate_type', value)}>
-            <SelectTrigger data-testid="select-rate-type">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hourly">Hourly</SelectItem>
-              <SelectItem value="daily">Daily</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="grid grid-cols-1 gap-4">
         <div>
           <Label htmlFor="experience_years">Years of Experience (Optional)</Label>
           <Input
