@@ -114,7 +114,6 @@ export function RatingDialog({
             <div className="bg-muted p-3 rounded-lg text-sm">
               <p><strong>Freelancer:</strong> {freelancerName}</p>
               <p><strong>Position:</strong> {application.freelancer_profile.title || 'Freelancer'}</p>
-              <p><strong>Rate:</strong> {application.freelancer_profile.hourly_rate ? `£${application.freelancer_profile.hourly_rate}/${application.freelancer_profile.rate_type}` : 'Not specified'}</p>
             </div>
           )}
         </div>

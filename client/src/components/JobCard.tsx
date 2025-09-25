@@ -174,9 +174,6 @@ export function JobCard({
                         }
                       </h5>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {applicant.freelancer_profile?.hourly_rate && (
-                          <span>£{applicant.freelancer_profile.hourly_rate}/{applicant.freelancer_profile?.rate_type || 'day'}</span>
-                        )}
                         {applicant.freelancer_profile?.title && (
                           <span>• {applicant.freelancer_profile.title}</span>
                         )}

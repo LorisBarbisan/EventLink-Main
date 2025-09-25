@@ -183,7 +183,6 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
               {userType === 'recruiter' && application.freelancer_profile && (
                 <>
-                  <div>Rate: {application.freelancer_profile.hourly_rate ? `£${application.freelancer_profile.hourly_rate}/${application.freelancer_profile.rate_type}` : 'Not specified'}</div>
                   <div>Experience: {application.freelancer_profile.experience_years ? `${application.freelancer_profile.experience_years} years` : 'Not specified'}</div>
                 </>
               )}
