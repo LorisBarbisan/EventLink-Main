@@ -45,12 +45,27 @@ const generateJWTToken = (user: any) => {
   );
 };
 
+// JWT Token Blacklist for proper logout functionality
+const blacklistedTokens = new Set<string>();
+
 const verifyJWTToken = (token: string) => {
   try {
     return jwt.verify(token, JWT_SECRET);
   } catch (error) {
     return null;
   }
+};
+
+const isTokenBlacklisted = (token: string): boolean => {
+  return blacklistedTokens.has(token);
+};
+
+const blacklistToken = (token: string): void => {
+  blacklistedTokens.add(token);
+  // Auto-cleanup: Remove tokens after 24 hours (matching JWT expiry)
+  setTimeout(() => {
+    blacklistedTokens.delete(token);
+  }, 24 * 60 * 60 * 1000);
 };
 
 // JWT Authentication Middleware
@@ -64,6 +79,11 @@ export const authenticateJWT = async (req: any, res: any, next: any) => {
 
     if (!token) {
       return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    // Check if token is blacklisted (logged out)
+    if (isTokenBlacklisted(token)) {
+      return res.status(401).json({ error: "Token has been invalidated" });
     }
 
     // Verify JWT token
@@ -576,24 +596,41 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
-  // Sign out endpoint
+  // Sign out endpoint - FIXED for JWT blacklisting
   app.post("/api/auth/signout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        console.error('Logout error:', err);
-        return res.status(500).json({ error: "Failed to sign out" });
+    try {
+      // Extract JWT token from Authorization header
+      const authHeader = req.headers.authorization;
+      const token = authHeader && authHeader.startsWith('Bearer ') 
+        ? authHeader.substring(7) 
+        : null;
+      
+      if (token) {
+        // Add token to blacklist to invalidate it immediately
+        blacklistToken(token);
+        console.log('✅ JWT token blacklisted on signout');
       }
       
-      req.session.destroy((sessionErr) => {
-        if (sessionErr) {
-          console.error('Session destruction error:', sessionErr);
-          return res.status(500).json({ error: "Failed to destroy session" });
+      req.logout((err) => {
+        if (err) {
+          console.error('Logout error:', err);
+          return res.status(500).json({ error: "Failed to sign out" });
         }
         
-        res.clearCookie('eventlink.sid');
-        res.json({ message: "Signed out successfully" });
+        req.session.destroy((sessionErr) => {
+          if (sessionErr) {
+            console.error('Session destruction error:', sessionErr);
+            return res.status(500).json({ error: "Failed to destroy session" });
+          }
+          
+          res.clearCookie('eventlink.sid');
+          res.json({ message: "Signed out successfully" });
+        });
       });
-    });
+    } catch (error) {
+      console.error("Signout error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   // Forgot password endpoint

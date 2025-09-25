@@ -86,17 +86,35 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Consolidated rate limiting - individual routes handle their own specific limits
-// General rate limiting for all API routes (generous base limit)
+// PRODUCTION-READY RATE LIMITING with proper proxy support
 const generalRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes  
-  max: 1000, // generous base limit - sensitive routes have their own specific limits
+  max: process.env.NODE_ENV === 'production' ? 500 : 1000, // Stricter in production
   message: { error: 'Too many requests from this IP, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
+  // Critical: Skip failed requests so users don't get locked out during save failures
+  skipFailedRequests: true,
+  skipSuccessfulRequests: false,
+  // Proper key generation for proxied environments
+  keyGenerator: (req) => {
+    return req.ip; // Works correctly with trust proxy enabled
+  },
+});
+
+// More restrictive rate limiting for data-saving operations
+const saveOperationsLimit = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: process.env.NODE_ENV === 'production' ? 30 : 100, // 30 saves per 5 min in production
+  message: { error: 'Too many save operations. Please wait a moment before trying again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipFailedRequests: true,
 });
 
 app.use('/api', generalRateLimit);
+// Apply stricter limits to save/update operations
+app.use(['/api/profiles', '/api/jobs', '/api/applications'], saveOperationsLimit);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
