@@ -272,18 +272,8 @@ export function registerAdminRoutes(app: Express) {
       // Update user role to admin
       const updatedUser = await storage.updateUserRole(user.id, 'admin');
 
-      // Generate JWT token for the new admin user (import needed at top)
-      const jwt = require('jsonwebtoken');
-      const JWT_SECRET = process.env.JWT_SECRET || 'eventlink-jwt-secret-change-in-production';
-      const token = jwt.sign(
-        { 
-          id: updatedUser.id, 
-          email: updatedUser.email, 
-          role: updatedUser.role 
-        },
-        JWT_SECRET,
-        { expiresIn: '24h' }
-      );
+      // Generate JWT token using the same function as signin to ensure consistency
+      const token = generateJWTToken(updatedUser);
 
       res.json({
         message: "First admin created successfully! You can now use the admin dashboard.",
