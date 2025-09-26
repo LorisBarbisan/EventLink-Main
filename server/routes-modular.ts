@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
 import cors from "cors";
 import { initializePassport } from "./passport";
@@ -90,17 +91,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // REMOVED: Trust proxy was forcing secure cookies even when secure: false
   // app.set('trust proxy', 1);
 
-  // Enhanced session configuration for OAuth with security
+  // Production-ready session configuration with PostgreSQL storage
+  const PgSession = connectPgSimple(session);
+  
+  // Create session store configuration
+  const sessionStoreConfig = process.env.NODE_ENV === 'production' ? {
+    // Production: Use PostgreSQL for session storage (required for autoscaling)
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      tableName: 'user_sessions', // Custom table name
+      createTableIfMissing: true, // Auto-create sessions table
+      pruneSessionInterval: 24 * 60 * 60, // Clean up expired sessions daily (seconds)
+    }),
+  } : {
+    // Development: Use MemoryStore for faster development
+    // No store specified = MemoryStore (default)
+  };
+
   app.use(session({
+    ...sessionStoreConfig,
     secret: process.env.SESSION_SECRET || 'eventlink-dev-secret-key-change-in-production',
     resave: false,
     saveUninitialized: false,
     name: 'eventlink.sid', // Custom session name for security
     cookie: {
-      secure: false, // EXPLICIT: Never use secure cookies
+      secure: process.env.NODE_ENV === 'production', // Enable secure cookies in production
       httpOnly: true, // Prevent XSS attacks
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: false // EXPLICIT: Disable SameSite to prevent cookie blocking
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : false // Enable SameSite in production
     },
     rolling: true // Reset expiry on activity
   }));
