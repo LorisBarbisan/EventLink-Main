@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabBadge } from '@/components/ui/tab-badge';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useBadgeCounts } from '@/hooks/useBadgeCounts';
 import { apiRequest } from '@/lib/queryClient';
 import { Briefcase, BookOpen, CheckCircle, Clock, AlertCircle, MessageCircle, Star } from 'lucide-react';
 import { RatingDisplay } from '@/components/StarRating';
@@ -23,6 +25,12 @@ export default function SimplifiedFreelancerDashboard() {
   // Get rating data for current user
   const { data: averageRating } = useFreelancerAverageRating(user?.id || 0);
   const [activeTab, setActiveTab] = useState('profile');
+
+  // Get badge counts for tabs
+  const { roleSpecificCounts, markCategoryAsRead } = useBadgeCounts({
+    enabled: !!user?.id,
+    refetchInterval: activeTab === 'messages' ? 10000 : 15000, // Poll faster when on messages tab
+  });
 
   // Fetch freelancer profile data
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -59,6 +67,15 @@ export default function SimplifiedFreelancerDashboard() {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    
+    // Mark category notifications as read when tab is opened
+    if (tab === 'jobs') {
+      markCategoryAsRead('applications');
+    } else if (tab === 'messages') {
+      markCategoryAsRead('messages');
+    } else if (tab === 'bookings') {
+      markCategoryAsRead('ratings');
+    }
   };
 
   if (!user) {
@@ -78,19 +95,18 @@ export default function SimplifiedFreelancerDashboard() {
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
-          <TabsTrigger value="jobs" className="relative">
+          <TabsTrigger value="jobs" className="flex items-center">
             My Applications
-            {hasNewJobUpdates && (
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
-            )}
+            <TabBadge count={roleSpecificCounts.applications || 0} />
           </TabsTrigger>
-          <TabsTrigger value="messages" className="relative">
+          <TabsTrigger value="messages" className="flex items-center">
             Messages
-            {unreadCount > 0 && (
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
-            )}
+            <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
-          <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="bookings" className="flex items-center">
+            Ratings
+            <TabBadge count={roleSpecificCounts.ratings || 0} />
+          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}

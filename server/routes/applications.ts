@@ -185,6 +185,19 @@ export function registerApplicationRoutes(app: Express) {
         metadata: JSON.stringify({ application_id: applicationId })
       });
 
+      // Broadcast live notification to freelancer if connected
+      if ((global as any).broadcastToUser) {
+        (global as any).broadcastToUser(application.freelancer_id, {
+          type: 'application_update',
+          application: {
+            id: applicationId,
+            job_title: job.title,
+            company: job.company
+          },
+          status: 'hired'
+        });
+      }
+
       res.json({ message: "Application accepted successfully" });
     } catch (error) {
       console.error("Accept application error:", error);
@@ -224,6 +237,19 @@ export function registerApplicationRoutes(app: Express) {
         related_entity_id: job.id,
         metadata: JSON.stringify({ application_id: applicationId })
       });
+
+      // Broadcast live notification to freelancer if connected
+      if ((global as any).broadcastToUser) {
+        (global as any).broadcastToUser(application.freelancer_id, {
+          type: 'application_update',
+          application: {
+            id: applicationId,
+            job_title: job.title,
+            company: job.company
+          },
+          status: 'rejected'
+        });
+      }
 
       res.json({ message: "Application rejected successfully" });
     } catch (error) {

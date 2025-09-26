@@ -356,6 +356,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Track active connections by user ID
   const activeConnections = new Map<number, WebSocket>();
 
+  // Helper function to broadcast notification to a specific user
+  const broadcastToUser = (userId: number, notificationData: any) => {
+    const userWs = activeConnections.get(userId);
+    if (userWs && userWs.readyState === WebSocket.OPEN) {
+      userWs.send(JSON.stringify(notificationData));
+    }
+  };
+
+  // Export function to broadcast notifications from other parts of the app
+  (global as any).broadcastToUser = broadcastToUser;
+
   wss.on('connection', (ws: WebSocket, req) => {
     console.log('WebSocket connection established on /ws');
     
@@ -390,10 +401,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Send to recipient if they're connected
           const recipientWs = activeConnections.get(recipientId);
           if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
+            // Get sender information for the popup
+            const sender = await storage.getUser(userId);
+            
             recipientWs.send(JSON.stringify({
               type: 'new_message',
-              message: newMessage
+              message: newMessage,
+              sender: sender
             }));
+
+            // Send updated badge counts to recipient
+            try {
+              const recipientCounts = await storage.getCategoryUnreadCounts(recipientId);
+              recipientWs.send(JSON.stringify({
+                type: 'badge_counts_update',
+                counts: recipientCounts
+              }));
+            } catch (error) {
+              console.error('Error getting recipient badge counts:', error);
+            }
           }
 
           // Confirm to sender

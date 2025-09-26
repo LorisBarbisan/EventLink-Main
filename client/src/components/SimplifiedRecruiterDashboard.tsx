@@ -3,10 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabBadge } from '@/components/ui/tab-badge';
 import { useToast } from '@/hooks/use-toast';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useBadgeCounts } from '@/hooks/useBadgeCounts';
 import { apiRequest } from '@/lib/queryClient';
 import { Plus, Briefcase, Users } from 'lucide-react';
 import { ProfileForm } from './ProfileForm';
@@ -26,6 +28,12 @@ export default function SimplifiedRecruiterDashboard() {
   const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [expandedJobs, setExpandedJobs] = useState<Set<number>>(new Set());
+
+  // Get badge counts for tabs
+  const { roleSpecificCounts, markCategoryAsRead } = useBadgeCounts({
+    enabled: !!user?.id,
+    refetchInterval: activeTab === 'messages' ? 10000 : 15000, // Poll faster when on messages tab
+  });
 
   // Handle URL parameters for direct navigation to job posting
   useEffect(() => {
@@ -195,6 +203,15 @@ export default function SimplifiedRecruiterDashboard() {
   // Helper functions
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    
+    // Mark category notifications as read when tab is opened
+    if (tab === 'jobs') {
+      markCategoryAsRead('jobs');
+    } else if (tab === 'messages') {
+      markCategoryAsRead('messages');
+    } else if (tab === 'applications') {
+      markCategoryAsRead('applications');
+    }
   };
 
   const toggleJobExpansion = (jobId: number) => {
@@ -269,17 +286,17 @@ export default function SimplifiedRecruiterDashboard() {
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="profile">Company Profile</TabsTrigger>
-          <TabsTrigger value="jobs">
+          <TabsTrigger value="jobs" className="flex items-center">
             My Jobs
+            <TabBadge count={roleSpecificCounts.jobs || 0} />
           </TabsTrigger>
-          <TabsTrigger value="messages" className="relative">
+          <TabsTrigger value="messages" className="flex items-center">
             Messages
-            {unreadCount?.count > 0 && (
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
-            )}
+            <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
-          <TabsTrigger value="applications">
+          <TabsTrigger value="applications" className="flex items-center">
             Applications
+            <TabBadge count={roleSpecificCounts.applications || 0} />
           </TabsTrigger>
         </TabsList>
 

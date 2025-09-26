@@ -30,6 +30,17 @@ export function registerNotificationRoutes(app: Express) {
     }
   });
 
+  // Get category-specific unread notification counts for tab badges
+  app.get("/api/notifications/category-counts", authenticateJWT, async (req, res) => {
+    try {
+      const counts = await storage.getCategoryUnreadCounts(req.user.id);
+      res.json(counts);
+    } catch (error) {
+      console.error("Get category notification counts error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Create notification (usually called internally)
   app.post("/api/notifications", async (req, res) => {
     try {
@@ -88,6 +99,23 @@ export function registerNotificationRoutes(app: Express) {
       res.json({ message: "All notifications marked as read" });
     } catch (error) {
       console.error("Mark all notifications as read error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Mark category-specific notifications as read
+  app.patch("/api/notifications/mark-category-read/:category", authenticateJWT, async (req, res) => {
+    try {
+      const category = req.params.category as 'messages' | 'applications' | 'jobs' | 'ratings';
+      
+      if (!['messages', 'applications', 'jobs', 'ratings'].includes(category)) {
+        return res.status(400).json({ error: "Invalid category" });
+      }
+
+      await storage.markCategoryNotificationsAsRead(req.user.id, category);
+      res.json({ message: `${category} notifications marked as read` });
+    } catch (error) {
+      console.error("Mark category notifications as read error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

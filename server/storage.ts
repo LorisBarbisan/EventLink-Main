@@ -203,6 +203,18 @@ export interface IStorage {
   updateUserRole(userId: number, role: 'freelancer' | 'recruiter' | 'admin'): Promise<User>;
   getAdminUsers(): Promise<User[]>;
   
+  // Category-specific notification counts
+  getCategoryUnreadCounts(userId: number): Promise<{
+    messages: number;
+    applications: number;
+    jobs: number;
+    ratings: number;
+    total: number;
+  }>;
+  
+  // Mark category-specific notifications as read
+  markCategoryNotificationsAsRead(userId: number, category: 'messages' | 'applications' | 'jobs' | 'ratings'): Promise<void>;
+  
   // Cache management
   clearCache(): void;
 }
@@ -1129,6 +1141,86 @@ export class DatabaseStorage implements IStorage {
     return Number(result[0]?.count || 0);
   }
 
+  async getCategoryUnreadCounts(userId: number): Promise<{
+    messages: number;
+    applications: number;
+    jobs: number;
+    ratings: number;
+    total: number;
+  }> {
+    // Get counts for each category
+    const [messagesResult, applicationsResult, jobsResult, ratingsResult] = await Promise.all([
+      // Messages count
+      db.select({ count: sql<number>`count(*)::int` })
+        .from(notifications)
+        .where(and(
+          eq(notifications.user_id, userId),
+          eq(notifications.is_read, false),
+          eq(notifications.type, 'new_message'),
+          or(
+            isNull(notifications.expires_at),
+            sql`${notifications.expires_at} > NOW()`
+          )
+        )),
+      
+      // Applications count
+      db.select({ count: sql<number>`count(*)::int` })
+        .from(notifications)
+        .where(and(
+          eq(notifications.user_id, userId),
+          eq(notifications.is_read, false),
+          eq(notifications.type, 'application_update'),
+          or(
+            isNull(notifications.expires_at),
+            sql`${notifications.expires_at} > NOW()`
+          )
+        )),
+      
+      // Jobs count
+      db.select({ count: sql<number>`count(*)::int` })
+        .from(notifications)
+        .where(and(
+          eq(notifications.user_id, userId),
+          eq(notifications.is_read, false),
+          eq(notifications.type, 'job_update'),
+          or(
+            isNull(notifications.expires_at),
+            sql`${notifications.expires_at} > NOW()`
+          )
+        )),
+      
+      // Ratings count (rating_received + rating_request)
+      db.select({ count: sql<number>`count(*)::int` })
+        .from(notifications)
+        .where(and(
+          eq(notifications.user_id, userId),
+          eq(notifications.is_read, false),
+          or(
+            eq(notifications.type, 'rating_received'),
+            eq(notifications.type, 'rating_request')
+          ),
+          or(
+            isNull(notifications.expires_at),
+            sql`${notifications.expires_at} > NOW()`
+          )
+        ))
+    ]);
+
+    const messages = Number(messagesResult[0]?.count || 0);
+    const applications = Number(applicationsResult[0]?.count || 0);
+    const jobs = Number(jobsResult[0]?.count || 0);
+    const ratings = Number(ratingsResult[0]?.count || 0);
+    const total = messages + applications + jobs + ratings;
+
+    return {
+      messages,
+      applications,
+      jobs,
+      ratings,
+      total
+    };
+  }
+
   async markNotificationAsRead(notificationId: number): Promise<void> {
     await db.update(notifications)
       .set({ is_read: true })
@@ -1141,6 +1233,37 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(notifications.user_id, userId),
         eq(notifications.is_read, false)
+      ));
+  }
+
+  async markCategoryNotificationsAsRead(userId: number, category: 'messages' | 'applications' | 'jobs' | 'ratings'): Promise<void> {
+    let notificationTypes: string[] = [];
+    
+    switch (category) {
+      case 'messages':
+        notificationTypes = ['new_message'];
+        break;
+      case 'applications':
+        notificationTypes = ['application_update'];
+        break;
+      case 'jobs':
+        notificationTypes = ['job_update'];
+        break;
+      case 'ratings':
+        notificationTypes = ['rating_received', 'rating_request'];
+        break;
+    }
+
+    if (notificationTypes.length === 0) return;
+
+    await db.update(notifications)
+      .set({ is_read: true })
+      .where(and(
+        eq(notifications.user_id, userId),
+        eq(notifications.is_read, false),
+        or(
+          ...notificationTypes.map(type => eq(notifications.type, type as any))
+        )
       ));
   }
 
