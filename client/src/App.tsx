@@ -5,7 +5,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Route, Switch } from "wouter";
 import { OptimizedAuthProvider } from "@/hooks/useOptimizedAuth";
 import { queryClient } from "@/lib/queryClient";
-import { TabNotificationManager } from "@/components/TabNotificationManager";
 import { LiveNotificationPopups } from "@/components/LiveNotificationPopups";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -47,7 +46,6 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <TabNotificationManager />
           <LiveNotificationPopups />
           <AppRouter />
         </TooltipProvider>
