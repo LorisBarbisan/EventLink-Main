@@ -6,6 +6,9 @@ import { Route, Switch } from "wouter";
 import { OptimizedAuthProvider } from "@/hooks/useOptimizedAuth";
 import { queryClient } from "@/lib/queryClient";
 import { LiveNotificationPopups } from "@/components/LiveNotificationPopups";
+import { useEffect } from "react";
+import { initGA } from "@/lib/analytics";
+import { useAnalytics } from "@/hooks/use-analytics";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -20,6 +23,9 @@ import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 function AppRouter() {
+  // Track page views when routes change
+  useAnalytics();
+  
   return (
     <Switch>
       <Route path="/" component={Index} />
@@ -40,6 +46,17 @@ function AppRouter() {
 }
 
 function App() {
+  // Initialize Google Analytics when app loads
+  useEffect(() => {
+    // Verify required environment variable is present
+    if (!import.meta.env.VITE_GA_MEASUREMENT_ID) {
+      console.warn('Missing required Google Analytics key: VITE_GA_MEASUREMENT_ID');
+    } else {
+      initGA();
+      console.log('✅ Google Analytics initialized with ID:', import.meta.env.VITE_GA_MEASUREMENT_ID);
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <OptimizedAuthProvider>

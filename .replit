@@ -25,6 +25,10 @@ externalPort = 5173
 exposeLocalhost = true
 
 [[ports]]
+localPort = 36045
+externalPort = 5000
+
+[[ports]]
 localPort = 36163
 externalPort = 3003
 
@@ -62,4 +66,4 @@ args = "npm run dev"
 waitForPort = 5000
 
 [agent]
-integrations = ["javascript_log_in_with_replit==1.0.0", "javascript_database==1.0.0"]
+integrations = ["javascript_log_in_with_replit:1.0.0", "javascript_database:1.0.0", "javascript_google_analytics:1.0.0"]
