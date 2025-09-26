@@ -1816,7 +1816,6 @@ export class DatabaseStorage implements IStorage {
     // Hardcoded admin emails (from server/routes.ts)
     const ADMIN_EMAILS = [
       'lorisbarbisan@gmail.com',
-      'loris.barbisan@huzahr.com',
       'testadmin@example.com'
     ];
 
