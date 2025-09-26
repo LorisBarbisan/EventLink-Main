@@ -618,6 +618,58 @@ function AdminDashboardContent() {
 
         {/* Admin Management Tab */}
         <TabsContent value="admin-management" className="space-y-6">
+          {/* Bootstrap Admin Creation - Top Priority */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                First Admin Setup
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        Need to create the first admin user?
+                      </p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        If you're having trouble accessing admin features because no admin users exist yet, 
+                        use this bootstrap button to make yourself the first admin. This only works if you're 
+                        logged in with a pre-approved email address.
+                      </p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        <strong>Current user:</strong> {user?.email || 'Not logged in'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <Button
+                  onClick={handleBootstrapAdmin}
+                  data-testid="button-bootstrap-admin"
+                  disabled={isBootstrapping || !user?.email}
+                  className="w-full"
+                  variant="outline"
+                >
+                  {isBootstrapping ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                      Creating First Admin...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Create First Admin ({user?.email || 'No user'})
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Grant Admin Access */}
             <Card>
@@ -711,58 +763,6 @@ function AdminDashboardContent() {
                     )}
                   </Button>
                 </form>
-              </CardContent>
-            </Card>
-
-            {/* Bootstrap Admin Creation */}
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="w-5 h-5" />
-                  First Admin Setup
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                          Need to create the first admin user?
-                        </p>
-                        <p className="text-sm text-blue-700 dark:text-blue-300">
-                          If you're having trouble accessing admin features because no admin users exist yet, 
-                          use this bootstrap button to make yourself the first admin. This only works if you're 
-                          logged in with a pre-approved email address.
-                        </p>
-                        <p className="text-sm text-blue-700 dark:text-blue-300">
-                          <strong>Current user:</strong> {user?.email || 'Not logged in'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <Button
-                    onClick={handleBootstrapAdmin}
-                    data-testid="button-bootstrap-admin"
-                    disabled={isBootstrapping || !user?.email}
-                    className="w-full"
-                    variant="outline"
-                  >
-                    {isBootstrapping ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                        Creating First Admin...
-                      </>
-                    ) : (
-                      <>
-                        <Shield className="w-4 h-4 mr-2" />
-                        Create First Admin ({user?.email || 'No user'})
-                      </>
-                    )}
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           </div>
