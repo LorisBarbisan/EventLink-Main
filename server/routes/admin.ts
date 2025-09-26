@@ -35,7 +35,7 @@ export function registerAdminRoutes(app: Express) {
   app.get("/api/admin/feedback", requireAdminAuth, async (req, res) => {
     try {
       const feedback = await storage.getAllFeedback();
-      res.json(feedback);
+      res.json({ feedback });
     } catch (error) {
       console.error("Get admin feedback error:", error);
       res.status(500).json({ error: "Internal server error" });
