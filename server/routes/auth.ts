@@ -9,6 +9,14 @@ import { sendVerificationEmail, sendPasswordResetEmail } from "../emailService";
 import { nukeAllUserData } from "../clearAllUserData";
 import passport from "passport";
 
+// Helper function to get the correct origin for redirects and email links
+function getOrigin(req: any): string {
+  // Use X-Forwarded-Proto if available (for proxied environments like Replit)
+  const protocol = req.headers['x-forwarded-proto']?.includes('https') ? 'https' : req.protocol;
+  const host = req.get('host');
+  return `${protocol}://${host}`;
+}
+
 // Admin email allowlist for server-side admin role detection
 // Get admin emails from environment variable instead of hardcoding
 const ADMIN_EMAILS = process.env.ADMIN_EMAILS 
@@ -182,9 +190,7 @@ export function registerAuthRoutes(app: Express) {
     }
     
     // For web requests, redirect to frontend with error info
-    const redirectUrl = process.env.NODE_ENV === 'production' 
-      ? `${process.env.REPL_DOMAINS}/auth?error=${encodeURIComponent(userMessage)}&details=${encodeURIComponent(details)}`
-      : `http://localhost:5173/auth?error=${encodeURIComponent(userMessage)}&details=${encodeURIComponent(details)}`;
+    const redirectUrl = `${getOrigin(req)}/auth?error=${encodeURIComponent(userMessage)}&details=${encodeURIComponent(details)}`;
     
     res.redirect(redirectUrl);
   });
@@ -254,9 +260,7 @@ export function registerAuthRoutes(app: Express) {
           });
 
           // Redirect to frontend with JWT token for storage
-          const frontendUrl = process.env.NODE_ENV === 'production'
-            ? process.env.REPL_DOMAINS
-            : 'http://localhost:5173';
+          const frontendUrl = getOrigin(req);
           
           // SECURITY FIX: Use URL fragment instead of query params to prevent JWT leakage
           const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
@@ -315,9 +319,7 @@ export function registerAuthRoutes(app: Express) {
           });
 
           // Redirect to frontend with JWT token for storage
-          const frontendUrl = process.env.NODE_ENV === 'production'
-            ? process.env.REPL_DOMAINS
-            : 'http://localhost:5173';
+          const frontendUrl = getOrigin(req);
           
           // SECURITY FIX: Use URL fragment instead of query params to prevent JWT leakage
           const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
@@ -374,9 +376,7 @@ export function registerAuthRoutes(app: Express) {
           });
 
           // Redirect to frontend with JWT token for storage
-          const frontendUrl = process.env.NODE_ENV === 'production'
-            ? process.env.REPL_DOMAINS
-            : 'http://localhost:5173';
+          const frontendUrl = getOrigin(req);
           
           // SECURITY FIX: Use URL fragment instead of query params to prevent JWT leakage
           const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
@@ -435,9 +435,7 @@ export function registerAuthRoutes(app: Express) {
           });
 
           // Redirect to frontend with JWT token for storage
-          const frontendUrl = process.env.NODE_ENV === 'production'
-            ? process.env.REPL_DOMAINS
-            : 'http://localhost:5173';
+          const frontendUrl = getOrigin(req);
           
           // SECURITY FIX: Use URL fragment instead of query params to prevent JWT leakage
           const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(JSON.stringify({
@@ -547,7 +545,7 @@ export function registerAuthRoutes(app: Express) {
 
       // Send verification email
       try {
-        const baseUrl = req.protocol + '://' + req.get('host');
+        const baseUrl = getOrigin(req);
         await sendVerificationEmail(email, emailVerificationToken, baseUrl);
       } catch (emailError) {
         console.error('Failed to send verification email:', emailError);
@@ -640,17 +638,13 @@ export function registerAuthRoutes(app: Express) {
 
       if (!token || typeof token !== 'string') {
         // Redirect to frontend with error
-        const frontendUrl = process.env.NODE_ENV === 'production' 
-          ? process.env.REPL_DOMAINS 
-          : 'http://localhost:5173';
+        const frontendUrl = getOrigin(req);
         return res.redirect(`${frontendUrl}/auth?error=${encodeURIComponent('Invalid verification token')}`);
       }
 
       const verified = await storage.verifyEmail(token);
       
-      const frontendUrl = process.env.NODE_ENV === 'production' 
-        ? process.env.REPL_DOMAINS 
-        : 'http://localhost:5173';
+      const frontendUrl = getOrigin(req);
 
       if (verified) {
         res.redirect(`${frontendUrl}/auth?verified=true`);
@@ -659,9 +653,7 @@ export function registerAuthRoutes(app: Express) {
       }
     } catch (error) {
       console.error('Email verification error:', error);
-      const frontendUrl = process.env.NODE_ENV === 'production' 
-        ? process.env.REPL_DOMAINS 
-        : 'http://localhost:5173';
+      const frontendUrl = getOrigin(req);
       res.redirect(`${frontendUrl}/auth?error=${encodeURIComponent('Verification failed')}`);
     }
   });
@@ -809,9 +801,7 @@ export function registerAuthRoutes(app: Express) {
 
       // Send verification email
       try {
-        const baseUrl = process.env.NODE_ENV === 'production' 
-          ? `https://${req.get('host')}` 
-          : `http://localhost:5000`;
+        const baseUrl = getOrigin(req);
         await sendVerificationEmail(email, emailVerificationToken, baseUrl);
       } catch (emailError) {
         console.error('Failed to send verification email:', emailError);
