@@ -144,15 +144,21 @@ export function registerAdminRoutes(app: Express) {
 
   // Grant admin access to user (admin only)
   app.post("/api/admin/users/grant-admin", requireAdminAuth, async (req, res) => {
+    console.log('🔧 Grant admin request received:', req.body);
+    
     try {
       const { email, userId } = req.body;
+      console.log('🔧 Processing grant admin for email:', email, 'userId:', userId);
 
       // Support both email and userId for backwards compatibility
       let user;
       if (email) {
+        console.log('🔧 Looking up user by email:', email.trim().toLowerCase());
         // Find user by email
         user = await storage.getUserByEmail(email.trim().toLowerCase());
+        console.log('🔧 User lookup result:', user ? `Found user ${user.id}` : 'User not found');
         if (!user) {
+          console.log('❌ User not found with email:', email);
           return res.status(404).json({ error: "User not found with that email address" });
         }
       } else if (userId) {
@@ -165,10 +171,12 @@ export function registerAdminRoutes(app: Express) {
         return res.status(400).json({ error: "Either email or user ID is required" });
       }
 
+      console.log('🔧 Updating user role to admin for user:', user.id);
       // Email allowlist restriction removed - any existing user can become admin
 
       // Update user role to admin using the updateUserRole function
       const updatedUser = await storage.updateUserRole(user.id, 'admin');
+      console.log('✅ Admin role granted successfully to:', updatedUser.email);
 
       res.json({
         message: "Admin access granted successfully",
@@ -181,7 +189,7 @@ export function registerAdminRoutes(app: Express) {
         }
       });
     } catch (error) {
-      console.error('Grant admin error:', error);
+      console.error('❌ Grant admin error:', error);
       res.status(500).json({ error: 'Failed to grant admin access' });
     }
   });
