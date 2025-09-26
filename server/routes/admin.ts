@@ -165,12 +165,7 @@ export function registerAdminRoutes(app: Express) {
         return res.status(400).json({ error: "Either email or user ID is required" });
       }
 
-      // Check if email is in admin allowlist
-      if (!ADMIN_EMAILS.includes(user.email.toLowerCase())) {
-        return res.status(400).json({ 
-          error: "User email is not in the admin allowlist. Contact system administrator to add this email to the allowlist." 
-        });
-      }
+      // Email allowlist restriction removed - any existing user can become admin
 
       // Update user role to admin using the updateUserRole function
       const updatedUser = await storage.updateUserRole(user.id, 'admin');
@@ -251,12 +246,7 @@ export function registerAdminRoutes(app: Express) {
         return res.status(400).json({ error: "Email is required" });
       }
 
-      // Check if email is in admin allowlist
-      if (!ADMIN_EMAILS.includes(email.trim().toLowerCase())) {
-        return res.status(400).json({ 
-          error: "Email is not in the admin allowlist. Only pre-approved emails can become admins." 
-        });
-      }
+      // Email allowlist restriction removed for bootstrap - any existing user can become admin
 
       // Check if any admins already exist (to prevent abuse)
       const existingAdmins = await storage.getAdminUsers();
