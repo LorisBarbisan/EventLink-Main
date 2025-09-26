@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { NotificationSystem } from "@/components/NotificationSystem";
 import { FeedbackForm } from "@/components/FeedbackForm";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -28,8 +27,6 @@ export const Layout = ({ children }: LayoutProps) => {
         open={showFeedback} 
         onOpenChange={setShowFeedback} 
       />
-
-      {user && <NotificationSystem userId={user.id} />}
     </div>
   );
 };
