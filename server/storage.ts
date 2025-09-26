@@ -254,11 +254,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const cacheKey = `user:email:${email}`;
+    const normalizedEmail = email.toLowerCase();
+    const cacheKey = `user:email:${normalizedEmail}`;
     const cached = cache.get<User>(cacheKey);
     if (cached) return cached;
 
-    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    // Case-insensitive email comparison using SQL lower function
+    const result = await db.select().from(users)
+      .where(sql`lower(${users.email}) = ${normalizedEmail}`)
+      .limit(1);
     if (result[0]) {
       cache.set(cacheKey, result[0], 300); // Cache for 5 minutes
       // Also cache by ID for consistency
