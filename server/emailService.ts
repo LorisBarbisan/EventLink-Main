@@ -38,7 +38,10 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
   try {
     const emailData: any = {
       to: params.to,
-      from: params.from,
+      from: {
+        email: params.from,
+        name: 'EventLink Team'
+      },
       subject: params.subject,
       tracking_settings: {
         click_tracking: {
@@ -51,6 +54,16 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
         subscription_tracking: {
           enable: false
         }
+      },
+      mail_settings: {
+        spam_check: {
+          enable: true,
+          threshold: 1
+        }
+      },
+      headers: {
+        'List-Unsubscribe': '<mailto:unsubscribe@eventlink.one>',
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
       }
     };
 
@@ -286,7 +299,7 @@ The EventLink Team
   return await sendEmail({
     to: email,
     from: 'EventLink@eventlink.one', // Verified sender identity
-    subject: 'Verify Your EventLink Account',
+    subject: 'Complete Your EventLink Registration - Verification Required',
     html: htmlContent,
     text: textContent,
   });
