@@ -223,9 +223,19 @@ function AdminDashboardContent() {
       // Track admin grant failure
       trackAdminEvent('grant_admin_failed', grantAdminEmail);
       
+      console.error('Grant admin error:', error);
+      let errorMessage = 'Failed to grant admin access';
+      
+      // Extract specific error message from response
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: 'Grant Admin Failed',
-        description: error.response?.data?.error || 'Failed to grant admin status',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -253,9 +263,19 @@ function AdminDashboardContent() {
       setRevokeAdminEmail('');
       refetchAdminUsers();
     } catch (error: any) {
+      console.error('Revoke admin error:', error);
+      let errorMessage = 'Failed to revoke admin status';
+      
+      // Extract specific error message from response
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: 'Revoke Admin Failed',
-        description: error.response?.data?.error || 'Failed to revoke admin status',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
