@@ -647,7 +647,14 @@ export class DatabaseStorage implements IStorage {
       experience_years: freelancer_profiles.experience_years,
       skills: freelancer_profiles.skills,
       portfolio_url: freelancer_profiles.portfolio_url,
+      linkedin_url: freelancer_profiles.linkedin_url,
+      website_url: freelancer_profiles.website_url,
+      availability_status: freelancer_profiles.availability_status,
       profile_photo_url: freelancer_profiles.profile_photo_url,
+      cv_file_url: freelancer_profiles.cv_file_url,
+      cv_file_name: freelancer_profiles.cv_file_name,
+      cv_file_type: freelancer_profiles.cv_file_type,
+      cv_file_size: freelancer_profiles.cv_file_size,
       created_at: freelancer_profiles.created_at,
       updated_at: freelancer_profiles.updated_at
     })
@@ -665,12 +672,12 @@ export class DatabaseStorage implements IStorage {
       user_id: recruiter_profiles.user_id,
       company_name: recruiter_profiles.company_name,
       contact_name: recruiter_profiles.contact_name,
-      company_description: recruiter_profiles.company_description,
-      website_url: recruiter_profiles.website_url,
-      industry: recruiter_profiles.industry,
-      company_size: recruiter_profiles.company_size,
+      company_type: recruiter_profiles.company_type,
       location: recruiter_profiles.location,
-      profile_photo_url: recruiter_profiles.profile_photo_url,
+      description: recruiter_profiles.description,
+      website_url: recruiter_profiles.website_url,
+      linkedin_url: recruiter_profiles.linkedin_url,
+      company_logo_url: recruiter_profiles.company_logo_url,
       created_at: recruiter_profiles.created_at,
       updated_at: recruiter_profiles.updated_at
     })
