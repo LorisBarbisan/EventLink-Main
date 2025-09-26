@@ -143,27 +143,9 @@ export function registerAdminRoutes(app: Express) {
   });
 
   // Grant admin access to user (admin only)
-  app.post("/api/admin/users/grant-admin", async (req, res) => {
-    console.log('🔧 Grant admin request received:', req.body);
-    console.log('🔧 Auth header:', req.headers.authorization ? 'Present' : 'Missing');
-    
-    // Run admin auth manually to debug
-    try {
-      await new Promise((resolve, reject) => {
-        requireAdminAuth(req, res, (err: any) => {
-          if (err) reject(err);
-          else resolve(undefined);
-        });
-      });
-      console.log('🔧 Admin auth passed for user:', req.user?.email, 'role:', req.user?.role);
-    } catch (error) {
-      console.log('🔧 Admin auth failed:', error);
-      return; // Response already sent by requireAdminAuth
-    }
-    
+  app.post("/api/admin/users/grant-admin", requireAdminAuth, async (req, res) => {
     try {
       const { email, userId } = req.body;
-      console.log('🔧 Processing grant admin for email:', email, 'userId:', userId);
 
       // Support both email and userId for backwards compatibility
       let user;

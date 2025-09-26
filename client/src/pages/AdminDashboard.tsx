@@ -289,19 +289,28 @@ function AdminDashboardContent() {
 
     setIsBootstrapping(true);
     try {
-      await apiRequest('/api/bootstrap/create-first-admin', {
+      const result = await apiRequest('/api/bootstrap/create-first-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email }),
       });
 
+      // Store JWT token and updated user data from bootstrap response
+      if (result && result.token && result.user) {
+        localStorage.setItem('auth_token', result.token);
+        localStorage.setItem('user', JSON.stringify(result.user));
+      }
+
       toast({
         title: 'Bootstrap Successful',
-        description: 'You have been granted admin privileges! Please refresh the page.',
+        description: 'You have been granted admin privileges!',
       });
 
       // Refresh admin users list
       refetchAdminUsers();
+      
+      // Refresh the page to update authentication state
+      setTimeout(() => window.location.reload(), 1000);
     } catch (error: any) {
       toast({
         title: 'Bootstrap Failed',
