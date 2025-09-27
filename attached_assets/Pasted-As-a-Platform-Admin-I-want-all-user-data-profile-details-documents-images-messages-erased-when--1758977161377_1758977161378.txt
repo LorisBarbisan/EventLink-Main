@@ -1,0 +1,113 @@
+As a Platform Admin
+I want all user data (profile details, documents, images, messages) erased when a user is deleted
+So that the platform respects privacy laws, keeps data storage clean, and other users have a clear record that the account is no longer active.
+
+✅ Acceptance Criteria
+Profile Data Deletion
+
+ When a user is deleted (by self-request or admin action), their entire profile data is permanently erased, including:
+
+Personal info (name, email, bio, CV, etc.).
+
+Uploaded files (CVs, documents, certifications).
+
+Uploaded photos/images.
+
+Job postings they created (if recruiter).
+
+Applications they submitted (if freelancer).
+
+ Data is deleted from both the database and file storage (e.g., AWS S3, Replit storage).
+
+ Deletion is irreversible and logged in the admin audit log.
+
+Messages & Conversations
+
+ Conversations with the deleted user remain in the inbox of other participants.
+
+ At the bottom of each conversation, a “Account Deleted” notification is added to mark the conclusion of the chat.
+
+ Messages sent by the deleted user remain visible for historical context.
+
+ The deleted user’s name/avatar is replaced with “Deleted User” in all conversations.
+
+ Clicking on their profile link results in a “This account no longer exists” message.
+
+Notifications
+
+ Users who had active conversations with the deleted user receive a one-time notification:
+
+“A user you were chatting with has deleted their account. The conversation has been closed.”
+
+Compliance & Safety
+
+ Deletion follows UK GDPR rules (right to be forgotten).
+
+ All caches and backups are flagged for purge of that user’s data at next cleanup cycle.
+
+Testing
+
+ Delete test account → confirm profile is erased (no public trace).
+
+ Check linked recruiters/freelancers → conversations end with “Account Deleted” tag.
+
+ Confirm deleted user’s content (messages, files) no longer retrievable.
+
+ Verify that historical conversations remain intact for other users.
+
+🔨 Breakdown of Work / Approach
+Backend
+
+Delete Function
+
+Extend account deletion endpoint to remove all:
+
+Profile data (user table entries).
+
+File storage assets (CVs, photos, etc.).
+
+Job posts and applications linked to user.
+
+Message Updates
+
+Modify conversation records:
+
+Replace username with “Deleted User.”
+
+Insert system-generated message: “This account has been deleted. Conversation closed.”
+
+Notification System
+
+Trigger one-time push/email notification to conversation participants.
+
+Audit Logging
+
+Log deletion event for compliance and admin tracking.
+
+Frontend
+
+Inbox UI
+
+Show “Deleted User” instead of name/avatar.
+
+Show system message “Account Deleted” at end of thread.
+
+Disable reply box for concluded conversations.
+
+Profile Links
+
+Redirect to a page or modal: “This account no longer exists.”
+
+QA / Testing
+
+Delete user with profile → confirm full erasure.
+
+Delete user with job posts → confirm jobs disappear.
+
+Delete user with applications → confirm applications disappear.
+
+Check messages → confirm “Account Deleted” system message appears at end.
+
+Check profile links → confirm redirect to “Account no longer exists.”
+
+Test on desktop + mobile.
