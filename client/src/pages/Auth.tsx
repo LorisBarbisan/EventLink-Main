@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 // Removed unused imports: UserCheck, Building2
 import { FaGoogle, FaFacebook, FaLinkedin } from 'react-icons/fa';
@@ -47,7 +48,8 @@ export default function Auth() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'freelancer' as 'freelancer' | 'recruiter'
+    role: 'freelancer' as 'freelancer' | 'recruiter',
+    acceptedTerms: false
   });
   const [signInData, setSignInData] = useState({
     email: '',
@@ -199,6 +201,15 @@ export default function Auth() {
       });
       return;
     }
+    
+    if (!signUpData.acceptedTerms) {
+      toast({
+        title: "Error",
+        description: "Please accept the Terms and Conditions to continue.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -223,7 +234,8 @@ export default function Auth() {
           email: '',
           password: '',
           confirmPassword: '',
-          role: 'freelancer'
+          role: 'freelancer',
+          acceptedTerms: false
         });
       }
     } catch (err) {
@@ -526,6 +538,43 @@ export default function Auth() {
                     )}
                   </div>
 
+                  {/* Terms and Conditions */}
+                  <div className="flex items-start space-x-2">
+                    <Checkbox
+                      id="terms"
+                      checked={signUpData.acceptedTerms}
+                      onCheckedChange={(checked) => 
+                        setSignUpData(prev => ({ ...prev, acceptedTerms: !!checked }))
+                      }
+                      data-testid="checkbox-terms"
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                      <Label 
+                        htmlFor="terms"
+                        className="text-sm font-normal leading-5 cursor-pointer"
+                      >
+                        I agree to the{' '}
+                        <button
+                          type="button"
+                          onClick={() => window.open('/terms', '_blank')}
+                          className="text-primary hover:text-primary/80 underline"
+                          data-testid="link-terms"
+                        >
+                          Terms and Conditions
+                        </button>
+                        {' '}and{' '}
+                        <button
+                          type="button"
+                          onClick={() => window.open('/privacy', '_blank')}
+                          className="text-primary hover:text-primary/80 underline"
+                          data-testid="link-privacy"
+                        >
+                          Privacy Policy
+                        </button>
+                      </Label>
+                    </div>
+                  </div>
+
                   <Button 
                     type="submit" 
                     className="w-full bg-gradient-primary hover:bg-primary-hover text-white font-semibold py-2 mt-4" 
@@ -535,7 +584,8 @@ export default function Auth() {
                       !signUpData.password.trim() || 
                       !signUpData.confirmPassword.trim() || 
                       signUpData.password !== signUpData.confirmPassword ||
-                      signUpData.password.length < 6
+                      signUpData.password.length < 6 ||
+                      !signUpData.acceptedTerms
                     }
                     data-testid="button-signup"
                   >
