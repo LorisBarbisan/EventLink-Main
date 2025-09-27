@@ -556,7 +556,7 @@ export default function Auth() {
                         I agree to the{' '}
                         <button
                           type="button"
-                          onClick={() => window.open('/terms', '_blank')}
+                          onClick={() => window.open('/terms-of-use.pdf', '_blank')}
                           className="text-primary hover:text-primary/80 underline"
                           data-testid="link-terms"
                         >
@@ -565,7 +565,7 @@ export default function Auth() {
                         {' '}and{' '}
                         <button
                           type="button"
-                          onClick={() => window.open('/privacy', '_blank')}
+                          onClick={() => window.open('/terms-of-use.pdf', '_blank')}
                           className="text-primary hover:text-primary/80 underline"
                           data-testid="link-privacy"
                         >
