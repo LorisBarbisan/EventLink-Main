@@ -64,69 +64,17 @@ export default function Freelancers() {
     };
   });
 
-  // Mock freelancer data matching E8 design
-  const mockFreelancers = [
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      title: 'Senior Audio Engineer',
-      location: 'London, UK',
-      experience: '8 years',
-      rating: 4.9,
-      availability: 'Available',
-      skills: ['Sound Engineering', 'Live Events', 'Mixing Consoles', 'Wireless Systems'],
-      bio: 'Experienced audio engineer specializing in large-scale corporate events and conferences. Expert in digital mixing consoles and wireless microphone systems.',
-      recentProjects: 3,
-      avatar: '👩‍💼'
-    },
-    {
-      id: 2,
-      name: 'Michael Chen',
-      title: 'Lighting Designer & Technician',
-      location: 'Manchester, UK',
-      experience: '6 years',
-      rating: 4.8,
-      availability: 'Available',
-      skills: ['Lighting Design', 'LED Systems', 'Moving Lights', 'Event Production'],
-      bio: 'Creative lighting designer with extensive experience in corporate events, exhibitions, and product launches. Specialist in LED technology.',
-      recentProjects: 5,
-      avatar: '👨‍💻'
-    },
-    {
-      id: 3,
-      name: 'Emma Williams',
-      title: 'AV Systems Specialist',
-      location: 'Birmingham, UK',
-      experience: '10 years',
-      rating: 5.0,
-      availability: 'Busy',
-      skills: ['AV Systems', 'Project Management', 'Technical Support', 'Video Production'],
-      bio: 'Senior AV specialist with project management experience. Proven track record in managing complex multi-day events and exhibitions.',
-      recentProjects: 2,
-      avatar: '👩‍🎓'
-    },
-    {
-      id: 4,
-      name: 'James Thompson',
-      title: 'Video Production Specialist',
-      location: 'Edinburgh, UK',
-      experience: '5 years',
-      rating: 4.7,
-      availability: 'Available',
-      skills: ['Video Production', 'Live Streaming', 'Camera Operation', 'Post Production'],
-      bio: 'Video production specialist focusing on live streaming and multi-camera setups for corporate events and webinars.',
-      recentProjects: 4,
-      avatar: '👨‍🎬'
-    }
-  ].map(freelancer => ({ ...freelancer, id: `mock-${freelancer.id}`, isReal: false })); // Add isReal flag and unique ID
+  // REMOVED: Mock data eliminated to prevent data integrity issues
+  // Production applications should NEVER mix real user data with mock data
+  // This was causing deleted user data to appear as if it still existed
 
-  // Combine real and mock data, with real profiles first
-  const allFreelancers = [...transformedRealFreelancers, ...mockFreelancers];
+  // Use ONLY verified, real freelancer profiles from database
+  const allFreelancers = transformedRealFreelancers;
   
   // Debug: Force render with known data if API data exists
   const displayFreelancers = isLoading ? [] : allFreelancers;
   
-  const filteredFreelancers = displayFreelancers.filter(freelancer => {
+  const filteredFreelancers = displayFreelancers.filter((freelancer: any) => {
     const matchesSearch = freelancer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          freelancer.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          freelancer.skills.some((skill: any) => skill.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -206,13 +154,12 @@ export default function Freelancers() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredFreelancers.map((freelancer) => (
+            {filteredFreelancers.map((freelancer: any) => (
                 <Card 
                   key={freelancer.id} 
                   className={`hover:shadow-lg transition-shadow border-l-4 border-l-accent ${
                     highlightedFreelancer && 
-                    ((freelancer.isReal && freelancer.id === `real-${highlightedFreelancer}`) ||
-                     (!freelancer.isReal && freelancer.id.toString() === highlightedFreelancer))
+                    (freelancer.id === `real-${highlightedFreelancer}`)
                       ? 'ring-2 ring-blue-500 bg-blue-50' : ''
                   }`}
                   data-testid={`freelancer-card-${freelancer.id}`}
@@ -309,14 +256,9 @@ export default function Freelancers() {
                       <Button 
                         variant="outline"
                         onClick={() => {
-                          if (freelancer.isReal) {
-                            // Extract the real user ID from the prefixed ID
-                            const userId = freelancer.id.replace('real-', '');
-                            setLocation(`/profile/${userId}`);
-                          } else {
-                            // For mock profiles, show a message or handle differently
-                            alert('This is a demo profile. Only verified profiles have detailed pages.');
-                          }
+                          // Extract the real user ID from the prefixed ID (all profiles are now real)
+                          const userId = freelancer.id.replace('real-', '');
+                          setLocation(`/profile/${userId}`);
                         }}
                       >
                         View Profile
@@ -339,12 +281,8 @@ export default function Freelancers() {
             setSelectedFreelancer(null);
           }}
           freelancer={{
-            id: selectedFreelancer.isReal ? 
-              parseInt(selectedFreelancer.id.replace('real-', '')) : 
-              selectedFreelancer.id,
-            user_id: selectedFreelancer.isReal ? 
-              parseInt(selectedFreelancer.id.replace('real-', '')) : 
-              selectedFreelancer.id,
+            id: parseInt(selectedFreelancer.id.replace('real-', '')),
+            user_id: parseInt(selectedFreelancer.id.replace('real-', '')),
             first_name: selectedFreelancer.name.split(' ')[0] || '',
             last_name: selectedFreelancer.name.split(' ').slice(1).join(' ') || '',
             title: selectedFreelancer.title,

@@ -635,7 +635,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllFreelancerProfiles(): Promise<FreelancerProfile[]> {
-    // Join with users table to filter out deleted users
+    // CRITICAL: Triple-check to ensure NO deleted user data appears anywhere
+    // Join with users table to filter out deleted users with multiple safety checks
     const result = await db.select({
       id: freelancer_profiles.id,
       user_id: freelancer_profiles.user_id,
@@ -660,9 +661,21 @@ export class DatabaseStorage implements IStorage {
     })
     .from(freelancer_profiles)
     .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
-    .where(isNull(users.deleted_at)); // Only non-deleted users
+    .where(
+      and(
+        isNull(users.deleted_at), // Primary check: user not marked as deleted
+        sql`${users.email} NOT LIKE 'deleted_%'` // Secondary check: email not anonymized
+      )
+    );
 
-    return result;
+    // Additional safeguard: Filter out any profiles with deleted user indicators
+    const safeResult = result.filter(profile => {
+      return profile.first_name && profile.last_name && 
+             !profile.first_name.toLowerCase().includes('deleted') &&
+             !profile.last_name.toLowerCase().includes('deleted');
+    });
+
+    return safeResult;
   }
 
   async getAllRecruiterProfiles(): Promise<RecruiterProfile[]> {
