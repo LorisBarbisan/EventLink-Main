@@ -1813,13 +1813,12 @@ export class DatabaseStorage implements IStorage {
     .where(eq(users.role, 'admin'))
     .orderBy(desc(users.created_at));
 
-    // Hardcoded admin emails (from server/routes.ts)
-    const ADMIN_EMAILS = [
-      'lorisbarbisan@gmail.com',
-      'testadmin@example.com'
-    ];
+    // Get admin emails from environment variable (same as auth.ts)
+    const ADMIN_EMAILS = process.env.ADMIN_EMAILS 
+      ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim().toLowerCase())
+      : [];
 
-    // Get hardcoded admin users from database (regardless of their role column)
+    // Get admin users from environment variable list (regardless of their role column)
     const hardcodedAdmins = await db.select({
       id: users.id,
       email: users.email,
