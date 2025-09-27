@@ -243,6 +243,49 @@ export function registerAdminRoutes(app: Express) {
   });
 
   // Bootstrap endpoint for initial admin setup (no auth required)
+  // Special override endpoint for admin@eventlink.one production access
+  app.post("/api/bootstrap/grant-admin-access", async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      // Only allow admin@eventlink.one for this override
+      if (email.trim().toLowerCase() !== 'admin@eventlink.one') {
+        return res.status(403).json({ error: "This endpoint is only for admin@eventlink.one" });
+      }
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email.trim().toLowerCase());
+      if (!user) {
+        return res.status(404).json({ error: "User not found with that email address." });
+      }
+
+      // Update user role to admin
+      const updatedUser = await storage.updateUserRole(user.id, 'admin');
+
+      // Generate JWT token using the same function as signin to ensure consistency
+      const token = generateJWTToken(updatedUser);
+
+      res.json({
+        message: "Admin access granted successfully!",
+        token: token,
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          first_name: updatedUser.first_name,
+          last_name: updatedUser.last_name,
+          role: updatedUser.role
+        }
+      });
+    } catch (error) {
+      console.error('Grant admin access error:', error);
+      res.status(500).json({ error: 'Failed to grant admin access' });
+    }
+  });
+
   app.post("/api/bootstrap/create-first-admin", async (req, res) => {
     try {
       const { email } = req.body;
