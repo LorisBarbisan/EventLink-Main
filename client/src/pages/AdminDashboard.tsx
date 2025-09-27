@@ -94,10 +94,6 @@ function AdminDashboardContent() {
   });
   
   // Admin management state
-  const [grantAdminEmail, setGrantAdminEmail] = useState('');
-  const [revokeAdminEmail, setRevokeAdminEmail] = useState('');
-  const [isGrantingAdmin, setIsGrantingAdmin] = useState(false);
-  const [isRevokingAdmin, setIsRevokingAdmin] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
 
   // Track Google Analytics when tab changes
@@ -196,98 +192,6 @@ function AdminDashboardContent() {
     }
   };
 
-  // Admin management functions
-  const handleGrantAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!grantAdminEmail.trim()) return;
-
-    setIsGrantingAdmin(true);
-    try {
-      await apiRequest('/api/admin/users/grant-admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: grantAdminEmail.trim() }),
-      });
-
-      // Track admin grant success
-      trackAdminEvent('grant_admin_success', grantAdminEmail);
-
-      toast({
-        title: 'Admin Status Granted',
-        description: `Admin privileges have been granted to ${grantAdminEmail}`,
-      });
-
-      setGrantAdminEmail('');
-      
-      // Invalidate and refetch admin users list to ensure immediate update
-      await queryClient.invalidateQueries({ queryKey: ['/api/admin/users/admins'] });
-      refetchAdminUsers();
-    } catch (error: any) {
-      // Track admin grant failure
-      trackAdminEvent('grant_admin_failed', grantAdminEmail);
-      
-      console.error('Grant admin error:', error);
-      let errorMessage = 'Failed to grant admin access';
-      
-      // Extract specific error message from response
-      if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast({
-        title: 'Grant Admin Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGrantingAdmin(false);
-    }
-  };
-
-  const handleRevokeAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!revokeAdminEmail.trim()) return;
-
-    setIsRevokingAdmin(true);
-    try {
-      await apiRequest('/api/admin/users/revoke-admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: revokeAdminEmail.trim() }),
-      });
-
-      toast({
-        title: 'Admin Status Revoked',
-        description: `Admin privileges have been revoked from ${revokeAdminEmail}`,
-      });
-
-      setRevokeAdminEmail('');
-      
-      // Invalidate and refetch admin users list to ensure immediate update
-      await queryClient.invalidateQueries({ queryKey: ['/api/admin/users/admins'] });
-      refetchAdminUsers();
-    } catch (error: any) {
-      console.error('Revoke admin error:', error);
-      let errorMessage = 'Failed to revoke admin status';
-      
-      // Extract specific error message from response
-      if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast({
-        title: 'Revoke Admin Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsRevokingAdmin(false);
-    }
-  };
 
   // Bootstrap admin creation function
   const handleBootstrapAdmin = async () => {
@@ -718,102 +622,6 @@ function AdminDashboardContent() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Grant Admin Access */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserCheck className="w-5 h-5" />
-                  Grant Admin Access
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleGrantAdmin} className="space-y-4">
-                  <div>
-                    <label htmlFor="grant-email" className="text-sm font-medium">
-                      User Email
-                    </label>
-                    <Input
-                      id="grant-email"
-                      data-testid="input-grant-admin-email"
-                      type="email"
-                      placeholder="user@example.com"
-                      value={grantAdminEmail}
-                      onChange={(e) => setGrantAdminEmail(e.target.value)}
-                      disabled={isGrantingAdmin}
-                      required
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    data-testid="button-grant-admin"
-                    disabled={isGrantingAdmin || !grantAdminEmail.trim()}
-                    className="w-full"
-                  >
-                    {isGrantingAdmin ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Granting Admin...
-                      </>
-                    ) : (
-                      <>
-                        <UserCheck className="w-4 h-4 mr-2" />
-                        Grant Admin Access
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            {/* Revoke Admin Access */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Revoke Admin Access
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleRevokeAdmin} className="space-y-4">
-                  <div>
-                    <label htmlFor="revoke-email" className="text-sm font-medium">
-                      Admin Email
-                    </label>
-                    <Input
-                      id="revoke-email"
-                      data-testid="input-revoke-admin-email"
-                      type="email"
-                      placeholder="admin@example.com"
-                      value={revokeAdminEmail}
-                      onChange={(e) => setRevokeAdminEmail(e.target.value)}
-                      disabled={isRevokingAdmin}
-                      required
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    data-testid="button-revoke-admin"
-                    variant="destructive"
-                    disabled={isRevokingAdmin || !revokeAdminEmail.trim()}
-                    className="w-full"
-                  >
-                    {isRevokingAdmin ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Revoking Admin...
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle className="w-4 h-4 mr-2" />
-                        Revoke Admin Access
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
 
           {/* Current Admin Users List */}
           <Card>
@@ -880,16 +688,12 @@ function AdminDashboardContent() {
 
         {/* Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle>User Statistics</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span>Total Users</span>
-                  <span className="font-bold">{analytics?.users?.total || 0}</span>
-                </div>
                 <div className="flex justify-between items-center">
                   <span>Freelancers</span>
                   <span className="font-bold">{analytics?.users?.freelancers || 0}</span>
