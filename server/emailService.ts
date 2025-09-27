@@ -106,8 +106,7 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
       },
       mail_settings: {
         spam_check: {
-          enable: true,
-          threshold: 1
+          enable: false  // Disabled to prevent SendGrid API errors - not needed for verification emails
         },
         sandbox_mode: {
           enable: false
