@@ -46,482 +46,350 @@ const isUserDeleted = (user: User | undefined): boolean => {
   return user?.deleted_at !== null && user?.deleted_at !== undefined;
 };
 
-// Helper function to get display name for user
+// Helper function to get display name for a user
 const getDisplayName = (user: User): string => {
-  if (user.role === 'recruiter') {
-    return user.company_name || 'Company';
-  } else {
-    const firstName = user.first_name || '';
-    const lastName = user.last_name || '';
-    const fullName = `${firstName} ${lastName}`.trim();
-    return fullName || 'User';
+  if (isUserDeleted(user)) {
+    return `[Deleted ${user.role === 'freelancer' ? 'Freelancer' : 'Company'}]`;
   }
+  
+  if (user.first_name && user.last_name) {
+    return `${user.first_name} ${user.last_name}`;
+  }
+  if (user.company_name) {
+    return user.company_name;
+  }
+  return user.email;
 };
 
 // Helper function to get avatar initials
 const getAvatarInitials = (user: User): string => {
-  if (user.role === 'recruiter') {
-    const companyName = user.company_name || 'Company';
-    return companyName.substring(0, 2).toUpperCase();
+  if (isUserDeleted(user)) {
+    return user.role === 'freelancer' ? 'DF' : 'DC';
+  }
+  
+  if (user.first_name && user.last_name) {
+    return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
+  }
+  if (user.company_name) {
+    return user.company_name.substring(0, 2).toUpperCase();
+  }
+  return user.email.substring(0, 2).toUpperCase();
+};
+
+// Helper function to format dates
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInMs = now.getTime() - date.getTime();
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  const diffInDays = Math.floor(diffInHours / 24);
+
+  if (diffInMinutes < 1) {
+    return 'Just now';
+  } else if (diffInMinutes < 60) {
+    return `${diffInMinutes}m ago`;
+  } else if (diffInHours < 24) {
+    return `${diffInHours}h ago`;
+  } else if (diffInDays < 7) {
+    return `${diffInDays}d ago`;
   } else {
-    const firstName = user.first_name || '';
-    const lastName = user.last_name || '';
-    if (firstName && lastName) {
-      return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
-    } else if (firstName) {
-      return firstName.substring(0, 2).toUpperCase();
-    }
-    return user.email.substring(0, 2).toUpperCase();
+    return date.toLocaleDateString();
   }
 };
 
-interface MessagingInterfaceProps {
-  currentUser: User;
-}
-
-export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
+export function MessagingInterface() {
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState("");
-  const [websocket, setWebsocket] = useState<WebSocket | null>(null);
-  const [deleteMessageId, setDeleteMessageId] = useState<number | null>(null);
-  const [viewedConversations, setViewedConversations] = useState<Set<number>>(new Set());
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch conversations - less frequent polling
-  const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
-    queryKey: ['/api/conversations', currentUser.id],
-    queryFn: () => apiRequest(`/api/conversations`),
-    refetchInterval: 60000, // Reduced from 30s to 60s
-    refetchIntervalInBackground: false, // Stop when tab is inactive
+  // Fetch conversations
+  const { data: conversations = [], isLoading: conversationsLoading, refetch: refetchConversations } = useQuery<Conversation[]>({
+    queryKey: ['/api/messaging/conversations'],
   });
 
-  // Fetch messages for selected conversation - no polling, rely on WebSocket
-  const { data: messages = [], isLoading: messagesLoading } = useQuery({
-    queryKey: ['/api/conversations', selectedConversation, 'messages'],
-    queryFn: async () => {
-      if (!selectedConversation) return Promise.resolve([]);
-      
-      const result = await apiRequest(`/api/conversations/${selectedConversation}/messages`);
-      
-      // Mark this conversation as viewed
-      if (selectedConversation) {
-        setViewedConversations(prev => new Set([...Array.from(prev), selectedConversation]));
-        
-        // Mark message notifications as read when conversation is opened
-        try {
-          await apiRequest(`/api/notifications/mark-category-read/messages`, {
-            method: 'PATCH',
-          });
-          console.log('Message notifications marked as read');
-        } catch (error) {
-          console.error('Error marking message notifications as read:', error);
-        }
-      }
-      
-      // Invalidate unread count after messages are fetched (and marked as read on backend)
-      queryClient.invalidateQueries({ queryKey: ['/api/messages/unread-count', currentUser.id] });
-      
-      return result;
-    },
-    enabled: !!selectedConversation,
-    refetchInterval: false, // No polling - rely on WebSocket updates
+  // Fetch messages for selected conversation
+  const { data: messages = [], refetch: refetchMessages } = useQuery<Message[]>({
+    queryKey: ['/api/messaging/messages', selectedConversation],
+    enabled: selectedConversation !== null,
   });
 
-  // Fetch unread message count - reduced frequency
-  const { data: unreadCount = { count: 0 } } = useQuery({
-    queryKey: ['/api/messages/unread-count', currentUser.id],
-    queryFn: () => apiRequest(`/api/messages/unread-count`),
-    refetchInterval: 25000, // Reduced from 10s to 25s
-    refetchIntervalInBackground: false, // Stop when tab is inactive
-  });
-
-  // Send message mutation
-  const sendMessageMutation = useMutation({
-    mutationFn: async (messageData: { conversation_id: number; sender_id: number; content: string }) => {
-      return apiRequest('/api/messages', {
+  // Create message mutation
+  const createMessageMutation = useMutation({
+    mutationFn: async (data: { conversation_id: number; content: string }) => {
+      return apiRequest(`/api/messaging/messages`, {
         method: 'POST',
-        body: JSON.stringify(messageData),
+        body: JSON.stringify(data),
       });
     },
     onSuccess: () => {
       setNewMessage("");
-      queryClient.invalidateQueries({ queryKey: ['/api/conversations', selectedConversation, 'messages'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/conversations', currentUser.id] });
-      queryClient.invalidateQueries({ queryKey: ['/api/messages/unread-count', currentUser.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/messaging/messages', selectedConversation] });
+      queryClient.invalidateQueries({ queryKey: ['/api/messaging/conversations'] });
     },
+    onError: (error) => {
+      toast({
+        title: "Failed to send message",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    }
   });
 
-  // Delete message mutation
-  const deleteMessageMutation = useMutation({
-    mutationFn: async (messageId: number) => {
-      return apiRequest(`/api/messages/${messageId}`, {
+  // Delete conversation mutation
+  const deleteConversationMutation = useMutation({
+    mutationFn: async (conversationId: number) => {
+      return apiRequest(`/api/messaging/conversations/${conversationId}`, {
         method: 'DELETE',
       });
     },
     onSuccess: () => {
-      setDeleteMessageId(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/conversations', selectedConversation, 'messages'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/conversations', currentUser.id] });
-      queryClient.invalidateQueries({ queryKey: ['/api/messages/unread-count', currentUser.id] });
+      setSelectedConversation(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/messaging/conversations'] });
       toast({
-        title: 'Success',
-        description: 'Message deleted successfully',
+        title: "Conversation deleted",
+        description: "The conversation has been permanently removed",
       });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
-        title: 'Error',
-        description: 'Failed to delete message. Please try again.',
-        variant: 'destructive',
+        title: "Failed to delete conversation",
+        description: "Please try again",
+        variant: "destructive",
       });
-    },
+    }
   });
 
-  // WebSocket setup
-  useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const ws = new WebSocket(wsUrl);
-
-    const handleOpen = () => {
-      console.log('WebSocket connected');
-      ws.send(JSON.stringify({ type: 'authenticate', userId: currentUser.id }));
-      setWebsocket(ws);
-    };
-
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'new_message') {
-          // Invalidate queries to refetch new messages
-          queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
-          queryClient.invalidateQueries({ queryKey: ['/api/messages'] });
-        }
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
-    };
-
-    const handleClose = () => {
-      console.log('WebSocket disconnected');
-      setWebsocket(null);
-    };
-
-    const handleError = (error: Event) => {
-      console.error('WebSocket error:', error);
-    };
-
-    ws.addEventListener('open', handleOpen);
-    ws.addEventListener('message', handleMessage);
-    ws.addEventListener('close', handleClose);
-    ws.addEventListener('error', handleError);
-
-    return () => {
-      // Clean up event listeners before closing
-      ws.removeEventListener('open', handleOpen);
-      ws.removeEventListener('message', handleMessage);
-      ws.removeEventListener('close', handleClose);
-      ws.removeEventListener('error', handleError);
-      ws.close();
-    };
-  }, [currentUser.id, queryClient]);
-
-  // Auto-scroll to bottom of messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Handle sending messages
+  const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
-
-    sendMessageMutation.mutate({
+    
+    createMessageMutation.mutate({
       conversation_id: selectedConversation,
-      sender_id: currentUser.id,
       content: newMessage.trim(),
     });
   };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
-    } else {
-      return date.toLocaleDateString();
+  // Handle key press in input
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
-  if (conversationsLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <MessageCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground">Loading conversations...</p>
-        </div>
-      </div>
-    );
-  }
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
-      {/* Conversations List */}
-      <Card className="lg:col-span-1">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5" />
-            Messages
-            {unreadCount.count > 0 && (
-              <Badge variant="destructive" className="ml-auto">
-                {unreadCount.count}
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ScrollArea className="h-[500px]">
-            {conversations.length === 0 ? (
-              <div className="p-4 text-center text-muted-foreground">
-                <MessageCircle className="h-8 w-8 mx-auto mb-2" />
-                <p>No conversations yet</p>
-              </div>
-            ) : (
-              <div className="space-y-2 p-4">
-                {conversations.map((conversation: Conversation) => {
-                  const hasUnreadMessages = unreadCount.count > 0 && !viewedConversations.has(conversation.id);
-                  
-                  return (
-                    <div
-                      key={conversation.id}
-                      onClick={() => setSelectedConversation(conversation.id)}
-                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedConversation === conversation.id
-                          ? 'bg-primary/10 border-primary border'
-                          : hasUnreadMessages
-                          ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30'
-                          : 'hover:bg-muted/50'
-                      }`}
-                      data-testid={`conversation-${conversation.id}`}
-                    >
-                      <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <Avatar className="h-10 w-10">
-                          <AvatarFallback className="bg-gradient-primary text-white">
-                            {getAvatarInitials(conversation.otherUser)}
-                          </AvatarFallback>
-                        </Avatar>
-                        {hasUnreadMessages && (
-                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-gray-900"></div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className={`truncate ${hasUnreadMessages ? 'font-bold text-gray-900 dark:text-gray-100' : 'font-medium'}`}>
-                            {getDisplayName(conversation.otherUser)}
-                          </p>
-                          {isUserDeleted(conversation.otherUser) && (
-                            <Badge variant="secondary" className="text-xs px-2 py-0 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                              Account Deleted
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground capitalize">
-                          {conversation.otherUser.role}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(conversation.last_message_at)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
-
-      {/* Chat Area */}
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {selectedConversation ? (
-              <>
-                <User className="h-5 w-5" />
-                <span>{conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser.email || 'Chat'}</span>
-                {isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser) && (
-                  <Badge variant="secondary" className="ml-2 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                    Account Deleted
-                  </Badge>
-                )}
-              </>
-            ) : (
-              <>
-                <MessageCircle className="h-5 w-5" />
-                Select a conversation
-              </>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col h-[500px]">
-          {selectedConversation ? (
-            <>
-              {/* Messages */}
-              <ScrollArea className="flex-1 mb-4">
-                <div className="space-y-4 p-4">
-                  {messagesLoading ? (
-                    <div className="text-center text-muted-foreground">
-                      <Clock className="h-6 w-6 mx-auto mb-2" />
-                      Loading messages...
-                    </div>
-                  ) : messages.length === 0 ? (
-                    <div className="text-center text-muted-foreground">
-                      <MessageCircle className="h-8 w-8 mx-auto mb-2" />
-                      <p>No messages yet. Start the conversation!</p>
-                    </div>
-                  ) : (
-                    messages.map((message: Message) => (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <MessageCircle className="h-5 w-5" />
+        <h1 className="text-2xl font-bold">Messages</h1>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Conversations List */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Conversations
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[500px]">
+              {conversationsLoading ? (
+                <div className="flex items-center justify-center p-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : conversations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-8 text-center">
+                  <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">No conversations yet</p>
+                  <p className="text-sm text-muted-foreground">Send your first message to start a conversation!</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {conversations.map((conversation: Conversation) => {
+                    return (
                       <div
-                        key={message.id}
-                        className={`flex group ${
-                          message.is_system_message 
-                            ? 'justify-center' 
-                            : message.sender_id === currentUser.id 
-                              ? 'justify-end' 
-                              : 'justify-start'
+                        key={conversation.id}
+                        onClick={() => setSelectedConversation(conversation.id)}
+                        className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                          selectedConversation === conversation.id 
+                            ? 'bg-primary/10 border-primary border' 
+                            : 'hover:bg-muted/50'
                         }`}
+                        data-testid={`conversation-${conversation.id}`}
                       >
-                        <div
-                          className={`${
-                            message.is_system_message
-                              ? 'max-w-[80%] p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-center'
-                              : `max-w-[70%] p-3 rounded-lg relative ${
-                                  message.sender_id === currentUser.id
-                                    ? 'bg-primary text-primary-foreground ml-auto'
-                                    : 'bg-muted'
-                                }`
-                          }`}
-                        >
-                          <p className={`text-sm ${message.is_system_message ? 'text-yellow-800 dark:text-yellow-200 italic' : ''}`}>
-                            {message.content}
-                          </p>
-                          <div className="flex items-center justify-between mt-1">
-                            <div className="text-xs opacity-70 flex items-center gap-2">
-                              <span>{formatDate(message.created_at)}</span>
-                              <span>•</span>
-                              <span>{formatTime(message.created_at)}</span>
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <Avatar className="h-10 w-10">
+                              <AvatarFallback className="bg-gradient-primary text-white">
+                                {getAvatarInitials(conversation.otherUser)}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate font-medium">
+                                {getDisplayName(conversation.otherUser)}
+                              </p>
+                              {isUserDeleted(conversation.otherUser) && (
+                                <Badge variant="secondary" className="text-xs px-2 py-0 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                  Account Deleted
+                                </Badge>
+                              )}
                             </div>
-                            {/* Delete button for user's own messages (not system messages) */}
-                            {!message.is_system_message && message.sender_id === currentUser.id && (
-                              <AlertDialog 
-                                open={deleteMessageId === message.id} 
-                                onOpenChange={(open) => !open && setDeleteMessageId(null)}
-                              >
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setDeleteMessageId(message.id)}
-                                    disabled={deleteMessageMutation.isPending}
-                                    data-testid={`button-delete-message-${message.id}`}
-                                    className={`h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity ${
-                                      message.sender_id === currentUser.id
-                                        ? 'hover:bg-primary-foreground/20 text-primary-foreground/70 hover:text-primary-foreground'
-                                        : 'hover:bg-muted-foreground/20'
-                                    }`}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Message</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete this message? This action cannot be undone and the message will be removed from your view.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel disabled={deleteMessageMutation.isPending}>
-                                      Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      onClick={() => deleteMessageMutation.mutate(message.id)}
-                                      disabled={deleteMessageMutation.isPending}
-                                      data-testid={`button-confirm-delete-message-${message.id}`}
-                                      className="bg-red-600 hover:bg-red-700 text-white"
-                                    >
-                                      {deleteMessageMutation.isPending ? 'Deleting...' : 'Yes, Delete Message'}
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            )}
+                            <p className="text-sm text-muted-foreground capitalize">
+                              {conversation.otherUser.role}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDate(conversation.last_message_at)}
+                            </p>
                           </div>
                         </div>
                       </div>
-                    ))
-                  )}
-                  <div ref={messagesEndRef} />
+                    );
+                  })}
                 </div>
-              </ScrollArea>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
 
-              {/* Message Input */}
-              {(() => {
-                const currentConversation = conversations.find((c: Conversation) => c.id === selectedConversation);
-                const otherUserDeleted = isUserDeleted(currentConversation?.otherUser);
-                
-                if (otherUserDeleted) {
-                  return (
-                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-center">
-                      <p className="text-sm text-red-800 dark:text-red-200">
-                        This account has been deleted. You can no longer send messages to this user.
-                      </p>
-                    </div>
-                  );
-                }
-                
-                return (
-                  <form onSubmit={handleSendMessage} className="flex gap-2">
-                    <Input
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Type your message..."
-                      disabled={sendMessageMutation.isPending}
-                      data-testid="input-message"
-                    />
-                    <Button 
-                      type="submit" 
-                      disabled={!newMessage.trim() || sendMessageMutation.isPending}
-                      data-testid="button-send-message"
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </form>
-                );
-              })()}
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <MessageCircle className="h-12 w-12 mx-auto mb-4" />
-                <p>Select a conversation to start chatting</p>
+        {/* Chat Area */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {selectedConversation ? (
+                <>
+                  <User className="h-5 w-5" />
+                  <span>{conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser.email || 'Chat'}</span>
+                  {isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser) && (
+                    <Badge variant="secondary" className="ml-2 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                      Account Deleted
+                    </Badge>
+                  )}
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="h-5 w-5" />
+                  Select a conversation
+                </>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col h-[500px]">
+            {selectedConversation ? (
+              <>
+                {/* Messages */}
+                <ScrollArea className="flex-1 mb-4 pr-4">
+                  <div className="space-y-4">
+                    {messagesLoading ? (
+                      <div className="flex items-center justify-center p-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center p-8 text-center">
+                        <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground">No messages yet</p>
+                        <p className="text-sm text-muted-foreground">Start the conversation!</p>
+                      </div>
+                    ) : (
+                      messages.map((message) => (
+                        <div key={message.id} className={`flex ${message.sender_id === null ? 'justify-start' : 'justify-end'}`}>
+                          <div className={`max-w-[70%] p-3 rounded-lg ${
+                            message.sender_id === null 
+                              ? 'bg-muted text-muted-foreground' 
+                              : 'bg-primary text-primary-foreground'
+                          }`}>
+                            <p className="break-words">{message.content}</p>
+                            <div className={`flex items-center gap-1 mt-1 text-xs ${
+                              message.sender_id === null 
+                                ? 'text-muted-foreground' 
+                                : 'text-primary-foreground/70'
+                            }`}>
+                              <Clock className="h-3 w-3" />
+                              {formatDate(message.created_at)}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+                </ScrollArea>
+
+                {/* Message Input */}
+                <div className="flex gap-2">
+                  <Input
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Type your message..."
+                    className="flex-1"
+                    data-testid="input-message"
+                    disabled={isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
+                  />
+                  <Button 
+                    onClick={handleSendMessage}
+                    disabled={!newMessage.trim() || createMessageMutation.isPending || isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
+                    data-testid="button-send"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="icon" data-testid="button-delete-conversation">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Conversation</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete this conversation? This action cannot be undone and will permanently remove all messages.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => selectedConversation && deleteConversationMutation.mutate(selectedConversation)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Delete Conversation
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+
+                {isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser) && (
+                  <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-300">
+                    This user account has been deleted. You can view the conversation but cannot send new messages.
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-muted-foreground">
+                  <MessageCircle className="h-12 w-12 mx-auto mb-4" />
+                  <p>Select a conversation to start messaging</p>
+                </div>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
