@@ -39,7 +39,7 @@ export const Footer = () => {
                   Create Profile
                 </button>
               </li>
-              <li><Link to="/auth?tab=signup" className="hover:text-foreground" data-testid="footer-link-freelancer-signup">Sign Up</Link></li>
+              <li><Link to="/how-it-works" className="hover:text-foreground" data-testid="footer-link-how-it-works">How Does It Work</Link></li>
             </ul>
           </div>
           
