@@ -108,6 +108,16 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
       // Mark this conversation as viewed
       if (selectedConversation) {
         setViewedConversations(prev => new Set([...prev, selectedConversation]));
+        
+        // Mark message notifications as read when conversation is opened
+        try {
+          await apiRequest(`/api/notifications/mark-category-read/messages`, {
+            method: 'PATCH',
+          });
+          console.log('Message notifications marked as read');
+        } catch (error) {
+          console.error('Error marking message notifications as read:', error);
+        }
       }
       
       // Invalidate unread count after messages are fetched (and marked as read on backend)

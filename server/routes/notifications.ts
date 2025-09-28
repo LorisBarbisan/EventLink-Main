@@ -131,6 +131,21 @@ export function registerNotificationRoutes(app: Express) {
       }
 
       await storage.markCategoryNotificationsAsRead(req.user.id, category);
+      
+      // Send WebSocket update for badge counts
+      try {
+        const counts = await storage.getCategoryUnreadCounts(req.user.id);
+        const broadcastToUser = (global as any).broadcastToUser;
+        if (broadcastToUser) {
+          broadcastToUser(req.user.id, {
+            type: 'badge_counts_update',
+            counts: counts
+          });
+        }
+      } catch (wsError) {
+        console.error("WebSocket broadcast error:", wsError);
+      }
+      
       res.json({ message: `${category} notifications marked as read` });
     } catch (error) {
       console.error("Mark category notifications as read error:", error);
