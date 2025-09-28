@@ -84,6 +84,7 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
   const [newMessage, setNewMessage] = useState("");
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [deleteMessageId, setDeleteMessageId] = useState<number | null>(null);
+  const [viewedConversations, setViewedConversations] = useState<Set<number>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -103,6 +104,11 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
       if (!selectedConversation) return Promise.resolve([]);
       
       const result = await apiRequest(`/api/conversations/${selectedConversation}/messages`);
+      
+      // Mark this conversation as viewed
+      if (selectedConversation) {
+        setViewedConversations(prev => new Set([...prev, selectedConversation]));
+      }
       
       // Invalidate unread count after messages are fetched (and marked as read on backend)
       queryClient.invalidateQueries({ queryKey: ['/api/messages/unread-count', currentUser.id] });
@@ -283,26 +289,38 @@ export function MessagingInterface({ currentUser }: MessagingInterfaceProps) {
               </div>
             ) : (
               <div className="space-y-2 p-4">
-                {conversations.map((conversation: Conversation) => (
-                  <div
-                    key={conversation.id}
-                    onClick={() => setSelectedConversation(conversation.id)}
-                    className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                      selectedConversation === conversation.id
-                        ? 'bg-primary/10 border-primary border'
-                        : 'hover:bg-muted/50'
-                    }`}
-                    data-testid={`conversation-${conversation.id}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-gradient-primary text-white">
-                          {getAvatarInitials(conversation.otherUser)}
-                        </AvatarFallback>
-                      </Avatar>
+                {conversations.map((conversation: Conversation) => {
+                  const hasUnreadMessages = unreadCount.count > 0 && !viewedConversations.has(conversation.id);
+                  
+                  return (
+                    <div
+                      key={conversation.id}
+                      onClick={() => setSelectedConversation(conversation.id)}
+                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                        selectedConversation === conversation.id
+                          ? 'bg-primary/10 border-primary border'
+                          : hasUnreadMessages
+                          ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                          : 'hover:bg-muted/50'
+                      }`}
+                      data-testid={`conversation-${conversation.id}`}
+                    >
+                      <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="bg-gradient-primary text-white">
+                            {getAvatarInitials(conversation.otherUser)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {hasUnreadMessages && (
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-gray-900"></div>
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium truncate">
+                          <p className={`truncate ${
+                            hasUnreadMessages ? 'font-bold text-gray-900 dark:text-gray-100' : 'font-medium'
+                          }`}>
                             {getDisplayName(conversation.otherUser)}
                           </p>
                           {isUserDeleted(conversation.otherUser) && (
