@@ -191,12 +191,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // External job sync endpoints
   app.post("/api/jobs/sync-external", async (req, res) => {
     try {
+      console.log('🔄 External job sync requested');
       const { jobAggregator } = await import('./jobAggregator');
       const config = req.body.config; // Optional configuration
-      await jobAggregator.syncExternalJobs(config);
-      res.json({ message: "External jobs synced successfully" });
+      
+      // Check if sync is already in progress
+      const isSync = jobAggregator.isSyncInProgress();
+      if (isSync) {
+        return res.json({ message: "Sync already in progress, skipping..." });
+      }
+      
+      const result = await jobAggregator.syncExternalJobs(config);
+      console.log('✅ External job sync completed');
+      res.json({ 
+        message: "External jobs synced successfully", 
+        ...result 
+      });
     } catch (error) {
-      console.error("Sync external jobs error:", error);
+      console.error("❌ Sync external jobs error:", error);
       res.status(500).json({ error: "Failed to sync external jobs" });
     }
   });

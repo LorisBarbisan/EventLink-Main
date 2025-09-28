@@ -115,16 +115,75 @@ export class JobAggregator {
   // Performance: In-memory cache for external jobs (refresh every 30 minutes)
   private jobCache: { data: ExternalJob[], timestamp: number } | null = null;
   private readonly CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+  
+  // Sync state tracking
+  private syncInProgress = false;
+  private lastSyncTime: number = 0;
+  private readonly BACKGROUND_SYNC_INTERVAL = 30 * 60 * 1000; // 30 minutes
+  private backgroundSyncTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     this.reedApiKey = process.env.REED_API_KEY;
     this.adzunaApiKey = process.env.ADZUNA_API_KEY;
     this.adzunaAppId = process.env.ADZUNA_APP_ID;
     
-    console.log('JobAggregator initialized:');
+    console.log('🚀 JobAggregator initialized:');
     console.log(`Reed API key: ${this.reedApiKey ? 'CONFIGURED' : 'MISSING'}`);
     console.log(`Adzuna API key: ${this.adzunaApiKey ? 'CONFIGURED' : 'MISSING'}`);
     console.log(`Adzuna App ID: ${this.adzunaAppId ? 'CONFIGURED' : 'MISSING'}`);
+    
+    // Start background sync
+    this.startBackgroundSync();
+  }
+  
+  /**
+   * Check if sync is currently in progress
+   */
+  isSyncInProgress(): boolean {
+    return this.syncInProgress;
+  }
+  
+  /**
+   * Get last sync time
+   */
+  getLastSyncTime(): number {
+    return this.lastSyncTime;
+  }
+  
+  /**
+   * Start background sync timer
+   */
+  private startBackgroundSync(): void {
+    // Clear existing timer if any
+    if (this.backgroundSyncTimer) {
+      clearInterval(this.backgroundSyncTimer);
+    }
+    
+    console.log('📅 Starting background sync every', this.BACKGROUND_SYNC_INTERVAL / 1000 / 60, 'minutes');
+    
+    this.backgroundSyncTimer = setInterval(async () => {
+      if (!this.syncInProgress) {
+        try {
+          console.log('⏰ Running background sync...');
+          await this.syncExternalJobs();
+        } catch (error) {
+          console.error('❌ Background sync failed:', error);
+        }
+      } else {
+        console.log('⏸️ Background sync skipped (sync in progress)');
+      }
+    }, this.BACKGROUND_SYNC_INTERVAL);
+  }
+  
+  /**
+   * Stop background sync
+   */
+  stopBackgroundSync(): void {
+    if (this.backgroundSyncTimer) {
+      clearInterval(this.backgroundSyncTimer);
+      this.backgroundSyncTimer = null;
+      console.log('🛑 Background sync stopped');
+    }
   }
 
   /**
@@ -414,18 +473,79 @@ export class JobAggregator {
   /**
    * Store external jobs in the database with configurable options
    */
-  async syncExternalJobs(config: JobSearchConfig = DEFAULT_JOB_CONFIG): Promise<void> {
+  async syncExternalJobs(config: JobSearchConfig = DEFAULT_JOB_CONFIG): Promise<{
+    totalFetched: number;
+    newJobsAdded: number;
+    reedJobs: number;
+    adzunaJobs: number;
+    errors: string[];
+  }> {
+    if (this.syncInProgress) {
+      console.log('⏸️ Sync already in progress, skipping...');
+      return {
+        totalFetched: 0,
+        newJobsAdded: 0,
+        reedJobs: 0,
+        adzunaJobs: 0,
+        errors: ['Sync already in progress']
+      };
+    }
+
+    this.syncInProgress = true;
+    const startTime = Date.now();
+    const errors: string[] = [];
+    let newJobsAdded = 0;
+    let reedJobCount = 0;
+    let adzunaJobCount = 0;
+
     try {
-      const externalJobs = await this.fetchAllExternalJobs();
+      console.log('🔄 Starting external job sync...');
+      
+      // Fetch jobs with individual tracking
+      const [reedJobs, adzunaJobs] = await Promise.allSettled([
+        this.fetchReedJobs(config.reed.keywords, config.reed.location, config.reed.options),
+        this.fetchAdzunaJobs(config.adzuna.keywords, config.adzuna.country, config.adzuna.options)
+      ]);
+
+      // Process Reed results
+      if (reedJobs.status === 'fulfilled') {
+        reedJobCount = reedJobs.value.length;
+        console.log(`📊 Reed: ${reedJobCount} jobs fetched`);
+      } else {
+        errors.push(`Reed API failed: ${reedJobs.reason}`);
+        console.error('❌ Reed API failed:', reedJobs.reason);
+      }
+
+      // Process Adzuna results
+      if (adzunaJobs.status === 'fulfilled') {
+        adzunaJobCount = adzunaJobs.value.length;
+        console.log(`📊 Adzuna: ${adzunaJobCount} jobs fetched`);
+      } else {
+        errors.push(`Adzuna API failed: ${adzunaJobs.reason}`);
+        console.error('❌ Adzuna API failed:', adzunaJobs.reason);
+      }
+
+      // Combine successful results
+      const allJobs: ExternalJob[] = [
+        ...(reedJobs.status === 'fulfilled' ? reedJobs.value : []),
+        ...(adzunaJobs.status === 'fulfilled' ? adzunaJobs.value : [])
+      ];
+
+      console.log(`📋 Combined total: ${allJobs.length} jobs before filtering`);
+
       // Apply event industry filtering first, then config limits
-      const eventFilteredJobs = this.filterEventIndustryJobs(externalJobs);
+      const eventFilteredJobs = this.filterEventIndustryJobs(allJobs);
+      console.log(`🎯 After event filtering: ${eventFilteredJobs.length} jobs`);
+
       const limitedJobs = config.general.enableDeduplication 
         ? this.deduplicateJobs(eventFilteredJobs)
         : eventFilteredJobs;
+      console.log(`🔧 After deduplication: ${limitedJobs.length} jobs`);
       
       const finalJobs = limitedJobs.slice(0, config.general.maxTotalJobs);
-      console.log(`Synced ${finalJobs.length} external jobs`);
+      console.log(`✂️ Final jobs to process: ${finalJobs.length} jobs`);
 
+      // Store jobs in database
       for (const job of finalJobs) {
         // Check if job already exists
         const existingJob = await storage.getJobByExternalId(job.id);
@@ -448,12 +568,37 @@ export class JobAggregator {
           };
 
           await storage.createExternalJob(jobData);
+          newJobsAdded++;
         }
       }
 
-      console.log(`Synced ${externalJobs.length} external jobs`);
+      this.lastSyncTime = Date.now();
+      const duration = (this.lastSyncTime - startTime) / 1000;
+      
+      console.log(`✅ Sync completed in ${duration.toFixed(1)}s: ${newJobsAdded} new jobs added`);
+      
+      return {
+        totalFetched: allJobs.length,
+        newJobsAdded,
+        reedJobs: reedJobCount,
+        adzunaJobs: adzunaJobCount,
+        errors
+      };
+      
     } catch (error) {
-      console.error('Error syncing external jobs:', error);
+      const errorMessage = `Sync failed: ${error instanceof Error ? error.message : error}`;
+      errors.push(errorMessage);
+      console.error('❌ External job sync failed:', error);
+      
+      return {
+        totalFetched: 0,
+        newJobsAdded: 0,
+        reedJobs: reedJobCount,
+        adzunaJobs: adzunaJobCount,
+        errors
+      };
+    } finally {
+      this.syncInProgress = false;
     }
   }
 
