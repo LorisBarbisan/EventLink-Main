@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +68,7 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch notifications - only when dropdown is open
   const { data: notifications = [], isLoading } = useQuery({
@@ -166,6 +167,23 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
 
   const unreadNotifications = notifications.filter(n => !n.is_read);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
   return (
     <div className="relative">
       <Button
@@ -187,7 +205,10 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-96 bg-white border rounded-lg shadow-lg z-50">
+        <div 
+          ref={dropdownRef}
+          className="absolute right-0 top-full mt-2 w-96 bg-white border rounded-lg shadow-lg z-50"
+        >
           <Card className="border-0 shadow-none">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
