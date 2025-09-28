@@ -62,11 +62,19 @@ export default function Jobs() {
   // Fetch real jobs data from API with automatic sync
   const { data: jobs = [], isLoading, refetch } = useQuery({
     queryKey: ['/api/jobs'],
-    queryFn: () => apiRequest('/api/jobs'),
+    queryFn: () => {
+      console.log('🔄 Fetching jobs from /api/jobs...');
+      return apiRequest('/api/jobs');
+    },
     staleTime: 10 * 60 * 1000, // 10 minutes
     refetchOnMount: true,
     refetchOnWindowFocus: false
   });
+
+  // Log whenever jobs data changes
+  useEffect(() => {
+    console.log(`📊 Jobs data updated! Found ${jobs?.length || 0} jobs`);
+  }, [jobs]);
 
   // Auto-sync external jobs when page loads
   useEffect(() => {
