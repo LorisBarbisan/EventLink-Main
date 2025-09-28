@@ -1,4 +1,5 @@
 import { useLocation } from 'wouter';
+import { useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,6 +9,33 @@ import { UserPlus, BriefcaseIcon, MessageCircle, Star, FileText, Users, Phone, A
 export default function HowItWorks() {
   const [, setLocation] = useLocation();
   const { user } = useOptimizedAuth();
+
+  // Set SEO metadata for this page
+  useEffect(() => {
+    // Update document title
+    document.title = "How Does It Work - EventLink | Event Industry Professional Network";
+    
+    // Update meta description
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute('content', 'Learn how EventLink connects freelance event professionals with corporate event opportunities. Step-by-step guide for both freelancers and recruiters in the events industry.');
+    } else {
+      // Create meta description if it doesn't exist
+      const meta = document.createElement('meta');
+      meta.name = 'description';
+      meta.content = 'Learn how EventLink connects freelance event professionals with corporate event opportunities. Step-by-step guide for both freelancers and recruiters in the events industry.';
+      document.head.appendChild(meta);
+    }
+
+    // Cleanup: Reset to default title when component unmounts
+    return () => {
+      document.title = "EventLink - Event Industry Professional Network";
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) {
+        metaDesc.setAttribute('content', 'Connecting technical professionals with event opportunities in the corporate events sector.');
+      }
+    };
+  }, []);
 
   const handleFreelancerCTA = () => {
     if (user) {
