@@ -324,7 +324,7 @@ export async function sendVerificationEmail(
           <p>To complete your registration and start connecting with exciting opportunities, please verify your email address by clicking the button below:</p>
           
           <div class="button-container">
-            <a href="${verificationUrl}" class="button" style="color: white !important; text-decoration: none !important; display: inline-block; background: linear-gradient(135deg, #D8690E 0%, #E97B24 100%); padding: 16px 32px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(216, 105, 14, 0.3);" target="_blank" rel="noopener noreferrer">Verify Email Address</a>
+            <a href="${verificationUrl}" style="color: #ffffff; text-decoration: none; display: inline-block; background-color: #D8690E; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; font-family: Arial, sans-serif;" target="_blank" rel="noopener noreferrer">Verify Email Address</a>
           </div>
           
           <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
