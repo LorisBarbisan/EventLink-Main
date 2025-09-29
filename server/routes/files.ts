@@ -109,7 +109,7 @@ export function registerFileRoutes(app: Express) {
   });
 
   // Download CV
-  app.get("/api/cv/download/:freelancerId", async (req, res) => {
+  app.get("/api/cv/download/:freelancerId", authenticateJWT, async (req, res) => {
     try {
       const freelancerId = parseInt(req.params.freelancerId);
 
