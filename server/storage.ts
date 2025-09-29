@@ -178,6 +178,9 @@ export interface IStorage {
   createMessageAttachment(attachment: InsertMessageAttachment): Promise<MessageAttachment>;
   getMessageAttachments(messageId: number): Promise<MessageAttachment[]>;
   getAttachmentById(attachmentId: number): Promise<MessageAttachment | undefined>;
+  getMessageById(messageId: number): Promise<Message | undefined>;
+  getMessageAttachmentById(attachmentId: number): Promise<MessageAttachment | undefined>;
+  createFileReport(report: { attachment_id: number, reporter_id: number, report_reason: string, report_details: string | null }): Promise<any>;
   
   // Notification management
   createNotification(notification: InsertNotification): Promise<Notification>;
@@ -1138,6 +1141,29 @@ export class DatabaseStorage implements IStorage {
       .where(eq(message_attachments.id, attachmentId))
       .limit(1);
     return result[0];
+  }
+
+  async getMessageById(messageId: number): Promise<Message | undefined> {
+    const result = await db.select()
+      .from(messages)
+      .where(eq(messages.id, messageId))
+      .limit(1);
+    return result[0];
+  }
+
+  async getMessageAttachmentById(attachmentId: number): Promise<MessageAttachment | undefined> {
+    return this.getAttachmentById(attachmentId);
+  }
+
+  async createFileReport(report: { attachment_id: number, reporter_id: number, report_reason: string, report_details: string | null }): Promise<any> {
+    // For now, just log the report - in production would save to a reports table
+    console.log('File report received:', report);
+    return { 
+      id: Date.now(), 
+      ...report,
+      created_at: new Date(),
+      status: 'pending'
+    };
   }
 
   async getUnreadMessageCount(userId: number): Promise<number> {

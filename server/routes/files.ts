@@ -7,7 +7,7 @@ import { insertMessageAttachmentSchema } from "@shared/schema";
 
 export function registerFileRoutes(app: Express) {
   // Get CV upload URL (presigned URL for direct upload)
-  app.post("/api/cv/upload-url", async (req, res) => {
+  app.post("/api/cv/upload-url", authenticateJWT, async (req, res) => {
     try {
       if (!req.user || req.user.role !== 'freelancer') {
         return res.status(403).json({ error: "Only freelancers can upload CVs" });
@@ -19,8 +19,9 @@ export function registerFileRoutes(app: Express) {
         return res.status(400).json({ error: "Filename and content type are required" });
       }
 
-      // Generate object key
-      const objectKey = `cvs/${req.user.id}/${Date.now()}-${filename}`;
+      // Generate object key with UUID for security (not guessable)
+      const { randomUUID } = await import('crypto');
+      const objectKey = `cvs/${req.user.id}/${randomUUID()}`;
 
       // Get presigned upload URL
       const uploadUrl = await ObjectStorageService.getUploadUrl(objectKey, contentType);
@@ -37,7 +38,7 @@ export function registerFileRoutes(app: Express) {
   });
 
   // Save CV metadata after successful upload
-  app.post("/api/cv", async (req, res) => {
+  app.post("/api/cv", authenticateJWT, async (req, res) => {
     try {
       if (!req.user || req.user.role !== 'freelancer') {
         return res.status(403).json({ error: "Only freelancers can save CV metadata" });
@@ -56,8 +57,8 @@ export function registerFileRoutes(app: Express) {
       }
 
       const updatedProfile = await storage.updateFreelancerProfile(req.user.id, {
-        cv_object_key: objectKey,
-        cv_filename: filename,
+        cv_file_url: objectKey,
+        cv_file_name: filename,
         cv_file_size: fileSize || null
       });
 
@@ -72,20 +73,20 @@ export function registerFileRoutes(app: Express) {
   });
 
   // Delete CV
-  app.delete("/api/cv", async (req, res) => {
+  app.delete("/api/cv", authenticateJWT, async (req, res) => {
     try {
       if (!req.user || req.user.role !== 'freelancer') {
         return res.status(403).json({ error: "Only freelancers can delete their CVs" });
       }
 
       const profile = await storage.getFreelancerProfile(req.user.id);
-      if (!profile || !profile.cv_object_key) {
+      if (!profile || !profile.cv_file_url) {
         return res.status(404).json({ error: "No CV found to delete" });
       }
 
       // Delete from object storage
       try {
-        await ObjectStorageService.deleteObject(profile.cv_object_key);
+        await ObjectStorageService.deleteObject(profile.cv_file_url);
       } catch (deleteError) {
         console.error("Object storage delete error:", deleteError);
         // Continue with metadata cleanup even if object deletion fails
@@ -93,8 +94,8 @@ export function registerFileRoutes(app: Express) {
 
       // Update profile to remove CV metadata
       const updatedProfile = await storage.updateFreelancerProfile(req.user.id, {
-        cv_object_key: null,
-        cv_filename: null,
+        cv_file_url: null,
+        cv_file_name: null,
         cv_file_size: null
       });
 
@@ -123,13 +124,13 @@ export function registerFileRoutes(app: Express) {
       }
 
       const profile = await storage.getFreelancerProfile(freelancerId);
-      if (!profile || !profile.cv_object_key) {
+      if (!profile || !profile.cv_file_url) {
         return res.status(404).json({ error: "CV not found" });
       }
 
       try {
         // Get presigned download URL
-        const downloadUrl = await ObjectStorageService.getDownloadUrl(profile.cv_object_key);
+        const downloadUrl = await ObjectStorageService.getDownloadUrl(profile.cv_file_url);
         
         // Redirect to the download URL
         res.redirect(downloadUrl);
@@ -145,28 +146,13 @@ export function registerFileRoutes(app: Express) {
     }
   });
 
-  // Serve objects (general object storage endpoint)
+  // Serve objects (DISABLED for security - use specific authenticated endpoints instead)
+  // CVs must be downloaded through /api/cv/download/:freelancerId
+  // Attachments must be downloaded through /api/attachments/:attachmentId/download
   app.get("/objects/:objectPath(*)", async (req, res) => {
-    try {
-      const objectPath = req.params.objectPath;
-      
-      if (!objectPath) {
-        return res.status(400).json({ error: "Object path is required" });
-      }
-
-      try {
-        const downloadUrl = await ObjectStorageService.getDownloadUrl(objectPath);
-        res.redirect(downloadUrl);
-      } catch (objectError) {
-        if (objectError instanceof ObjectNotFoundError) {
-          return res.status(404).json({ error: "Object not found" });
-        }
-        throw objectError;
-      }
-    } catch (error) {
-      console.error("Serve object error:", error);
-      res.status(500).json({ error: "Failed to serve object" });
-    }
+    res.status(403).json({ 
+      error: "Direct object access is not allowed. Use the appropriate authenticated endpoint." 
+    });
   });
 
   // MESSAGE ATTACHMENTS
@@ -186,6 +172,10 @@ export function registerFileRoutes(app: Express) {
   // Create attachment after file upload
   app.post("/api/attachments/create", authenticateJWT, async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
       const { uploadURL, originalFilename, fileType, fileSize } = req.body;
 
       // Validate file type and size
@@ -228,6 +218,10 @@ export function registerFileRoutes(app: Express) {
   // Add attachment to message
   app.post("/api/messages/:messageId/attachments", authenticateJWT, async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
       const messageId = parseInt(req.params.messageId);
       
       if (Number.isNaN(messageId)) {
@@ -247,9 +241,17 @@ export function registerFileRoutes(app: Express) {
         return res.status(403).json({ error: "Access denied" });
       }
 
+      // Security: Enforce that attachment paths must start with /objects/uploads/
+      const objectPath = req.body.objectPath;
+      if (!objectPath || !objectPath.startsWith('/objects/uploads/')) {
+        return res.status(400).json({ 
+          error: "Invalid attachment path. Attachments must be in the uploads directory." 
+        });
+      }
+
       const attachmentData = {
         message_id: messageId,
-        object_path: req.body.objectPath,
+        object_path: objectPath,
         original_filename: req.body.originalFilename,
         file_type: req.body.fileType,
         file_size: req.body.fileSize,
@@ -279,6 +281,10 @@ export function registerFileRoutes(app: Express) {
   // Get message attachments
   app.get("/api/messages/:messageId/attachments", authenticateJWT, async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
       const messageId = parseInt(req.params.messageId);
       
       if (Number.isNaN(messageId)) {
@@ -310,6 +316,10 @@ export function registerFileRoutes(app: Express) {
   // Download attachment (secure access)
   app.get("/api/attachments/:attachmentId/download", authenticateJWT, async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
       const attachmentId = parseInt(req.params.attachmentId);
       
       if (Number.isNaN(attachmentId)) {
@@ -350,6 +360,10 @@ export function registerFileRoutes(app: Express) {
   // Report attachment
   app.post("/api/attachments/:attachmentId/report", authenticateJWT, async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
       const attachmentId = parseInt(req.params.attachmentId);
       
       if (Number.isNaN(attachmentId)) {

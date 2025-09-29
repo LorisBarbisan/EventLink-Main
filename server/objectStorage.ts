@@ -134,6 +134,126 @@ export class ObjectStorageService {
     return cvFile;
   }
 
+  // Static method: Get upload URL for a file (generic)
+  static async getUploadUrl(objectKey: string, contentType: string): Promise<string> {
+    const privateDir = process.env.PRIVATE_OBJECT_DIR || "";
+    if (!privateDir) {
+      throw new Error("PRIVATE_OBJECT_DIR not set");
+    }
+    
+    const fullPath = `${privateDir}/${objectKey}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900, // 15 minutes
+    });
+  }
+
+  // Static method: Get download URL for a file
+  static async getDownloadUrl(objectKey: string): Promise<string> {
+    const privateDir = process.env.PRIVATE_OBJECT_DIR || "";
+    if (!privateDir) {
+      throw new Error("PRIVATE_OBJECT_DIR not set");
+    }
+    
+    const fullPath = objectKey.startsWith('/') ? `${privateDir}${objectKey}` : `${privateDir}/${objectKey}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "GET",
+      ttlSec: 3600, // 1 hour
+    });
+  }
+
+  // Static method: Delete a file
+  static async deleteObject(objectKey: string): Promise<void> {
+    const privateDir = process.env.PRIVATE_OBJECT_DIR || "";
+    if (!privateDir) {
+      throw new Error("PRIVATE_OBJECT_DIR not set");
+    }
+    
+    const fullPath = objectKey.startsWith('/') ? `${privateDir}${objectKey}` : `${privateDir}/${objectKey}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    await file.delete();
+  }
+
+  // Get upload URL for message attachments
+  async getObjectEntityUploadURL(): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const objectId = randomUUID();
+    const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900, // 15 minutes
+    });
+  }
+
+  // Normalize object path from upload URL
+  normalizeObjectEntityPath(uploadURL: string): string {
+    if (!uploadURL.startsWith("https://storage.googleapis.com/")) {
+      return uploadURL;
+    }
+    
+    const url = new URL(uploadURL);
+    const rawObjectPath = url.pathname;
+    let privateDir = this.getPrivateObjectDir();
+    if (!privateDir.endsWith("/")) {
+      privateDir = `${privateDir}/`;
+    }
+    
+    if (!rawObjectPath.startsWith(privateDir)) {
+      return rawObjectPath;
+    }
+    
+    const objectId = rawObjectPath.slice(privateDir.length);
+    return `/objects/${objectId}`;
+  }
+
+  // Set ACL policy for object (no-op for now, could implement later)
+  async trySetObjectEntityAclPolicy(uploadURL: string, policy: { owner: string, visibility: string }): Promise<string> {
+    // For now, just return the normalized path
+    return this.normalizeObjectEntityPath(uploadURL);
+  }
+
+  // Get file object from path
+  async getObjectEntityFile(objectPath: string): Promise<File> {
+    let privateDir = this.getPrivateObjectDir();
+    if (!privateDir.endsWith("/")) {
+      privateDir = `${privateDir}/`;
+    }
+    
+    // Handle paths starting with /objects/
+    let fullPath;
+    if (objectPath.startsWith("/objects/")) {
+      fullPath = `${privateDir}${objectPath.substring(9)}`; // Remove "/objects/"
+    } else {
+      fullPath = `${privateDir}${objectPath.startsWith('/') ? objectPath.substring(1) : objectPath}`;
+    }
+    
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    
+    const [exists] = await file.exists();
+    if (!exists) {
+      throw new ObjectNotFoundError();
+    }
+    
+    return file;
+  }
+
   // Normalizes the CV path from upload URL to storage path
   normalizeCVPath(rawPath: string): string {
     if (!rawPath.startsWith("https://storage.googleapis.com/")) {
