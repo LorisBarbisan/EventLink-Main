@@ -76,6 +76,8 @@ export const jobs = pgTable("jobs", {
   rate: text("rate").notNull(),
   description: text("description").notNull(),
   event_date: text("event_date").notNull(), // Date when the event/job takes place
+  start_time: text("start_time"), // Start time for the event (e.g., "09:00")
+  duration: text("duration"), // Duration/length of the event (e.g., "8 hours", "2 days")
   status: text("status").default('active').$type<'active' | 'paused' | 'closed'>(),
   external_id: text("external_id"), // For external job IDs (reed_123, adzuna_456)
   external_source: text("external_source").$type<'reed' | 'adzuna' | null>(), // Source of external job
