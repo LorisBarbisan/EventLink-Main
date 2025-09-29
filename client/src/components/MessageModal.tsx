@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { MessageCircle, Send, Paperclip, X } from 'lucide-react';
-import { FileUploader } from '@/components/FileUploader';
 
 interface MessageModalProps {
   isOpen: boolean;
@@ -20,7 +19,7 @@ export function MessageModal({ isOpen, onClose, recipientId, recipientName, send
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
-  const [showFileUploader, setShowFileUploader] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const handleSendMessage = async () => {
@@ -99,19 +98,52 @@ export function MessageModal({ isOpen, onClose, recipientId, recipientName, send
     }
   };
 
-  const handleFileSelect = (file: File) => {
-    setAttachedFile(file);
-    setShowFileUploader(false);
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: 'File too large',
+          description: 'Please select a file smaller than 5MB.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      // Validate file type
+      const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.docx'];
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      if (!allowedTypes.some(type => type.toLowerCase() === fileExtension)) {
+        toast({
+          title: 'Invalid file type',
+          description: 'Please select a PDF, JPG, PNG, or DOCX file.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      setAttachedFile(file);
+    }
   };
 
   const handleRemoveFile = () => {
     setAttachedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleAttachFile = () => {
+    fileInputRef.current?.click();
   };
 
   const handleClose = () => {
     setMessage('');
     setAttachedFile(null);
-    setShowFileUploader(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     onClose();
   };
 
@@ -154,36 +186,24 @@ export function MessageModal({ isOpen, onClose, recipientId, recipientName, send
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowFileUploader(!showFileUploader)}
-                  data-testid="button-toggle-file-upload"
+                  onClick={handleAttachFile}
+                  data-testid="button-attach-file"
                 >
                   <Paperclip className="w-4 h-4 mr-2" />
-                  {showFileUploader ? 'Cancel' : 'Attach File'}
+                  Attach File
                 </Button>
               )}
             </div>
 
-            {showFileUploader && !attachedFile && (
-              <div className="border-2 border-dashed border-gray-200 rounded-lg p-4">
-                <FileUploader
-                  onUploadComplete={(filePath, fileName, fileSize, fileType) => {
-                    // Create a fake File object for consistency
-                    const file = new File([''], fileName, { type: fileType });
-                    Object.defineProperty(file, 'size', { value: fileSize, writable: false });
-                    handleFileSelect(file);
-                  }}
-                  onUploadError={(error) => {
-                    toast({
-                      title: 'Upload Error',
-                      description: error,
-                      variant: 'destructive',
-                    });
-                  }}
-                  maxFileSize={5 * 1024 * 1024} // 5MB limit
-                  allowedTypes={['.pdf', '.jpg', '.jpeg', '.png', '.docx']}
-                />
-              </div>
-            )}
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.docx"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+              data-testid="file-input"
+            />
 
             {attachedFile && (
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
