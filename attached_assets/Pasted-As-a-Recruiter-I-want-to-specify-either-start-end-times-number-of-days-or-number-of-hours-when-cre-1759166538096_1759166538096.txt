@@ -1,0 +1,105 @@
+As a Recruiter
+I want to specify either start/end times, number of days, or number of hours when creating a job
+So that freelancers clearly understand the duration and schedule of the job before applying.
+
+✅ Acceptance Criteria
+Job Creation Form
+
+ In the Create Job form, a new section “Job Duration” is added.
+
+ Recruiter can choose one of three options (radio buttons or dropdown):
+
+Start and End Time
+
+Number of Days
+
+Number of Hours
+
+ Based on selection, the corresponding input fields are displayed:
+
+Start & End Time → two time pickers.
+
+Number of Days → numeric input field.
+
+Number of Hours → numeric input field.
+
+ Validation rules:
+
+Start time must be before end time.
+
+Number of days ≥ 1.
+
+Number of hours ≥ 1.
+
+ Recruiter cannot submit the form without entering valid data.
+
+Job Details Page
+
+ Selected duration option is displayed clearly on the job posting (e.g., “Start: 10:00 / End: 18:00” or “Duration: 3 Days”).
+
+ Display formatting matches platform style guide.
+
+Database & API
+
+ Database updated to store duration fields:
+
+durationType (time / days / hours).
+
+startTime / endTime (if time option selected).
+
+days (if days option selected).
+
+hours (if hours option selected).
+
+ API updated to handle new fields.
+
+Testing
+
+ Can create a job with start/end time → displays correctly.
+
+ Can create a job with number of days → displays correctly.
+
+ Can create a job with number of hours → displays correctly.
+
+ Invalid inputs (negative numbers, missing values, end time before start time) block submission with error message.
+
+ All job duration info displays correctly on job details and search results.
+
+🔨 Breakdown of Work / Approach
+Backend
+
+Extend job model in database to include new duration fields.
+
+Update job creation API to accept + validate new fields.
+
+Update job retrieval API to return new fields.
+
+Frontend
+
+Create Job Form
+
+Add “Job Duration” section with radio/droplist for option selection.
+
+Conditional rendering of input fields.
+
+Validation + error messages.
+
+Job Details Page
+
+Display duration clearly (time range, days, or hours).
+
+Search Results / Job Cards
+
+Display a shortened version of duration info (e.g., “3 Days” or “4 Hours”).
+
+QA / Testing
+
+✅ Test all three duration options.
+
+✅ Confirm form blocks invalid entries.
+
+✅ Confirm values saved in DB and retrieved correctly.
+
+✅ Confirm display in job details and search results.
+
+✅ Test across devices (desktop, mobile).
