@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { MapPin, Calendar, Users, Edit, Trash2, Coins, ChevronDown, ChevronUp, User, MessageCircle, Eye } from 'lucide-react';
+import { MapPin, Calendar, Users, Edit, Trash2, Coins, ChevronDown, ChevronUp, User, MessageCircle, Eye, Clock } from 'lucide-react';
 import { MessageModal } from '@/components/MessageModal';
 import type { Job, JobApplication } from '@shared/types';
 
@@ -32,6 +32,31 @@ export function JobCard({
 }: JobCardProps) {
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [selectedFreelancer, setSelectedFreelancer] = useState<{id: number, name: string} | null>(null);
+
+  // Helper function to format duration display
+  const formatDuration = (job: Job): string | null => {
+    if (!job.duration_type) return null;
+    
+    switch (job.duration_type) {
+      case 'time':
+        if (job.start_time && job.end_time) {
+          return `${job.start_time} - ${job.end_time}`;
+        }
+        return null;
+      case 'days':
+        if (job.days) {
+          return `${job.days} day${job.days !== 1 ? 's' : ''}`;
+        }
+        return null;
+      case 'hours':
+        if (job.hours) {
+          return `${job.hours} hour${job.hours !== 1 ? 's' : ''}`;
+        }
+        return null;
+      default:
+        return null;
+    }
+  };
 
   const handleProfileView = (userId: number) => {
     // Navigate directly to the freelancer's profile page
@@ -67,7 +92,7 @@ export function JobCard({
               )}
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground mb-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-muted-foreground mb-3">
               <div className="flex items-center gap-1">
                 <MapPin className="w-4 h-4" />
                 {job.location}
@@ -76,6 +101,12 @@ export function JobCard({
                 <Coins className="w-4 h-4" />
                 {job.rate}
               </div>
+              {formatDuration(job) && (
+                <div className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  {formatDuration(job)}
+                </div>
+              )}
               <div className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
                 Posted {new Date(job.created_at).toLocaleDateString()}
