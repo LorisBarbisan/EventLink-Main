@@ -143,4 +143,10 @@ export interface JobFormData {
   rate: string;
   description: string;
   event_date: string;
+  // Job duration fields
+  duration_type: 'time' | 'days' | 'hours' | '';
+  start_time: string;
+  end_time: string;
+  days: string;
+  hours: string;
 }
