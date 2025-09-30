@@ -48,12 +48,17 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
     setIsUploading(true);
     try {
       // Get upload URL
-      const { uploadURL } = await apiRequest('/api/cv/upload-url', {
+      const { uploadUrl, objectKey } = await apiRequest('/api/cv/upload-url', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type,
+        }),
       });
 
       // Upload file directly to cloud storage
-      const uploadResponse = await fetch(uploadURL, {
+      const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
         body: file,
         headers: {
@@ -70,11 +75,9 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId,
-          fileName: file.name,
-          fileType: file.type,
+          objectKey,
+          filename: file.name,
           fileSize: file.size,
-          fileUrl: uploadURL.split('?')[0], // Remove query parameters
         }),
       });
 
