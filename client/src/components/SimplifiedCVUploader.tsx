@@ -26,10 +26,11 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
     if (!file) return;
 
     // Validate file type
-    if (file.type !== 'application/pdf') {
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!allowedTypes.includes(file.type)) {
       toast({
         title: 'Invalid file type',
-        description: 'Please upload a PDF file.',
+        description: 'Please upload a PDF, DOC, or DOCX file.',
         variant: 'destructive',
       });
       return;
@@ -78,6 +79,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
           objectKey,
           filename: file.name,
           fileSize: file.size,
+          contentType: file.type,
         }),
       });
 
@@ -106,8 +108,6 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
     try {
       await apiRequest('/api/cv', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
       });
 
       toast({
@@ -201,7 +201,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
               <input
                 id="cv-file-replace"
                 type="file"
-                accept=".pdf"
+                accept=".pdf,.doc,.docx"
                 onChange={handleFileSelect}
                 className="hidden"
                 disabled={isUploading}
@@ -232,7 +232,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
             <input
               id="cv-file-upload"
               type="file"
-              accept=".pdf"
+              accept=".pdf,.doc,.docx"
               onChange={handleFileSelect}
               className="hidden"
               disabled={isUploading}
@@ -240,7 +240,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
             />
             
             <div className="mt-4 text-xs text-muted-foreground">
-              <p>Accepted format: PDF</p>
+              <p>Accepted formats: PDF, DOC, DOCX</p>
               <p>Maximum size: 5MB</p>
             </div>
           </div>

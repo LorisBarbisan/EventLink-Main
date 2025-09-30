@@ -104,6 +104,7 @@ export function CVUploader({ userId, currentCV, onUploadComplete, "data-testid":
           objectKey,
           filename: file.name,
           fileSize: file.size,
+          contentType: file.type,
         }),
       });
 
@@ -139,8 +140,6 @@ export function CVUploader({ userId, currentCV, onUploadComplete, "data-testid":
     try {
       const response = await fetch('/api/cv', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userId }),
       });
 
       if (!response.ok) {

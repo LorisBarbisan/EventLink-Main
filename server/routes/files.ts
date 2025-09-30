@@ -19,6 +19,12 @@ export function registerFileRoutes(app: Express) {
         return res.status(400).json({ error: "Filename and content type are required" });
       }
 
+      // Validate content type
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!allowedTypes.includes(contentType)) {
+        return res.status(400).json({ error: "Invalid file type. Only PDF, DOC, and DOCX are allowed." });
+      }
+
       // Generate object key with UUID for security (not guessable)
       const { randomUUID } = await import('crypto');
       const objectKey = `cvs/${req.user.id}/${randomUUID()}`;
@@ -44,10 +50,34 @@ export function registerFileRoutes(app: Express) {
         return res.status(403).json({ error: "Only freelancers can save CV metadata" });
       }
 
-      const { objectKey, filename, fileSize } = req.body;
+      const { objectKey, filename, fileSize, contentType } = req.body;
 
-      if (!objectKey || !filename) {
-        return res.status(400).json({ error: "Object key and filename are required" });
+      if (!objectKey || !filename || !fileSize || !contentType) {
+        return res.status(400).json({ error: "Object key, filename, file size, and content type are required" });
+      }
+
+      // Validate objectKey ownership - must belong to current user
+      const expectedPrefix = `cvs/${req.user.id}/`;
+      if (!objectKey.startsWith(expectedPrefix)) {
+        return res.status(403).json({ error: "Invalid object key - ownership mismatch" });
+      }
+
+      // Validate objectKey format - must end with UUID
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const objectKeySuffix = objectKey.substring(expectedPrefix.length);
+      if (!uuidPattern.test(objectKeySuffix)) {
+        return res.status(400).json({ error: "Invalid object key format" });
+      }
+
+      // Validate file size (5MB max)
+      if (fileSize > 5 * 1024 * 1024) {
+        return res.status(400).json({ error: "File size must be less than 5MB" });
+      }
+
+      // Validate content type
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!allowedTypes.includes(contentType)) {
+        return res.status(400).json({ error: "Invalid file type. Only PDF, DOC, and DOCX are allowed." });
       }
 
       // Update freelancer profile with CV information
@@ -59,7 +89,8 @@ export function registerFileRoutes(app: Express) {
       const updatedProfile = await storage.updateFreelancerProfile(req.user.id, {
         cv_file_url: objectKey,
         cv_file_name: filename,
-        cv_file_size: fileSize || null
+        cv_file_size: fileSize || null,
+        cv_file_type: contentType || null
       });
 
       res.json({
@@ -96,7 +127,8 @@ export function registerFileRoutes(app: Express) {
       const updatedProfile = await storage.updateFreelancerProfile(req.user.id, {
         cv_file_url: null,
         cv_file_name: null,
-        cv_file_size: null
+        cv_file_size: null,
+        cv_file_type: null
       });
 
       res.json({
