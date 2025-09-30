@@ -159,19 +159,19 @@ export function MessagingInterface() {
 
   // Fetch conversations
   const { data: conversations = [], isLoading: conversationsLoading, refetch: refetchConversations } = useQuery<Conversation[]>({
-    queryKey: ['/api/messaging/conversations'],
+    queryKey: ['/api/conversations'],
   });
 
   // Fetch messages for selected conversation
   const { data: messages = [], refetch: refetchMessages } = useQuery<Message[]>({
-    queryKey: ['/api/messaging/messages', selectedConversation],
+    queryKey: [`/api/conversations/${selectedConversation}/messages`],
     enabled: selectedConversation !== null,
   });
 
   // Create message mutation
   const createMessageMutation = useMutation({
     mutationFn: async (data: { conversation_id: number; content: string; attachment?: {path: string, name: string, size: number, type: string} }) => {
-      return apiRequest(`/api/messaging/messages`, {
+      return apiRequest(`/api/messages`, {
         method: 'POST',
         body: JSON.stringify(data),
       });
@@ -179,8 +179,8 @@ export function MessagingInterface() {
     onSuccess: () => {
       setNewMessage("");
       setPendingAttachment(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/messaging/messages', selectedConversation] });
-      queryClient.invalidateQueries({ queryKey: ['/api/messaging/conversations'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/conversations/${selectedConversation}/messages`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
     },
     onError: (error) => {
       toast({
@@ -194,13 +194,13 @@ export function MessagingInterface() {
   // Delete conversation mutation
   const deleteConversationMutation = useMutation({
     mutationFn: async (conversationId: number) => {
-      return apiRequest(`/api/messaging/conversations/${conversationId}`, {
+      return apiRequest(`/api/conversations/${conversationId}`, {
         method: 'DELETE',
       });
     },
     onSuccess: () => {
       setSelectedConversation(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/messaging/conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
       toast({
         title: "Conversation deleted",
         description: "The conversation has been permanently removed",
