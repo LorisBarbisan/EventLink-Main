@@ -168,7 +168,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open(currentCV.fileUrl, '_blank')}
+                    onClick={() => window.open(`/api/cv/download/${userId}`, '_blank')}
                     data-testid="button-download-cv"
                   >
                     <Download className="w-4 h-4 mr-1" />

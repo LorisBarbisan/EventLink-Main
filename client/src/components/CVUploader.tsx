@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Upload, X, CheckCircle, Loader2 } from "lucide-react";
+import { FileText, Upload, X, CheckCircle, Loader2, Download } from "lucide-react";
 import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -71,13 +71,18 @@ export function CVUploader({ userId, currentCV, onUploadComplete, "data-testid":
 
     try {
       // Step 1: Get upload URL from backend
-      const { uploadURL } = await apiRequest('/api/cv/upload-url', {
-        method: 'POST'
+      const { uploadUrl, objectKey } = await apiRequest('/api/cv/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type,
+        }),
       });
       setUploadProgress(25);
 
       // Step 2: Upload file directly to object storage
-      const uploadResponse = await fetch(uploadURL, {
+      const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
         body: file,
         headers: {
@@ -94,12 +99,11 @@ export function CVUploader({ userId, currentCV, onUploadComplete, "data-testid":
       // Step 3: Save CV metadata to database
       await apiRequest('/api/cv', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: userId,
-          fileName: file.name,
-          fileType: file.type,
+          objectKey,
+          filename: file.name,
           fileSize: file.size,
-          fileUrl: uploadURL.split('?')[0], // Remove query params from URL
         }),
       });
 
@@ -184,11 +188,23 @@ export function CVUploader({ userId, currentCV, onUploadComplete, "data-testid":
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-green-600" />
+            {currentCV.fileUrl && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`/api/cv/download/${userId}`, '_blank')}
+                data-testid="button-view-cv"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                View
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
               onClick={handleDeleteCV}
               className="text-red-600 hover:text-red-700"
+              data-testid="button-delete-cv"
             >
               <X className="h-4 w-4" />
             </Button>
