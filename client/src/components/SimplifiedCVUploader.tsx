@@ -182,7 +182,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
                     size="sm"
                     onClick={async () => {
                       try {
-                        const token = localStorage.getItem('token');
+                        const token = localStorage.getItem('auth_token');
                         const response = await fetch(`/api/cv/download/${userId}`, {
                           headers: {
                             'Authorization': `Bearer ${token}`

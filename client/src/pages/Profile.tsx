@@ -95,7 +95,7 @@ export default function Profile() {
 
     try {
       // Get JWT token from localStorage for authentication
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       
       // Get the presigned download URL from the backend
       const response = await fetch(

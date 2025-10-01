@@ -213,7 +213,7 @@ export function CVUploader({ userId, currentCV, onUploadComplete, "data-testid":
                   try {
                     const response = await fetch(`/api/cv/download/${userId}`, {
                       headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
                       }
                     });
                     const data = await response.json();
