@@ -6,49 +6,51 @@ import { z } from "zod";
 import { insertMessageAttachmentSchema } from "@shared/schema";
 
 export function registerFileRoutes(app: Express) {
-  // Get CV upload URL (presigned URL for direct upload)
-  app.post("/api/cv/upload-url", authenticateJWT, async (req, res) => {
+  // Upload CV - combined endpoint that receives base64 file data and uploads to storage
+  app.post("/api/cv", authenticateJWT, async (req, res) => {
     try {
       if (!req.user || req.user.role !== 'freelancer') {
         return res.status(403).json({ error: "Only freelancers can upload CVs" });
       }
 
-      const { filename, contentType } = req.body;
+      const { fileData, filename, fileSize, contentType } = req.body;
 
-      if (!filename || !contentType) {
-        return res.status(400).json({ error: "Filename and content type are required" });
+      if (!fileData || !filename || !contentType) {
+        return res.status(400).json({ error: "File data, filename, and content type are required" });
       }
 
-      // Generate object key with UUID for security (not guessable)
+      // Generate object key with UUID for security
       const { randomUUID } = await import('crypto');
       const objectKey = `cvs/${req.user.id}/${randomUUID()}`;
 
-      // Get presigned upload URL
-      const uploadUrl = await ObjectStorageService.getUploadUrl(objectKey, contentType);
+      // Upload file to storage from backend (avoids CORS issues)
+      const privateDir = process.env.PRIVATE_OBJECT_DIR || "";
+      if (!privateDir) {
+        throw new Error("PRIVATE_OBJECT_DIR not set");
+      }
 
-      res.json({ 
-        uploadUrl, 
-        objectKey,
-        message: "Upload URL generated successfully" 
+      const fullPath = `${privateDir}/${objectKey}`;
+      
+      // Parse the path to get bucket name and object name
+      const pathParts = fullPath.startsWith("/") ? fullPath.split("/") : `/${fullPath}`.split("/");
+      if (pathParts.length < 3) {
+        throw new Error("Invalid storage path");
+      }
+      const bucketName = pathParts[1];
+      const objectName = pathParts.slice(2).join("/");
+      
+      const { objectStorageClient } = await import('../objectStorage');
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+
+      // Convert base64 to buffer and upload
+      const buffer = Buffer.from(fileData, 'base64');
+      await file.save(buffer, {
+        contentType,
+        metadata: {
+          contentType,
+        },
       });
-    } catch (error) {
-      console.error("Get CV upload URL error:", error);
-      res.status(500).json({ error: "Failed to generate upload URL" });
-    }
-  });
-
-  // Save CV metadata after successful upload
-  app.post("/api/cv", authenticateJWT, async (req, res) => {
-    try {
-      if (!req.user || req.user.role !== 'freelancer') {
-        return res.status(403).json({ error: "Only freelancers can save CV metadata" });
-      }
-
-      const { objectKey, filename, fileSize, contentType } = req.body;
-
-      if (!objectKey || !filename) {
-        return res.status(400).json({ error: "Object key and filename are required" });
-      }
 
       // Update freelancer profile with CV information directly (no need to fetch first)
       const updatedProfile = await storage.updateFreelancerProfile(req.user.id, {

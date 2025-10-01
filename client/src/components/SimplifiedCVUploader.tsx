@@ -49,48 +49,32 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
     try {
       console.log('📤 Starting CV upload:', file.name, file.type, file.size);
       
-      // Get upload URL
-      console.log('Step 1: Requesting upload URL...');
-      const { uploadUrl, objectKey } = await apiRequest('/api/cv/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type,
-        }),
+      // Convert file to base64
+      console.log('Step 1: Converting file to base64...');
+      const fileData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1]; // Remove data:application/pdf;base64, prefix
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
-      console.log('✅ Step 1: Got upload URL');
+      console.log('✅ Step 1: File converted to base64');
 
-      // Upload file directly to cloud storage
-      console.log('Step 2: Uploading file to storage...');
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error('❌ Step 2 failed:', uploadResponse.status, errorText);
-        throw new Error(`Failed to upload file to storage: ${uploadResponse.status} - ${errorText || 'Unknown error'}`);
-      }
-      console.log('✅ Step 2: File uploaded to storage');
-
-      // Save CV metadata (including contentType)
-      console.log('Step 3: Saving CV metadata...');
+      // Upload file to backend (backend handles upload to storage)
+      console.log('Step 2: Uploading to server...');
       const response = await apiRequest('/api/cv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          objectKey,
+          fileData,
           filename: file.name,
           fileSize: file.size,
           contentType: file.type,
         }),
       });
-      console.log('✅ Step 3: Metadata saved, response:', response);
+      console.log('✅ Step 2: File uploaded, response:', response);
 
       toast({
         title: 'CV uploaded successfully',
