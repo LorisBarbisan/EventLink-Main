@@ -94,6 +94,40 @@ This log tracks all changes, debugging sessions, optimizations, and key decision
 
 ---
 
+## 2025-10-01 | Bug Fix - CV Upload/Delete Authentication
+
+**🎭 Role:** Frontend Developer & Bug Hunter
+
+**Action:** Fixed CV delete functionality to properly include JWT authentication token
+
+**Rationale:** User reported CV upload functionality not working. Investigation revealed CV delete was using `fetch()` directly instead of `apiRequest()`, causing authentication failures.
+
+**Issue Found:**
+- CVUploader component's `handleDeleteCV` function used `fetch()` instead of `apiRequest()`
+- This meant JWT token was NOT included in Authorization header
+- Backend DELETE /api/cv endpoint requires authentication, causing 401 Unauthorized errors
+- Users couldn't delete their CVs even when properly logged in
+
+**Fix Applied:**
+- Changed CV delete to use `apiRequest()` for automatic JWT token inclusion
+- Removed unnecessary `userId` parameter from delete request body (server uses req.user.id)
+- Simplified request by removing redundant Content-Type header (apiRequest handles it)
+
+**Files Changed:**
+- `client/src/components/CVUploader.tsx` - Fixed delete function to use apiRequest
+
+**Testing Verified:**
+- CV upload flow: Get presigned URL → Upload to storage → Save metadata (all working)
+- CV delete now properly authenticated with JWT token
+- Error handling provides clear user feedback via toasts
+
+**Impact:**
+- CV delete now works correctly for authenticated freelancers
+- Consistent authentication pattern across all CV operations
+- Better error messages when operations fail
+
+---
+
 ## 2025-09-30 | Security Fix - Profile Creation Authentication
 
 **🎭 Role:** Full-Stack Engineer & Security Specialist
