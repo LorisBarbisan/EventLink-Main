@@ -209,7 +209,26 @@ export function CVUploader({ userId, currentCV, onUploadComplete, "data-testid":
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => window.open(`/api/cv/download/${userId}`, '_blank')}
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`/api/cv/download/${userId}`, {
+                      headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                      }
+                    });
+                    const data = await response.json();
+                    if (data.downloadUrl) {
+                      window.open(data.downloadUrl, '_blank');
+                    }
+                  } catch (error) {
+                    console.error('Error opening CV:', error);
+                    toast({
+                      title: "Error",
+                      description: "Failed to open CV",
+                      variant: "destructive"
+                    });
+                  }
+                }}
                 data-testid="button-view-cv"
               >
                 <Download className="h-4 w-4 mr-1" />
