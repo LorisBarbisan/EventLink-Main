@@ -534,11 +534,10 @@ function CVUploadSection({ profile }: { profile?: FreelancerProfile }) {
       title: "Success",
       description: "Your CV has been updated successfully!",
     });
-    // Invalidate and force refetch to get fresh data from server
+    // Invalidate and force refetch - removed refetchType to ensure all queries refetch
     await queryClient.invalidateQueries({ 
       queryKey: ['/api/freelancer/profile', user.id], 
-      exact: true,
-      refetchType: 'active' 
+      exact: true
     });
     console.log('✅ Profile cache invalidated and refetched');
   };

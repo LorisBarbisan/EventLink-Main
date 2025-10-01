@@ -120,15 +120,25 @@ export default function SimplifiedFreelancerDashboard() {
                 console.log('🚀 SAVE CLICKED! Saving freelancer profile data:', formData);
                 
                 // Use the correct API endpoint for freelancer profiles
-                // Convert string values to numbers for numeric fields (ensure we're working with freelancer data)
+                // Build update data excluding CV fields (managed separately by CV upload/delete)
                 const freelancerData = formData as FreelancerFormData;
-                const processedData = {
+                
+                const processedData: any = {
                   user_id: user.id,
-                  ...freelancerData,
-                  hourly_rate: freelancerData.hourly_rate ? parseFloat(freelancerData.hourly_rate.toString()) : undefined,
+                  first_name: freelancerData.first_name,
+                  last_name: freelancerData.last_name,
+                  title: freelancerData.title,
+                  bio: freelancerData.bio,
+                  location: freelancerData.location,
+                  skills: freelancerData.skills,
+                  portfolio_url: freelancerData.portfolio_url,
+                  linkedin_url: freelancerData.linkedin_url,
+                  website_url: freelancerData.website_url,
+                  availability_status: freelancerData.availability_status,
+                  profile_photo_url: freelancerData.profile_photo_url,
                   experience_years: freelancerData.experience_years ? parseInt(freelancerData.experience_years.toString()) : undefined,
                 };
-                console.log('📤 Sending processed data:', processedData);
+                console.log('📤 Sending processed data (CV fields excluded):', processedData);
 
                 const savedProfile = await apiRequest(`/api/freelancer/${user.id}`, {
                   method: 'PUT',
@@ -140,8 +150,7 @@ export default function SimplifiedFreelancerDashboard() {
                 console.log('🔄 Invalidating cache for user:', user?.id);
                 await queryClient.invalidateQueries({ 
                   queryKey: ['/api/freelancer/profile', user?.id], 
-                  exact: true,
-                  refetchType: 'active'
+                  exact: true
                 });
                 console.log('🔄 Cache invalidated completely!');
                 
