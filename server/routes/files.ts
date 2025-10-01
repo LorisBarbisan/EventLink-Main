@@ -45,12 +45,20 @@ export function registerFileRoutes(app: Express) {
 
       // Convert base64 to buffer and upload
       const buffer = Buffer.from(fileData, 'base64');
-      await file.save(buffer, {
-        contentType,
-        metadata: {
+      console.log(`📤 Uploading CV to storage: bucket=${bucketName}, object=${objectName}, size=${buffer.length} bytes`);
+      
+      try {
+        await file.save(buffer, {
           contentType,
-        },
-      });
+          metadata: {
+            contentType,
+          },
+        });
+        console.log(`✅ CV uploaded to storage successfully: ${objectKey}`);
+      } catch (uploadError) {
+        console.error("❌ Object storage upload error:", uploadError);
+        throw new Error("Failed to upload CV to storage");
+      }
 
       // Update freelancer profile with CV information directly (no need to fetch first)
       const updatedProfile = await storage.updateFreelancerProfile(req.user.id, {
@@ -60,13 +68,14 @@ export function registerFileRoutes(app: Express) {
         cv_file_type: contentType || null
       });
 
+      console.log(`✅ CV metadata saved for user ${req.user.id}: ${filename}`);
       res.json({
         message: "CV uploaded successfully",
         profile: updatedProfile
       });
     } catch (error) {
-      console.error("Save CV metadata error:", error);
-      res.status(500).json({ error: "Failed to save CV metadata" });
+      console.error("❌ Save CV error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to save CV" });
     }
   });
 
