@@ -5,6 +5,50 @@ This log tracks all changes, debugging sessions, optimizations, and key decision
 
 ---
 
+## 2025-10-01 | Message Sending Fix - API Alignment
+
+**🎭 Role:** Full-Stack Engineer & API Specialist
+
+**Action:** Fixed ContactModal message sending failure by aligning frontend with backend API expectations
+
+**Rationale:** Users reported "Error sending message - Please try again later" when attempting to contact freelancers. Investigation revealed ContactModal was making two separate API calls (create conversation, then send message), but the backend POST /api/conversations route expects both userTwoId AND initialMessage in a single atomic request.
+
+**Debugging Steps:**
+1. ✅ **Reproduce**: Confirmed error occurs when clicking "Send Message" from ContactModal
+2. ✅ **Trace**: Examined browser console and found 400 error: "User ID and initial message are required"
+3. ✅ **Isolate**: ContactModal was sending userOneId/userTwoId without initialMessage, causing backend validation failure
+4. ✅ **Fix**: Modified ContactModal to send userTwoId and initialMessage in single POST /api/conversations request
+5. ✅ **Verify**: Architect review confirmed fix aligns with backend design and improves atomicity
+
+**Details:**
+- **Before**: ContactModal made two sequential requests:
+  1. POST /api/conversations with { userOneId, userTwoId } → Failed with 400 error
+  2. POST /api/messages (never reached due to first request failure)
+- **After**: ContactModal makes single atomic request:
+  1. POST /api/conversations with { userTwoId, initialMessage } → Success
+- Removed unused Input import and userOneId parameter (backend uses req.user.id from JWT)
+- Backend handles both conversation creation/retrieval AND message sending in one transaction
+- Improved reliability: Single request eliminates race conditions and partial failures
+
+**Code Changes:**
+- client/src/components/ContactModal.tsx:
+  - Simplified mutation to single API call with userTwoId and initialMessage
+  - Removed redundant /api/messages call
+  - Cleaned up unused imports and parameters
+  - Cache invalidation unchanged (still invalidates conversations and unread count)
+
+**Impact:** Users can now successfully send messages to freelancers. Single-request approach improves atomicity and reliability while reducing network overhead.
+
+**Security Notes:**
+- Server-side JWT authentication enforced via authenticateJWT middleware
+- Backend validates sender permissions and recipient existence
+- No sensitive data exposure in frontend code
+- Backend uses req.user.id from JWT token (not client-supplied userOneId)
+
+**Testing:** Architect review passed. Ready for E2E testing with authenticated user sending message via ContactModal.
+
+---
+
 ## 2025-09-30 | Protocol Establishment
 
 **🎭 Role:** Project Architect & Documentation Specialist

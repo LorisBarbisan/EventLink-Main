@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -35,23 +34,13 @@ export function ContactModal({ isOpen, onClose, freelancer, currentUser }: Conta
   const queryClient = useQueryClient();
 
   const sendMessageMutation = useMutation({
-    mutationFn: async (data: { userOneId: number; userTwoId: number; content: string }) => {
-      // First create or get conversation
-      const conversation = await apiRequest('/api/conversations', {
+    mutationFn: async (data: { userTwoId: number; content: string }) => {
+      // Create conversation and send initial message in one request
+      return apiRequest('/api/conversations', {
         method: 'POST',
         body: JSON.stringify({
-          userOneId: data.userOneId,
           userTwoId: data.userTwoId,
-        }),
-      });
-
-      // Then send the message
-      return apiRequest('/api/messages', {
-        method: 'POST',
-        body: JSON.stringify({
-          conversation_id: conversation.id,
-          sender_id: data.userOneId,
-          content: data.content,
+          initialMessage: data.content,
         }),
       });
     },
@@ -97,7 +86,6 @@ export function ContactModal({ isOpen, onClose, freelancer, currentUser }: Conta
     setIsLoading(true);
 
     sendMessageMutation.mutate({
-      userOneId: currentUser.id,
       userTwoId: freelancer.user_id,
       content: message.trim(),
     });
