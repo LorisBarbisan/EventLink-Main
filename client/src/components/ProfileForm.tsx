@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -529,18 +530,20 @@ function CVUploadSection({ profile }: { profile?: FreelancerProfile }) {
   }
 
   const handleUploadComplete = async () => {
-    console.log('🔄 CV upload/delete complete - forcing refetch for user:', user.id);
+    console.log('🔄 CV upload/delete complete - fetching updated profile for user:', user.id);
     toast({
       title: "Success",
       description: "Your CV has been updated successfully!",
     });
-    // Force immediate refetch to update UI
-    await queryClient.refetchQueries({ 
-      queryKey: ['/api/freelancer/profile', user.id], 
-      exact: true,
-      type: 'active'
-    });
-    console.log('✅ Profile refetched with fresh data');
+    
+    // Fetch fresh profile data and update cache immediately
+    try {
+      const freshProfile = await apiRequest(`/api/freelancer/${user.id}`);
+      queryClient.setQueryData(['/api/freelancer/profile', user.id], freshProfile);
+      console.log('✅ Profile updated in cache:', freshProfile);
+    } catch (error) {
+      console.error('Failed to fetch updated profile:', error);
+    }
   };
 
   // Prepare current CV data for CVUploader
