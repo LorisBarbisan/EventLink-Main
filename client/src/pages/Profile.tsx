@@ -500,12 +500,13 @@ export default function Profile() {
                         </Button>
                       )}
                       {freelancerProfile?.cv_file_url && (
-                        (!isOwnProfile && user?.role === 'recruiter') || isOwnProfile
+                        (!isOwnProfile && (user?.role === 'recruiter' || user?.role === 'admin')) || isOwnProfile
                       ) && (
                         <Button
                           onClick={() => handleDownloadCV(freelancerProfile)}
                           className="flex items-center gap-2"
                           variant="outline"
+                          data-testid="button-download-cv-profile"
                         >
                           <Download className="w-4 h-4" />
                           Download CV
