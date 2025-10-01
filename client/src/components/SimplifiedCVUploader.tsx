@@ -47,7 +47,10 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
 
     setIsUploading(true);
     try {
+      console.log('📤 Starting CV upload:', file.name, file.type, file.size);
+      
       // Get upload URL
+      console.log('Step 1: Requesting upload URL...');
       const { uploadUrl, objectKey } = await apiRequest('/api/cv/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,8 +59,10 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
           contentType: file.type,
         }),
       });
+      console.log('✅ Step 1: Got upload URL');
 
       // Upload file directly to cloud storage
+      console.log('Step 2: Uploading file to storage...');
       const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
         body: file,
@@ -67,10 +72,14 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
       });
 
       if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file');
+        const errorText = await uploadResponse.text();
+        console.error('❌ Step 2 failed:', uploadResponse.status, errorText);
+        throw new Error(`Failed to upload file to storage: ${uploadResponse.status} - ${errorText || 'Unknown error'}`);
       }
+      console.log('✅ Step 2: File uploaded to storage');
 
-      // Save CV metadata
+      // Save CV metadata (including contentType)
+      console.log('Step 3: Saving CV metadata...');
       await apiRequest('/api/cv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -78,8 +87,10 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
           objectKey,
           filename: file.name,
           fileSize: file.size,
+          contentType: file.type,
         }),
       });
+      console.log('✅ Step 3: Metadata saved');
 
       toast({
         title: 'CV uploaded successfully',
@@ -89,9 +100,18 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
       onUploadComplete?.();
     } catch (error) {
       console.error('CV upload error:', error);
+      
+      // Extract detailed error message
+      let errorMessage = "Failed to upload CV. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && 'error' in error) {
+        errorMessage = String((error as any).error);
+      }
+      
       toast({
         title: 'Upload failed',
-        description: 'Failed to upload CV. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -106,8 +126,6 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
     try {
       await apiRequest('/api/cv', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
       });
 
       toast({

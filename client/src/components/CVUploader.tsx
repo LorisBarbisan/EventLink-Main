@@ -70,7 +70,10 @@ export function CVUploader({ userId, currentCV, onUploadComplete, "data-testid":
     setUploadProgress(0);
 
     try {
+      console.log('📤 Starting CV upload:', file.name, file.type, file.size);
+      
       // Step 1: Get upload URL from backend
+      console.log('Step 1: Requesting upload URL...');
       const { uploadUrl, objectKey } = await apiRequest('/api/cv/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -79,9 +82,11 @@ export function CVUploader({ userId, currentCV, onUploadComplete, "data-testid":
           contentType: file.type,
         }),
       });
+      console.log('✅ Step 1: Got upload URL');
       setUploadProgress(25);
 
       // Step 2: Upload file directly to object storage
+      console.log('Step 2: Uploading file to storage...');
       const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
         body: file,
@@ -91,12 +96,16 @@ export function CVUploader({ userId, currentCV, onUploadComplete, "data-testid":
       });
 
       if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file to storage');
+        const errorText = await uploadResponse.text();
+        console.error('❌ Step 2 failed:', uploadResponse.status, errorText);
+        throw new Error(`Failed to upload file to storage: ${uploadResponse.status} - ${errorText || 'Unknown error'}`);
       }
+      console.log('✅ Step 2: File uploaded to storage');
 
       setUploadProgress(75);
 
       // Step 3: Save CV metadata to database
+      console.log('Step 3: Saving CV metadata...');
       await apiRequest('/api/cv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,6 +116,7 @@ export function CVUploader({ userId, currentCV, onUploadComplete, "data-testid":
           contentType: file.type,
         }),
       });
+      console.log('✅ Step 3: Metadata saved');
 
       setUploadProgress(100);
 
@@ -125,9 +135,18 @@ export function CVUploader({ userId, currentCV, onUploadComplete, "data-testid":
 
     } catch (error) {
       console.error('Error uploading CV:', error);
+      
+      // Extract detailed error message
+      let errorMessage = "Failed to upload CV. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && 'error' in error) {
+        errorMessage = String((error as any).error);
+      }
+      
       toast({
         title: "Upload failed",
-        description: error instanceof Error ? error.message : "Failed to upload CV",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
