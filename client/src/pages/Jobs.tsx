@@ -224,52 +224,6 @@ export default function Jobs() {
     setExpandedJobId(expandedJobId === jobId ? null : jobId);
   };
 
-  // Mock jobs data as fallback for demonstration  
-  const mockJobs = [
-    {
-      id: 'mock-1',
-      title: 'Audio Engineer - Tech Conference',
-      company: 'EventTech Solutions',
-      location: 'London, UK',
-      type: 'Freelance',
-      contract_type: 'Gig',
-      duration: '3 days',
-      rate: '£350/day',
-      posted: '2 days ago',
-      category: 'Audio',
-      description: 'Seeking experienced audio engineer for major tech conference. Must have experience with large venue sound systems.',
-      skills: ['Sound Engineering', 'Live Events', 'Mixing Consoles']
-    },
-    {
-      id: 'mock-2',
-      title: 'Lighting Technician - Corporate Event',
-      company: 'Bright Events Ltd',
-      location: 'Manchester, UK',
-      type: 'Contract', 
-      contract_type: 'Fixed term',
-      duration: '1 week',
-      rate: '£280/day',
-      posted: '1 day ago',
-      category: 'Lighting',
-      description: 'Corporate event lighting setup and operation. Experience with LED systems required.',
-      skills: ['Lighting Design', 'LED Systems', 'Event Production']
-    },
-    {
-      id: 'mock-3',
-      title: 'AV Specialist - Exhibition',
-      company: 'ExpoTech Events',
-      location: 'Birmingham, UK',
-      type: 'Freelance',
-      contract_type: 'Temporary',
-      duration: '5 days',
-      rate: '£400/day',
-      posted: '3 hours ago',
-      category: 'AV',
-      description: 'Multi-day exhibition requiring AV setup, monitoring, and breakdown. Leadership experience preferred.',
-      skills: ['AV Systems', 'Project Management', 'Technical Support']
-    }
-  ];
-
   // Transform real jobs to ensure unique IDs and consistent format
   const transformedRealJobs = jobs.map((job: any) => ({
     ...job,
@@ -277,11 +231,8 @@ export default function Jobs() {
     posted: job.created_at ? new Date(job.created_at).toLocaleDateString() : 'Recently posted'
   }));
 
-  // Use real jobs data first, then mock data for demonstration
-  const jobsToShow = [...transformedRealJobs, ...mockJobs];
-  
-  // Debug: Force render with known data if API data exists
-  const displayJobs = isLoading ? [] : jobsToShow;
+  // Use only real jobs data from the database
+  const displayJobs = isLoading ? [] : transformedRealJobs;
   
   const filteredJobs = displayJobs.filter((job: any) => {
     // Exclude closed jobs (when someone has been hired)
