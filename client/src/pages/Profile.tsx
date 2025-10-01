@@ -117,19 +117,14 @@ export default function Profile() {
 
       const { downloadUrl, fileName } = await response.json();
       
-      // Create a temporary link and trigger download
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = downloadUrl;
-      a.download = fileName || profile.cv_file_name || `${profile.first_name}_${profile.last_name}_CV.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      toast({
-        title: "Success",
-        description: "CV download started",
-      });
+      // Open the presigned URL in a new tab to view/download the CV
+      if (downloadUrl) {
+        window.open(downloadUrl, '_blank');
+        toast({
+          title: "Success",
+          description: "CV opened in new tab",
+        });
+      }
     } catch (error) {
       console.error('Error downloading CV:', error);
       toast({
