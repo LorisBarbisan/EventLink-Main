@@ -99,12 +99,16 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
 
       onUploadComplete?.();
     } catch (error) {
-      console.error('CV upload error:', error);
+      console.error('❌ CV upload error:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       
       // Extract detailed error message
       let errorMessage = "Failed to upload CV. Please try again.";
       if (error instanceof Error) {
         errorMessage = error.message;
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
       } else if (typeof error === 'object' && error !== null && 'error' in error) {
         errorMessage = String((error as any).error);
       }
