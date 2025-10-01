@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
+import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes-modular";
 import { setupVite, serveStatic, log } from "./vite";
@@ -153,6 +154,18 @@ app.use(['/api/profiles', '/api/jobs', '/api/applications'], saveOperationsLimit
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// CORS configuration to allow Authorization header
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? [process.env.REPLIT_DEV_DOMAIN || '', 'https://*.replit.app', 'https://*.replit.dev'].filter(Boolean)
+    : true, // Allow all origins in development
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400 // 24 hours
+}));
 
 // Keep only one health check endpoint
 app.get("/health", (req, res) => {
