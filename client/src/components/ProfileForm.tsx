@@ -529,20 +529,28 @@ function CVUploadSection({ profile }: { profile?: FreelancerProfile }) {
     return null;
   }
 
-  const handleUploadComplete = async () => {
-    console.log('🔄 CV upload/delete complete - fetching updated profile for user:', user.id);
-    toast({
-      title: "Success",
-      description: "Your CV has been updated successfully!",
-    });
+  const handleUploadComplete = async (updatedProfile?: any) => {
+    console.log('🔄 CV upload/delete complete for user:', user.id);
     
-    // Fetch fresh profile data and update cache immediately
-    try {
-      const freshProfile = await apiRequest(`/api/freelancer/${user.id}`);
-      queryClient.setQueryData(['/api/freelancer/profile', user.id], freshProfile);
-      console.log('✅ Profile updated in cache:', freshProfile);
-    } catch (error) {
-      console.error('Failed to fetch updated profile:', error);
+    // Use the profile from the response (already fresh from DB)
+    if (updatedProfile) {
+      queryClient.setQueryData(['/api/freelancer/profile', user.id], updatedProfile);
+      console.log('✅ Profile updated in cache from response:', updatedProfile);
+      
+      toast({
+        title: "Success",
+        description: "Your CV has been updated successfully!",
+      });
+    } else {
+      console.warn('No profile in response, falling back to refetch');
+      // Fallback: refetch if no profile provided
+      try {
+        const freshProfile = await apiRequest(`/api/freelancer/${user.id}`);
+        queryClient.setQueryData(['/api/freelancer/profile', user.id], freshProfile);
+        console.log('✅ Profile fetched and updated in cache:', freshProfile);
+      } catch (error) {
+        console.error('Failed to fetch updated profile:', error);
+      }
     }
   };
 

@@ -13,7 +13,7 @@ interface CVUploaderProps {
     fileSize?: number;
     fileUrl?: string;
   };
-  onUploadComplete?: () => void;
+  onUploadComplete?: (updatedProfile?: any) => void;
 }
 
 export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CVUploaderProps) {
@@ -80,7 +80,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
 
       // Save CV metadata (including contentType)
       console.log('Step 3: Saving CV metadata...');
-      await apiRequest('/api/cv', {
+      const response = await apiRequest('/api/cv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -90,16 +90,16 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
           contentType: file.type,
         }),
       });
-      console.log('✅ Step 3: Metadata saved');
+      console.log('✅ Step 3: Metadata saved, response:', response);
 
       toast({
         title: 'CV uploaded successfully',
         description: 'Your CV has been uploaded and saved.',
       });
 
-      // Wait for the callback to complete before finishing
+      // Wait for the callback to complete with the response profile
       if (onUploadComplete) {
-        await onUploadComplete();
+        await onUploadComplete(response.profile);
       }
     } catch (error) {
       console.error('❌ CV upload error:', error);
@@ -131,7 +131,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await apiRequest('/api/cv', {
+      const response = await apiRequest('/api/cv', {
         method: 'DELETE',
       });
 
@@ -140,9 +140,9 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
         description: 'Your CV has been removed.',
       });
 
-      // Wait for the callback to complete before finishing
+      // Wait for the callback to complete with the response profile
       if (onUploadComplete) {
-        await onUploadComplete();
+        await onUploadComplete(response.profile);
       }
     } catch (error) {
       toast({
