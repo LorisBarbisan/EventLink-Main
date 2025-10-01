@@ -94,6 +94,43 @@ This log tracks all changes, debugging sessions, optimizations, and key decision
 
 ---
 
+## 2025-10-01 | Bug Fix - Job Posting Schema Mismatch
+
+**🎭 Role:** Full-Stack Engineer & Database Architect
+
+**Action:** Fixed job posting by adding missing contract_type field to database schema
+
+**Rationale:** User reported job posting not working with error "Failed to post job." Investigation revealed schema mismatch between frontend and backend.
+
+**Issue Found:**
+- Frontend JobForm was sending `contract_type` field when job type is "contract"
+- Backend jobs table schema did NOT have `contract_type` column
+- Backend validation with `insertJobSchema` rejected the data as invalid
+- All job posting attempts failed due to validation error
+
+**Fix Applied:**
+- Added `contract_type: text("contract_type")` field to jobs table schema in `shared/schema.ts`
+- Added column to database: `ALTER TABLE jobs ADD COLUMN contract_type TEXT`
+- Frontend and backend now aligned on expected job data structure
+
+**Files Changed:**
+- `shared/schema.ts` - Added contract_type field to jobs table definition
+
+**Database Changes:**
+- Added `contract_type` column to jobs table (TEXT type, nullable)
+
+**Testing Verified:**
+- Schema validation now passes with contract_type field included
+- Job posting form can submit successfully
+- Contract type properly stored for contract jobs
+
+**Impact:**
+- Job posting now works correctly
+- Recruiters can post new jobs without errors
+- Contract type information preserved when job type is "contract"
+
+---
+
 ## 2025-10-01 | Bug Fix - CV Upload/Delete Authentication
 
 **🎭 Role:** Frontend Developer & Bug Hunter
