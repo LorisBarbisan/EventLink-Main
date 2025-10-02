@@ -41,9 +41,9 @@ export const CacheHeaders = {
 
 // Enhanced cache strategy based on content type
 export function setCacheByEndpoint(res: Response, endpoint: string) {
-  // Job listings - cache for 5 minutes (jobs don't change very often)
+  // Job listings - no cache (jobs can be created/updated frequently)
   if (endpoint.includes('/api/jobs') && !endpoint.includes('apply')) {
-    CacheHeaders.mediumCache(res);
+    CacheHeaders.noCache(res);
   }
   // User profiles - cache for 1 hour (profiles change infrequently)
   else if (endpoint.includes('/api/freelancer/') || endpoint.includes('/api/recruiter/')) {
