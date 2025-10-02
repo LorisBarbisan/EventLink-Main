@@ -122,9 +122,9 @@ export function JobForm({ initialData, onSubmit, onCancel, isSubmitting, isEditi
               </span>
               <Switch
                 id="job-type"
-                checked={formData.type === 'gig'}
+                checked={formData.type === 'freelance'}
                 onCheckedChange={(checked) => {
-                  const newType = checked ? 'gig' : 'contract';
+                  const newType = checked ? 'freelance' : 'contract';
                   handleInputChange('type', newType);
                   if (newType !== 'contract') {
                     handleInputChange('contract_type', '');
@@ -132,7 +132,7 @@ export function JobForm({ initialData, onSubmit, onCancel, isSubmitting, isEditi
                 }}
                 data-testid="toggle-job-type"
               />
-              <span className={`text-sm font-medium ${formData.type === 'gig' ? 'text-primary' : 'text-muted-foreground'}`}>
+              <span className={`text-sm font-medium ${formData.type === 'freelance' ? 'text-primary' : 'text-muted-foreground'}`}>
                 Gig
               </span>
             </div>
