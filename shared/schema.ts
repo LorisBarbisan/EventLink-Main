@@ -250,6 +250,12 @@ export const insertJobSchema = createInsertSchema(jobs).omit({
   title: z.string().min(1, "Job title is required"),
   location: z.string().min(1, "Location is required"),
   description: z.string().min(1, "Description is required"),
+  contract_type: z.string().optional(),
+  duration_type: z.enum(['time', 'days', 'hours']).nullable().optional(),
+  start_time: z.string().optional(),
+  end_time: z.string().optional(),
+  days: z.number().optional(),
+  hours: z.number().optional(),
 });
 
 export const insertJobApplicationSchema = createInsertSchema(job_applications).omit({
