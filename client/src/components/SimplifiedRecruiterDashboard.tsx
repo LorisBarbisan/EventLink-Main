@@ -140,14 +140,18 @@ export default function SimplifiedRecruiterDashboard() {
       if (!processedData.start_time || processedData.start_time === '') delete processedData.start_time;
       if (!processedData.end_time || processedData.end_time === '') delete processedData.end_time;
       
+      const requestPayload = {
+        recruiter_id: user?.id,
+        company: (profile as any)?.company_name || 'Company',
+        status: 'active',
+        ...processedData
+      };
+      
+      console.log('📤 Sending job creation request:', JSON.stringify(requestPayload, null, 2));
+      
       return await apiRequest('/api/jobs', {
         method: 'POST',
-        body: JSON.stringify({
-          recruiter_id: user?.id,
-          company: (profile as any)?.company_name || 'Company',
-          status: 'active',
-          ...processedData
-        }),
+        body: JSON.stringify(requestPayload),
         headers: { 'Content-Type': 'application/json' },
       });
     },
