@@ -246,6 +246,10 @@ export const insertJobSchema = createInsertSchema(jobs).omit({
   updated_at: true,
 }).extend({
   recruiter_id: z.number(),
+  company: z.string().min(1, "Company name is required"),
+  title: z.string().min(1, "Job title is required"),
+  location: z.string().min(1, "Location is required"),
+  description: z.string().min(1, "Description is required"),
 });
 
 export const insertJobApplicationSchema = createInsertSchema(job_applications).omit({
