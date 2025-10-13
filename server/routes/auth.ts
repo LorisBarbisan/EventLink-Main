@@ -91,11 +91,19 @@ export const authenticateJWT = async (req: any, res: any, next: any) => {
   try {
     // Check for JWT token in Authorization header
     const authHeader = req.headers.authorization;
+    console.log('🔐 authenticateJWT middleware called:', {
+      hasAuthHeader: !!authHeader,
+      authHeader: authHeader?.substring(0, 20) + '...',
+      method: req.method,
+      path: req.path
+    });
+    
     const token = authHeader && authHeader.startsWith('Bearer ') 
       ? authHeader.substring(7) 
       : null;
 
     if (!token) {
+      console.log('❌ No JWT token found in request');
       return res.status(401).json({ error: "Not authenticated" });
     }
 
