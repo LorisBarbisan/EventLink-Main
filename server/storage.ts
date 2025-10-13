@@ -789,12 +789,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getFreelancerApplications(freelancerId: number): Promise<JobApplication[]> {
-    return await db.select().from(job_applications).where(
+    const result = await db.select({
+      id: job_applications.id,
+      job_id: job_applications.job_id,
+      freelancer_id: job_applications.freelancer_id,
+      status: job_applications.status,
+      cover_letter: job_applications.cover_letter,
+      rejection_message: job_applications.rejection_message,
+      applied_at: job_applications.applied_at,
+      updated_at: job_applications.updated_at,
+      freelancer_deleted: job_applications.freelancer_deleted,
+      recruiter_deleted: job_applications.recruiter_deleted,
+      job_title: jobs.title,
+      job_company: jobs.company,
+    })
+    .from(job_applications)
+    .innerJoin(jobs, eq(jobs.id, job_applications.job_id))
+    .where(
       and(
         eq(job_applications.freelancer_id, freelancerId),
         eq(job_applications.freelancer_deleted, false)
       )
     );
+    return result as JobApplication[];
   }
 
   async getJobApplications(jobId: number): Promise<JobApplication[]> {
@@ -824,16 +841,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecruiterApplications(recruiterId: number): Promise<JobApplication[]> {
-    const result = await db.select()
-      .from(job_applications)
-      .innerJoin(jobs, eq(jobs.id, job_applications.job_id))
-      .where(
-        and(
-          eq(jobs.recruiter_id, recruiterId),
-          eq(job_applications.recruiter_deleted, false)
-        )
-      );
-    return result.map(r => r.job_applications);
+    const result = await db.select({
+      id: job_applications.id,
+      job_id: job_applications.job_id,
+      freelancer_id: job_applications.freelancer_id,
+      status: job_applications.status,
+      cover_letter: job_applications.cover_letter,
+      rejection_message: job_applications.rejection_message,
+      applied_at: job_applications.applied_at,
+      updated_at: job_applications.updated_at,
+      freelancer_deleted: job_applications.freelancer_deleted,
+      recruiter_deleted: job_applications.recruiter_deleted,
+      job_title: jobs.title,
+      job_company: jobs.company,
+    })
+    .from(job_applications)
+    .innerJoin(jobs, eq(jobs.id, job_applications.job_id))
+    .where(
+      and(
+        eq(jobs.recruiter_id, recruiterId),
+        eq(job_applications.recruiter_deleted, false)
+      )
+    );
+    return result as JobApplication[];
   }
 
   async getJobApplicationById(applicationId: number): Promise<JobApplication | undefined> {

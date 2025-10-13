@@ -91,7 +91,7 @@ export function registerApplicationRoutes(app: Express) {
   });
 
   // Get freelancer applications
-  app.get("/api/freelancer/:freelancerId/applications", async (req, res) => {
+  app.get("/api/freelancer/:freelancerId/applications", authenticateJWT, async (req, res) => {
     try {
       const freelancerId = parseInt(req.params.freelancerId);
       

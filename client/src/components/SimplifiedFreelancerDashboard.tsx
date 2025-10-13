@@ -275,9 +275,7 @@ export default function SimplifiedFreelancerDashboard() {
             </div>
           </div>
           {user && (
-            <MessagingInterface 
-              currentUser={{ id: user.id, email: user.email, role: 'freelancer' }}
-            />
+            <MessagingInterface />
           )}
         </TabsContent>
 

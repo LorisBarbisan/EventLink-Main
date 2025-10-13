@@ -75,7 +75,11 @@ Created comprehensive system optimization with significantly improved efficiency
 - ✅ **JOB CREATION RECRUITER_ID BUG**: Fixed critical bug where jobs were created without recruiter_id
   - Job creation now properly assigns recruiter_id from authenticated user
   - Fixed existing orphaned jobs by assigning them to admin account
-  - Applications now properly appear in both freelancer and recruiter dashboards
+- ✅ **APPLICATION DISPLAY FIX**: Fixed applications not appearing in dashboards
+  - Added `authenticateJWT` middleware to freelancer applications endpoint
+  - Fixed storage layer to join with jobs table and include job_title and job_company
+  - Updated both freelancer and recruiter application queries to return complete data
+  - Applications now properly display in both freelancer and recruiter dashboards
 
 ## Authentication System
 - **Production**: Custom session management with aggressive cache clearing, email verification required
