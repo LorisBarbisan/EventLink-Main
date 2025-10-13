@@ -28,7 +28,9 @@ export function registerApplicationRoutes(app: Express) {
   // Apply to job
   app.post("/api/jobs/:jobId/apply", authenticateJWT, async (req, res) => {
     try {
-      const jobId = parseInt(req.params.jobId);
+      // Extract numeric ID from job ID (handles both "123" and "real-123" formats)
+      const jobIdStr = req.params.jobId;
+      const jobId = parseInt(jobIdStr.replace(/^real-/, ''));
       
       console.log('🔍 Job Application Request:', {
         jobId,
