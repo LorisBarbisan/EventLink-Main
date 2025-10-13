@@ -72,6 +72,10 @@ Created comprehensive system optimization with significantly improved efficiency
   - Fixed job ID parsing to handle both numeric and "real-{id}" format
   - Resolved authentication issue where JWT tokens weren't being validated on application submissions
   - Job applications now work correctly for freelancer accounts
+- ✅ **JOB CREATION RECRUITER_ID BUG**: Fixed critical bug where jobs were created without recruiter_id
+  - Job creation now properly assigns recruiter_id from authenticated user
+  - Fixed existing orphaned jobs by assigning them to admin account
+  - Applications now properly appear in both freelancer and recruiter dashboards
 
 ## Authentication System
 - **Production**: Custom session management with aggressive cache clearing, email verification required

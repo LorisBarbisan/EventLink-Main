@@ -60,26 +60,22 @@ export function registerJobRoutes(app: Express) {
   // Create new job
   app.post("/api/jobs", authenticateJWT, async (req, res) => {
     try {
-      console.log('📝 Job creation attempt:', { user: req.user?.email, role: req.user?.role });
-      console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
-      
       if (!req.user || (req.user as any).role !== 'recruiter') {
-        console.log('❌ Authorization failed - not a recruiter');
         return res.status(403).json({ error: "Only recruiters can create jobs" });
       }
 
       const result = insertJobSchema.safeParse(req.body);
       if (!result.success) {
-        console.log('❌ Validation failed:', JSON.stringify(result.error.issues, null, 2));
         return res.status(400).json({ error: "Invalid input", details: result.error.issues });
       }
 
-      console.log('✅ Validation passed, creating job...');
-      const job = await storage.createJob(result.data);
-      console.log('✅ Job created successfully:', job.id);
+      const job = await storage.createJob({
+        ...result.data,
+        recruiter_id: req.user.id
+      });
       res.status(201).json(job);
     } catch (error) {
-      console.error("❌ Create job error:", error);
+      console.error("Create job error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -123,18 +119,14 @@ export function registerJobRoutes(app: Express) {
   // Delete job
   app.delete("/api/jobs/:jobId", authenticateJWT, async (req, res) => {
     try {
-      console.log(`🗑️ DELETE job attempt: jobId=${req.params.jobId}, user=${req.user?.email}, role=${req.user?.role}`);
-      
       const jobId = parseInt(req.params.jobId);
       
       if (Number.isNaN(jobId)) {
-        console.log(`❌ Invalid job ID: ${req.params.jobId}`);
         return res.status(400).json({ error: "Invalid job ID" });
       }
       
       // Check if user is authorized to delete this job
       if (!req.user) {
-        console.log(`❌ No user in request`);
         return res.status(401).json({ error: "Not authenticated" });
       }
 
