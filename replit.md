@@ -81,6 +81,18 @@ Created comprehensive system optimization with significantly improved efficiency
   - Updated both freelancer and recruiter application queries to return complete data
   - Applications now properly display in both freelancer and recruiter dashboards
 
+## Recent Changes (October 14, 2025)
+- ✅ **POST A JOB FORM SIMPLIFICATION**: Streamlined job posting form for gig-focused platform
+  - Added mandatory Start Date field (previously "Event Date")
+  - Added optional End Date field for multi-day gigs
+  - Made Start and End Time fields optional (no longer tied to duration type selection)
+  - Removed Job Type toggle - all jobs are now gigs (type='gig')
+  - Removed Contract Type selection
+  - Removed Number of Days and Number of Hours fields
+  - Updated database schema to include end_date column
+  - Simplified form validation to require only essential fields: title, location, rate, description, start date
+  - Fixed type enum compatibility issue (changed from 'freelance' to 'gig' to match database)
+
 ## Authentication System
 - **Production**: Custom session management with aggressive cache clearing, email verification required
 - **Email Service**: SendGrid integration for verification emails
