@@ -5,7 +5,7 @@ import { authenticateJWT } from "./auth";
 
 export function registerApplicationRoutes(app: Express) {
   // Get freelancer bookings (accepted applications)
-  app.get("/api/freelancer/:freelancerId/bookings", async (req, res) => {
+  app.get("/api/freelancer/:freelancerId/bookings", authenticateJWT, async (req, res) => {
     try {
       const freelancerId = parseInt(req.params.freelancerId);
       
@@ -109,7 +109,7 @@ export function registerApplicationRoutes(app: Express) {
   });
 
   // Get applications for a job
-  app.get("/api/jobs/:jobId/applications", async (req, res) => {
+  app.get("/api/jobs/:jobId/applications", authenticateJWT, async (req, res) => {
     try {
       const jobId = parseInt(req.params.jobId);
       
@@ -136,7 +136,7 @@ export function registerApplicationRoutes(app: Express) {
   });
 
   // Get recruiter applications
-  app.get("/api/recruiter/:recruiterId/applications", async (req, res) => {
+  app.get("/api/recruiter/:recruiterId/applications", authenticateJWT, async (req, res) => {
     try {
       const recruiterId = parseInt(req.params.recruiterId);
       
@@ -162,7 +162,7 @@ export function registerApplicationRoutes(app: Express) {
   });
 
   // Accept application
-  app.put("/api/applications/:applicationId/accept", async (req, res) => {
+  app.put("/api/applications/:applicationId/accept", authenticateJWT, async (req, res) => {
     try {
       const applicationId = parseInt(req.params.applicationId);
       
@@ -215,7 +215,7 @@ export function registerApplicationRoutes(app: Express) {
   });
 
   // Reject application
-  app.put("/api/applications/:applicationId/reject", async (req, res) => {
+  app.put("/api/applications/:applicationId/reject", authenticateJWT, async (req, res) => {
     try {
       const applicationId = parseInt(req.params.applicationId);
       
@@ -268,7 +268,7 @@ export function registerApplicationRoutes(app: Express) {
   });
 
   // Delete application (soft delete with role-based permissions)
-  app.delete("/api/applications/:applicationId", async (req, res) => {
+  app.delete("/api/applications/:applicationId", authenticateJWT, async (req, res) => {
     try {
       const applicationId = parseInt(req.params.applicationId);
       
