@@ -94,14 +94,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Production-ready session configuration with PostgreSQL storage
   const PgSession = connectPgSimple(session);
   
-  // Create session store configuration
+  // Create session store configuration with error handling for deployment
   const sessionStoreConfig = process.env.NODE_ENV === 'production' ? {
     // Production: Use PostgreSQL for session storage (required for autoscaling)
     store: new PgSession({
       conString: process.env.DATABASE_URL,
       tableName: 'user_sessions', // Custom table name
-      createTableIfMissing: true, // Auto-create sessions table
+      createTableIfMissing: false, // Don't auto-create to prevent deployment hangs - table should be pre-created
       pruneSessionInterval: 24 * 60 * 60, // Clean up expired sessions daily (seconds)
+      errorLog: (...args: any[]) => {
+        console.error('Session store error:', ...args);
+      }
     }),
   } : {
     // Development: Use MemoryStore for faster development
