@@ -815,12 +815,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getJobApplications(jobId: number): Promise<JobApplication[]> {
-    return await db.select().from(job_applications).where(
+    const result = await db.select({
+      id: job_applications.id,
+      job_id: job_applications.job_id,
+      freelancer_id: job_applications.freelancer_id,
+      status: job_applications.status,
+      cover_letter: job_applications.cover_letter,
+      rejection_message: job_applications.rejection_message,
+      applied_at: job_applications.applied_at,
+      updated_at: job_applications.updated_at,
+      freelancer_deleted: job_applications.freelancer_deleted,
+      recruiter_deleted: job_applications.recruiter_deleted,
+      job_title: jobs.title,
+      job_company: jobs.company,
+    })
+    .from(job_applications)
+    .innerJoin(jobs, eq(jobs.id, job_applications.job_id))
+    .where(
       and(
         eq(job_applications.job_id, jobId),
         eq(job_applications.recruiter_deleted, false)
       )
     );
+    return result as JobApplication[];
   }
 
   async getJobApplicationsByFreelancer(freelancerId: number): Promise<JobApplication[]> {
