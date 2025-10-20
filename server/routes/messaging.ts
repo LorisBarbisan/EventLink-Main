@@ -322,4 +322,38 @@ export function registerMessagingRoutes(app: Express) {
       res.status(500).json({ error: "Internal server error" });
     }
   });
+
+  // Delete conversation
+  app.delete("/api/conversations/:id", authenticateJWT, async (req, res) => {
+    try {
+      const conversationId = parseInt(req.params.id);
+      
+      if (Number.isNaN(conversationId)) {
+        return res.status(400).json({ error: "Invalid conversation ID" });
+      }
+      
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Verify that the user is a participant in this conversation
+      const userConversations = await storage.getConversationsByUserId(req.user.id);
+      const conversation = userConversations.find(conv => conv.id === conversationId);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found or access denied" });
+      }
+
+      // Delete the conversation (cascade will delete messages and attachments)
+      await storage.deleteConversation(conversationId);
+      
+      res.json({ 
+        success: true, 
+        message: "Conversation deleted successfully"
+      });
+    } catch (error) {
+      console.error("Delete conversation error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
 }
