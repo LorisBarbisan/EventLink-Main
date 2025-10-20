@@ -110,6 +110,8 @@ export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
   participant_one_id: integer("participant_one_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   participant_two_id: integer("participant_two_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  participant_one_deleted: boolean("participant_one_deleted").default(false).notNull(), // Soft delete flag for participant one
+  participant_two_deleted: boolean("participant_two_deleted").default(false).notNull(), // Soft delete flag for participant two
   last_message_at: timestamp("last_message_at").defaultNow().notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });

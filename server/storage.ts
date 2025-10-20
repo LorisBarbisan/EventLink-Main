@@ -173,6 +173,7 @@ export interface IStorage {
   getUnreadMessageCount(userId: number): Promise<number>;
   // Soft delete methods for messages
   markMessageDeletedForUser(messageId: number, userId: number): Promise<void>;
+  deleteConversation(conversationId: number): Promise<void>;
   
   // Message attachment management
   createMessageAttachment(attachment: InsertMessageAttachment): Promise<MessageAttachment>;
@@ -1171,6 +1172,10 @@ export class DatabaseStorage implements IStorage {
       message_id: messageId,
       user_id: userId
     });
+  }
+
+  async deleteConversation(conversationId: number): Promise<void> {
+    await db.delete(conversations).where(eq(conversations.id, conversationId));
   }
 
   async markMessagesAsRead(conversationId: number, userId: number): Promise<void> {
