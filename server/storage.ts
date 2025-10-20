@@ -763,6 +763,9 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJob(jobId: number): Promise<void> {
     await db.delete(jobs).where(eq(jobs.id, jobId));
+    
+    // Clear cached job and application lists
+    cache.clear();
   }
 
   async getJobByExternalId(externalId: string): Promise<Job | undefined> {
@@ -857,6 +860,9 @@ export class DatabaseStorage implements IStorage {
     await db.update(job_applications)
       .set({ [fieldToUpdate]: true, updated_at: new Date() })
       .where(eq(job_applications.id, applicationId));
+    
+    // Clear cached application lists
+    cache.clear();
   }
 
   async getRecruiterApplications(recruiterId: number): Promise<JobApplication[]> {
@@ -1184,6 +1190,9 @@ export class DatabaseStorage implements IStorage {
       message_id: messageId,
       user_id: userId
     });
+    
+    // Clear cached message lists
+    cache.clear();
   }
 
   async deleteConversation(conversationId: number, userId: number): Promise<void> {
@@ -1207,6 +1216,9 @@ export class DatabaseStorage implements IStorage {
         .set({ participant_two_deleted: true })
         .where(eq(conversations.id, conversationId));
     }
+    
+    // Clear cached conversation lists
+    cache.clear();
   }
 
   async markMessagesAsRead(conversationId: number, userId: number): Promise<void> {
@@ -1471,6 +1483,9 @@ export class DatabaseStorage implements IStorage {
 
   async deleteNotification(notificationId: number): Promise<void> {
     await db.delete(notifications).where(eq(notifications.id, notificationId));
+    
+    // Clear cached notification lists
+    cache.clear();
   }
 
   async deleteExpiredNotifications(): Promise<void> {
