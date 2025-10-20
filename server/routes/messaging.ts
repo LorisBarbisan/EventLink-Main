@@ -344,11 +344,13 @@ export function registerMessagingRoutes(app: Express) {
         return res.status(404).json({ error: "Conversation not found or access denied" });
       }
 
-      // Delete the conversation (cascade will delete messages and attachments)
-      await storage.deleteConversation(conversationId);
+      // Soft delete the conversation for this user
+      await storage.deleteConversation(conversationId, req.user.id);
       
+      res.set('Cache-Control', 'no-store');
       res.json({ 
         success: true, 
+        conversationId: conversationId,
         message: "Conversation deleted successfully"
       });
     } catch (error) {
