@@ -140,9 +140,11 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
         method: 'DELETE',
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread-count', userId] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId], refetchType: 'active' });
+      await queryClient.refetchQueries({ queryKey: ['/api/notifications', userId] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread-count', userId], refetchType: 'active' });
+      await queryClient.refetchQueries({ queryKey: ['/api/notifications/unread-count', userId] });
     },
     onError: () => {
       toast({
