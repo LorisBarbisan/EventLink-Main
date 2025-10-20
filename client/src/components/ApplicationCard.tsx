@@ -101,8 +101,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
         ? ['/api/freelancer/applications', currentUserId]
         : ['/api/recruiter', currentUserId, 'applications'];
       
-      await queryClient.invalidateQueries({ queryKey, refetchType: 'active' });
-      await queryClient.refetchQueries({ queryKey });
+      await queryClient.refetchQueries({ queryKey, type: 'active' });
       
       setShowDeleteConfirm(false);
       toast({

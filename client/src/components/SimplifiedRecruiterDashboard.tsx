@@ -240,8 +240,8 @@ export default function SimplifiedRecruiterDashboard() {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['/api/jobs/recruiter', user?.id], refetchType: 'active' });
-      await queryClient.refetchQueries({ queryKey: ['/api/jobs/recruiter', user?.id] });
+      await queryClient.refetchQueries({ queryKey: ['/api/jobs/recruiter', user?.id], type: 'active' });
+      await queryClient.refetchQueries({ queryKey: ['/api/recruiter', user?.id, 'applications'], type: 'active' });
       toast({
         title: 'Success',
         description: 'Job deleted successfully!',
