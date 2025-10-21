@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { insertJobApplicationSchema } from "@shared/schema";
+import { insertJobApplicationSchema, type JobApplication } from "@shared/schema";
 import { authenticateJWT } from "./auth";
 
 export function registerApplicationRoutes(app: Express) {
@@ -49,7 +49,14 @@ export function registerApplicationRoutes(app: Express) {
       }
 
       // Check if already applied
-      const existingApplications = await storage.getFreelancerApplications(req.user.id);
+      let existingApplications: JobApplication[] = [];
+      try {
+        existingApplications = await storage.getFreelancerApplications(req.user.id);
+      } catch (appError) {
+        console.error("Error fetching existing applications:", appError);
+        // Continue with empty array if fetch fails - allow application to proceed
+      }
+      
       const alreadyApplied = existingApplications.some(app => app.job_id === jobId);
       
       if (alreadyApplied) {
