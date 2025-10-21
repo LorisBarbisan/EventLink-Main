@@ -97,11 +97,11 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
       });
     },
     onSuccess: async () => {
-      const queryKey = userType === 'freelancer' 
-        ? ['/api/freelancer/applications', currentUserId]
-        : ['/api/recruiter', currentUserId, 'applications'];
-      
-      await queryClient.refetchQueries({ queryKey, type: 'active' });
+      if (userType === 'freelancer') {
+        await queryClient.invalidateQueries({ queryKey: ['/api/freelancer/applications'] });
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ['/api/recruiter', currentUserId, 'applications'] });
+      }
       
       setShowDeleteConfirm(false);
       toast({

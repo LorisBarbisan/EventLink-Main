@@ -203,8 +203,8 @@ export function MessagingInterface() {
     },
     onSuccess: async (_, conversationId) => {
       setSelectedConversation(null);
-      await queryClient.cancelQueries({ queryKey: ['/api/conversations', conversationId, 'messages'] });
-      await queryClient.refetchQueries({ queryKey: ['/api/conversations'], type: 'active' });
+      await queryClient.cancelQueries({ queryKey: [`/api/conversations/${conversationId}/messages`] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
       toast({
         title: "Conversation deleted",
         description: "The conversation has been removed from your view",
