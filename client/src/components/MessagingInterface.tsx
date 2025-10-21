@@ -204,6 +204,7 @@ export function MessagingInterface() {
     onSuccess: async (_, conversationId) => {
       setSelectedConversation(null);
       await queryClient.cancelQueries({ queryKey: [`/api/conversations/${conversationId}/messages`] });
+      // Invalidate queries - this automatically triggers a refetch in React Query v5
       await queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
       toast({
         title: "Conversation deleted",

@@ -97,13 +97,15 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
       });
     },
     onSuccess: async () => {
+      setShowDeleteConfirm(false);
+      
+      // Invalidate queries - this automatically triggers a refetch in React Query v5
       if (userType === 'freelancer') {
         await queryClient.invalidateQueries({ queryKey: ['/api/freelancer/applications'] });
       } else {
         await queryClient.invalidateQueries({ queryKey: ['/api/recruiter', currentUserId, 'applications'] });
       }
       
-      setShowDeleteConfirm(false);
       toast({
         title: userType === 'freelancer' ? 'Application removed' : 'Application hidden',
         description: userType === 'freelancer' 
