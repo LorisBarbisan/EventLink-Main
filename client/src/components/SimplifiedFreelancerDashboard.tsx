@@ -182,36 +182,9 @@ export default function SimplifiedFreelancerDashboard() {
             <p className="text-muted-foreground">Track your application status and responses</p>
           </div>
 
-          {applicationsLoading ? (
-            <div className="flex justify-center p-8">Loading applications...</div>
-          ) : jobApplications.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <Briefcase className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No Applications Yet</h3>
-                <p className="text-muted-foreground">
-                  Start applying to jobs to see your applications here.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {jobApplications
-                .filter((application: JobApplication) => application.status !== 'hired')
-                .map((application: JobApplication) => (
-                  <ApplicationCard
-                    key={application.id}
-                    application={application}
-                    userType="freelancer"
-                    currentUserId={user.id}
-                  />
-                ))}
-            </div>
-          )}
-
-          {/* Application Status Summary */}
-          {jobApplications.length > 0 && (
-            <Card>
+          {/* Application Status Summary - Always show if there are applications */}
+          {!applicationsLoading && jobApplications.length > 0 && (
+            <Card data-testid="card-application-summary">
               <CardContent className="p-6">
                 <h3 className="font-medium mb-4">Application Summary</h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -263,6 +236,44 @@ export default function SimplifiedFreelancerDashboard() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Applications List */}
+          {applicationsLoading ? (
+            <div className="flex justify-center p-8">Loading applications...</div>
+          ) : jobApplications.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Briefcase className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Applications Yet</h3>
+                <p className="text-muted-foreground">
+                  Start applying to jobs to see your applications here.
+                </p>
+              </CardContent>
+            </Card>
+          ) : jobApplications.filter((app: JobApplication) => app.status !== 'hired').length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <CheckCircle className="w-12 h-12 mx-auto text-green-600 dark:text-green-400 mb-4" />
+                <h3 className="text-lg font-medium mb-2">All Applications Processed!</h3>
+                <p className="text-muted-foreground">
+                  Great! All your applications have been processed. Check the Bookings tab to see your confirmed jobs.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {jobApplications
+                .filter((application: JobApplication) => application.status !== 'hired')
+                .map((application: JobApplication) => (
+                  <ApplicationCard
+                    key={application.id}
+                    application={application}
+                    userType="freelancer"
+                    currentUserId={user.id}
+                  />
+                ))}
+            </div>
           )}
         </TabsContent>
 

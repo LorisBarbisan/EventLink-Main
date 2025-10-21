@@ -179,6 +179,9 @@ export function registerApplicationRoutes(app: Express) {
 
       await storage.updateApplicationStatus(applicationId, 'hired');
       
+      // Mark job as filled when hiring
+      await storage.updateJob(job.id, { status: 'filled' });
+      
       // Create notification for freelancer
       await storage.createNotification({
         user_id: application.freelancer_id,

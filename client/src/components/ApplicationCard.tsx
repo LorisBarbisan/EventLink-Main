@@ -47,8 +47,18 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
         body: JSON.stringify({ message: rejectionMessage }),
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/recruiter', currentUserId, 'applications'] });
+    onSuccess: async () => {
+      // Refetch recruiter's applications to update UI immediately
+      await queryClient.refetchQueries({ 
+        queryKey: ['/api/recruiter', currentUserId, 'applications'],
+        type: 'active'
+      });
+      
+      // Also invalidate freelancer's cache if they're viewing their applications
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/freelancer/applications', application.freelancer_id] 
+      });
+      
       setShowRejectionDialog(false);
       setRejectionMessage('');
       toast({
@@ -72,13 +82,32 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
         headers: { 'Content-Type': 'application/json' },
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/recruiter', currentUserId, 'applications'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] }); // Refresh jobs list to hide closed jobs
+    onSuccess: async () => {
+      // Refetch recruiter's applications to update UI immediately
+      await queryClient.refetchQueries({ 
+        queryKey: ['/api/recruiter', currentUserId, 'applications'],
+        type: 'active'
+      });
+      
+      // Refetch jobs list to show filled status
+      await queryClient.refetchQueries({ 
+        queryKey: ['/api/jobs'],
+        type: 'active'
+      });
+      await queryClient.refetchQueries({ 
+        queryKey: ['/api/jobs/recruiter', currentUserId],
+        type: 'active'
+      });
+      
+      // Also invalidate freelancer's cache if they're viewing their applications
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/freelancer/applications', application.freelancer_id] 
+      });
+      
       setShowHireConfirm(false);
       toast({
         title: 'Applicant hired!',
-        description: 'The applicant has been notified of their successful application. The job has been closed.',
+        description: 'The applicant has been notified of their successful application. The job has been filled.',
       });
     },
     onError: () => {
@@ -99,18 +128,28 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
     onSuccess: async () => {
       setShowDeleteConfirm(false);
       
-      // Immediately update cache to remove the deleted application
+      // Optimistically update cache to remove the deleted application immediately
       if (userType === 'freelancer') {
         const queryKey = ['/api/freelancer/applications', currentUserId];
         queryClient.setQueryData(queryKey, (oldData: JobApplication[] | undefined) => {
           if (!oldData) return [];
           return oldData.filter(app => app.id !== application.id);
         });
+        // Also refetch to ensure consistency
+        await queryClient.refetchQueries({ 
+          queryKey: queryKey,
+          type: 'active'
+        });
       } else {
         const queryKey = ['/api/recruiter', currentUserId, 'applications'];
         queryClient.setQueryData(queryKey, (oldData: JobApplication[] | undefined) => {
           if (!oldData) return [];
           return oldData.filter(app => app.id !== application.id);
+        });
+        // Also refetch to ensure consistency
+        await queryClient.refetchQueries({ 
+          queryKey: queryKey,
+          type: 'active'
         });
       }
       
