@@ -77,25 +77,41 @@ export function registerApplicationRoutes(app: Express) {
 
       const application = await storage.createJobApplication(result.data);
       
-      // Create notification for recruiter
+      // Create notification for recruiter (non-blocking)
       if (job.recruiter_id) {
-        await storage.createNotification({
-          user_id: job.recruiter_id,
-          type: 'application_update',
-          title: 'New Job Application',
-          message: `A freelancer has applied to your job: ${job.title}`,
-          priority: 'high',
-          related_entity_type: 'application',
-          related_entity_id: application.id,
-          action_url: '/dashboard?tab=applications',
-          metadata: JSON.stringify({ application_id: application.id, job_id: jobId })
-        });
+        try {
+          await storage.createNotification({
+            user_id: job.recruiter_id,
+            type: 'application_update',
+            title: 'New Job Application',
+            message: `A freelancer has applied to your job: ${job.title}`,
+            priority: 'high',
+            related_entity_type: 'application',
+            related_entity_id: application.id,
+            action_url: '/dashboard?tab=applications',
+            metadata: JSON.stringify({ application_id: application.id, job_id: jobId })
+          });
+        } catch (notifError) {
+          console.error("Failed to create notification (non-critical):", notifError);
+          // Don't fail the application if notification fails
+        }
       }
 
       res.status(201).json(application);
     } catch (error) {
       console.error("Apply to job error:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error("Error details:", error instanceof Error ? error.message : String(error));
+      console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace');
+      
+      // Return more detailed error in development
+      if (process.env.NODE_ENV === 'development') {
+        res.status(500).json({ 
+          error: "Internal server error",
+          details: error instanceof Error ? error.message : String(error)
+        });
+      } else {
+        res.status(500).json({ error: "Internal server error" });
+      }
     }
   });
 
