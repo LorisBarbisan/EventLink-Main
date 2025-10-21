@@ -790,6 +790,11 @@ export class DatabaseStorage implements IStorage {
   // Job application methods
   async createJobApplication(application: InsertJobApplication): Promise<JobApplication> {
     const result = await db.insert(job_applications).values([application as any]).returning();
+    
+    // Clear cached application lists so new application appears immediately
+    cache.clearPattern('freelancer-applications-');
+    cache.clearPattern('recruiter-applications-');
+    
     return result[0];
   }
 
@@ -941,6 +946,10 @@ export class DatabaseStorage implements IStorage {
           .where(eq(jobs.id, application.job_id));
       }
     }
+    
+    // Clear cached application lists so refetches get fresh data
+    cache.clearPattern('freelancer-applications-');
+    cache.clearPattern('recruiter-applications-');
     
     return result[0];
   }
