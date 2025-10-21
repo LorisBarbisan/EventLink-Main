@@ -929,6 +929,11 @@ export class DatabaseStorage implements IStorage {
       updateData.rejection_message = rejectionMessage;
     }
     
+    // If hiring, un-delete from freelancer's view so they can see they were hired
+    if (status === 'hired') {
+      updateData.freelancer_deleted = false;
+    }
+    
     const result = await db.update(job_applications)
       .set(updateData)
       .where(eq(job_applications.id, applicationId))
