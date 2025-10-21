@@ -64,9 +64,10 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
         type: 'active'
       });
       
-      // Also invalidate freelancer's cache if they're viewing their applications
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/freelancer/applications', application.freelancer_id] 
+      // Refetch freelancer's applications to update their dashboard immediately
+      await queryClient.refetchQueries({ 
+        queryKey: ['/api/freelancer/applications', application.freelancer_id],
+        type: 'active'
       });
       
       setShowRejectionDialog(false);
@@ -109,9 +110,10 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
         type: 'active'
       });
       
-      // Also invalidate freelancer's cache if they're viewing their applications
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/freelancer/applications', application.freelancer_id] 
+      // Refetch freelancer's applications to update their dashboard immediately
+      await queryClient.refetchQueries({ 
+        queryKey: ['/api/freelancer/applications', application.freelancer_id],
+        type: 'active'
       });
       
       setShowHireConfirm(false);
