@@ -12,6 +12,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { Eye, MessageCircle, CheckCircle, X, AlertCircle, UserCheck, UserX, Star, Send, Trash2 } from 'lucide-react';
 import { RatingDialog } from './RatingDialog';
 import { RatingRequestDialog } from './RatingRequestDialog';
+import { MessageModal } from './MessageModal';
 import type { JobApplication } from '@shared/types';
 import type { Job } from '@shared/schema';
 
@@ -31,6 +32,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   const [showRatingRequestDialog, setShowRatingRequestDialog] = useState(false);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showMessageModal, setShowMessageModal] = useState(false);
 
   // Handler to open messages with the other party
   const handleOpenMessage = () => {
@@ -506,7 +508,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => window.location.href = `/dashboard?tab=messages&recipientId=${application.recruiter_id}`}
+                      onClick={() => setShowMessageModal(true)}
                       data-testid={`button-message-recruiter-${application.id}`}
                     >
                       <MessageCircle className="w-4 h-4 mr-1" />
@@ -733,6 +735,17 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
           onOpenChange={setShowRatingRequestDialog}
           application={application}
           currentUserId={currentUserId}
+        />
+      )}
+
+      {/* Message Modal for freelancers to message recruiters */}
+      {userType === 'freelancer' && application.recruiter_id && (
+        <MessageModal
+          isOpen={showMessageModal}
+          onClose={() => setShowMessageModal(false)}
+          recipientId={application.recruiter_id}
+          recipientName={application.job_company || 'Recruiter'}
+          senderId={currentUserId}
         />
       )}
     </Card>
