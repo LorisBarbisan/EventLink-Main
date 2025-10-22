@@ -155,6 +155,11 @@ export default function Jobs() {
       });
     },
     onSuccess: () => {
+      // Invalidate all application-related caches so both freelancer and recruiter see updates
+      queryClient.invalidateQueries({ queryKey: ['/api/freelancer/applications'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/recruiter'] }); // Invalidate all recruiter queries including applications
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      
       toast({
         title: 'Application submitted',
         description: 'Your job application has been submitted successfully. Redirecting to dashboard...',
