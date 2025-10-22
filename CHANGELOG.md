@@ -5,6 +5,51 @@ This log tracks all changes, debugging sessions, optimizations, and key decision
 
 ---
 
+## 2025-10-22 | Messaging Modal Fix - Platform-Wide Button Redirect Issue
+
+**🎭 Role:** Full-Stack Engineer & UX Specialist
+
+**Action:** Fixed messaging buttons redirecting to dashboard main page instead of opening message popup modal
+
+**Rationale:** User reported that clicking "Message Recruiter" button in freelancer dashboard redirected to dashboard main page rather than opening the message form popup. Investigation revealed this issue affected both freelancers and recruiters across the entire platform.
+
+**Debugging Steps:**
+1. ✅ **Reproduce**: Confirmed "Message Recruiter" button redirected to /dashboard instead of opening modal
+2. ✅ **Trace**: Found buttons using `window.location.href` redirects instead of modal state management
+3. ✅ **Isolate**: Located issue in ApplicationCard.tsx affecting both user types
+4. ✅ **Fix**: Replaced redirects with MessageModal popup components for both freelancers and recruiters
+5. ✅ **Verify**: Both user types can now message each other via popup without leaving current page
+
+**Details:**
+- **Root Cause**: Message buttons used `window.location.href` navigation instead of React modal state
+  - Freelancer button: `onClick={() => window.location.href = /dashboard?tab=messages&recipientId=${application.recruiter_id}}`
+  - Recruiter button: `onClick={() => window.location.href = /dashboard?tab=messages&recipientId=${application.freelancer_id}}`
+- **Solution**: Implemented MessageModal component pattern
+  - Added `showMessageModal` state variable
+  - Changed onClick handlers to `setShowMessageModal(true)`
+  - Added MessageModal components with proper props for both user types
+  - Removed unused `handleOpenMessage` function
+
+**Code Changes:**
+- client/src/components/ApplicationCard.tsx:
+  - Added MessageModal component import
+  - Added showMessageModal state variable (line 38)
+  - Freelancer button: Changed from redirect to modal trigger (line 514)
+  - Recruiter button: Changed from redirect to modal trigger (line 316)
+  - Added MessageModal for freelancers → recruiters (lines 745-753)
+  - Added MessageModal for recruiters → freelancers (lines 756-764)
+  - Removed unused handleOpenMessage function
+
+**Impact:** 
+- ✅ **UX Improvement**: Users stay on current page, no jarring full-page redirects
+- ⚡ **Performance**: Faster interaction (no page reload overhead)
+- 🔄 **State Management**: Proper React patterns with modal state
+- 🎯 **Consistency**: Both freelancers and recruiters use same modal pattern
+
+**Testing:** Manual testing confirmed both user types can open message modal popup successfully. Ready for production deployment.
+
+---
+
 ## 2025-10-01 | CV Upload Fix - ContentType Parameter Mismatch
 
 **🎭 Role:** Full-Stack Engineer & Database Specialist
