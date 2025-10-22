@@ -72,7 +72,7 @@ export const jobs = pgTable("jobs", {
   title: text("title").notNull(),
   company: text("company").notNull(),
   location: text("location").notNull(),
-  type: text("type").notNull().$type<'full-time' | 'part-time' | 'contract' | 'temporary' | 'gig' | 'external'>(),
+  type: text("type").notNull().$type<'full-time' | 'part-time' | 'contract' | 'temporary' | 'freelance' | 'external'>(),
   contract_type: text("contract_type"), // Specific contract type when type is 'contract'
   rate: text("rate").notNull(),
   description: text("description").notNull(),

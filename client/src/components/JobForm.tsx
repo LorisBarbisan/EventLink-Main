@@ -18,7 +18,7 @@ interface JobFormProps {
 export function JobForm({ initialData, onSubmit, onCancel, isSubmitting, isEditing = false }: JobFormProps) {
   const [formData, setFormData] = useState<JobFormData>({
     title: initialData?.title || '',
-    type: 'gig', // All jobs are gigs
+    type: 'freelance', // All jobs are freelance/gig work
     location: initialData?.location || '',
     rate: initialData?.rate || '',
     description: initialData?.description || '',
@@ -42,7 +42,7 @@ export function JobForm({ initialData, onSubmit, onCancel, isSubmitting, isEditi
     if (!isEditing) {
       setFormData({
         title: '',
-        type: 'gig',
+        type: 'freelance',
         location: '',
         rate: '',
         description: '',
