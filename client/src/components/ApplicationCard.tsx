@@ -34,16 +34,6 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMessageModal, setShowMessageModal] = useState(false);
 
-  // Handler to open messages with the other party
-  const handleOpenMessage = () => {
-    const recipientId = userType === 'recruiter' 
-      ? application.freelancer_id 
-      : application.job_id; // Will need to get recruiter ID from job
-    
-    // Navigate to messages tab with recipient query parameter
-    window.location.href = `/dashboard?tab=messages&recipientId=${recipientId}`;
-  };
-
   // Fetch full job details when dialog opens
   const { data: jobDetails, isLoading: jobDetailsLoading } = useQuery<Job>({
     queryKey: [`/api/jobs/${application.job_id}`],
@@ -310,7 +300,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => window.location.href = `/dashboard?tab=messages&recipientId=${application.freelancer_id}`}
+                  onClick={() => setShowMessageModal(true)}
                   data-testid={`button-message-${application.freelancer_profile.user_id}`}
                 >
                   <MessageCircle className="w-4 h-4 mr-1" />
@@ -745,6 +735,17 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
           onClose={() => setShowMessageModal(false)}
           recipientId={application.recruiter_id}
           recipientName={application.job_company || 'Recruiter'}
+          senderId={currentUserId}
+        />
+      )}
+
+      {/* Message Modal for recruiters to message freelancers */}
+      {userType === 'recruiter' && application.freelancer_id && application.freelancer_profile && (
+        <MessageModal
+          isOpen={showMessageModal}
+          onClose={() => setShowMessageModal(false)}
+          recipientId={application.freelancer_id}
+          recipientName={`${application.freelancer_profile.first_name} ${application.freelancer_profile.last_name}`}
           senderId={currentUserId}
         />
       )}
