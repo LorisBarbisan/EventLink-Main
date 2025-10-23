@@ -1,0 +1,121 @@
+{messages: 0, applications: 0, jobs: 0, ratings: 0, total: 0}
+index-C_ucQfqW.js:363  GET https://eventlink.one/api/messages/unread-count?userId=18 500 (Internal Server Error)
+Ne @ index-C_ucQfqW.js:363
+queryFn @ index-C_ucQfqW.js:423
+l @ index-C_ucQfqW.js:355
+S @ index-C_ucQfqW.js:355
+start @ index-C_ucQfqW.js:355
+fetch @ index-C_ucQfqW.js:355
+Ml @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355Understand this error
+index-C_ucQfqW.js:363  GET https://eventlink.one/api/messages/unread-count?userId=18 500 (Internal Server Error)
+Ne @ index-C_ucQfqW.js:363
+queryFn @ index-C_ucQfqW.js:423
+l @ index-C_ucQfqW.js:355
+S @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+Promise.then
+(anonymous) @ index-C_ucQfqW.js:355
+Promise.catch
+S @ index-C_ucQfqW.js:355
+start @ index-C_ucQfqW.js:355
+fetch @ index-C_ucQfqW.js:355
+Ml @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355Understand this error
+index-C_ucQfqW.js:363  GET https://eventlink.one/api/messages/unread-count?userId=18 500 (Internal Server Error)
+Ne @ index-C_ucQfqW.js:363
+queryFn @ index-C_ucQfqW.js:423
+l @ index-C_ucQfqW.js:355
+S @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+Promise.then
+(anonymous) @ index-C_ucQfqW.js:355
+Promise.catch
+S @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+Promise.then
+(anonymous) @ index-C_ucQfqW.js:355
+Promise.catch
+S @ index-C_ucQfqW.js:355
+start @ index-C_ucQfqW.js:355
+fetch @ index-C_ucQfqW.js:355
+Ml @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355Understand this error
+index-C_ucQfqW.js:363  GET https://eventlink.one/api/messages/unread-count?userId=18 500 (Internal Server Error)
+Ne @ index-C_ucQfqW.js:363
+queryFn @ index-C_ucQfqW.js:423
+l @ index-C_ucQfqW.js:355
+S @ index-C_ucQfqW.js:355
+start @ index-C_ucQfqW.js:355
+fetch @ index-C_ucQfqW.js:355
+Ml @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+setInterval
+Am @ index-C_ucQfqW.js:355
+Mm @ index-C_ucQfqW.js:355
+onQueryUpdate @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+batch @ index-C_ucQfqW.js:355
+gs @ index-C_ucQfqW.js:355
+fetch @ index-C_ucQfqW.js:355
+await in fetch
+Ml @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355Understand this error
+index-C_ucQfqW.js:363  GET https://eventlink.one/api/messages/unread-count?userId=18 500 (Internal Server Error)
+Ne @ index-C_ucQfqW.js:363
+queryFn @ index-C_ucQfqW.js:423
+l @ index-C_ucQfqW.js:355
+S @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+Promise.then
+(anonymous) @ index-C_ucQfqW.js:355
+Promise.catch
+S @ index-C_ucQfqW.js:355
+start @ index-C_ucQfqW.js:355
+fetch @ index-C_ucQfqW.js:355
+Ml @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+setInterval
+Am @ index-C_ucQfqW.js:355
+Mm @ index-C_ucQfqW.js:355
+onQueryUpdate @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+batch @ index-C_ucQfqW.js:355
+gs @ index-C_ucQfqW.js:355
+fetch @ index-C_ucQfqW.js:355
+await in fetch
+Ml @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355Understand this error
+index-C_ucQfqW.js:363  GET https://eventlink.one/api/messages/unread-count?userId=18 500 (Internal Server Error)
+Ne @ index-C_ucQfqW.js:363
+queryFn @ index-C_ucQfqW.js:423
+l @ index-C_ucQfqW.js:355
+S @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+Promise.then
+(anonymous) @ index-C_ucQfqW.js:355
+Promise.catch
+S @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+Promise.then
+(anonymous) @ index-C_ucQfqW.js:355
+Promise.catch
+S @ index-C_ucQfqW.js:355
+start @ index-C_ucQfqW.js:355
+fetch @ index-C_ucQfqW.js:355
+Ml @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+setInterval
+Am @ index-C_ucQfqW.js:355
+Mm @ index-C_ucQfqW.js:355
+onQueryUpdate @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355
+batch @ index-C_ucQfqW.js:355
+gs @ index-C_ucQfqW.js:355
+fetch @ index-C_ucQfqW.js:355
+await in fetch
+Ml @ index-C_ucQfqW.js:355
+(anonymous) @ index-C_ucQfqW.js:355Understand this error
