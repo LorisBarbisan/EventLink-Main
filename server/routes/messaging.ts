@@ -11,7 +11,12 @@ export function registerMessagingRoutes(app: Express) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
+      console.log(`🔵 GET /api/conversations for user ${req.user.id}`);
       const conversations = await storage.getConversationsByUserId(req.user.id);
+      console.log(`🔵 Returning ${conversations.length} conversations for user ${req.user.id}`);
+      if (conversations.length > 0) {
+        console.log(`🔵 First conversation:`, JSON.stringify(conversations[0], null, 2));
+      }
       res.json(conversations);
     } catch (error) {
       console.error("Get conversations error:", error);
