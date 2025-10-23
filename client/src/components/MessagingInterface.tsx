@@ -352,9 +352,11 @@ export function MessagingInterface() {
                   <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No conversations yet</p>
                   <p className="text-sm text-muted-foreground">Send your first message to start a conversation!</p>
+                  <p className="text-xs text-red-500 mt-2">DEBUG: conversations.length = {conversations.length}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
+                  {(() => { console.log('🔵 Rendering conversations:', conversations); return null; })()}
                   {conversations.map((conversation: Conversation) => {
                     return (
                       <div
