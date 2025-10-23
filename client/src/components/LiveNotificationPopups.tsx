@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocation } from 'wouter';
 import { MessageCircle, Briefcase, User, AlertCircle, Star } from 'lucide-react';
 import { ToastAction } from '@/components/ui/toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface LiveNotificationPopupsProps {
   enabled?: boolean;
@@ -14,6 +15,7 @@ export function LiveNotificationPopups({ enabled = true }: LiveNotificationPopup
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const wsRef = useRef<WebSocket | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!user?.id || !enabled) return;
@@ -38,6 +40,11 @@ export function LiveNotificationPopups({ enabled = true }: LiveNotificationPopup
           switch (data.type) {
             case 'new_message':
               showMessagePopup(data.message, data.sender);
+              // Invalidate conversations cache to refresh messages list
+              queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+              if (data.message?.conversation_id) {
+                queryClient.invalidateQueries({ queryKey: [`/api/conversations/${data.message.conversation_id}/messages`] });
+              }
               break;
             case 'application_update':
               showApplicationUpdatePopup(data.application, data.status);
