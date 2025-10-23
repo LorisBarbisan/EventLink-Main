@@ -277,7 +277,7 @@ export function MessageModal({ isOpen, onClose, recipientId, recipientName, send
           </Button>
           <Button 
             onClick={handleSendMessage} 
-            disabled={isSending || !message.trim()}
+            disabled={isSending || (!message.trim() && !attachedFile)}
             data-testid="button-send-message"
           >
             {isSending ? (
