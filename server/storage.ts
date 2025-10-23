@@ -1315,7 +1315,7 @@ export class DatabaseStorage implements IStorage {
       .from(messages)
       .where(
         and(
-          sql`${messages.conversation_id} IN (${conversationIds.join(',')})`,
+          inArray(messages.conversation_id, conversationIds),
           eq(messages.is_read, false),
           sql`${messages.sender_id} != ${userId}`
         )
