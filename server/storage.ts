@@ -988,8 +988,6 @@ export class DatabaseStorage implements IStorage {
       id: conversations.id,
       participant_one_id: conversations.participant_one_id,
       participant_two_id: conversations.participant_two_id,
-      participant_one_deleted: conversations.participant_one_deleted,
-      participant_two_deleted: conversations.participant_two_deleted,
       last_message_at: conversations.last_message_at,
       created_at: conversations.created_at,
       otherUserId: sql<number>`CASE 
@@ -1028,16 +1026,9 @@ export class DatabaseStorage implements IStorage {
       END`)
     )
     .where(
-      and(
-        or(
-          eq(conversations.participant_one_id, userId),
-          eq(conversations.participant_two_id, userId)
-        ),
-        // Filter out deleted conversations
-        sql`CASE 
-          WHEN ${conversations.participant_one_id} = ${userId} THEN ${conversations.participant_one_deleted} = false
-          ELSE ${conversations.participant_two_deleted} = false
-        END`
+      or(
+        eq(conversations.participant_one_id, userId),
+        eq(conversations.participant_two_id, userId)
       )
     )
     .orderBy(desc(conversations.last_message_at));
@@ -1046,8 +1037,8 @@ export class DatabaseStorage implements IStorage {
       id: row.id,
       participant_one_id: row.participant_one_id,
       participant_two_id: row.participant_two_id,
-      participant_one_deleted: row.participant_one_deleted,
-      participant_two_deleted: row.participant_two_deleted,
+      participant_one_deleted: false,
+      participant_two_deleted: false,
       last_message_at: row.last_message_at,
       created_at: row.created_at,
       otherUser: {
