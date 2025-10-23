@@ -25,8 +25,6 @@ export function MessageModal({ isOpen, onClose, recipientId, recipientName, send
   const queryClient = useQueryClient();
 
   const handleSendMessage = async () => {
-    console.log('🚀 MessageModal: handleSendMessage called', { recipientId, recipientName, message: message.trim() });
-    
     if (!message.trim() && !attachedFile) {
       toast({
         title: 'Error',
@@ -37,7 +35,6 @@ export function MessageModal({ isOpen, onClose, recipientId, recipientName, send
     }
 
     setIsSending(true);
-    console.log('📤 MessageModal: Preparing to send message...');
     try {
       let attachmentData = null;
 
@@ -93,7 +90,6 @@ export function MessageModal({ isOpen, onClose, recipientId, recipientName, send
       }
 
       // Create conversation and send initial message
-      console.log('📨 MessageModal: Calling POST /api/conversations', { userTwoId: recipientId, initialMessage: message.trim() || 'File attachment' });
       const response = await apiRequest('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -102,7 +98,6 @@ export function MessageModal({ isOpen, onClose, recipientId, recipientName, send
           initialMessage: message.trim() || (attachedFile ? 'File attachment' : ''),
         }),
       });
-      console.log('✅ MessageModal: API response received', response);
 
       // If we have an attachment, add it to the message
       if (attachmentData && response.message) {
@@ -133,15 +128,13 @@ export function MessageModal({ isOpen, onClose, recipientId, recipientName, send
       setAttachedFile(null);
       onClose();
     } catch (error) {
-      console.error('❌ MessageModal: Error sending message:', error);
-      console.error('❌ MessageModal: Error details:', JSON.stringify(error, null, 2));
+      console.error('Error sending message:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to send message. Please try again.',
         variant: 'destructive',
       });
     } finally {
-      console.log('🏁 MessageModal: Finished (isSending = false)');
       setIsSending(false);
     }
   };
