@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -153,6 +154,8 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
     },
   });
 
+  const [, setLocation] = useLocation();
+
   const handleNotificationClick = async (notification: Notification) => {
     // Mark as read if unread and wait for completion
     if (!notification.is_read) {
@@ -172,7 +175,13 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
 
     // Navigate to action URL if provided
     if (notification.action_url) {
-      window.location.href = notification.action_url;
+      // Use client-side routing for internal URLs to preserve app state
+      if (notification.action_url.startsWith('/')) {
+        setLocation(notification.action_url);
+      } else {
+        // External URLs open in new tab
+        window.open(notification.action_url, '_blank');
+      }
     }
   };
 
