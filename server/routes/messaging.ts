@@ -302,6 +302,20 @@ export function registerMessagingRoutes(app: Express) {
           metadata: JSON.stringify({ sender_id: req.user.id, conversation_id: conversation_id })
         });
       }
+      
+      // Broadcast conversation list update to sender via WebSocket
+      // This ensures the sender's conversation list shows the message immediately
+      try {
+        const broadcastToUser = (global as any).broadcastToUser;
+        if (broadcastToUser) {
+          broadcastToUser(req.user.id, {
+            type: 'conversation_update',
+            conversation_id: conversation_id
+          });
+        }
+      } catch (error) {
+        console.error('Failed to broadcast conversation update to sender:', error);
+      }
 
       res.status(201).json(message);
     } catch (error) {

@@ -46,6 +46,13 @@ export function LiveNotificationPopups({ enabled = true }: LiveNotificationPopup
                 queryClient.invalidateQueries({ queryKey: [`/api/conversations/${data.message.conversation_id}/messages`] });
               }
               break;
+            case 'conversation_update':
+              // Update conversation list for sender when they send a message
+              queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+              if (data.conversation_id) {
+                queryClient.invalidateQueries({ queryKey: [`/api/conversations/${data.conversation_id}/messages`] });
+              }
+              break;
             case 'application_update':
               showApplicationUpdatePopup(data.application, data.status);
               break;
