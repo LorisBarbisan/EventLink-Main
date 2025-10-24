@@ -152,7 +152,6 @@ export function MessagingInterface() {
   const { user } = useOptimizedAuth();
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState("");
-  const [messagesLoading, setMessagesLoading] = useState(false);
   const [showFileUploader, setShowFileUploader] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<{path: string, name: string, size: number, type: string} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -226,13 +225,24 @@ export function MessagingInterface() {
   }, [conversations]);
 
   // Fetch messages for selected conversation
-  const { data: messages = [], refetch: refetchMessages } = useQuery<Message[]>({
+  const { data: messages = [], refetch: refetchMessages, isLoading: messagesLoading } = useQuery<Message[]>({
     queryKey: [`/api/conversations/${selectedConversation}/messages`],
     enabled: selectedConversation !== null,
     refetchInterval: 3000, // Poll every 3 seconds to show new messages
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   });
+
+  // Debug logging for messages
+  useEffect(() => {
+    if (selectedConversation) {
+      console.log(`📬 Messages for conversation ${selectedConversation}:`, {
+        count: messages?.length || 0,
+        loading: messagesLoading,
+        messages: messages
+      });
+    }
+  }, [messages, messagesLoading, selectedConversation]);
 
   // Create message mutation
   const createMessageMutation = useMutation({
