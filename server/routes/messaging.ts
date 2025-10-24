@@ -43,10 +43,6 @@ export function registerMessagingRoutes(app: Express) {
       
       // Get messages for this conversation
       const messages = await storage.getConversationMessages(conversationId);
-      console.log(`📬 GET /api/conversations/${conversationId}/messages - returning ${messages.length} messages`);
-      if (messages.length > 0) {
-        console.log(`📬 First message:`, JSON.stringify(messages[0], null, 2));
-      }
       
       // Mark messages as read
       await storage.markMessagesAsRead(conversationId, req.user.id);

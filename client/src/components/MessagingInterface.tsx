@@ -158,21 +158,12 @@ export function MessagingInterface() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  console.log('🔵 MessagingInterface mounted');
-
   // Fetch conversations
   const { data: conversations = [], isLoading: conversationsLoading, refetch: refetchConversations, error: conversationsError } = useQuery<Conversation[]>({
     queryKey: ['/api/conversations'],
     refetchOnMount: 'always', // Always refetch when component mounts to show new conversations
     refetchOnWindowFocus: true, // Refetch when window gains focus to show new messages
     refetchOnReconnect: true, // Refetch when network reconnects
-  });
-  
-  console.log('🔵 Conversations query state:', { 
-    conversationsCount: conversations?.length, 
-    isLoading: conversationsLoading,
-    hasError: !!conversationsError,
-    error: conversationsError
   });
   
   // Function to create conversation with a specific user
@@ -233,16 +224,6 @@ export function MessagingInterface() {
     refetchOnWindowFocus: true,
   });
 
-  // Debug logging for messages
-  useEffect(() => {
-    if (selectedConversation) {
-      console.log(`📬 Messages for conversation ${selectedConversation}:`, {
-        count: messages?.length || 0,
-        loading: messagesLoading,
-        messages: messages
-      });
-    }
-  }, [messages, messagesLoading, selectedConversation]);
 
   // Create message mutation
   const createMessageMutation = useMutation({
@@ -367,11 +348,9 @@ export function MessagingInterface() {
                   <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No conversations yet</p>
                   <p className="text-sm text-muted-foreground">Send your first message to start a conversation!</p>
-                  <p className="text-xs text-red-500 mt-2">DEBUG: conversations.length = {conversations.length}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {(() => { console.log('🔵 Rendering conversations:', conversations); return null; })()}
                   {conversations.map((conversation: Conversation) => {
                     return (
                       <div
