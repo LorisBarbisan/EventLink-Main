@@ -234,14 +234,14 @@ export function MessagingInterface() {
       });
       return result;
     },
-    onSuccess: async (data, variables) => {
+    onSuccess: async (serverMessage, variables) => {
       setNewMessage("");
       setPendingAttachment(null);
-      // Force immediate refetch using the conversation_id from the variables
-      await queryClient.refetchQueries({ 
-        queryKey: [`/api/conversations/${variables.conversation_id}/messages`],
-        type: 'active'
-      });
+      // Add the server message directly to the cache
+      queryClient.setQueryData<Message[]>(
+        [`/api/conversations/${variables.conversation_id}/messages`],
+        (old = []) => [...old, serverMessage]
+      );
     },
     onError: (error) => {
       toast({
