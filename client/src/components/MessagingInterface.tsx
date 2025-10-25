@@ -235,6 +235,7 @@ export function MessagingInterface() {
       return result;
     },
     onSuccess: async (serverMessage) => {
+      console.log('✅ Message sent, invalidating cache for conversation:', selectedConversation);
       setNewMessage("");
       setPendingAttachment(null);
       
@@ -243,6 +244,7 @@ export function MessagingInterface() {
       await queryClient.invalidateQueries({ 
         queryKey: [`/api/conversations/${selectedConversation}/messages`]
       });
+      console.log('🔄 Cache invalidated, refetch should trigger automatically');
     },
     onError: (error) => {
       toast({
