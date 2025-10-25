@@ -238,16 +238,11 @@ export function MessagingInterface() {
       setNewMessage("");
       setPendingAttachment(null);
       
-      // Add the server's message directly to the cache
-      queryClient.setQueryData<Message[]>(
-        [`/api/conversations/${selectedConversation}/messages`],
-        (old = []) => {
-          // Check if message already exists (avoid duplicates)
-          const exists = old.some(m => m.id === serverMessage.id);
-          if (exists) return old;
-          return [...old, serverMessage];
-        }
-      );
+      // Force an immediate refetch to show the new message
+      // This ensures the message appears right away and stays in sync with the server
+      await queryClient.invalidateQueries({ 
+        queryKey: [`/api/conversations/${selectedConversation}/messages`]
+      });
     },
     onError: (error) => {
       toast({
