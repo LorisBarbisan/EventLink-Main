@@ -260,13 +260,11 @@ export function MessagingInterface() {
       setNewMessage("");
       setPendingAttachment(null);
       
-      // Trigger a delayed refetch to replace optimistic message with real server data
-      setTimeout(async () => {
-        await queryClient.refetchQueries({ 
-          queryKey: [`/api/conversations/${selectedConversation}/messages`],
-          type: 'active'
-        });
-      }, 100);
+      // Invalidate and refetch to replace optimistic message with real server data
+      // invalidateQueries forces a fresh fetch from the server
+      await queryClient.invalidateQueries({ 
+        queryKey: [`/api/conversations/${selectedConversation}/messages`]
+      });
     },
     onError: (error, variables, context) => {
       // Remove the optimistic message on error
