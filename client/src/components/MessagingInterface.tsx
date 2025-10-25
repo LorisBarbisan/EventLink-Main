@@ -228,17 +228,14 @@ export function MessagingInterface() {
   // Create message mutation
   const createMessageMutation = useMutation({
     mutationFn: async (data: { conversation_id: number; content: string; attachment?: {path: string, name: string, size: number, type: string} }) => {
-      console.log('📤 Sending message:', data);
       const result = await apiRequest(`/api/messages`, {
         method: 'POST',
         body: JSON.stringify(data),
       });
-      console.log('✅ Message sent successfully:', result);
       return result;
     },
     onMutate: async (newMessageData) => {
-      // Optimistically add the message to the UI
-      console.log('🚀 Optimistically adding message to UI');
+      // Optimistically add the message to the UI immediately
       const optimisticMessage: Message = {
         id: Date.now(), // Temporary ID
         conversation_id: newMessageData.conversation_id,
@@ -247,7 +244,7 @@ export function MessagingInterface() {
         is_read: false,
         is_system_message: false,
         created_at: new Date().toISOString(),
-        sender: user as User, // Use current user as sender
+        sender: user as User,
         attachments: []
       };
       
@@ -260,14 +257,11 @@ export function MessagingInterface() {
       return { optimisticMessage };
     },
     onSuccess: async (serverMessage, variables, context) => {
-      console.log('📥 Mutation onSuccess, message saved on server');
       setNewMessage("");
       setPendingAttachment(null);
       
       // Trigger a delayed refetch to replace optimistic message with real server data
-      // Small delay to ensure the optimistic message stays visible briefly
       setTimeout(async () => {
-        console.log('🔄 Refetching messages after mutation success');
         await queryClient.refetchQueries({ 
           queryKey: [`/api/conversations/${selectedConversation}/messages`],
           type: 'active'
@@ -275,7 +269,6 @@ export function MessagingInterface() {
       }, 100);
     },
     onError: (error, variables, context) => {
-      console.error('❌ Message send failed, rolling back optimistic update');
       // Remove the optimistic message on error
       if (context?.optimisticMessage) {
         queryClient.setQueryData<Message[]>(

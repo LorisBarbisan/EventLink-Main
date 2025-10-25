@@ -27,7 +27,6 @@ export function registerMessagingRoutes(app: Express) {
       }
 
       const conversationId = parseInt(req.params.id);
-      console.log(`📨 GET /api/conversations/${conversationId}/messages for user ${req.user.id}`);
       
       // First verify that the user is a participant in this conversation
       const userConversations = await storage.getConversationsByUserId(req.user.id);
@@ -39,11 +38,6 @@ export function registerMessagingRoutes(app: Express) {
       
       // Get messages for this conversation
       const messages = await storage.getConversationMessages(conversationId);
-      console.log(`✅ Returning ${messages.length} messages for conversation ${conversationId}`);
-      if (messages.length > 0) {
-        const lastMessage = messages[messages.length - 1];
-        console.log(`  Last message ID: ${lastMessage.id}, content: "${lastMessage.content?.substring(0, 20)}..."`);
-      }
       
       // Mark messages as read
       await storage.markMessagesAsRead(conversationId, req.user.id);
@@ -217,10 +211,8 @@ export function registerMessagingRoutes(app: Express) {
       }
 
       const { conversation_id, content, attachment } = req.body;
-      console.log(`📬 POST /api/messages from user ${req.user.id}, conversation ${conversation_id}, content length: ${content?.length || 0}`);
 
       if (!conversation_id || (!content && !attachment)) {
-        console.log('❌ Missing conversation_id or content');
         return res.status(400).json({ error: "Conversation ID and either content or attachment are required" });
       }
 
@@ -320,7 +312,6 @@ export function registerMessagingRoutes(app: Express) {
         console.error('Failed to broadcast conversation update to sender:', error);
       }
 
-      console.log(`✅ Message ${message.id} sent successfully, returning to client`);
       res.status(201).json(message);
     } catch (error) {
       console.error("Send message error:", error);
