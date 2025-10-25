@@ -100,10 +100,6 @@ export function registerMessagingRoutes(app: Express) {
       }
 
       const { userTwoId, initialMessage } = req.body;
-      
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`💬 Creating conversation: user ${req.user.id} -> user ${userTwoId}`);
-      }
 
       if (!userTwoId || !initialMessage) {
         return res.status(400).json({ error: "User ID and initial message are required" });
@@ -123,10 +119,6 @@ export function registerMessagingRoutes(app: Express) {
 
       // Get or create conversation
       const conversation = await storage.getOrCreateConversation(req.user.id, userTwoId);
-      
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`✅ Conversation ${conversation.id} ready`);
-      }
 
       // Create the initial message
       const messageData = {
@@ -144,38 +136,28 @@ export function registerMessagingRoutes(app: Express) {
 
       const newMessage = await storage.sendMessage(result.data);
       
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`✅ Message ${newMessage.id} sent in conversation ${conversation.id}`);
-      }
-      
       // Create notification for recipient (only if not deleted)
       if (!await storage.isUserDeleted(userTwoId)) {
         // Get sender's display name (company name for recruiters, name for freelancers)
         let senderDisplayName = req.user.email; // fallback
-        console.log(`📨 Getting display name for ${req.user.role} user ${req.user.id}`);
         
         try {
           if (req.user.role === 'recruiter') {
             const recruiterProfile = await storage.getRecruiterProfile(req.user.id);
-            console.log('Recruiter profile:', recruiterProfile);
             senderDisplayName = recruiterProfile?.company_name || req.user.email;
-            console.log(`✅ Recruiter display name: ${senderDisplayName}`);
           } else if (req.user.role === 'freelancer') {
             const freelancerProfile = await storage.getFreelancerProfile(req.user.id);
-            console.log('Freelancer profile:', freelancerProfile);
             if (freelancerProfile?.first_name || freelancerProfile?.last_name) {
               const firstName = freelancerProfile.first_name || '';
               const lastName = freelancerProfile.last_name || '';
               senderDisplayName = `${firstName} ${lastName}`.trim() || req.user.email;
             }
-            console.log(`✅ Freelancer display name: ${senderDisplayName}`);
           }
         } catch (profileError) {
-          console.error("❌ Error fetching sender profile for notification:", profileError);
+          console.error("Error fetching sender profile for notification:", profileError);
           // Keep fallback to email
         }
         
-        console.log(`📬 Creating notification with sender name: ${senderDisplayName}`);
         await storage.createNotification({
           user_id: userTwoId,
           type: 'new_message',
@@ -186,17 +168,9 @@ export function registerMessagingRoutes(app: Express) {
           action_url: `/dashboard?tab=messages&recipientId=${req.user.id}`,
           metadata: JSON.stringify({ sender_id: req.user.id, conversation_id: conversation.id })
         });
-        
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`🔔 Notification sent to user ${userTwoId}`);
-        }
       }
 
       res.status(201).json({ id: conversation.id, message: newMessage });
-      
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`📤 Response sent: conversation ${conversation.id}`);
-      }
     } catch (error) {
       console.error("Create conversation error:", error);
       res.status(500).json({ error: "Internal server error" });
@@ -262,30 +236,24 @@ export function registerMessagingRoutes(app: Express) {
       if (conversation.otherUser && !await storage.isUserDeleted(conversation.otherUser.id)) {
         // Get sender's display name (company name for recruiters, name for freelancers)
         let senderDisplayName = req.user.email; // fallback
-        console.log(`📨 Getting display name for ${req.user.role} user ${req.user.id}`);
         
         try {
           if (req.user.role === 'recruiter') {
             const recruiterProfile = await storage.getRecruiterProfile(req.user.id);
-            console.log('Recruiter profile:', recruiterProfile);
             senderDisplayName = recruiterProfile?.company_name || req.user.email;
-            console.log(`✅ Recruiter display name: ${senderDisplayName}`);
           } else if (req.user.role === 'freelancer') {
             const freelancerProfile = await storage.getFreelancerProfile(req.user.id);
-            console.log('Freelancer profile:', freelancerProfile);
             if (freelancerProfile?.first_name || freelancerProfile?.last_name) {
               const firstName = freelancerProfile.first_name || '';
               const lastName = freelancerProfile.last_name || '';
               senderDisplayName = `${firstName} ${lastName}`.trim() || req.user.email;
             }
-            console.log(`✅ Freelancer display name: ${senderDisplayName}`);
           }
         } catch (profileError) {
-          console.error("❌ Error fetching sender profile for notification:", profileError);
+          console.error("Error fetching sender profile for notification:", profileError);
           // Keep fallback to email
         }
         
-        console.log(`📬 Creating notification with sender name: ${senderDisplayName}`);
         await storage.createNotification({
           user_id: conversation.otherUser.id,
           type: 'new_message',
