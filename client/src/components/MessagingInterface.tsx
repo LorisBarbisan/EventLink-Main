@@ -260,22 +260,14 @@ export function MessagingInterface() {
       return { optimisticMessage };
     },
     onSuccess: async (serverMessage, variables, context) => {
-      console.log('📥 Mutation onSuccess, updating with server response');
+      console.log('📥 Mutation onSuccess, refetching messages');
       setNewMessage("");
       setPendingAttachment(null);
       
-      // Replace optimistic message with real server message
-      queryClient.setQueryData<Message[]>(
-        [`/api/conversations/${selectedConversation}/messages`],
-        (old = []) => {
-          const filtered = old.filter(m => m.id !== context?.optimisticMessage.id);
-          return [...filtered, serverMessage];
-        }
-      );
-      
-      // Also refetch to ensure we have the latest data
-      refetchMessages();
-      refetchConversations();
+      // Don't replace optimistic message - just refetch to get complete data from server
+      // The server response doesn't include the sender object, so we'll let the refetch handle it
+      await refetchMessages();
+      await refetchConversations();
     },
     onError: (error, variables, context) => {
       console.error('❌ Message send failed, rolling back optimistic update');
