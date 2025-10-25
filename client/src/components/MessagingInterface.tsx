@@ -237,7 +237,8 @@ export function MessagingInterface() {
     onSuccess: () => {
       setNewMessage("");
       setPendingAttachment(null);
-      // Let WebSocket handle the message display update
+      // Immediately refetch messages to show the sent message
+      refetchMessages();
     },
     onError: (error) => {
       toast({
