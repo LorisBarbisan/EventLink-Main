@@ -531,44 +531,6 @@ export function MessagingInterface() {
                   </div>
                 </ScrollArea>
 
-                {/* File Uploader */}
-                {showFileUploader && (
-                  <div className="mb-4 p-4 border rounded-lg bg-muted/50">
-                    <FileUploader
-                      onUploadComplete={handleFileUploadComplete}
-                      onUploadError={handleFileUploadError}
-                      disabled={isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
-                    />
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => setShowFileUploader(false)}
-                      className="mt-2"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                )}
-                
-                {/* Pending Attachment Preview */}
-                {pendingAttachment && (
-                  <div className="mb-2 p-2 border rounded bg-blue-50 dark:bg-blue-900/20">
-                    <div className="flex items-center gap-2">
-                      {getFileIcon(pendingAttachment.type)}
-                      <span className="text-sm font-medium">{pendingAttachment.name}</span>
-                      <span className="text-xs text-muted-foreground">({formatFileSize(pendingAttachment.size)})</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setPendingAttachment(null)}
-                        className="h-6 w-6 p-0 ml-auto"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Message Input */}
                 <div className="flex gap-2">
                   <Input
@@ -580,18 +542,9 @@ export function MessagingInterface() {
                     data-testid="input-message"
                     disabled={isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
                   />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setShowFileUploader(!showFileUploader)}
-                    disabled={isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
-                    data-testid="button-attach-file"
-                  >
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
                   <Button 
                     onClick={handleSendMessage}
-                    disabled={(!newMessage.trim() && !pendingAttachment) || createMessageMutation.isPending || isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
+                    disabled={!newMessage.trim() || createMessageMutation.isPending || isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
                     data-testid="button-send"
                   >
                     <Send className="h-4 w-4" />
