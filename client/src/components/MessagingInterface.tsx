@@ -236,12 +236,13 @@ export function MessagingInterface() {
       console.log('✅ Message sent successfully:', result);
       return result;
     },
-    onSuccess: (data) => {
-      console.log('📥 Mutation onSuccess, clearing input and invalidating queries');
+    onSuccess: async (data) => {
+      console.log('📥 Mutation onSuccess, clearing input and refetching messages');
       setNewMessage("");
       setPendingAttachment(null);
-      queryClient.invalidateQueries({ queryKey: [`/api/conversations/${selectedConversation}/messages`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+      // Manually refetch messages to ensure they appear immediately
+      await refetchMessages();
+      await refetchConversations();
     },
     onError: (error) => {
       console.error('❌ Message send failed:', error);
