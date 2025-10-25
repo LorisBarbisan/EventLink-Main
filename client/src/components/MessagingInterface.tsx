@@ -234,11 +234,15 @@ export function MessagingInterface() {
       });
       return result;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setNewMessage("");
       setPendingAttachment(null);
-      // Immediately refetch messages to show the sent message
-      refetchMessages();
+      // Force immediate fetch of latest messages
+      if (selectedConversation) {
+        await queryClient.fetchQuery({
+          queryKey: [`/api/conversations/${selectedConversation}/messages`]
+        });
+      }
     },
     onError: (error) => {
       toast({
