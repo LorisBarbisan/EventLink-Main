@@ -149,7 +149,11 @@ const handleFileDownload = async (attachment: MessageAttachment) => {
 };
 
 export function MessagingInterface() {
+  console.log('🚀 MessagingInterface component rendering...');
+  
   const { user } = useAuth();
+  console.log('✅ useAuth hook executed, user:', user?.id);
+  
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -160,6 +164,8 @@ export function MessagingInterface() {
   const selectedConversationRef = useRef<number | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  
+  console.log('✅ All hooks initialized successfully');
 
   // Update ref when selectedConversation changes
   useEffect(() => {
