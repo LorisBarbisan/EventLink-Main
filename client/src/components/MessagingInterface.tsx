@@ -11,7 +11,7 @@ import { Send, MessageCircle, Clock, User, Trash2, Paperclip, Download, FileText
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { FileUploader } from "./FileUploader";
-import { useAuth } from "@/hooks/useAuth";
+import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
 
 interface User {
   id: number;
@@ -151,8 +151,8 @@ const handleFileDownload = async (attachment: MessageAttachment) => {
 export function MessagingInterface() {
   console.log('🚀 MessagingInterface component rendering...');
   
-  const { user } = useAuth();
-  console.log('✅ useAuth hook executed, user:', user?.id);
+  const { user } = useOptimizedAuth();
+  console.log('✅ useOptimizedAuth hook executed, user:', user?.id);
   
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState("");
