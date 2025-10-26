@@ -225,28 +225,18 @@ export function MessagingInterface() {
 
   // Simple function to load messages - guards against race conditions using ref
   const loadMessages = async (conversationId: number) => {
-    console.log('🔄 loadMessages called for conversation:', conversationId);
-    if (!conversationId) {
-      console.log('❌ No conversationId, bailing');
-      return;
-    }
+    if (!conversationId) return;
     
     try {
       setMessagesLoading(true);
-      console.log('📥 GET /api/conversations/' + conversationId + '/messages');
       const data = await apiRequest(`/api/conversations/${conversationId}/messages`);
-      console.log('📥 Received', (data as Message[]).length, 'messages');
       
       // Guard: only update state if this conversation is still selected (check ref, not stale closure)
-      console.log('🔍 Guard check: selectedConversationRef.current =', selectedConversationRef.current, 'conversationId =', conversationId);
       if (selectedConversationRef.current === conversationId) {
-        console.log('✅ Guard passed, updating messages state');
         setMessages(data as Message[]);
-      } else {
-        console.log('❌ Guard failed, discarding stale response');
       }
     } catch (error) {
-      console.error('❌ Failed to load messages:', error);
+      console.error('Failed to load messages:', error);
       // Only show toast if conversation is still selected
       if (selectedConversationRef.current === conversationId) {
         toast({
@@ -369,8 +359,6 @@ export function MessagingInterface() {
   const handleSendMessage = async () => {
     if ((!newMessage.trim() && !pendingAttachment) || !selectedConversation || isSending) return;
     
-    console.log('📤 Sending message to conversation:', selectedConversation);
-    
     const messageData = {
       conversation_id: selectedConversation,
       content: newMessage.trim() || (pendingAttachment ? 'File attachment' : ''),
@@ -380,26 +368,22 @@ export function MessagingInterface() {
     try {
       setIsSending(true);
       // Send the message to the server
-      console.log('📤 POST /api/messages...');
       await apiRequest(`/api/messages`, {
         method: 'POST',
         body: JSON.stringify(messageData),
       });
-      console.log('✅ Message sent successfully');
       
       // Clear input immediately
       setNewMessage("");
       setPendingAttachment(null);
       
       // Reload messages to show the new one
-      console.log('🔄 Reloading messages for conversation:', selectedConversation);
       await loadMessages(selectedConversation);
-      console.log('✅ Messages reloaded');
       
       // Update conversations list
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
     } catch (error) {
-      console.error('❌ Failed to send message:', error);
+      console.error('Failed to send message:', error);
       toast({
         title: "Failed to send message",
         description: "Please try again",
