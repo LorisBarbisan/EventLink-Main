@@ -151,13 +151,14 @@ const handleFileDownload = async (attachment: MessageAttachment) => {
 export function MessagingInterface() {
   const { user } = useOptimizedAuth();
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [showFileUploader, setShowFileUploader] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<{path: string, name: string, size: number, type: string} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const lastMessageSentRef = useRef<number>(0);
 
   // Fetch conversations
   const { data: conversations = [], isLoading: conversationsLoading, refetch: refetchConversations, error: conversationsError } = useQuery<Conversation[]>({
@@ -216,18 +217,38 @@ export function MessagingInterface() {
     }
   }, [conversations]);
 
-  // Fetch messages for selected conversation
-  const { data: messages = [], refetch: refetchMessages, isLoading: messagesLoading } = useQuery<Message[]>({
-    queryKey: [`/api/conversations/${selectedConversation}/messages`],
-    enabled: selectedConversation !== null,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    refetchInterval: 30000, // Lightweight fallback polling every 30s in case WebSocket fails
-  });
+  // Simple function to load messages - no React Query complexity
+  const loadMessages = async (conversationId: number) => {
+    if (!conversationId) return;
+    
+    try {
+      setMessagesLoading(true);
+      const data = await apiRequest(`/api/conversations/${conversationId}/messages`);
+      setMessages(data as Message[]);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      toast({
+        title: "Failed to load messages",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
 
-  // Listen for WebSocket events to refetch messages when new ones arrive
+  // Load messages when conversation changes
   useEffect(() => {
-    if (!user) return;
+    if (selectedConversation) {
+      loadMessages(selectedConversation);
+    } else {
+      setMessages([]);
+    }
+  }, [selectedConversation]);
+
+  // Optional: Listen for WebSocket events to reload messages when new ones arrive
+  useEffect(() => {
+    if (!user || !selectedConversation) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws`;
@@ -242,17 +263,13 @@ export function MessagingInterface() {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          // Refetch messages when conversation is updated
-          if (selectedConversation && data.type === 'conversation_update' && data.conversation_id === selectedConversation) {
-            refetchMessages();
+          // Reload messages when conversation is updated
+          if (data.type === 'conversation_update' && data.conversation_id === selectedConversation) {
+            loadMessages(selectedConversation);
           }
         } catch (error) {
           // Ignore parse errors
         }
-      };
-
-      ws.onerror = (error) => {
-        console.error('MessagingInterface WebSocket error:', error);
       };
 
       return () => {
@@ -263,7 +280,7 @@ export function MessagingInterface() {
     } catch (error) {
       console.error('Error creating MessagingInterface WebSocket:', error);
     }
-  }, [user, selectedConversation, refetchMessages]);
+  }, [user, selectedConversation]);
 
   // Invalidate badge counts when viewing messages (server marks them as read)
   useEffect(() => {
@@ -275,31 +292,8 @@ export function MessagingInterface() {
     queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread-count', user.id] });
   }, [selectedConversation, messages.length, user, messagesLoading, queryClient]);
 
-  // Create message mutation
-  const createMessageMutation = useMutation({
-    mutationFn: async (data: { conversation_id: number; content: string; attachment?: {path: string, name: string, size: number, type: string} }) => {
-      const result = await apiRequest(`/api/messages`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-      return result;
-    },
-    onSuccess: async (serverMessage, variables) => {
-      setNewMessage("");
-      setPendingAttachment(null);
-      // Immediately refetch messages to show the new message
-      await refetchMessages();
-      // Also invalidate conversations to update preview text
-      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to send message",
-        description: "Please try again",
-        variant: "destructive",
-      });
-    }
-  });
+  // Simple send message function - no React Query mutation
+  const [isSending, setIsSending] = useState(false);
 
   // Delete conversation mutation
   const deleteConversationMutation = useMutation({
@@ -345,9 +339,9 @@ export function MessagingInterface() {
     });
   };
 
-  // Handle sending messages
+  // Handle sending messages - simple approach
   const handleSendMessage = async () => {
-    if ((!newMessage.trim() && !pendingAttachment) || !selectedConversation) return;
+    if ((!newMessage.trim() && !pendingAttachment) || !selectedConversation || isSending) return;
     
     const messageData = {
       conversation_id: selectedConversation,
@@ -355,8 +349,33 @@ export function MessagingInterface() {
       ...(pendingAttachment && { attachment: pendingAttachment })
     };
     
-    createMessageMutation.mutate(messageData);
-    setPendingAttachment(null);
+    try {
+      setIsSending(true);
+      // Send the message to the server
+      await apiRequest(`/api/messages`, {
+        method: 'POST',
+        body: JSON.stringify(messageData),
+      });
+      
+      // Clear input immediately
+      setNewMessage("");
+      setPendingAttachment(null);
+      
+      // Reload messages to show the new one
+      await loadMessages(selectedConversation);
+      
+      // Update conversations list
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      toast({
+        title: "Failed to send message",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   // Handle key press in input
@@ -597,7 +616,7 @@ export function MessagingInterface() {
                   />
                   <Button 
                     onClick={handleSendMessage}
-                    disabled={!newMessage.trim() || createMessageMutation.isPending || isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
+                    disabled={!newMessage.trim() || isSending || isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
                     data-testid="button-send"
                   >
                     <Send className="h-4 w-4" />
