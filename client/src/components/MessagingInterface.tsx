@@ -11,6 +11,7 @@ import { Send, MessageCircle, Clock, User, Trash2, Paperclip, Download, FileText
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { FileUploader } from "./FileUploader";
+import { useAuth } from "@/hooks/useAuth";
 
 interface User {
   id: number;
@@ -148,50 +149,68 @@ const handleFileDownload = async (attachment: MessageAttachment) => {
 };
 
 export function MessagingInterface() {
+  const { user } = useAuth();
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [showFileUploader, setShowFileUploader] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<{path: string, name: string, size: number, type: string} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const selectedConversationRef = useRef<number | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch conversations
+  // Update ref when selectedConversation changes
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation;
+  }, [selectedConversation]);
+
+  // Direct fetch function for messages
+  const loadMessages = async (conversationId: number) => {
+    if (!conversationId) return;
+    
+    setMessagesLoading(true);
+    try {
+      const response = await apiRequest(`/api/conversations/${conversationId}/messages`);
+      
+      // Only update if this is still the selected conversation
+      if (selectedConversationRef.current === conversationId) {
+        setMessages(response || []);
+      }
+    } catch (error) {
+      // Only show error if this is still the selected conversation
+      if (selectedConversationRef.current === conversationId) {
+        toast({
+          title: "Failed to load messages",
+          description: "Please try again",
+          variant: "destructive",
+        });
+        setMessages([]);
+      }
+    } finally {
+      // Only update loading state if this is still the selected conversation
+      if (selectedConversationRef.current === conversationId) {
+        setMessagesLoading(false);
+      }
+    }
+  };
+
+  // Load messages when conversation selection changes
+  useEffect(() => {
+    if (selectedConversation) {
+      loadMessages(selectedConversation);
+    } else {
+      setMessages([]);
+    }
+  }, [selectedConversation]);
+
+  // Fetch conversations (still using React Query)
   const { data: conversations = [], isLoading: conversationsLoading, refetch: refetchConversations } = useQuery<Conversation[]>({
     queryKey: ['/api/conversations'],
-    refetchOnMount: 'always', // Always refetch when component mounts to show new conversations
-    refetchOnWindowFocus: true, // Refetch when window gains focus to show new messages
-    refetchOnReconnect: true, // Refetch when network reconnects
-  });
-
-  // Fetch messages for selected conversation
-  const { data: messages = [], refetch: refetchMessages } = useQuery<Message[]>({
-    queryKey: [`/api/conversations/${selectedConversation}/messages`],
-    enabled: selectedConversation !== null,
-  });
-
-  // Create message mutation
-  const createMessageMutation = useMutation({
-    mutationFn: async (data: { conversation_id: number; content: string; attachment?: {path: string, name: string, size: number, type: string} }) => {
-      return apiRequest(`/api/messages`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    },
-    onSuccess: () => {
-      setNewMessage("");
-      setPendingAttachment(null);
-      queryClient.invalidateQueries({ queryKey: [`/api/conversations/${selectedConversation}/messages`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to send message",
-        description: "Please try again",
-        variant: "destructive",
-      });
-    }
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   // Delete conversation mutation
@@ -236,7 +255,7 @@ export function MessagingInterface() {
     });
   };
 
-  // Handle sending messages
+  // Handle sending messages with direct fetch
   const handleSendMessage = async () => {
     if ((!newMessage.trim() && !pendingAttachment) || !selectedConversation) return;
     
@@ -246,8 +265,30 @@ export function MessagingInterface() {
       ...(pendingAttachment && { attachment: pendingAttachment })
     };
     
-    createMessageMutation.mutate(messageData);
-    setPendingAttachment(null);
+    try {
+      // POST the message
+      await apiRequest(`/api/messages`, {
+        method: 'POST',
+        body: JSON.stringify(messageData),
+      });
+      
+      // Clear inputs immediately
+      setNewMessage("");
+      setPendingAttachment(null);
+      
+      // Reload messages to show the new one
+      await loadMessages(selectedConversation);
+      
+      // Invalidate conversations to update last message
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+      
+    } catch (error) {
+      toast({
+        title: "Failed to send message",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    }
   };
 
   // Handle key press in input
@@ -264,6 +305,25 @@ export function MessagingInterface() {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // WebSocket listener for real-time message updates
+  useEffect(() => {
+    const handleWebSocketMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        // If a new message arrives for the selected conversation, reload
+        if (data.type === 'NEW_MESSAGE' && data.conversation_id === selectedConversation && selectedConversation !== null) {
+          loadMessages(selectedConversation);
+        }
+      } catch (error) {
+        // Ignore invalid WebSocket messages
+      }
+    };
+
+    window.addEventListener('message', handleWebSocketMessage);
+    return () => window.removeEventListener('message', handleWebSocketMessage);
+  }, [selectedConversation]);
 
   return (
     <div className="space-y-6">
@@ -291,44 +351,41 @@ export function MessagingInterface() {
                 <div className="flex flex-col items-center justify-center p-8 text-center">
                   <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">No conversations yet</p>
-                  <p className="text-sm text-muted-foreground">Send your first message to start a conversation!</p>
+                  <p className="text-sm text-muted-foreground">Start messaging by visiting a profile</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   {conversations.map((conversation: Conversation) => {
+                    const isDeleted = isUserDeleted(conversation.otherUser);
                     return (
                       <div
                         key={conversation.id}
-                        onClick={() => setSelectedConversation(conversation.id)}
-                        className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                          selectedConversation === conversation.id 
-                            ? 'bg-primary/10 border-primary border' 
-                            : 'hover:bg-muted/50'
-                        }`}
                         data-testid={`conversation-${conversation.id}`}
+                        className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                          selectedConversation === conversation.id
+                            ? 'bg-primary/10 border-primary'
+                            : 'hover:bg-muted'
+                        } ${isDeleted ? 'opacity-60' : ''}`}
+                        onClick={() => setSelectedConversation(conversation.id)}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <Avatar className="h-10 w-10">
-                              <AvatarFallback className="bg-gradient-primary text-white">
-                                {getAvatarInitials(conversation.otherUser)}
-                              </AvatarFallback>
-                            </Avatar>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="truncate font-medium">
-                                {getDisplayName(conversation.otherUser)}
-                              </p>
-                              {isUserDeleted(conversation.otherUser) && (
-                                <Badge variant="secondary" className="text-xs px-2 py-0 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                                  Account Deleted
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm text-muted-foreground capitalize">
-                              {conversation.otherUser.role}
+                        <Avatar className={isDeleted ? 'opacity-50' : ''}>
+                          <AvatarFallback className={isDeleted ? 'bg-red-100 text-red-600' : ''}>
+                            {getAvatarInitials(conversation.otherUser)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`font-medium truncate ${isDeleted ? 'text-muted-foreground' : ''}`}>
+                              {getDisplayName(conversation.otherUser)}
                             </p>
+                            {isDeleted && (
+                              <Badge variant="secondary" className="text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                Deleted
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 mt-1">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
                             <p className="text-xs text-muted-foreground">
                               {formatDate(conversation.last_message_at)}
                             </p>
@@ -382,12 +439,20 @@ export function MessagingInterface() {
                         <p className="text-sm text-muted-foreground">Start the conversation!</p>
                       </div>
                     ) : (
-                      messages.map((message) => (
-                        <div key={message.id} className={`flex ${message.sender_id === null ? 'justify-start' : 'justify-end'}`}>
+                      messages.map((message) => {
+                        const isMyMessage = message.sender_id === user?.id;
+                        const isSystemMessage = message.sender_id === null;
+                        
+                        return (
+                        <div key={message.id} className={`flex ${
+                          isSystemMessage ? 'justify-center' : isMyMessage ? 'justify-start' : 'justify-end'
+                        }`}>
                           <div className={`max-w-[70%] p-3 rounded-lg ${
-                            message.sender_id === null 
-                              ? 'bg-muted text-muted-foreground' 
-                              : 'bg-primary text-primary-foreground'
+                            isSystemMessage 
+                              ? 'bg-muted text-muted-foreground text-center text-sm' 
+                              : isMyMessage
+                              ? 'bg-gray-100 dark:bg-gray-800 text-foreground'
+                              : 'bg-gradient-primary text-white'
                           }`}>
                             {message.content && <p className="break-words">{message.content}</p>}
                             
@@ -398,43 +463,45 @@ export function MessagingInterface() {
                                   <div 
                                     key={attachment.id} 
                                     className={`flex items-center gap-2 p-2 rounded border ${
-                                      message.sender_id === null 
+                                      isSystemMessage 
                                         ? 'bg-background border-border' 
-                                        : 'bg-primary-foreground/10 border-primary-foreground/20'
+                                        : isMyMessage
+                                        ? 'bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                                        : 'bg-white/10 border-white/20'
                                     }`}
                                   >
                                     {getFileIcon(attachment.file_type)}
                                     <div className="flex-1 min-w-0">
                                       <p className={`text-sm font-medium truncate ${
-                                        message.sender_id === null ? 'text-foreground' : 'text-primary-foreground'
+                                        isSystemMessage ? 'text-foreground' : isMyMessage ? 'text-foreground' : 'text-white'
                                       }`}>
                                         {attachment.original_filename}
                                       </p>
                                       <p className={`text-xs ${
-                                        message.sender_id === null ? 'text-muted-foreground' : 'text-primary-foreground/70'
+                                        isSystemMessage ? 'text-muted-foreground' : isMyMessage ? 'text-muted-foreground' : 'text-white/70'
                                       }`}>
                                         {formatFileSize(attachment.file_size)}
                                         {attachment.scan_status === 'safe' && attachment.moderation_status === 'approved' && (
                                           <span className="ml-1">• Safe</span>
                                         )}
                                         {(attachment.scan_status === 'pending' || attachment.moderation_status === 'pending') && (
-                                          <span className="ml-1">• Scanning...</span>
+                                          <span className="ml-1">• Pending Review</span>
                                         )}
-                                        {(attachment.scan_status === 'unsafe' || attachment.moderation_status === 'rejected') && (
-                                          <span className="ml-1 text-red-500">• Blocked</span>
+                                        {(attachment.scan_status === 'unsafe' || attachment.scan_status === 'error' || 
+                                          attachment.moderation_status === 'rejected' || attachment.moderation_status === 'error') && (
+                                          <span className="ml-1">• Blocked</span>
                                         )}
                                       </p>
                                     </div>
                                     {attachment.scan_status === 'safe' && attachment.moderation_status === 'approved' && (
                                       <Button
-                                        size="sm"
                                         variant="ghost"
-                                        onClick={() => handleFileDownload(attachment)}
-                                        className={`h-8 w-8 p-0 ${
-                                          message.sender_id === null 
-                                            ? 'hover:bg-muted' 
-                                            : 'hover:bg-primary-foreground/20 text-primary-foreground'
+                                        size="sm"
+                                        className={`p-1 h-auto ${
+                                          isSystemMessage ? '' : isMyMessage ? '' : 'text-white hover:text-white hover:bg-white/10'
                                         }`}
+                                        onClick={() => handleFileDownload(attachment)}
+                                        data-testid={`button-download-attachment-${attachment.id}`}
                                       >
                                         <Download className="h-4 w-4" />
                                       </Button>
@@ -444,130 +511,141 @@ export function MessagingInterface() {
                               </div>
                             )}
                             
-                            <div className={`flex items-center gap-1 mt-1 text-xs ${
-                              message.sender_id === null 
-                                ? 'text-muted-foreground' 
-                                : 'text-primary-foreground/70'
+                            <p className={`text-xs mt-1 ${
+                              isSystemMessage ? 'text-muted-foreground' : isMyMessage ? 'text-muted-foreground' : 'text-white/70'
                             }`}>
-                              <Clock className="h-3 w-3" />
                               {formatDate(message.created_at)}
-                            </div>
+                            </p>
                           </div>
                         </div>
-                      ))
+                      );
+                    })
                     )}
                     <div ref={messagesEndRef} />
                   </div>
                 </ScrollArea>
 
-                {/* File Uploader */}
-                {showFileUploader && (
-                  <div className="mb-4 p-4 border rounded-lg bg-muted/50">
-                    <FileUploader
-                      onUploadComplete={handleFileUploadComplete}
-                      onUploadError={handleFileUploadError}
-                      disabled={isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
-                    />
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => setShowFileUploader(false)}
-                      className="mt-2"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                )}
-                
-                {/* Pending Attachment Preview */}
-                {pendingAttachment && (
-                  <div className="mb-2 p-2 border rounded bg-blue-50 dark:bg-blue-900/20">
-                    <div className="flex items-center gap-2">
-                      {getFileIcon(pendingAttachment.type)}
-                      <span className="text-sm font-medium">{pendingAttachment.name}</span>
-                      <span className="text-xs text-muted-foreground">({formatFileSize(pendingAttachment.size)})</span>
+                {/* Message Input */}
+                <div className="flex flex-col gap-2">
+                  {pendingAttachment && (
+                    <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                      <Paperclip className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{pendingAttachment.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatFileSize(pendingAttachment.size)}</p>
+                      </div>
                       <Button
-                        size="sm"
                         variant="ghost"
+                        size="sm"
+                        className="p-1 h-auto"
                         onClick={() => setPendingAttachment(null)}
-                        className="h-6 w-6 p-0 ml-auto"
+                        data-testid="button-remove-attachment"
                       >
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
+                  )}
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowFileUploader(true)}
+                      disabled={!selectedConversation}
+                      data-testid="button-attach-file"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </Button>
+                    <Input
+                      placeholder="Type a message..."
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      disabled={!selectedConversation}
+                      data-testid="input-message"
+                    />
+                    <Button 
+                      onClick={handleSendMessage} 
+                      disabled={(!newMessage.trim() && !pendingAttachment) || !selectedConversation}
+                      data-testid="button-send-message"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      Send
+                    </Button>
                   </div>
-                )}
+                </div>
 
-                {/* Message Input */}
-                <div className="flex gap-2">
-                  <Input
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type your message..."
-                    className="flex-1"
-                    data-testid="input-message"
-                    disabled={isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setShowFileUploader(!showFileUploader)}
-                    disabled={isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
-                    data-testid="button-attach-file"
-                  >
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    onClick={handleSendMessage}
-                    disabled={(!newMessage.trim() && !pendingAttachment) || createMessageMutation.isPending || isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser)}
-                    data-testid="button-send"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
+                {/* Delete Conversation */}
+                <div className="mt-4 pt-4 border-t">
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="icon" data-testid="button-delete-conversation">
-                        <Trash2 className="h-4 w-4" />
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        data-testid="button-delete-conversation"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Conversation
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>Delete Conversation</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Are you sure you want to delete this conversation? This action cannot be undone and will permanently remove all messages.
+                          This will permanently delete this conversation and all messages. This action cannot be undone.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
-                          onClick={() => selectedConversation && deleteConversationMutation.mutate(selectedConversation)}
-                          className="bg-red-600 hover:bg-red-700"
+                        <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteConversationMutation.mutate(selectedConversation)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          data-testid="button-confirm-delete"
                         >
-                          Delete Conversation
+                          Delete
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
-
-                {isUserDeleted(conversations.find((c: Conversation) => c.id === selectedConversation)?.otherUser) && (
-                  <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-300">
-                    This user account has been deleted. You can view the conversation but cannot send new messages.
-                  </div>
-                )}
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  <MessageCircle className="h-12 w-12 mx-auto mb-4" />
-                  <p>Select a conversation to start messaging</p>
-                </div>
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <MessageCircle className="h-16 w-16 text-muted-foreground mb-4" />
+                <p className="text-lg font-medium text-muted-foreground">Select a conversation</p>
+                <p className="text-sm text-muted-foreground">Choose a conversation from the list to start messaging</p>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* File Uploader Dialog */}
+      {showFileUploader && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Upload File</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowFileUploader(false)}
+                  data-testid="button-close-uploader"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FileUploader
+                onUploadComplete={handleFileUploadComplete}
+                onUploadError={handleFileUploadError}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
