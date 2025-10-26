@@ -220,15 +220,33 @@ export function MessagingInterface() {
   const { data: messages = [], refetch: refetchMessages, isLoading: messagesLoading } = useQuery<Message[]>({
     queryKey: [`/api/conversations/${selectedConversation}/messages`],
     enabled: selectedConversation !== null,
-    refetchInterval: () => {
-      // Pause polling for 5 seconds after sending a message to avoid race condition
-      const timeSinceLastSent = Date.now() - lastMessageSentRef.current;
-      return timeSinceLastSent > 5000 ? 3000 : false;
-    },
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   });
 
+  // Listen for WebSocket events to refetch messages when new ones arrive
+  useEffect(() => {
+    if (!selectedConversation) return;
+
+    const handleWebSocketMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        // Refetch messages when conversation is updated
+        if (data.type === 'conversation_update' && data.conversation_id === selectedConversation) {
+          refetchMessages();
+        }
+      } catch (error) {
+        // Ignore parse errors
+      }
+    };
+
+    // Try to find existing WebSocket connection
+    const ws = (window as any).ws;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.addEventListener('message', handleWebSocketMessage);
+      return () => ws.removeEventListener('message', handleWebSocketMessage);
+    }
+  }, [selectedConversation, refetchMessages]);
 
   // Create message mutation
   const createMessageMutation = useMutation({
@@ -242,19 +260,13 @@ export function MessagingInterface() {
     onSuccess: async (serverMessage, variables) => {
       setNewMessage("");
       setPendingAttachment(null);
-      // Track when we sent this message to pause polling
-      lastMessageSentRef.current = Date.now();
-      // Add the server message directly to the cache
+      // Add the server message directly to the cache - this is our single source of truth
       queryClient.setQueryData<Message[]>(
         [`/api/conversations/${variables.conversation_id}/messages`],
         (old = []) => [...old, serverMessage]
       );
-      // Resume polling after 5 seconds by invalidating the query
-      setTimeout(() => {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/conversations/${variables.conversation_id}/messages`] 
-        });
-      }, 5000);
+      // Also invalidate conversations to update preview text
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
     },
     onError: (error) => {
       toast({
