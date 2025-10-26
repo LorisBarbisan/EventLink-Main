@@ -149,10 +149,7 @@ const handleFileDownload = async (attachment: MessageAttachment) => {
 };
 
 export function MessagingInterface() {
-  console.log('🚀 MessagingInterface component rendering...');
-  
   const { user } = useOptimizedAuth();
-  console.log('✅ useOptimizedAuth hook executed, user:', user?.id);
   
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState("");
@@ -164,8 +161,6 @@ export function MessagingInterface() {
   const selectedConversationRef = useRef<number | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  
-  console.log('✅ All hooks initialized successfully');
 
   // Update ref when selectedConversation changes
   useEffect(() => {
@@ -174,27 +169,20 @@ export function MessagingInterface() {
 
   // Direct fetch function for messages
   const loadMessages = async (conversationId: number) => {
-    console.log('📥 loadMessages called for conversation:', conversationId);
     if (!conversationId) {
-      console.log('⚠️ No conversation ID, skipping load');
       return;
     }
     
     setMessagesLoading(true);
-    console.log('⏳ Loading messages...');
     try {
       const response = await apiRequest(`/api/conversations/${conversationId}/messages`);
-      console.log(`✅ Received ${response?.length || 0} messages from API`);
       
       // Only update if this is still the selected conversation
       if (selectedConversationRef.current === conversationId) {
         setMessages(response || []);
-        console.log('✅ Messages state updated');
-      } else {
-        console.log('⚠️ Conversation changed, skipping state update');
       }
     } catch (error) {
-      console.error('❌ Error loading messages:', error);
+      console.error('Error loading messages:', error);
       // Only show error if this is still the selected conversation
       if (selectedConversationRef.current === conversationId) {
         toast({
@@ -208,7 +196,6 @@ export function MessagingInterface() {
       // Only update loading state if this is still the selected conversation
       if (selectedConversationRef.current === conversationId) {
         setMessagesLoading(false);
-        console.log('✅ Loading complete');
       }
     }
   };
@@ -312,40 +299,32 @@ export function MessagingInterface() {
     };
     
     try {
-      console.log('🚀 Sending message:', messageData);
-      
       // Optimistically add message to UI immediately
       setMessages(prev => [...prev, optimisticMessage]);
-      console.log('✅ Optimistic message added to UI');
       
       // Clear inputs immediately
       setNewMessage("");
       setPendingAttachment(null);
-      console.log('🧹 Inputs cleared');
       
       // POST the message
       const response = await apiRequest(`/api/messages`, {
         method: 'POST',
         body: JSON.stringify(messageData),
       });
-      console.log('✅ Message sent, response:', response);
       
       // Replace optimistic message with real one
       setMessages(prev => prev.map(msg => 
         msg.id === optimisticMessage.id ? { ...response, sender: optimisticMessage.sender } : msg
       ));
-      console.log('✅ Replaced optimistic message with real message');
       
       // Invalidate conversations to update last message
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
-      console.log('✅ Conversations cache invalidated');
       
     } catch (error) {
-      console.error('❌ Error sending message:', error);
+      console.error('Error sending message:', error);
       
       // Remove optimistic message on error
       setMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
-      console.log('❌ Removed optimistic message due to error');
       
       toast({
         title: "Failed to send message",
