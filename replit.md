@@ -102,6 +102,21 @@ Created comprehensive system optimization with significantly improved efficiency
   - Removed all debug console.log statements from messaging routes for production readiness
   - System ready for deployment with clean, optimized code
 
+## Recent Changes (October 26, 2025)
+- ✅ **MESSAGING AND NOTIFICATION SYSTEM FIXES**: Resolved persistent issues with message persistence and badge clearing
+  - **Message Disappearing Fix**: Eliminated race condition by removing aggressive 3-second polling
+    - Implemented dedicated WebSocket connection in MessagingInterface for real-time updates
+    - Added 30-second fallback polling for reliability if WebSocket fails
+    - Messages now persist reliably in sender's view after sending
+  - **Notification Badge Fix**: Ensured badges clear immediately when marking as read or viewing messages
+    - Added category-counts invalidation to all mark-as-read mutations
+    - Changed WebSocket badge updates to direct cache writes (setQueryData) instead of refetch
+    - Added badge count invalidation when viewing messages (triggers server-side mark-as-read)
+  - **Architecture Improvements**: Single source of truth for message and notification data
+    - Eliminated polling race conditions with explicit state transitions
+    - WebSocket-first approach with fallback for reliability
+    - All changes architect-reviewed and production-ready
+
 ## Authentication System
 - **Production**: Custom session management with aggressive cache clearing, email verification required
 - **Email Service**: SendGrid integration for verification emails
