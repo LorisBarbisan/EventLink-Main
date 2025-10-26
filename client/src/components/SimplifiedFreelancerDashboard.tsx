@@ -289,7 +289,7 @@ export default function SimplifiedFreelancerDashboard() {
             </div>
           </div>
           {user && (
-            <MessagingInterface userId={user?.id || 0} />
+            <MessagingInterface />
           )}
         </TabsContent>
 

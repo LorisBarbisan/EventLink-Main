@@ -437,7 +437,9 @@ export default function SimplifiedRecruiterDashboard() {
             </div>
           </div>
           {user && (
-            <MessagingInterface userId={user.id} />
+            <MessagingInterface 
+              currentUser={{ id: user.id, email: user.email, role: 'recruiter' }}
+            />
           )}
         </TabsContent>
 
