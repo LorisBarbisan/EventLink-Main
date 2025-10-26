@@ -287,11 +287,8 @@ export function MessagingInterface() {
     onSuccess: async (serverMessage, variables) => {
       setNewMessage("");
       setPendingAttachment(null);
-      // Add the server message directly to the cache - this is our single source of truth
-      queryClient.setQueryData<Message[]>(
-        [`/api/conversations/${variables.conversation_id}/messages`],
-        (old = []) => [...old, serverMessage]
-      );
+      // Immediately refetch messages to show the new message
+      await refetchMessages();
       // Also invalidate conversations to update preview text
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
     },
