@@ -16,7 +16,7 @@ import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
 interface User {
   id: number;
   email: string;
-  role: 'freelancer' | 'recruiter';
+  role: 'freelancer' | 'recruiter' | 'admin';
   deleted_at?: string | null;
   first_name?: string | null;
   last_name?: string | null;
@@ -294,10 +294,10 @@ export function MessagingInterface() {
       sender: {
         id: user.id,
         email: user.email,
-        role: user.role,
+        role: user.role as 'freelancer' | 'recruiter',
         first_name: user.first_name || null,
         last_name: user.last_name || null,
-        company_name: user.company_name || null,
+        company_name: null,
         deleted_at: null
       },
       attachments: pendingAttachment ? [{
