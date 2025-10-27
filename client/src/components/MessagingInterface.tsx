@@ -203,17 +203,22 @@ export function MessagingInterface() {
   // Send message mutation - simple fetch-first approach
   const sendMessageMutation = useMutation({
     mutationFn: async (messageData: { conversation_id: number; content: string; attachment?: any }) => {
-      return apiRequest(`/api/messages`, {
+      console.log('🚀 Sending message:', messageData);
+      const result = await apiRequest(`/api/messages`, {
         method: 'POST',
         body: JSON.stringify(messageData),
       });
+      console.log('✅ Message sent successfully:', result);
+      return result;
     },
     onSuccess: (_data, variables) => {
+      console.log('✅ onSuccess triggered, invalidating queries for conversation:', variables.conversation_id);
       // Use variables.conversation_id instead of selectedConversation to avoid race conditions
       queryClient.invalidateQueries({ queryKey: ['/api/conversations', variables.conversation_id, 'messages'] });
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
     },
-    onError: (_error, variables) => {
+    onError: (error, variables) => {
+      console.error('❌ Message send failed:', error);
       // Only restore user input if fields are still empty
       // (prevents overwriting new content user typed while mutation was in flight)
       setNewMessage(prev => prev === "" ? variables.content : prev);
@@ -247,13 +252,23 @@ export function MessagingInterface() {
 
   // Handle sending messages
   const handleSendMessage = () => {
-    if ((!newMessage.trim() && !pendingAttachment) || !selectedConversation) return;
+    console.log('📝 handleSendMessage called');
+    console.log('newMessage:', newMessage);
+    console.log('selectedConversation:', selectedConversation);
+    console.log('pendingAttachment:', pendingAttachment);
+    
+    if ((!newMessage.trim() && !pendingAttachment) || !selectedConversation) {
+      console.log('⚠️ Send blocked - missing message or conversation');
+      return;
+    }
     
     const messageData = {
       conversation_id: selectedConversation,
       content: newMessage.trim() || (pendingAttachment ? 'File attachment' : ''),
       ...(pendingAttachment && { attachment: pendingAttachment })
     };
+    
+    console.log('📤 Preparing to send:', messageData);
     
     // Clear inputs immediately BEFORE mutation to prevent race condition
     // if user switches conversations while mutation is in flight
