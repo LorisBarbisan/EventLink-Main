@@ -266,23 +266,14 @@ export function registerMessagingRoutes(app: Express) {
         });
       }
       
-      // Broadcast NEW_MESSAGE to both sender and recipient via WebSocket
+      // Broadcast NEW_MESSAGE to recipient only (sender has optimistic UI)
       try {
         const broadcastToUser = (global as any).broadcastToUser;
-        if (broadcastToUser) {
-          // Notify sender (for conversation list update)
-          broadcastToUser(req.user.id, {
+        if (broadcastToUser && conversation.otherUser && !await storage.isUserDeleted(conversation.otherUser.id)) {
+          broadcastToUser(conversation.otherUser.id, {
             type: 'NEW_MESSAGE',
             conversation_id: conversation_id
           });
-          
-          // Notify recipient (if they exist and are not deleted)
-          if (conversation.otherUser && !await storage.isUserDeleted(conversation.otherUser.id)) {
-            broadcastToUser(conversation.otherUser.id, {
-              type: 'NEW_MESSAGE',
-              conversation_id: conversation_id
-            });
-          }
         }
       } catch (error) {
         console.error('Failed to broadcast NEW_MESSAGE:', error);
