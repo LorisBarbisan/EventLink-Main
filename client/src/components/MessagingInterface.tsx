@@ -173,12 +173,15 @@ export function MessagingInterface() {
       return;
     }
     
+    console.log('loadMessages called for conversation:', conversationId);
     setMessagesLoading(true);
     try {
       const response = await apiRequest(`/api/conversations/${conversationId}/messages`);
+      console.log('loadMessages fetched:', response?.length, 'messages');
       
       // Only update if this is still the selected conversation
       if (selectedConversationRef.current === conversationId) {
+        console.log('loadMessages updating state with:', response?.length, 'messages');
         setMessages(response || []);
       }
     } catch (error) {
@@ -300,7 +303,10 @@ export function MessagingInterface() {
     
     try {
       // Optimistically add message to UI immediately
-      setMessages(prev => [...prev, optimisticMessage]);
+      setMessages(prev => {
+        console.log('Adding optimistic message:', optimisticMessage.id);
+        return [...prev, optimisticMessage];
+      });
       
       // Clear inputs immediately
       setNewMessage("");
@@ -312,10 +318,17 @@ export function MessagingInterface() {
         body: JSON.stringify(messageData),
       });
       
+      console.log('Server response:', response);
+      
       // Replace optimistic message with real one
-      setMessages(prev => prev.map(msg => 
-        msg.id === optimisticMessage.id ? { ...response, sender: optimisticMessage.sender } : msg
-      ));
+      setMessages(prev => {
+        console.log('Replacing optimistic message. Current messages:', prev.length);
+        const updated = prev.map(msg => 
+          msg.id === optimisticMessage.id ? { ...response, sender: optimisticMessage.sender } : msg
+        );
+        console.log('After replacement:', updated.length);
+        return updated;
+      });
       
       // Invalidate conversations to update last message
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
