@@ -329,6 +329,12 @@ export function MessagingInterface() {
       // Invalidate conversations to update last message
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
       
+      // Keep isSendingRef true for a bit longer to prevent race condition
+      // where conversation list refresh triggers loadMessages before state settles
+      setTimeout(() => {
+        isSendingRef.current = false;
+      }, 100);
+      
     } catch (error) {
       console.error('Error sending message:', error);
       
@@ -340,8 +346,8 @@ export function MessagingInterface() {
         description: "Please try again",
         variant: "destructive",
       });
-    } finally {
-      // Allow loadMessages to run again
+      
+      // Still need to reset the flag on error
       isSendingRef.current = false;
     }
   };
