@@ -218,10 +218,10 @@ export function MessagingInterface() {
       return result;
     },
     onSuccess: (_data, variables) => {
-      console.log('✅ onSuccess triggered, invalidating queries for conversation:', variables.conversation_id);
-      // Use variables.conversation_id instead of selectedConversation to avoid race conditions
-      queryClient.invalidateQueries({ queryKey: ['/api/conversations', variables.conversation_id, 'messages'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+      console.log('✅ onSuccess triggered, refetching queries for conversation:', variables.conversation_id);
+      // Use refetchQueries to force immediate refetch (invalidateQueries only marks as stale)
+      queryClient.refetchQueries({ queryKey: ['/api/conversations', variables.conversation_id, 'messages'] });
+      queryClient.refetchQueries({ queryKey: ['/api/conversations'] });
     },
     onError: (error, variables) => {
       console.error('❌ Message send failed:', error);
