@@ -1,10 +1,12 @@
 import { Link, useLocation } from "wouter";
 import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
 import { EventLinkLogo } from "@/components/Logo";
+import { useToast } from "@/hooks/use-toast";
 
 export const Footer = () => {
   const [, setLocation] = useLocation();
   const { user } = useOptimizedAuth();
+  const { toast } = useToast();
 
   return (
     <footer className="bg-card border-t mt-auto">
@@ -50,10 +52,19 @@ export const Footer = () => {
               <li>
                 <button 
                   onClick={() => {
-                    if (user) {
-                      setLocation('/dashboard');
-                    } else {
+                    if (!user) {
+                      // Not logged in - redirect to sign in
                       setLocation('/auth');
+                    } else if (user.role === 'freelancer') {
+                      // Freelancer - show error message
+                      toast({
+                        title: 'Access Denied',
+                        description: 'Only recruiters can post jobs. Please sign in with a recruiter account.',
+                        variant: 'destructive',
+                      });
+                    } else if (user.role === 'recruiter') {
+                      // Recruiter - redirect to post job form
+                      setLocation('/dashboard?tab=jobs&action=post');
                     }
                   }}
                   className="hover:text-foreground"
