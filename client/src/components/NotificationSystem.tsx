@@ -98,9 +98,10 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread-count', userId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/category-counts', userId] });
+      // Use refetchQueries for immediate badge updates
+      queryClient.refetchQueries({ queryKey: ['/api/notifications', userId] });
+      queryClient.refetchQueries({ queryKey: ['/api/notifications/unread-count', userId] });
+      queryClient.refetchQueries({ queryKey: ['/api/notifications/category-counts', userId] });
     },
     onError: () => {
       toast({
@@ -119,9 +120,10 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread-count', userId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications/category-counts', userId] });
+      // Use refetchQueries for immediate badge updates
+      queryClient.refetchQueries({ queryKey: ['/api/notifications', userId] });
+      queryClient.refetchQueries({ queryKey: ['/api/notifications/unread-count', userId] });
+      queryClient.refetchQueries({ queryKey: ['/api/notifications/category-counts', userId] });
       toast({
         title: 'Success',
         description: 'All notifications marked as read',
@@ -227,11 +229,11 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
           
           if (data.type === 'badge_counts_update') {
             console.log('Notification system received badge counts update:', data.counts);
-            // Invalidate the unread count query to trigger refetch
-            queryClient.invalidateQueries({ queryKey: ['/api/notifications/unread-count', userId] });
-            // Also invalidate the notifications list if dropdown is open
+            // Use refetchQueries for immediate badge updates
+            queryClient.refetchQueries({ queryKey: ['/api/notifications/unread-count', userId] });
+            // Also refetch notifications list if dropdown is open
             if (isOpen) {
-              queryClient.invalidateQueries({ queryKey: ['/api/notifications', userId] });
+              queryClient.refetchQueries({ queryKey: ['/api/notifications', userId] });
             }
           }
         } catch (error) {
