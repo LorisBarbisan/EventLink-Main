@@ -373,17 +373,24 @@ export function MessagingInterface() {
       try {
         const data = JSON.parse(event.data);
         
-        // WebSocket just triggers refetches - no data manipulation
+        // Handle NEW_MESSAGE events for recipient
         if (data.type === 'NEW_MESSAGE') {
-          // Refetch messages for the active conversation
+          console.log('📨 WebSocket: New message received', data);
+          
+          // IMMEDIATE refetch for active conversation (recipient sees message instantly)
           if (data.conversation_id === selectedConversation) {
-            queryClient.invalidateQueries({ queryKey: ['/api/conversations', selectedConversation, 'messages'] });
+            console.log('🔄 Refetching messages for active conversation:', selectedConversation);
+            queryClient.refetchQueries({ 
+              queryKey: ['/api/conversations', selectedConversation, 'messages'],
+              type: 'active' 
+            });
           }
+          
           // Always refresh conversations list
-          queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+          queryClient.refetchQueries({ queryKey: ['/api/conversations'] });
         }
       } catch (error) {
-        // Ignore invalid WebSocket messages
+        console.error('WebSocket message parse error:', error);
       }
     };
 
