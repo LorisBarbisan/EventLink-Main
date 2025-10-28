@@ -103,11 +103,14 @@ export function registerAdminRoutes(app: Express) {
 
   // Send reply to contact message (admin only)
   app.post("/api/admin/contact-messages/:id/reply", requireAdminAuth, async (req, res) => {
+    console.log(`📧 Contact reply request received for message ID: ${req.params.id}`);
     try {
       const messageId = parseInt(req.params.id);
       const { reply } = req.body;
+      console.log(`📧 Reply content length: ${reply?.length || 0}`);
 
       if (!reply || !reply.trim()) {
+        console.log('❌ Reply validation failed - empty reply');
         return res.status(400).json({ error: "Reply message is required" });
       }
 
@@ -121,6 +124,7 @@ export function registerAdminRoutes(app: Express) {
 
       // Send reply email
       try {
+        console.log(`📧 Attempting to send email to ${message.email}`);
         await sendEmail({
           from: 'EventLink@eventlink.one', // Use verified SendGrid sender
           to: message.email,
@@ -139,17 +143,21 @@ export function registerAdminRoutes(app: Express) {
           `,
         });
 
+        console.log(`✅ Email sent successfully to ${message.email}`);
+        
         // Update message status to replied only after successful email send
         await storage.updateContactMessageStatus(messageId, 'replied');
+        console.log(`✅ Message status updated to 'replied' for ID: ${messageId}`);
 
         res.json({ message: "Reply sent successfully" });
-      } catch (emailError) {
-        console.error("Failed to send reply email:", emailError);
+      } catch (emailError: any) {
+        console.error("❌ Failed to send reply email:", emailError?.message || emailError);
+        console.error("❌ Full error:", JSON.stringify(emailError, null, 2));
         // Don't update status if email fails - let admin retry
         // Return error so frontend can show proper error message
         return res.status(500).json({ 
           error: "Failed to send email reply. Please try again.",
-          details: process.env.NODE_ENV === 'development' ? "Email service may not be configured in development mode" : undefined
+          details: process.env.NODE_ENV === 'development' ? `Email error: ${emailError?.message || 'Unknown error'}` : undefined
         });
       }
     } catch (error) {
