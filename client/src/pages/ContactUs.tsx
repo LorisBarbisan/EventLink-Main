@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -64,7 +65,8 @@ export default function ContactUs() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
+    <Layout>
+      <div className="container mx-auto px-4 py-8 max-w-3xl">
       {/* Header Section */}
       <div className="text-center mb-8">
         <div className="flex items-center justify-center mb-4">
@@ -219,6 +221,7 @@ export default function ContactUs() {
           </a>
         </p>
       </div>
-    </div>
+      </div>
+    </Layout>
   );
 }
