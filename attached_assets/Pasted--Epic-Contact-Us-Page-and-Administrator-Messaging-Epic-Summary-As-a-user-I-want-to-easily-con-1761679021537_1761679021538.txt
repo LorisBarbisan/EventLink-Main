@@ -1,0 +1,121 @@
+📬 Epic: Contact Us Page and Administrator Messaging
+Epic Summary:
+As a user, I want to easily contact the EventLink administrators through a simple and intuitive form so that I can ask for help, report issues, or make inquiries directly from the website.
+Epic Goal:
+Create a “Contact Us” page accessible from the footer under the Support section, featuring a clean message form that sends messages internally to Admin@eventlink.one. Messages should be routed to the admin inbox or backend system for review.
+________________________________________
+🎯 Epic Details
+•	Epic Name: Contact Us Page and Admin Messaging
+•	Primary User Roles:
+o	Any site visitor (logged in or not)
+o	Admin user (recipient of incoming messages)
+•	Primary Actor: User submitting a contact request
+•	Secondary Actor: Admin receiving the message
+•	Success Metric: 100% of messages submitted through the Contact Us form are correctly delivered to the admin inbox and stored in the database (if applicable).
+________________________________________
+🧩 User Stories
+________________________________________
+1️⃣ Story: Add "Contact Us" link in the footer
+As a user,
+I want to find a clear “Contact Us” option under the Support section in the website footer,
+so that I can easily reach the page for messaging the administrator.
+Acceptance Criteria:
+•	A new link labeled “Contact Us” is added under the Support section in the footer.
+•	Clicking the link opens the Contact Us page (/contact-us).
+•	The link appears on all website pages.
+•	The design follows EventLink’s minimal and professional branding.
+•	The footer layout remains responsive on desktop and mobile devices.
+Subtasks:
+1.	Update footer component to include new link under “Support.”
+2.	Ensure link routes correctly to /contact-us.
+3.	Test responsiveness across devices.
+4.	Verify link visibility and accessibility (WCAG standards).
+________________________________________
+2️⃣ Story: Create “Contact Us” Page (Frontend)
+As a user,
+I want a simple and intuitive form to send a message to EventLink’s administrators,
+so that I can contact them for support, feedback, or general inquiries.
+Acceptance Criteria:
+•	Page URL: /contact-us
+•	The page includes:
+o	Title: “Contact EventLink Support”
+o	Short description text: “Use the form below to reach our support team directly. We’ll get back to you as soon as possible.”
+o	Input fields:
+	Name (text, required)
+	Email (email, required)
+	Subject (text, required)
+	Message (textarea, required)
+o	Submit button labeled “Send Message”
+•	Form layout is responsive (mobile/tablet/desktop).
+•	Form validates input fields before submission.
+•	On successful submission:
+o	Show confirmation message: “✅ Your message has been sent successfully. Our team will be in touch soon.”
+•	On error:
+o	Show friendly error message: “⚠️ Something went wrong. Please try again later.”
+Subtasks:
+1.	Create /contact-us page in frontend framework.
+2.	Implement input validation (client-side).
+3.	Style according to existing EventLink UI components.
+4.	Implement confirmation/error toast or modal.
+5.	Ensure accessibility (tab order, screen reader labels).
+________________________________________
+3️⃣ Story: Backend - Message Handling & Delivery
+As a system administrator,
+I want all messages submitted from the Contact Us form to be sent to Admin@eventlink.one,
+so that I can manage user inquiries efficiently.
+Acceptance Criteria:
+•	Form submission triggers a backend API endpoint (e.g., POST /api/contact).
+•	Backend validates input data (name, email, subject, message).
+•	Backend sends message to Admin@eventlink.one:
+o	Subject line: “New Contact Form Message — [Subject]”
+o	Body includes: sender’s name, email, message content, and timestamp.
+•	Message is also stored in the database (optional for audit trail).
+•	Return success or error response to frontend.
+•	Implement rate limiting or CAPTCHA to prevent spam.
+Subtasks:
+1.	Create /api/contact endpoint.
+2.	Add input validation and sanitization (SQL/XSS protection).
+3.	Configure email service (e.g., SendGrid, Nodemailer, AWS SES).
+4.	Implement optional logging to database (contact_messages table).
+5.	Test with both valid and invalid inputs.
+________________________________________
+4️⃣ Story: Admin Notification (Internal Delivery)
+As an admin,
+I want to receive notifications when a user sends a message through the Contact Us form,
+so that I can respond promptly to inquiries.
+Acceptance Criteria:
+•	Each message triggers an email notification to Admin@eventlink.one.
+•	Email includes all message details (name, sender email, subject, content).
+•	Optionally, messages are visible in the admin dashboard under “User Messages.”
+•	No sensitive user data (passwords, tokens) are included in the message.
+•	Admin can view message logs (if database storage enabled).
+Subtasks:
+1.	Configure email templates for admin notifications.
+2.	Set up email delivery testing (sandbox environment first).
+3.	(Optional) Create admin dashboard component for message review.
+4.	Implement logging and error handling for undelivered messages.
+________________________________________
+5️⃣ Story: Security & Validation
+As a platform owner,
+I want the Contact Us form to be secure against spam and abuse,
+so that users can safely send messages without compromising the platform.
+Acceptance Criteria:
+•	Add reCAPTCHA or similar anti-bot mechanism to form.
+•	Implement backend rate limiting (e.g., max 3 messages per minute per IP).
+•	Sanitize all user input to prevent XSS/SQL injection.
+•	Emails must be sent via secure SMTP or API (TLS enabled).
+•	Test and verify that malicious payloads are rejected safely.
+Subtasks:
+1.	Add Google reCAPTCHA or hCaptcha integration.
+2.	Implement backend throttling.
+3.	Sanitize user input with security libraries.
+4.	Test injection and spam scenarios.
+________________________________________
+🧠 Implementation Approach
+Phase	Key Tasks	Tools/Notes
+1. Frontend UI	Build /contact-us page and form.	React / Next.js / Vue
+2. Backend Integration	Create /api/contact endpoint, connect email service.	Node.js, Express, or equivalent
+3. Email Delivery	Configure secure email via SendGrid or AWS SES.	TLS / SMTP
+4. Admin Handling	Route to Admin@eventlink.one, optional dashboard.	Internal message schema
+5. QA & Security	Validate, test, and deploy safely.	reCAPTCHA, rate limiters, OWASP testing
+

@@ -327,6 +327,18 @@ export const feedback = pgTable("feedback", {
   resolved_at: timestamp("resolved_at"),
 });
 
+export const contact_messages = pgTable("contact_messages", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  subject: text("subject").notNull(),
+  message: text("message").notNull(),
+  status: text("status").default('pending').$type<'pending' | 'replied' | 'resolved'>(),
+  ip_address: text("ip_address"), // For rate limiting and spam prevention
+  user_agent: text("user_agent"), // Browser/device information
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertRatingRequestSchema = createInsertSchema(rating_requests).omit({
   id: true,
   requested_at: true,
@@ -343,6 +355,17 @@ export const insertFeedbackSchema = createInsertSchema(feedback).omit({
   created_at: true,
   updated_at: true,
   resolved_at: true,
+});
+
+export const insertContactMessageSchema = createInsertSchema(contact_messages).omit({
+  id: true,
+  created_at: true,
+  status: true,
+}).extend({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Valid email is required"),
+  subject: z.string().min(1, "Subject is required"),
+  message: z.string().min(10, "Message must be at least 10 characters"),
 });
 
 export const insertMessageAttachmentSchema = createInsertSchema(message_attachments).omit({
@@ -386,3 +409,5 @@ export type Rating = typeof ratings.$inferSelect;
 export type InsertRating = z.infer<typeof insertRatingSchema>;
 export type RatingRequest = typeof rating_requests.$inferSelect;
 export type InsertRatingRequest = z.infer<typeof insertRatingRequestSchema>;
+export type ContactMessage = typeof contact_messages.$inferSelect;
+export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;
