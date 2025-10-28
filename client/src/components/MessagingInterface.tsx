@@ -7,10 +7,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Send, MessageCircle, Clock, User, Trash2, Paperclip, Download, FileText, Image, FileIcon, X } from "lucide-react";
+import { Send, MessageCircle, Clock, User, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { FileUploader } from "./FileUploader";
 import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
 
 interface User {
@@ -23,16 +22,6 @@ interface User {
   company_name?: string | null;
 }
 
-interface MessageAttachment {
-  id: number;
-  object_path: string;
-  original_filename: string;
-  file_type: string;
-  file_size: number;
-  scan_status: 'pending' | 'safe' | 'unsafe' | 'error';
-  moderation_status: 'pending' | 'approved' | 'rejected' | 'error';
-}
-
 interface Message {
   id: number;
   conversation_id: number;
@@ -42,7 +31,6 @@ interface Message {
   is_system_message: boolean;
   created_at: string;
   sender: User;
-  attachments?: MessageAttachment[];
 }
 
 interface Conversation {
@@ -111,50 +99,11 @@ const formatDate = (dateString: string): string => {
   }
 };
 
-// Helper function to get file icon based on file type
-const getFileIcon = (fileType: string) => {
-  if (fileType.startsWith('image/')) {
-    return <Image className="h-4 w-4" />;
-  } else if (fileType === 'application/pdf') {
-    return <FileText className="h-4 w-4" />;
-  } else {
-    return <FileIcon className="h-4 w-4" />;
-  }
-};
-
-// Helper function to format file size
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-// Helper function to handle file downloads
-const handleFileDownload = async (attachment: MessageAttachment) => {
-  try {
-    const response = await apiRequest(`/api/files/download/${attachment.id}`);
-    if (response.downloadUrl) {
-      const link = document.createElement('a');
-      link.href = response.downloadUrl;
-      link.download = attachment.original_filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  } catch (error) {
-    console.error('Download failed:', error);
-  }
-};
-
 export function MessagingInterface() {
   const { user } = useOptimizedAuth();
   
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState("");
-  const [showFileUploader, setShowFileUploader] = useState(false);
-  const [pendingAttachment, setPendingAttachment] = useState<{path: string, name: string, size: number, type: string} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -203,7 +152,7 @@ export function MessagingInterface() {
 
   // Send message mutation - simple fetch-first approach
   const sendMessageMutation = useMutation({
-    mutationFn: async (messageData: { conversation_id: number; content: string; attachment?: any }) => {
+    mutationFn: async (messageData: { conversation_id: number; content: string }) => {
       console.log('🚀 Sending message:', messageData);
       const result = await apiRequest(`/api/messages`, {
         method: 'POST',
@@ -227,7 +176,7 @@ export function MessagingInterface() {
           }
           
           // Create the full message object with sender info
-          const newMessage: Message & { sender: any; attachments?: any[] } = {
+          const newMessage: Message & { sender: any } = {
             id: data.id,
             conversation_id: data.conversation_id,
             sender_id: data.sender_id,
@@ -257,8 +206,7 @@ export function MessagingInterface() {
               deleted_at: null,
               created_at: new Date(),
               updated_at: new Date()
-            },
-            attachments: data.attachments || undefined
+            }
           };
           console.log('✅ Message added to cache, new total:', old.length + 1);
           return [...old, newMessage];
@@ -285,7 +233,6 @@ export function MessagingInterface() {
       // Only restore user input if fields are still empty
       // (prevents overwriting new content user typed while mutation was in flight)
       setNewMessage(prev => prev === "" ? variables.content : prev);
-      setPendingAttachment(prev => prev === null && variables.attachment ? variables.attachment : prev);
       
       toast({
         title: "Failed to send message",
@@ -295,40 +242,20 @@ export function MessagingInterface() {
     }
   });
 
-  // Handle file upload completion
-  const handleFileUploadComplete = (filePath: string, fileName: string, fileSize: number, fileType: string) => {
-    setPendingAttachment({ path: filePath, name: fileName, size: fileSize, type: fileType });
-    setShowFileUploader(false);
-    toast({
-      title: "File uploaded",
-      description: `${fileName} is ready to send`,
-    });
-  };
-
-  const handleFileUploadError = (error: string) => {
-    toast({
-      title: "Upload failed",
-      description: error,
-      variant: "destructive",
-    });
-  };
-
   // Handle sending messages
   const handleSendMessage = () => {
     console.log('📝 handleSendMessage called');
     console.log('newMessage:', newMessage);
     console.log('selectedConversation:', selectedConversation);
-    console.log('pendingAttachment:', pendingAttachment);
     
-    if ((!newMessage.trim() && !pendingAttachment) || !selectedConversation) {
+    if (!newMessage.trim() || !selectedConversation) {
       console.log('⚠️ Send blocked - missing message or conversation');
       return;
     }
     
     const messageData = {
       conversation_id: selectedConversation,
-      content: newMessage.trim() || (pendingAttachment ? 'File attachment' : ''),
-      ...(pendingAttachment && { attachment: pendingAttachment })
+      content: newMessage.trim()
     };
     
     console.log('📤 Preparing to send:', messageData);
@@ -336,7 +263,6 @@ export function MessagingInterface() {
     // Clear inputs immediately BEFORE mutation to prevent race condition
     // if user switches conversations while mutation is in flight
     setNewMessage("");
-    setPendingAttachment(null);
     
     sendMessageMutation.mutate(messageData);
   };
@@ -561,62 +487,7 @@ export function MessagingInterface() {
                               ? 'bg-gray-100 dark:bg-gray-800 text-foreground'
                               : 'bg-gradient-primary text-white'
                           }`}>
-                            {message.content && <p className="break-words">{message.content}</p>}
-                            
-                            {/* File Attachments */}
-                            {message.attachments && message.attachments.length > 0 && (
-                              <div className="mt-2 space-y-2">
-                                {message.attachments.map((attachment) => (
-                                  <div 
-                                    key={attachment.id} 
-                                    className={`flex items-center gap-2 p-2 rounded border ${
-                                      isSystemMessage 
-                                        ? 'bg-background border-border' 
-                                        : isMyMessage
-                                        ? 'bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
-                                        : 'bg-white/10 border-white/20'
-                                    }`}
-                                  >
-                                    {getFileIcon(attachment.file_type)}
-                                    <div className="flex-1 min-w-0">
-                                      <p className={`text-sm font-medium truncate ${
-                                        isSystemMessage ? 'text-foreground' : isMyMessage ? 'text-foreground' : 'text-white'
-                                      }`}>
-                                        {attachment.original_filename}
-                                      </p>
-                                      <p className={`text-xs ${
-                                        isSystemMessage ? 'text-muted-foreground' : isMyMessage ? 'text-muted-foreground' : 'text-white/70'
-                                      }`}>
-                                        {formatFileSize(attachment.file_size)}
-                                        {attachment.scan_status === 'safe' && attachment.moderation_status === 'approved' && (
-                                          <span className="ml-1">• Safe</span>
-                                        )}
-                                        {(attachment.scan_status === 'pending' || attachment.moderation_status === 'pending') && (
-                                          <span className="ml-1">• Pending Review</span>
-                                        )}
-                                        {(attachment.scan_status === 'unsafe' || attachment.scan_status === 'error' || 
-                                          attachment.moderation_status === 'rejected' || attachment.moderation_status === 'error') && (
-                                          <span className="ml-1">• Blocked</span>
-                                        )}
-                                      </p>
-                                    </div>
-                                    {attachment.scan_status === 'safe' && attachment.moderation_status === 'approved' && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className={`p-1 h-auto ${
-                                          isSystemMessage ? '' : isMyMessage ? '' : 'text-white hover:text-white hover:bg-white/10'
-                                        }`}
-                                        onClick={() => handleFileDownload(attachment)}
-                                        data-testid={`button-download-attachment-${attachment.id}`}
-                                      >
-                                        <Download className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                            <p className="break-words">{message.content}</p>
                             
                             <p className={`text-xs mt-1 ${
                               isSystemMessage ? 'text-muted-foreground' : isMyMessage ? 'text-muted-foreground' : 'text-white/70'
@@ -633,53 +504,23 @@ export function MessagingInterface() {
                 </ScrollArea>
 
                 {/* Message Input */}
-                <div className="flex flex-col gap-2">
-                  {pendingAttachment && (
-                    <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-                      <Paperclip className="h-4 w-4 text-muted-foreground" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{pendingAttachment.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatFileSize(pendingAttachment.size)}</p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-1 h-auto"
-                        onClick={() => setPendingAttachment(null)}
-                        data-testid="button-remove-attachment"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                  
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setShowFileUploader(true)}
-                      disabled={!selectedConversation}
-                      data-testid="button-attach-file"
-                    >
-                      <Paperclip className="h-4 w-4" />
-                    </Button>
-                    <Input
-                      placeholder="Type a message..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      disabled={!selectedConversation}
-                      data-testid="input-message"
-                    />
-                    <Button 
-                      onClick={handleSendMessage} 
-                      disabled={(!newMessage.trim() && !pendingAttachment) || !selectedConversation}
-                      data-testid="button-send-message"
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      Send
-                    </Button>
-                  </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Type a message..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    disabled={!selectedConversation}
+                    data-testid="input-message"
+                  />
+                  <Button 
+                    onClick={handleSendMessage} 
+                    disabled={!newMessage.trim() || !selectedConversation}
+                    data-testid="button-send-message"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Send
+                  </Button>
                 </div>
 
                 {/* Delete Conversation */}
@@ -727,33 +568,6 @@ export function MessagingInterface() {
           </CardContent>
         </Card>
       </div>
-
-      {/* File Uploader Dialog */}
-      {showFileUploader && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Upload File</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowFileUploader(false)}
-                  data-testid="button-close-uploader"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FileUploader
-                onUploadComplete={handleFileUploadComplete}
-                onUploadError={handleFileUploadError}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }
