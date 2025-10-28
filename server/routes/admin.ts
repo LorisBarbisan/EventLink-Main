@@ -139,13 +139,17 @@ export function registerAdminRoutes(app: Express) {
           `,
         });
 
+        // Update message status to replied only after successful email send
+        await storage.updateContactMessageStatus(messageId, 'replied');
+
         res.json({ message: "Reply sent successfully" });
       } catch (emailError) {
         console.error("Failed to send reply email:", emailError);
-        // Return success even if email fails (graceful degradation)
-        res.json({ 
-          message: "Reply processed (email delivery may be pending)",
-          warning: "Email service unavailable in development mode"
+        // Don't update status if email fails - let admin retry
+        // Return error so frontend can show proper error message
+        return res.status(500).json({ 
+          error: "Failed to send email reply. Please try again.",
+          details: process.env.NODE_ENV === 'development' ? "Email service may not be configured in development mode" : undefined
         });
       }
     } catch (error) {

@@ -56,7 +56,7 @@ interface ContactMessage {
   email: string;
   subject: string;
   message: string;
-  status: 'pending' | 'responded';
+  status: 'pending' | 'replied' | 'resolved';
   ip_address?: string;
   user_agent?: string;
   created_at: string;
@@ -604,7 +604,13 @@ function AdminDashboardContent() {
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="font-semibold">{message.subject}</span>
-                              <Badge className={message.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}>
+                              <Badge className={
+                                message.status === 'pending' 
+                                  ? 'bg-yellow-100 text-yellow-800' 
+                                  : message.status === 'replied'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }>
                                 {message.status}
                               </Badge>
                             </div>

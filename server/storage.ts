@@ -2149,6 +2149,12 @@ export class DatabaseStorage implements IStorage {
       .from(contact_messages)
       .orderBy(desc(contact_messages.created_at));
   }
+
+  async updateContactMessageStatus(id: number, status: 'pending' | 'replied' | 'resolved'): Promise<void> {
+    await db.update(contact_messages)
+      .set({ status })
+      .where(eq(contact_messages.id, id));
+  }
 }
 
 export const storage = new DatabaseStorage();
