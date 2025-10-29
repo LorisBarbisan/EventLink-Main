@@ -31,6 +31,10 @@ export default function Jobs() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  
+  // Control popover states to prevent overlapping
+  const [fromDateOpen, setFromDateOpen] = useState(false);
+  const [toDateOpen, setToDateOpen] = useState(false);
 
   // Load initial search parameters from URL
   useEffect(() => {
@@ -328,7 +332,10 @@ export default function Jobs() {
               {/* Date Range Filter */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Popover>
+                  <Popover open={fromDateOpen} onOpenChange={(open) => {
+                    setFromDateOpen(open);
+                    if (open) setToDateOpen(false); // Close the other popover
+                  }}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
@@ -343,14 +350,20 @@ export default function Jobs() {
                       <Calendar
                         mode="single"
                         selected={dateFrom}
-                        onSelect={setDateFrom}
+                        onSelect={(date) => {
+                          setDateFrom(date);
+                          setFromDateOpen(false); // Close popover after selection
+                        }}
                         initialFocus
                       />
                     </PopoverContent>
                   </Popover>
                 </div>
                 <div>
-                  <Popover>
+                  <Popover open={toDateOpen} onOpenChange={(open) => {
+                    setToDateOpen(open);
+                    if (open) setFromDateOpen(false); // Close the other popover
+                  }}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
@@ -365,7 +378,10 @@ export default function Jobs() {
                       <Calendar
                         mode="single"
                         selected={dateTo}
-                        onSelect={setDateTo}
+                        onSelect={(date) => {
+                          setDateTo(date);
+                          setToDateOpen(false); // Close popover after selection
+                        }}
                         initialFocus
                         disabled={(date) => dateFrom ? date < dateFrom : false}
                       />
