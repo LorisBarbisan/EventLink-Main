@@ -1,0 +1,144 @@
+📘 Epic: Help Centre and FAQ Page Implementation
+Epic Summary:
+As a user, I want to access a clear and comprehensive FAQ section from the website footer, so I can quickly find answers to common questions without needing to contact support.
+Epic Goal:
+Provide an accessible and expandable FAQ page linked from the Support section of the footer, containing a helpful, categorized list of frequently asked questions about EventLink’s core features, accounts, jobs, messaging, and security.
+________________________________________
+🎯 Epic Details
+•	Epic Name: Help Centre / FAQ Page
+•	Primary Users:
+o	Freelancers
+o	Recruiters
+o	Visitors (unregistered users)
+•	Primary Actor: Any user seeking information or troubleshooting help
+•	Secondary Actor: Admin (who manages FAQ content)
+•	Success Metric:
+o	≥80% reduction in common support requests post-launch
+o	Positive feedback on usability and helpfulness of FAQs
+________________________________________
+🧩 User Stories
+________________________________________
+1️⃣ Story: Add “FAQ” link in Footer under Support Section
+As a user,
+I want to find a FAQ link in the footer under the Support section,
+so that I can easily navigate to the Help Centre page.
+Acceptance Criteria:
+•	“FAQ” link appears below “Contact Us” under Support in the footer.
+•	The link routes to /faq or /help-centre.
+•	The link is visible on all pages of the site.
+•	The footer layout remains consistent and responsive.
+Subtasks:
+1.	Update footer component to add the new “FAQ” link.
+2.	Verify routing to /faq.
+3.	Confirm responsiveness on mobile and tablet.
+4.	Check accessibility compliance (tab navigation and ARIA labels).
+________________________________________
+2️⃣ Story: Create “FAQ / Help Centre” Page (Frontend)
+As a user,
+I want a clean, expandable FAQ section,
+so that I can browse and reveal helpful answers to common questions.
+Acceptance Criteria:
+•	Page title: “Help Centre – Frequently Asked Questions”
+•	The layout includes:
+o	Search bar (optional for MVP)
+o	Expandable accordion-style questions (click to reveal answer)
+o	Categorized questions: Accounts, Jobs, Messaging, Notifications, Privacy, Technical Help
+•	Questions and answers are displayed using existing EventLink style (fonts, gradients).
+•	Page is fully responsive and mobile-friendly.
+•	All text is editable via content file or admin panel (for future updates).
+Subtasks:
+1.	Create /faq page template.
+2.	Build accordion UI component for expandable Q&A.
+3.	Implement search filter (optional MVP).
+4.	Apply EventLink color palette (#D8690E gradient).
+5.	Test usability and responsiveness.
+________________________________________
+3️⃣ Story: Add FAQ Content (Curate 15 Q&As)
+As a user,
+I want clear answers to the most common questions about EventLink,
+so that I can resolve most issues on my own.
+Acceptance Criteria:
+•	FAQ section includes ~15 helpful questions.
+•	Answers are concise, accurate, and written in plain English.
+•	Each FAQ is correctly categorized.
+•	Content reviewed and approved by product owner before deployment.
+Subtasks:
+1.	Write and format FAQ content.
+2.	Add categories and organize Q&A logically.
+3.	Review content for accuracy and tone.
+4.	Load content dynamically or as static text.
+________________________________________
+4️⃣ Story: Backend Content Management (Optional Future Scope)
+As an admin,
+I want the ability to add, edit, or remove FAQs from the backend,
+so that I can keep the Help Centre content up to date.
+Acceptance Criteria (Optional):
+•	Admin panel has FAQ editor (title, category, answer).
+•	Changes reflect instantly on /faq.
+•	Only admins can modify content.
+Subtasks (Optional):
+1.	Add faq database table.
+2.	Create CRUD API for FAQ management.
+3.	Secure admin access routes.
+________________________________________
+5️⃣ Story: SEO and Analytics
+As a platform owner,
+I want the FAQ page optimized for search engines and tracked by analytics,
+so that it improves organic discoverability and usage insights.
+Acceptance Criteria:
+•	Add meta title/description for /faq.
+•	Structured FAQ schema for Google rich snippets.
+•	Integrate analytics event tracking for FAQ interactions.
+Subtasks:
+1.	Add meta tags and JSON-LD FAQ schema.
+2.	Integrate Google Analytics or Plausible tracking for page views and question clicks.
+________________________________________
+💬 FAQ Content (Example for Launch)
+Account & Registration
+1.	How do I create an EventLink account?
+You can sign up for free by clicking “Sign Up” on the homepage. Choose whether you’re a freelancer or a recruiter and fill in the required information.
+2.	Do I need to pay to use EventLink?
+No. Creating a profile and applying for jobs are free. Premium features may be added later.
+3.	How do I reset my password?
+On the login page, click “Forgot Password” and follow the email instructions to reset it.
+4.	Can I delete my account?
+Yes. Go to “Account Settings” and select “Delete Account.” This permanently removes all your data.
+________________________________________
+Jobs & Applications
+5.	How do I post a job?
+Recruiters can post jobs by clicking “Post a New Job” in their dashboard or header menu.
+6.	Can freelancers apply for multiple jobs?
+Yes. Freelancers can apply for as many suitable jobs as they like.
+7.	How do I know if my application was viewed?
+You’ll receive an email and dashboard notification when a recruiter views your profile.
+8.	Can I edit a job after posting?
+Yes. Go to your “My Jobs” section, select the job, and click “Edit.”
+________________________________________
+Messaging & Notifications
+9.	How do I contact a recruiter or freelancer?
+You can message them directly from their profile or from your message inbox.
+10.	Will I get notifications for messages or job updates?
+Yes. EventLink sends email notifications for key updates and unread messages.
+________________________________________
+Ratings & Feedback
+11.	How does the star rating system work?
+After a job is completed, recruiters can rate freelancers from 1 to 5 stars. Ratings appear on profiles.
+12.	Can I respond to a rating?
+Not directly, but users can contact support if they believe a rating is unfair.
+________________________________________
+Privacy & Security
+13.	How is my data protected?
+EventLink uses encrypted connections (HTTPS) and complies with GDPR for all personal data.
+14.	Who can see my profile?
+Recruiters and Freelancers can view freelancer profiles; freelancers can view recruiter job listings.
+15.	What should I do if I suspect a scam or fake job post?
+Contact support via the “Contact Us” page immediately.
+________________________________________
+🧠 Implementation Approach
+Phase	Tasks	Tools / Notes
+1. Footer Update	Add “FAQ” link under Support.	Frontend / React / Next.js
+2. Page Build	Create FAQ page and accordion layout.	CSS/HTML, EventLink theme
+3. Content Insertion	Populate 15 Q&As.	Static JSON or Markdown
+4. SEO & Analytics	Add schema markup, GA tracking.	JSON-LD, Google Analytics
+5. QA & Accessibility	Test responsiveness and screen reader support.	Manual + Lighthouse audit
+

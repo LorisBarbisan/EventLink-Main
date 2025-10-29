@@ -23,6 +23,7 @@ import { RatingDashboard } from "./pages/RatingDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import HowItWorks from "./pages/HowItWorks";
 import ContactUs from "./pages/ContactUs";
+import FAQ from "./pages/FAQ";
 import NotFound from "./pages/NotFound";
 
 function AppRouter() {
@@ -45,6 +46,7 @@ function AppRouter() {
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/how-it-works" component={HowItWorks} />
       <Route path="/contact-us" component={ContactUs} />
+      <Route path="/faq" component={FAQ} />
       <Route component={NotFound} />
     </Switch>
   );
