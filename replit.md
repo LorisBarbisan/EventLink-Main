@@ -161,6 +161,19 @@ Created comprehensive system optimization with significantly improved efficiency
   - **Result**: Production-ready messaging system following standard industry patterns
   - **Impact**: Messages persist correctly, appear instantly for both users, work across page refreshes
 
+## Recent Changes (October 29, 2025)
+- ✅ **EMAIL SERVICE DIAGNOSTICS**: Added diagnostic endpoint to test SendGrid connector health
+  - Created `/api/debug/email-connector` endpoint for troubleshooting email delivery
+  - Diagnosed root cause of email failures: SendGrid account exceeded maximum credits
+  - SendGrid returns "Unauthorized" error with message "Maximum credits exceeded"
+  - **Action Required**: User needs to add credits to SendGrid account or upgrade plan
+- ✅ **ACCOUNT LOCKOUT FIX**: Resolved critical lockout issue for user loris.barbisan@outlook.com
+  - User was locked out after failed password change attempt in production
+  - Manually reset password to temporary credentials via direct database update
+  - Fixed missing `authenticateJWT` middleware on `/api/auth/change-password` endpoint
+  - Fixed missing `authenticateJWT` middleware on `/api/auth/delete-account` endpoint
+  - **Security Enhancement**: Both endpoints now properly validate JWT tokens before allowing sensitive operations
+
 ## Authentication System
 - **Production**: Custom session management with aggressive cache clearing, email verification required
 - **Email Service**: SendGrid integration for verification emails

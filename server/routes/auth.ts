@@ -861,7 +861,7 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // Change password endpoint (authenticated)
-  app.put("/api/auth/change-password", async (req, res) => {
+  app.put("/api/auth/change-password", authenticateJWT, async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -942,7 +942,7 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // Delete account endpoint (authenticated)
-  app.delete("/api/auth/delete-account", async (req, res) => {
+  app.delete("/api/auth/delete-account", authenticateJWT, async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: "Not authenticated" });
