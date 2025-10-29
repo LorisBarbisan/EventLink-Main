@@ -1,26 +1,50 @@
-import { MailService } from '@sendgrid/mail';
+import sgMail from '@sendgrid/mail';
 
-// Initialize email service with graceful error handling for deployment
-let mailService: MailService | null = null;
-let emailServiceEnabled = false;
+let connectionSettings: any;
 
-try {
-  if (process.env.SENDGRID_API_KEY) {
-    mailService = new MailService();
-    mailService.setApiKey(process.env.SENDGRID_API_KEY);
-    emailServiceEnabled = true;
-    console.log('✅ Email service initialized successfully');
-  } else {
-    console.warn('⚠️ SENDGRID_API_KEY not set - email service disabled');
+async function getCredentials() {
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const xReplitToken = process.env.REPL_IDENTITY 
+    ? 'repl ' + process.env.REPL_IDENTITY 
+    : process.env.WEB_REPL_RENEWAL 
+    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
+    : null;
+
+  if (!xReplitToken) {
+    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
   }
-} catch (error) {
-  console.error('❌ Failed to initialize email service:', error);
-  console.warn('📧 Email functionality will be disabled');
+
+  connectionSettings = await fetch(
+    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid',
+    {
+      headers: {
+        'Accept': 'application/json',
+        'X_REPLIT_TOKEN': xReplitToken
+      }
+    }
+  ).then(res => res.json()).then(data => data.items?.[0]);
+
+  if (!connectionSettings || (!connectionSettings.settings.api_key || !connectionSettings.settings.from_email)) {
+    throw new Error('SendGrid not connected');
+  }
+  return {apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email};
+}
+
+// WARNING: Never cache this client.
+// Access tokens expire, so a new client must be created each time.
+// Always call this function again to get a fresh client.
+async function getUncachableSendGridClient() {
+  const {apiKey, email} = await getCredentials();
+  sgMail.setApiKey(apiKey);
+  return {
+    client: sgMail,
+    fromEmail: email
+  };
 }
 
 interface EmailParams {
   to: string;
-  from: string;
+  from?: string; // Optional - will use connector's verified email if not provided
   subject: string;
   text?: string;
   html?: string;
@@ -32,35 +56,6 @@ function validateEmailAddress(email: string): boolean {
   return emailRegex.test(email);
 }
 
-// Check email deliverability score
-function calculateDeliverabilityScore(params: EmailParams): { score: number; warnings: string[] } {
-  const warnings: string[] = [];
-  let score = 100;
-
-  // Check sender domain
-  if (!params.from.includes('@eventlink.one')) {
-    warnings.push('Sender domain not authenticated (not @eventlink.one)');
-    score -= 30;
-  }
-
-  // Check subject line quality
-  const subject = params.subject.toLowerCase();
-  const spamWords = ['free', 'urgent', 'act now', 'limited time', '!!!'];
-  const spamWordsFound = spamWords.filter(word => subject.includes(word));
-  if (spamWordsFound.length > 0) {
-    warnings.push(`Subject contains potential spam words: ${spamWordsFound.join(', ')}`);
-    score -= spamWordsFound.length * 15;
-  }
-
-  // Check text/HTML content balance
-  if (params.html && !params.text) {
-    warnings.push('No plain text version provided - may trigger spam filters');
-    score -= 10;
-  }
-
-  return { score: Math.max(0, score), warnings };
-}
-
 export async function sendEmail(params: EmailParams): Promise<boolean> {
   // Validate email address
   if (!validateEmailAddress(params.to)) {
@@ -69,28 +64,16 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     throw error;
   }
 
-  // Check deliverability score
-  const deliverability = calculateDeliverabilityScore(params);
-  if (deliverability.score < 70) {
-    console.warn(`⚠️ Low deliverability score (${deliverability.score}/100) for email to ${params.to}`);
-    deliverability.warnings.forEach(warning => console.warn(`   - ${warning}`));
-  }
-
-  // Throw error if email service is not available
-  if (!emailServiceEnabled || !mailService) {
-    const error = new Error('Email service is not available - SENDGRID_API_KEY not configured');
-    console.error(`❌ ${error.message}`);
-    console.log(`📧 Failed to send email to ${params.to}`);
-    console.log(`📧 Subject: ${params.subject}`);
-    console.log(`📧 From: ${params.from}`);
-    throw error;
-  }
-
   try {
+    const { client, fromEmail } = await getUncachableSendGridClient();
+    
+    // Use connector's verified email as sender
+    const senderEmail = params.from || fromEmail;
+
     const emailData: any = {
       to: params.to,
       from: {
-        email: params.from,
+        email: senderEmail,
         name: 'EventLink Team'
       },
       subject: params.subject,
@@ -108,25 +91,17 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
       },
       mail_settings: {
         spam_check: {
-          enable: false  // Disabled to prevent SendGrid API errors - not needed for verification emails
+          enable: false
         },
         sandbox_mode: {
           enable: false
         }
       },
       headers: {
-        'List-Unsubscribe': '<mailto:unsubscribe@eventlink.one>',
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         'X-Auto-Response-Suppress': 'All',
-        'X-Entity-Ref-ID': `eventlink-${Date.now()}`,
-        'Precedence': 'bulk'
+        'X-Entity-Ref-ID': `eventlink-${Date.now()}`
       },
-      categories: ['verification', 'eventlink-platform'],
-      custom_args: {
-        email_type: 'verification',
-        platform: 'eventlink',
-        deliverability_score: deliverability.score.toString()
-      }
+      categories: ['eventlink-platform']
     };
 
     if (params.text) {
@@ -137,39 +112,15 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
       emailData.html = params.html;
     }
 
-    await mailService.send(emailData);
-    console.log(`✅ Email sent successfully via SendGrid to: ${params.to} (Score: ${deliverability.score}/100)`);
+    await client.send(emailData);
+    console.log(`✅ Email sent successfully via SendGrid to: ${params.to}`);
     return true;
   } catch (error: any) {
     console.error('📧 SendGrid send error:', error?.message || error);
     
-    // Enhanced error logging for debugging and authentication issues
+    // Enhanced error logging for debugging
     if (error.response && error.response.body && error.response.body.errors) {
       console.error('SendGrid error details:', JSON.stringify(error.response.body.errors, null, 2));
-      
-      // Check for specific SendGrid errors
-      const errors = error.response.body.errors;
-      for (const err of errors) {
-        if (err.message && err.message.includes('does not match a verified Sender Identity')) {
-          console.error('🚨 CRITICAL: Sender email address not verified in SendGrid');
-          console.error('📧 IMMEDIATE ACTIONS REQUIRED:');
-          console.error('   1. Login to SendGrid Dashboard → Settings → Sender Authentication');
-          console.error('   2. Click "Authenticate Your Domain" for eventlink.one');
-          console.error('   3. Add provided DNS records to your domain provider');
-          console.error('   4. Wait for DNS propagation (up to 48 hours)');
-          console.error(`   5. Current sender: ${params.from}`);
-        } else if (err.message && err.message.includes('authentication')) {
-          console.error('🚨 EMAIL AUTHENTICATION FAILURE:');
-          console.error('   - SPF/DKIM/DMARC not properly configured');
-          console.error('   - Domain authentication required for deliverability');
-          console.error('   - Emails may be marked as spam or blocked');
-        } else if (err.message && err.message.includes('reputation')) {
-          console.error('🚨 SENDER REPUTATION ISSUE:');
-          console.error('   - Domain/IP reputation may be compromised');
-          console.error('   - Implement domain authentication immediately');
-          console.error('   - Monitor bounce rates and spam complaints');
-        }
-      }
     }
     
     // Re-throw the error so calling code can handle it
@@ -361,10 +312,8 @@ The EventLink Team
 © 2025 EventLink. All rights reserved.
   `;
 
-  // Use verified SendGrid sender address
   return await sendEmail({
     to: email,
-    from: 'EventLink@eventlink.one', // Verified sender identity
     subject: 'Complete Your EventLink Registration - Verification Required',
     html: htmlContent,
     text: textContent,
@@ -559,11 +508,132 @@ The EventLink Team
 © 2025 EventLink. All rights reserved.
   `;
 
-  // Use verified SendGrid sender address
   return await sendEmail({
     to: email,
-    from: 'EventLink@eventlink.one', // Verified sender identity
     subject: 'Password Reset Request – EventLink',
+    html: htmlContent,
+    text: textContent,
+  });
+}
+
+export async function sendContactReplyEmail(
+  to: string,
+  subject: string,
+  message: string
+): Promise<boolean> {
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${subject}</title>
+      <style>
+        body { 
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+          line-height: 1.6; 
+          color: #333; 
+          margin: 0; 
+          padding: 0; 
+          background-color: #f8fafc;
+        }
+        .container { 
+          max-width: 600px; 
+          margin: 0 auto; 
+          padding: 40px 20px; 
+          background-color: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        .header { 
+          text-align: center; 
+          margin-bottom: 40px; 
+        }
+        .logo { 
+          margin: 0 auto 24px; 
+          display: block;
+        }
+        h1 { 
+          color: #1e293b; 
+          font-size: 32px; 
+          font-weight: 700; 
+          margin: 0 0 16px 0;
+          letter-spacing: -0.5px;
+        }
+        .content {
+          padding: 0 20px;
+        }
+        .content p { 
+          font-size: 16px; 
+          line-height: 1.7; 
+          margin-bottom: 24px; 
+          color: #475569;
+          white-space: pre-wrap;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 40px;
+          padding-top: 32px;
+          border-top: 1px solid #e2e8f0;
+          color: #64748b;
+        }
+        .footer p { 
+          font-size: 14px; 
+          color: #64748b;
+          margin: 8px 0;
+        }
+        .footer .signature {
+          font-weight: 600;
+          color: #475569;
+        }
+        @media (max-width: 640px) {
+          .container {
+            margin: 0;
+            border-radius: 0;
+            padding: 20px;
+          }
+          h1 {
+            font-size: 28px;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">
+            <img src="https://eventlink.one/e8-logo.png" width="64" height="64" alt="EventLink Logo" style="display: block; margin: 0 auto 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(216, 105, 14, 0.3);" />
+          </div>
+          <h1>EventLink Support</h1>
+        </div>
+        
+        <div class="content">
+          <p>${message}</p>
+        </div>
+        
+        <div class="footer">
+          <p class="signature">Best regards,<br><strong>The EventLink Team</strong></p>
+          <p>© 2025 EventLink. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const textContent = `
+EventLink Support
+
+${message}
+
+Best regards,
+The EventLink Team
+
+© 2025 EventLink. All rights reserved.
+  `;
+
+  return await sendEmail({
+    to,
+    subject,
     html: htmlContent,
     text: textContent,
   });

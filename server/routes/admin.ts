@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { storage } from "../storage";
 import { authenticateJWT, generateJWTToken } from "./auth";
-import { sendEmail } from "../emailService";
+import { sendContactReplyEmail } from "../emailService";
 
 // Admin authentication middleware - requires JWT auth first
 export const requireAdminAuth = async (req: any, res: any, next: any) => {
@@ -125,23 +125,11 @@ export function registerAdminRoutes(app: Express) {
       // Send reply email
       try {
         console.log(`📧 Attempting to send email to ${message.email}`);
-        await sendEmail({
-          from: 'EventLink@eventlink.one', // Use verified SendGrid sender
-          to: message.email,
-          subject: `Re: ${message.subject}`,
-          text: `Hello ${message.name},\n\nThank you for contacting EventLink. Here's our response to your message:\n\n${reply}\n\nBest regards,\nEventLink Team`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #333;">Re: ${message.subject}</h2>
-              <p>Hello ${message.name},</p>
-              <p>Thank you for contacting EventLink. Here's our response to your message:</p>
-              <div style="background-color: #f5f5f5; padding: 15px; border-left: 4px solid #f97316; margin: 20px 0;">
-                <p style="margin: 0; white-space: pre-wrap;">${reply}</p>
-              </div>
-              <p>Best regards,<br>EventLink Team</p>
-            </div>
-          `,
-        });
+        await sendContactReplyEmail(
+          message.email,
+          `Re: ${message.subject}`,
+          `Hello ${message.name},\n\nThank you for contacting EventLink. Here's our response to your message:\n\n${reply}\n\nBest regards,\nEventLink Team`
+        );
 
         console.log(`✅ Email sent successfully to ${message.email}`);
         
