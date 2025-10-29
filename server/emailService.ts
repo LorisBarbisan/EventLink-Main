@@ -3,31 +3,60 @@ import sgMail from '@sendgrid/mail';
 let connectionSettings: any;
 
 async function getCredentials() {
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY 
-    ? 'repl ' + process.env.REPL_IDENTITY 
-    : process.env.WEB_REPL_RENEWAL 
-    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
-    : null;
+  try {
+    const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+    const xReplitToken = process.env.REPL_IDENTITY 
+      ? 'repl ' + process.env.REPL_IDENTITY 
+      : process.env.WEB_REPL_RENEWAL 
+      ? 'depl ' + process.env.WEB_REPL_RENEWAL 
+      : null;
 
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
-  }
-
-  connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
-      }
+    if (!xReplitToken) {
+      console.error('❌ X_REPLIT_TOKEN not found - REPL_IDENTITY and WEB_REPL_RENEWAL both missing');
+      throw new Error('X_REPLIT_TOKEN not found for repl/depl');
     }
-  ).then(res => res.json()).then(data => data.items?.[0]);
 
-  if (!connectionSettings || (!connectionSettings.settings.api_key || !connectionSettings.settings.from_email)) {
-    throw new Error('SendGrid not connected');
+    console.log('📧 Fetching SendGrid credentials from connector...');
+    const response = await fetch(
+      'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid',
+      {
+        headers: {
+          'Accept': 'application/json',
+          'X_REPLIT_TOKEN': xReplitToken
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.error(`❌ Connector API returned ${response.status}: ${response.statusText}`);
+      throw new Error(`Connector API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    connectionSettings = data.items?.[0];
+
+    if (!connectionSettings) {
+      console.error('❌ No SendGrid connection found in connector response');
+      console.error('Response data:', JSON.stringify(data, null, 2));
+      throw new Error('SendGrid connection not found - please set up the SendGrid connector');
+    }
+
+    if (!connectionSettings.settings?.api_key) {
+      console.error('❌ SendGrid connector missing api_key');
+      throw new Error('SendGrid connector not properly configured - missing API key');
+    }
+
+    if (!connectionSettings.settings?.from_email) {
+      console.error('❌ SendGrid connector missing from_email');
+      throw new Error('SendGrid connector not properly configured - missing sender email');
+    }
+
+    console.log(`✅ SendGrid credentials fetched successfully - sender: ${connectionSettings.settings.from_email}`);
+    return {apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email};
+  } catch (error: any) {
+    console.error('❌ Failed to get SendGrid credentials:', error.message);
+    throw error;
   }
-  return {apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email};
 }
 
 // WARNING: Never cache this client.
