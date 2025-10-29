@@ -155,6 +155,12 @@ export interface IStorage {
   // Get all freelancer profiles for listings
   getAllFreelancerProfiles(): Promise<FreelancerProfile[]>;
   getAllRecruiterProfiles(): Promise<RecruiterProfile[]>;
+  searchFreelancers(filters: { keyword?: string; location?: string; page?: number; limit?: number }): Promise<{ 
+    results: Array<FreelancerProfile & { rating?: number; rating_count?: number }>; 
+    total: number; 
+    page: number; 
+    totalPages: number 
+  }>;
   
   // Job application management
   createJobApplication(application: InsertJobApplication): Promise<JobApplication>;
@@ -729,6 +735,170 @@ export class DatabaseStorage implements IStorage {
     .where(isNull(users.deleted_at)); // Only non-deleted users
 
     return result;
+  }
+
+  async searchFreelancers(filters: { keyword?: string; location?: string; page?: number; limit?: number }): Promise<{ 
+    results: Array<FreelancerProfile & { rating?: number; rating_count?: number }>; 
+    total: number; 
+    page: number; 
+    totalPages: number 
+  }> {
+    try {
+      const { keyword, location, page = 1, limit = 20 } = filters;
+      const offset = (page - 1) * limit;
+      
+      // Build conditions array
+      const conditions = [];
+      
+      // Only show profiles from non-deleted users
+      conditions.push(isNull(users.deleted_at));
+      
+      // Keyword search: title, name, bio, or skills (case-insensitive)
+      if (keyword && keyword.trim()) {
+        const searchTerm = `%${keyword.toLowerCase()}%`;
+        conditions.push(
+          or(
+            sql`LOWER(${freelancer_profiles.title}) LIKE ${searchTerm}`,
+            sql`LOWER(CONCAT(${freelancer_profiles.first_name}, ' ', ${freelancer_profiles.last_name})) LIKE ${searchTerm}`,
+            sql`LOWER(${freelancer_profiles.bio}) LIKE ${searchTerm}`,
+            sql`EXISTS (
+              SELECT 1 FROM unnest(${freelancer_profiles.skills}) AS skill
+              WHERE LOWER(skill) LIKE ${searchTerm}
+            )`
+          )
+        );
+      }
+      
+      // Location filter (case-insensitive partial match)
+      if (location && location.trim()) {
+        const locationTerm = `%${location.toLowerCase()}%`;
+        conditions.push(sql`LOWER(${freelancer_profiles.location}) LIKE ${locationTerm}`);
+      }
+      
+      // First, get total count for pagination
+      const countResult = await db
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(freelancer_profiles)
+        .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
+        .where(and(...conditions));
+      
+      const total = countResult[0]?.count || 0;
+      const totalPages = Math.ceil(total / limit);
+      
+      // Fetch results with freelancer data and average rating
+      const results = await db
+        .select({
+          id: freelancer_profiles.id,
+          user_id: freelancer_profiles.user_id,
+          first_name: freelancer_profiles.first_name,
+          last_name: freelancer_profiles.last_name,
+          title: freelancer_profiles.title,
+          bio: freelancer_profiles.bio,
+          location: freelancer_profiles.location,
+          experience_years: freelancer_profiles.experience_years,
+          skills: freelancer_profiles.skills,
+          portfolio_url: freelancer_profiles.portfolio_url,
+          linkedin_url: freelancer_profiles.linkedin_url,
+          website_url: freelancer_profiles.website_url,
+          availability_status: freelancer_profiles.availability_status,
+          profile_photo_url: freelancer_profiles.profile_photo_url,
+          cv_file_url: freelancer_profiles.cv_file_url,
+          cv_file_name: freelancer_profiles.cv_file_name,
+          cv_file_type: freelancer_profiles.cv_file_type,
+          cv_file_size: freelancer_profiles.cv_file_size,
+          created_at: freelancer_profiles.created_at,
+          updated_at: freelancer_profiles.updated_at
+        })
+        .from(freelancer_profiles)
+        .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
+        .where(and(...conditions))
+        .limit(limit)
+        .offset(offset);
+      
+      // Get ratings for all returned freelancers
+      const resultsWithRatings = await Promise.all(
+        results.map(async (profile) => {
+          const ratingStats = await this.getFreelancerAverageRating(profile.user_id);
+          return {
+            ...profile,
+            rating: ratingStats.average || undefined,
+            rating_count: ratingStats.count || undefined
+          };
+        })
+      );
+      
+      // Sort results by relevance and rating
+      const sortedResults = resultsWithRatings.sort((a, b) => {
+        if (!keyword) {
+          // No keyword - sort by rating only
+          const aRating = a.rating || 0;
+          const bRating = b.rating || 0;
+          return bRating - aRating;
+        }
+        
+        // Calculate relevance scores
+        const searchTerm = keyword.toLowerCase();
+        const aScore = this.calculateRelevanceScore(a, searchTerm);
+        const bScore = this.calculateRelevanceScore(b, searchTerm);
+        
+        if (aScore !== bScore) {
+          return bScore - aScore; // Higher score first
+        }
+        
+        // If same relevance, sort by rating
+        const aRating = a.rating || 0;
+        const bRating = b.rating || 0;
+        return bRating - aRating;
+      });
+      
+      return {
+        results: sortedResults,
+        total,
+        page,
+        totalPages
+      };
+    } catch (error) {
+      console.error('Search freelancers error:', error);
+      return {
+        results: [],
+        total: 0,
+        page: 1,
+        totalPages: 0
+      };
+    }
+  }
+
+  // Helper method to calculate relevance score
+  private calculateRelevanceScore(profile: FreelancerProfile, searchTerm: string): number {
+    let score = 0;
+    
+    // Title match (highest weight)
+    if (profile.title && profile.title.toLowerCase().includes(searchTerm)) {
+      score += 10;
+    }
+    
+    // Name match (high weight)
+    const fullName = `${profile.first_name} ${profile.last_name}`.toLowerCase();
+    if (fullName.includes(searchTerm)) {
+      score += 8;
+    }
+    
+    // Skills match (medium-high weight)
+    if (profile.skills && profile.skills.some(skill => skill.toLowerCase().includes(searchTerm))) {
+      score += 5;
+    }
+    
+    // Bio match (medium weight)
+    if (profile.bio && profile.bio.toLowerCase().includes(searchTerm)) {
+      score += 3;
+    }
+    
+    // Profile completeness bonus
+    if (profile.bio && profile.title && profile.skills && profile.skills.length > 0) {
+      score += 1;
+    }
+    
+    return score;
   }
 
   // Job management methods

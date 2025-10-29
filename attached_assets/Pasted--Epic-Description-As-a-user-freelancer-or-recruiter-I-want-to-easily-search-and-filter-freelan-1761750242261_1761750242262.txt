@@ -1,0 +1,257 @@
+🧭 Epic Description
+
+As a user (freelancer or recruiter),
+I want to easily search and filter freelance profiles by relevant parameters such as keyword and location,
+so that I can quickly find the most suitable candidates for a project or role.
+
+🎯 Epic Goals
+
+Enable efficient discovery of freelancers.
+
+Implement filtering and sorting based on user-entered parameters.
+
+Ensure performance optimization (fast results, minimal loading).
+
+Display relevant freelancer data (name, title, skills, rating, location, availability).
+
+Lay groundwork for future advanced filters (skills, experience, rating, contract type).
+
+📊 Epic Success Metrics
+
+Search results load in <2 seconds.
+
+100% of valid searches return accurate results.
+
+90% of beta testers find search “easy and effective.”
+
+Search field used by >60% of recruiters during MVP testing.
+
+🧩 User Stories
+1️⃣ Story: Display “Find Crew” Page Layout
+
+As a user,
+I want a dedicated page where I can search for freelancers,
+so that I can quickly find professionals to hire.
+
+Acceptance Criteria:
+
+Page URL: /find-crew
+
+Page layout includes:
+
+Page title (“Find Crew” or “Find Freelancers”)
+
+Search bar (with placeholder text “Search by name, skill, or keyword…”)
+
+Location filter (dropdown or text input for UK cities/towns)
+
+Search button (with loading indicator)
+
+Results area showing freelancer cards
+
+Each freelancer card displays:
+
+Profile photo (if available)
+
+Name and title
+
+Skills / categories
+
+Location
+
+Rating (average stars + number of reviews)
+
+“View Profile” button
+
+The layout matches EventLink’s color palette (orange gradient #D8690E).
+
+Subtasks:
+
+Create /find-crew route and page template.
+
+Build search input and location dropdown components.
+
+Build results grid using reusable freelancer card component.
+
+Add responsive design (mobile, tablet, desktop).
+
+Style components per design system.
+
+2️⃣ Story: Implement Keyword Search Functionality
+
+As a user,
+I want to search freelancers by keywords (name, title, or skills),
+so that I can find profiles matching specific expertise.
+
+Acceptance Criteria:
+
+The keyword search box accepts text input.
+
+Pressing Enter or clicking “Search” triggers the search query.
+
+The search returns all freelancer profiles where:
+
+The name, title, or skills fields contain the keyword (case-insensitive).
+
+If no matches found:
+
+Show message “No freelancers found matching your search.”
+
+The search updates results dynamically without reloading the page (AJAX or React fetch).
+
+Subtasks:
+
+Create API endpoint /api/search/freelancers.
+
+Implement backend query logic (keyword match on multiple fields).
+
+Implement frontend fetch and state update.
+
+Add loading spinner and empty-state message.
+
+Write backend tests for query accuracy.
+
+3️⃣ Story: Add Location Filter
+
+As a user,
+I want to filter freelancers by UK location,
+so that I can find professionals near a specific event site or region.
+
+Acceptance Criteria:
+
+Location filter accepts:
+
+Dropdown of UK regions or cities, or
+
+Autocomplete input using UK location database (OpenStreetMap, Postcodes.io, or static list).
+
+Selecting a location narrows search results to freelancers in or near that location.
+
+Location filter can be combined with keyword search.
+
+If location filter cleared, results reset to full search.
+
+Subtasks:
+
+Create location dropdown/autocomplete input.
+
+Extend /api/search/freelancers to accept location parameter.
+
+Implement geolocation or string matching for city/town names.
+
+Test filtering combinations (keyword + location).
+
+Validate UI responsiveness and cross-browser compatibility.
+
+4️⃣ Story: Display Search Results Ordered by Relevance
+
+As a recruiter,
+I want search results to display most relevant freelancers first,
+so that I can see the best candidates quickly.
+
+Acceptance Criteria:
+
+Results ordered by:
+
+Keyword relevance (matches in title/skills weigh more)
+
+Freelancer’s rating (descending)
+
+Profile completeness (optional enhancement)
+
+Sorting logic defined in backend query.
+
+Option to expand with “Sort by” dropdown in later version.
+
+Subtasks:
+
+Add sorting logic in backend query.
+
+Test multiple keyword and rating combinations.
+
+Display sorted results in frontend grid.
+
+5️⃣ Story: Ensure Fast Query Response & Pagination
+
+As a user,
+I want results to load quickly even when there are many freelancers,
+so that the search experience feels seamless.
+
+Acceptance Criteria:
+
+Results appear within 2 seconds for standard searches.
+
+Add pagination or infinite scroll after 20 results per page.
+
+Backend query optimized with indexes (on name, title, skills, location).
+
+Cache results for repeated searches (optional).
+
+Subtasks:
+
+Add pagination system (backend + frontend).
+
+Optimize DB queries with proper indexing.
+
+Test performance with large dataset.
+
+Implement basic result caching layer.
+
+6️⃣ Story: Handle No Results and Errors Gracefully
+
+As a user,
+I want to see clear feedback when there are no search matches or an error occurs,
+so that I understand what happened.
+
+Acceptance Criteria:
+
+If no results found: show friendly message and suggestion (“Try a different keyword or location”).
+
+If server error occurs: show “We’re having trouble fetching results. Please try again later.”
+
+Log errors in backend for debugging.
+
+Subtasks:
+
+Add frontend error-handling component.
+
+Implement backend logging for failed queries.
+
+Test all no-result and failure states.
+
+7️⃣ Story: (Future Scope) Add Filter by Skills and Rating
+
+As a recruiter,
+I want to filter freelancers by specific skills or rating,
+so that I can narrow my search even further.
+
+(This can be implemented after MVP phase.)
+
+Acceptance Criteria:
+
+Skill filter displays available skill tags.
+
+Rating filter allows selecting minimum rating (1–5).
+
+Subtasks (Future):
+
+Extend database schema with skill taxonomy.
+
+Update API for filtering by skill and rating.
+
+Update frontend filters.
+
+⚙️ Technical Subtasks Overview
+Area	Subtasks	Tools / Notes
+Frontend (UI/UX)	Create search input, filters, results grid, empty states, responsiveness	React / Next.js / Tailwind
+Backend (API)	Implement search endpoint, filtering logic, pagination, caching	Node.js / Express / PostgreSQL
+Database	Add indexes on name, skills, location, rating	PostgreSQL / Prisma
+Performance	Optimize queries, implement caching	Redis or similar
+Testing	Unit + integration tests for search logic and UI	Jest / Cypress
+QA	Validate data accuracy and response speed	Manual & automated tests
+🧠 Implementation Approach
+Phase	Focus	Deliverables
+Phase 1 (MVP)	Keyword search + location filter	Working search with results
+Phase 2	Sorting, pagination	Optimized UX
+Phase 3	Advanced filters (skills, rating)	Full-featured system
+Phase 4	Analytics & Performance	Monitor usage, optimize

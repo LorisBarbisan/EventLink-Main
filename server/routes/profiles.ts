@@ -168,6 +168,35 @@ export function registerProfileRoutes(app: Express) {
     }
   });
 
+  // Search freelancers with filters and pagination
+  app.get("/api/freelancers/search", async (req, res) => {
+    try {
+      const { keyword, location, page, limit } = req.query;
+      
+      const filters = {
+        keyword: keyword as string | undefined,
+        location: location as string | undefined,
+        page: page ? parseInt(page as string) : 1,
+        limit: limit ? parseInt(limit as string) : 20
+      };
+      
+      // Validate page and limit
+      if (filters.page < 1) filters.page = 1;
+      if (filters.limit < 1 || filters.limit > 100) filters.limit = 20;
+      
+      console.log('🔍 Searching freelancers with filters:', filters);
+      
+      const result = await storage.searchFreelancers(filters);
+      
+      console.log(`✅ Search returned ${result.results.length} of ${result.total} total freelancers`);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Search freelancers error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get all recruiter profiles (for freelancer contact search)
   app.get("/api/recruiter-profiles", async (req, res) => {
     try {
