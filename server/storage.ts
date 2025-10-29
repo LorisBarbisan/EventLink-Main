@@ -456,6 +456,10 @@ export class DatabaseStorage implements IStorage {
         updated_at: new Date()
       })
       .where(eq(users.id, userId));
+    
+    // Clear the user cache so getUser() returns fresh data with new password
+    const cacheKey = `user:${userId}`;
+    cache.delete(cacheKey);
   }
 
   async setPasswordResetToken(email: string, token: string, expires: Date): Promise<boolean> {
@@ -506,6 +510,11 @@ export class DatabaseStorage implements IStorage {
           updated_at: new Date()
         })
         .where(eq(users.id, userId));
+      
+      // Clear the user cache so getUser() returns fresh data with new password
+      const cacheKey = `user:${userId}`;
+      cache.delete(cacheKey);
+      
       return true;
     } catch (error) {
       console.error('Error resetting password:', error);
