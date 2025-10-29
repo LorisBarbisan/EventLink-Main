@@ -24,13 +24,14 @@ The EventLink platform utilizes a modern web application stack designed for effi
 - **Messaging System**: Refactored to a production-ready fetch-first pattern using React Query for messages, ensuring atomic operations via database transactions and eliminating race conditions. WebSocket integration provides real-time updates.
 
 ### Feature Specifications
-- **Optimized Database Schema**: Significant reduction in database complexity through table unification and streamlined data models.
+- **Optimized Database Schema**: Significant reduction in database complexity through table unification and streamlined data models. Indexes added on freelancer_profiles(title, location, availability_status) for search performance.
 - **Optimized Backend**: Simplified API endpoints and a unified interface for improved performance.
 - **Optimized Frontend**: Streamlined authentication and version-based cache clearing to prevent deployment issues.
 - **Job Management**: Simplified job posting form focused on "gig" type jobs, including mandatory start dates and optional end dates/times.
 - **Application Management**: Enhanced display of job applications for both freelancers and recruiters, ensuring all relevant job details are visible.
 - **Email Service Diagnostics**: An internal endpoint `/api/debug/email-connector` is available for troubleshooting SendGrid connectivity.
 - **Job Search & Filtering**: Comprehensive server-side search system with keyword, location, and date range filters. EventLink jobs are prioritized above external jobs, with visual distinction badges ("EventLink Opportunity" vs. "External • [source]").
+- **Freelancer Search ("Find Crew")**: Server-side search with weighted relevance scoring (40% title, 30% skills, 20% bio, 10% rating), pagination (20 results/page), keyword/location filters, and rating integration. Performance optimized with database indexes achieving <400ms response time.
 
 ## External Dependencies
 - **PostgreSQL**: The primary relational database for all application data.
