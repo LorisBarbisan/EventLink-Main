@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, decimal, uuid, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, decimal, uuid, timestamp, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -49,7 +49,11 @@ export const freelancer_profiles = pgTable("freelancer_profiles", {
   cv_file_size: integer("cv_file_size"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  titleIdx: index("freelancer_profiles_title_idx").on(table.title),
+  locationIdx: index("freelancer_profiles_location_idx").on(table.location),
+  availabilityIdx: index("freelancer_profiles_availability_idx").on(table.availability_status),
+}));
 
 export const recruiter_profiles = pgTable("recruiter_profiles", {
   id: serial("id").primaryKey(),
