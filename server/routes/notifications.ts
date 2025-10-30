@@ -236,22 +236,23 @@ export function registerNotificationRoutes(app: Express) {
     }
   });
 
-  // Get job alert filters
+  // Get job alert filters (returns first active filter for user)
   app.get("/api/notifications/job-alerts", authenticateJWT, async (req, res) => {
     try {
       const filters = await storage.getJobAlertFilters(req.user.id);
-      res.json(filters);
+      // Return the first active filter, or null if none exists
+      res.json(filters.length > 0 ? filters[0] : null);
     } catch (error) {
       console.error("Get job alert filters error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
 
-  // Create job alert filter
+  // Create or update job alert filter (upsert pattern)
   app.post("/api/notifications/job-alerts", authenticateJWT, async (req, res) => {
     try {
       // Validate request body with Zod schema
-      const validationResult = insertJobAlertFilterSchema.safeParse({
+      const validationResult = insertJobAlertFilterSchema.partial().safeParse({
         ...req.body,
         user_id: req.user.id, // Force user_id to authenticated user
       });
@@ -263,10 +264,31 @@ export function registerNotificationRoutes(app: Express) {
         });
       }
 
-      const filter = await storage.createJobAlertFilter(validationResult.data);
-      res.status(201).json(filter);
+      // Check if user already has a filter
+      const existingFilters = await storage.getJobAlertFilters(req.user.id);
+      
+      let filter;
+      if (existingFilters.length > 0) {
+        // Update existing filter
+        const { user_id, ...updateData } = validationResult.data;
+        filter = await storage.updateJobAlertFilter(existingFilters[0].id, updateData);
+      } else {
+        // Create new filter
+        filter = await storage.createJobAlertFilter({
+          user_id: req.user.id,
+          skills: validationResult.data.skills || null,
+          locations: validationResult.data.locations || null,
+          date_from: validationResult.data.date_from || null,
+          date_to: validationResult.data.date_to || null,
+          job_types: validationResult.data.job_types || null,
+          keywords: validationResult.data.keywords || null,
+          is_active: validationResult.data.is_active ?? true,
+        });
+      }
+      
+      res.json(filter);
     } catch (error) {
-      console.error("Create job alert filter error:", error);
+      console.error("Create/update job alert filter error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

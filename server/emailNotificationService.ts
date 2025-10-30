@@ -206,6 +206,154 @@ export class EmailNotificationService {
   }
 
   /**
+   * Check if a job matches user's job alert filters
+   */
+  private jobMatchesFilters(job: any, filter: any): boolean {
+    // If no filter or filter is not active, no match
+    if (!filter || !filter.is_active) {
+      return false;
+    }
+
+    // Skills matching - at least one skill must match
+    if (filter.skills && filter.skills.length > 0) {
+      const jobSkills = job.skills || [];
+      const hasMatchingSkill = filter.skills.some((filterSkill: string) =>
+        jobSkills.some((jobSkill: string) =>
+          jobSkill.toLowerCase().includes(filterSkill.toLowerCase()) ||
+          filterSkill.toLowerCase().includes(jobSkill.toLowerCase())
+        )
+      );
+      if (!hasMatchingSkill) {
+        return false;
+      }
+    }
+
+    // Location matching - case-insensitive partial match
+    if (filter.locations && filter.locations.length > 0) {
+      const jobLocation = (job.location || '').toLowerCase();
+      const hasMatchingLocation = filter.locations.some((filterLocation: string) =>
+        jobLocation.includes(filterLocation.toLowerCase()) ||
+        filterLocation.toLowerCase().includes(jobLocation)
+      );
+      if (!hasMatchingLocation) {
+        return false;
+      }
+    }
+
+    // Keywords matching - check in title and description
+    if (filter.keywords && filter.keywords.length > 0) {
+      const jobTitle = (job.title || '').toLowerCase();
+      const jobDescription = (job.description || '').toLowerCase();
+      const searchText = `${jobTitle} ${jobDescription}`;
+      
+      const hasMatchingKeyword = filter.keywords.some((keyword: string) =>
+        searchText.includes(keyword.toLowerCase())
+      );
+      if (!hasMatchingKeyword) {
+        return false;
+      }
+    }
+
+    // Date range matching - job start date should be within filter date range
+    if (filter.date_from || filter.date_to) {
+      const jobStartDate = job.start_date ? new Date(job.start_date) : null;
+      
+      if (!jobStartDate) {
+        // If job has no start date and filter has date criteria, don't match
+        return false;
+      }
+
+      if (filter.date_from) {
+        const filterFrom = new Date(filter.date_from);
+        if (jobStartDate < filterFrom) {
+          return false;
+        }
+      }
+
+      if (filter.date_to) {
+        const filterTo = new Date(filter.date_to);
+        if (jobStartDate > filterTo) {
+          return false;
+        }
+      }
+    }
+
+    // All filters passed
+    return true;
+  }
+
+  /**
+   * Send job alert notifications to all matching freelancers
+   */
+  async sendJobAlertToMatchingFreelancers(job: any): Promise<void> {
+    try {
+      // Get all freelancer users
+      const freelancers = await storage.getAllFreelancerProfiles();
+      
+      for (const freelancerProfile of freelancers) {
+        try {
+          // Get their job alert filters
+          const filters = await storage.getJobAlertFilters(freelancerProfile.user_id);
+          
+          // Check if job matches any of their filters
+          const matchesFilter = filters.some(filter => this.jobMatchesFilters(job, filter));
+          
+          if (!matchesFilter) {
+            continue; // Skip if no filter matches
+          }
+
+          // Get user details
+          const user = await storage.getUser(freelancerProfile.user_id);
+          if (!user || !user.email_verified) {
+            continue; // Skip unverified users
+          }
+
+          // Prepare freelancer display name
+          let freelancerDisplayName = user.email;
+          if (freelancerProfile.first_name || freelancerProfile.last_name) {
+            const firstName = freelancerProfile.first_name || '';
+            const lastName = freelancerProfile.last_name || '';
+            freelancerDisplayName = `${firstName} ${lastName}`.trim() || user.email;
+          }
+
+          // Format job details for email
+          const eventDate = job.start_date 
+            ? new Date(job.start_date).toLocaleDateString('en-GB', { 
+                weekday: 'short', 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+              })
+            : 'Date TBC';
+
+          const rate = job.pay_rate 
+            ? `£${job.pay_rate}${job.pay_type === 'hourly' ? '/hr' : job.pay_type === 'daily' ? '/day' : ''}`
+            : 'Competitive';
+
+          // Send job alert email (non-blocking)
+          this.sendJobAlertNotification({
+            recipientId: freelancerProfile.user_id,
+            recipientEmail: user.email,
+            recipientName: freelancerDisplayName,
+            jobTitle: job.title,
+            companyName: job.company,
+            location: job.location || 'Location TBC',
+            rate: rate,
+            eventDate: eventDate,
+            jobId: job.id,
+          }).catch(error => {
+            console.error(`Failed to send job alert to user ${freelancerProfile.user_id}:`, error);
+          });
+        } catch (error) {
+          console.error(`Error processing job alerts for freelancer ${freelancerProfile.user_id}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error('Error sending job alerts to matching freelancers:', error);
+    }
+  }
+
+  /**
    * Send job alert notification email (for freelancers)
    */
   async sendJobAlertNotification(params: {
