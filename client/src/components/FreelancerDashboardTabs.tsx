@@ -673,7 +673,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-2xl font-bold">Messages</h2>
-                <p className="text-muted-foreground">Communicate with recruiters and potential employers</p>
+                <p className="text-muted-foreground">Create new connections and grow your network</p>
               </div>
             </div>
             <MessagingInterface />
