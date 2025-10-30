@@ -1,0 +1,200 @@
+📧 Epic: Email Notification System with User Preferences Panel
+Epic ID: ELK-EN001
+Epic Name: Email Notification System
+Epic Owner: Product Team (EventLink)
+Epic Type: Functional Feature
+Epic Priority: High
+Sprint Target: MVP+
+________________________________________
+🎯 Epic Description
+As a user of EventLink,
+I want to receive email notifications about important updates (messages, job actions, applications, and job posts)
+and manage which notifications I receive,
+so that I stay informed about relevant activity while maintaining control over my inbox.
+________________________________________
+💡 Epic Goals
+•	Implement a centralized email notification engine.
+•	Create a user-friendly Notification Settings panel accessible from the account dropdown.
+•	Allow users to toggle notification categories on/off.
+•	Design branded, dynamic email templates consistent with EventLink’s visual identity.
+•	Include direct links in each email to the relevant dashboard page.
+•	Ensure different notification types for freelancers and recruiters.
+•	Provide a filter system for job alerts (skills, location, date).
+________________________________________
+📊 Epic Success Metrics
+Metric	Target
+Email delivery success rate	99%
+Unsubscribe / toggle reliability	100% correct toggle behavior
+Notification latency	< 30 seconds from event trigger
+User satisfaction (post-launch feedback)	85% positive or higher
+Email open rate	> 50% for job and message notifications
+________________________________________
+🧩 User Stories
+________________________________________
+1️⃣ Story: Create Notification Settings Panel
+As a user,
+I want a Notification Settings panel accessible from my account dropdown,
+so that I can control which types of email notifications I receive.
+Acceptance Criteria:
+•	Link “Notification Settings” appears in the user dropdown (header).
+•	When clicked, opens a page /notification-settings.
+•	The panel displays toggles for:
+o	Internal messages received
+o	Actions on applications (freelancers only)
+o	Actions on jobs posted (recruiters only)
+o	New job posts matching filters
+•	Changes are auto-saved when toggled on/off.
+•	Settings are stored per user in the database.
+•	Default: All notifications ON for new users.
+•	The UI follows EventLink’s minimal style and orange gradient (#D8690E).
+Subtasks:
+1.	Add “Notification Settings” link to dropdown menu.
+2.	Create new page /notification-settings.
+3.	Build settings form (toggles).
+4.	Create backend endpoint /api/notifications/settings (GET/POST).
+5.	Store preferences in user table (e.g., JSONB field or separate table).
+6.	Implement auto-save on toggle change.
+7.	Restrict fields displayed based on user role (freelancer/recruiter).
+8.	Add success toast or confirmation.
+________________________________________
+2️⃣ Story: Email Notifications for Internal Messages
+As a user,
+I want to receive an email notification when I get a new internal message,
+so that I don’t miss important communication.
+Acceptance Criteria:
+•	Triggered when a new message is sent to a user.
+•	Only sent if the recipient has email notifications enabled for messages.
+•	Email includes:
+o	EventLink logo and brand formatting.
+o	Sender’s name and message preview (first 100 characters).
+o	“View Message” button linking to /messages tab.
+•	Subject: “📩 New message from [Sender Name] on EventLink”
+•	Template is mobile-friendly and branded.
+Subtasks:
+1.	Add backend trigger when a new message is created.
+2.	Create message email template in HTML.
+3.	Integrate with email service (SendGrid, AWS SES, or Mailgun).
+4.	Include logic to respect user’s toggle settings.
+5.	Add link redirection to /messages.
+6.	Test various message lengths and encodings.
+________________________________________
+3️⃣ Story: Email Notifications for Application Updates (Freelancers)
+As a freelancer,
+I want to receive an email when my job application status changes,
+so that I stay informed about my opportunities.
+Acceptance Criteria:
+•	Triggered when a recruiter updates an application (e.g., accepted, rejected, shortlisted).
+•	Only sent to freelancers who enabled “Application updates” notifications.
+•	Email includes:
+o	EventLink logo
+o	Job title and company name
+o	Status update (e.g., “Your application for Event Coordinator has been accepted!”)
+o	“View Application” button linking to /my-applications
+•	Subject: “🔔 Update on your application for [Job Title]”
+Subtasks:
+1.	Add backend trigger on application.status change.
+2.	Create dynamic email template for application updates.
+3.	Implement routing logic to /my-applications.
+4.	Add conditional logic for user preferences.
+5.	Validate with multiple test statuses.
+________________________________________
+4️⃣ Story: Email Notifications for Job Updates (Recruiters)
+As a recruiter,
+I want to receive email notifications when an application or rating is received on one of my job posts,
+so that I can respond quickly.
+Acceptance Criteria:
+•	Triggered when:
+o	A freelancer applies to a job.
+o	A freelancer submits a rating.
+•	Only sent if recruiter has “Job Actions” notifications enabled.
+•	Email includes:
+o	Job title and applicant details (name, brief summary).
+o	“View Job” button linking to /my-jobs.
+•	Subject: “📥 New application for [Job Title]”
+Subtasks:
+1.	Add backend trigger when new application submitted.
+2.	Create recruiter-specific template.
+3.	Add routing to /my-jobs.
+4.	Add toggle logic respect.
+5.	QA with sample jobs and applications.
+________________________________________
+5️⃣ Story: Email Notifications for New Job Posts (Job Alerts)
+As a freelancer,
+I want to receive notifications for new job posts that match my selected filters,
+so that I can apply quickly for relevant opportunities.
+Acceptance Criteria:
+•	User can set optional filters in Notification Settings:
+o	Skills (dropdown or tag input)
+o	Dates (from–to)
+o	Location (city or region)
+•	Filters are stored in the database per user.
+•	When a new job post matches user’s filters, send an email:
+o	Job title, date, and location
+o	Brief description
+o	“View Job” button linking to the specific job post page
+•	Subject: “🚀 New job posted matching your preferences”
+•	Frequency: Instant or daily digest (depending on scale).
+Subtasks:
+1.	Extend Notification Settings panel with filter fields.
+2.	Create job_alerts table to store user filters.
+3.	Implement backend logic to match new job posts against filters.
+4.	Create email template for job alerts.
+5.	Add routing link to specific job post.
+6.	Schedule periodic job (e.g., cron) to send notifications.
+________________________________________
+6️⃣ Story: Create Email Template Library
+As a system administrator,
+I want all emails to have a unified design and proper branding,
+so that communications look professional and recognizable.
+Acceptance Criteria:
+•	All email templates include:
+o	EventLink logo and orange gradient header (#D8690E)
+o	Consistent footer (“© EventLink 2025 – Connecting Talent & Events”)
+o	Button with brand styling
+o	Responsive (mobile and desktop).
+•	Template types:
+o	Message notification
+o	Application update
+o	Job update
+o	Job alert
+•	Templates tested across Gmail, Outlook, Apple Mail.
+Subtasks:
+1.	Create master HTML email template.
+2.	Add dynamic placeholders ({{username}}, {{link}}, etc.).
+3.	Test with multiple clients and devices.
+4.	Integrate with email sending API.
+________________________________________
+7️⃣ Story: Backend Infrastructure for Notifications
+As a developer,
+I want a modular backend service to handle notifications,
+so that future channels (WhatsApp, push, SMS) can be added easily.
+Acceptance Criteria:
+•	Notification service supports:
+o	Event triggers → message queue → email send
+•	Clean architecture (controllers → service → email adapter).
+•	Supports async sending (queue-based or background job).
+•	Logs all sent notifications.
+Subtasks:
+1.	Create notification service architecture.
+2.	Add message queue (optional – e.g., Redis, BullMQ).
+3.	Integrate email provider (SendGrid, SES, Mailgun).
+4.	Implement logging and retries.
+________________________________________
+⚙️ Technical Subtask Summary
+Area	Subtasks	Tools
+Frontend (UI)	Build Notification Settings page, toggles, filters	React / Next.js / Tailwind
+Backend (API)	Triggers, routes, settings persistence	Node.js / Express / Prisma
+Database	Add fields for notification preferences, filters	PostgreSQL
+Email Service	Integrate SendGrid / AWS SES / Mailgun	API key-based
+Queueing	Background jobs for async send	BullMQ / Redis
+Security	Email verification, unsubscribe logic	JWT / Link tokens
+Testing	Unit + integration for triggers and templates	Jest / Supertest
+QA	Check email deliverability and routing	Manual & Postman
+________________________________________
+🧠 Implementation Phases
+Phase	Deliverables
+Phase 1 (MVP)	Notification Settings panel + email templates + core triggers
+Phase 2	Job alert filters + scheduling
+Phase 3	Logging, performance optimization
+Phase 4	Add advanced features (digest mode, push notifications, WhatsApp)
+

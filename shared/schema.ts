@@ -343,6 +343,55 @@ export const contact_messages = pgTable("contact_messages", {
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Email notification preferences for users
+export const notification_preferences = pgTable("notification_preferences", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  // Email notification toggles
+  email_messages: boolean("email_messages").default(true).notNull(), // New internal messages
+  email_application_updates: boolean("email_application_updates").default(true).notNull(), // Application status changes (freelancers only)
+  email_job_updates: boolean("email_job_updates").default(true).notNull(), // New applications on posted jobs (recruiters only)
+  email_job_alerts: boolean("email_job_alerts").default(true).notNull(), // New job posts matching filters
+  email_rating_requests: boolean("email_rating_requests").default(true).notNull(), // Rating requests
+  email_system_updates: boolean("email_system_updates").default(true).notNull(), // Platform updates and announcements
+  // Future: digest mode settings
+  digest_mode: text("digest_mode").default('instant').$type<'instant' | 'daily' | 'weekly'>(),
+  digest_time: text("digest_time").default('09:00'), // Time to send daily digest (HH:MM format)
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Job alert filters for personalized job notifications
+export const job_alert_filters = pgTable("job_alert_filters", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Filter criteria
+  skills: text("skills").array(), // Array of skills to match
+  locations: text("locations").array(), // Array of locations to match
+  date_from: text("date_from"), // Start date range (YYYY-MM-DD)
+  date_to: text("date_to"), // End date range (YYYY-MM-DD)
+  job_types: text("job_types").array(), // Array of job types to match
+  keywords: text("keywords").array(), // Array of keywords to search in title/description
+  is_active: boolean("is_active").default(true).notNull(), // Whether this filter is active
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Log of sent email notifications for debugging and tracking
+export const email_notification_logs = pgTable("email_notification_logs", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").references(() => users.id, { onDelete: "set null" }), // Nullable in case user is deleted
+  email: text("email").notNull(), // Email address where notification was sent
+  notification_type: text("notification_type").notNull().$type<'message' | 'application_update' | 'job_update' | 'job_alert' | 'rating_request' | 'system'>(),
+  subject: text("subject").notNull(),
+  status: text("status").notNull().$type<'sent' | 'failed' | 'bounced'>(),
+  error_message: text("error_message"), // Error details if failed
+  related_entity_type: text("related_entity_type").$type<'job' | 'application' | 'message' | 'rating' | null>(),
+  related_entity_id: integer("related_entity_id"), // ID of related entity (job, application, etc.)
+  metadata: text("metadata"), // JSON string for additional data
+  sent_at: timestamp("sent_at").defaultNow().notNull(),
+});
+
 export const insertRatingRequestSchema = createInsertSchema(rating_requests).omit({
   id: true,
   requested_at: true,
@@ -384,6 +433,27 @@ export const insertFileReportSchema = createInsertSchema(file_reports).omit({
   resolved_at: true,
 });
 
+export const insertNotificationPreferencesSchema = createInsertSchema(notification_preferences).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+}).extend({
+  user_id: z.number(),
+});
+
+export const insertJobAlertFilterSchema = createInsertSchema(job_alert_filters).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+}).extend({
+  user_id: z.number(),
+});
+
+export const insertEmailNotificationLogSchema = createInsertSchema(email_notification_logs).omit({
+  id: true,
+  sent_at: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertSocialUser = z.infer<typeof insertSocialUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -415,3 +485,9 @@ export type RatingRequest = typeof rating_requests.$inferSelect;
 export type InsertRatingRequest = z.infer<typeof insertRatingRequestSchema>;
 export type ContactMessage = typeof contact_messages.$inferSelect;
 export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;
+export type NotificationPreferences = typeof notification_preferences.$inferSelect;
+export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
+export type JobAlertFilter = typeof job_alert_filters.$inferSelect;
+export type InsertJobAlertFilter = z.infer<typeof insertJobAlertFilterSchema>;
+export type EmailNotificationLog = typeof email_notification_logs.$inferSelect;
+export type InsertEmailNotificationLog = z.infer<typeof insertEmailNotificationLogSchema>;
