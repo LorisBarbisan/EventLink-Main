@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, LogOut, Settings, UserCircle, Star } from "lucide-react";
+import { User, LogOut, Settings, UserCircle, Star, Bell } from "lucide-react";
 import { useLocation } from "wouter";
 import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -123,6 +123,11 @@ export const UserMenu = () => {
             My Ratings
           </DropdownMenuItem>
         )}
+        
+        <DropdownMenuItem onClick={() => setLocation('/notification-settings')} data-testid="menu-notification-settings">
+          <Bell className="mr-2 h-4 w-4" />
+          Notification Settings
+        </DropdownMenuItem>
         
         {user.role === 'admin' && (
           <DropdownMenuItem onClick={() => setLocation('/admin')} data-testid="menu-admin">

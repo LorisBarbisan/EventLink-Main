@@ -667,3 +667,6 @@ The EventLink Team
     text: textContent,
   });
 }
+
+// Export the EmailNotificationService from the template module
+export { emailService } from './emailNotificationService';

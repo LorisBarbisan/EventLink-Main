@@ -15,6 +15,9 @@ import {
   rating_requests,
   feedback,
   contact_messages,
+  notification_preferences,
+  job_alert_filters,
+  email_notification_logs,
   type User, 
   type InsertUser,
   type FreelancerProfile,
@@ -41,7 +44,13 @@ import {
   type InsertRatingRequest,
   type Feedback,
   type InsertFeedback,
-  type ContactMessage
+  type ContactMessage,
+  type NotificationPreferences,
+  type InsertNotificationPreferences,
+  type JobAlertFilter,
+  type InsertJobAlertFilter,
+  type EmailNotificationLog,
+  type InsertEmailNotificationLog
 } from "@shared/schema";
 import { eq, desc, isNull, and, or, sql, inArray } from "drizzle-orm";
 
@@ -241,6 +250,21 @@ export interface IStorage {
   
   // Mark category-specific notifications as read
   markCategoryNotificationsAsRead(userId: number, category: 'messages' | 'applications' | 'jobs' | 'ratings'): Promise<void>;
+  
+  // Notification preferences management
+  getNotificationPreferences(userId: number): Promise<NotificationPreferences | undefined>;
+  createNotificationPreferences(userId: number): Promise<NotificationPreferences>;
+  updateNotificationPreferences(userId: number, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences>;
+  
+  // Job alert filters management
+  getJobAlertFilters(userId: number): Promise<JobAlertFilter[]>;
+  createJobAlertFilter(filter: InsertJobAlertFilter): Promise<JobAlertFilter>;
+  updateJobAlertFilter(filterId: number, filter: Partial<InsertJobAlertFilter>): Promise<JobAlertFilter>;
+  deleteJobAlertFilter(filterId: number): Promise<void>;
+  
+  // Email notification logging
+  logEmailNotification(log: InsertEmailNotificationLog): Promise<EmailNotificationLog>;
+  getEmailNotificationLogs(userId: number, limit?: number): Promise<EmailNotificationLog[]>;
   
   // Cache management
   clearCache(): void;
@@ -2374,6 +2398,116 @@ export class DatabaseStorage implements IStorage {
 
     cache.set(cacheKey, adminUsers, 60); // Cache for 1 minute
     return adminUsers;
+  }
+
+  // Notification preferences management
+  async getNotificationPreferences(userId: number): Promise<NotificationPreferences | undefined> {
+    const cacheKey = `notification_preferences:${userId}`;
+    const cached = cache.get<NotificationPreferences>(cacheKey);
+    if (cached) return cached;
+
+    const result = await db.select()
+      .from(notification_preferences)
+      .where(eq(notification_preferences.user_id, userId))
+      .limit(1);
+    
+    if (result[0]) {
+      cache.set(cacheKey, result[0], 300);
+    }
+    return result[0];
+  }
+
+  async createNotificationPreferences(userId: number): Promise<NotificationPreferences> {
+    const result = await db.insert(notification_preferences)
+      .values({ user_id: userId })
+      .returning();
+    
+    if (!result[0]) {
+      throw new Error('Failed to create notification preferences');
+    }
+
+    const cacheKey = `notification_preferences:${userId}`;
+    cache.set(cacheKey, result[0], 300);
+    return result[0];
+  }
+
+  async updateNotificationPreferences(userId: number, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences> {
+    const updateData: any = { ...preferences, updated_at: new Date() };
+    const result = await db.update(notification_preferences)
+      .set(updateData)
+      .where(eq(notification_preferences.user_id, userId))
+      .returning();
+    
+    if (!result[0]) {
+      throw new Error('Failed to update notification preferences');
+    }
+
+    const cacheKey = `notification_preferences:${userId}`;
+    cache.set(cacheKey, result[0], 300);
+    return result[0];
+  }
+
+  // Job alert filters management
+  async getJobAlertFilters(userId: number): Promise<JobAlertFilter[]> {
+    return db.select()
+      .from(job_alert_filters)
+      .where(and(
+        eq(job_alert_filters.user_id, userId),
+        eq(job_alert_filters.is_active, true)
+      ))
+      .orderBy(desc(job_alert_filters.created_at));
+  }
+
+  async createJobAlertFilter(filter: InsertJobAlertFilter): Promise<JobAlertFilter> {
+    const result = await db.insert(job_alert_filters)
+      .values(filter)
+      .returning();
+    
+    if (!result[0]) {
+      throw new Error('Failed to create job alert filter');
+    }
+
+    return result[0];
+  }
+
+  async updateJobAlertFilter(filterId: number, filter: Partial<InsertJobAlertFilter>): Promise<JobAlertFilter> {
+    const result = await db.update(job_alert_filters)
+      .set({ ...filter, updated_at: new Date() })
+      .where(eq(job_alert_filters.id, filterId))
+      .returning();
+    
+    if (!result[0]) {
+      throw new Error('Failed to update job alert filter');
+    }
+
+    return result[0];
+  }
+
+  async deleteJobAlertFilter(filterId: number): Promise<void> {
+    await db.delete(job_alert_filters)
+      .where(eq(job_alert_filters.id, filterId));
+  }
+
+  // Email notification logging
+  async logEmailNotification(log: InsertEmailNotificationLog): Promise<EmailNotificationLog> {
+    const logData: any = log;
+    const result = await db.insert(email_notification_logs)
+      .values(logData)
+      .returning();
+    
+    if (!result[0]) {
+      throw new Error('Failed to log email notification');
+    }
+
+    return result[0];
+  }
+
+  async getEmailNotificationLogs(userId: number, limit: number = 50): Promise<EmailNotificationLog[]> {
+    return db.select()
+      .from(email_notification_logs)
+      .where(eq(email_notification_logs.user_id, userId))
+      .orderBy(desc(email_notification_logs.sent_at))
+      .limit(limit);
   }
 
   clearCache(): void {

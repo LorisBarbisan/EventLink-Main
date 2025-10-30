@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { insertNotificationSchema } from "@shared/schema";
+import { insertNotificationSchema, insertNotificationPreferencesSchema, insertJobAlertFilterSchema } from "@shared/schema";
 import { authenticateJWT } from "./auth";
 
 export function registerNotificationRoutes(app: Express) {
@@ -187,6 +187,139 @@ export function registerNotificationRoutes(app: Express) {
       res.json({ message: "Notification deleted successfully" });
     } catch (error) {
       console.error("Delete notification error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get notification preferences
+  app.get("/api/notifications/settings", authenticateJWT, async (req, res) => {
+    try {
+      let preferences = await storage.getNotificationPreferences(req.user.id);
+      
+      // Create default preferences if they don't exist
+      if (!preferences) {
+        preferences = await storage.createNotificationPreferences(req.user.id);
+      }
+      
+      res.json(preferences);
+    } catch (error) {
+      console.error("Get notification preferences error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update notification preferences
+  app.post("/api/notifications/settings", authenticateJWT, async (req, res) => {
+    try {
+      // Validate request body with Zod schema
+      const validationResult = insertNotificationPreferencesSchema.partial().safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid input", 
+          details: validationResult.error.issues 
+        });
+      }
+
+      // Get or create preferences first
+      let preferences = await storage.getNotificationPreferences(req.user.id);
+      if (!preferences) {
+        preferences = await storage.createNotificationPreferences(req.user.id);
+      }
+
+      // Update with validated settings only (no user_id allowed in updates)
+      const { user_id, ...updateData } = validationResult.data;
+      const updatedPreferences = await storage.updateNotificationPreferences(req.user.id, updateData);
+      res.json(updatedPreferences);
+    } catch (error) {
+      console.error("Update notification preferences error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get job alert filters
+  app.get("/api/notifications/job-alerts", authenticateJWT, async (req, res) => {
+    try {
+      const filters = await storage.getJobAlertFilters(req.user.id);
+      res.json(filters);
+    } catch (error) {
+      console.error("Get job alert filters error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Create job alert filter
+  app.post("/api/notifications/job-alerts", authenticateJWT, async (req, res) => {
+    try {
+      // Validate request body with Zod schema
+      const validationResult = insertJobAlertFilterSchema.safeParse({
+        ...req.body,
+        user_id: req.user.id, // Force user_id to authenticated user
+      });
+      
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid input", 
+          details: validationResult.error.issues 
+        });
+      }
+
+      const filter = await storage.createJobAlertFilter(validationResult.data);
+      res.status(201).json(filter);
+    } catch (error) {
+      console.error("Create job alert filter error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update job alert filter
+  app.patch("/api/notifications/job-alerts/:id", authenticateJWT, async (req, res) => {
+    try {
+      const filterId = parseInt(req.params.id);
+      
+      // Verify ownership before updating
+      const existingFilters = await storage.getJobAlertFilters(req.user.id);
+      const ownedFilter = existingFilters.find(f => f.id === filterId);
+      
+      if (!ownedFilter) {
+        return res.status(404).json({ error: "Job alert filter not found or access denied" });
+      }
+
+      // Validate request body
+      const validationResult = insertJobAlertFilterSchema.partial().safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid input", 
+          details: validationResult.error.issues 
+        });
+      }
+
+      // Prevent user_id changes
+      const { user_id, ...updateData } = validationResult.data;
+      const updatedFilter = await storage.updateJobAlertFilter(filterId, updateData);
+      res.json(updatedFilter);
+    } catch (error) {
+      console.error("Update job alert filter error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete job alert filter
+  app.delete("/api/notifications/job-alerts/:id", authenticateJWT, async (req, res) => {
+    try {
+      const filterId = parseInt(req.params.id);
+      
+      // Verify ownership before deleting
+      const existingFilters = await storage.getJobAlertFilters(req.user.id);
+      const ownedFilter = existingFilters.find(f => f.id === filterId);
+      
+      if (!ownedFilter) {
+        return res.status(404).json({ error: "Job alert filter not found or access denied" });
+      }
+
+      await storage.deleteJobAlertFilter(filterId);
+      res.json({ message: "Job alert filter deleted successfully" });
+    } catch (error) {
+      console.error("Delete job alert filter error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

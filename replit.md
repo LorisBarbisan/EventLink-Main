@@ -32,6 +32,7 @@ The EventLink platform utilizes a modern web application stack designed for effi
 - **Email Service Diagnostics**: An internal endpoint `/api/debug/email-connector` is available for troubleshooting SendGrid connectivity.
 - **Job Search & Filtering**: Comprehensive server-side search system with keyword, location, and date range filters. EventLink jobs are prioritized above external jobs, with visual distinction badges ("EventLink Opportunity" vs. "External • [source]").
 - **Freelancer Search ("Find Crew")**: Server-side search with weighted relevance scoring (40% title, 30% skills, 20% bio, 10% rating), pagination (20 results/page), keyword/location filters, and rating integration. Performance optimized with database indexes achieving <400ms response time.
+- **Email Notification System**: Comprehensive notification system with user-configurable preferences via dedicated settings page accessible from account dropdown. Supports role-based notifications (freelancers vs. recruiters) including message alerts, application updates, job alerts with filters, and rating requests. Branded email templates with EventLink orange gradient (#D8690E) and full logging for debugging and reliability tracking. **Note: Currently blocked by SendGrid account credit limitations.**
 
 ## External Dependencies
 - **PostgreSQL**: The primary relational database for all application data.

@@ -17,6 +17,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import NotificationSettings from "./pages/NotificationSettings";
 import Jobs from "./pages/Jobs";
 import Freelancers from "./pages/Freelancers";
 import { RatingDashboard } from "./pages/RatingDashboard";
@@ -40,6 +41,7 @@ function AppRouter() {
       <Route path="/profile" component={Profile} />
       <Route path="/profile/:userId" component={Profile} />
       <Route path="/settings" component={Settings} />
+      <Route path="/notification-settings" component={NotificationSettings} />
       <Route path="/jobs" component={Jobs} />
       <Route path="/freelancers" component={Freelancers} />
       <Route path="/ratings" component={RatingDashboard} />
