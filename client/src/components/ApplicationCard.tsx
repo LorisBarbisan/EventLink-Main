@@ -50,28 +50,12 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
       });
     },
     onSuccess: async () => {
-      const queryKey = ['/api/recruiter', currentUserId, 'applications'];
-      
-      // Optimistically update the cache immediately
-      queryClient.setQueryData(queryKey, (oldData: JobApplication[] | undefined) => {
-        if (!oldData) return [];
-        return oldData.map(app => 
-          app.id === application.id 
-            ? { ...app, status: 'rejected' as const, rejection_message: rejectionMessage }
-            : app
-        );
+      // Invalidate and refetch all application-related queries
+      await queryClient.invalidateQueries({ 
+        queryKey: ['/api/recruiter', currentUserId, 'applications']
       });
-      
-      // Then refetch to ensure consistency
-      await queryClient.refetchQueries({ 
-        queryKey: queryKey,
-        type: 'active'
-      });
-      
-      // Refetch freelancer's applications to update their dashboard immediately
-      await queryClient.refetchQueries({ 
-        queryKey: ['/api/freelancer/applications', application.freelancer_id],
-        type: 'active'
+      await queryClient.invalidateQueries({ 
+        queryKey: ['/api/freelancer/applications', application.freelancer_id]
       });
       
       setShowRejectionDialog(false);
@@ -98,38 +82,18 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
       });
     },
     onSuccess: async () => {
-      const queryKey = ['/api/recruiter', currentUserId, 'applications'];
-      
-      // Optimistically update the cache immediately
-      queryClient.setQueryData(queryKey, (oldData: JobApplication[] | undefined) => {
-        if (!oldData) return [];
-        return oldData.map(app => 
-          app.id === application.id 
-            ? { ...app, status: 'hired' as const }
-            : app
-        );
+      // Invalidate and refetch all related queries
+      await queryClient.invalidateQueries({ 
+        queryKey: ['/api/recruiter', currentUserId, 'applications']
       });
-      
-      // Then refetch to ensure consistency
-      await queryClient.refetchQueries({ 
-        queryKey: queryKey,
-        type: 'active'
+      await queryClient.invalidateQueries({ 
+        queryKey: ['/api/jobs']
       });
-      
-      // Refetch jobs list to show closed status
-      await queryClient.refetchQueries({ 
-        queryKey: ['/api/jobs'],
-        type: 'active'
+      await queryClient.invalidateQueries({ 
+        queryKey: ['/api/jobs/recruiter', currentUserId]
       });
-      await queryClient.refetchQueries({ 
-        queryKey: ['/api/jobs/recruiter', currentUserId],
-        type: 'active'
-      });
-      
-      // Refetch freelancer's applications to update their dashboard immediately
-      await queryClient.refetchQueries({ 
-        queryKey: ['/api/freelancer/applications', application.freelancer_id],
-        type: 'active'
+      await queryClient.invalidateQueries({ 
+        queryKey: ['/api/freelancer/applications', application.freelancer_id]
       });
       
       setShowHireConfirm(false);
@@ -156,28 +120,14 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
     onSuccess: async () => {
       setShowDeleteConfirm(false);
       
-      // Optimistically update cache to remove the deleted application immediately
+      // Invalidate application queries
       if (userType === 'freelancer') {
-        const queryKey = ['/api/freelancer/applications', currentUserId];
-        queryClient.setQueryData(queryKey, (oldData: JobApplication[] | undefined) => {
-          if (!oldData) return [];
-          return oldData.filter(app => app.id !== application.id);
-        });
-        // Also refetch to ensure consistency
-        await queryClient.refetchQueries({ 
-          queryKey: queryKey,
-          type: 'active'
+        await queryClient.invalidateQueries({ 
+          queryKey: ['/api/freelancer/applications', currentUserId]
         });
       } else {
-        const queryKey = ['/api/recruiter', currentUserId, 'applications'];
-        queryClient.setQueryData(queryKey, (oldData: JobApplication[] | undefined) => {
-          if (!oldData) return [];
-          return oldData.filter(app => app.id !== application.id);
-        });
-        // Also refetch to ensure consistency
-        await queryClient.refetchQueries({ 
-          queryKey: queryKey,
-          type: 'active'
+        await queryClient.invalidateQueries({ 
+          queryKey: ['/api/recruiter', currentUserId, 'applications']
         });
       }
       
