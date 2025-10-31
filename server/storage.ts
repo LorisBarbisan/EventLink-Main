@@ -1160,6 +1160,7 @@ export class DatabaseStorage implements IStorage {
       updated_at: job_applications.updated_at,
       freelancer_deleted: job_applications.freelancer_deleted,
       recruiter_deleted: job_applications.recruiter_deleted,
+      recruiter_id: jobs.recruiter_id,
       job_title: jobs.title,
       job_company: jobs.company,
       freelancer_profile: {
