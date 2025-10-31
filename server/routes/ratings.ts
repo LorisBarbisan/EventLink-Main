@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage";
-import { insertRatingSchema } from "@shared/schema";
+import { insertRatingSchema, insertRatingRequestSchema } from "@shared/schema";
 import { authenticateJWT } from "./auth";
 
 export function registerRatingsRoutes(app: Express) {
@@ -121,6 +121,73 @@ export function registerRatingsRoutes(app: Express) {
       res.json(averageRating);
     } catch (error) {
       console.error("Get average rating error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Create a rating request
+  app.post("/api/rating-requests", authenticateJWT, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Validate the rating request data
+      const result = insertRatingRequestSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ 
+          error: "Invalid input", 
+          details: result.error.issues 
+        });
+      }
+
+      // Verify the freelancer_id matches the authenticated user (only freelancers can request ratings)
+      if (req.user.role !== 'admin' && req.user.id !== result.data.freelancer_id) {
+        return res.status(403).json({ error: "Not authorized to create this rating request" });
+      }
+
+      // Check if a rating request already exists for this application
+      const existingRequest = await storage.getRatingRequestByJobApplication(result.data.job_application_id);
+      if (existingRequest) {
+        return res.status(400).json({ error: "A rating request already exists for this application" });
+      }
+
+      // Check if the application exists and is hired
+      const application = await storage.getJobApplicationById(result.data.job_application_id);
+      if (!application) {
+        return res.status(404).json({ error: "Application not found" });
+      }
+
+      if (application.status !== 'hired') {
+        return res.status(400).json({ error: "Can only request ratings for hired applications" });
+      }
+
+      const ratingRequest = await storage.createRatingRequest(result.data);
+
+      // Create notification for recruiter
+      const job = await storage.getJobById(application.job_id);
+      if (job) {
+        await storage.createNotification({
+          user_id: result.data.recruiter_id,
+          type: 'rating_request',
+          title: 'Rating Request',
+          message: `A freelancer has requested a rating for their work on "${job.title}".`,
+          priority: 'normal',
+          related_entity_type: 'application',
+          related_entity_id: application.id,
+          action_url: '/dashboard?tab=applications',
+          metadata: JSON.stringify({ 
+            rating_request_id: ratingRequest.id,
+            job_id: job.id,
+            job_title: job.title,
+            freelancer_id: result.data.freelancer_id
+          })
+        });
+      }
+
+      res.status(201).json(ratingRequest);
+    } catch (error) {
+      console.error("Create rating request error:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
