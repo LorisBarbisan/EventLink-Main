@@ -15,6 +15,7 @@ The EventLink platform utilizes a modern web application stack designed for effi
 ### UI/UX Decisions
 - **Styling**: Tailwind CSS for utility-first styling.
 - **Components**: shadcn/ui for consistent and accessible UI components.
+- **Responsive Design**: Mobile-first approach with responsive breakpoints. Dashboards use 2-column tab layout on mobile (expanding to 4 columns on larger screens), card layouts stack vertically on mobile with full-width buttons, and flexible grid systems adapt from single column on mobile to multi-column on desktop.
 
 ### Technical Implementations
 - **Frontend**: React and TypeScript with Wouter for client-side routing.
