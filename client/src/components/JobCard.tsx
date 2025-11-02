@@ -77,8 +77,8 @@ export function JobCard({
 
   return (
     <Card>
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
+      <CardContent className="p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <h3 className="text-lg font-semibold">{job.title}</h3>
@@ -146,7 +146,7 @@ export function JobCard({
             </div>
           </div>
           
-          <div className="flex gap-2 ml-4">
+          <div className="flex flex-row gap-2 sm:ml-4 w-full sm:w-auto justify-end sm:justify-start">
             {onEdit && (
               <Button variant="outline" size="sm" onClick={() => onEdit(job.id)} data-testid={`button-edit-job-${job.id}`}>
                 <Edit className="w-4 h-4" />
