@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ProfileForm } from './ProfileForm';
 import { ApplicationCard } from './ApplicationCard';
 import { MessagingInterface } from './MessagingInterface';
+import { AdBanner } from './AdBanner';
 import type { JobApplication, FreelancerFormData } from '@shared/types';
 
 export default function SimplifiedFreelancerDashboard() {
@@ -105,7 +106,9 @@ export default function SimplifiedFreelancerDashboard() {
         <p className="text-sm sm:text-base text-muted-foreground">Manage your profile, applications, and messages</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2">
           <TabsTrigger value="profile" className="text-xs sm:text-sm">Edit Profile</TabsTrigger>
           <TabsTrigger value="jobs" className="flex items-center justify-center text-xs sm:text-sm">
@@ -328,7 +331,14 @@ export default function SimplifiedFreelancerDashboard() {
             </div>
           )}
         </TabsContent>
-      </Tabs>
+          </Tabs>
+        </div>
+
+        {/* Sidebar for Ad Banner */}
+        <div className="hidden lg:block">
+          <AdBanner />
+        </div>
+      </div>
     </div>
   );
 }

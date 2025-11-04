@@ -16,6 +16,7 @@ import { JobForm } from './JobForm';
 import { JobCard } from './JobCard';
 import { ApplicationCard } from './ApplicationCard';
 import { MessagingInterface } from './MessagingInterface';
+import { AdBanner } from './AdBanner';
 import { useLocation } from 'wouter';
 import type { Job, JobApplication, JobFormData } from '@shared/types';
 
@@ -323,7 +324,9 @@ export default function SimplifiedRecruiterDashboard() {
         <p className="text-sm sm:text-base text-muted-foreground">Manage your company profile, job postings, and applications</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2">
           <TabsTrigger value="profile" className="text-xs sm:text-sm">
             <span className="hidden sm:inline">Company Profile</span>
@@ -456,7 +459,14 @@ export default function SimplifiedRecruiterDashboard() {
             </div>
           )}
         </TabsContent>
-      </Tabs>
+          </Tabs>
+        </div>
+
+        {/* Sidebar for Ad Banner */}
+        <div className="hidden lg:block">
+          <AdBanner />
+        </div>
+      </div>
     </div>
   );
 }
