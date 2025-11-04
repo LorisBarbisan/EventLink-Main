@@ -133,9 +133,15 @@ export function MessagingInterface() {
         method: 'DELETE',
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, conversationId) => {
+      // Immediately update the cache to remove the deleted conversation
+      queryClient.setQueryData<Conversation[]>(
+        ['/api/conversations'],
+        (oldConversations = []) => oldConversations.filter(c => c.id !== conversationId)
+      );
+      
       setSelectedConversation(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+      
       toast({
         title: "Conversation deleted",
         description: "The conversation has been permanently removed",
