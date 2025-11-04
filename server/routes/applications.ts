@@ -99,8 +99,13 @@ export function registerApplicationRoutes(app: Express) {
             if (recruiter) {
               let recruiterDisplayName = recruiter.email;
               const recruiterProfile = await storage.getRecruiterProfile(job.recruiter_id);
+              // Priority: company_name → user's full name → email
               if (recruiterProfile?.company_name) {
                 recruiterDisplayName = recruiterProfile.company_name;
+              } else if (recruiter.first_name || recruiter.last_name) {
+                const firstName = recruiter.first_name || '';
+                const lastName = recruiter.last_name || '';
+                recruiterDisplayName = `${firstName} ${lastName}`.trim() || recruiter.email;
               }
 
               // Get freelancer's display name

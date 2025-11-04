@@ -176,8 +176,13 @@ export function registerMessagingRoutes(app: Express) {
           let recipientDisplayName = recipient.email; // fallback
           if (recipient.role === 'recruiter') {
             const recruiterProfile = await storage.getRecruiterProfile(userTwoId);
+            // Priority: company_name → user's full name → email
             if (recruiterProfile?.company_name) {
               recipientDisplayName = recruiterProfile.company_name;
+            } else if (recipient.first_name || recipient.last_name) {
+              const firstName = recipient.first_name || '';
+              const lastName = recipient.last_name || '';
+              recipientDisplayName = `${firstName} ${lastName}`.trim() || recipient.email;
             }
           } else if (recipient.role === 'freelancer') {
             const freelancerProfile = await storage.getFreelancerProfile(userTwoId);
@@ -310,8 +315,13 @@ export function registerMessagingRoutes(app: Express) {
             let recipientDisplayName = recipient.email; // fallback
             if (recipient.role === 'recruiter') {
               const recruiterProfile = await storage.getRecruiterProfile(conversation.otherUser.id);
+              // Priority: company_name → user's full name → email
               if (recruiterProfile?.company_name) {
                 recipientDisplayName = recruiterProfile.company_name;
+              } else if (recipient.first_name || recipient.last_name) {
+                const firstName = recipient.first_name || '';
+                const lastName = recipient.last_name || '';
+                recipientDisplayName = `${firstName} ${lastName}`.trim() || recipient.email;
               }
             } else if (recipient.role === 'freelancer') {
               const freelancerProfile = await storage.getFreelancerProfile(conversation.otherUser.id);
