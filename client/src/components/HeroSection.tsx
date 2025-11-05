@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { ArrowRight, Users, Briefcase, Star, MapPin, Clock } from "lucide-react";
-import eventImage from "@assets/vecteezy_blurred-images-of-trade-fairs-in-the-big-hall-image-of_33496157_1753859139754.jpg";
+import eventImage from "@assets/Landing page Image small_1762324021670.jpg";
 import eventlinkLogo from "@assets/E8-Logo-Orange-New.png";
 
 
