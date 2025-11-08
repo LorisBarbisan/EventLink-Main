@@ -436,8 +436,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
-  // Export function to broadcast notifications from other parts of the app
-  (global as any).broadcastToUser = broadcastToUser;
+  // Initialize WebSocket service with broadcast function
+  const { wsService } = await import('./websocketService.js');
+  wsService.initialize(broadcastToUser);
 
   wss.on('connection', (ws: WebSocket, req) => {
     console.log('WebSocket connection established on /ws');

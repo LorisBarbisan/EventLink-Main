@@ -11,6 +11,7 @@ import { Send, MessageCircle, Clock, User, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
+import { useWebSocket } from "@/contexts/WebSocketContext";
 
 interface User {
   id: number;
@@ -107,6 +108,7 @@ export function MessagingInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { subscribe } = useWebSocket();
 
   // Fetch messages using React Query (enabled only when a conversation is selected)
   const { data: messages = [], isLoading: messagesLoading } = useQuery<Message[]>({
@@ -315,54 +317,21 @@ export function MessagingInterface() {
     }
   }, [conversations]); // Only run when conversations change
 
-  // WebSocket connection for real-time message updates
+  // Subscribe to WebSocket events for real-time message updates
   useEffect(() => {
-    if (!user?.id) return;
+    if (!selectedConversation) return;
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
-    const ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'authenticate', userId: user.id }));
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        // Handle NEW_MESSAGE events for recipient
-        if (data.type === 'NEW_MESSAGE') {
-          console.log('📨 WebSocket: New message received', data);
-          
-          // IMMEDIATE refetch for active conversation (recipient sees message instantly)
-          if (data.conversation_id === selectedConversation) {
-            console.log('🔄 Refetching messages for active conversation:', selectedConversation);
-            queryClient.refetchQueries({ 
-              queryKey: ['/api/conversations', selectedConversation, 'messages'],
-              type: 'active' 
-            });
-          }
-          
-          // Always refresh conversations list
-          queryClient.refetchQueries({ queryKey: ['/api/conversations'] });
-        }
-      } catch (error) {
-        console.error('WebSocket message parse error:', error);
+    const unsubscribe = subscribe((data) => {
+      // Refetch messages for active conversation when NEW_MESSAGE is received
+      if ((data.type === 'NEW_MESSAGE' || data.type === 'new_message') && data.conversation_id === selectedConversation) {
+        queryClient.refetchQueries({ 
+          queryKey: ['/api/conversations', selectedConversation, 'messages'] 
+        });
       }
-    };
+    });
 
-    ws.onerror = (error) => {
-      console.error('Messaging WebSocket error:', error);
-    };
-
-    return () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-    };
-  }, [selectedConversation, user?.id, queryClient]);
+    return unsubscribe;
+  }, [selectedConversation, subscribe, queryClient]);
 
   return (
     <div className="space-y-6">

@@ -1664,7 +1664,29 @@ export class DatabaseStorage implements IStorage {
       type: notification.type as "application_update" | "new_message" | "job_update" | "profile_view" | "system",
       priority: notification.priority as "low" | "normal" | "high" | "urgent" | null | undefined
     }]).returning();
-    return result[0];
+    
+    // Broadcast real-time notification to the user
+    const newNotification = result[0];
+    if (notification.user_id) {
+      // Broadcast asynchronously (non-blocking)
+      setImmediate(async () => {
+        try {
+          const { wsService } = await import('./websocketService');
+          
+          // Send new_notification event
+          wsService.broadcastNotification(notification.user_id!, newNotification);
+          
+          // Also send updated badge counts
+          const counts = await this.getCategoryUnreadCounts(notification.user_id!);
+          wsService.broadcastBadgeCounts(notification.user_id!, counts);
+        } catch (error) {
+          console.error('Failed to broadcast notification via WebSocket:', error);
+          // Don't fail the notification creation if WebSocket broadcast fails
+        }
+      });
+    }
+    
+    return newNotification;
   }
 
   async getNotification(notificationId: number): Promise<Notification | undefined> {

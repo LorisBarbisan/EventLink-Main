@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useLocation } from 'wouter';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 import { MessageCircle, Briefcase, User, AlertCircle, Star } from 'lucide-react';
 import { ToastAction } from '@/components/ui/toast';
-import { useQueryClient } from '@tanstack/react-query';
 
 interface LiveNotificationPopupsProps {
   enabled?: boolean;
@@ -14,87 +14,41 @@ export function LiveNotificationPopups({ enabled = true }: LiveNotificationPopup
   const { user } = useOptimizedAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const wsRef = useRef<WebSocket | null>(null);
-  const queryClient = useQueryClient();
+  const { subscribe } = useWebSocket();
 
   useEffect(() => {
     if (!user?.id || !enabled) return;
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
-    try {
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
+    // Subscribe to WebSocket events
+    const unsubscribe = subscribe((data) => {
+      // Handle different types of real-time events
+      switch (data.type) {
+        case 'new_message':
+          showMessagePopup(data.message, data.sender);
+          break;
+        case 'application_update':
+          showApplicationUpdatePopup(data.application, data.status);
+          break;
+        case 'job_update':
+          showJobUpdatePopup(data.job);
+          break;
+        case 'rating_request':
+          showRatingRequestPopup(data.request);
+          break;
+        case 'rating_received':
+          showRatingReceivedPopup(data.rating);
+          break;
+        case 'new_notification':
+          // Generic notification handler
+          showGenericNotificationPopup(data.notification);
+          break;
+        default:
+          break;
+      }
+    });
 
-      ws.onopen = () => {
-        console.log('Live notifications WebSocket connected');
-        ws.send(JSON.stringify({ type: 'authenticate', userId: user.id }));
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          // Handle different types of real-time events
-          switch (data.type) {
-            case 'new_message':
-              showMessagePopup(data.message, data.sender);
-              // Invalidate conversations cache to refresh messages list
-              queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
-              if (data.message?.conversation_id) {
-                queryClient.invalidateQueries({ queryKey: [`/api/conversations/${data.message.conversation_id}/messages`] });
-              }
-              break;
-            case 'conversation_update':
-              // Update conversation list for sender when they send a message
-              queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
-              if (data.conversation_id) {
-                queryClient.invalidateQueries({ queryKey: [`/api/conversations/${data.conversation_id}/messages`] });
-              }
-              break;
-            case 'application_update':
-              showApplicationUpdatePopup(data.application, data.status);
-              break;
-            case 'job_update':
-              showJobUpdatePopup(data.job);
-              break;
-            case 'rating_request':
-              showRatingRequestPopup(data.request);
-              break;
-            case 'rating_received':
-              showRatingReceivedPopup(data.rating);
-              break;
-            case 'new_notification':
-              // Generic notification handler
-              showGenericNotificationPopup(data.notification);
-              break;
-            default:
-              break;
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
-
-      ws.onclose = () => {
-        console.log('Live notifications WebSocket disconnected');
-      };
-
-      ws.onerror = (error) => {
-        console.error('Live notifications WebSocket error:', error);
-      };
-
-      return () => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.close();
-        }
-        wsRef.current = null;
-      };
-    } catch (error) {
-      console.error('Error creating WebSocket connection:', error);
-    }
-  }, [user?.id, enabled]);
+    return unsubscribe;
+  }, [user?.id, enabled, subscribe]);
 
   const showMessagePopup = (message: any, sender?: any) => {
     const senderName = sender?.first_name && sender?.last_name 

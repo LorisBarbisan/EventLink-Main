@@ -1,7 +1,6 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { apiRequest } from '@/lib/queryClient';
-import { useEffect, useRef } from 'react';
 
 interface BadgeCounts {
   messages: number;
@@ -18,8 +17,6 @@ interface UseBadgeCountsProps {
 
 export function useBadgeCounts({ enabled = true, refetchInterval = 15000 }: UseBadgeCountsProps = {}) {
   const { user } = useOptimizedAuth();
-  const queryClient = useQueryClient();
-  const wsRef = useRef<WebSocket | null>(null);
 
   // Fetch badge counts from API
   const { data: counts = { messages: 0, applications: 0, jobs: 0, ratings: 0, total: 0 }, refetch } = useQuery<BadgeCounts>({
@@ -39,55 +36,8 @@ export function useBadgeCounts({ enabled = true, refetchInterval = 15000 }: UseB
     refetchIntervalInBackground: false, // Stop polling when tab is inactive
   });
 
-  // WebSocket connection for real-time updates
-  useEffect(() => {
-    if (!user?.id || !enabled) return;
-
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
-    try {
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'authenticate', userId: user.id }));
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.type === 'badge_counts_update' && data.counts) {
-            // Directly update the cache with the counts from the WebSocket message
-            queryClient.setQueryData<BadgeCounts>(
-              ['/api/notifications/category-counts', user.id],
-              data.counts
-            );
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
-
-      ws.onclose = () => {
-        // WebSocket disconnected
-      };
-
-      ws.onerror = (error) => {
-        console.error('Badge counts WebSocket error:', error);
-      };
-
-      return () => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.close();
-        }
-        wsRef.current = null;
-      };
-    } catch (error) {
-      console.error('Error creating WebSocket connection:', error);
-    }
-  }, [user?.id, enabled, refetch]);
+  // Note: Real-time badge count updates are now handled by the centralized WebSocketContext
+  // which automatically updates badge counts when badge_counts_update events are received
 
   // Get role-specific counts
   const getRoleSpecificCounts = () => {
