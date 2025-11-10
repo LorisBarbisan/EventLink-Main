@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Bell, Check, CheckCheck, X, Clock, AlertCircle, MessageCircle, Briefcase, User } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import type { Notification } from '@shared/schema';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 
 interface NotificationSystemProps {
   userId: number;
@@ -218,8 +219,38 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
     };
   }, [isOpen]);
 
-  // Note: Real-time badge count updates are now handled by the centralized WebSocketContext
-  // which automatically updates badge counts when badge_counts_update and new_notification events are received
+  // Subscribe to WebSocket events for instant notification updates
+  const { subscribe } = useWebSocket();
+  
+  useEffect(() => {
+    if (!userId) return;
+
+    const unsubscribe = subscribe((data) => {
+      // Handle different WebSocket events
+      if (data.type === 'new_notification') {
+        // Immediately refetch notifications list
+        queryClient.refetchQueries({ queryKey: ['/api/notifications', userId] });
+        console.log('📨 New notification received, refetching notifications list');
+      } else if (data.type === 'badge_counts_update') {
+        // Update badge counts cache directly (no refetch needed)
+        if (data.counts) {
+          queryClient.setQueryData(
+            ['/api/notifications/category-counts', userId],
+            data.counts
+          );
+          // Also update unread count
+          const totalUnread = Object.values(data.counts as Record<string, number>).reduce((a, b) => a + b, 0);
+          queryClient.setQueryData(
+            ['/api/notifications/unread-count', userId],
+            totalUnread
+          );
+          console.log('📊 Badge counts updated via WebSocket');
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [userId, subscribe, queryClient]);
 
   return (
     <div className="relative">
