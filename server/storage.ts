@@ -1514,6 +1514,33 @@ export class DatabaseStorage implements IStorage {
 
 
   async getConversationMessagesForUser(conversationId: number, userId: number): Promise<Array<Message & { sender: User, attachments?: MessageAttachment[] }>> {
+    // First, get the conversation to check if user deleted it and when
+    const conversation = await db.select()
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1);
+    
+    let deletedAt: Date | null = null;
+    if (conversation[0]) {
+      // Determine which participant is viewing and get their deletion timestamp
+      if (conversation[0].participant_one_id === userId) {
+        deletedAt = conversation[0].participant_one_deleted_at;
+      } else if (conversation[0].participant_two_id === userId) {
+        deletedAt = conversation[0].participant_two_deleted_at;
+      }
+    }
+    
+    // Build the where conditions
+    const whereConditions = [
+      eq(messages.conversation_id, conversationId),
+      isNull(message_user_states.id) // Exclude messages individually deleted by this user
+    ];
+    
+    // If user deleted the conversation, only show messages created AFTER that deletion
+    if (deletedAt) {
+      whereConditions.push(sql`${messages.created_at} > ${deletedAt}`);
+    }
+    
     const result = await db.select({
       id: messages.id,
       conversation_id: messages.conversation_id,
@@ -1531,10 +1558,7 @@ export class DatabaseStorage implements IStorage {
       eq(message_user_states.message_id, messages.id),
       eq(message_user_states.user_id, userId)
     ))
-    .where(and(
-      eq(messages.conversation_id, conversationId),
-      isNull(message_user_states.id) // Exclude messages deleted by this user
-    ))
+    .where(and(...whereConditions))
     .orderBy(messages.created_at);
 
     // Load attachments for each message
@@ -1602,14 +1626,23 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Conversation not found');
     }
     
+    const now = new Date();
+    
     // Determine which field to update based on the user
+    // Set both the boolean flag AND the timestamp
     if (conversation[0].participant_one_id === userId) {
       await db.update(conversations)
-        .set({ participant_one_deleted: true })
+        .set({ 
+          participant_one_deleted: true,
+          participant_one_deleted_at: now
+        })
         .where(eq(conversations.id, conversationId));
     } else if (conversation[0].participant_two_id === userId) {
       await db.update(conversations)
-        .set({ participant_two_deleted: true })
+        .set({ 
+          participant_two_deleted: true,
+          participant_two_deleted_at: now
+        })
         .where(eq(conversations.id, conversationId));
     }
     

@@ -37,8 +37,8 @@ export function registerMessagingRoutes(app: Express) {
         return res.status(403).json({ error: "You are not a participant in this conversation" });
       }
       
-      // Get messages for this conversation
-      const messages = await storage.getConversationMessages(conversationId);
+      // Get messages for this conversation (filtered by user's deletion timestamp)
+      const messages = await storage.getConversationMessagesForUser(conversationId, req.user.id);
       
       // Mark messages as read
       await storage.markMessagesAsRead(conversationId, req.user.id);

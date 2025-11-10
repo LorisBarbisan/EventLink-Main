@@ -116,6 +116,8 @@ export const conversations = pgTable("conversations", {
   participant_two_id: integer("participant_two_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   participant_one_deleted: boolean("participant_one_deleted").default(false).notNull(), // Soft delete flag for participant one
   participant_two_deleted: boolean("participant_two_deleted").default(false).notNull(), // Soft delete flag for participant two
+  participant_one_deleted_at: timestamp("participant_one_deleted_at"), // Timestamp when participant one deleted (null = not deleted)
+  participant_two_deleted_at: timestamp("participant_two_deleted_at"), // Timestamp when participant two deleted (null = not deleted)
   last_message_at: timestamp("last_message_at").defaultNow().notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
