@@ -1253,15 +1253,17 @@ export class DatabaseStorage implements IStorage {
 
     if (existing[0]) {
       // If conversation exists, restore it for the initiating user (userOneId)
-      // but leave the other user's deleted status unchanged
+      // Keep the deletion timestamp to hide old messages - only clear the flag
       let needsRestore = false;
       const updates: any = { updated_at: sql`now()` };
       
       if (existing[0].participant_one_id === userOneId && existing[0].participant_one_deleted) {
         updates.participant_one_deleted = false;
+        // Keep participant_one_deleted_at intact to filter old messages
         needsRestore = true;
       } else if (existing[0].participant_two_id === userOneId && existing[0].participant_two_deleted) {
         updates.participant_two_deleted = false;
+        // Keep participant_two_deleted_at intact to filter old messages
         needsRestore = true;
       }
       
@@ -1346,17 +1348,12 @@ export class DatabaseStorage implements IStorage {
           eq(conversations.participant_one_id, userId),
           eq(conversations.participant_two_id, userId)
         ),
-        // Filter out conversations that this user has deleted
-        or(
-          and(
-            eq(conversations.participant_one_id, userId),
-            eq(conversations.participant_one_deleted, false)
-          ),
-          and(
-            eq(conversations.participant_two_id, userId),
-            eq(conversations.participant_two_deleted, false)
-          )
-        )
+        // Only show if this user hasn't deleted it (ignore the other participant's status)
+        sql`CASE 
+          WHEN ${conversations.participant_one_id} = ${userId} THEN ${conversations.participant_one_deleted} = false
+          WHEN ${conversations.participant_two_id} = ${userId} THEN ${conversations.participant_two_deleted} = false
+          ELSE false
+        END`
       )
     )
     .orderBy(desc(conversations.last_message_at));
