@@ -1,15 +1,15 @@
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
-import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, CheckCircle } from "lucide-react";
+import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
+import { CheckCircle, Mail } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
 export default function Auth() {
   const { user, signUp, signIn, updateUser, loading: authLoading } = useOptimizedAuth();

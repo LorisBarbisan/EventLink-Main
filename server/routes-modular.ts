@@ -453,6 +453,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper function to broadcast notification to a specific user
   const broadcastToUser = (userId: number, notificationData: any) => {
     const userWs = activeConnections.get(userId);
+    console.log(`🔍 [WebSocket] broadcastToUser called for user ${userId}:`, {
+      hasConnection: !!userWs,
+      readyState: userWs?.readyState,
+      type: notificationData?.type,
+      messageId: notificationData?.message?.id,
+    });
     if (userWs && userWs.readyState === WebSocket.OPEN) {
       userWs.send(JSON.stringify(notificationData));
     }

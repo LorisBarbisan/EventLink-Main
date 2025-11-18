@@ -1,14 +1,13 @@
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
-import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
-import { apiRequest } from "@/lib/queryClient";
 import { Layout } from "@/components/Layout";
 import SimplifiedFreelancerDashboard from "@/components/SimplifiedFreelancerDashboard";
 import SimplifiedRecruiterDashboard from "@/components/SimplifiedRecruiterDashboard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
+import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
 interface Profile {
-  id: string;
+  id: number;
   role: "freelancer" | "recruiter" | "admin";
   email: string;
 }
@@ -19,24 +18,7 @@ export default function Dashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (authLoading) return; // Wait for auth to load
-
-    if (!user) {
-      // Only redirect if auth is fully loaded and still no user
-      const storedUser = localStorage.getItem("user");
-      if (!storedUser) {
-        console.log("Dashboard: No user found, redirecting to auth");
-        setLocation("/auth");
-      }
-      return;
-    }
-
-    // User exists, fetch profile
-    fetchProfile();
-  }, [user, authLoading, setLocation]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       if (user) {
         console.log("Dashboard fetchProfile - user data:", {
@@ -53,7 +35,7 @@ export default function Dashboard() {
         // Since we have user data with role, we can set the profile directly
         // Default to freelancer if role is missing to prevent wrong dashboard
         const profileData = {
-          id: user.id.toString(),
+          id: user.id,
           role: (user.role || "freelancer") as "freelancer" | "recruiter" | "admin",
           email: user.email,
         };
@@ -65,7 +47,24 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (authLoading) return; // Wait for auth to load
+
+    if (!user) {
+      // Only redirect if auth is fully loaded and still no user
+      const storedUser = localStorage.getItem("user");
+      if (!storedUser) {
+        console.log("Dashboard: No user found, redirecting to auth");
+        setLocation("/auth");
+      }
+      return;
+    }
+
+    // User exists, fetch profile
+    fetchProfile();
+  }, [user, authLoading, setLocation, fetchProfile]);
 
   if (authLoading || loading) {
     return (

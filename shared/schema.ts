@@ -1,14 +1,4 @@
-import {
-  pgTable,
-  text,
-  serial,
-  integer,
-  boolean,
-  decimal,
-  uuid,
-  timestamp,
-  index,
-} from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -23,7 +13,7 @@ export const users = pgTable("users", {
   email_verification_token: text("email_verification_token"),
   email_verification_expires: timestamp("email_verification_expires"),
   password_reset_token: text("password_reset_token"),
-  password_reset_expires: timestamp("password_reset_expires"),
+  password_reset_expires: timestamp("password_reset_expires", { withTimezone: true }),
   // Social auth fields
   auth_provider: text("auth_provider")
     .default("email")
@@ -35,11 +25,11 @@ export const users = pgTable("users", {
   last_login_method: text("last_login_method").$type<
     "email" | "google" | "facebook" | "linkedin"
   >(),
-  last_login_at: timestamp("last_login_at"),
+  last_login_at: timestamp("last_login_at", { withTimezone: true }),
   // Soft delete support for account deletion conversations
-  deleted_at: timestamp("deleted_at"), // NULL = active user, timestamp = deleted user
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  deleted_at: timestamp("deleted_at", { withTimezone: true }), // NULL = active user, timestamp = deleted user
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const freelancer_profiles = pgTable(
@@ -67,8 +57,8 @@ export const freelancer_profiles = pgTable(
     cv_file_name: text("cv_file_name"),
     cv_file_type: text("cv_file_type"),
     cv_file_size: integer("cv_file_size"),
-    created_at: timestamp("created_at").defaultNow().notNull(),
-    updated_at: timestamp("updated_at").defaultNow().notNull(),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   table => ({
     titleIdx: index("freelancer_profiles_title_idx").on(table.title),
@@ -90,8 +80,8 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
   website_url: text("website_url"),
   linkedin_url: text("linkedin_url"),
   company_logo_url: text("company_logo_url"), // No character limit for base64 image data
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const jobs = pgTable("jobs", {
@@ -106,7 +96,7 @@ export const jobs = pgTable("jobs", {
   contract_type: text("contract_type"), // Specific contract type when type is 'contract'
   rate: text("rate").notNull(),
   description: text("description").notNull(),
-  event_date: text("event_date").notNull(), // Start date of the event/job
+  event_date: text("event_date"), // Start date of the event/job
   end_date: text("end_date"), // Optional end date of the event/job
   // Job duration fields - user can choose one of three options
   duration_type: text("duration_type").$type<"time" | "days" | "hours" | null>(), // Which duration option was selected
@@ -119,8 +109,8 @@ export const jobs = pgTable("jobs", {
   external_source: text("external_source").$type<"reed" | "adzuna" | null>(), // Source of external job
   external_url: text("external_url"), // URL to original job posting
   posted_date: text("posted_date"), // Original posting date from external source
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const job_applications = pgTable("job_applications", {
@@ -138,8 +128,8 @@ export const job_applications = pgTable("job_applications", {
   rejection_message: text("rejection_message"), // Message explaining rejection
   freelancer_deleted: boolean("freelancer_deleted").default(false).notNull(), // Soft delete flag for freelancer view
   recruiter_deleted: boolean("recruiter_deleted").default(false).notNull(), // Soft delete flag for recruiter view
-  applied_at: timestamp("applied_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  applied_at: timestamp("applied_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const conversations = pgTable("conversations", {
@@ -152,10 +142,10 @@ export const conversations = pgTable("conversations", {
     .references(() => users.id, { onDelete: "cascade" }),
   participant_one_deleted: boolean("participant_one_deleted").default(false).notNull(), // Soft delete flag for participant one
   participant_two_deleted: boolean("participant_two_deleted").default(false).notNull(), // Soft delete flag for participant two
-  participant_one_deleted_at: timestamp("participant_one_deleted_at"), // Timestamp when participant one deleted (null = not deleted)
-  participant_two_deleted_at: timestamp("participant_two_deleted_at"), // Timestamp when participant two deleted (null = not deleted)
-  last_message_at: timestamp("last_message_at").defaultNow().notNull(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
+  participant_one_deleted_at: timestamp("participant_one_deleted_at", { withTimezone: true }), // Timestamp when participant one deleted (null = not deleted)
+  participant_two_deleted_at: timestamp("participant_two_deleted_at", { withTimezone: true }), // Timestamp when participant two deleted (null = not deleted)
+  last_message_at: timestamp("last_message_at", { withTimezone: true }).defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const messages = pgTable("messages", {
@@ -167,7 +157,7 @@ export const messages = pgTable("messages", {
   content: text("content").notNull(),
   is_read: boolean("is_read").default(false).notNull(),
   is_system_message: boolean("is_system_message").default(false).notNull(), // For account deletion and other system notifications
-  created_at: timestamp("created_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const message_user_states = pgTable("message_user_states", {
@@ -179,7 +169,7 @@ export const message_user_states = pgTable("message_user_states", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   deleted_at: timestamp("deleted_at").defaultNow().notNull(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const message_attachments = pgTable("message_attachments", {
@@ -199,7 +189,7 @@ export const message_attachments = pgTable("message_attachments", {
     .default("pending")
     .$type<"pending" | "approved" | "rejected" | "error">(),
   moderation_result: text("moderation_result"), // JSON string with moderation details
-  created_at: timestamp("created_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const file_reports = pgTable("file_reports", {
@@ -219,9 +209,9 @@ export const file_reports = pgTable("file_reports", {
     .$type<"pending" | "under_review" | "resolved" | "dismissed">(),
   admin_notes: text("admin_notes"), // Admin notes for review
   admin_user_id: integer("admin_user_id").references(() => users.id, { onDelete: "set null" }),
-  resolved_at: timestamp("resolved_at"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  resolved_at: timestamp("resolved_at", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const notifications = pgTable("notifications", {
@@ -250,8 +240,8 @@ export const notifications = pgTable("notifications", {
   related_entity_id: integer("related_entity_id"),
   action_url: text("action_url"), // URL to navigate to when clicked
   metadata: text("metadata"), // JSON string for additional data
-  expires_at: timestamp("expires_at"), // Optional expiration for temporary notifications
-  created_at: timestamp("created_at").defaultNow().notNull(),
+  expires_at: timestamp("expires_at", { withTimezone: true }), // Optional expiration for temporary notifications
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const ratings = pgTable("ratings", {
@@ -266,8 +256,8 @@ export const ratings = pgTable("ratings", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   rating: integer("rating").notNull().$type<1 | 2 | 3 | 4 | 5>(), // 1-5 stars
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const rating_requests = pgTable("rating_requests", {
@@ -282,10 +272,10 @@ export const rating_requests = pgTable("rating_requests", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   status: text("status").default("pending").$type<"pending" | "completed" | "declined">(),
-  requested_at: timestamp("requested_at").defaultNow().notNull(),
-  responded_at: timestamp("responded_at"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  requested_at: timestamp("requested_at", { withTimezone: true }).defaultNow().notNull(),
+  responded_at: timestamp("responded_at", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Schema for email/password registration (password required)
@@ -437,9 +427,9 @@ export const feedback = pgTable("feedback", {
   admin_response: text("admin_response"),
   admin_user_id: integer("admin_user_id").references(() => users.id, { onDelete: "set null" }),
   priority: text("priority").default("normal").$type<"low" | "normal" | "high" | "urgent">(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
-  resolved_at: timestamp("resolved_at"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  resolved_at: timestamp("resolved_at", { withTimezone: true }),
 });
 
 export const contact_messages = pgTable("contact_messages", {
@@ -451,7 +441,7 @@ export const contact_messages = pgTable("contact_messages", {
   status: text("status").default("pending").$type<"pending" | "replied" | "resolved">(),
   ip_address: text("ip_address"), // For rate limiting and spam prevention
   user_agent: text("user_agent"), // Browser/device information
-  created_at: timestamp("created_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Email notification preferences for users
@@ -471,8 +461,8 @@ export const notification_preferences = pgTable("notification_preferences", {
   // Future: digest mode settings
   digest_mode: text("digest_mode").default("instant").$type<"instant" | "daily" | "weekly">(),
   digest_time: text("digest_time").default("09:00"), // Time to send daily digest (HH:MM format)
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Job alert filters for personalized job notifications
@@ -489,8 +479,8 @@ export const job_alert_filters = pgTable("job_alert_filters", {
   job_types: text("job_types").array(), // Array of job types to match
   keywords: text("keywords").array(), // Array of keywords to search in title/description
   is_active: boolean("is_active").default(true).notNull(), // Whether this filter is active
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Log of sent email notifications for debugging and tracking
@@ -511,7 +501,7 @@ export const email_notification_logs = pgTable("email_notification_logs", {
   >(),
   related_entity_id: integer("related_entity_id"), // ID of related entity (job, application, etc.)
   metadata: text("metadata"), // JSON string for additional data
-  sent_at: timestamp("sent_at").defaultNow().notNull(),
+  sent_at: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const insertRatingRequestSchema = createInsertSchema(rating_requests)

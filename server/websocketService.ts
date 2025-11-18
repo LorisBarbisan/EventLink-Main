@@ -54,7 +54,7 @@ export class WebSocketService {
 
   /**
    * Broadcast a new message event to a specific user
-   * Sends both NEW_MESSAGE (for MessagingInterface refetch) and new_message (for LiveNotificationPopups toast)
+   * Sends both new_message (for MessagingInterface refetch) and new_message (for LiveNotificationPopups toast)
    */
   broadcastNewMessage(userId: number, message: any, sender: any, conversationId: number) {
     try {

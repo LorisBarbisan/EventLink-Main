@@ -1,10 +1,9 @@
-import { useEffect } from "react";
-import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
-import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
-import { useWebSocket } from "@/contexts/WebSocketContext";
-import { MessageCircle, Briefcase, User, AlertCircle, Star } from "lucide-react";
 import { ToastAction } from "@/components/ui/toast";
+import { useWebSocket } from "@/contexts/WebSocketContext";
+import { useToast } from "@/hooks/use-toast";
+import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 
 interface LiveNotificationPopupsProps {
   enabled?: boolean;

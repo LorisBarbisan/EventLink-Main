@@ -80,7 +80,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
             const data = JSON.parse(event.data);
 
             // Only deduplicate notifications (which have stable IDs)
-            // NEW_MESSAGE events should always be processed (each message is unique)
+            // new_message events should always be processed (each message is unique)
             if (data.type === "new_notification" && data.notification?.id) {
               const notificationId = `notification-${data.notification.id}`;
 
@@ -98,6 +98,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
             }
 
             console.log("📨 WebSocket message received:", data.type);
+            // DEBUG: Log what we're about to send
+            console.log("📨 [Client] WebSocket message received:", data);
+            console.log("[WS] Incoming message=========================>:", data);
 
             // Notify all subscribers (they decide how to handle the message)
             subscribersRef.current.forEach(callback => {
@@ -110,7 +113,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 
             // Lightweight cache updates only - let subscribers handle heavy refetches
             switch (data.type) {
-              case "NEW_MESSAGE":
               case "new_message":
                 // Invalidate conversations list to trigger refetch and show new messages
                 // MessagingInterface will handle the actual refetch

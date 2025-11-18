@@ -12,9 +12,9 @@ export const users = pgTable("users", {
   role: text("role").notNull().$type<"freelancer" | "recruiter">(),
   email_verified: boolean("email_verified").default(false).notNull(),
   email_verification_token: text("email_verification_token"),
-  email_verification_expires: timestamp("email_verification_expires"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  email_verification_expires: timestamp("email_verification_expires", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Simplified profiles - merge freelancer/recruiter into single profiles table
@@ -52,8 +52,8 @@ export const profiles = pgTable("profiles", {
   company_description: text("company_description"), // Renamed from 'description' for clarity
   company_logo_url: text("company_logo_url"),
 
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Simplified jobs table - removed external job complexity for now
@@ -71,8 +71,8 @@ export const jobs = pgTable("jobs", {
   rate: text("rate").notNull(),
   description: text("description").notNull(),
   status: text("status").default("active").$type<"active" | "paused" | "closed">(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Simplified job applications
@@ -89,7 +89,7 @@ export const job_applications = pgTable("job_applications", {
     .$type<"applied" | "reviewed" | "shortlisted" | "rejected" | "hired">(),
   cover_letter: text("cover_letter"),
   applied_at: timestamp("applied_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Simplified messaging - remove conversations complexity, direct user-to-user messaging
@@ -103,7 +103,7 @@ export const messages = pgTable("messages", {
     .references(() => users.id, { onDelete: "cascade" }),
   content: text("content").notNull(),
   is_read: boolean("is_read").default(false).notNull(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Simplified notifications
@@ -117,7 +117,7 @@ export const notifications = pgTable("notifications", {
   message: text("message").notNull(),
   is_read: boolean("is_read").default(false).notNull(),
   action_url: text("action_url"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Optimized insert schemas

@@ -192,6 +192,7 @@ export class OptimizedStorage implements IOptimizedStorage {
   // Messaging - simplified
   async sendMessage(message: InsertMessage): Promise<Message> {
     const result = await db.insert(messages).values(message).returning();
+    console.log("message send result========>", result);
     return result[0];
   }
 
