@@ -97,8 +97,10 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
       const data = await apiRequest("/api/notifications/unread-count");
       return data.count;
     },
-    refetchInterval: 20000, // Reduced from 10s to 20s
+    staleTime: 0, // CRITICAL: Override default 5-minute staleTime to ensure instant updates
+    refetchInterval: false, // Disable polling - rely on WebSocket for real-time updates
     refetchIntervalInBackground: false, // Stop when tab is inactive
+    refetchOnMount: "always", // Always refetch when component mounts
   });
 
   // Mark notification as read

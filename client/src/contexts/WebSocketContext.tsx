@@ -126,10 +126,20 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
               case "badge_counts_update":
                 // Directly update cache with new counts (no refetch needed)
                 if (data.counts) {
+                  console.log("📊 [WebSocket] Updating badge counts:", data.counts);
                   queryClient.setQueryData(
                     ["/api/notifications/category-counts", user.id],
                     data.counts
                   );
+                  // Also update unread count if it's included in the counts
+                  const totalUnread = Object.values(data.counts as Record<string, number>).reduce(
+                    (a, b) => a + b,
+                    0
+                  );
+                  queryClient.setQueryData(["/api/notifications/unread-count", user.id], {
+                    count: totalUnread,
+                  });
+                  console.log(`✅ [WebSocket] Badge counts updated, total unread: ${totalUnread}`);
                 }
                 break;
 

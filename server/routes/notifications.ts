@@ -23,6 +23,11 @@ export function registerNotificationRoutes(app: Express) {
   app.get("/api/notifications/unread-count", authenticateJWT, async (req, res) => {
     try {
       const unreadCount = await storage.getUnreadNotificationCount(req.user!.id);
+      // CRITICAL: Set no-cache headers to prevent browser/HTTP caching of counts
+      // Counts are real-time and should always be fresh
+      res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.set("Pragma", "no-cache");
+      res.set("Expires", "0");
       res.json({ count: unreadCount });
     } catch (error) {
       console.error("Get unread notification count error:", error);
@@ -34,6 +39,11 @@ export function registerNotificationRoutes(app: Express) {
   app.get("/api/notifications/category-counts", authenticateJWT, async (req, res) => {
     try {
       const counts = await storage.getCategoryUnreadCounts(req.user!.id);
+      // CRITICAL: Set no-cache headers to prevent browser/HTTP caching of counts
+      // Counts are real-time and should always be fresh
+      res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.set("Pragma", "no-cache");
+      res.set("Expires", "0");
       res.json(counts);
     } catch (error) {
       console.error("Get category notification counts error:", error);

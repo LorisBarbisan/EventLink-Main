@@ -39,8 +39,10 @@ export function useBadgeCounts({
       }
     },
     enabled: enabled && !!user?.id,
-    refetchInterval,
+    staleTime: 0, // CRITICAL: Override default 5-minute staleTime to ensure instant updates
+    refetchInterval, // Polling as backup, but WebSocket should provide instant updates
     refetchIntervalInBackground: false, // Stop polling when tab is inactive
+    refetchOnMount: "always", // Always refetch when component mounts
   });
 
   // Note: Real-time badge count updates are now handled by the centralized WebSocketContext
