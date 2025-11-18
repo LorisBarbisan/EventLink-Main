@@ -412,19 +412,8 @@ export function registerMessagingRoutes(app: Express) {
           metadata: JSON.stringify({ sender_id: req.user.id, conversation_id: conversation_id }),
         });
 
-        // Broadcast updated badge counts (after notification is created)
-        // Use setImmediate to ensure notification is created first, but don't block response
-        setImmediate(async () => {
-          try {
-            const recipientCounts = await storage.getCategoryUnreadCounts(
-              conversation.otherUser.id
-            );
-            const { wsService } = await import("../websocketService.js");
-            wsService.broadcastBadgeCounts(conversation.otherUser.id, recipientCounts);
-          } catch (error) {
-            console.error("Failed to broadcast badge counts:", error);
-          }
-        });
+        // NOTE: Badge counts are automatically broadcast by storage.createNotification()
+        // No need to broadcast again here to avoid duplicate updates
 
         const notificationEndTime = Date.now();
         console.log(

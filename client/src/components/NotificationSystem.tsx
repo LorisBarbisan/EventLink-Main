@@ -246,22 +246,14 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
     const unsubscribe = subscribe(data => {
       // Handle different WebSocket events
       if (data.type === "new_notification") {
-        // Immediately refetch notifications list
+        // Immediately refetch notifications list (but NOT unread count - that's handled by badge_counts_update)
         queryClient.refetchQueries({ queryKey: ["/api/notifications", userId] });
         console.log("📨 New notification received, refetching notifications list");
-      } else if (data.type === "badge_counts_update") {
-        // Update badge counts cache directly (no refetch needed)
-        if (data.counts) {
-          queryClient.setQueryData(["/api/notifications/category-counts", userId], data.counts);
-          // Also update unread count
-          const totalUnread = Object.values(data.counts as Record<string, number>).reduce(
-            (a, b) => a + b,
-            0
-          );
-          queryClient.setQueryData(["/api/notifications/unread-count", userId], totalUnread);
-          console.log("📊 Badge counts updated via WebSocket");
-        }
+        // DO NOT refetch unread count here - badge_counts_update already handles it
+        // Refetching here causes race condition and double counting
       }
+      // NOTE: badge_counts_update is handled globally by WebSocketContext
+      // No need to handle it here to avoid duplicate cache updates
     });
 
     return unsubscribe;

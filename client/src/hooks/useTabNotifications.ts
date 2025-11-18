@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -9,10 +9,10 @@ interface UseTabNotificationsProps {
 
 export function useTabNotifications({ userId, enabled = true }: UseTabNotificationsProps) {
   const originalTitleRef = useRef<string>("EventLink");
-  const [pollingInterval, setPollingInterval] = useState(15000); // Start with 15s
+  // Removed polling interval state - no longer needed since we use WebSocket
   const lastCountRef = useRef(0);
 
-  // Fetch unread count using smart polling strategy
+  // Fetch unread count - rely on WebSocket for real-time updates, not polling
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["/api/notifications/unread-count", userId],
     queryFn: async (): Promise<number> => {
@@ -24,24 +24,17 @@ export function useTabNotifications({ userId, enabled = true }: UseTabNotificati
         return 0;
       }
     },
-    refetchInterval: pollingInterval,
+    staleTime: 0, // CRITICAL: Override default 5-minute staleTime to ensure instant updates
+    refetchInterval: false, // Disable polling - rely entirely on WebSocket for real-time updates
+    // Polling causes race conditions with WebSocket updates, leading to double counts
     refetchIntervalInBackground: false, // Stop polling when tab is inactive
+    refetchOnMount: "always", // Always refetch when component mounts
     enabled: enabled && !!userId,
   });
 
-  // Smart polling: adapt frequency based on activity (using useEffect instead of onSuccess)
+  // Track count changes for title updates (polling removed - WebSocket handles updates)
   useEffect(() => {
     const count = unreadCount as number;
-    if (count > lastCountRef.current) {
-      // New notifications - poll more frequently
-      setPollingInterval(10000);
-    } else if (count === 0) {
-      // No notifications - poll less frequently
-      setPollingInterval(30000);
-    } else {
-      // Stable count - moderate polling
-      setPollingInterval(15000);
-    }
     lastCountRef.current = count;
   }, [unreadCount]);
 

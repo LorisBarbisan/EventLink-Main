@@ -131,21 +131,26 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
                     ["/api/notifications/category-counts", user.id],
                     data.counts
                   );
-                  // Also update unread count if it's included in the counts
-                  const totalUnread = Object.values(data.counts as Record<string, number>).reduce(
-                    (a, b) => a + b,
-                    0
+                  // Use the total field directly from counts - don't recalculate to avoid double counting
+                  // The server already calculates total correctly: messages + applications + jobs + ratings
+                  const totalUnread = (data.counts as { total?: number }).total ?? 0;
+                  // Query returns data.count (number), so cache must be number, not { count: number }
+                  queryClient.setQueryData(
+                    ["/api/notifications/unread-count", user.id],
+                    totalUnread
                   );
-                  queryClient.setQueryData(["/api/notifications/unread-count", user.id], {
-                    count: totalUnread,
-                  });
                   console.log(`✅ [WebSocket] Badge counts updated, total unread: ${totalUnread}`);
                 }
                 break;
 
               case "new_notification":
-                // Only invalidate notification queries - let components refetch when needed
-                queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+                // Only invalidate notification list queries - NOT unread count
+                // Unread count is handled by badge_counts_update to avoid race conditions
+                queryClient.invalidateQueries({
+                  queryKey: ["/api/notifications"],
+                  // Explicitly exclude unread-count to prevent double updates
+                  exact: true,
+                });
                 break;
 
               default:
