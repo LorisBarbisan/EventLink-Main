@@ -1,9 +1,8 @@
-import type { Express } from "express";
-import { storage } from "../storage";
-import { ObjectStorageService, ObjectNotFoundError } from "../objectStorage";
-import { authenticateJWT } from "./auth";
-import { z } from "zod";
 import { insertMessageAttachmentSchema } from "@shared/schema";
+import type { Express } from "express";
+import { ObjectNotFoundError, ObjectStorageService } from "../objectStorage";
+import { storage } from "../storage";
+import { authenticateJWT } from "./auth";
 
 export function registerFileRoutes(app: Express) {
   // Upload CV - combined endpoint that receives base64 file data and uploads to storage
@@ -26,7 +25,7 @@ export function registerFileRoutes(app: Express) {
       const objectKey = `cvs/${req.user.id}/${randomUUID()}`;
 
       // Upload file to storage from backend (avoids CORS issues)
-      const privateDir = process.env.PRIVATE_OBJECT_DIR || "";
+      const privateDir = process.env.PRIVATE_OBJECT_DIR;
       if (!privateDir) {
         throw new Error("PRIVATE_OBJECT_DIR not set");
       }

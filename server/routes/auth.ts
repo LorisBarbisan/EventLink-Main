@@ -50,7 +50,7 @@ export const computeUserRole = (user: any) => {
 };
 
 // JWT utility functions
-const JWT_SECRET = process.env.JWT_SECRET || "eventlink-jwt-secret-change-in-production";
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export const generateJWTToken = (user: any) => {
   const userWithRole = computeUserRole(user);
@@ -1078,7 +1078,7 @@ export function registerAuthRoutes(app: Express) {
 
       const diagnostics = {
         timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || "unknown",
+        environment: process.env.NODE_ENV || "development",
         adminEmails: adminEmails,
         currentUser: {
           id: userWithRole.id,
