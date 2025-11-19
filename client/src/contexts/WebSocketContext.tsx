@@ -1,4 +1,5 @@
 import { useOptimizedAuth } from "@/hooks/useOptimizedAuth";
+import type { Notification } from "@shared/schema";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
@@ -144,13 +145,89 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
                 break;
 
               case "new_notification":
-                // Only invalidate notification list queries - NOT unread count
-                // Unread count is handled by badge_counts_update to avoid race conditions
-                queryClient.invalidateQueries({
-                  queryKey: ["/api/notifications"],
-                  // Explicitly exclude unread-count to prevent double updates
-                  exact: true,
-                });
+                // Update cache immediately with new notification, then refetch for consistency
+                // Badge counts are handled separately by badge_counts_update
+                if (data.notification) {
+                  console.log(
+                    `📬 [WebSocket] New notification received, adding to cache:`,
+                    data.notification
+                  );
+                  // Update cache immediately with new notification for instant UI update
+                  queryClient.setQueryData<Notification[]>(["/api/notifications", user.id], old => {
+                    if (!old) return [data.notification];
+                    // Check if notification already exists (avoid duplicates)
+                    const exists = old.some(n => n.id === data.notification.id);
+                    if (exists) {
+                      console.log(
+                        `⚠️ [WebSocket] Notification ${data.notification.id} already in cache, skipping`
+                      );
+                      return old;
+                    }
+                    // Add new notification at the beginning (most recent first)
+                    return [data.notification, ...old];
+                  });
+                  console.log(`✅ [WebSocket] Cache updated instantly with new notification`);
+
+                  // Also refetch to ensure consistency (runs in background)
+                  queryClient.refetchQueries({
+                    queryKey: ["/api/notifications", user.id],
+                    type: "active", // Only refetch if query is active (component is mounted)
+                  });
+                }
+                break;
+
+              case "notification_updated":
+                // Update cache immediately with real database data, then refetch for consistency
+                // Badge counts are handled separately by badge_counts_update
+                if (data.notification) {
+                  console.log(
+                    `📬 [WebSocket] Notification updated, updating cache with database data:`,
+                    data.notification
+                  );
+                  // Update cache immediately with real database data for instant UI update
+                  queryClient.setQueryData<Notification[]>(["/api/notifications", user.id], old => {
+                    if (!old) return [data.notification];
+                    // Replace the notification with the updated one from database
+                    const index = old.findIndex(n => n.id === data.notification.id);
+                    if (index >= 0) {
+                      // Replace existing notification with updated one
+                      const updated = [...old];
+                      updated[index] = data.notification;
+                      return updated;
+                    }
+                    // If not found, add it (shouldn't happen, but handle gracefully)
+                    return [data.notification, ...old];
+                  });
+                  console.log(`✅ [WebSocket] Cache updated instantly with database data`);
+
+                  // Also refetch to ensure consistency (runs in background)
+                  queryClient.refetchQueries({
+                    queryKey: ["/api/notifications", user.id],
+                    type: "active",
+                  });
+                }
+                break;
+
+              case "all_notifications_updated":
+                // Update cache immediately with real database data, then refetch for consistency
+                // Badge counts are handled separately by badge_counts_update
+                if (data.notifications) {
+                  console.log(
+                    `📬 [WebSocket] All notifications updated, updating cache with database data (${data.notifications.length} notifications)`
+                  );
+                  // Update cache immediately with real database data for instant UI update
+                  queryClient.setQueryData<Notification[]>(
+                    ["/api/notifications", user.id],
+                    data.notifications
+                  );
+                  console.log(`✅ [WebSocket] Cache updated instantly with database data`);
+
+                  // Also refetch to ensure consistency (runs in background)
+                  queryClient.refetchQueries({
+                    queryKey: ["/api/notifications", user.id],
+                    type: "active",
+                  });
+                }
                 break;
 
               default:

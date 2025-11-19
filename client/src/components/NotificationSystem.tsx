@@ -86,8 +86,9 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ["/api/notifications", userId],
     queryFn: () => apiRequest("/api/notifications") as Promise<Notification[]>,
-    refetchInterval: isOpen ? 10000 : false, // Only poll when dropdown is open
     staleTime: 0, // Always consider data stale so refetches work immediately
+    refetchInterval: false, // Disable polling - rely on WebSocket and optimistic updates
+    // Polling causes race conditions and delays in UI updates
   });
 
   // Fetch unread count with smart polling
@@ -103,20 +104,17 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
     refetchOnMount: "always", // Always refetch when component mounts
   });
 
-  // Mark notification as read
+  // Mark notification as read - rely on WebSocket for updates
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: number) => {
       return apiRequest(`/api/notifications/${notificationId}/read`, {
         method: "PATCH",
       });
     },
-    onSuccess: async () => {
-      // AWAIT refetchQueries for immediate, synchronous badge updates
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ["/api/notifications", userId] }),
-        queryClient.refetchQueries({ queryKey: ["/api/notifications/unread-count", userId] }),
-        queryClient.refetchQueries({ queryKey: ["/api/notifications/category-counts", userId] }),
-      ]);
+    onSuccess: () => {
+      // WebSocket will handle cache updates via notification_updated and badge_counts_update events
+      // No need for optimistic updates or manual refetches
+      console.log(`✅ [Mutation] Marked notification as read, waiting for WebSocket update`);
     },
     onError: () => {
       toast({
@@ -127,20 +125,17 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
     },
   });
 
-  // Mark all notifications as read
+  // Mark all notifications as read - rely on WebSocket for updates
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("/api/notifications/mark-all-read", {
         method: "PATCH",
       });
     },
-    onSuccess: async () => {
-      // AWAIT refetchQueries for immediate, synchronous badge updates
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ["/api/notifications", userId] }),
-        queryClient.refetchQueries({ queryKey: ["/api/notifications/unread-count", userId] }),
-        queryClient.refetchQueries({ queryKey: ["/api/notifications/category-counts", userId] }),
-      ]);
+    onSuccess: () => {
+      // WebSocket will handle cache updates via all_notifications_updated and badge_counts_update events
+      // No need for optimistic updates or manual refetches
+      console.log(`✅ [Mutation] Marked all notifications as read, waiting for WebSocket update`);
 
       toast({
         title: "Success",

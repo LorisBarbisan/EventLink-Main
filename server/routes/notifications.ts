@@ -88,13 +88,19 @@ export function registerNotificationRoutes(app: Express) {
 
       await storage.markNotificationAsRead(notificationId);
 
-      // Send WebSocket update for badge counts
+      // Send WebSocket updates for badge counts and notification list
       try {
         const { wsService } = await import("../websocketService.js");
         const counts = await storage.getCategoryUnreadCounts(req.user.id);
         wsService.broadcastBadgeCounts(req.user.id, counts);
+
+        // Fetch updated notification from database to send real data
+        const updatedNotification = await storage.getNotification(notificationId);
+        if (updatedNotification) {
+          wsService.broadcastNotificationUpdated(req.user.id, updatedNotification);
+        }
         console.log(
-          `✅ Badge counts broadcast to user ${req.user.id} after marking notification as read`
+          `✅ Badge counts and notification update broadcast to user ${req.user.id} after marking notification ${notificationId} as read`
         );
       } catch (wsError) {
         console.error("WebSocket broadcast error:", wsError);
@@ -113,13 +119,17 @@ export function registerNotificationRoutes(app: Express) {
     try {
       await storage.markAllNotificationsAsRead(req.user.id);
 
-      // Send WebSocket update for badge counts
+      // Send WebSocket updates for badge counts and notification list
       try {
         const { wsService } = await import("../websocketService.js");
         const counts = await storage.getCategoryUnreadCounts(req.user.id);
         wsService.broadcastBadgeCounts(req.user.id, counts);
+
+        // Fetch all updated notifications from database to send real data
+        const updatedNotifications = await storage.getUserNotifications(req.user.id);
+        wsService.broadcastAllNotificationsUpdated(req.user.id, updatedNotifications);
         console.log(
-          `✅ Badge counts broadcast to user ${req.user.id} after marking all notifications as read`
+          `✅ Badge counts and all notifications update broadcast to user ${req.user.id} after marking all notifications as read`
         );
       } catch (wsError) {
         console.error("WebSocket broadcast error:", wsError);

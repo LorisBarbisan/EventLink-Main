@@ -114,6 +114,46 @@ export class WebSocketService {
       throw error;
     }
   }
+
+  /**
+   * Broadcast a notification update event to a specific user
+   * Sends the full updated notification object from database for real-time updates
+   */
+  broadcastNotificationUpdated(userId: number, updatedNotification: any) {
+    try {
+      if (this.broadcastToUser) {
+        this.broadcastToUser(userId, {
+          type: "notification_updated",
+          notification: updatedNotification,
+        });
+      } else {
+        console.warn("WebSocket broadcast function not initialized");
+      }
+    } catch (error) {
+      console.error("Failed to broadcast notification update:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Broadcast that all notifications were updated for a specific user
+   * Sends the full updated notifications array from database for real-time updates
+   */
+  broadcastAllNotificationsUpdated(userId: number, updatedNotifications: any[]) {
+    try {
+      if (this.broadcastToUser) {
+        this.broadcastToUser(userId, {
+          type: "all_notifications_updated",
+          notifications: updatedNotifications,
+        });
+      } else {
+        console.warn("WebSocket broadcast function not initialized");
+      }
+    } catch (error) {
+      console.error("Failed to broadcast all notifications update:", error);
+      throw error;
+    }
+  }
 }
 
 // Export singleton instance
