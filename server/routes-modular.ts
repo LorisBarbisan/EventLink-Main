@@ -13,6 +13,7 @@ import { initializePassport } from "./passport";
 import { storage } from "./storage";
 
 // Import domain-specific route modules
+import jwt from "jsonwebtoken";
 import { setCacheByEndpoint } from "./api/middleware/cacheHeaders.js";
 import { registerAdminRoutes } from "./api/routes/admin.route.js";
 import { registerApplicationRoutes } from "./api/routes/applications.route.js";
@@ -356,8 +357,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
 
         if (token) {
-          const jwt = require("jsonwebtoken");
-          const JWT_SECRET = process.env.JWT_SECRET || "eventlink-jwt-secret-change-in-production";
+          const JWT_SECRET = (() => {
+            const secret = process.env.JWT_SECRET;
+            if (!secret) throw new Error("JWT_SECRET is required");
+            return secret;
+          })();
           const decoded = jwt.verify(token, JWT_SECRET);
           if (decoded && typeof decoded === "object") {
             const user = await storage.getUser((decoded as any).id);
@@ -367,9 +371,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
-      } catch (error) {
+      } catch (error: unknown) {
         // Non-blocking - feedback can be submitted anonymously
-        console.log("Optional user lookup failed for feedback submission");
+        console.error("Optional user lookup failed for feedback submission:", error);
       }
 
       const feedback = await storage.createFeedback({
