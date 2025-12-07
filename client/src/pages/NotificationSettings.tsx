@@ -1,5 +1,5 @@
 import { Layout } from "@/components/Layout";
-import { NotificationSettingsForm } from "@/components/NotificationSettingsForm";
+import { NotificationSettingsForm } from "@/components/notifications/NotificationSettingsForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";

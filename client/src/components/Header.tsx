@@ -1,6 +1,6 @@
 import { EventLinkLogo } from "@/components/Logo";
 import { MobileNavigation } from "@/components/MobileNavigation";
-import { NotificationSystem } from "@/components/NotificationSystem";
+import { NotificationSystem } from "@/components/notifications/NotificationSystem";
 import { SearchBar } from "@/components/SearchBar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";

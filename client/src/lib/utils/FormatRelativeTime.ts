@@ -1,4 +1,4 @@
-export const formatDate = (dateString: string | Date) => {
+export const formatRelativeTime = (dateString: string | Date) => {
   const date = typeof dateString === "string" ? new Date(dateString) : dateString;
   if (isNaN(date.getTime())) return "Invalid date";
 

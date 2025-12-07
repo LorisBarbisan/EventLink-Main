@@ -1,17 +1,17 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { UKLocationInput } from "@/components/ui/uk-location-input";
 import { useToast } from "@/hooks/use-toast";
-import { Bell, Mail, Briefcase, MessageSquare, Star, Filter, X, Plus } from "lucide-react";
-import type { User, JobAlertFilter } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { JobAlertFilter, User } from "@shared/schema";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Bell, Briefcase, Filter, Mail, MessageSquare, Plus, Star, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface NotificationSettingsFormProps {
   user: User;
@@ -50,7 +50,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
   });
 
   // Fetch job alert filters (freelancers only)
-  const { data: jobAlertFilter, isLoading: isLoadingFilters } = useQuery<JobAlertFilter>({
+  const { data: jobAlertFilter } = useQuery<JobAlertFilter>({
     queryKey: ["/api/notifications/job-alerts"],
     enabled: user.role === "freelancer",
   });
@@ -199,7 +199,9 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
             <Bell className="h-5 w-5" />
             Email Notifications
           </CardTitle>
-          <CardDescription>Choose which email notifications you'd like to receive</CardDescription>
+          <CardDescription>
+            Choose which email notifications you&apos;d like to receive
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Messages */}

@@ -8,7 +8,7 @@ import { useWebSocket } from "@/contexts/WebSocketContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
-import { formatDate } from "@/lib/utils/format-date";
+import { formatRelativeTime } from "@/lib/utils/FormatRelativeTime";
 import {
   Conversation,
   getAvatarInitials,
@@ -209,7 +209,7 @@ export function MessagingInterface() {
                         <div className="flex items-center gap-1 mt-1">
                           <Clock className="h-3 w-3 text-muted-foreground" />
                           <p className="text-xs text-muted-foreground">
-                            {formatDate(c.last_message_at)}
+                            {formatRelativeTime(c.last_message_at)}
                           </p>
                         </div>
                       </div>
@@ -271,7 +271,7 @@ export function MessagingInterface() {
                               <p
                                 className={`text-xs mt-1 ${isSystemMessage ? "text-muted-foreground" : isMyMessage ? "text-white/70" : "text-muted-foreground"}`}
                               >
-                                {formatDate(msg.created_at)}
+                                {formatRelativeTime(msg.created_at)}
                               </p>
                             </div>
                           </div>
