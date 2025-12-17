@@ -50,6 +50,24 @@ export function MessagingInterface() {
     refetchOnMount: "always",
   });
 
+  // When opening a conversation, ensure server-marked read state is reflected via server & websocket
+  useEffect(() => {
+    if (!selectedConversation || messagesLoading || !user?.id) return;
+
+    // Tell the server to mark all messages in this conversation as read; server will broadcast updated counts/notifications
+    apiRequest(`/api/conversations/${selectedConversation}/mark-read`, {
+      method: "PATCH",
+    }).catch(err => {
+      console.error("Failed to mark conversation messages as read:", err);
+    });
+
+    // Rely on server state: refetch messages and conversations rather than mutating cache directly
+    queryClient
+      .refetchQueries({ queryKey: ["/api/conversations", selectedConversation, "messages"] })
+      .catch(() => {});
+    queryClient.refetchQueries({ queryKey: ["/api/conversations"] }).catch(() => {});
+  }, [selectedConversation, messagesLoading, user?.id, queryClient]);
+
   // --- SEND MESSAGE MUTATION ---
   const sendMessageMutation = useMutation({
     mutationFn: async (payload: { conversation_id: number; content: string }) =>
@@ -99,63 +117,30 @@ export function MessagingInterface() {
 
       if (!message || !sender) return;
 
-      const newMessage: Message = {
-        id: message.id,
-        conversation_id,
-        sender_id: message.sender_id,
-        content: message.content,
-        is_read: message.is_read || false,
-        is_system_message: message.is_system_message || false,
-        created_at: message.created_at,
-        sender: {
-          id: sender.id,
-          email: sender.email,
-          role: sender.role,
-          deleted_at: sender.deleted_at || null,
-          first_name: sender.first_name || null,
-          last_name: sender.last_name || null,
-          company_name: sender.company_name || null,
-        },
-      };
-
-      // DEBUG: Log WebSocket message received
       console.log(
-        `🔔 [WebSocket] Received new_message for conversation ${conversation_id}, message ID: ${newMessage.id}`
+        `🔔 [WebSocket] Received new_message for conversation ${conversation_id}, message ID: ${message.id}`
       );
 
-      // Update messages cache immediately - this should trigger instant UI update
-      queryClient.setQueryData<Message[]>(
-        ["/api/conversations", conversation_id, "messages"],
-        old => {
-          if (!old) {
-            console.log(
-              `📝 [Cache] No existing messages, creating new array with message ${newMessage.id}`
-            );
-            return [newMessage];
-          }
+      // If the user is viewing this conversation, ask the server to mark it read and refetch messages.
+      // We do NOT mutate the local cache directly; we rely on server responses / websocket broadcasts to update UI state.
+      if (selectedConversation === conversation_id) {
+        apiRequest(`/api/conversations/${conversation_id}/mark-read`, {
+          method: "PATCH",
+        }).catch(err => {
+          console.error("Failed to mark conversation messages as read on incoming message:", err);
+        });
 
-          const exists = old.some(m => m.id === newMessage.id);
-          if (exists) {
-            console.log(`⚠️ [Cache] Message ${newMessage.id} already exists in cache, skipping`);
-            return old;
-          }
-
-          console.log(
-            `✅ [Cache] Adding message ${newMessage.id} to cache (total: ${old.length + 1} messages)`
-          );
-          return [...old, newMessage];
-        }
-      );
-
-      queryClient.setQueryData<Conversation[]>(["/api/conversations"], old =>
-        old?.map(c =>
-          c.id === conversation_id ? { ...c, last_message_at: newMessage.created_at } : c
-        )
-      );
+        queryClient
+          .refetchQueries({ queryKey: ["/api/conversations", conversation_id, "messages"] })
+          .catch(() => {});
+      } else {
+        // Not viewing this conversation: refetch conversations so last_message_at and unread counts reflect server state
+        queryClient.refetchQueries({ queryKey: ["/api/conversations"] }).catch(() => {});
+      }
     });
 
     return unsubscribe;
-  }, [subscribe, queryClient]);
+  }, [subscribe, queryClient, selectedConversation]);
 
   // --- AUTO SCROLL ---
   useEffect(() => {

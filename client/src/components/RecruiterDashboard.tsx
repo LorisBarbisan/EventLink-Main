@@ -448,7 +448,16 @@ export default function SimplifiedRecruiterDashboard() {
               <p className="text-muted-foreground">Create new connections and grow your network</p>
             </div>
           </div>
-          <MessagingInterface />
+          <MessagingInterface
+            initialConversationId={(() => {
+              const params = new URLSearchParams(window.location.search);
+              const conv =
+                params.get("conversation") ||
+                params.get("conversationId") ||
+                params.get("recipientId");
+              return conv ? parseInt(conv, 10) : null;
+            })()}
+          />
         </TabsContent>
 
         {/* Applications Tab */}

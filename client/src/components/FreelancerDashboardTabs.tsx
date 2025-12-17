@@ -78,7 +78,7 @@ interface FreelancerDashboardTabsProps {
 }
 
 export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProps) {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const [freelancerProfile, setFreelancerProfile] = useState<FreelancerProfile>({
     first_name: "",
@@ -143,13 +143,17 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
 
   useEffect(() => {
     fetchFreelancerProfile();
-    // Set active tab based on URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
+
+    // Set active tab based on URL parameters and react to location changes
+    const search = location.includes("?")
+      ? location.split("?")[1]
+      : window.location.search.replace(/^\?/, "");
+    const urlParams = new URLSearchParams(search);
     const tabParam = urlParams.get("tab");
-    if (tabParam) {
+    if (tabParam && tabParam !== activeTab) {
       setActiveTab(tabParam);
     }
-  }, []);
+  }, [location]);
 
   const fetchFreelancerProfile = async () => {
     try {
@@ -760,7 +764,16 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                 </p>
               </div>
             </div>
-            <MessagingInterface />
+            <MessagingInterface
+              initialConversationId={(() => {
+                const params = new URLSearchParams(window.location.search);
+                const conv =
+                  params.get("conversation") ||
+                  params.get("conversationId") ||
+                  params.get("recipientId");
+                return conv ? parseInt(conv, 10) : null;
+              })()}
+            />
           </TabsContent>
 
           {/* Jobs Tab */}
