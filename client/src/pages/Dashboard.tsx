@@ -1,6 +1,6 @@
+import FreelancerDashboard from "@/components/FreelancerDashboard";
 import { Layout } from "@/components/Layout";
-import SimplifiedFreelancerDashboard from "@/components/SimplifiedFreelancerDashboard";
-import SimplifiedRecruiterDashboard from "@/components/SimplifiedRecruiterDashboard";
+import RecruiterDashboard from "@/components/RecruiterDashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useCallback, useEffect, useState } from "react";
@@ -53,12 +53,9 @@ export default function Dashboard() {
     if (authLoading) return; // Wait for auth to load
 
     if (!user) {
-      // Only redirect if auth is fully loaded and still no user
-      const storedUser = localStorage.getItem("user");
-      if (!storedUser) {
-        console.log("Dashboard: No user found, redirecting to auth");
-        setLocation("/auth");
-      }
+      // Auth fully loaded and no authenticated user — redirect to auth
+      console.log("Dashboard: No authenticated user, redirecting to auth");
+      setLocation("/auth");
       return;
     }
 
@@ -111,12 +108,12 @@ export default function Dashboard() {
     <Layout>
       <div className="container mx-auto px-4 py-8">
         {showFreelancerDashboard ? (
-          <SimplifiedFreelancerDashboard />
+          <FreelancerDashboard />
         ) : showRecruiterDashboard ? (
-          <SimplifiedRecruiterDashboard />
+          <RecruiterDashboard />
         ) : (
           // Fallback: if role is somehow undefined/null, default to freelancer
-          <SimplifiedFreelancerDashboard />
+          <FreelancerDashboard />
         )}
       </div>
     </Layout>

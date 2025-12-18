@@ -75,6 +75,61 @@ export async function getConversationMessages(req: Request, res: Response) {
   }
 }
 
+// Mark all messages in a conversation as read (used when conversation is open)
+export async function markConversationMessagesAsRead(req: Request, res: Response) {
+  try {
+    if (!(req as any).user) return res.status(401).json({ error: "Not authenticated" });
+
+    const conversationId = parseInt(req.params.id);
+    if (Number.isNaN(conversationId))
+      return res.status(400).json({ error: "Invalid conversation ID" });
+
+    // Ensure user participates in this conversation
+    const userConversations = await storage.getConversationsByUserId((req as any).user.id);
+    const isParticipant = userConversations.some(conv => conv.id === conversationId);
+    if (!isParticipant)
+      return res.status(403).json({ error: "You are not a participant in this conversation" });
+
+    // Mark messages as read for this user
+    await storage.markMessagesAsRead(conversationId, (req as any).user.id);
+
+    // Mark related message notifications as read for this conversation
+    try {
+      const notifications = await storage.getUserNotifications((req as any).user.id);
+      const messageNotifications = notifications.filter(n => {
+        if (n.type !== "new_message") return false;
+        try {
+          const meta = n.metadata ? JSON.parse(n.metadata) : {};
+          return Number(meta.conversation_id) === conversationId;
+        } catch (err) {
+          return false;
+        }
+      });
+
+      await Promise.all(messageNotifications.map(n => storage.markNotificationAsRead(n.id)));
+    } catch (notifErr) {
+      console.error("Failed to mark related message notifications as read:", notifErr);
+    }
+
+    // Broadcast updated badge counts and notifications
+    try {
+      const { wsService } = await import("../websocket/websocketService.js");
+      const counts = await storage.getCategoryUnreadCounts((req as any).user.id);
+      wsService.broadcastBadgeCounts((req as any).user.id, counts);
+
+      const updatedNotifications = await storage.getUserNotifications((req as any).user.id);
+      wsService.broadcastAllNotificationsUpdated((req as any).user.id, updatedNotifications);
+    } catch (wsError) {
+      console.error("WebSocket broadcast error:", wsError);
+    }
+
+    res.json({ message: "Conversation messages marked as read" });
+  } catch (error) {
+    console.error("Mark conversation messages as read error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Get or create a conversation with a specific user (without sending a message)
 export async function createConversation(req: Request, res: Response) {
   try {

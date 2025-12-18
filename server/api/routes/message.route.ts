@@ -6,6 +6,7 @@ import {
   getConversationMessages,
   getConversations,
   getUnreadMessageCount,
+  markConversationMessagesAsRead,
   sendMessage,
   startConversation,
 } from "../controllers/message.controller";
@@ -35,4 +36,7 @@ export function registerMessagingRoutes(app: Express) {
 
   // Delete conversation
   app.delete("/api/conversations/:id", authenticateJWT, deleteConversation);
+
+  // Mark conversation messages as read (used when conversation is open)
+  app.patch("/api/conversations/:id/mark-read", authenticateJWT, markConversationMessagesAsRead);
 }

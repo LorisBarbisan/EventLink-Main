@@ -164,9 +164,14 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
           break;
 
         case "badge_counts_update":
+          queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
           queryClient.invalidateQueries({
             queryKey: ["/api/notifications/unread-count", userId],
           });
+          queryClient.invalidateQueries({
+            queryKey: ["/api/notifications/category-counts", userId],
+          });
+          queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
           break;
 
         case "all_notifications_updated":
