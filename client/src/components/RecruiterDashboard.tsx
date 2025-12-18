@@ -24,6 +24,7 @@ export default function SimplifiedRecruiterDashboard() {
   const queryClient = useQueryClient();
   const [location] = useLocation();
   const [activeTab, setActiveTab] = useState("profile");
+  const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [expandedJobs, setExpandedJobs] = useState<Set<number>>(new Set());
@@ -43,7 +44,16 @@ export default function SimplifiedRecruiterDashboard() {
 
       // Switch to tab specified in URL (e.g., from notifications)
       if (tabParam && ["profile", "jobs", "applications", "messages"].includes(tabParam)) {
-        setActiveTab(tabParam);
+        if (tabParam !== activeTab) {
+          setActiveTab(tabParam);
+        }
+      }
+
+      // Update active conversation if present
+      const convParam = urlParams.get("conversation") || urlParams.get("conversationId") || urlParams.get("recipientId");
+      const newConvId = convParam ? parseInt(convParam, 10) : null;
+      if (newConvId !== activeConversationId) {
+        setActiveConversationId(newConvId);
       }
 
       // Handle job posting action
@@ -59,27 +69,24 @@ export default function SimplifiedRecruiterDashboard() {
     // Check on mount
     handleSearchParams();
 
-    // Listen for navigation events (including search parameter changes)
+    // Listen for navigation events
     const handlePopState = () => handleSearchParams();
     window.addEventListener("popstate", handlePopState);
 
-    // For programmatic navigation (our case), we need to listen for location changes
-    // Since wouter doesn't trigger popstate for programmatic navigation,
-    // we'll use a MutationObserver approach or check periodically
+    // Poll for search param changes since wouter might not trigger on them
     let lastSearch = window.location.search;
-    const checkSearch = () => {
+    const intervalId = setInterval(() => {
       if (window.location.search !== lastSearch) {
         lastSearch = window.location.search;
         handleSearchParams();
       }
-    };
-    const intervalId = setInterval(checkSearch, 100);
+    }, 100);
 
     return () => {
       window.removeEventListener("popstate", handlePopState);
       clearInterval(intervalId);
     };
-  }, []); // Only run once on mount
+  }, [activeTab]);
 
   // Use custom hooks - only call when user ID is available
   const {
@@ -257,6 +264,17 @@ export default function SimplifiedRecruiterDashboard() {
   // Helper functions
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+
+    // Update URL to reflect tab change so polling doesn't revert it
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    // Remove conversation params when switching away from messages
+    if (tab !== "messages") {
+      url.searchParams.delete("conversation");
+      url.searchParams.delete("conversationId");
+      url.searchParams.delete("recipientId");
+    }
+    window.history.pushState({}, "", url.toString());
 
     // Mark category notifications as read when tab is opened
     // Note: Messages notifications are NOT marked as read automatically
@@ -449,14 +467,7 @@ export default function SimplifiedRecruiterDashboard() {
             </div>
           </div>
           <MessagingInterface
-            initialConversationId={(() => {
-              const params = new URLSearchParams(window.location.search);
-              const conv =
-                params.get("conversation") ||
-                params.get("conversationId") ||
-                params.get("recipientId");
-              return conv ? parseInt(conv, 10) : null;
-            })()}
+            initialConversationId={activeConversationId}
           />
         </TabsContent>
 

@@ -34,17 +34,55 @@ export default function SimplifiedFreelancerDashboard() {
     return tabParam || "profile";
   });
 
-  // Handle URL parameter changes (e.g., from notifications)
-  useEffect(() => {
+  // Track active conversation ID from URL
+  const [activeConversationId, setActiveConversationId] = useState<number | null>(() => {
     const search = location.includes("?")
       ? location.split("?")[1]
       : window.location.search.replace(/^\?/, "");
     const urlParams = new URLSearchParams(search);
-    const tabParam = urlParams.get("tab");
-    if (tabParam && tabParam !== activeTab) {
-      setActiveTab(tabParam);
-    }
-  }, [location]);
+    const convParam = urlParams.get("conversation") || urlParams.get("conversationId") || urlParams.get("recipientId");
+    return convParam ? parseInt(convParam, 10) : null;
+  });
+
+  // Handle URL parameter changes (e.g., from notifications)
+  useEffect(() => {
+    const handleSearchParams = () => {
+      const search = window.location.search.replace(/^\?/, "");
+      const urlParams = new URLSearchParams(search);
+      const tabParam = urlParams.get("tab");
+      if (tabParam && tabParam !== activeTab) {
+        setActiveTab(tabParam);
+      }
+
+      // Update active conversation if present
+      const convParam = urlParams.get("conversation") || urlParams.get("conversationId") || urlParams.get("recipientId");
+      const newConvId = convParam ? parseInt(convParam, 10) : null;
+      if (newConvId !== activeConversationId) {
+        setActiveConversationId(newConvId);
+      }
+    };
+
+    // Check on mount
+    handleSearchParams();
+
+    // Listen for navigation events
+    const handlePopState = () => handleSearchParams();
+    window.addEventListener("popstate", handlePopState);
+
+    // Poll for search param changes since wouter might not trigger on them
+    let lastSearch = window.location.search;
+    const intervalId = setInterval(() => {
+      if (window.location.search !== lastSearch) {
+        lastSearch = window.location.search;
+        handleSearchParams();
+      }
+    }, 100);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      clearInterval(intervalId);
+    };
+  }, [activeTab]);
 
   // Get badge counts for tabs
   const { roleSpecificCounts, markCategoryAsRead } = useBadgeCounts({
@@ -85,6 +123,17 @@ export default function SimplifiedFreelancerDashboard() {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+
+    // Update URL to reflect tab change so polling doesn't revert it
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    // Remove conversation params when switching away from messages
+    if (tab !== "messages") {
+      url.searchParams.delete("conversation");
+      url.searchParams.delete("conversationId");
+      url.searchParams.delete("recipientId");
+    }
+    window.history.pushState({}, "", url.toString());
 
     // Mark category notifications as read when tab is opened
     // Note: Messages notifications are NOT marked as read automatically
@@ -318,14 +367,7 @@ export default function SimplifiedFreelancerDashboard() {
           </div>
           {user && (
             <MessagingInterface
-              initialConversationId={(() => {
-                const params = new URLSearchParams(window.location.search);
-                const conv =
-                  params.get("conversation") ||
-                  params.get("conversationId") ||
-                  params.get("recipientId");
-                return conv ? parseInt(conv, 10) : null;
-              })()}
+              initialConversationId={activeConversationId}
             />
           )}
         </TabsContent>

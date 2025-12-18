@@ -20,15 +20,28 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, MessageCircle, Send, User as UserIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+interface Props {
+  initialConversationId?: number | null;
+}
+
 // --- COMPONENT ---
-export function MessagingInterface() {
+export function MessagingInterface({ initialConversationId }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { subscribe } = useWebSocket();
   const { toast } = useToast();
-  const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<number | null>(
+    initialConversationId || null
+  );
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Update selected conversation when prop changes
+  useEffect(() => {
+    if (initialConversationId) {
+      setSelectedConversation(initialConversationId);
+    }
+  }, [initialConversationId]);
 
   // --- FETCH CONVERSATIONS ---
   const { data: conversations = [] } = useQuery<Conversation[]>({
@@ -113,7 +126,9 @@ export function MessagingInterface() {
     const unsubscribe = subscribe(data => {
       if (data.type !== "new_message") return;
 
-      const { conversation_id, message, sender } = data;
+      const { message, sender } = data;
+      // Extract conversation_id from the message object since it's not at the root
+      const conversation_id = message?.conversation_id;
 
       if (!message || !sender) return;
 
