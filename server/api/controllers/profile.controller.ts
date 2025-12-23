@@ -15,6 +15,9 @@ export async function getUserById(req: Request, res: Response) {
     // Return user without sensitive information
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, email_verification_token, password_reset_token, ...safeUser } = user;
+    // Prevent caching to ensure fresh user data
+    res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.set("Pragma", "no-cache");
     res.json(safeUser);
   } catch (error) {
     console.error("Get user error:", error);
@@ -32,6 +35,9 @@ export async function getFreelancerProfile(req: Request, res: Response) {
       return res.status(404).json({ error: "Freelancer profile not found" });
     }
 
+    // Prevent caching to ensure fresh profile data
+    res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.set("Pragma", "no-cache");
     res.json(profile);
   } catch (error) {
     console.error("Get freelancer profile error:", error);
@@ -117,6 +123,9 @@ export async function getRecruiterProfile(req: Request, res: Response) {
       return res.status(404).json({ error: "Recruiter profile not found" });
     }
 
+    // Prevent caching to ensure fresh profile data
+    res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.set("Pragma", "no-cache");
     res.json(profile);
   } catch (error) {
     console.error("Get recruiter profile error:", error);
