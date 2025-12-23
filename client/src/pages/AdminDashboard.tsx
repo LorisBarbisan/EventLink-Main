@@ -19,11 +19,12 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useWebSocket } from "@/contexts/WebSocketContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { trackAdminAnalytics } from "@/lib/analytics";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   Briefcase,
@@ -36,6 +37,7 @@ import {
   Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
 interface FeedbackItem {
   id: number;
@@ -105,6 +107,8 @@ interface AnalyticsData {
 function AdminDashboardContent() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { subscribe } = useWebSocket();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
   const [adminResponse, setAdminResponse] = useState("");
@@ -121,9 +125,39 @@ function AdminDashboardContent() {
   // Admin management state
   const [isBootstrapping, setIsBootstrapping] = useState(false);
 
-  // Track Google Analytics when tab changes
+  const [, setLocation] = useLocation();
+
+  // Sync activeTab with URL hash for deep linking from notifications
+  useEffect(() => {
+    const handleHashSync = () => {
+      const hash = window.location.hash.replace("#", "");
+      const validTabs = ["overview", "users", "feedback", "contact", "admin-management", "analytics"];
+      if (hash && validTabs.includes(hash)) {
+        // Use functional update to avoid dependency on activeTab
+        setActiveTab(prev => (prev !== hash ? hash : prev));
+      }
+    };
+
+    // Initial check
+    handleHashSync();
+
+    // Listen for both hashchange and popstate (wouter/back button)
+    window.addEventListener("hashchange", handleHashSync);
+    window.addEventListener("popstate", handleHashSync);
+
+    return () => {
+      window.removeEventListener("hashchange", handleHashSync);
+      window.removeEventListener("popstate", handleHashSync);
+    };
+  }, []); // Run only on mount
+
+  // Track Google Analytics when tab changes and update hash
   useEffect(() => {
     trackAdminAnalytics(activeTab);
+    // Update URL hash when tab changes manually
+    if (window.location.hash.replace("#", "") !== activeTab) {
+      window.history.replaceState(null, "", `#${activeTab}`);
+    }
   }, [activeTab]);
 
   // Analytics query
@@ -131,6 +165,9 @@ function AdminDashboardContent() {
     queryKey: ["/api/admin/analytics/overview"],
     queryFn: () => apiRequest("/api/admin/analytics/overview"),
     retry: 1,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
   });
 
   // Feedback query
@@ -139,15 +176,18 @@ function AdminDashboardContent() {
     isLoading: feedbackLoading,
     refetch: refetchFeedback,
   } = useQuery({
-    queryKey: ["/api/feedback", feedbackFilters],
+    queryKey: ["/api/admin/feedback", feedbackFilters],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (feedbackFilters.status !== "all") params.append("status", feedbackFilters.status);
       if (feedbackFilters.type !== "all") params.append("type", feedbackFilters.type);
 
-      return await apiRequest(`/api/feedback?${params.toString()}`);
+      return await apiRequest(`/api/admin/feedback?${params.toString()}`);
     },
     retry: 1,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
   });
 
   // Feedback stats query
@@ -155,6 +195,9 @@ function AdminDashboardContent() {
     queryKey: ["/api/admin/feedback/stats"],
     queryFn: () => apiRequest("/api/admin/feedback/stats"),
     retry: 1,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
   });
 
   // Users query
@@ -162,6 +205,9 @@ function AdminDashboardContent() {
     queryKey: ["/api/admin/users"],
     queryFn: () => apiRequest("/api/admin/users"),
     retry: 1,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
   });
 
   // Admin users query
@@ -177,10 +223,46 @@ function AdminDashboardContent() {
 
   // Contact messages query
   const { data: contactMessages, isLoading: contactMessagesLoading } = useQuery<ContactMessage[]>({
-    queryKey: ["/api/contact-messages"],
-    queryFn: () => apiRequest("/api/contact-messages"),
+    queryKey: ["/api/admin/contact-messages"],
+    queryFn: () => apiRequest("/api/admin/contact-messages"),
     retry: 1,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
   });
+
+  // Fetch category unread counts to monitor for new notifications while on tabs
+  const { data: categoryCounts } = useQuery({
+    queryKey: ["/api/notifications/category-counts", user?.id],
+    queryFn: () => apiRequest("/api/notifications/category-counts"),
+    enabled: !!user?.id,
+  });
+
+  // Automatically mark notifications as read when the relevant tab is active
+  useEffect(() => {
+    const markAsRead = async (category: string) => {
+      try {
+        await apiRequest(`/api/notifications/mark-category-read/${category}`, {
+          method: "PATCH",
+        });
+        // Invalidate notification counts to update UI badges
+        queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count", user?.id] });
+        queryClient.invalidateQueries({
+          queryKey: ["/api/notifications/category-counts", user?.id],
+        });
+      } catch (error) {
+        console.error(`Failed to mark ${category} notifications as read:`, error);
+      }
+    };
+
+    // Trigger mark as read if we are on the tab AND there are pending notifications
+    // categoryCounts is updated instantly by WebSocket context
+    if (activeTab === "feedback" && (categoryCounts as any)?.feedback > 0) {
+      markAsRead("feedback");
+    } else if (activeTab === "contact" && (categoryCounts as any)?.contact_messages > 0) {
+      markAsRead("contact_messages");
+    }
+  }, [activeTab, categoryCounts, user?.id]);
 
   const updateFeedbackStatus = async (id: number, status: string) => {
     try {
@@ -255,7 +337,7 @@ function AdminDashboardContent() {
 
       setContactReply("");
       setSelectedContactMessage(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/contact-messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/contact-messages"] });
     } catch (error: any) {
       console.error("❌ Reply error:", error);
       console.error("❌ Error message:", error?.message);
@@ -511,7 +593,7 @@ function AdminDashboardContent() {
               </div>
             </CardHeader>
             <CardContent>
-              {feedbackLoading ? (
+              {feedbackLoading && !feedbackData ? (
                 <div className="flex justify-center items-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
@@ -630,7 +712,7 @@ function AdminDashboardContent() {
               </p>
             </CardHeader>
             <CardContent>
-              {contactMessagesLoading ? (
+              {contactMessagesLoading && !contactMessages ? (
                 <div className="flex justify-center items-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>

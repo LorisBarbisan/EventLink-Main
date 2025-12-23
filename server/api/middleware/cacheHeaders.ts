@@ -11,7 +11,11 @@ export function setCacheByEndpoint(res: Response, endpoint: string) {
   // User profiles - cache for 1 hour (profiles change infrequently)
   else if (endpoint.includes("/api/freelancer/") || endpoint.includes("/api/recruiter/")) {
     CacheHeaders.longCache(res);
-  } else if (endpoint.includes("/api/notifications") || endpoint.includes("/api/messages")) {
+  } else if (
+    endpoint.includes("/api/notifications") ||
+    endpoint.includes("/api/messages") ||
+    endpoint.includes("/api/admin")
+  ) {
     CacheHeaders.noCache(res);
   }
   // Location data - cache for 1 hour (static reference data)

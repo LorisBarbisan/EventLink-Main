@@ -2,6 +2,7 @@ import { insertContactMessageSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { sendEmail } from "../utils/emailService";
+import { wsService } from "../websocket/websocketService";
 
 // Submit contact form
 export async function submitContactForm(req: Request, res: Response) {
@@ -64,6 +65,39 @@ export async function submitContactForm(req: Request, res: Response) {
     } catch (emailError) {
       console.error("Failed to send contact email notification:", emailError);
       // Don't fail the request if email fails - message is still saved
+    }
+
+    // Real-time notification for admins
+    try {
+      const admins = await storage.getAdminUsers();
+
+      for (const admin of admins) {
+        // Create database notification
+        await storage.createNotification({
+          user_id: admin.id,
+          type: "contact_message",
+          title: "New Contact Message",
+          message: `From ${result.data.name}: ${result.data.subject}`,
+          action_url: "/admin#contact",
+          priority: "normal",
+        });
+
+        // Broadcast badge count update
+        const counts = await storage.getCategoryUnreadCounts(admin.id);
+        wsService.broadcastBadgeCounts(admin.id, counts);
+      }
+
+      const adminIds = admins.map(a => a.id);
+      if (adminIds.length > 0) {
+        wsService.broadcastToUsers(adminIds, {
+          type: "new_contact_message",
+          message: contactMessage,
+        });
+        console.log(`📡 Broadcasted new_contact_message to ${adminIds.length} admins`);
+      }
+    } catch (wsError) {
+      console.error("Failed to broadcast contact message via WebSocket:", wsError);
+      // Non-blocking
     }
 
     res.status(201).json({

@@ -6,7 +6,8 @@ import { sendContactReplyEmail } from "../utils/emailService";
 // Get all feedback (admin only)
 export async function getAllFeedback(req: Request, res: Response) {
   try {
-    const feedback = await storage.getAllFeedback();
+    const { status, type } = req.query;
+    const feedback = await storage.getAllFeedback(status as string, type as string);
     res.json({ feedback });
   } catch (error) {
     console.error("Get admin feedback error:", error);
@@ -31,7 +32,7 @@ export async function updateFeedbackStatus(req: Request, res: Response) {
     const feedbackId = parseInt(req.params.id);
     const { status } = req.body;
 
-    if (!["pending", "in_progress", "resolved"].includes(status)) {
+    if (!["pending", "in_review", "resolved", "closed"].includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
     }
 
@@ -53,7 +54,42 @@ export async function addFeedbackResponse(req: Request, res: Response) {
       return res.status(400).json({ error: "Response is required" });
     }
 
+    const feedback = await storage.getFeedbackById(feedbackId);
+    if (!feedback) {
+      return res.status(404).json({ error: "Feedback not found" });
+    }
+
     await storage.addAdminResponse(feedbackId, response, (req as any).user!.id);
+
+    // Send email notification to user if email is available
+    const userEmail = feedback.user_email;
+    // If no direct email, try to find linked user
+    let emailToSend = userEmail;
+
+    if (!emailToSend && feedback.user_id) {
+      const user = await storage.getUser(feedback.user_id);
+      if (user) {
+        emailToSend = user.email;
+      }
+    }
+
+    if (emailToSend) {
+      try {
+        console.log(`📧 Sending feedback response email to ${emailToSend}`);
+        await sendContactReplyEmail(
+          emailToSend,
+          `Response to your feedback: ${feedback.feedback_type}`,
+          `Hello ${feedback.user_name || "there"},\n\nThank you for your feedback regarding "${feedback.message.substring(0, 50)}${feedback.message.length > 50 ? "..." : ""}".\n\nOur team has reviewed it and here is our response:\n\n${response}\n\nBest regards,\nEventLink Team`
+        );
+        console.log(`✅ Feedback response email sent successfully to ${emailToSend}`);
+      } catch (emailError: any) {
+        console.error("❌ Failed to send feedback response email:", emailError?.message || emailError);
+        // Don't fail the request, just log the error
+      }
+    } else {
+      console.log(`ℹ️ No email address found for feedback ID ${feedbackId}, skipping email notification`);
+    }
+
     res.json({ message: "Admin response added successfully" });
   } catch (error) {
     console.error("Add feedback response error:", error);
@@ -111,8 +147,11 @@ export async function sendContactReply(req: Request, res: Response) {
       res.json({ message: "Reply sent successfully" });
     } catch (emailError: any) {
       console.error("❌ Failed to send reply email:", emailError?.message || emailError);
-      console.error("❌ Full error:", JSON.stringify(emailError, null, 2));
+      if (emailError?.response?.body) {
+        console.error("❌ SendGrid error body:", JSON.stringify(emailError.response.body, null, 2));
+      }
       // Don't update status if email fails - let admin retry
+
       // Return error so frontend can show proper error message
       return res.status(500).json({
         error: "Failed to send email reply. Please try again.",

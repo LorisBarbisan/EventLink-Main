@@ -386,6 +386,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "pending",
       });
 
+
+      // Create notifications for all admins
+      try {
+        const admins = await storage.getAdminUsers();
+        for (const admin of admins) {
+          // Create database notification
+          await storage.createNotification({
+            user_id: admin.id,
+            type: "feedback",
+            title: "New Feedback Received",
+            message: `${feedback.feedback_type}: ${
+              feedback.message.substring(0, 50) + (feedback.message.length > 50 ? "..." : "")
+            }`,
+            action_url: "/admin#feedback",
+            priority: "normal",
+          });
+
+          // Broadcast badge count update
+          const counts = await storage.getCategoryUnreadCounts(admin.id);
+          if (wsService) {
+            console.log(`📡 [Admin Notification] Broadcasting new_feedback to admin ${admin.id}`);
+            wsService.broadcastBadgeCounts(admin.id, counts);
+
+            // Broadcast new_feedback event for immediate list update
+            wsService.broadcastToUsers([admin.id], {
+              type: "new_feedback",
+              feedback: feedback,
+            });
+          } else {
+            console.warn("⚠️ [Admin Notification] wsService not initialized during feedback submission");
+          }
+        }
+      } catch (notifyError) {
+        console.error("Failed to notify admins of new feedback:", notifyError);
+        // Non-blocking
+      }
+
       res.status(201).json({
         message: "Feedback submitted successfully. Thank you for your input!",
         feedback: {

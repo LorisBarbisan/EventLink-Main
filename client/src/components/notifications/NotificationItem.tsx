@@ -2,7 +2,18 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notification } from "@shared/schema";
-import { AlertCircle, Bell, Briefcase, Check, Clock, MessageCircle, User, X } from "lucide-react";
+import {
+    AlertCircle,
+    Bell,
+    Briefcase,
+    Check,
+    Clock,
+    Mail,
+    MessageCircle,
+    MessageSquare,
+    User,
+    X,
+} from "lucide-react";
 import { memo } from "react";
 
 interface Props {
@@ -28,6 +39,10 @@ const getNotificationIcon = (type: string, priority: string) => {
       return <Briefcase className="w-4 h-4 text-purple-500" />;
     case "profile_view":
       return <User className="w-4 h-4 text-orange-500" />;
+    case "feedback":
+      return <MessageSquare className="w-4 h-4 text-blue-500" />;
+    case "contact_message":
+      return <Mail className="w-4 h-4 text-purple-500" />;
     case "system":
       return <Bell className="w-4 h-4 text-gray-500" />;
     default:

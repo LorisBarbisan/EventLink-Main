@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
@@ -116,13 +117,34 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 
               case "badge_counts_update":
                 if (data.counts) {
-                  console.log("📊 [WebSocket] Updating badge counts:", data.counts);
+                  let updatedCounts = { ...data.counts };
+                  const currentPath = window.location.pathname;
+                  const currentHash = window.location.hash;
+
+                  // Intercept and suppress counts for active admin tabs
+                  // Use robust path matching to handle trailing slashes or base path variations
+                  if (currentPath.replace(/\/$/, "") === "/admin") {
+                    if (currentHash === "#feedback" && updatedCounts.feedback > 0) {
+                      console.log("🛡️ [WebSocket] Suppressing feedback count for active tab");
+                      updatedCounts.total -= updatedCounts.feedback;
+                      updatedCounts.feedback = 0;
+                    } else if (
+                      (currentHash === "#contact" || currentHash === "#contact-messages") &&
+                      updatedCounts.contact_messages > 0
+                    ) {
+                      console.log("🛡️ [WebSocket] Suppressing contact count for active tab");
+                      updatedCounts.total -= updatedCounts.contact_messages;
+                      updatedCounts.contact_messages = 0;
+                    }
+                  }
+
+                  console.log("📊 [WebSocket] Updating badge counts:", updatedCounts);
                   queryClient.setQueryData(
                     ["/api/notifications/category-counts", user.id],
-                    data.counts
+                    updatedCounts
                   );
 
-                  const totalUnread = (data.counts as { total?: number }).total ?? 0;
+                  const totalUnread = (updatedCounts as { total?: number }).total ?? 0;
                   queryClient.setQueryData(
                     ["/api/notifications/unread-count", user.id],
                     totalUnread
@@ -150,6 +172,40 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
                   queryKey: ["/api/notifications", user.id],
                   refetchType: "active",
                 });
+                break;
+              case "new_contact_message":
+                queryClient.invalidateQueries({
+                  queryKey: ["/api/admin/contact-messages"],
+                  refetchType: "active",
+                });
+                // Instant read-mark if on the tab
+                if (
+                  window.location.pathname.replace(/\/$/, "") === "/admin" &&
+                  (window.location.hash === "#contact" ||
+                    window.location.hash === "#contact-messages")
+                ) {
+                  apiRequest("/api/notifications/mark-category-read/contact_messages", {
+                    method: "PATCH",
+                  }).catch(() => {});
+                }
+                break;
+              case "new_feedback":
+                console.log("📝 [WebSocket] Received new_feedback event, invalidating queries...");
+                queryClient.invalidateQueries({
+                  queryKey: ["/api/admin/feedback"],
+                });
+                queryClient.invalidateQueries({
+                  queryKey: ["/api/admin/feedback/stats"],
+                });
+                // Instant read-mark if on the tab
+                if (
+                  window.location.pathname.replace(/\/$/, "") === "/admin" &&
+                  window.location.hash === "#feedback"
+                ) {
+                  apiRequest("/api/notifications/mark-category-read/feedback", {
+                    method: "PATCH",
+                  }).catch(() => {});
+                }
                 break;
               default:
                 break;

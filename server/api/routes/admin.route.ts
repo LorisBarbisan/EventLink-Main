@@ -18,43 +18,43 @@ import { requireAdminAuth } from "../middleware/admin.middleware";
 
 export function registerAdminRoutes(app: Express) {
   // Get all feedback (admin only)
-  app.get("/api/feedback", requireAdminAuth, getAllFeedback);
+  app.get("/api/admin/feedback", requireAdminAuth, getAllFeedback);
 
   // Get feedback statistics (admin only)
-  app.get("/api/feedback/stats", requireAdminAuth, getFeedbackStats);
+  app.get("/api/admin/feedback/stats", requireAdminAuth, getFeedbackStats);
 
   // Update feedback status (admin only)
-  app.put("/api/feedback/:id/status", requireAdminAuth, updateFeedbackStatus);
+  app.put("/api/admin/feedback/:id/status", requireAdminAuth, updateFeedbackStatus);
 
   // Add admin response to feedback (admin only)
-  app.put("api/feedback/:id/response", requireAdminAuth, addFeedbackResponse);
+  app.put("/api/admin/feedback/:id/response", requireAdminAuth, addFeedbackResponse);
 
   // Get all contact messages (admin only)
-  app.get("/api/contact-messages", requireAdminAuth, getAllContactMessages);
+  app.get("/api/admin/contact-messages", requireAdminAuth, getAllContactMessages);
 
   // Send reply to contact message (admin only)
-  app.post("/api/contact-messages/:id/reply", requireAdminAuth, sendContactReply);
+  app.post("/api/admin/contact-messages/:id/reply", requireAdminAuth, sendContactReply);
 
   // Get all users (admin only)
-  app.get("/api//users", requireAdminAuth, getAllUsers);
+  app.get("/api/admin/users", requireAdminAuth, getAllUsers);
 
   // Get analytics overview (admin only)
-  app.get("/api/analytics/overview", requireAdminAuth, getAnalyticsOverview);
+  app.get("/api/admin/analytics/overview", requireAdminAuth, getAnalyticsOverview);
 
   // Get all admin users (admin only)
-  app.get("/api/users/admins", requireAdminAuth, getAdminUsers);
+  app.get("/api/admin/users/admins", requireAdminAuth, getAdminUsers);
 
   // Grant admin access to user (admin only)
-  app.post("/api/users/grant-admin", requireAdminAuth, grantAdminAccess);
+  app.post("/api/admin/users/grant-admin", requireAdminAuth, grantAdminAccess);
 
   // Revoke admin access from user (admin only)
-  app.post("/api/users/revoke-admin", requireAdminAuth, revokeAdminAccess);
+  app.post("/api/admin/users/revoke-admin", requireAdminAuth, revokeAdminAccess);
 
   // Bootstrap endpoint for initial admin setup (no auth required)
   // Special override endpoint for admin@eventlink.one production access
-  app.post("/api/grant-admin-access", bootstrapGrantAdminAccess);
+  app.post("/api/admin/grant-admin-access", bootstrapGrantAdminAccess);
 
-  app.post("/api/create-first-admin", bootstrapCreateFirstAdmin);
+  app.post("/api/admin/create-first-admin", bootstrapCreateFirstAdmin);
 
   // Admin Dashboard Route (will be handled by frontend routing)
   app.get("/api/admin/*", (req, res, next) => {

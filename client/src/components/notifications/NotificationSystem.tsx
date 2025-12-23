@@ -124,7 +124,15 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
     if (notification.action_url) {
       // Use client-side routing for internal URLs to preserve app state
       if (notification.action_url.startsWith("/")) {
-        setLocation(notification.action_url);
+        const [path, hash] = notification.action_url.split("#");
+        const currentPath = window.location.pathname;
+
+        // If we're already on the path and there's a hash, update hash directly to trigger reactivity
+        if (path === currentPath && hash) {
+          window.location.hash = hash;
+        } else {
+          setLocation(notification.action_url);
+        }
       } else {
         // External URLs open in new tab
         window.open(notification.action_url, "_blank");
@@ -164,14 +172,8 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
           break;
 
         case "badge_counts_update":
-          queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
-          queryClient.invalidateQueries({
-            queryKey: ["/api/notifications/unread-count", userId],
-          });
-          queryClient.invalidateQueries({
-            queryKey: ["/api/notifications/category-counts", userId],
-          });
-          queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
+          // Handled centrally in WebSocketContext with interception logic
+          // No need to invalidate here, as it would trigger a refetch that might bypass our interception
           break;
 
         case "all_notifications_updated":

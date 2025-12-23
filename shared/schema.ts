@@ -229,6 +229,8 @@ export const notifications = pgTable("notifications", {
       | "rating_received"
       | "rating_request"
       | "system"
+      | "feedback"
+      | "contact_message"
     >(),
   title: text("title").notNull(),
   message: text("message").notNull(),
@@ -430,19 +432,28 @@ export const feedback = pgTable("feedback", {
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   resolved_at: timestamp("resolved_at", { withTimezone: true }),
-});
+},
+table => ({
+  createdAtIdx: index("feedback_created_at_idx").on(table.created_at),
+}));
 
-export const contact_messages = pgTable("contact_messages", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull(),
-  subject: text("subject").notNull(),
-  message: text("message").notNull(),
-  status: text("status").default("pending").$type<"pending" | "replied" | "resolved">(),
-  ip_address: text("ip_address"), // For rate limiting and spam prevention
-  user_agent: text("user_agent"), // Browser/device information
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const contact_messages = pgTable(
+  "contact_messages",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    subject: text("subject").notNull(),
+    message: text("message").notNull(),
+    status: text("status").default("pending").$type<"pending" | "replied" | "resolved">(),
+    ip_address: text("ip_address"), // For rate limiting and spam prevention
+    user_agent: text("user_agent"), // Browser/device information
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    createdAtIdx: index("contact_messages_created_at_idx").on(table.created_at),
+  })
+);
 
 // Email notification preferences for users
 export const notification_preferences = pgTable("notification_preferences", {

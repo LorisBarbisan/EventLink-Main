@@ -154,6 +154,23 @@ export class WebSocketService {
       throw error;
     }
   }
+
+  /**
+   * Broadcast an event to multiple users
+   */
+  broadcastToUsers(userIds: number[], data: any) {
+    try {
+      if (this.broadcastToUser) {
+        userIds.forEach(userId => {
+          this.broadcastToUser!(userId, data);
+        });
+      } else {
+        console.warn("WebSocket broadcast function not initialized");
+      }
+    } catch (error) {
+      console.error("Failed to broadcast to users:", error);
+    }
+  }
 }
 
 // Export singleton instance

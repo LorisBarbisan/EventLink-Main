@@ -1,7 +1,7 @@
 import {
-  insertJobAlertFilterSchema,
-  insertNotificationPreferencesSchema,
-  insertNotificationSchema,
+    insertJobAlertFilterSchema,
+    insertNotificationPreferencesSchema,
+    insertNotificationSchema,
 } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage.js";
@@ -144,9 +144,19 @@ export async function markAllNotificationsAsRead(req: Request, res: Response) {
 // Mark category-specific notifications as read
 export async function markCategoryNotificationsAsRead(req: Request, res: Response) {
   try {
-    const category = req.params.category as "messages" | "applications" | "jobs" | "ratings";
+    const category = req.params.category as
+      | "messages"
+      | "applications"
+      | "jobs"
+      | "ratings"
+      | "feedback"
+      | "contact_messages";
 
-    if (!["messages", "applications", "jobs", "ratings"].includes(category)) {
+    if (
+      !["messages", "applications", "jobs", "ratings", "feedback", "contact_messages"].includes(
+        category
+      )
+    ) {
       return res.status(400).json({ error: "Invalid category" });
     }
 

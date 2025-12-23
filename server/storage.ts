@@ -1,51 +1,51 @@
 import {
-  contact_messages,
-  conversations,
-  email_notification_logs,
-  feedback,
-  freelancer_profiles,
-  job_alert_filters,
-  job_applications,
-  jobs,
-  message_attachments,
-  message_user_states,
-  messages,
-  notification_preferences,
-  notifications,
-  rating_requests,
-  ratings,
-  recruiter_profiles,
-  users,
-  type ContactMessage,
-  type Conversation,
-  type EmailNotificationLog,
-  type Feedback,
-  type FreelancerProfile,
-  type InsertEmailNotificationLog,
-  type InsertFeedback,
-  type InsertFreelancerProfile,
-  type InsertJob,
-  type InsertJobAlertFilter,
-  type InsertJobApplication,
-  type InsertMessage,
-  type InsertMessageAttachment,
-  type InsertNotification,
-  type InsertNotificationPreferences,
-  type InsertRating,
-  type InsertRatingRequest,
-  type InsertRecruiterProfile,
-  type InsertUser,
-  type Job,
-  type JobAlertFilter,
-  type JobApplication,
-  type Message,
-  type MessageAttachment,
-  type Notification,
-  type NotificationPreferences,
-  type Rating,
-  type RatingRequest,
-  type RecruiterProfile,
-  type User,
+    contact_messages,
+    conversations,
+    email_notification_logs,
+    feedback,
+    freelancer_profiles,
+    job_alert_filters,
+    job_applications,
+    jobs,
+    message_attachments,
+    message_user_states,
+    messages,
+    notification_preferences,
+    notifications,
+    rating_requests,
+    ratings,
+    recruiter_profiles,
+    users,
+    type ContactMessage,
+    type Conversation,
+    type EmailNotificationLog,
+    type Feedback,
+    type FreelancerProfile,
+    type InsertEmailNotificationLog,
+    type InsertFeedback,
+    type InsertFreelancerProfile,
+    type InsertJob,
+    type InsertJobAlertFilter,
+    type InsertJobApplication,
+    type InsertMessage,
+    type InsertMessageAttachment,
+    type InsertNotification,
+    type InsertNotificationPreferences,
+    type InsertRating,
+    type InsertRatingRequest,
+    type InsertRecruiterProfile,
+    type InsertUser,
+    type Job,
+    type JobAlertFilter,
+    type JobApplication,
+    type Message,
+    type MessageAttachment,
+    type Notification,
+    type NotificationPreferences,
+    type Rating,
+    type RatingRequest,
+    type RecruiterProfile,
+    type User,
 } from "@shared/schema";
 import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "./api/config/db";
@@ -230,7 +230,7 @@ export interface IStorage {
 
   // Feedback management for admin dashboard
   createFeedback(feedback: InsertFeedback): Promise<Feedback>;
-  getAllFeedback(): Promise<Array<Feedback & { user?: User }>>;
+  getAllFeedback(status?: string, type?: string): Promise<Array<Feedback & { user?: User }>>;
   getFeedbackById(id: number): Promise<Feedback | undefined>;
   updateFeedbackStatus(
     id: number,
@@ -258,13 +258,15 @@ export interface IStorage {
     applications: number;
     jobs: number;
     ratings: number;
+    feedback: number;
+    contact_messages: number;
     total: number;
   }>;
 
   // Mark category-specific notifications as read
   markCategoryNotificationsAsRead(
     userId: number,
-    category: "messages" | "applications" | "jobs" | "ratings"
+    category: "messages" | "applications" | "jobs" | "ratings" | "feedback" | "contact_messages"
   ): Promise<void>;
 
   // Notification preferences management
@@ -2028,10 +2030,19 @@ export class DatabaseStorage implements IStorage {
     applications: number;
     jobs: number;
     ratings: number;
+    feedback: number;
+    contact_messages: number;
     total: number;
   }> {
     // Get counts for each category
-    const [messagesResult, applicationsResult, jobsResult, ratingsResult] = await Promise.all([
+    const [
+      messagesResult,
+      applicationsResult,
+      jobsResult,
+      ratingsResult,
+      feedbackResult,
+      contactResult,
+    ] = await Promise.all([
       // Messages count
       db
         .select({ count: sql<number>`count(*)::int` })
@@ -2071,7 +2082,7 @@ export class DatabaseStorage implements IStorage {
           )
         ),
 
-      // Ratings count (rating_received + rating_request)
+      // Ratings count
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(notifications)
@@ -2079,23 +2090,53 @@ export class DatabaseStorage implements IStorage {
           and(
             eq(notifications.user_id, userId),
             eq(notifications.is_read, false),
-            or(eq(notifications.type, "rating_received"), eq(notifications.type, "rating_request")),
+            inArray(notifications.type, ["rating_received", "rating_request"]),
+            or(isNull(notifications.expires_at), sql`${notifications.expires_at} > NOW()`)
+          )
+        ),
+
+      // Feedback count
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.user_id, userId),
+            eq(notifications.is_read, false),
+            eq(notifications.type, "feedback"),
+            or(isNull(notifications.expires_at), sql`${notifications.expires_at} > NOW()`)
+          )
+        ),
+
+      // Contact message count
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.user_id, userId),
+            eq(notifications.is_read, false),
+            eq(notifications.type, "contact_message"),
             or(isNull(notifications.expires_at), sql`${notifications.expires_at} > NOW()`)
           )
         ),
     ]);
 
-    const messages = Number(messagesResult[0]?.count || 0);
-    const applications = Number(applicationsResult[0]?.count || 0);
-    const jobs = Number(jobsResult[0]?.count || 0);
-    const ratings = Number(ratingsResult[0]?.count || 0);
-    const total = messages + applications + jobs + ratings;
+    const messages = messagesResult[0]?.count || 0;
+    const applications = applicationsResult[0]?.count || 0;
+    const jobs = jobsResult[0]?.count || 0;
+    const ratings = ratingsResult[0]?.count || 0;
+    const feedback = feedbackResult[0]?.count || 0;
+    const contact_messages = contactResult[0]?.count || 0;
+    const total = messages + applications + jobs + ratings + feedback + contact_messages;
 
     return {
       messages,
       applications,
       jobs,
       ratings,
+      feedback,
+      contact_messages,
       total,
     };
   }
@@ -2116,7 +2157,7 @@ export class DatabaseStorage implements IStorage {
 
   async markCategoryNotificationsAsRead(
     userId: number,
-    category: "messages" | "applications" | "jobs" | "ratings"
+    category: "messages" | "applications" | "jobs" | "ratings" | "feedback" | "contact_messages"
   ): Promise<void> {
     let notificationTypes: string[] = [];
 
@@ -2132,6 +2173,12 @@ export class DatabaseStorage implements IStorage {
         break;
       case "ratings":
         notificationTypes = ["rating_received", "rating_request"];
+        break;
+      case "feedback":
+        notificationTypes = ["feedback"];
+        break;
+      case "contact_messages":
+        notificationTypes = ["contact_message"];
         break;
     }
 
@@ -2516,8 +2563,18 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getAllFeedback(): Promise<Array<Feedback & { user?: User }>> {
-    const result = await db
+  async getAllFeedback(status?: string, type?: string): Promise<Array<Feedback & { user?: User }>> {
+    const conditions = [];
+
+    if (status && status !== "all") {
+      conditions.push(eq(feedback.status, status as any));
+    }
+
+    if (type && type !== "all") {
+      conditions.push(eq(feedback.feedback_type, type as any));
+    }
+
+    const query = db
       .select({
         id: feedback.id,
         user_id: feedback.user_id,
@@ -2558,8 +2615,13 @@ export class DatabaseStorage implements IStorage {
         },
       })
       .from(feedback)
-      .leftJoin(users, eq(feedback.user_id, users.id))
-      .orderBy(desc(feedback.created_at));
+      .leftJoin(users, eq(feedback.user_id, users.id));
+
+    if (conditions.length > 0) {
+      query.where(and(...conditions));
+    }
+
+    const result = await query.orderBy(desc(feedback.created_at));
 
     return result as Array<Feedback & { user?: User }>;
   }
