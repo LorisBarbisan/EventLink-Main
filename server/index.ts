@@ -114,11 +114,8 @@ const generalRateLimit = rateLimit({
   message: { error: "Too many requests from this IP, please try again later" },
   standardHeaders: true,
   legacyHeaders: false,
-  // Critical: Skip failed requests so users don't get locked out during save failures
   skipFailedRequests: true,
   skipSuccessfulRequests: false,
-  // Remove custom keyGenerator to use default (IPv6 compatible)
-  // Uses req.ip with proper IPv6 handling when trust proxy is enabled
 });
 
 // More restrictive rate limiting for data-saving operations
@@ -216,17 +213,13 @@ app.use((req, res, next) => {
     console.error("Server error:", err);
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
-  // Use PORT environment variable for production deployment
-  // Fall back to 5000 for development (standard Replit port)
-  const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+
+  const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
   const host = process.env.NODE_ENV === "production" ? "0.0.0.0" : "0.0.0.0";
   server.listen(port, host, () => {
     log(`serving on port ${port} (host: ${host})`);
