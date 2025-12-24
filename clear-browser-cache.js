@@ -1,15 +1,10 @@
 // Clear all browser cache and localStorage for EventLink
 // Run this in browser console to clear all traces
 
-console.log("🧹 Clearing all EventLink data...");
-
 // Clear localStorage
 localStorage.clear();
-console.log("✅ localStorage cleared");
-
 // Clear sessionStorage
 sessionStorage.clear();
-console.log("✅ sessionStorage cleared");
 
 // Clear IndexedDB
 if (window.indexedDB) {
@@ -37,9 +32,6 @@ document.cookie.split(";").forEach(cookie => {
   const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
   document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
 });
-console.log("✅ Cookies cleared");
-
-console.log("🎉 All EventLink data cleared! Refresh the page.");
 
 // Force reload to ensure clean state
 setTimeout(() => {

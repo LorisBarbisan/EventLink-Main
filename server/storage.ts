@@ -214,6 +214,17 @@ export interface IStorage {
     jobApplicationId: number
   ): Promise<boolean>;
 
+  createRatingWithNotification(
+    rating: InsertRating,
+    notification: InsertNotification
+  ): Promise<Rating>;
+
+  createRatingRequestWithNotification(
+    request: InsertRatingRequest,
+    notification: InsertNotification
+  ): Promise<RatingRequest>;
+
+
   // Rating request management
   createRatingRequest(request: InsertRatingRequest): Promise<RatingRequest>;
   getRatingRequestByJobApplication(jobApplicationId: number): Promise<RatingRequest | undefined>;
@@ -2344,6 +2355,63 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async createRatingWithNotification(
+    rating: InsertRating,
+    notification: InsertNotification
+  ): Promise<Rating> {
+    return await db.transaction(async tx => {
+      // 1. Create the rating
+      const ratingResult = await tx
+        .insert(ratings)
+        .values([rating as any])
+        .returning();
+      const newRating = ratingResult[0];
+
+      // 2. Create the notification linked to the rating
+      let metadataObj: any = {};
+      try {
+        if (notification.metadata) {
+          metadataObj = JSON.parse(notification.metadata);
+        }
+      } catch (e) {
+        console.warn("Failed to parse notification metadata", e);
+      }
+
+      // Inject rating_id
+      metadataObj.rating_id = newRating.id;
+
+      const notificationData = {
+        ...notification,
+        related_entity_id: newRating.id,
+        metadata: JSON.stringify(metadataObj),
+        type: notification.type as any,
+        priority: notification.priority as any,
+      };
+
+      const notificationResult = await tx
+        .insert(notifications)
+        .values([notificationData])
+        .returning();
+      const newNotification = notificationResult[0];
+
+      // 3. Broadcast notification (side effect, non-blocking)
+      if (notification.user_id) {
+        setImmediate(async () => {
+          try {
+            const { wsService } = await import("./api/websocket/websocketService");
+            wsService.broadcastNotification(notification.user_id!, newNotification);
+            const counts = await this.getCategoryUnreadCounts(notification.user_id!);
+            wsService.broadcastBadgeCounts(notification.user_id!, counts);
+          } catch (error) {
+            console.error("Failed to broadcast notification via WebSocket:", error);
+          }
+        });
+      }
+
+      return newRating;
+    });
+  }
+
   async getRatingByJobApplication(jobApplicationId: number): Promise<Rating | undefined> {
     const result = await db
       .select()
@@ -2443,6 +2511,63 @@ export class DatabaseStorage implements IStorage {
       .values([request as any])
       .returning();
     return result[0];
+  }
+
+  async createRatingRequestWithNotification(
+    request: InsertRatingRequest,
+    notification: InsertNotification
+  ): Promise<RatingRequest> {
+    return await db.transaction(async tx => {
+      // 1. Create the rating request
+      const requestResult = await tx
+        .insert(rating_requests)
+        .values([request as any])
+        .returning();
+      const newRequest = requestResult[0];
+
+      // 2. Create the notification linked to the request
+      let metadataObj: any = {};
+      try {
+        if (notification.metadata) {
+          metadataObj = JSON.parse(notification.metadata);
+        }
+      } catch (e) {
+        console.warn("Failed to parse notification metadata", e);
+      }
+
+      // Inject rating_request_id
+      metadataObj.rating_request_id = newRequest.id;
+
+      const notificationData = {
+        ...notification,
+        related_entity_id: newRequest.id,
+        metadata: JSON.stringify(metadataObj),
+        type: notification.type as any,
+        priority: notification.priority as any,
+      };
+
+      const notificationResult = await tx
+        .insert(notifications)
+        .values([notificationData])
+        .returning();
+      const newNotification = notificationResult[0];
+
+      // 3. Broadcast notification
+      if (notification.user_id) {
+        setImmediate(async () => {
+          try {
+            const { wsService } = await import("./api/websocket/websocketService");
+            wsService.broadcastNotification(notification.user_id!, newNotification);
+            const counts = await this.getCategoryUnreadCounts(notification.user_id!);
+            wsService.broadcastBadgeCounts(notification.user_id!, counts);
+          } catch (error) {
+            console.error("Failed to broadcast notification via WebSocket:", error);
+          }
+        });
+      }
+
+      return newRequest;
+    });
   }
 
   async getRatingRequestByJobApplication(

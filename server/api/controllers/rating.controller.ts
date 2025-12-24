@@ -59,29 +59,30 @@ export async function createRating(req: Request, res: Response) {
       return res.status(403).json({ error: "Not authorized to create this rating" });
     }
 
-    const rating = await storage.createRating(result.data);
-
-    // Create notification for freelancer
+    // Prepare notification data
+    let notification: any = null;
     const application = await storage.getJobApplicationById(result.data.job_application_id);
     if (application) {
       const job = await storage.getJobById(application.job_id);
-      await storage.createNotification({
+      notification = {
         user_id: result.data.freelancer_id,
         type: "rating_received",
         title: "New Rating Received",
         message: `You received a ${result.data.rating}-star rating for your work on "${job?.title || "a job"}".`,
         priority: "normal",
         related_entity_type: "rating",
-        related_entity_id: rating.id,
+        // related_entity_id will be set in storage transaction
         action_url: "/dashboard?tab=bookings",
         metadata: JSON.stringify({
-          rating_id: rating.id,
+          rating_id: 0, // Placeholder, updated in storage transaction
           rating_value: result.data.rating,
           job_id: application.job_id,
           job_title: job?.title,
         }),
-      });
+      };
     }
+
+    const rating = await storage.createRatingWithNotification(result.data, notification);
 
     res.status(201).json(rating);
   } catch (error) {
@@ -193,12 +194,11 @@ export async function createRatingRequest(req: Request, res: Response) {
       return res.status(400).json({ error: "Can only request ratings for hired applications" });
     }
 
-    const ratingRequest = await storage.createRatingRequest(result.data);
-
-    // Create notification for recruiter
+    // Prepare notification data
+    let notification: any = null;
     const job = await storage.getJobById(application.job_id);
     if (job) {
-      await storage.createNotification({
+      notification = {
         user_id: result.data.recruiter_id,
         type: "rating_request",
         title: "Rating Request",
@@ -208,13 +208,15 @@ export async function createRatingRequest(req: Request, res: Response) {
         related_entity_id: application.id,
         action_url: "/dashboard?tab=applications",
         metadata: JSON.stringify({
-          rating_request_id: ratingRequest.id,
+          rating_request_id: 0, // Placeholder, updated in storage transaction
           job_id: job.id,
           job_title: job.title,
           freelancer_id: result.data.freelancer_id,
         }),
-      });
+      };
     }
+
+    const ratingRequest = await storage.createRatingRequestWithNotification(result.data, notification);
 
     res.status(201).json(ratingRequest);
   } catch (error) {
