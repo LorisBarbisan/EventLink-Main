@@ -1,48 +1,48 @@
-import { useState } from "react";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import type { Job } from "@shared/schema";
+import type { JobApplication } from "@shared/types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Eye,
-  MessageCircle,
-  CheckCircle,
-  X,
-  AlertCircle,
-  UserCheck,
-  UserX,
-  Star,
-  Send,
-  Trash2,
+    AlertCircle,
+    CheckCircle,
+    Eye,
+    MessageCircle,
+    Send,
+    Star,
+    Trash2,
+    UserCheck,
+    UserX,
+    X,
 } from "lucide-react";
+import { useState } from "react";
+import { MessageModal } from "./MessageModal";
 import { RatingDialog } from "./RatingDialog";
 import { RatingRequestDialog } from "./RatingRequestDialog";
-import { MessageModal } from "./MessageModal";
-import type { JobApplication } from "@shared/types";
-import type { Job } from "@shared/schema";
 
 interface ApplicationCardProps {
   application: JobApplication;
@@ -472,16 +472,23 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
 
                 {/* Rating button for hired applications */}
                 {application.status === "hired" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowRatingDialog(true)}
-                    data-testid={`button-rate-${application.id}`}
-                    className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                  >
-                    <Star className="w-4 h-4 mr-1" />
-                    Rate Freelancer
-                  </Button>
+                  application.rating ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                      <Star className="w-4 h-4 fill-current" />
+                      <span className="text-sm font-medium">Rated: {application.rating}/5</span>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowRatingDialog(true)}
+                      data-testid={`button-rate-${application.id}`}
+                      className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Star className="w-4 h-4 mr-1" />
+                      Rate Freelancer
+                    </Button>
+                  )
                 )}
 
                 {/* Delete button for recruiters to hide applications */}
@@ -810,16 +817,28 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
 
                 {/* Rating request button for hired/completed jobs */}
                 {application.status === "hired" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowRatingRequestDialog(true)}
-                    data-testid={`button-request-rating-${application.id}`}
-                    className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                  >
-                    <Send className="w-4 h-4 mr-1" />
-                    Request Rating
-                  </Button>
+                  application.rating ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                      <Star className="w-4 h-4 fill-current" />
+                      <span className="text-sm font-medium">Received: {application.rating}/5</span>
+                    </div>
+                  ) : application.has_requested_rating ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-md">
+                      <Send className="w-4 h-4 fill-current" />
+                      <span className="text-sm font-medium">Rating Pending</span>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowRatingRequestDialog(true)}
+                      data-testid={`button-request-rating-${application.id}`}
+                      className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                    >
+                      <Send className="w-4 h-4 mr-1" />
+                      Request Rating
+                    </Button>
+                  )
                 )}
               </>
             )}

@@ -60,6 +60,7 @@ export async function getJobsByRecruiter(req: Request, res: Response) {
   try {
     const recruiterId = parseInt(req.params.recruiterId);
     const jobs = await storage.getJobsByRecruiterId(recruiterId);
+    res.set("Cache-Control", "no-store");
     res.json(jobs);
   } catch (error) {
     console.error("Get recruiter jobs error:", error);

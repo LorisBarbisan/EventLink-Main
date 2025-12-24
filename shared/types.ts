@@ -99,6 +99,8 @@ export interface JobApplication {
   job_title?: string;
   job_company?: string;
   recruiter_id?: number | null;
+  rating?: number;
+  has_requested_rating?: boolean;
 }
 
 export interface Message {

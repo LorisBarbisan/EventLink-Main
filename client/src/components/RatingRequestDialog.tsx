@@ -50,6 +50,10 @@ export function RatingRequestDialog({
       queryClient.invalidateQueries({
         queryKey: ["/api/rating-requests", "freelancer", currentUserId],
       });
+      // Force refetch of applications to update the UI specifically for the buttons
+      queryClient.invalidateQueries({
+        queryKey: ["/api/freelancer/applications", currentUserId],
+      });
       onOpenChange(false);
       toast({
         title: "Rating request sent!",
