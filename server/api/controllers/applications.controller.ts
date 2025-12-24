@@ -178,6 +178,7 @@ export async function getFreelancerApplications(req: Request, res: Response) {
     }
 
     const applications = await storage.getFreelancerApplications(freelancerId);
+    res.set("Cache-Control", "no-store");
     res.json(applications);
   } catch (error) {
     console.error("Get freelancer applications error:", error);
@@ -228,6 +229,7 @@ export async function getRecruiterApplications(req: Request, res: Response) {
     // Use the proper storage method that includes job details
     const applications = await storage.getRecruiterApplications(recruiterId);
 
+    res.set("Cache-Control", "no-store");
     res.json(applications);
   } catch (error) {
     console.error("Get recruiter applications error:", error);
