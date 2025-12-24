@@ -1,3 +1,5 @@
+import { storage } from "../../storage";
+
 // Admin reconciliation function - ensures admin users have correct roles
 export async function reconcileAdminUsers(): Promise<void> {
   try {
@@ -13,7 +15,21 @@ export async function reconcileAdminUsers(): Promise<void> {
     console.log(`🔧 Reconciling admin users: ${adminEmails.join(", ")}`);
 
     for (const email of adminEmails) {
-      console.log(`✅ Admin email ${email} configured - will get admin role at login`);
+      if (!email) continue;
+
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+
+      if (user) {
+        if (user.role !== "admin") {
+          console.log(`🆙 Upgrading user ${email} to admin role`);
+          await storage.updateUserRole(user.id, "admin");
+        } else {
+          console.log(`✅ Admin email ${email} already has admin role`);
+        }
+      } else {
+        console.log(`ℹ️ Admin email ${email} not found in database - skipping`);
+      }
     }
 
     console.log("✅ Admin reconciliation complete");

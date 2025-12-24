@@ -1,34 +1,36 @@
-import { useState } from "react";
+import { MessageModal } from "@/components/MessageModal";
+import { RatingDialog } from "@/components/RatingDialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  MapPin,
-  Calendar,
-  Users,
-  Edit,
-  Trash2,
-  Coins,
-  ChevronDown,
-  ChevronUp,
-  User,
-  MessageCircle,
-  Eye,
-  Clock,
-} from "lucide-react";
-import { MessageModal } from "@/components/MessageModal";
 import type { Job, JobApplication } from "@shared/types";
+import {
+    Calendar,
+    ChevronDown,
+    ChevronUp,
+    Clock,
+    Coins,
+    Edit,
+    Eye,
+    MapPin,
+    MessageCircle,
+    Star,
+    Trash2,
+    User,
+    Users,
+} from "lucide-react";
+import { useState } from "react";
 
 interface JobCardProps {
   job: Job;
@@ -57,6 +59,8 @@ export function JobCard({
   const [selectedFreelancer, setSelectedFreelancer] = useState<{ id: number; name: string } | null>(
     null
   );
+  const [showRatingDialog, setShowRatingDialog] = useState(false);
+  const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
 
   // Helper function to format duration display
   const formatDuration = (job: Job): string | null => {
@@ -99,6 +103,11 @@ export function JobCard({
       name: freelancerName,
     });
     setMessageModalOpen(true);
+  };
+
+  const handleRateFreelancer = (applicant: JobApplication) => {
+    setSelectedApplication(applicant);
+    setShowRatingDialog(true);
   };
 
   return (
@@ -273,6 +282,16 @@ export function JobCard({
                       <MessageCircle className="w-3 h-3 mr-1" />
                       Message
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRateFreelancer(applicant)}
+                      data-testid={`button-rate-freelancer-${applicant.freelancer_id}`}
+                      className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                    >
+                      <Star className="w-3 h-3 mr-1" />
+                      Rate
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -292,6 +311,16 @@ export function JobCard({
           recipientId={selectedFreelancer.id}
           recipientName={selectedFreelancer.name}
           senderId={currentUserId}
+        />
+      )}
+
+      {/* Rating Dialog */}
+      {selectedApplication && (
+        <RatingDialog
+          open={showRatingDialog}
+          onOpenChange={setShowRatingDialog}
+          application={selectedApplication}
+          currentUserId={currentUserId}
         />
       )}
     </Card>

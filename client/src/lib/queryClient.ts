@@ -19,7 +19,7 @@ export const queryClient = new QueryClient({
         const url = queryKey[0] as string;
         return apiRequest(url);
       },
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 0, // Disable caching globallly
       gcTime: 1000 * 60 * 30, // 30 minutes
       retry: (failureCount, error: any) => {
         // Don't retry on 4xx errors except 408/429
@@ -32,8 +32,8 @@ export const queryClient = new QueryClient({
         }
         return failureCount < 2; // Retry up to 2 times
       },
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
       refetchOnReconnect: "always",
       // Performance: Use network-only for critical data, cache-first for static
       networkMode: "online",

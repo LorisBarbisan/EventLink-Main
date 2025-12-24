@@ -277,12 +277,16 @@ export default function SimplifiedRecruiterDashboard() {
     window.history.pushState({}, "", url.toString());
 
     // Mark category notifications as read when tab is opened
+    // Mark category notifications as read when tab is opened
     // Note: Messages notifications are NOT marked as read automatically
     // They remain unread until user explicitly views/reads them
     if (tab === "jobs") {
       markCategoryAsRead("jobs");
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
     } else if (tab === "applications") {
       markCategoryAsRead("applications");
+      // Force refetch applications to ensure new ones appear immediately
+      queryClient.invalidateQueries({ queryKey: ["/api/recruiter", user?.id, "applications"] });
     }
     // Removed: markCategoryAsRead('messages') - keep message notifications unread until user reads them
   };

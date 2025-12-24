@@ -1,17 +1,16 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Star, Send } from "lucide-react";
 import type { JobApplication } from "@shared/types";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Send, Star } from "lucide-react";
 
 interface RatingRequestDialogProps {
   open: boolean;
@@ -31,12 +30,10 @@ export function RatingRequestDialog({
 
   const requestRatingMutation = useMutation({
     mutationFn: async () => {
-      // First get the job details to find the recruiter ID
-      const jobResponse = await apiRequest(`/api/jobs/${application.job_id}`);
-      const recruiterId = jobResponse?.recruiter_id;
+      const recruiterId = application.recruiter_id;
 
       if (!recruiterId) {
-        throw new Error("Unable to find recruiter for this job");
+        throw new Error("Unable to identify the recruiter for this application.");
       }
 
       return await apiRequest("/api/rating-requests", {

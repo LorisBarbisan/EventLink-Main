@@ -26,6 +26,7 @@ import { registerNotificationRoutes } from "./api/routes/notification.route.js";
 import { registerProfileRoutes } from "./api/routes/profile.route.js";
 import { registerRatingsRoutes } from "./api/routes/rating.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
+import { wsService } from "./api/websocket/websocketService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Add performance monitoring middleware
@@ -44,6 +45,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           /\.replit\.app$/,
           "http://localhost:5173",
           "http://127.0.0.1:5173",
+            "https://api.eventlink.com",
+            "https://api.linkedin.com",
+            "https://storage.googleapis.com",
+            "ws://localhost:*",
+            "wss://localhost:*",
+            "wss://*.replit.dev", // Replit dev domains
+            "ws://*.replit.dev", // Replit dev domains (non-SSL)
+            "wss://*.replit.app", // Replit production domains
+            "wss://eventlink.one", // Custom production domain
+            "ws://eventlink.one",
         ];
 
         // Allow no origin (for mobile apps, curl, etc.)
@@ -510,7 +521,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Initialize WebSocket service with broadcast function
-  const { wsService } = await import("./api/websocket/websocketService.js");
   wsService.initialize(broadcastToUser);
 
   wss.on("connection", (ws: WebSocket, _req) => {

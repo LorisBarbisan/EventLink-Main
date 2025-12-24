@@ -1,17 +1,17 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { StarRating } from "./StarRating";
 import type { JobApplication } from "@shared/types";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { StarRating } from "./StarRating";
 
 interface RatingDialogProps {
   open: boolean;
@@ -38,6 +38,7 @@ export function RatingDialog({
         body: JSON.stringify({
           job_application_id: application.id,
           freelancer_id: application.freelancer_id,
+          recruiter_id: currentUserId,
           rating: rating,
         }),
       });
@@ -60,7 +61,7 @@ export function RatingDialog({
       console.error("Rating submission error:", error);
       toast({
         title: "Error submitting rating",
-        description: "Please try again later.",
+        description: error.message || "Please try again later.",
         variant: "destructive",
       });
     },

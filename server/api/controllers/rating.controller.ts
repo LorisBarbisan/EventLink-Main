@@ -5,20 +5,38 @@ import { storage } from "../../storage";
 // Create a rating
 export async function createRating(req: Request, res: Response) {
   try {
-    if (!(req as any).user) {
+    const user = (req as any).user;
+    if (!user) {
       return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    // Derive recruiter_id from user if missing in body
+    if (user.role === "recruiter" && !req.body.recruiter_id) {
+      req.body.recruiter_id = user.id;
     }
 
     // Validate the rating data
     const result = insertRatingSchema.safeParse(req.body);
     if (!result.success) {
+      console.warn("Rating validation failed:", result.error.format());
       return res.status(400).json({
         error: "Invalid input",
         details: result.error.issues,
       });
     }
 
-    // Check if recruiter can rate this freelancer for this application
+    // 1. Check if rating already exists first
+    const existingRating = await storage.getRatingByJobApplication(
+      result.data.job_application_id
+    );
+
+    if (existingRating) {
+      return res.status(409).json({
+        error: "You have already submitted a rating for this application.",
+      });
+    }
+
+    // 2. Check if recruiter can rate this freelancer (Permission & Status)
     const canRate = await storage.canRecruiterRateFreelancer(
       result.data.recruiter_id,
       result.data.freelancer_id,
@@ -26,14 +44,18 @@ export async function createRating(req: Request, res: Response) {
     );
 
     if (!canRate) {
+      console.warn(`Rating blocked for application ${result.data.job_application_id}:`, {
+        recruiter_id: result.data.recruiter_id,
+        freelancer_id: result.data.freelancer_id
+      });
       return res.status(403).json({
-        error:
-          "Cannot rate this freelancer. Either you're not authorized or a rating already exists for this application.",
+        error: "You are not authorized to rate this freelancer. The job must be marked as 'hired' and belong to you.",
       });
     }
 
     // Verify the recruiter_id matches the authenticated user
-    if ((req as any).user.role !== "admin" && (req as any).user.id !== result.data.recruiter_id) {
+    if (user.role !== "admin" && user.id !== result.data.recruiter_id) {
+      console.warn(`Unauthorized rating attempt: User ${user.id} tried to rate as ${result.data.recruiter_id}`);
       return res.status(403).json({ error: "Not authorized to create this rating" });
     }
 
@@ -64,7 +86,10 @@ export async function createRating(req: Request, res: Response) {
     res.status(201).json(rating);
   } catch (error) {
     console.error("Create rating error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({
+      error: "Internal server error",
+      message: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 }
 
@@ -127,13 +152,15 @@ export async function getFreelancerAverageRating(req: Request, res: Response) {
 // Create a rating request
 export async function createRatingRequest(req: Request, res: Response) {
   try {
-    if (!(req as any).user) {
+    const user = (req as any).user;
+    if (!user) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
     // Validate the rating request data
     const result = insertRatingRequestSchema.safeParse(req.body);
     if (!result.success) {
+      console.warn("Rating request validation failed:", result.error.format());
       return res.status(400).json({
         error: "Invalid input",
         details: result.error.issues,
@@ -141,7 +168,8 @@ export async function createRatingRequest(req: Request, res: Response) {
     }
 
     // Verify the freelancer_id matches the authenticated user (only freelancers can request ratings)
-    if ((req as any).user.role !== "admin" && (req as any).user.id !== result.data.freelancer_id) {
+    if (user.role !== "admin" && user.id !== result.data.freelancer_id) {
+      console.warn(`Unauthorized rating request attempt: User ${user.id} tried to request as ${result.data.freelancer_id}`);
       return res.status(403).json({ error: "Not authorized to create this rating request" });
     }
 
@@ -191,6 +219,9 @@ export async function createRatingRequest(req: Request, res: Response) {
     res.status(201).json(ratingRequest);
   } catch (error) {
     console.error("Create rating request error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({
+      error: "Internal server error",
+      message: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 }

@@ -10,7 +10,7 @@ export function setCacheByEndpoint(res: Response, endpoint: string) {
   }
   // User profiles - cache for 1 hour (profiles change infrequently)
   else if (endpoint.includes("/api/freelancer/") || endpoint.includes("/api/recruiter/")) {
-    CacheHeaders.longCache(res);
+    CacheHeaders.noCache(res);
   } else if (
     endpoint.includes("/api/notifications") ||
     endpoint.includes("/api/messages") ||
@@ -20,7 +20,7 @@ export function setCacheByEndpoint(res: Response, endpoint: string) {
   }
   // Location data - cache for 1 hour (static reference data)
   else if (endpoint.includes("/api/locations")) {
-    CacheHeaders.longCache(res);
+    CacheHeaders.noCache(res);
   }
   // File downloads - cache for 1 year
   else if (endpoint.includes("/download") || endpoint.includes("/cv/")) {
@@ -28,6 +28,6 @@ export function setCacheByEndpoint(res: Response, endpoint: string) {
   }
   // Default for other endpoints
   else {
-    CacheHeaders.mediumCache(res);
+    CacheHeaders.noCache(res);
   }
 }
