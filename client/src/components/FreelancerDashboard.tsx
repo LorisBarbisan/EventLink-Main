@@ -183,7 +183,7 @@ export default function SimplifiedFreelancerDashboard() {
             value="bookings"
             className="flex items-center justify-center text-xs sm:text-sm"
           >
-            Ratings
+            Pending Ratings
             <TabBadge count={roleSpecificCounts.ratings || 0} />
           </TabsTrigger>
         </TabsList>
