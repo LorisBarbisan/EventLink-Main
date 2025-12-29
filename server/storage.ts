@@ -1069,6 +1069,14 @@ export class DatabaseStorage implements IStorage {
     if (job.rate !== undefined) updateData.rate = job.rate;
     if (job.description !== undefined) updateData.description = job.description;
     if (job.status !== undefined) updateData.status = job.status;
+    if (job.contract_type !== undefined) updateData.contract_type = job.contract_type;
+    if (job.event_date !== undefined) updateData.event_date = job.event_date;
+    if (job.end_date !== undefined) updateData.end_date = job.end_date;
+    if (job.duration_type !== undefined) updateData.duration_type = job.duration_type;
+    if (job.start_time !== undefined) updateData.start_time = job.start_time;
+    if (job.end_time !== undefined) updateData.end_time = job.end_time;
+    if (job.days !== undefined) updateData.days = job.days;
+    if (job.hours !== undefined) updateData.hours = job.hours;
 
     const result = await db.update(jobs).set(updateData).where(eq(jobs.id, jobId)).returning();
     return result[0];
