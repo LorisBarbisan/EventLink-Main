@@ -520,7 +520,7 @@ export default function Jobs() {
                         <div className="space-y-4">
                           <p className="text-muted-foreground">{job.description}</p>
 
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div className="flex items-center gap-2">
                               <MapPin className="h-4 w-4 text-muted-foreground" />
                               <span>{job.location}</span>
@@ -532,7 +532,32 @@ export default function Jobs() {
                             {job.event_date && (
                               <div className="flex items-center gap-2 font-medium text-primary">
                                 <CalendarIcon className="h-4 w-4 text-primary" />
-                                <span>Event: {new Date(job.event_date).toLocaleDateString()}</span>
+                                <span>
+                                  {new Date(job.event_date).toLocaleDateString()}
+                                  {job.end_date && ` - ${new Date(job.end_date).toLocaleDateString()}`}
+                                </span>
+                              </div>
+                            )}
+                            {(job.start_time || job.end_time) && (
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span>
+                                  {job.start_time && job.end_time
+                                    ? `${job.start_time} - ${job.end_time}`
+                                    : job.start_time || job.end_time}
+                                </span>
+                              </div>
+                            )}
+                            {job.duration_type === "days" && job.days && (
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span>{job.days} day{job.days !== 1 ? "s" : ""}</span>
+                              </div>
+                            )}
+                            {job.duration_type === "hours" && job.hours && (
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span>{job.hours} hour{job.hours !== 1 ? "s" : ""}</span>
                               </div>
                             )}
                           </div>
