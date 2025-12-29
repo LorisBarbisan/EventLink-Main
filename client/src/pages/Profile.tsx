@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest } from "@/lib/queryClient";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Calendar,
   Download,
@@ -69,15 +69,113 @@ export default function Profile() {
   const [, setLocation] = useLocation();
   const { userId } = useParams();
   const { user, loading: authLoading } = useAuth();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [freelancerProfile, setFreelancerProfile] = useState<FreelancerProfile | null>(null);
-  const [recruiterProfile, setRecruiterProfile] = useState<RecruiterProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isOwnProfile, setIsOwnProfile] = useState(false);
-  const [profileDataLoaded, setProfileDataLoaded] = useState(false);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Determine target user ID and if viewing own profile
+  const targetUserId = userId || user?.id?.toString();
+  const isOwnProfile = user && targetUserId === user.id.toString();
+
+  // Fetch user data to determine role
+  const { data: userData, isLoading: userLoading } = useQuery<{ role: string; email: string }>({
+    queryKey: ["/api/users", targetUserId],
+    enabled: !!targetUserId && !authLoading,
+    staleTime: 0,
+  });
+
+  // Determine profile role from userData or current user
+  const profileRole = isOwnProfile ? user?.role : userData?.role;
+
+  // Fetch freelancer profile using React Query (matches dashboard query key pattern)
+  const { data: freelancerData, isLoading: freelancerLoading } = useQuery<{
+    id: string;
+    user_id: number;
+    first_name: string;
+    last_name: string;
+    title: string;
+    bio: string;
+    location: string;
+    experience_years: number | null;
+    skills: string[];
+    portfolio_url: string;
+    linkedin_url: string;
+    website_url: string;
+    availability_status: "available" | "busy" | "unavailable";
+    profile_photo_url?: string;
+    cv_file_url?: string;
+    cv_file_name?: string;
+    cv_file_type?: string;
+    cv_file_size?: number;
+  }>({
+    queryKey: ["/api/freelancer", parseInt(targetUserId || "0")],
+    enabled: !!targetUserId && (profileRole === "freelancer" || profileRole === "admin"),
+    staleTime: 0,
+  });
+
+  // Fetch recruiter profile using React Query (matches dashboard query key pattern)
+  const { data: recruiterData, isLoading: recruiterLoading } = useQuery<{
+    id: number;
+    company_name: string;
+    contact_name: string;
+    company_type: string;
+    company_description: string;
+    location: string;
+    website_url: string;
+    linkedin_url: string;
+    phone: string;
+    company_logo_url?: string;
+  }>({
+    queryKey: ["/api/recruiter", parseInt(targetUserId || "0")],
+    enabled: !!targetUserId && (profileRole === "recruiter" || profileRole === "admin"),
+    staleTime: 0,
+  });
+
+  // Build profile object
+  const profile: Profile | null = targetUserId && profileRole ? {
+    id: targetUserId,
+    role: profileRole as "freelancer" | "recruiter" | "admin",
+    email: isOwnProfile ? user?.email || "" : userData?.email || "",
+  } : null;
+
+  // Transform freelancer data
+  const freelancerProfile: FreelancerProfile | null = freelancerData ? {
+    id: freelancerData.id,
+    user_id: freelancerData.user_id,
+    first_name: freelancerData.first_name || "",
+    last_name: freelancerData.last_name || "",
+    title: freelancerData.title || "",
+    bio: freelancerData.bio || "",
+    location: freelancerData.location || "",
+    experience_years: freelancerData.experience_years || null,
+    skills: freelancerData.skills || [],
+    portfolio_url: freelancerData.portfolio_url || "",
+    linkedin_url: freelancerData.linkedin_url || "",
+    website_url: freelancerData.website_url || "",
+    availability_status: freelancerData.availability_status || "available",
+    profile_photo_url: freelancerData.profile_photo_url || "",
+    cv_file_url: freelancerData.cv_file_url || "",
+    cv_file_name: freelancerData.cv_file_name || "",
+    cv_file_type: freelancerData.cv_file_type || "",
+    cv_file_size: freelancerData.cv_file_size || undefined,
+  } : null;
+
+  // Transform recruiter data
+  const recruiterProfile: RecruiterProfile | null = recruiterData ? {
+    id: recruiterData.id?.toString(),
+    company_name: recruiterData.company_name || "",
+    contact_name: recruiterData.contact_name || "",
+    company_type: recruiterData.company_type || "",
+    company_description: recruiterData.company_description || "",
+    location: recruiterData.location || "",
+    website_url: recruiterData.website_url || "",
+    linkedin_url: recruiterData.linkedin_url || "",
+    phone: recruiterData.phone || "",
+    company_logo_url: recruiterData.company_logo_url || "",
+  } : null;
+
+  const loading = authLoading || userLoading || freelancerLoading || recruiterLoading;
+  const profileDataLoaded = !loading && !!targetUserId;
 
   // Get rating data for freelancer profiles
   const { data: averageRating } = useFreelancerAverageRating(freelancerProfile?.user_id || 0);
@@ -141,201 +239,12 @@ export default function Profile() {
     }
   };
 
+  // Redirect to auth if not logged in and no userId specified
   useEffect(() => {
-    console.log("Profile useEffect triggered:", { user, authLoading, userId });
-    console.log("URL userId parameter received:", userId, "type:", typeof userId);
-
-    if (!authLoading) {
-      if (userId) {
-        // Check if viewing own profile via URL parameter
-        const isViewingOwnProfile = user && userId === user.id.toString();
-        console.log("Profile comparison debug:", {
-          userId,
-          userIdType: typeof userId,
-          userIdNum: user?.id,
-          userIdStr: user?.id.toString(),
-          isViewingOwnProfile,
-        });
-        if (isViewingOwnProfile) {
-          console.log("Viewing own profile via URL parameter for user:", user);
-          setIsOwnProfile(true);
-          fetchProfile();
-        } else {
-          // Viewing someone else's profile
-          console.log("Fetching other profile for userId:", userId);
-          setIsOwnProfile(false);
-          fetchOtherProfile(userId);
-        }
-      } else if (user) {
-        // Viewing own profile
-        console.log("Fetching own profile for user:", user);
-        setIsOwnProfile(true);
-        fetchProfile();
-      } else {
-        // Not logged in and no userId specified
-        console.log("No user found, redirecting to auth");
-        setLocation("/auth");
-      }
+    if (!authLoading && !userId && !user) {
+      setLocation("/auth");
     }
   }, [user, authLoading, userId, setLocation]);
-
-  const fetchProfile = async () => {
-    try {
-      console.log("fetchProfile called with user:", user);
-      const userProfile: Profile = {
-        id: user!.id.toString(),
-        role: user!.role as "freelancer" | "recruiter" | "admin",
-        email: user!.email,
-      };
-      console.log("Setting profile:", userProfile);
-      setProfile(userProfile);
-
-      // Try to fetch freelancer profile for freelancer and admin users
-      if (userProfile.role === "freelancer" || userProfile.role === "admin") {
-        try {
-          const data = await apiRequest(`/api/freelancer/${userProfile.id}`);
-          console.log("Freelancer profile data received:", data);
-          if (data) {
-            setFreelancerProfile({
-              id: data.id,
-              user_id: data.user_id,
-              first_name: data.first_name || "",
-              last_name: data.last_name || "",
-              title: data.title || "",
-              bio: data.bio || "",
-              location: data.location || "",
-
-              experience_years: data.experience_years || null,
-              skills: data.skills || [],
-              portfolio_url: data.portfolio_url || "",
-              linkedin_url: data.linkedin_url || "",
-              website_url: data.website_url || "",
-              availability_status: data.availability_status || "available",
-              profile_photo_url: data.profile_photo_url || "",
-              cv_file_url: data.cv_file_url || "",
-              cv_file_name: data.cv_file_name || "",
-              cv_file_type: data.cv_file_type || "",
-              cv_file_size: data.cv_file_size || null,
-            });
-            console.log("Freelancer profile set:", data);
-          } else {
-            console.log("No freelancer profile found");
-            setFreelancerProfile(null);
-          }
-        } catch (error) {
-          console.log("No freelancer profile found:", error);
-          setFreelancerProfile(null);
-        }
-      }
-
-      // Try to fetch recruiter profile for recruiter and admin users
-      if (userProfile.role === "recruiter" || userProfile.role === "admin") {
-        try {
-          const data = await apiRequest(`/api/recruiter/${userProfile.id}`);
-          console.log("Recruiter profile data received:", data);
-          if (data) {
-            console.log("Setting recruiter profile with data:", data);
-            setRecruiterProfile({
-              id: data.id?.toString(),
-              company_name: data.company_name || "",
-              contact_name: data.contact_name || "",
-              company_type: data.company_type || "",
-              company_description: data.company_description || "",
-              location: data.location || "",
-              website_url: data.website_url || "",
-              linkedin_url: data.linkedin_url || "",
-              phone: data.phone || "",
-              company_logo_url: data.company_logo_url || "",
-            });
-            console.log("Recruiter profile set successfully");
-          } else {
-            console.log("No recruiter profile data received from API");
-            setRecruiterProfile(null);
-          }
-        } catch (error) {
-          console.log("No recruiter profile found:", error);
-          setRecruiterProfile(null);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-    } finally {
-      setLoading(false);
-      setProfileDataLoaded(true);
-    }
-  };
-
-  const fetchOtherProfile = async (targetUserId: string) => {
-    try {
-      console.log("fetchOtherProfile called with targetUserId:", targetUserId);
-      console.log("Making API request to:", `/api/users/${targetUserId}`);
-      // First get the user basic info to determine their role
-      const userData = await apiRequest(`/api/users/${targetUserId}`);
-      console.log("User data received:", userData);
-      const userProfile: Profile = {
-        id: targetUserId,
-        role: userData.role as "freelancer" | "recruiter",
-        email: userData.email,
-      };
-      console.log("Setting profile in fetchOtherProfile:", userProfile);
-      setProfile(userProfile);
-
-      if (userProfile.role === "freelancer") {
-        try {
-          const data = await apiRequest(`/api/freelancer/${targetUserId}`);
-          if (data) {
-            setFreelancerProfile({
-              id: data.id,
-              user_id: data.user_id,
-              first_name: data.first_name || "",
-              last_name: data.last_name || "",
-              title: data.title || "",
-              bio: data.bio || "",
-              location: data.location || "",
-
-              experience_years: data.experience_years || null,
-              skills: data.skills || [],
-              portfolio_url: data.portfolio_url || "",
-              linkedin_url: data.linkedin_url || "",
-              website_url: data.website_url || "",
-              availability_status: data.availability_status || "available",
-              profile_photo_url: data.profile_photo_url || "",
-              cv_file_url: data.cv_file_url || "",
-              cv_file_name: data.cv_file_name || "",
-              cv_file_type: data.cv_file_type || "",
-              cv_file_size: data.cv_file_size || null,
-            });
-          }
-        } catch (error) {
-          console.log("No freelancer profile found for user:", error);
-        }
-      } else if (userProfile.role === "recruiter") {
-        try {
-          const data = await apiRequest(`/api/recruiter/${targetUserId}`);
-          if (data) {
-            setRecruiterProfile({
-              id: data.id?.toString(),
-              company_name: data.company_name || "",
-              contact_name: data.contact_name || "",
-              company_type: data.company_type || "",
-              company_description: data.company_description || "",
-              location: data.location || "",
-              website_url: data.website_url || "",
-              linkedin_url: data.linkedin_url || "",
-              phone: data.phone || "",
-              company_logo_url: data.company_logo_url || "",
-            });
-          }
-        } catch (error) {
-          console.log("No recruiter profile found for user:", error);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching other user profile:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (authLoading || loading) {
     return (
