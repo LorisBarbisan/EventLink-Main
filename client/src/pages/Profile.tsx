@@ -119,7 +119,7 @@ export default function Profile() {
     company_name: string;
     contact_name: string;
     company_type: string;
-    company_description: string;
+    description: string;
     location: string;
     website_url: string;
     linkedin_url: string;
@@ -166,7 +166,7 @@ export default function Profile() {
     company_name: recruiterData.company_name || "",
     contact_name: recruiterData.contact_name || "",
     company_type: recruiterData.company_type || "",
-    company_description: recruiterData.company_description || "",
+    company_description: recruiterData.description || "",
     location: recruiterData.location || "",
     website_url: recruiterData.website_url || "",
     linkedin_url: recruiterData.linkedin_url || "",
