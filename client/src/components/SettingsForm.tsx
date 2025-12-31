@@ -528,21 +528,6 @@ export function SettingsForm({ user }: SettingsFormProps) {
             />
           </div>
 
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <h4 className="font-medium">Email Notifications</h4>
-              <p className="text-sm text-muted-foreground">
-                Receive notifications about applications and messages
-              </p>
-            </div>
-            <Switch
-              checked={privacySettings.emailNotifications}
-              onCheckedChange={checked =>
-                setPrivacySettings(prev => ({ ...prev, emailNotifications: checked }))
-              }
-              data-testid="toggle-email-notifications"
-            />
-          </div>
         </CardContent>
       </Card>
 
