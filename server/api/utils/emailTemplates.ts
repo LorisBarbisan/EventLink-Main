@@ -83,7 +83,7 @@ function masterTemplate(content: string): string {
       ${content}
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} EventLink – Connecting Talent & Events</p>
+      <p>© ${new Date().getFullYear()} EventLink. Showcase Talent - Share Opportunities - Build Connections</p>
       <p>
         <a href="https://eventlink.one">Visit EventLink</a> |
         <a href="https://eventlink.one/notification-settings">Notification Settings</a>

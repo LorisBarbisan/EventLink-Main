@@ -322,7 +322,7 @@ export async function sendVerificationEmail(
 
         <div class="footer">
           <p class="signature">Best regards,<br><strong>The EventLink Team</strong></p>
-          <p>© 2025 EventLink. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} EventLink. Showcase Talent - Share Opportunities - Build Connections</p>
         </div>
       </div>
     </body>
@@ -345,7 +345,7 @@ If you didn't create an account with EventLink, you can safely ignore this email
 Best regards,
 The EventLink Team
 
-© 2025 EventLink. All rights reserved.
+© ${new Date().getFullYear()} EventLink. Showcase Talent - Share Opportunities - Build Connections
   `;
 
   return await sendEmail({
@@ -517,7 +517,7 @@ export async function sendPasswordResetEmail(
 
         <div class="footer">
           <p class="signature">Best regards,<br><strong>The EventLink Team</strong></p>
-          <p>© 2025 EventLink. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} EventLink. Showcase Talent - Share Opportunities - Build Connections</p>
         </div>
       </div>
     </body>
@@ -541,7 +541,7 @@ If you didn't request a password reset, you can safely ignore this email. Your p
 Best regards,
 The EventLink Team
 
-© 2025 EventLink. All rights reserved.
+© ${new Date().getFullYear()} EventLink. Showcase Talent - Share Opportunities - Build Connections
   `;
 
   return await sendEmail({
@@ -649,7 +649,7 @@ export async function sendContactReplyEmail(
 
         <div class="footer">
           <p class="signature">Best regards,<br><strong>The EventLink Team</strong></p>
-          <p>© 2025 EventLink. All rights reserved.</p>
+          <p>© ${new Date().getFullYear()} EventLink. Showcase Talent - Share Opportunities - Build Connections</p>
         </div>
       </div>
     </body>
@@ -664,7 +664,7 @@ ${message}
 Best regards,
 The EventLink Team
 
-© 2025 EventLink. All rights reserved.
+© ${new Date().getFullYear()} EventLink. Showcase Talent - Share Opportunities - Build Connections
   `;
 
   return await sendEmail({

@@ -83,11 +83,16 @@ export async function addFeedbackResponse(req: Request, res: Response) {
         );
         console.log(`✅ Feedback response email sent successfully to ${emailToSend}`);
       } catch (emailError: any) {
-        console.error("❌ Failed to send feedback response email:", emailError?.message || emailError);
+        console.error(
+          "❌ Failed to send feedback response email:",
+          emailError?.message || emailError
+        );
         // Don't fail the request, just log the error
       }
     } else {
-      console.log(`ℹ️ No email address found for feedback ID ${feedbackId}, skipping email notification`);
+      console.log(
+        `ℹ️ No email address found for feedback ID ${feedbackId}, skipping email notification`
+      );
     }
 
     res.json({ message: "Admin response added successfully" });
@@ -170,7 +175,13 @@ export async function sendContactReply(req: Request, res: Response) {
 // Get all users (admin only)
 export async function getAllUsers(req: Request, res: Response) {
   try {
-    const users = await storage.getAdminUsers();
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const search = (req.query.search as string) || undefined;
+    const role = (req.query.role as string) || undefined;
+    const status = (req.query.status as string) || undefined;
+
+    const { users, total } = await storage.getAllUsers(page, limit, search, role, status);
 
     // Remove sensitive information
     const safeUsers = users.map((user: any) => {
@@ -179,7 +190,13 @@ export async function getAllUsers(req: Request, res: Response) {
       return safeUser;
     });
 
-    res.json(safeUsers);
+    res.json({
+      users: safeUsers,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
     console.error("Get admin users error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -187,15 +204,10 @@ export async function getAllUsers(req: Request, res: Response) {
 }
 
 // Get analytics overview (admin only)
+// Get analytics overview (admin only)
 export async function getAnalyticsOverview(req: Request, res: Response) {
   try {
-    // Simple analytics with basic data
-    const analytics = {
-      users: { total: 0, freelancers: 0, recruiters: 0, verified: 0, thisMonth: 0 },
-      jobs: { total: 0, active: 0, thisMonth: 0 },
-      applications: { total: 0, applied: 0, hired: 0, thisMonth: 0 },
-    };
-
+    const analytics = await storage.getAdminAnalytics();
     res.json(analytics);
   } catch (error) {
     console.error("Get analytics overview error:", error);
@@ -218,6 +230,38 @@ export async function getAdminUsers(req: Request, res: Response) {
     res.json(safeAdmins);
   } catch (error) {
     console.error("Get admin users error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Update user status (admin only)
+export async function updateUserStatus(req: Request, res: Response) {
+  try {
+    const userId = parseInt(req.params.id);
+    const { status } = req.body;
+
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    if (!["active", "deactivated"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const updatedUser = await storage.updateUserStatus(userId, status);
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Remove sensitive information
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, email_verification_token, password_reset_token, ...safeUser } =
+      updatedUser as any;
+
+    res.json(safeUser);
+  } catch (error) {
+    console.error("Update user status error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }

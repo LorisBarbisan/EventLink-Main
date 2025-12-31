@@ -45,16 +45,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           /\.replit\.app$/,
           "http://localhost:5173",
           "http://127.0.0.1:5173",
-            "https://api.eventlink.com",
-            "https://api.linkedin.com",
-            "https://storage.googleapis.com",
-            "ws://localhost:*",
-            "wss://localhost:*",
-            "wss://*.replit.dev", // Replit dev domains
-            "ws://*.replit.dev", // Replit dev domains (non-SSL)
-            "wss://*.replit.app", // Replit production domains
-            "wss://eventlink.one", // Custom production domain
-            "ws://eventlink.one",
+          "https://api.eventlink.com",
+          "https://api.linkedin.com",
+          "https://storage.googleapis.com",
+          "ws://localhost:*",
+          "wss://localhost:*",
+          "wss://*.replit.dev", // Replit dev domains
+          "ws://*.replit.dev", // Replit dev domains (non-SSL)
+          "wss://*.replit.app", // Replit production domains
+          "wss://eventlink.one", // Custom production domain
+          "ws://eventlink.one",
         ];
 
         // Allow no origin (for mobile apps, curl, etc.)
@@ -397,7 +397,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "pending",
       });
 
-
       // Create notifications for all admins
       try {
         const admins = await storage.getAdminUsers();
@@ -426,7 +425,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               feedback: feedback,
             });
           } else {
-            console.warn("⚠️ [Admin Notification] wsService not initialized during feedback submission");
+            console.warn(
+              "⚠️ [Admin Notification] wsService not initialized during feedback submission"
+            );
           }
         }
       } catch (notifyError) {
