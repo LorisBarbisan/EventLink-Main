@@ -339,7 +339,7 @@ function AdminDashboardContent() {
       });
 
       refetchFeedback();
-    } catch (error) {
+    } catch {
       toast({
         title: "Update Failed",
         description: "Failed to update feedback status.",
@@ -366,7 +366,7 @@ function AdminDashboardContent() {
       setAdminResponse("");
       setSelectedFeedback(null);
       refetchFeedback();
-    } catch (error) {
+    } catch {
       toast({
         title: "Response Failed",
         description: "Failed to add response to feedback.",
@@ -957,42 +957,42 @@ function AdminDashboardContent() {
                       </TableHeader>
                       <TableBody>
                         {paginatedUsers.length > 0 ? (
-                          paginatedUsers.map((user: User) => (
-                            <TableRow key={user.id} className="h-10">
+                          paginatedUsers.map((rowUser: User) => (
+                            <TableRow key={rowUser.id} className="h-10">
                               <TableCell className="py-2 font-medium">
-                                {user.first_name || user.last_name
-                                  ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
+                                {rowUser.first_name || rowUser.last_name
+                                  ? `${rowUser.first_name || ""} ${rowUser.last_name || ""}`.trim()
                                   : "N/A"}
                               </TableCell>
-                              <TableCell className="py-2">{user.email}</TableCell>
+                              <TableCell className="py-2">{rowUser.email}</TableCell>
                               <TableCell className="py-2">
-                                <Badge variant={user.role === "admin" ? "default" : "outline"}>
-                                  {user.role}
+                                <Badge variant={rowUser.role === "admin" ? "default" : "outline"}>
+                                  {rowUser.role}
                                 </Badge>
                               </TableCell>
                               <TableCell className="py-2">
-                                {user.status === "active" ? (
+                                {rowUser.status === "active" ? (
                                   <div className="flex items-center gap-1 text-green-600">
                                     <UserCheck className="w-4 h-4" />
-                                    <span className="text-xs capitalize">{user.status}</span>
+                                    <span className="text-xs capitalize">{rowUser.status}</span>
                                   </div>
-                                ) : user.status === "pending" ? (
+                                ) : rowUser.status === "pending" ? (
                                   <div className="flex items-center gap-1 text-yellow-600">
                                     <AlertCircle className="w-4 h-4" />
-                                    <span className="text-xs capitalize">{user.status}</span>
+                                    <span className="text-xs capitalize">{rowUser.status}</span>
                                   </div>
                                 ) : (
                                   <span className="text-xs text-muted-foreground capitalize">
-                                    {user.status}
+                                    {rowUser.status}
                                   </span>
                                 )}
                               </TableCell>
                               <TableCell className="py-2">
-                                {new Date(user.created_at).toLocaleDateString()}
+                                {new Date(rowUser.created_at).toLocaleDateString()}
                               </TableCell>
                               <TableCell className="py-2">
-                                {user.last_login_at
-                                  ? new Date(user.last_login_at).toLocaleString([], {
+                                {rowUser.last_login_at
+                                  ? new Date(rowUser.last_login_at).toLocaleString([], {
                                       year: "numeric",
                                       month: "numeric",
                                       day: "numeric",
@@ -1002,18 +1002,25 @@ function AdminDashboardContent() {
                                   : "Never"}
                               </TableCell>
                               <TableCell className="text-right py-2">
-                                {user.status === "active" ? (
+                                {rowUser.status === "active" ? (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 px-2 bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800"
+                                    className="h-8 px-2 bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-auto"
                                     onClick={() =>
                                       updateStatusMutation.mutate({
-                                        userId: user.id,
+                                        userId: rowUser.id,
                                         status: "deactivated",
                                       })
                                     }
-                                    disabled={updateStatusMutation.isPending}
+                                    disabled={
+                                      updateStatusMutation.isPending || rowUser.id === user?.id
+                                    }
+                                    title={
+                                      rowUser.id === user?.id
+                                        ? "You cannot deactivate your own account"
+                                        : "Deactivate user"
+                                    }
                                   >
                                     Deactivate
                                   </Button>
@@ -1024,7 +1031,7 @@ function AdminDashboardContent() {
                                     className="h-8 px-2 bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-800"
                                     onClick={() =>
                                       updateStatusMutation.mutate({
-                                        userId: user.id,
+                                        userId: rowUser.id,
                                         status: "active",
                                       })
                                     }
@@ -1110,9 +1117,8 @@ function AdminDashboardContent() {
                         Need to create the first admin user?
                       </p>
                       <p className="text-sm text-blue-700 dark:text-blue-300">
-                        If you're having trouble accessing admin features because no admin users
                         exist yet, use this bootstrap button to make yourself the first admin. This
-                        only works if you're logged in with a pre-approved email address.
+                        only works if you&apos;re logged in with a pre-approved email address.
                       </p>
                       <p className="text-sm text-blue-700 dark:text-blue-300">
                         <strong>Current user:</strong> {user?.email || "Not logged in"}
@@ -1167,7 +1173,7 @@ function AdminDashboardContent() {
                 </div>
               ) : adminUsers && adminUsers.length > 0 ? (
                 <div className="space-y-3">
-                  {adminUsers.map((admin: User, index: number) => (
+                  {adminUsers.map((admin: User) => (
                     <div
                       key={admin.id}
                       data-testid={`card-admin-${admin.id}`}
