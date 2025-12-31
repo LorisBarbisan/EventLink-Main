@@ -13,6 +13,7 @@ import {
   revokeAdminAccess,
   sendContactReply,
   updateFeedbackStatus,
+  updateUserStatus,
 } from "../controllers/admin.controller";
 import { requireAdminAuth } from "../middleware/admin.middleware";
 
@@ -46,6 +47,9 @@ export function registerAdminRoutes(app: Express) {
 
   // Grant admin access to user (admin only)
   app.post("/api/admin/users/grant-admin", requireAdminAuth, grantAdminAccess);
+
+  // Update user status (admin only)
+  app.patch("/api/admin/users/:id/status", requireAdminAuth, updateUserStatus);
 
   // Revoke admin access from user (admin only)
   app.post("/api/admin/users/revoke-admin", requireAdminAuth, revokeAdminAccess);

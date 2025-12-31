@@ -33,6 +33,15 @@ export function handleGoogleCallback(req: Request, res: Response, next: any) {
         );
       }
 
+      // Check if user is deactivated
+      if (user.status === "deactivated") {
+        return res.redirect(
+          `/api/auth/oauth-error?error=access_denied&error_description=${encodeURIComponent(
+            "Your account has been deactivated. Please contact support."
+          )}`
+        );
+      }
+
       // Manually establish the session
       req.logIn(user, async loginErr => {
         if (loginErr) {
@@ -50,6 +59,9 @@ export function handleGoogleCallback(req: Request, res: Response, next: any) {
 
         // CRITICAL FIX: Generate JWT token for OAuth users
         const jwtToken = generateJWTToken(userWithRole);
+
+        // Update last login
+        await storage.updateUserLastLogin(user.id, "google");
 
         console.log("Google OAuth successful login:", {
           id: user.id,
@@ -103,6 +115,15 @@ export function handleFacebookCallback(req: Request, res: Response, next: any) {
         );
       }
 
+      // Check if user is deactivated
+      if (user.status === "deactivated") {
+        return res.redirect(
+          `/api/auth/oauth-error?error=access_denied&error_description=${encodeURIComponent(
+            "Your account has been deactivated. Please contact support."
+          )}`
+        );
+      }
+
       req.logIn(user, async loginErr => {
         if (loginErr) {
           console.error("Session login error:", loginErr);
@@ -116,6 +137,9 @@ export function handleFacebookCallback(req: Request, res: Response, next: any) {
 
         // CRITICAL FIX: Generate JWT token for OAuth users
         const jwtToken = generateJWTToken(userWithRole);
+
+        // Update last login
+        await storage.updateUserLastLogin(user.id, "facebook");
 
         console.log("Facebook OAuth successful login:", {
           id: user.id,
@@ -168,6 +192,15 @@ export function handleAppleCallback(req: Request, res: Response, next: any) {
         );
       }
 
+      // Check if user is deactivated
+      if (user.status === "deactivated") {
+        return res.redirect(
+          `/api/auth/oauth-error?error=access_denied&error_description=${encodeURIComponent(
+            "Your account has been deactivated. Please contact support."
+          )}`
+        );
+      }
+
       req.logIn(user, async loginErr => {
         if (loginErr) {
           console.error("Session login error:", loginErr);
@@ -181,6 +214,9 @@ export function handleAppleCallback(req: Request, res: Response, next: any) {
 
         // CRITICAL FIX: Generate JWT token for OAuth users
         const jwtToken = generateJWTToken(userWithRole);
+
+        // Update last login
+        await storage.updateUserLastLogin(user.id, "apple"); // Note: "apple" needs to be added to schema if strict typing used
 
         console.log("Apple OAuth successful login:", {
           id: user.id,
@@ -233,6 +269,15 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
         );
       }
 
+      // Check if user is deactivated
+      if (user.status === "deactivated") {
+        return res.redirect(
+          `/api/auth/oauth-error?error=access_denied&error_description=${encodeURIComponent(
+            "Your account has been deactivated. Please contact support."
+          )}`
+        );
+      }
+
       req.logIn(user, async loginErr => {
         if (loginErr) {
           console.error("Session login error:", loginErr);
@@ -246,6 +291,9 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
 
         // CRITICAL FIX: Generate JWT token for OAuth users
         const jwtToken = generateJWTToken(userWithRole);
+
+        // Update last login
+        await storage.updateUserLastLogin(user.id, "linkedin");
 
         console.log("LinkedIn OAuth successful login:", {
           id: user.id,
@@ -409,6 +457,14 @@ export async function signin(req: Request, res: Response) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
+    // Check if user is deactivated
+    if (user.status === "deactivated") {
+      return res.status(403).json({
+        error: "Your account has been deactivated. Please contact support.",
+        code: "ACCOUNT_DEACTIVATED",
+      });
+    }
+
     // Check if user has a password (not a social auth user)
     if (!user.password) {
       return res.status(400).json({
@@ -434,6 +490,9 @@ export async function signin(req: Request, res: Response) {
 
     // Generate JWT token instead of session
     const token = generateJWTToken(userWithRole);
+
+    // Update last login
+    await storage.updateUserLastLogin(user.id, "email");
 
     res.json({
       message: "Sign in successful",

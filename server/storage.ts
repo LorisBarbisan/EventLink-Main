@@ -47,7 +47,7 @@ import {
   type RecruiterProfile,
   type User,
 } from "@shared/schema";
-import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
 
@@ -92,7 +92,7 @@ export interface IStorage {
   ): Promise<void>;
   updateUserLastLogin(
     userId: number,
-    method: "email" | "google" | "facebook" | "linkedin"
+    method: "email" | "google" | "facebook" | "linkedin" | "apple"
   ): Promise<void>;
 
   // Freelancer profile management
@@ -224,7 +224,6 @@ export interface IStorage {
     notification: InsertNotification
   ): Promise<RatingRequest>;
 
-
   // Rating request management
   createRatingRequest(request: InsertRatingRequest): Promise<RatingRequest>;
   getRatingRequestByJobApplication(jobApplicationId: number): Promise<RatingRequest | undefined>;
@@ -262,6 +261,14 @@ export interface IStorage {
   // Admin management
   updateUserRole(userId: number, role: "freelancer" | "recruiter" | "admin"): Promise<User>;
   getAdminUsers(): Promise<User[]>;
+  getAllUsers(
+    page: number,
+    limit: number,
+    search?: string,
+    role?: string,
+    status?: string
+  ): Promise<{ users: User[]; total: number }>;
+  updateUserStatus(userId: number, status: string): Promise<User>;
 
   // Category-specific notification counts
   getCategoryUnreadCounts(userId: number): Promise<{
@@ -272,6 +279,19 @@ export interface IStorage {
     feedback: number;
     contact_messages: number;
     total: number;
+  }>;
+
+  // Admin analytics
+  getAdminAnalytics(): Promise<{
+    users: { total: number; active: number; thisMonth: number };
+    jobs: { total: number; active: number; thisMonth: number };
+    feedback: { pending: number };
+    applications: { total: number; hired: number; thisMonth: number };
+    recentActivity: Array<{
+      type: "feedback" | "user" | "application";
+      message: string;
+      time: Date;
+    }>;
   }>;
 
   // Mark category-specific notifications as read
@@ -400,6 +420,7 @@ export class DatabaseStorage implements IStorage {
           email_verified: true,
           email_verification_token: null,
           email_verification_expires: null,
+          status: "active",
           updated_at: new Date(),
         })
         .where(eq(users.id, user.id));
@@ -409,6 +430,24 @@ export class DatabaseStorage implements IStorage {
       console.error("Error verifying email:", error);
       return false;
     }
+  }
+
+  async updateUserStatus(userId: number, status: string): Promise<User> {
+    const updates: Partial<InsertUser> = { status, updated_at: new Date() };
+
+    // If activating, also verify email if not already verified
+    if (status === "active") {
+      updates.email_verified = true;
+      updates.email_verification_token = null;
+      updates.email_verification_expires = null;
+    }
+
+    const [updatedUser] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, userId))
+      .returning();
+    return updatedUser;
   }
 
   async updateUserVerificationToken(
@@ -524,7 +563,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserLastLogin(
     userId: number,
-    method: "email" | "google" | "facebook" | "linkedin"
+    method: "email" | "google" | "facebook" | "linkedin" | "apple"
   ): Promise<void> {
     await db
       .update(users)
@@ -1029,6 +1068,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Job management methods
+
   async getAllJobs(): Promise<Job[]> {
     return await db.select().from(jobs);
   }
@@ -1565,6 +1605,7 @@ export class DatabaseStorage implements IStorage {
         last_login_method: null,
         last_login_at: null,
         deleted_at: row.otherUserDeleted,
+        status: "pending",
         created_at: new Date(),
         updated_at: new Date(),
       },
@@ -1708,6 +1749,7 @@ export class DatabaseStorage implements IStorage {
             last_login_method: null,
             last_login_at: null,
             deleted_at: null,
+            status: "pending",
             created_at: new Date(),
             updated_at: new Date(),
           },
@@ -1807,6 +1849,7 @@ export class DatabaseStorage implements IStorage {
             last_login_method: null,
             last_login_at: null,
             deleted_at: null,
+            status: "pending",
             created_at: new Date(),
             updated_at: new Date(),
           },
@@ -2464,6 +2507,7 @@ export class DatabaseStorage implements IStorage {
           created_at: users.created_at,
           updated_at: users.updated_at,
           password: users.password,
+          status: users.status,
         },
         job_title: jobs.title,
       })
@@ -2935,6 +2979,7 @@ export class DatabaseStorage implements IStorage {
         last_name: users.last_name,
         email_verified: users.email_verified,
         auth_provider: users.auth_provider,
+        status: users.status,
         created_at: users.created_at,
         last_login_at: users.last_login_at,
       })
@@ -2948,36 +2993,212 @@ export class DatabaseStorage implements IStorage {
       : [];
 
     // Get admin users from environment variable list (regardless of their role column)
-    const hardcodedAdmins = await db
+    // Get admin users from environment variable list (regardless of their role column)
+    let hardcodedAdmins: any[] = [];
+    if (ADMIN_EMAILS.length > 0) {
+      hardcodedAdmins = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          role: users.role,
+          first_name: users.first_name,
+          last_name: users.last_name,
+          email_verified: users.email_verified,
+          auth_provider: users.auth_provider,
+          status: users.status,
+          created_at: users.created_at,
+          last_login_at: users.last_login_at,
+        })
+        .from(users)
+        .where(
+          or(...ADMIN_EMAILS.map(email => eq(sql`LOWER(${users.email})`, email.toLowerCase())))
+        )
+        .orderBy(desc(users.created_at));
+    }
+
+    // Combine and return unique users
+    const allAdmins = [...dbAdmins] as User[];
+
+    // Add env admins if they exist in DB but aren't marked as admin role yet
+    // This is a safety check/fallback
+    // Add env admins if they exist in DB but aren't marked as admin role yet
+    // This is a safety check/fallback
+    if (hardcodedAdmins.length > 0) {
+      const existingIds = new Set(allAdmins.map(u => u.id));
+      for (const admin of hardcodedAdmins) {
+        if (!existingIds.has(admin.id)) {
+          allAdmins.push(admin as any);
+        }
+      }
+    }
+
+    cache.set(cacheKey, allAdmins, 60); // Cache for 1 minute
+    return allAdmins;
+  }
+
+  async getAdminAnalytics() {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    // 1. Total Users
+    const [totalUsers] = await db.select({ count: count() }).from(users);
+    const [activeUsers] = await db
+      .select({ count: count() })
+      .from(users)
+      .where(eq(users.status, "active"));
+    const [newUsersThisMonth] = await db
+      .select({ count: count() })
+      .from(users)
+      .where(gte(users.created_at, startOfMonth));
+
+    // 2. Active Jobs
+    const [totalJobs] = await db.select({ count: count() }).from(jobs);
+    const [activeJobs] = await db
+      .select({ count: count() })
+      .from(jobs)
+      .where(eq(jobs.status, "active"));
+
+    // 3. Pending Feedback (pending + in_review)
+    const [pendingFeedback] = await db
+      .select({ count: count() })
+      .from(feedback)
+      .where(or(eq(feedback.status, "pending"), eq(feedback.status, "in_review")));
+
+    // 4. Applications for Active Jobs
+    const [activeApplications] = await db
+      .select({ count: count() })
+      .from(job_applications)
+      .innerJoin(jobs, eq(job_applications.job_id, jobs.id))
+      .where(eq(jobs.status, "active"));
+
+    // Hired Applications
+    const [hiredApplications] = await db
+      .select({ count: count() })
+      .from(job_applications)
+      .where(eq(job_applications.status, "hired"));
+
+    // Recent Activity
+    // Fetch last 1 of each type to combine
+    const recentFeedback = await db
+      .select({
+        id: feedback.id,
+        created_at: feedback.created_at,
+        type: sql<string>`'feedback'`,
+      })
+      .from(feedback)
+      .orderBy(desc(feedback.created_at))
+      .limit(1);
+
+    const recentUsers = await db
       .select({
         id: users.id,
-        email: users.email,
-        role: users.role,
-        first_name: users.first_name,
-        last_name: users.last_name,
-        email_verified: users.email_verified,
-        auth_provider: users.auth_provider,
         created_at: users.created_at,
-        last_login_at: users.last_login_at,
+        type: sql<string>`'user'`,
       })
       .from(users)
-      .where(or(...ADMIN_EMAILS.map(email => eq(sql`LOWER(${users.email})`, email.toLowerCase()))))
-      .orderBy(desc(users.created_at));
+      .orderBy(desc(users.created_at))
+      .limit(1);
 
-    // Combine and deduplicate admin users
-    const allAdmins = [...dbAdmins, ...hardcodedAdmins];
-    const uniqueAdmins = allAdmins.filter(
-      (admin, index, arr) => arr.findIndex(a => a.id === admin.id) === index
-    );
+    const recentApplications = await db
+      .select({
+        id: job_applications.id,
+        created_at: job_applications.applied_at,
+        type: sql<string>`'application'`,
+      })
+      .from(job_applications)
+      .orderBy(desc(job_applications.applied_at))
+      .limit(1);
 
-    // Apply computed role for hardcoded admins
-    const adminUsers = uniqueAdmins.map(admin => ({
-      ...admin,
-      role: ADMIN_EMAILS.includes(admin.email.toLowerCase()) ? ("admin" as const) : admin.role,
-    })) as User[];
+    // Combine and sort
+    const allActivity = [
+      ...recentFeedback.map(f => ({
+        type: "feedback" as const,
+        message: "New feedback submitted",
+        time: f.created_at,
+      })),
+      ...recentUsers.map(u => ({
+        type: "user" as const,
+        message: "New user registered",
+        time: u.created_at,
+      })),
+      ...recentApplications.map(a => ({
+        type: "application" as const,
+        message: "Job application submitted",
+        time: a.created_at,
+      })),
+    ].sort((a, b) => b.time.getTime() - a.time.getTime());
 
-    cache.set(cacheKey, adminUsers, 60); // Cache for 1 minute
-    return adminUsers;
+    return {
+      users: {
+        total: Number(totalUsers?.count || 0),
+        active: Number(activeUsers?.count || 0),
+        thisMonth: Number(newUsersThisMonth?.count || 0),
+      },
+      jobs: {
+        total: Number(totalJobs?.count || 0),
+        active: Number(activeJobs?.count || 0),
+        thisMonth: 0,
+      },
+      feedback: {
+        pending: Number(pendingFeedback?.count || 0),
+      },
+      applications: {
+        total: Number(activeApplications?.count || 0),
+        hired: Number(hiredApplications?.count || 0),
+        thisMonth: 0,
+      },
+      recentActivity: allActivity,
+    };
+  }
+
+  async getAllUsers(
+    page: number,
+    limit: number,
+    search?: string,
+    role?: string,
+    status?: string
+  ): Promise<{ users: User[]; total: number }> {
+    const offset = (page - 1) * limit;
+
+    const conditions = [];
+
+    if (search) {
+      const searchLower = search.toLowerCase();
+      conditions.push(
+        or(
+          ilike(users.first_name, `%${searchLower}%`),
+          ilike(users.last_name, `%${searchLower}%`),
+          ilike(users.email, `%${searchLower}%`)
+        )
+      );
+    }
+
+    if (role && role !== "all") {
+      conditions.push(eq(users.role, role));
+    }
+
+    if (status && status !== "all") {
+      conditions.push(eq(users.status, status));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [usersResult, totalResult] = await Promise.all([
+      db
+        .select()
+        .from(users)
+        .where(whereClause)
+        .limit(limit)
+        .offset(offset)
+        .orderBy(desc(users.created_at)),
+      db.select({ count: count() }).from(users).where(whereClause),
+    ]);
+
+    return {
+      users: usersResult,
+      total: totalResult[0]?.count || 0,
+    };
   }
 
   // Notification preferences management

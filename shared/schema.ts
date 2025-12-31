@@ -1,36 +1,56 @@
-import { boolean, index, integer, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  password: text("password"), // Made nullable for social auth users
-  role: text("role").notNull().$type<"freelancer" | "recruiter" | "admin">(),
-  first_name: text("first_name"),
-  last_name: text("last_name"),
-  email_verified: boolean("email_verified").default(false).notNull(),
-  email_verification_token: text("email_verification_token"),
-  email_verification_expires: timestamp("email_verification_expires"),
-  password_reset_token: text("password_reset_token"),
-  password_reset_expires: timestamp("password_reset_expires", { withTimezone: true }),
-  // Social auth fields
-  auth_provider: text("auth_provider")
-    .default("email")
-    .$type<"email" | "google" | "facebook" | "linkedin">(),
-  google_id: text("google_id"),
-  facebook_id: text("facebook_id"),
-  linkedin_id: text("linkedin_id"),
-  profile_photo_url: text("profile_photo_url"), // For social auth profile photos
-  last_login_method: text("last_login_method").$type<
-    "email" | "google" | "facebook" | "linkedin"
-  >(),
-  last_login_at: timestamp("last_login_at", { withTimezone: true }),
-  // Soft delete support for account deletion conversations
-  deleted_at: timestamp("deleted_at", { withTimezone: true }), // NULL = active user, timestamp = deleted user
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    email: text("email").notNull().unique(),
+    password: text("password"), // Made nullable for social auth users
+    role: text("role").notNull().$type<"freelancer" | "recruiter" | "admin">(),
+    first_name: text("first_name"),
+    last_name: text("last_name"),
+    email_verified: boolean("email_verified").default(false).notNull(),
+    email_verification_token: text("email_verification_token"),
+    email_verification_expires: timestamp("email_verification_expires"),
+    password_reset_token: text("password_reset_token"),
+    password_reset_expires: timestamp("password_reset_expires", { withTimezone: true }),
+    // Social auth fields
+    auth_provider: text("auth_provider")
+      .default("email")
+      .$type<"email" | "google" | "facebook" | "linkedin">(),
+    google_id: text("google_id"),
+    facebook_id: text("facebook_id"),
+    linkedin_id: text("linkedin_id"),
+    profile_photo_url: text("profile_photo_url"), // For social auth profile photos
+    last_login_method: text("last_login_method").$type<
+      "email" | "google" | "facebook" | "linkedin" | "apple"
+    >(),
+    last_login_at: timestamp("last_login_at", { withTimezone: true }),
+    // Soft delete support for account deletion conversations
+    deleted_at: timestamp("deleted_at", { withTimezone: true }), // NULL = active user, timestamp = deleted user
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    status: text("status").default("pending").notNull(),
+  },
+  table => ({
+    statusCheck: check(
+      "users_status_check",
+      sql`${table.status} IN ('pending', 'active', 'deactivated')`
+    ),
+  })
+);
 
 export const freelancer_profiles = pgTable(
   "freelancer_profiles",
@@ -412,30 +432,33 @@ export const insertRatingSchema = createInsertSchema(ratings)
   });
 
 // Feedback table for admin dashboard
-export const feedback = pgTable("feedback", {
-  id: serial("id").primaryKey(),
-  user_id: integer("user_id").references(() => users.id, { onDelete: "set null" }), // Nullable for guest users
-  feedback_type: text("feedback_type")
-    .notNull()
-    .$type<"malfunction" | "feature-missing" | "suggestion" | "other">(),
-  message: text("message").notNull(),
-  page_url: text("page_url"),
-  source: text("source").$type<"header" | "popup">(),
-  user_email: text("user_email"), // Store email for guest users
-  user_name: text("user_name"), // Store name for guest users or logged-in users
-  status: text("status")
-    .default("pending")
-    .$type<"pending" | "in_review" | "resolved" | "closed">(),
-  admin_response: text("admin_response"),
-  admin_user_id: integer("admin_user_id").references(() => users.id, { onDelete: "set null" }),
-  priority: text("priority").default("normal").$type<"low" | "normal" | "high" | "urgent">(),
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  resolved_at: timestamp("resolved_at", { withTimezone: true }),
-},
-table => ({
-  createdAtIdx: index("feedback_created_at_idx").on(table.created_at),
-}));
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: serial("id").primaryKey(),
+    user_id: integer("user_id").references(() => users.id, { onDelete: "set null" }), // Nullable for guest users
+    feedback_type: text("feedback_type")
+      .notNull()
+      .$type<"malfunction" | "feature-missing" | "suggestion" | "other">(),
+    message: text("message").notNull(),
+    page_url: text("page_url"),
+    source: text("source").$type<"header" | "popup">(),
+    user_email: text("user_email"), // Store email for guest users
+    user_name: text("user_name"), // Store name for guest users or logged-in users
+    status: text("status")
+      .default("pending")
+      .$type<"pending" | "in_review" | "resolved" | "closed">(),
+    admin_response: text("admin_response"),
+    admin_user_id: integer("admin_user_id").references(() => users.id, { onDelete: "set null" }),
+    priority: text("priority").default("normal").$type<"low" | "normal" | "high" | "urgent">(),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    resolved_at: timestamp("resolved_at", { withTimezone: true }),
+  },
+  table => ({
+    createdAtIdx: index("feedback_created_at_idx").on(table.created_at),
+  })
+);
 
 export const contact_messages = pgTable(
   "contact_messages",

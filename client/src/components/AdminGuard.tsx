@@ -20,11 +20,7 @@ export function AdminGuard({ children }: AdminGuardProps) {
 
     if (!user) {
       hasToasted.current = true;
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to access the admin dashboard.",
-        variant: "destructive",
-      });
+      // Redirect to auth page without toast when not authenticated (better UX for logout)
       setLocation("/auth");
     } else if (user.role !== "admin") {
       hasToasted.current = true;
@@ -38,7 +34,7 @@ export function AdminGuard({ children }: AdminGuardProps) {
     } else if (user.role === "admin") {
       console.log("Admin access granted for user:", user.email, "Role:", user.role);
     }
-  }, [user, isLoading]); // Removed toast and setLocation from dependencies
+  }, [user, isLoading, toast, setLocation]);
 
   // Show loading while checking authentication
   if (isLoading) {

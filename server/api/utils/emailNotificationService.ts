@@ -115,7 +115,7 @@ export class EmailNotificationService {
       return false;
     }
 
-    const conversationUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=messages`;
+    const conversationUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=messages&conversationId=${params.conversationId}`;
     const { subject, html } = emailTemplates.messageNotificationEmail({
       recipientName: params.recipientName,
       senderName: params.senderName,
@@ -384,7 +384,7 @@ export class EmailNotificationService {
       return false;
     }
 
-    const jobUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/jobs`;
+    const jobUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/jobs?jobId=${params.jobId}`;
     const { subject, html } = emailTemplates.jobAlertEmail({
       recipientName: params.recipientName,
       jobTitle: params.jobTitle,
@@ -428,7 +428,9 @@ export class EmailNotificationService {
       recipientName: params.recipientName,
       requesterName: params.requesterName,
       jobTitle: params.jobTitle,
-      ratingUrl,
+      ratingUrl: params.ratingRequestId
+        ? `${ratingUrl}?requestId=${params.ratingRequestId}`
+        : ratingUrl,
     });
 
     return this.sendEmailWithLogging({

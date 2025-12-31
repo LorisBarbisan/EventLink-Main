@@ -10,6 +10,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import {
   Select,
   SelectContent,
@@ -18,15 +27,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TabBadge } from "@/components/ui/tab-badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useWebSocket } from "@/contexts/WebSocketContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { trackAdminAnalytics } from "@/lib/analytics";
 import { apiRequest } from "@/lib/queryClient";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
   Briefcase,
@@ -80,9 +97,18 @@ interface User {
   first_name?: string;
   last_name?: string;
   email_verified: boolean;
+  status: "pending" | "active" | "deactivated";
   auth_provider: string;
-  last_login_at?: string;
   created_at: string;
+  last_login_at?: string;
+}
+
+interface UsersResponse {
+  users: User[];
+  total: number;
+  totalPages: number;
+  page: number;
+  limit: number;
 }
 
 interface AnalyticsData {
@@ -104,12 +130,17 @@ interface AnalyticsData {
     hired: number;
     thisMonth: number;
   };
+  recentActivity: Array<{
+    type: "feedback" | "user" | "application";
+    message: string;
+    time: string;
+  }>;
 }
 
 function AdminDashboardContent() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { subscribe } = useWebSocket();
+  // const { subscribe } = useWebSocket();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
@@ -129,6 +160,36 @@ function AdminDashboardContent() {
 
   const [, setLocation] = useLocation();
 
+  // Users Tab State
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ userId, status }: { userId: number; status: string }) => {
+      await apiRequest(`/api/admin/users/${userId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({
+        title: "Status updated",
+        description: "User status has been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Update failed",
+        description: "Failed to update user status.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const { counts, markCategoryAsRead } = useBadgeCounts({
     enabled: !!user?.id,
   });
@@ -137,9 +198,8 @@ function AdminDashboardContent() {
   useEffect(() => {
     const handleHashSync = () => {
       const hash = window.location.hash.replace("#", "");
-      const validTabs = ["overview", "users", "feedback", "contact", "admin-management", "analytics"];
+      const validTabs = ["overview", "users", "feedback", "contact", "admin-management"];
       if (hash && validTabs.includes(hash)) {
-        // Use functional update to avoid dependency on activeTab
         setActiveTab(prev => (prev !== hash ? hash : prev));
       }
     };
@@ -167,7 +227,7 @@ function AdminDashboardContent() {
   }, [activeTab]);
 
   // Analytics query
-  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+  const { data: analytics } = useQuery<AnalyticsData>({
     queryKey: ["/api/admin/analytics/overview"],
     queryFn: () => apiRequest("/api/admin/analytics/overview"),
     retry: 1,
@@ -207,13 +267,21 @@ function AdminDashboardContent() {
   });
 
   // Users query
-  const { data: usersData, isLoading: usersLoading } = useQuery({
-    queryKey: ["/api/admin/users"],
-    queryFn: () => apiRequest("/api/admin/users"),
+  const { data: usersData, isLoading: usersLoading } = useQuery<UsersResponse>({
+    queryKey: ["/api/admin/users", currentPage, searchTerm, roleFilter, statusFilter],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.append("page", currentPage.toString());
+      params.append("limit", itemsPerPage.toString());
+      if (searchTerm) params.append("search", searchTerm);
+      if (roleFilter !== "all") params.append("role", roleFilter);
+      if (statusFilter !== "all") params.append("status", statusFilter);
+      return apiRequest(`/api/admin/users?${params.toString()}`);
+    },
     retry: 1,
     staleTime: 0,
     gcTime: 0,
-    refetchOnMount: true,
+    placeholderData: keepPreviousData,
   });
 
   // Admin users query
@@ -227,6 +295,8 @@ function AdminDashboardContent() {
     retry: 1,
   });
 
+  // Users Tab State
+
   // Contact messages query
   const { data: contactMessages, isLoading: contactMessagesLoading } = useQuery<ContactMessage[]>({
     queryKey: ["/api/admin/contact-messages"],
@@ -237,6 +307,12 @@ function AdminDashboardContent() {
     refetchOnMount: true,
   });
 
+  const totalPages = usersData?.totalPages || 1;
+  const paginatedUsers = usersData?.users || [];
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter]);
 
   // Automatically mark notifications as read when the relevant tab is active
   useEffect(() => {
@@ -324,10 +400,6 @@ function AdminDashboardContent() {
       setSelectedContactMessage(null);
       queryClient.invalidateQueries({ queryKey: ["/api/admin/contact-messages"] });
     } catch (error: any) {
-      console.error("❌ Reply error:", error);
-      console.error("❌ Error message:", error?.message);
-      console.error("❌ Error details:", JSON.stringify(error, null, 2));
-
       toast({
         title: "Reply Failed",
         description: error?.message || "Failed to send reply. Please try again.",
@@ -441,10 +513,6 @@ function AdminDashboardContent() {
             <UserCheck className="w-4 h-4" />
             Admin Management
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" />
-            Analytics
-          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -510,27 +578,30 @@ function AdminDashboardContent() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-sm">New feedback submitted</span>
+                {analytics?.recentActivity?.map((activity, i: number) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          activity.type === "feedback"
+                            ? "bg-blue-500"
+                            : activity.type === "user"
+                              ? "bg-green-500"
+                              : "bg-purple-500"
+                        }`}
+                      ></div>
+                      <span className="text-sm">{activity.message}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(activity.time), { addSuffix: true })}
+                    </span>
                   </div>
-                  <span className="text-xs text-muted-foreground">2 hours ago</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm">New user registered</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">4 hours ago</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                    <span className="text-sm">Job application submitted</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">6 hours ago</span>
-                </div>
+                ))}
+                {(!analytics?.recentActivity || analytics.recentActivity.length === 0) && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No recent activity
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -826,7 +897,9 @@ function AdminDashboardContent() {
         <TabsContent value="users" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>User Management</CardTitle>
+              <CardTitle>
+                User Management {usersData?.total ? `(${usersData.total})` : ""}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {usersLoading ? (
@@ -835,37 +908,182 @@ function AdminDashboardContent() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {usersData?.users?.map((user: User) => (
-                    <div
-                      key={user.id}
-                      className="flex items-center justify-between p-4 border border-border rounded-lg"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">
-                            {user.first_name || user.last_name
-                              ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
-                              : user.email}
-                          </span>
-                          <Badge variant={user.role === "admin" ? "default" : "outline"}>
-                            {user.role}
-                          </Badge>
-                          {user.email_verified && <UserCheck className="w-4 h-4 text-green-500" />}
-                        </div>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Joined: {new Date(user.created_at).toLocaleDateString()} • Provider:{" "}
-                          {user.auth_provider}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          View Profile
-                        </Button>
-                      </div>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Search by name or email..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        className="max-w-sm"
+                      />
                     </div>
-                  ))}
+                    <Select value={roleFilter} onValueChange={setRoleFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Roles</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="freelancer">Freelancer</SelectItem>
+                        <SelectItem value="recruiter">Recruiter</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="deactivated">Deactivated</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Joined</TableHead>
+                          <TableHead>Last Login</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedUsers.length > 0 ? (
+                          paginatedUsers.map((user: User) => (
+                            <TableRow key={user.id} className="h-10">
+                              <TableCell className="py-2 font-medium">
+                                {user.first_name || user.last_name
+                                  ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
+                                  : "N/A"}
+                              </TableCell>
+                              <TableCell className="py-2">{user.email}</TableCell>
+                              <TableCell className="py-2">
+                                <Badge variant={user.role === "admin" ? "default" : "outline"}>
+                                  {user.role}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="py-2">
+                                {user.status === "active" ? (
+                                  <div className="flex items-center gap-1 text-green-600">
+                                    <UserCheck className="w-4 h-4" />
+                                    <span className="text-xs capitalize">{user.status}</span>
+                                  </div>
+                                ) : user.status === "pending" ? (
+                                  <div className="flex items-center gap-1 text-yellow-600">
+                                    <AlertCircle className="w-4 h-4" />
+                                    <span className="text-xs capitalize">{user.status}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground capitalize">
+                                    {user.status}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                {new Date(user.created_at).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                {user.last_login_at
+                                  ? new Date(user.last_login_at).toLocaleString([], {
+                                      year: "numeric",
+                                      month: "numeric",
+                                      day: "numeric",
+                                      hour: "numeric",
+                                      minute: "2-digit",
+                                    })
+                                  : "Never"}
+                              </TableCell>
+                              <TableCell className="text-right py-2">
+                                {user.status === "active" ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2 bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800"
+                                    onClick={() =>
+                                      updateStatusMutation.mutate({
+                                        userId: user.id,
+                                        status: "deactivated",
+                                      })
+                                    }
+                                    disabled={updateStatusMutation.isPending}
+                                  >
+                                    Deactivate
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 px-2 bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-800"
+                                    onClick={() =>
+                                      updateStatusMutation.mutate({
+                                        userId: user.id,
+                                        status: "active",
+                                      })
+                                    }
+                                    disabled={updateStatusMutation.isPending}
+                                  >
+                                    Activate
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center">
+                              No users found.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {totalPages > 1 && (
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            className={
+                              currentPage === 1
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
+                          />
+                        </PaginationItem>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            className={
+                              currentPage === totalPages
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -983,73 +1201,6 @@ function AdminDashboardContent() {
                   <p>No admin users found</p>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Analytics Tab */}
-        <TabsContent value="analytics" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>User Statistics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span>Freelancers</span>
-                  <span className="font-bold">{analytics?.users?.freelancers || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Recruiters</span>
-                  <span className="font-bold">{analytics?.users?.recruiters || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Verified Users</span>
-                  <span className="font-bold">{analytics?.users?.verified || 0}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Job Statistics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span>Total Jobs</span>
-                  <span className="font-bold">{analytics?.jobs?.total || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Active Jobs</span>
-                  <span className="font-bold">{analytics?.jobs?.active || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>This Month</span>
-                  <span className="font-bold">{analytics?.jobs?.thisMonth || 0}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Application Statistics</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{analytics?.applications?.total || 0}</div>
-                  <div className="text-sm text-muted-foreground">Total Applications</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{analytics?.applications?.applied || 0}</div>
-                  <div className="text-sm text-muted-foreground">Applied</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{analytics?.applications?.hired || 0}</div>
-                  <div className="text-sm text-muted-foreground">Hired</div>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
