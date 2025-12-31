@@ -55,12 +55,19 @@ export default function Jobs() {
     const urlDateFrom = urlParams.get("date_from") || "";
     const urlDateTo = urlParams.get("date_to") || "";
     const urlPage = parseInt(urlParams.get("page") || "1");
+    // Check for jobId to auto-expand
+    const urlJobId = urlParams.get("jobId");
 
     setSearchQuery(urlSearch);
     setLocationFilter(urlLocation);
     if (urlDateFrom) setDateFrom(new Date(urlDateFrom));
     if (urlDateTo) setDateTo(new Date(urlDateTo));
     setCurrentPage(urlPage);
+
+    if (urlJobId) {
+      setExpandedJobId(urlJobId);
+      // Optional: scroll to the job card once loaded - requires refs, skipping for now as expansion is main goal
+    }
   }, []);
 
   // Update URL when search parameters change
@@ -71,7 +78,10 @@ export default function Jobs() {
     if (locationFilter) urlParams.set("location", locationFilter);
     if (dateFrom) urlParams.set("date_from", format(dateFrom, "yyyy-MM-dd"));
     if (dateTo) urlParams.set("date_to", format(dateTo, "yyyy-MM-dd"));
+
     if (currentPage > 1) urlParams.set("page", currentPage.toString());
+    // Persist expanded job ID in URL
+    if (expandedJobId) urlParams.set("jobId", expandedJobId);
 
     const newUrl = `${window.location.pathname}${urlParams.toString() ? `?${urlParams.toString()}` : ""}`;
     window.history.replaceState({}, "", newUrl);
@@ -81,6 +91,18 @@ export default function Jobs() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, locationFilter, dateFrom, dateTo]);
+
+  // Update URL when expansion changes
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (expandedJobId) {
+      urlParams.set("jobId", expandedJobId);
+    } else {
+      urlParams.delete("jobId");
+    }
+    const newUrl = `${window.location.pathname}${urlParams.toString() ? `?${urlParams.toString()}` : ""}`;
+    window.history.replaceState({}, "", newUrl);
+  }, [expandedJobId]);
 
   // Fetch real jobs data from API with server-side filtering
   const {
@@ -487,7 +509,9 @@ export default function Jobs() {
                             <CardTitle className="text-xl">{job.title}</CardTitle>
                             {job.recruiter_id && !job.external_source ? (
                               <button
-                                onClick={() => window.open(`/profile/${job.recruiter_id}`, '_blank')}
+                                onClick={() =>
+                                  window.open(`/profile/${job.recruiter_id}`, "_blank")
+                                }
                                 className="text-muted-foreground font-medium hover:text-primary hover:underline cursor-pointer text-left transition-colors"
                                 data-testid={`link-company-${job.id}`}
                               >
