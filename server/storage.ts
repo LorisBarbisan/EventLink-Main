@@ -699,6 +699,7 @@ export class DatabaseStorage implements IStorage {
       first_name: profile.first_name,
       last_name: profile.last_name,
       title: profile.title,
+      superpower: profile.superpower,
       bio: profile.bio,
       location: profile.location,
       experience_years: profile.experience_years,
@@ -727,6 +728,7 @@ export class DatabaseStorage implements IStorage {
     if (profile.first_name !== undefined) updateData.first_name = profile.first_name;
     if (profile.last_name !== undefined) updateData.last_name = profile.last_name;
     if (profile.title !== undefined) updateData.title = profile.title;
+    if (profile.superpower !== undefined) updateData.superpower = profile.superpower;
     if (profile.bio !== undefined) updateData.bio = profile.bio;
     if (profile.location !== undefined) updateData.location = profile.location;
     if (profile.experience_years !== undefined)
@@ -767,6 +769,7 @@ export class DatabaseStorage implements IStorage {
         first_name: updateData.first_name || "",
         last_name: updateData.last_name || "",
         title: updateData.title || "",
+        superpower: updateData.superpower || "",
         bio: updateData.bio || "",
         location: updateData.location || "",
         experience_years: updateData.experience_years || null,

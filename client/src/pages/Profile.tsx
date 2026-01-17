@@ -38,6 +38,7 @@ interface FreelancerProfile {
   last_name: string;
   title: string;
   bio: string;
+  superpower: string;
   location: string;
   experience_years: number | null;
   skills: string[];
@@ -203,8 +204,8 @@ export default function Profile() {
               last_name: data.last_name || "",
               title: data.title || "",
               bio: data.bio || "",
+              superpower: data.superpower || "",
               location: data.location || "",
-
               experience_years: data.experience_years || null,
               skills: data.skills || [],
               portfolio_url: data.portfolio_url || "",

@@ -62,6 +62,7 @@ export const freelancer_profiles = pgTable(
     first_name: text("first_name"),
     last_name: text("last_name"),
     title: text("title"),
+    superpower: text("superpower"), // Short standout skill (e.g. "vMix Operator")
     bio: text("bio"),
     location: text("location"),
     experience_years: integer("experience_years"),
@@ -338,6 +339,7 @@ export const insertFreelancerProfileSchema = createInsertSchema(freelancer_profi
   })
   .extend({
     user_id: z.number(),
+    superpower: z.string().max(40).optional().nullable(),
     hourly_rate: z
       .number()
       .nullable()

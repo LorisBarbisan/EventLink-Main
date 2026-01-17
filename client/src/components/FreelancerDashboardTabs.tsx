@@ -59,6 +59,7 @@ interface FreelancerProfile {
   last_name: string;
   title: string;
   bio: string;
+  superpower: string;
   location: string;
   experience_years: number | null;
   skills: string[];
@@ -85,6 +86,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     last_name: "",
     title: "",
     bio: "",
+    superpower: "",
     location: "",
     experience_years: null,
     skills: [],
@@ -178,6 +180,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
           last_name: data.last_name || "",
           title: data.title || "",
           bio: data.bio || "",
+          superpower: data.superpower || "",
           location: data.location || "",
           experience_years: data.experience_years || null,
           skills: data.skills || [],
@@ -211,6 +214,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
         last_name: freelancerProfile.last_name,
         title: freelancerProfile.title,
         bio: freelancerProfile.bio,
+        superpower: freelancerProfile.superpower,
         location: freelancerProfile.location,
         experience_years: freelancerProfile.experience_years,
         skills: freelancerProfile.skills,

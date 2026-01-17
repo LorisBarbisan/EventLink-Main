@@ -28,6 +28,7 @@ export interface FreelancerProfile {
   first_name: string;
   last_name: string;
   title?: string;
+  superpower?: string;
   bio?: string;
   location?: string;
   experience_years?: number;
@@ -124,6 +125,7 @@ export interface FreelancerFormData {
   first_name: string;
   last_name: string;
   title: string;
+  superpower: string;
   bio: string;
   location: string;
   experience_years: string;
