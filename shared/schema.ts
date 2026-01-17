@@ -279,6 +279,7 @@ export const ratings = pgTable("ratings", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   rating: integer("rating").notNull().$type<1 | 2 | 3 | 4 | 5>(), // 1-5 stars
+  review: text("review"), // Optional written review
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -431,6 +432,7 @@ export const insertRatingSchema = createInsertSchema(ratings)
     recruiter_id: z.number(),
     freelancer_id: z.number(),
     rating: z.number().min(1).max(5),
+    review: z.string().max(500, "Review must be 500 characters or less").optional().nullable(),
   });
 
 // Feedback table for admin dashboard

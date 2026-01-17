@@ -964,6 +964,7 @@ export class DatabaseStorage implements IStorage {
           first_name: freelancer_profiles.first_name,
           last_name: freelancer_profiles.last_name,
           title: freelancer_profiles.title,
+          superpower: freelancer_profiles.superpower,
           bio: freelancer_profiles.bio,
           location: freelancer_profiles.location,
           experience_years: freelancer_profiles.experience_years,
@@ -1349,6 +1350,7 @@ export class DatabaseStorage implements IStorage {
           profile_photo_url: freelancer_profiles.profile_photo_url,
         },
         rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} AND ratings.recruiter_id = ${recruiterId} LIMIT 1)`,
+        review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} AND ratings.recruiter_id = ${recruiterId} LIMIT 1)`,
       })
       .from(job_applications)
       .innerJoin(jobs, eq(jobs.id, job_applications.job_id))

@@ -1,15 +1,17 @@
 import { Layout } from "@/components/Layout";
 import { MessageModal } from "@/components/MessageModal";
-import { RatingDisplay } from "@/components/StarRating";
+import { RatingDisplay, StarRating } from "@/components/StarRating";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useFreelancerAverageRating } from "@/hooks/useRatings";
+import { useFreelancerAverageRating, useFreelancerRatings } from "@/hooks/useRatings";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import {
   Calendar,
   Download,
@@ -64,6 +66,51 @@ interface RecruiterProfile {
   linkedin_url: string;
   phone: string;
   company_logo_url?: string;
+}
+
+function ReviewsSection({ freelancerId }: { freelancerId: number }) {
+  const { data: ratings = [] } = useFreelancerRatings(freelancerId);
+
+  // Filter out ratings without reviews or return all?
+  // User story says: "Review is linked to: The freelancer..." and "Visible where permitted"
+  // Let's show all ratings, but highlight reviews.
+  const reviews = ratings.filter((r: any) => r.review);
+
+  if (reviews.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Reviews</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-6">
+          {reviews.map((rating: any, index: number) => (
+            <div key={rating.id}>
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-semibold">
+                      {rating.recruiter?.first_name || "Recruiter"}{" "}
+                      {rating.recruiter?.last_name || ""}
+                    </span>
+                    <span className="text-muted-foreground text-sm">•</span>
+                    <StarRating rating={rating.rating} readonly size="sm" />
+                  </div>
+                  <p className="text-sm text-muted-foreground italic mb-2">"{rating.review}"</p>
+                  <p className="text-xs text-muted-foreground">
+                    {rating.job_title && <span>Project: {rating.job_title} • </span>}
+                    {format(new Date(rating.created_at), "MMM d, yyyy")}
+                  </p>
+                </div>
+              </div>
+              {index < reviews.length - 1 && <Separator className="mt-6" />}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function Profile() {
@@ -293,7 +340,7 @@ export default function Profile() {
               title: data.title || "",
               bio: data.bio || "",
               location: data.location || "",
-
+              superpower: data.superpower || "",
               experience_years: data.experience_years || null,
               skills: data.skills || [],
               portfolio_url: data.portfolio_url || "",
@@ -470,6 +517,13 @@ export default function Profile() {
                       <p className="text-xl text-primary font-semibold mb-2">
                         {freelancerProfile?.title}
                       </p>
+                      {freelancerProfile?.superpower && (
+                        <div className="mb-3">
+                          <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 border-0 text-sm py-1">
+                            ⚡ {freelancerProfile.superpower}
+                          </Badge>
+                        </div>
+                      )}
                       <div className="flex items-center gap-4 text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <MapPin className="w-4 h-4" />
@@ -648,6 +702,12 @@ export default function Profile() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Reviews Section (Freelancers only) */}
+          {((freelancerProfile && profile?.role !== "admin") ||
+            (profile?.role === "admin" && freelancerProfile && !recruiterProfile)) && (
+            <ReviewsSection freelancerId={freelancerProfile?.user_id || 0} />
           )}
 
           {/* Links Section */}
