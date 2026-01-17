@@ -152,16 +152,23 @@ export function RatingDashboard() {
                           <p className="text-xs text-muted-foreground">
                             {format(new Date(rating.created_at), "MMMM dd, yyyy • h:mm a")}
                           </p>
-                          {(rating as any).review && (
-                            <div className="mt-3 p-3 bg-muted/50 rounded-md text-sm italic text-muted-foreground border border-border/50">
-                              "{(rating as any).review}"
-                            </div>
-                          )}
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-yellow-600">{rating.rating}</div>
+                      <div className="flex items-center justify-end gap-3 text-right">
+                        {(rating as any).review && (
+                          <div className="flex flex-col items-end max-w-[300px]">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
+                              Review
+                            </span>
+                            <span className="text-sm font-medium text-foreground italic">
+                              &quot;{(rating as any).review}&quot;
+                            </span>
+                          </div>
+                        )}
+                        <div className="text-3xl font-bold text-yellow-600 pl-4 border-l border-border/50">
+                          {rating.rating}
+                        </div>
                       </div>
                     </div>
 

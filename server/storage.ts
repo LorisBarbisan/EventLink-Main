@@ -1282,6 +1282,8 @@ export class DatabaseStorage implements IStorage {
         recruiter_deleted: job_applications.recruiter_deleted,
         job_title: jobs.title,
         job_company: jobs.company,
+        rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
+        review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
       })
       .from(job_applications)
       .innerJoin(jobs, eq(jobs.id, job_applications.job_id))
@@ -2489,6 +2491,7 @@ export class DatabaseStorage implements IStorage {
         recruiter_id: ratings.recruiter_id,
         freelancer_id: ratings.freelancer_id,
         rating: ratings.rating,
+        review: ratings.review,
         created_at: ratings.created_at,
         updated_at: ratings.updated_at,
         recruiter: {
