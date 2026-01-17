@@ -847,7 +847,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
               )}
             </div>
 
-            {userType === "recruiter" && application.review && (
+            {application.review && (
               <p className="text-sm text-muted-foreground text-right max-w-md">
                 <span className="font-medium">Review: </span>
                 <span className="italic">&quot;{application.review}&quot;</span>
