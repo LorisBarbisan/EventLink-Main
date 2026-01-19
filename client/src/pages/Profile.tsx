@@ -4,6 +4,13 @@ import { RatingDisplay, StarRating } from "@/components/StarRating";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +28,7 @@ import {
   MapPin,
   MessageCircle,
   Phone,
+  Quote,
   Star,
   User,
 } from "lucide-react";
@@ -66,6 +74,85 @@ interface RecruiterProfile {
   linkedin_url: string;
   phone: string;
   company_logo_url?: string;
+}
+
+function FeaturedReviews({ freelancerId }: { freelancerId: number }) {
+  const { data: ratings = [] } = useFreelancerRatings(freelancerId);
+
+  // Filter and sort reviews
+  // Criteria: Has review text, highest rating, longest review, newest
+  const featuredReviews = ratings
+    .filter((r: any) => r.review && r.review.trim().length > 0)
+    .sort((a: any, b: any) => {
+      if (b.rating !== a.rating) return b.rating - a.rating; // Highest rating first
+      if (b.review.length !== a.review.length) return b.review.length - a.review.length; // Longest review second
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // Newest third
+    })
+    .slice(0, 5); // Take top 5
+
+  if (featuredReviews.length === 0) return null;
+
+  return (
+    <Card className="bg-gradient-to-br from-card to-accent/20 border-accent/20">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+          Featured Reviews
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Carousel
+          opts={{
+            align: "start",
+            loop: true,
+          }}
+          className="w-full"
+        >
+          <CarouselContent className="-ml-1">
+            {featuredReviews.map((rating: any) => (
+              <CarouselItem key={rating.id} className="pl-1 md:basis-1/2 lg:basis-1/3">
+                <div className="p-1 h-full">
+                  <Card className="h-full bg-card/50 hover:bg-card transition-colors">
+                    <CardContent className="flex flex-col h-full p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="text-xs font-bold text-primary">
+                              {rating.recruiter?.first_name?.[0] || "R"}
+                            </span>
+                          </div>
+                          <span className="text-sm font-semibold">
+                            {rating.recruiter?.first_name || "Recruiter"}
+                          </span>
+                        </div>
+                        <StarRating rating={rating.rating} readonly size="sm" />
+                      </div>
+                      <div className="relative flex-1">
+                        <Quote className="w-4 h-4 text-muted-foreground/30 absolute -top-1 -left-1" />
+                        <p className="text-sm text-muted-foreground line-clamp-4 pt-2 px-2 italic">
+                          "{rating.review}"
+                        </p>
+                      </div>
+                      <div className="mt-4 pt-2 border-t text-xs text-muted-foreground flex justify-between items-center">
+                        <span>{rating.job_title || "Project"}</span>
+                        <span>{format(new Date(rating.created_at), "MMM yyyy")}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          {featuredReviews.length > 1 && (
+            <>
+              <CarouselPrevious className="left-0 -ml-3 bg-background/80 backdrop-blur-sm" />
+              <CarouselNext className="right-0 -mr-3 bg-background/80 backdrop-blur-sm" />
+            </>
+          )}
+        </Carousel>
+      </CardContent>
+    </Card>
+  );
 }
 
 function ReviewsSection({ freelancerId }: { freelancerId: number }) {
@@ -506,13 +593,20 @@ export default function Profile() {
 
                   <div className="flex-1 space-y-4">
                     <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <h1 className="text-3xl font-bold">
-                          {freelancerProfile?.first_name} {freelancerProfile?.last_name}
-                        </h1>
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          VERIFIED
-                        </Badge>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <h1 className="text-3xl font-bold">
+                            {freelancerProfile?.first_name} {freelancerProfile?.last_name}
+                          </h1>
+                          <Badge variant="secondary" className="bg-green-100 text-green-800">
+                            VERIFIED
+                          </Badge>
+                        </div>
+                        {isOwnProfile && (
+                          <Button variant="outline" onClick={() => setLocation("/dashboard")}>
+                            Edit Profile
+                          </Button>
+                        )}
                       </div>
                       <p className="text-xl text-primary font-semibold mb-2">
                         {freelancerProfile?.title}
@@ -586,11 +680,6 @@ export default function Profile() {
                             Download CV
                           </Button>
                         )}
-                      {isOwnProfile && (
-                        <Button variant="outline" onClick={() => setLocation("/dashboard")}>
-                          Edit Profile
-                        </Button>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -613,11 +702,18 @@ export default function Profile() {
 
                   <div className="flex-1 space-y-4">
                     <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <h1 className="text-3xl font-bold">{recruiterProfile?.company_name}</h1>
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          VERIFIED
-                        </Badge>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <h1 className="text-3xl font-bold">{recruiterProfile?.company_name}</h1>
+                          <Badge variant="secondary" className="bg-green-100 text-green-800">
+                            VERIFIED
+                          </Badge>
+                        </div>
+                        {isOwnProfile && (
+                          <Button variant="outline" onClick={() => setLocation("/dashboard")}>
+                            Edit Profile
+                          </Button>
+                        )}
                       </div>
                       <p className="text-xl text-primary font-semibold mb-2">
                         {recruiterProfile?.company_type}
@@ -649,12 +745,7 @@ export default function Profile() {
                           <MessageCircle className="w-4 h-4 mr-2" />
                           Send Message
                         </Button>
-                      )}
-                      {isOwnProfile && (
-                        <Button variant="outline" onClick={() => setLocation("/dashboard")}>
-                          Edit Profile
-                        </Button>
-                      )}
+                      )}{" "}
                     </div>
                   </div>
                 </div>
@@ -702,6 +793,14 @@ export default function Profile() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Featured Reviews Section (Freelancers only) */}
+          {((freelancerProfile && profile?.role !== "admin") ||
+            (profile?.role === "admin" && freelancerProfile && !recruiterProfile)) && (
+            <div className="mb-6">
+              <FeaturedReviews freelancerId={freelancerProfile?.user_id || 0} />
+            </div>
           )}
 
           {/* Reviews Section (Freelancers only) */}
