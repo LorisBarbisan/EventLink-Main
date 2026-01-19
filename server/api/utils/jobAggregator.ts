@@ -18,67 +18,62 @@ const EVENT_INDUSTRY_ROLES = [
 const EVENT_ROLE_KEYWORDS = [
   // Core specified roles
   "av technician",
-  "audio visual technician",
+  "audio visual",
   "audiovisual technician",
+  "event technician",
+  "event production",
+  "production technician",
+  "sound engineer",
+  "audio engineer",
   "lighting technician",
   "lighting engineer",
   "lighting operator",
-  "camera operator",
-  "cameraman",
-  "video operator",
-  "photographer",
-  "photography",
-  "photo",
-  "video mixer",
-  "video engineer",
   "video technician",
-  "streaming engineer",
-  "stream",
-  "broadcast engineer",
-  "powerpoint technician",
-  "presentation technician",
-  "slides technician",
-  "stage manager",
-  "stage management",
-  "production manager",
+  "vision mixer",
+  "vmix",
+  "broadcast technician",
+  "live events technician",
+  "live events",
+  "conference av",
+  "technical crew",
+  "stage technician",
+  "led technician",
+  "projection technician",
 
   // Related technical roles
-  "sound engineer",
-  "audio engineer",
   "sound technician",
   "audio technician",
-  "event technician",
   "event crew",
   "event staff",
-  "technical crew",
-  "live events",
   "live streaming",
   "live production",
-  "event production",
   "production crew",
   "production assistant",
   "technical support",
   "technical coordinator",
+  "camera operator",
+  "video operator",
+  "video mixer",
+  "video engineer",
+  "streaming engineer",
+  "stage manager",
+  "stage management",
+  "production manager",
 
   // Equipment and venue specific
   "rigging",
   "staging",
   "set up",
-  "audio visual",
   "conference technician",
   "exhibition",
   "trade show",
   "corporate events",
-  "wedding photographer",
-  "event photographer",
 
   // Broadcasting and media
-  "vision mixer",
   "video production",
   "live broadcast",
   "streaming technician",
   "media technician",
-  "broadcast technician",
 ];
 
 // Keywords that indicate NON-event industry roles (catering, hospitality, etc.) that should be excluded
@@ -273,7 +268,7 @@ export class JobAggregator {
    * - postedByRecruitmentAgency: true/false
    */
   async fetchReedJobs(
-    keywords = "AV technician OR lighting technician OR camera operator OR photographer OR video mixer OR streaming engineer OR stage manager OR sound engineer",
+    keywords = "AV Technician OR Audio Visual OR Event Technician OR Event Production OR Production Technician OR Sound Engineer OR Audio Engineer OR Lighting Technician OR Video Technician OR Vision Mixer OR vMix OR Broadcast Technician OR Live Events Technician OR Conference AV OR Technical Crew OR Stage Technician OR LED Technician OR Projection Technician",
     location = "UK",
     options: {
       resultsToTake?: number;
@@ -399,7 +394,7 @@ export class JobAggregator {
    * - contract_type: 'permanent', 'contract', 'part_time', 'temporary'
    */
   async fetchAdzunaJobs(
-    keywords = "events",
+    keywords = "AV technician OR event production OR sound engineer OR lighting technician OR video technician OR broadcast technician OR live events",
     country = "gb",
     options: {
       location?: string;

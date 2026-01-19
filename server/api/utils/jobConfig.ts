@@ -41,7 +41,7 @@ export const DEFAULT_JOB_CONFIG: JobSearchConfig = {
   reed: {
     // Keywords to search for on Reed - specific event industry roles
     keywords:
-      "AV technician OR lighting technician OR camera operator OR photographer OR video mixer OR streaming engineer OR stage manager OR sound engineer",
+      "AV Technician OR Audio Visual OR Event Technician OR Event Production OR Production Technician OR Sound Engineer OR Audio Engineer OR Lighting Technician OR Video Technician OR Vision Mixer OR vMix OR Broadcast Technician OR Live Events Technician OR Conference AV OR Technical Crew OR Stage Technician OR LED Technician OR Projection Technician",
     // Geographic area (can be city, region, or country)
     location: "UK",
     options: {
@@ -64,8 +64,8 @@ export const DEFAULT_JOB_CONFIG: JobSearchConfig = {
   },
 
   adzuna: {
-    // Keywords to search for on Adzuna - simple event search
-    keywords: "events",
+    // Keywords to search for on Adzuna - event industry roles
+    keywords: "AV technician OR event production OR sound engineer OR lighting technician OR video technician OR broadcast technician OR live events",
     // Country code (gb = UK, us = USA, au = Australia, etc.)
     country: "gb",
     options: {
