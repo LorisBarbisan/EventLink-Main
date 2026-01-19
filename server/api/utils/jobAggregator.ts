@@ -74,6 +74,20 @@ const EVENT_ROLE_KEYWORDS = [
   "live broadcast",
   "streaming technician",
   "media technician",
+
+  // Technical equipment signals (strong positive indicators)
+  "mixing desk",
+  "pa system",
+  "lighting desk",
+  "grandma",
+  "avolites",
+  "led wall",
+  "projectors",
+  "cameras",
+  "signal flow",
+  "rf microphones",
+  "live stream",
+  "vision mixing",
 ];
 
 // Keywords that indicate NON-event industry roles (catering, hospitality, etc.) that should be excluded
@@ -154,6 +168,15 @@ const EXCLUDE_KEYWORDS = [
   "usher",
   "ticket sales",
   "customer service",
+
+  // Marketing/business signals (strong negative indicators)
+  "campaign",
+  "marketing strategy",
+  "kpis",
+  "pipeline",
+  "lead generation",
+  "customer acquisition",
+  "content calendar",
 ];
 
 interface ExternalJob {
