@@ -309,7 +309,7 @@ export function JobCard({
                     <div className="mt-2 flex flex-col items-end">
                       <div className="text-right max-w-md">
                         <span className="text-xs font-semibold text-muted-foreground mr-1">
-                          Review: Review:
+                          Review:
                         </span>
                         <span className="text-sm text-muted-foreground italic">
                           &quot;{(applicant as any).review}&quot;
