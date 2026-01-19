@@ -177,6 +177,26 @@ const EXCLUDE_KEYWORDS = [
   "lead generation",
   "customer acquisition",
   "content calendar",
+
+  // Developer/IT roles
+  "developer",
+  "software developer",
+  "web developer",
+  "frontend developer",
+  "backend developer",
+  "full stack developer",
+  "programmer",
+  "software engineer",
+  "devops",
+  "data engineer",
+  "data scientist",
+  "machine learning",
+  "python developer",
+  "javascript developer",
+  "react developer",
+  "node developer",
+  "java developer",
+  "coding",
 ];
 
 interface ExternalJob {
