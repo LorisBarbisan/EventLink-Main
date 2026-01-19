@@ -1,3 +1,4 @@
+import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { EventLinkLogo } from "@/components/Logo";
 import { MobileNavigation } from "@/components/MobileNavigation";
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
@@ -6,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/UserMenu";
 import { useAuth } from "@/hooks/useAuth";
-import { Menu, MessageSquare, Plus } from "lucide-react";
+import { Menu, MessageSquare, Plus, Star } from "lucide-react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 
 interface HeaderProps {
@@ -17,6 +19,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const isHomePage = location === "/";
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
 
   return (
     <header className="bg-card border-b shadow-sm">
@@ -71,7 +74,6 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
           <div className="flex items-center space-x-3">
             {!isHomePage && <SearchBar />}
 
-            {/* Post New Job button - only for recruiters */}
             {user?.role === "recruiter" && (
               <Button
                 onClick={() => setLocation("/dashboard?tab=jobs&action=post")}
@@ -80,6 +82,18 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Post New Job
+              </Button>
+            )}
+
+            {/* Invite Clients button - only for freelancers */}
+            {user?.role === "freelancer" && (
+              <Button
+                onClick={() => setShowInviteDialog(true)}
+                className="hidden md:flex bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border-0 shadow-md transition-all duration-300 transform hover:scale-[1.02]"
+                data-testid="button-invite-clients"
+              >
+                <Star className="w-4 h-4 mr-2 fill-white" />
+                Invite Clients to Rate You
               </Button>
             )}
 
@@ -115,6 +129,11 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
           </div>
         </div>
       </div>
+      <InviteClientsDialog
+        open={showInviteDialog}
+        onOpenChange={setShowInviteDialog}
+        userId={user?.id || 0}
+      />
     </header>
   );
 };
