@@ -78,7 +78,33 @@ const EVENT_ROLE_KEYWORDS = [
 
 // Keywords that indicate NON-event industry roles (catering, hospitality, etc.) that should be excluded
 const EXCLUDE_KEYWORDS = [
-  // Catering and food service
+  // Marketing and sales
+  "marketing",
+  "digital marketing",
+  "brand",
+  "brand ambassador",
+  "sales",
+  "sales executive",
+  "promotion",
+  "promotional",
+  "pr",
+  "public relations",
+  "social media",
+  "content creator",
+
+  // Hospitality and catering
+  "hospitality",
+  "hotel",
+  "restaurant",
+  "bar",
+  "waiter",
+  "waitress",
+  "front of house",
+  "venue assistant",
+  "event host",
+  "wedding",
+  "festival",
+  "catering",
   "chef",
   "head chef",
   "sous chef",
@@ -86,22 +112,32 @@ const EXCLUDE_KEYWORDS = [
   "kitchen",
   "culinary",
   "food",
-  "catering",
-  "restaurant",
-  "hospitality",
   "banquet",
   "menu",
   "dining",
-  "waitress",
-  "waiter",
   "bartender",
   "barista",
   "food service",
   "food preparation",
   "pastry chef",
 
-  // General hospitality
-  "hotel",
+  // Management and coordination roles
+  "event manager",
+  "events manager",
+  "event coordinator",
+  "events coordinator",
+  "project manager",
+  "account manager",
+  "client services",
+
+  // Administrative and office roles
+  "administrator",
+  "assistant",
+  "office",
+  "hr",
+  "human resources",
+
+  // General hospitality services
   "reception",
   "front desk",
   "housekeeping",
@@ -110,7 +146,7 @@ const EXCLUDE_KEYWORDS = [
   "accommodation",
   "booking",
 
-  // Other non-technical roles often found in "events"
+  // Other non-technical roles
   "cleaning",
   "security guard",
   "bouncer",
@@ -118,8 +154,6 @@ const EXCLUDE_KEYWORDS = [
   "usher",
   "ticket sales",
   "customer service",
-  "admin",
-  "administrator",
 ];
 
 interface ExternalJob {
