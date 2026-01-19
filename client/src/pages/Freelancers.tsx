@@ -271,9 +271,14 @@ export default function Freelancers() {
                       </CardTitle>
                       <p className="text-muted-foreground font-medium">{freelancer.title}</p>
                       {freelancer.superpower && (
-                        <Badge className="mt-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 border-0">
-                          ⚡ {freelancer.superpower}
-                        </Badge>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Superpower:
+                          </span>
+                          <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 border-0">
+                            ⚡ {freelancer.superpower}
+                          </Badge>
+                        </div>
                       )}
                       <div className="flex items-center gap-4 mt-2 text-sm">
                         {freelancer.rating > 0 && (

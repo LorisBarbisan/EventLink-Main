@@ -612,7 +612,10 @@ export default function Profile() {
                         {freelancerProfile?.title}
                       </p>
                       {freelancerProfile?.superpower && (
-                        <div className="mb-3">
+                        <div className="mb-3 flex items-center gap-2">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Superpower:
+                          </span>
                           <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 border-0 text-sm py-1">
                             ⚡ {freelancerProfile.superpower}
                           </Badge>
