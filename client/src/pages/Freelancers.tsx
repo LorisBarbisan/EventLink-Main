@@ -262,11 +262,6 @@ export default function Freelancers() {
                     <div className="flex-1">
                       <CardTitle className="text-xl">
                         {freelancer.name}
-                        {freelancer.isReal && (
-                          <Badge variant="default" className="ml-2 bg-green-600 text-white text-xs">
-                            VERIFIED
-                          </Badge>
-                        )}
                       </CardTitle>
                       <p className="text-muted-foreground font-medium">{freelancer.title}</p>
                       <div className="flex items-center gap-4 mt-2 text-sm">

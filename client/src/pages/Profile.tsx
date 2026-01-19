@@ -371,9 +371,6 @@ export default function Profile() {
                         <h1 className="text-3xl font-bold">
                           {freelancerProfile?.first_name} {freelancerProfile?.last_name}
                         </h1>
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          VERIFIED
-                        </Badge>
                       </div>
                       <p className="text-xl text-primary font-semibold mb-2">
                         {freelancerProfile?.title}
