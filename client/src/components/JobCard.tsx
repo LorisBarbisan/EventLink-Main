@@ -1,34 +1,34 @@
 import { MessageModal } from "@/components/MessageModal";
 import { RatingDialog } from "@/components/RatingDialog";
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Job, JobApplication } from "@shared/types";
 import {
-    Calendar,
-    ChevronDown,
-    ChevronUp,
-    Clock,
-    Coins,
-    Edit,
-    Eye,
-    MapPin,
-    MessageCircle,
-    Star,
-    Trash2,
-    User,
-    Users,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Coins,
+  Edit,
+  Eye,
+  MapPin,
+  MessageCircle,
+  Star,
+  Trash2,
+  User,
+  Users,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -214,7 +214,8 @@ export function JobCard({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Job Posting</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Are you sure you want to delete "{job.title}"? This action cannot be undone.
+                      Are you sure you want to delete &quot;{job.title}&quot;? This action cannot be
+                      undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -243,57 +244,80 @@ export function JobCard({
               {hiredApplicants.map(applicant => (
                 <div
                   key={applicant.id}
-                  className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800"
+                  className="flex flex-col p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-600 text-white rounded-full flex items-center justify-center font-medium">
-                      {applicant.freelancer_profile?.first_name?.[0] || "F"}
-                      {applicant.freelancer_profile?.last_name?.[0] || ""}
-                    </div>
-                    <div>
-                      <h5 className="font-medium">
-                        {applicant.freelancer_profile?.first_name &&
-                        applicant.freelancer_profile?.last_name
-                          ? `${applicant.freelancer_profile.first_name} ${applicant.freelancer_profile.last_name}`
-                          : `Freelancer ${applicant.freelancer_id}`}
-                      </h5>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {applicant.freelancer_profile?.title && (
-                          <span>• {applicant.freelancer_profile.title}</span>
-                        )}
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-green-600 text-white rounded-full flex items-center justify-center font-medium">
+                        {applicant.freelancer_profile?.first_name?.[0] || "F"}
+                        {applicant.freelancer_profile?.last_name?.[0] || ""}
+                      </div>
+                      <div>
+                        <h5 className="font-medium">
+                          {applicant.freelancer_profile?.first_name &&
+                          applicant.freelancer_profile?.last_name
+                            ? `${applicant.freelancer_profile.first_name} ${applicant.freelancer_profile.last_name}`
+                            : `Freelancer ${applicant.freelancer_id}`}
+                        </h5>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          {applicant.freelancer_profile?.title && (
+                            <span>• {applicant.freelancer_profile.title}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleProfileView(applicant.freelancer_id)}
+                        data-testid={`button-view-freelancer-${applicant.freelancer_id}`}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        View Profile
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleMessageFreelancer(applicant)}
+                        data-testid={`button-message-freelancer-${applicant.freelancer_id}`}
+                      >
+                        <MessageCircle className="w-3 h-3 mr-1" />
+                        Message
+                      </Button>
+                      {(applicant as any).rating ? (
+                        <div className="flex items-center gap-1 text-yellow-600 font-medium px-3 border border-transparent">
+                          <Star className="w-3 h-3 fill-current" />
+                          <span>{(applicant as any).rating}/5</span>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRateFreelancer(applicant)}
+                          data-testid={`button-rate-freelancer-${applicant.freelancer_id}`}
+                          className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                        >
+                          <Star className="w-3 h-3 mr-1" />
+                          Rate
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleProfileView(applicant.freelancer_id)}
-                      data-testid={`button-view-freelancer-${applicant.freelancer_id}`}
-                    >
-                      <Eye className="w-3 h-3 mr-1" />
-                      View Profile
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleMessageFreelancer(applicant)}
-                      data-testid={`button-message-freelancer-${applicant.freelancer_id}`}
-                    >
-                      <MessageCircle className="w-3 h-3 mr-1" />
-                      Message
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRateFreelancer(applicant)}
-                      data-testid={`button-rate-freelancer-${applicant.freelancer_id}`}
-                      className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                    >
-                      <Star className="w-3 h-3 mr-1" />
-                      Rate
-                    </Button>
-                  </div>
+
+                  {/* Review Display Section */}
+                  {(applicant as any).review && (
+                    <div className="mt-2 flex flex-col items-end">
+                      <div className="text-right max-w-md">
+                        <span className="text-xs font-semibold text-muted-foreground mr-1">
+                          Review:
+                        </span>
+                        <span className="text-sm text-muted-foreground italic">
+                          &quot;{(applicant as any).review}&quot;
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

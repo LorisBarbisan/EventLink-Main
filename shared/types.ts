@@ -28,6 +28,7 @@ export interface FreelancerProfile {
   first_name: string;
   last_name: string;
   title?: string;
+  superpower?: string;
   bio?: string;
   location?: string;
   experience_years?: number;
@@ -100,6 +101,7 @@ export interface JobApplication {
   job_company?: string;
   recruiter_id?: number | null;
   rating?: number;
+  review?: string;
   has_requested_rating?: boolean;
 }
 
@@ -124,6 +126,7 @@ export interface FreelancerFormData {
   first_name: string;
   last_name: string;
   title: string;
+  superpower: string;
   bio: string;
   location: string;
   experience_years: string;

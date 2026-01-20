@@ -27,6 +27,7 @@ export function RatingDialog({
   currentUserId,
 }: RatingDialogProps) {
   const [rating, setRating] = useState<number>(0);
+  const [review, setReview] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -40,6 +41,7 @@ export function RatingDialog({
           freelancer_id: application.freelancer_id,
           recruiter_id: currentUserId,
           rating: rating,
+          review: review.trim() || null,
         }),
       });
     },
@@ -53,6 +55,7 @@ export function RatingDialog({
       });
       onOpenChange(false);
       setRating(0);
+      setReview("");
       toast({
         title: "Rating submitted successfully!",
         description: `You've rated ${application.freelancer_profile?.first_name || "the freelancer"} ${rating} stars.`,
@@ -82,6 +85,7 @@ export function RatingDialog({
 
   const handleCancel = () => {
     setRating(0);
+    setReview("");
     onOpenChange(false);
   };
 
@@ -121,6 +125,23 @@ export function RatingDialog({
                 {rating === 5 && "Excellent - Far exceeded expectations"}
               </p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="review" className="text-sm font-medium">
+              Add a review (optional)
+            </label>
+            <textarea
+              id="review"
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[100px]"
+              placeholder="Share details about your experience working with this freelancer..."
+              value={review}
+              onChange={e => setReview(e.target.value)}
+              maxLength={500}
+            />
+            <div className="text-xs text-muted-foreground text-right">
+              {review.length}/500 characters
+            </div>
           </div>
 
           {application.freelancer_profile && (

@@ -84,10 +84,13 @@ export async function updateFreelancerProfile(req: Request, res: Response) {
       return res.status(403).json({ error: "Not authorized to update this profile" });
     }
 
+    console.log("Update payload received:", req.body);
     const result = insertFreelancerProfileSchema.partial().safeParse(req.body);
     if (!result.success) {
+      console.error("Validation failed:", result.error);
       return res.status(400).json({ error: "Invalid input", details: result.error.issues });
     }
+    console.log("Parsed payload:", result.data);
 
     const profile = await storage.updateFreelancerProfile(userId, result.data);
     if (!profile) {

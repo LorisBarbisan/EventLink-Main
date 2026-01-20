@@ -47,6 +47,7 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
         first_name: freelancerProfile?.first_name || "",
         last_name: freelancerProfile?.last_name || "",
         title: freelancerProfile?.title || "",
+        superpower: freelancerProfile?.superpower || "",
         bio: freelancerProfile?.bio || "",
         location: freelancerProfile?.location || "",
         experience_years: freelancerProfile?.experience_years?.toString() || "",
@@ -81,6 +82,7 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
         first_name: freelancerProfile.first_name || "",
         last_name: freelancerProfile.last_name || "",
         title: freelancerProfile.title || "",
+        superpower: freelancerProfile.superpower || "",
         bio: freelancerProfile.bio || "",
         location: freelancerProfile.location || "",
         experience_years: freelancerProfile.experience_years?.toString() || "",
@@ -262,6 +264,14 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
             {profile.first_name} {profile.last_name}
           </h3>
           <p className="text-muted-foreground">{profile.title}</p>
+          {profile.superpower && (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm font-medium text-muted-foreground">Superpower:</span>
+              <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 border-0">
+                ⚡ {profile.superpower}
+              </Badge>
+            </div>
+          )}
           <div className="flex items-center gap-3 mt-1">
             <Badge variant="secondary">{profile.availability_status}</Badge>
             {averageRating && (
@@ -421,6 +431,26 @@ function FreelancerFormFields({
           placeholder="e.g. Senior Sound Engineer"
           data-testid="input-title"
         />
+      </div>
+
+      <div>
+        <Label htmlFor="superpower">Superpower (One standout skill)</Label>
+        <Input
+          id="superpower"
+          value={formData.superpower}
+          onChange={e => {
+            if (e.target.value.length <= 40) {
+              onInputChange("superpower", e.target.value);
+            }
+          }}
+          placeholder="Enter one standout skill – e.g. Client-facing, vMix operator, RF specialist"
+          data-testid="input-superpower"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          <strong>Best Practice:</strong> Keep it short (max 40 chars). Focus on your #1 strength
+          recruiters should notice first. Avoid lists or generic terms like
+          &quot;hard-working&quot;.
+        </p>
       </div>
 
       <div>

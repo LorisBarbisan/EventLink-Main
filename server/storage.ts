@@ -699,6 +699,7 @@ export class DatabaseStorage implements IStorage {
       first_name: profile.first_name,
       last_name: profile.last_name,
       title: profile.title,
+      superpower: profile.superpower,
       bio: profile.bio,
       location: profile.location,
       experience_years: profile.experience_years,
@@ -727,6 +728,7 @@ export class DatabaseStorage implements IStorage {
     if (profile.first_name !== undefined) updateData.first_name = profile.first_name;
     if (profile.last_name !== undefined) updateData.last_name = profile.last_name;
     if (profile.title !== undefined) updateData.title = profile.title;
+    if (profile.superpower !== undefined) updateData.superpower = profile.superpower;
     if (profile.bio !== undefined) updateData.bio = profile.bio;
     if (profile.location !== undefined) updateData.location = profile.location;
     if (profile.experience_years !== undefined)
@@ -767,6 +769,7 @@ export class DatabaseStorage implements IStorage {
         first_name: updateData.first_name || "",
         last_name: updateData.last_name || "",
         title: updateData.title || "",
+        superpower: updateData.superpower || "",
         bio: updateData.bio || "",
         location: updateData.location || "",
         experience_years: updateData.experience_years || null,
@@ -961,6 +964,7 @@ export class DatabaseStorage implements IStorage {
           first_name: freelancer_profiles.first_name,
           last_name: freelancer_profiles.last_name,
           title: freelancer_profiles.title,
+          superpower: freelancer_profiles.superpower,
           bio: freelancer_profiles.bio,
           location: freelancer_profiles.location,
           experience_years: freelancer_profiles.experience_years,
@@ -1256,6 +1260,7 @@ export class DatabaseStorage implements IStorage {
         job_company: jobs.company,
         recruiter_id: jobs.recruiter_id,
         rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
+        review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         has_requested_rating: sql<boolean>`EXISTS(SELECT 1 FROM rating_requests WHERE rating_requests.job_application_id = ${job_applications.id} AND rating_requests.freelancer_id = ${freelancerId})`,
       })
       .from(job_applications)
@@ -1285,6 +1290,8 @@ export class DatabaseStorage implements IStorage {
         recruiter_deleted: job_applications.recruiter_deleted,
         job_title: jobs.title,
         job_company: jobs.company,
+        rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
+        review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
       })
       .from(job_applications)
       .innerJoin(jobs, eq(jobs.id, job_applications.job_id))
@@ -1354,6 +1361,7 @@ export class DatabaseStorage implements IStorage {
           profile_photo_url: freelancer_profiles.profile_photo_url,
         },
         rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} AND ratings.recruiter_id = ${recruiterId} LIMIT 1)`,
+        review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} AND ratings.recruiter_id = ${recruiterId} LIMIT 1)`,
       })
       .from(job_applications)
       .innerJoin(jobs, eq(jobs.id, job_applications.job_id))
@@ -2491,6 +2499,7 @@ export class DatabaseStorage implements IStorage {
         recruiter_id: ratings.recruiter_id,
         freelancer_id: ratings.freelancer_id,
         rating: ratings.rating,
+        review: ratings.review,
         created_at: ratings.created_at,
         updated_at: ratings.updated_at,
         recruiter: {
