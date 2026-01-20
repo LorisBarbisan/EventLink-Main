@@ -280,6 +280,9 @@ export const ratings = pgTable("ratings", {
     .references(() => users.id, { onDelete: "cascade" }),
   rating: integer("rating").notNull().$type<1 | 2 | 3 | 4 | 5>(), // 1-5 stars
   review: text("review"), // Optional written review
+  status: text("status").default("published").$type<"published" | "flagged" | "hidden">(),
+  flags: text("flags").array(), // Array of flags like "profanity", "spam", "reported"
+  admin_notes: text("admin_notes"), // Notes from admin moderation
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -426,6 +429,9 @@ export const insertRatingSchema = createInsertSchema(ratings)
     id: true,
     created_at: true,
     updated_at: true,
+    status: true,
+    flags: true,
+    admin_notes: true,
   })
   .extend({
     job_application_id: z.number(),

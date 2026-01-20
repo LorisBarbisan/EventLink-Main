@@ -1,5 +1,6 @@
 import { AdminGuard } from "@/components/AdminGuard";
 import { Layout } from "@/components/Layout";
+import { ModerationTable } from "@/components/ModerationTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -500,6 +501,10 @@ function AdminDashboardContent() {
             Feedback
             <TabBadge count={counts.feedback} />
           </TabsTrigger>
+          <TabsTrigger value="moderation" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            Moderation
+          </TabsTrigger>
           <TabsTrigger value="contact" className="flex items-center gap-2">
             <Mail className="w-4 h-4" />
             Contact
@@ -756,6 +761,20 @@ function AdminDashboardContent() {
                   )}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="moderation" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Content Moderation</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Review reported ratings and moderate content
+              </p>
+            </CardHeader>
+            <CardContent>
+              <ModerationTable />
             </CardContent>
           </Card>
         </TabsContent>

@@ -203,6 +203,7 @@ export interface IStorage {
 
   // Rating management
   createRating(rating: InsertRating): Promise<Rating>;
+  getRatingById(ratingId: number): Promise<Rating | undefined>;
   getRatingByJobApplication(jobApplicationId: number): Promise<Rating | undefined>;
   getFreelancerRatings(
     freelancerId: number
@@ -215,9 +216,15 @@ export interface IStorage {
   ): Promise<boolean>;
 
   createRatingWithNotification(
-    rating: InsertRating,
+    rating: InsertRating & { status?: string; flags?: string[] },
     notification: InsertNotification
   ): Promise<Rating>;
+
+  updateRating(ratingId: number, updates: Partial<Rating>): Promise<Rating | undefined>;
+  getAllRatings(filters?: {
+ 
+    status?: string;
+  }): Promise<Array<Rating & { recruiter: User; job_title?: string }>>;
 
   createRatingRequestWithNotification(
     request: InsertRatingRequest,
@@ -2424,7 +2431,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createRatingWithNotification(
-    rating: InsertRating,
+    rating: InsertRating & { status?: string; flags?: string[] },
     notification: InsertNotification
   ): Promise<Rating> {
     return await db.transaction(async tx => {
@@ -2489,6 +2496,11 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async getRatingById(ratingId: number): Promise<Rating | undefined> {
+    const result = await db.select().from(ratings).where(eq(ratings.id, ratingId)).limit(1);
+    return result[0];
+  }
+
   async getFreelancerRatings(
     freelancerId: number
   ): Promise<Array<Rating & { recruiter: User; job_title?: string }>> {
@@ -2500,6 +2512,8 @@ export class DatabaseStorage implements IStorage {
         freelancer_id: ratings.freelancer_id,
         rating: ratings.rating,
         review: ratings.review,
+        status: ratings.status,
+        flags: ratings.flags,
         created_at: ratings.created_at,
         updated_at: ratings.updated_at,
         recruiter: {
@@ -2524,10 +2538,73 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(ratings.recruiter_id, users.id))
       .leftJoin(job_applications, eq(ratings.job_application_id, job_applications.id))
       .leftJoin(jobs, eq(job_applications.job_id, jobs.id))
-      .where(eq(ratings.freelancer_id, freelancerId))
+      .where(
+        and(
+          eq(ratings.freelancer_id, freelancerId),
+          ne(ratings.status, "hidden") // Filter out hidden reviews
+        )
+      )
       .orderBy(desc(ratings.created_at));
 
     return result as Array<Rating & { recruiter: User; job_title?: string }>;
+  }
+
+  async updateRating(ratingId: number, updates: Partial<Rating>): Promise<Rating | undefined> {
+    const result = await db
+      .update(ratings)
+      .set({ ...updates, updated_at: new Date() })
+      .where(eq(ratings.id, ratingId))
+      .returning();
+    return result[0];
+  }
+
+  async getAllRatings(filters?: {
+    status?: string;
+  }): Promise<Array<Rating & { recruiter: User; job_title?: string }>> {
+    const conditions = [];
+    if (filters?.status) {
+      conditions.push(eq(ratings.status, filters.status));
+    }
+
+    const result = await db
+      .select({
+        id: ratings.id,
+        job_application_id: ratings.job_application_id,
+        recruiter_id: ratings.recruiter_id,
+        freelancer_id: ratings.freelancer_id,
+        rating: ratings.rating,
+        review: ratings.review,
+        status: ratings.status,
+        flags: ratings.flags,
+        admin_notes: ratings.admin_notes,
+        created_at: ratings.created_at,
+        updated_at: ratings.updated_at,
+        recruiter: {
+          id: users.id,
+          email: users.email,
+          role: users.role,
+          first_name: users.first_name,
+          last_name: users.last_name,
+          email_verified: users.email_verified,
+          email_verification_token: users.email_verification_token,
+          email_verification_expires: users.email_verification_expires,
+          password_reset_token: users.password_reset_token,
+          password_reset_expires: users.password_reset_expires,
+          created_at: users.created_at,
+          updated_at: users.updated_at,
+          password: users.password,
+          status: users.status,
+        },
+        job_title: jobs.title,
+      })
+      .from(ratings)
+      .leftJoin(users, eq(ratings.recruiter_id, users.id))
+      .leftJoin(job_applications, eq(ratings.job_application_id, job_applications.id))
+      .leftJoin(jobs, eq(job_applications.job_id, jobs.id))
+      .where(and(...conditions))
+      .orderBy(desc(ratings.created_at));
+
+    return result as any;
   }
 
   async getFreelancerAverageRating(

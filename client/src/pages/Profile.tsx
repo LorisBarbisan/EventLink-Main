@@ -5,6 +5,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
   Carousel,
   CarouselContent,
   CarouselItem,
@@ -15,7 +25,11 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useFreelancerAverageRating, useFreelancerRatings } from "@/hooks/useRatings";
+import {
+  useFreelancerAverageRating,
+  useFreelancerRatings,
+  useReportRating,
+} from "@/hooks/useRatings";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -31,6 +45,7 @@ import {
   Quote,
   Star,
   User,
+  Flag,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
@@ -157,46 +172,116 @@ function FeaturedReviews({ freelancerId }: { freelancerId: number }) {
 
 function ReviewsSection({ freelancerId }: { freelancerId: number }) {
   const { data: ratings = [] } = useFreelancerRatings(freelancerId);
-
-  // Filter out ratings without reviews or return all?
-  // User story says: "Review is linked to: The freelancer..." and "Visible where permitted"
-  // Let's show all ratings, but highlight reviews.
   const reviews = ratings.filter((r: any) => r.review);
+  const { mutate: reportRating, isPending: isReporting } = useReportRating();
+
+  const [reportOpen, setReportOpen] = useState(false);
+  const [selectedRatingId, setSelectedRatingId] = useState<number | null>(null);
+  const [reportReason, setReportReason] = useState("");
+
+  const handleReportClick = (ratingId: number) => {
+    setSelectedRatingId(ratingId);
+    setReportReason("");
+    setReportOpen(true);
+  };
+
+  const submitReport = () => {
+    if (selectedRatingId && reportReason.trim()) {
+      reportRating(
+        { ratingId: selectedRatingId, reason: reportReason },
+        {
+          onSuccess: () => {
+            setReportOpen(false);
+          },
+        }
+      );
+    }
+  };
 
   if (reviews.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Reviews</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          {reviews.map((rating: any, index: number) => (
-            <div key={rating.id}>
-              <div className="flex items-start gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="font-semibold">
-                      {rating.recruiter?.first_name || "Recruiter"}{" "}
-                      {rating.recruiter?.last_name || ""}
-                    </span>
-                    <span className="text-muted-foreground text-sm">•</span>
-                    <StarRating rating={rating.rating} readonly size="sm" />
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Reviews</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {reviews.map((rating: any, index: number) => (
+              <div key={rating.id}>
+                <div className="flex items-start gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">
+                          {rating.recruiter?.first_name || "Recruiter"}{" "}
+                          {rating.recruiter?.last_name || ""}
+                        </span>
+                        <span className="text-muted-foreground text-sm">•</span>
+                        <StarRating rating={rating.rating} readonly size="sm" />
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleReportClick(rating.id)}
+                        title="Report review"
+                      >
+                        <Flag className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground italic mb-2">"{rating.review}"</p>
+                    <p className="text-xs text-muted-foreground">
+                      {rating.job_title && <span>Project: {rating.job_title} • </span>}
+                      {format(new Date(rating.created_at), "MMM d, yyyy")}
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground italic mb-2">"{rating.review}"</p>
-                  <p className="text-xs text-muted-foreground">
-                    {rating.job_title && <span>Project: {rating.job_title} • </span>}
-                    {format(new Date(rating.created_at), "MMM d, yyyy")}
-                  </p>
                 </div>
+                {index < reviews.length - 1 && <Separator className="mt-6" />}
               </div>
-              {index < reviews.length - 1 && <Separator className="mt-6" />}
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report Review</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for reporting this review. We investigate all reports.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="reason">Reason</Label>
+              <Textarea
+                id="reason"
+                placeholder="e.g. Spam, Abusive language, Fake review..."
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+              />
             </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportOpen(false)}>
+              {" "}
+
+              {" "}
+            </Button>
+            <Button
+              onClick={submitReport}
+              disabled={!reportReason.trim() || isReporting}
+              variant="destructive"
+            >
+              {isReporting ? "Submitting..." : "Submit Report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

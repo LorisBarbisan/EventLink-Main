@@ -1,6 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export interface Rating {
   id: number;
@@ -54,10 +54,13 @@ export function useReportRating() {
   const { toast } = useToast();
   return useMutation({
     mutationFn: async ({ ratingId, reason }: { ratingId: number; reason: string }) => {
-      const response = await apiRequest(method: "POST", body: JSON.stringify({ reason }),
-    });
-     return response;
-    },Success: () => {
+      const response = await apiRequest(`/api/ratings/${ratingId}/report`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+      return response;
+    },
+    onSuccess: () => {
       toast({
         title: "Report submitted",
         description: "Thank you for creating a safer community. We will review this report.",
@@ -80,7 +83,9 @@ export function useAdminRatings(status?: string) {
       const url = status ? `/api/ratings/admin?status=${status}` : `/api/ratings/admin`;
       const response = await apiRequest(url);
       return response;
-    },}
+    },
+  });
+}
 
 export function useModerationAction() {
   const queryClient = useQueryClient();
@@ -95,16 +100,19 @@ export function useModerationAction() {
       ratingId: number;
       action: "hide" | "publish" | "flag";
       notes?: string;
-    }) => {,
+    }) => {
       const response = await apiRequest(`/api/ratings/${ratingId}/moderate`, {
         method: "POST",
         body: JSON.stringify({ action, notes }),
-      });;
+      });
       return response;
-    },ccess: () => { eryClient.invalidateQueries({ queryKey: ["/api/admin/ratings"] });
-    toast({
-      title: "Action successful",
-      d});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/ratings"] });
+      toast({
+        title: "Action successful",
+        description: "Rating status updated.",
+      });
     },
     onError: (error: any) => {
       toast({

@@ -26,10 +26,7 @@ export async function createRating(req: Request, res: Response) {
     }
 
     // 1. Check if rating already exists first
-    const existingRating = await storage.getRatingByJobApplication(
-      result.data.job_application_id
-    );
-
+    const existingRating = await storage.getRatingByJobApplication(result.data.job_application_id);
     if (existingRating) {
       return res.status(409).json({
         error: "You have already submitted a rating for this application.",
@@ -46,17 +43,20 @@ export async function createRating(req: Request, res: Response) {
     if (!canRate) {
       console.warn(`Rating blocked for application ${result.data.job_application_id}:`, {
         recruiter_id: result.data.recruiter_id,
-        freelancer_id: result.data.freelancer_id
+        freelancer_id: result.data.freelancer_id,
       });
       return res.status(403).json({
-        error: "You are not authorized to rate this freelancer. The job must be marked as 'hired' and belong to you.",
+        error:
+          "You are not authorized to rate this freelancer. The job must be marked as 'hired' and belong to you.",
       });
     }
 
     // Verify the recruiter_id matches the authenticated user
     if (user.role !== "admin" && user.id !== result.data.recruiter_id) {
-      console.warn(`Unauthorized rating attempt: User ${user.id} tried to rate as ${result.data.recruiter_id}`);
-      return res.status(403).json({ error: "Not authorized to create this rating" });
+      console.warn(
+        `Unauthoriz
+        ed rating attempt: User ${user.id} tried to rate as ${result.data.recruiter_id}`
+      );
     }
 
     // Prepare notification data
@@ -81,15 +81,34 @@ export async function createRating(req: Request, res: Response) {
         }),
       };
     }
+    let status = "published";
+    let flags: string[] = [];
+    if (result.data.review) {
+      const PROFANITY_LIST = ["badword", "spam", "abuse", "fake"];
+      const hasProfanity = PROFANITY_LIST.some(word =>
+        result.data.review?.toLowerCase().includes(word)
+      );
 
-    const rating = await storage.createRatingWithNotification(result.data, notification);
+      if (hasProfanity) {
+        status = "flagged";
+        flags.push("profanity");
+      }
+    }
+
+    const ratingData = {
+      ...result.data,
+      status,
+      flags,
+    };
+
+    const rating = await storage.createRatingWithNotification(ratingData, notification);
 
     res.status(201).json(rating);
   } catch (error) {
     console.error("Create rating error:", error);
     res.status(500).json({
       error: "Internal server error",
-      message: error instanceof Error ? error.message : "Unknown error"
+      message: error instanceof Error ? error.message : "Unknown error",
     });
   }
 }
@@ -170,7 +189,10 @@ export async function createRatingRequest(req: Request, res: Response) {
 
     // Verify the freelancer_id matches the authenticated user (only freelancers can request ratings)
     if (user.role !== "admin" && user.id !== result.data.freelancer_id) {
-      console.warn(`Unauthorized rating request attempt: User ${user.id} tried to request as ${result.data.freelancer_id}`);
+      console.warn(
+        `Unauthoriz
+        ed rating request attempt: User ${user.id} tried to request as ${result.data.freelancer_id}`
+      );
       return res.status(403).json({ error: "Not authorized to create this rating request" });
     }
 
@@ -216,14 +238,102 @@ export async function createRatingRequest(req: Request, res: Response) {
       };
     }
 
-    const ratingRequest = await storage.createRatingRequestWithNotification(result.data, notification);
+    const ratingRequest = await storage.createRatingRequestWithNotification(
+      result.data,
+      notification
+    );
 
     res.status(201).json(ratingRequest);
   } catch (error) {
     console.error("Create rating request error:", error);
     res.status(500).json({
       error: "Internal server error",
-      message: error instanceof Error ? error.message : "Unknown error"
+      message: error instanceof Error ? error.message : "Unknown error",
     });
+  }
+}
+// Report a rating
+export async function reportRating(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+    const ratingId = parseInt(req.params.ratingId);
+    if (isNaN(ratingId)) return res.status(400).json({ error: "Invalid rating ID" });
+
+    const rating = await storage.getRatingById(ratingId);
+    if (!rating) return res.status(404).json({ error: "Rating not found" });
+
+    const { reason } = req.body;
+    const currentFlags = rating.flags || [];
+
+    // Avoid duplicates
+    if (!currentFlags.includes("reported")) {
+      currentFlags.push("reported");
+    }
+
+    // Auto-flag if reason warrants it
+    let status = rating.status;
+    if (
+      reason &&
+      (reason.toLowerCase().includes("spam") || reason.toLowerCase().includes("abuse"))
+    ) {
+      if (status === "published") status = "flagged";
+    }
+    const updated = await storage.updateRating(ratingId, {
+      flags: currentFlags,
+      status: status,
+        admin_notes: reason
+          ? `${rating.admin_notes ? rating.admin_notes + "\n" : ""}Reported by user ${user.id}: ${reason}`
+          : rating.admin_notes,
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Report rating error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Get ratings for admin moderation
+export async function getAdminRatings(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== "admin") return res.status(403).json({ error: "Not authorized" });
+
+    const status = req.query.status as string | undefined;
+    const ratings = await storage.getAllRatings({ status });
+    res.json(ratings);
+  } catch (error) {
+    console.error("Get admin ratings error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Admin moderation action
+export async function moderationAction(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== "admin") return res.status(403).json({ error: "Not authorized" });
+
+    const ratingId = parseInt(req.params.ratingId);
+    if (isNaN(ratingId)) return res.status(400).json({ error: "Invalid rating ID" });
+
+    const { action, notes } = req.body;
+
+    let status = "published";
+    if (action === "hide") status = "hidden";
+    if (action === "flag") status = "flagged";
+    if (action === "publish" || action === "approve") status = "published";
+
+    const updated = await storage.updateRating(ratingId, {
+      status,
+        admin_notes: notes,
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Moderation action error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 }
