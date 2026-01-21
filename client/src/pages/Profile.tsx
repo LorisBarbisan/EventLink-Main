@@ -1,5 +1,7 @@
+import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
 import { MessageModal } from "@/components/MessageModal";
+import { StandaloneRatingDialog } from "@/components/StandaloneRatingDialog";
 import { RatingDisplay, StarRating } from "@/components/StarRating";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -358,6 +360,27 @@ export default function Profile() {
       });
     }
   };
+
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [showStandaloneRatingDialog, setShowStandaloneRatingDialog] = useState(false);
+
+  // Handle "Invite to Rate" deep link action
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("action") === "rate") {
+      if (!user) {
+        // Redirect to auth if not logged in, preserving the return URL
+        const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+        setLocation(`/auth?redirect=${returnUrl}&reason=rate`);
+      } else if (freelancerProfile && user.id !== freelancerProfile.user_id) {
+        // Remove the query param to prevent reopening on refresh (optional but good UX)
+        // window.history.replaceState({}, document.title, window.location.pathname);
+        // Actually, keep it for now so if they accidentally close they can refresh to get it back?
+        // Better UX is probably to just open it.
+        setShowStandaloneRatingDialog(true);
+      }
+    }
+  }, [user, location, freelancerProfile, setLocation]); // Added setLocation to dependencies
 
   useEffect(() => {
     if (!authLoading) {
@@ -984,6 +1007,22 @@ export default function Profile() {
               : recruiterProfile?.company_name || "User"
           }
           senderId={user.id}
+        />
+      )}
+
+      <InviteClientsDialog
+        open={showInviteDialog}
+        onOpenChange={setShowInviteDialog}
+        userId={user?.id || 0}
+      />
+
+      {freelancerProfile && user && (
+        <StandaloneRatingDialog
+          open={showStandaloneRatingDialog}
+          onOpenChange={setShowStandaloneRatingDialog}
+          freelancerId={freelancerProfile.user_id}
+          freelancerName={`${freelancerProfile.first_name} ${freelancerProfile.last_name}`}
+          recruiterId={user.id}
         />
       )}
     </Layout>

@@ -65,7 +65,7 @@ export function InviteClientsDialog({ open, onOpenChange, userId }: InviteClient
   const [copied, setCopied] = useState(false);
 
   // Construct the profile URL
-  const profileUrl = `${window.location.origin}/profile/${userId}`;
+  const profileUrl = `${window.location.origin}/profile/${userId}?action=rate`;
   const shareText = "I'd love to get your feedback on my work. Please rate me on EventLink!";
 
   const handleCopy = async () => {

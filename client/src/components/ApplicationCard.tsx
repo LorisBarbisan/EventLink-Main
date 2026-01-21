@@ -35,7 +35,6 @@ import {
   Eye,
   Flag,
   MessageCircle,
-  Quote,
   Send,
   Star,
   Trash2,
@@ -499,17 +498,11 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                   {/* Rating button for hired applications */}
                   {application.status === "hired" &&
                     (application.rating ? (
-                      <div className="flex flex-col gap-2">
+                      <div className="flex flex-col gap-2 items-end">
                         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800 rounded-md">
                           <Star className="w-4 h-4 fill-current" />
                           <span className="text-sm font-medium">Rated: {application.rating}/5</span>
                         </div>
-                        {application.review && (
-                          <div className="mt-2 text-sm italic text-muted-foreground bg-muted/50 p-3 rounded-md relative group">
-                            <Quote className="w-3 h-3 text-muted-foreground/30 absolute top-2 left-2" />
-                            <p className="pl-4">&quot;{application.review}&quot;</p>
-                          </div>
-                        )}
                       </div>
                     ) : (
                       <Button
@@ -898,7 +891,9 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     variant="ghost"
                     size="sm"
                     className="h-6 text-xs text-muted-foreground hover:text-destructive gap-1"
-                    onClick={() => handleReportClick(application.id)}
+                    onClick={() =>
+                      application.rating_id && handleReportClick(application.rating_id)
+                    }
                   >
                     <Flag className="w-3 h-3" />
                     Report Review

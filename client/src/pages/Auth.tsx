@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { CheckCircle, Eye, EyeOff, Mail } from "lucide-react";
+import { CheckCircle, Eye, EyeOff, Mail, Star, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -21,6 +21,9 @@ export default function Auth() {
   const [showDirectLink, setShowDirectLink] = useState<string | null>(null);
   const [showVerificationSuccess, setShowVerificationSuccess] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState("");
+  const [showRateBanner, setShowRateBanner] = useState(() => {
+    return new URLSearchParams(window.location.search).get("reason") === "rate";
+  });
 
   // Force signup tab when tab=signup in URL
   const [activeTab, setActiveTab] = useState(() => {
@@ -63,7 +66,17 @@ export default function Auth() {
   // Redirect if already authenticated (but only after loading is complete to ensure validation is done)
   useEffect(() => {
     if (user && !authLoading) {
-      setLocation("/dashboard");
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectUrl = urlParams.get("redirect");
+      if (redirectUrl) {
+        // Security: Verify the redirect URL is relative or same-origin to prevent open redirects is ideal,
+        // but decoding typically gives a path. We'll assume relative path usage for now or trust encoded value.
+        // window.location.href or setLocation both work, but setLocation is client-side router.
+        // If the redirectUrl contains a query string (like ?action=rate), setLocation handles it.
+        setLocation(decodeURIComponent(redirectUrl));
+      } else {
+        setLocation("/dashboard");
+      }
     }
   }, [user, authLoading, setLocation]);
 
@@ -95,10 +108,16 @@ export default function Auth() {
           description: `Successfully signed in via OAuth.`,
         });
 
-        // Clean up URL fragment and redirect to dashboard
+        // Clean up URL fragment and redirect
         const newUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, document.title, newUrl);
-        setLocation("/dashboard");
+
+        const redirectUrl = urlParams.get("redirect");
+        if (redirectUrl) {
+          setLocation(decodeURIComponent(redirectUrl));
+        } else {
+          setLocation("/dashboard");
+        }
         return;
       } catch (error) {
         console.error("OAuth success processing error:", error);
@@ -295,7 +314,13 @@ export default function Auth() {
         });
 
         // The useAuth hook will handle state updates, redirect immediately
-        setLocation("/dashboard");
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectUrl = urlParams.get("redirect");
+        if (redirectUrl) {
+          setLocation(decodeURIComponent(redirectUrl));
+        } else {
+          setLocation("/dashboard");
+        }
       }
     } catch (error) {
       console.error("Sign In Error:", error);
@@ -435,7 +460,34 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+      {/* Sticky Flash Banner */}
+      {showRateBanner && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-50/95 dark:bg-yellow-950/90 border-b border-yellow-200 dark:border-yellow-800 px-4 py-3 shadow-md backdrop-blur-sm animate-in slide-in-from-top-full duration-300">
+          <div className="container mx-auto max-w-5xl flex items-start justify-center gap-3 relative">
+            <div className="mt-0.5 shrink-0 hidden sm:block">
+              <Star className="w-5 h-5 text-yellow-600 dark:text-yellow-400 fill-yellow-600/20" />
+            </div>
+            <div className="flex-1 text-center sm:text-left max-w-2xl">
+              <h3 className="font-semibold text-yellow-900 dark:text-yellow-300 text-sm sm:text-base inline-block mr-2">
+                Please sign in to rate
+              </h3>
+              <p className="text-sm text-yellow-800 dark:text-yellow-400 inline sm:block">
+                You need to log in or create a <strong>recruiter</strong> account to submit a rating
+                for this freelancer.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowRateBanner(false)}
+              className="shrink-0 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-200 transition-colors absolute right-0 top-0 sm:static"
+            >
+              <X className="w-5 h-5" />
+              <span className="sr-only">Dismiss</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="w-full max-w-md mt-12 sm:mt-0">
         <div className="text-center mb-8">
           <Button variant="outline" onClick={() => setLocation("/")} className="mb-4">
             ← Back to Home Page

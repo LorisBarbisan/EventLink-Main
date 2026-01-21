@@ -269,9 +269,9 @@ export const notifications = pgTable("notifications", {
 
 export const ratings = pgTable("ratings", {
   id: serial("id").primaryKey(),
-  job_application_id: integer("job_application_id")
-    .notNull()
-    .references(() => job_applications.id, { onDelete: "cascade" }),
+  job_application_id: integer("job_application_id").references(() => job_applications.id, {
+    onDelete: "cascade",
+  }), // Made nullable for standalone reviews
   recruiter_id: integer("recruiter_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -434,7 +434,7 @@ export const insertRatingSchema = createInsertSchema(ratings)
     admin_notes: true,
   })
   .extend({
-    job_application_id: z.number(),
+    job_application_id: z.number().optional().nullable(),
     recruiter_id: z.number(),
     freelancer_id: z.number(),
     rating: z.number().min(1).max(5),

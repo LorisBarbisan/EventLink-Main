@@ -25,62 +25,81 @@ export async function createRating(req: Request, res: Response) {
       });
     }
 
-    // 1. Check if rating already exists first
-    const existingRating = await storage.getRatingByJobApplication(result.data.job_application_id);
-    if (existingRating) {
-      return res.status(409).json({
-        error: "You have already submitted a rating for this application.",
-      });
-    }
+    // 1. Check if rating already exists first (only if job_application_id is present)
+    if (result.data.job_application_id) {
+      const existingRating = await storage.getRatingByJobApplication(
+        result.data.job_application_id
+      );
+      if (existingRating) {
+        return res.status(409).json({
+          error: "You have already submitted a rating for this application.",
+        });
+      }
 
-    // 2. Check if recruiter can rate this freelancer (Permission & Status)
-    const canRate = await storage.canRecruiterRateFreelancer(
-      result.data.recruiter_id,
-      result.data.freelancer_id,
-      result.data.job_application_id
-    );
+      // 2. Check if recruiter can rate this freelancer (Permission & Status)
+      const canRate = await storage.canRecruiterRateFreelancer(
+        result.data.recruiter_id,
+        result.data.freelancer_id,
+        result.data.job_application_id
+      );
 
-    if (!canRate) {
-      console.warn(`Rating blocked for application ${result.data.job_application_id}:`, {
-        recruiter_id: result.data.recruiter_id,
-        freelancer_id: result.data.freelancer_id,
-      });
-      return res.status(403).json({
-        error:
-          "You are not authorized to rate this freelancer. The job must be marked as 'hired' and belong to you.",
-      });
+      if (!canRate) {
+        console.warn(`Rating blocked for application ${result.data.job_application_id}:`, {
+          recruiter_id: result.data.recruiter_id,
+          freelancer_id: result.data.freelancer_id,
+        });
+        return res.status(403).json({
+          error:
+            "You are not authorized to rate this freelancer. The job must be marked as 'hired' and belong to you.",
+        });
+      }
+    } else {
+      // Standalone rating validation
+      // Ensure recruiter is not rating themselves (already handled below effectively but good to be explicit)
+      if (result.data.recruiter_id === result.data.freelancer_id) {
+        return res.status(400).json({ error: "You cannot rate yourself." });
+      }
+
+      // We could add a check here to limit rate of standalone reviews if needed in future
+      // For now, we trust the authentication
     }
 
     // Verify the recruiter_id matches the authenticated user
     if (user.role !== "admin" && user.id !== result.data.recruiter_id) {
       console.warn(
-        `Unauthoriz
-        ed rating attempt: User ${user.id} tried to rate as ${result.data.recruiter_id}`
+        `Unauthorized rating attempt: User ${user.id} tried to rate as ${result.data.recruiter_id}`
       );
     }
 
     // Prepare notification data
     let notification: any = null;
-    const application = await storage.getJobApplicationById(result.data.job_application_id);
-    if (application) {
-      const job = await storage.getJobById(application.job_id);
-      notification = {
-        user_id: result.data.freelancer_id,
-        type: "rating_received",
-        title: "New Rating Received",
-        message: `You received a ${result.data.rating}-star rating for your work on "${job?.title || "a job"}".`,
-        priority: "normal",
-        related_entity_type: "rating",
-        // related_entity_id will be set in storage transaction
-        action_url: "/dashboard?tab=bookings",
-        metadata: JSON.stringify({
-          rating_id: 0, // Placeholder, updated in storage transaction
-          rating_value: result.data.rating,
-          job_id: application.job_id,
-          job_title: job?.title,
-        }),
-      };
+    let jobTitle = "a direct engagement";
+
+    if (result.data.job_application_id) {
+      const application = await storage.getJobApplicationById(result.data.job_application_id);
+      if (application) {
+        const job = await storage.getJobById(application.job_id);
+        jobTitle = job?.title || "a job";
+      }
     }
+
+    notification = {
+      user_id: result.data.freelancer_id,
+      type: "rating_received",
+      title: "New Rating Received",
+      message: `You received a ${result.data.rating}-star rating for your work on "${jobTitle}".`,
+      priority: "normal",
+      related_entity_type: "rating",
+      // related_entity_id will be set in storage transaction
+      action_url: "/dashboard?tab=bookings",
+      metadata: JSON.stringify({
+        rating_id: 0, // Placeholder, updated in storage transaction
+        rating_value: result.data.rating,
+        job_id: null,
+        job_title: jobTitle,
+      }),
+    };
+
     let status = "published";
     let flags: string[] = [];
     if (result.data.review) {
@@ -283,9 +302,9 @@ export async function reportRating(req: Request, res: Response) {
     const updated = await storage.updateRating(ratingId, {
       flags: currentFlags,
       status: status,
-        admin_notes: reason
-          ? `${rating.admin_notes ? rating.admin_notes + "\n" : ""}Reported by user ${user.id}: ${reason}`
-          : rating.admin_notes,
+      admin_notes: reason
+        ? `${rating.admin_notes ? rating.admin_notes + "\n" : ""}Reported by user ${user.id}: ${reason}`
+        : rating.admin_notes,
     });
 
     res.json(updated);
@@ -328,7 +347,7 @@ export async function moderationAction(req: Request, res: Response) {
 
     const updated = await storage.updateRating(ratingId, {
       status,
-        admin_notes: notes,
+      admin_notes: notes,
     });
 
     res.json(updated);

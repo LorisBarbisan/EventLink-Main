@@ -5,6 +5,7 @@ import {
   getFreelancerAverageRating,
   getFreelancerRatings,
   getRatingByApplicationId,
+  reportRating,
 } from "../controllers/rating.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
 
@@ -23,4 +24,7 @@ export function registerRatingsRoutes(app: Express) {
 
   // Create a rating request
   app.post("/api/rating-requests", authenticateJWT, createRatingRequest);
+
+  // Report a rating
+  app.post("/api/ratings/:ratingId/report", authenticateJWT, reportRating);
 }

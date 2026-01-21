@@ -1265,6 +1265,7 @@ export class DatabaseStorage implements IStorage {
         job_title: jobs.title,
         job_company: jobs.company,
         recruiter_id: jobs.recruiter_id,
+        rating_id: sql<number>`(SELECT id FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         has_requested_rating: sql<boolean>`EXISTS(SELECT 1 FROM rating_requests WHERE rating_requests.job_application_id = ${job_applications.id} AND rating_requests.freelancer_id = ${freelancerId})`,
@@ -1296,6 +1297,7 @@ export class DatabaseStorage implements IStorage {
         recruiter_deleted: job_applications.recruiter_deleted,
         job_title: jobs.title,
         job_company: jobs.company,
+        rating_id: sql<number>`(SELECT id FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
       })
@@ -1366,6 +1368,7 @@ export class DatabaseStorage implements IStorage {
           availability_status: freelancer_profiles.availability_status,
           profile_photo_url: freelancer_profiles.profile_photo_url,
         },
+        rating_id: sql<number>`(SELECT id FROM ratings WHERE ratings.job_application_id = ${job_applications.id} AND ratings.recruiter_id = ${recruiterId} LIMIT 1)`,
         rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} AND ratings.recruiter_id = ${recruiterId} LIMIT 1)`,
         review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} AND ratings.recruiter_id = ${recruiterId} LIMIT 1)`,
       })

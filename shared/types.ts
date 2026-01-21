@@ -100,6 +100,7 @@ export interface JobApplication {
   job_title?: string;
   job_company?: string;
   recruiter_id?: number | null;
+  rating_id?: number;
   rating?: number;
   review?: string;
   has_requested_rating?: boolean;
