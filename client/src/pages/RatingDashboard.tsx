@@ -1,17 +1,57 @@
 import { Layout } from "@/components/Layout";
 import { StarRating } from "@/components/StarRating";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
-import { useFreelancerAverageRating, useFreelancerRatings } from "@/hooks/useRatings";
+import {
+  useFreelancerAverageRating,
+  useFreelancerRatings,
+  useReportRating,
+} from "@/hooks/useRatings";
 import { format } from "date-fns";
-import { Award, Calendar, Star, TrendingUp } from "lucide-react";
+import { Award, Calendar, Flag, Star, TrendingUp } from "lucide-react";
+import { useState } from "react";
 
 export function RatingDashboard() {
   const { user } = useAuth();
   const { data: ratings = [], isLoading: ratingsLoading } = useFreelancerRatings(user?.id || 0);
   const { data: averageRating } = useFreelancerAverageRating(user?.id || 0);
+
+  const [reportOpen, setReportOpen] = useState(false);
+  const [selectedRatingId, setSelectedRatingId] = useState<number | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const { mutate: reportRating, isPending: isReporting } = useReportRating();
+
+  const handleReportClick = (ratingId: number) => {
+    setSelectedRatingId(ratingId);
+    setReportReason("");
+    setReportOpen(true);
+  };
+
+  const submitReport = () => {
+    if (selectedRatingId && reportReason.trim()) {
+      reportRating(
+        { ratingId: selectedRatingId, reason: reportReason },
+        {
+          onSuccess: () => {
+            setReportOpen(false);
+          },
+        }
+      );
+    }
+  };
 
   if (!user) {
     return (
@@ -156,13 +196,13 @@ export function RatingDashboard() {
                       </div>
 
                       <div className="flex items-center justify-end gap-3 text-right">
-                        {(rating as any).review && (
+                        {rating.review && (
                           <div className="flex flex-col items-end max-w-[300px]">
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
                               Review
                             </span>
                             <span className="text-sm font-medium text-foreground italic">
-                              &quot;{(rating as any).review}&quot;
+                              &quot;{rating.review}&quot;
                             </span>
                           </div>
                         )}
@@ -170,6 +210,20 @@ export function RatingDashboard() {
                           {rating.rating}
                         </div>
                       </div>
+                    </div>
+
+                    <div className="mt-4 flex justify-end">
+                      {rating.review && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-destructive gap-2 h-8"
+                          onClick={() => handleReportClick(rating.id)}
+                        >
+                          <Flag className="w-3 h-3" />
+                          <span className="text-xs">Report Review</span>
+                        </Button>
+                      )}
                     </div>
 
                     {index < ratings.length - 1 && <Separator className="mt-4" />}
@@ -196,6 +250,42 @@ export function RatingDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report Review</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for reporting this review. We investigate all reports.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="reason">Reason</Label>
+              <Textarea
+                id="reason"
+                placeholder="e.g. False claims, Abusive language, Not my project..."
+                value={reportReason}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                  setReportReason(e.target.value)
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={submitReport}
+              disabled={!reportReason.trim() || isReporting}
+              variant="destructive"
+            >
+              {isReporting ? "Submitting..." : "Submit Report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

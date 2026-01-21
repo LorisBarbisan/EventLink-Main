@@ -5,6 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -13,16 +20,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -31,12 +31,12 @@ import {
   useReportRating,
 } from "@/hooks/useRatings";
 import { apiRequest } from "@/lib/queryClient";
-import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   Calendar,
   Download,
   ExternalLink,
+  Flag,
   Globe,
   Linkedin,
   MapPin,
@@ -45,7 +45,6 @@ import {
   Quote,
   Star,
   User,
-  Flag,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
@@ -145,7 +144,7 @@ function FeaturedReviews({ freelancerId }: { freelancerId: number }) {
                       <div className="relative flex-1">
                         <Quote className="w-4 h-4 text-muted-foreground/30 absolute -top-1 -left-1" />
                         <p className="text-sm text-muted-foreground line-clamp-4 pt-2 px-2 italic">
-                          "{rating.review}"
+                          &quot;{rating.review}&quot;
                         </p>
                       </div>
                       <div className="mt-4 pt-2 border-t text-xs text-muted-foreground flex justify-between items-center">
@@ -198,8 +197,6 @@ function ReviewsSection({ freelancerId }: { freelancerId: number }) {
     }
   };
 
-  if (reviews.length === 0) return null;
-
   return (
     <>
       <Card>
@@ -232,7 +229,10 @@ function ReviewsSection({ freelancerId }: { freelancerId: number }) {
                         <Flag className="w-4 h-4" />
                       </Button>
                     </div>
-                    <p className="text-sm text-muted-foreground italic mb-2">"{rating.review}"</p>
+                    <p className="text-sm text-muted-foreground italic mb-2">
+                      {" "}
+                      &quot;{rating.review}&quot;
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {rating.job_title && <span>Project: {rating.job_title} • </span>}
                       {format(new Date(rating.created_at), "MMM d, yyyy")}
@@ -261,15 +261,13 @@ function ReviewsSection({ freelancerId }: { freelancerId: number }) {
                 id="reason"
                 placeholder="e.g. Spam, Abusive language, Fake review..."
                 value={reportReason}
-                onChange={(e) => setReportReason(e.target.value)}
+                onChange={(e: any) => setReportReason(e.target.value)}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReportOpen(false)}>
-              {" "}
-
-              {" "}
+              Cancel
             </Button>
             <Button
               onClick={submitReport}
@@ -296,7 +294,7 @@ export default function Profile() {
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [profileDataLoaded, setProfileDataLoaded] = useState(false);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
-  const queryClient = useQueryClient();
+
   const { toast } = useToast();
 
   // Get rating data for freelancer profiles
@@ -341,7 +339,7 @@ export default function Profile() {
         throw new Error(errorData.error || "Failed to get download URL");
       }
 
-      const { downloadUrl, fileName } = await response.json();
+      const { downloadUrl } = await response.json();
 
       // Open the presigned URL in a new tab to view/download the CV
       if (downloadUrl) {
@@ -362,38 +360,24 @@ export default function Profile() {
   };
 
   useEffect(() => {
-    console.log("Profile useEffect triggered:", { user, authLoading, userId });
-    console.log("URL userId parameter received:", userId, "type:", typeof userId);
-
     if (!authLoading) {
       if (userId) {
         // Check if viewing own profile via URL parameter
         const isViewingOwnProfile = user && userId === user.id.toString();
-        console.log("Profile comparison debug:", {
-          userId,
-          userIdType: typeof userId,
-          userIdNum: user?.id,
-          userIdStr: user?.id.toString(),
-          isViewingOwnProfile,
-        });
+
         if (isViewingOwnProfile) {
-          console.log("Viewing own profile via URL parameter for user:", user);
-          setIsOwnProfile(true);
           fetchProfile();
         } else {
           // Viewing someone else's profile
-          console.log("Fetching other profile for userId:", userId);
           setIsOwnProfile(false);
           fetchOtherProfile(userId);
         }
       } else if (user) {
         // Viewing own profile
-        console.log("Fetching own profile for user:", user);
         setIsOwnProfile(true);
         fetchProfile();
       } else {
         // Not logged in and no userId specified
-        console.log("No user found, redirecting to auth");
         setLocation("/auth");
       }
     }
@@ -487,17 +471,13 @@ export default function Profile() {
 
   const fetchOtherProfile = async (targetUserId: string) => {
     try {
-      console.log("fetchOtherProfile called with targetUserId:", targetUserId);
-      console.log("Making API request to:", `/api/users/${targetUserId}`);
       // First get the user basic info to determine their role
       const userData = await apiRequest(`/api/users/${targetUserId}`);
-      console.log("User data received:", userData);
       const userProfile: Profile = {
         id: targetUserId,
         role: userData.role as "freelancer" | "recruiter",
         email: userData.email,
       };
-      console.log("Setting profile in fetchOtherProfile:", userProfile);
       setProfile(userProfile);
 
       if (userProfile.role === "freelancer") {
@@ -639,8 +619,6 @@ export default function Profile() {
       </Layout>
     );
   }
-
-  // Mutation hook moved to top - no longer duplicated here
 
   const handleContactClick = () => {
     if (!user) {
@@ -883,13 +861,14 @@ export default function Profile() {
             </Card>
           )}
 
-          {/* Featured Reviews Section (Freelancers only) */}
+          {/* Featured Reviews Section (Freelancers only) - for future use
           {((freelancerProfile && profile?.role !== "admin") ||
             (profile?.role === "admin" && freelancerProfile && !recruiterProfile)) && (
             <div className="mb-6">
               <FeaturedReviews freelancerId={freelancerProfile?.user_id || 0} />
             </div>
           )}
+          */}
 
           {/* Reviews Section (Freelancers only) */}
           {((freelancerProfile && profile?.role !== "admin") ||

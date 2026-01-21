@@ -47,7 +47,7 @@ import {
   type RecruiterProfile,
   type User,
 } from "@shared/schema";
-import { and, count, desc, eq, gt, gte, ilike, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, ilike, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
 
@@ -222,7 +222,6 @@ export interface IStorage {
 
   updateRating(ratingId: number, updates: Partial<Rating>): Promise<Rating | undefined>;
   getAllRatings(filters?: {
- 
     status?: string;
   }): Promise<Array<Rating & { recruiter: User; job_title?: string }>>;
 

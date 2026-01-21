@@ -1,0 +1,31 @@
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+vite v6.3.6 building for production...
+transforming...
+✓ 75 modules transformed.
+✗ Build failed in 2.29s
+error during build:
+[vite:esbuild] Transform failed with 1 error:
+/Users/ngabo/Developer/personal/projects/Loris/eventlink/client/src/pages/RatingDashboard.tsx:264:27: ERROR: Unexpected ">"
+file: /Users/ngabo/Developer/personal/projects/Loris/eventlink/client/src/pages/RatingDashboard.tsx:264:27
+
+Unexpected ">"
+262|                  placeholder="e.g. False claims, Abusive language, Not my project..."
+263|                  value={reportReason}
+264|                  onChange={ > setReportReason(e.target.value)}
+   |                             ^
+265|                />
+266|              </div>
+
+    at failureErrorWithLog (/Users/ngabo/Developer/personal/projects/Loris/eventlink/node_modules/esbuild/lib/main.js:1467:15)
+    at /Users/ngabo/Developer/personal/projects/Loris/eventlink/node_modules/esbuild/lib/main.js:736:50
+    at responseCallbacks.<computed> (/Users/ngabo/Developer/personal/projects/Loris/eventlink/node_modules/esbuild/lib/main.js:603:9)
+    at handleIncomingPacket (/Users/ngabo/Developer/personal/projects/Loris/eventlink/node_modules/esbuild/lib/main.js:658:12)
+    at Socket.readFromStdout (/Users/ngabo/Developer/personal/projects/Loris/eventlink/node_modules/esbuild/lib/main.js:581:7)
+    at Socket.emit (node:events:518:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)

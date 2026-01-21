@@ -1,8 +1,3 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -23,7 +18,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { X, Send, MessageSquare } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation } from "@tanstack/react-query";
+import { MessageSquare, Send } from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 const feedbackSchema = z.object({
   feedbackType: z.enum(["malfunction", "feature-missing", "suggestion", "other"], {
@@ -121,14 +121,6 @@ export function FeedbackForm({ open, onOpenChange, source = "header" }: Feedback
               <MessageSquare className="w-5 h-5 text-blue-600" />
               Share Your Feedback
             </DialogTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClose}
-              data-testid="button-close-feedback"
-            >
-              <X className="w-4 h-4" />
-            </Button>
           </div>
           <p className="text-sm text-muted-foreground">
             Help us improve EventLink by sharing your thoughts, reporting issues, or suggesting new
@@ -182,13 +174,17 @@ export function FeedbackForm({ open, onOpenChange, source = "header" }: Feedback
               )}
             />
 
-            <div className="flex gap-3 pt-2">
+            <div className="flex justify-end gap-3 pt-2">
               <Button
-                type="submit"
+                type="button"
+                variant="outline"
+                onClick={handleClose}
                 disabled={isSubmitting}
-                className="flex-1"
-                data-testid="button-submit-feedback"
+                data-testid="button-cancel-feedback"
               >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting} data-testid="button-submit-feedback">
                 {isSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
@@ -200,15 +196,6 @@ export function FeedbackForm({ open, onOpenChange, source = "header" }: Feedback
                     Send Feedback
                   </>
                 )}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleClose}
-                disabled={isSubmitting}
-                data-testid="button-cancel-feedback"
-              >
-                Cancel
               </Button>
             </div>
           </form>

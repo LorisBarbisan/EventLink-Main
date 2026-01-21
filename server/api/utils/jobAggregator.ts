@@ -299,12 +299,6 @@ export class JobAggregator {
       clearInterval(this.backgroundSyncTimer);
     }
 
-    console.log(
-      "📅 Starting background sync every",
-      this.BACKGROUND_SYNC_INTERVAL / 1000 / 60,
-      "minutes"
-    );
-
     this.backgroundSyncTimer = setInterval(async () => {
       if (!this.syncInProgress) {
         try {
@@ -384,7 +378,6 @@ export class JobAggregator {
           params.append("postedByRecruitmentAgency", options.postedByRecruitmentAgency.toString());
 
         const url = `https://www.reed.co.uk/api/1.0/search?${params.toString()}`;
-        console.log(`📡 Reed API URL: ${url}`);
 
         const response = await fetch(url, {
           headers: {
@@ -421,15 +414,9 @@ export class JobAggregator {
         }
 
         const data = await response.json();
-        console.log(`✅ Reed API returned ${data.results?.length || 0} jobs`);
+        const results: ReedJobResponse[] = data.results || [];
 
-        if (data.results?.length > 0) {
-          console.log("📋 Reed sample job:", JSON.stringify(data.results[0], null, 2));
-        }
-
-        const jobs = data.results || [];
-
-        return jobs.map(
+        return results.map(
           (job: ReedJobResponse): ExternalJob => ({
             id: `reed_${job.jobId}`,
             title: job.jobTitle,
@@ -508,7 +495,6 @@ export class JobAggregator {
         if (options.salary_max) params.append("salary_max", options.salary_max.toString());
 
         const url = `https://api.adzuna.com/v1/api/jobs/${country}/search/1?${params.toString()}`;
-        console.log(`📡 Adzuna API URL: ${url}`);
 
         const response = await fetch(url, {
           headers: {
@@ -592,25 +578,18 @@ export class JobAggregator {
   ): Promise<ExternalJob[]> {
     // Check cache first for performance
     if (this.jobCache && Date.now() - this.jobCache.timestamp < this.CACHE_DURATION) {
-      console.log(`⚡ Returning cached external jobs: ${this.jobCache.data.length} jobs`);
       return this.jobCache.data;
     }
-
-    console.log("Starting fetchAllExternalJobs...");
 
     const [reedJobs, adzunaJobs] = await Promise.all([
       this.fetchReedJobs(undefined, undefined, reedOptions),
       this.fetchAdzunaJobs(undefined, undefined, adzunaOptions),
     ]);
 
-    console.log(`Reed returned ${reedJobs.length} jobs, Adzuna returned ${adzunaJobs.length} jobs`);
-
     // Combine and filter for event industry jobs first
     const allJobs = [...reedJobs, ...adzunaJobs];
-    console.log(`Combined total: ${allJobs.length} jobs`);
 
     const eventJobs = this.filterEventIndustryJobs(allJobs);
-    console.log(`After filtering for event industry: ${eventJobs.length} jobs`);
 
     const uniqueJobs = this.deduplicateJobs(eventJobs);
     console.log(`After deduplication: ${uniqueJobs.length} jobs`);
@@ -656,8 +635,6 @@ export class JobAggregator {
     let adzunaJobCount = 0;
 
     try {
-      console.log("🔄 Starting external job sync...");
-
       // Fetch jobs with individual tracking
       const [reedJobs, adzunaJobs] = await Promise.allSettled([
         this.fetchReedJobs(config.reed.keywords, config.reed.location, config.reed.options),
@@ -676,10 +653,8 @@ export class JobAggregator {
       // Process Adzuna results
       if (adzunaJobs.status === "fulfilled") {
         adzunaJobCount = adzunaJobs.value.length;
-        console.log(`📊 Adzuna: ${adzunaJobCount} jobs fetched`);
       } else {
         errors.push(`Adzuna API failed: ${adzunaJobs.reason}`);
-        console.error("❌ Adzuna API failed:", adzunaJobs.reason);
       }
 
       // Combine successful results
@@ -688,19 +663,14 @@ export class JobAggregator {
         ...(adzunaJobs.status === "fulfilled" ? adzunaJobs.value : []),
       ];
 
-      console.log(`📋 Combined total: ${allJobs.length} jobs before filtering`);
-
       // Apply event industry filtering first, then config limits
       const eventFilteredJobs = this.filterEventIndustryJobs(allJobs);
-      console.log(`🎯 After event filtering: ${eventFilteredJobs.length} jobs`);
 
       const limitedJobs = config.general.enableDeduplication
         ? this.deduplicateJobs(eventFilteredJobs)
         : eventFilteredJobs;
-      console.log(`🔧 After deduplication: ${limitedJobs.length} jobs`);
 
       const finalJobs = limitedJobs.slice(0, config.general.maxTotalJobs);
-      console.log(`✂️ Final jobs to process: ${finalJobs.length} jobs`);
 
       // Store jobs in database
       for (const job of finalJobs) {
