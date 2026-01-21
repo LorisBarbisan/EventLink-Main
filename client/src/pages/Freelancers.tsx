@@ -7,16 +7,7 @@ import { Input } from "@/components/ui/input";
 import { UKLocationInput } from "@/components/ui/uk-location-input";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  MapPin,
-  Search,
-  Star,
-  User,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, MapPin, Search, Star, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -226,7 +217,7 @@ export default function Freelancers() {
           )}
 
           {/* Freelancers Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {transformedFreelancers.map((freelancer: any) => (
               <Card
                 key={freelancer.id}
@@ -261,9 +252,7 @@ export default function Freelancers() {
                       )}
                     </div>
                     <div className="flex-1">
-                      <CardTitle className="text-xl">
-                        {freelancer.name}
-                      </CardTitle>
+                      <CardTitle className="text-xl">{freelancer.name}</CardTitle>
                       <p className="text-muted-foreground font-medium">{freelancer.title}</p>
                       {freelancer.superpower && (
                         <div className="flex items-center gap-2 mt-1">
@@ -294,59 +283,41 @@ export default function Freelancers() {
                         >
                           {freelancer.availability}
                         </Badge>
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <MapPin className="h-3 w-3" />
+                          <span>{freelancer.location}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <p className="text-muted-foreground text-sm">{freelancer.bio}</p>
-
-                    <div className="flex flex-wrap gap-2">
-                      {freelancer.skills.map((skill: any, index: number) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {skill}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span>{freelancer.location}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>{freelancer.experience}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                      <Button
-                        className="bg-gradient-primary hover:bg-primary-hover"
-                        onClick={() => {
-                          if (!currentUser) {
-                            alert("Please log in to contact freelancers");
-                            return;
-                          }
-                          setSelectedFreelancer(freelancer);
-                          setContactModalOpen(true);
-                        }}
-                        data-testid={`button-contact-${freelancer.id}`}
-                      >
-                        Contact
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          const userId = freelancer.id.replace("real-", "");
-                          setLocation(`/profile/${userId}`);
-                        }}
-                        data-testid={`button-view-profile-${freelancer.id}`}
-                      >
-                        View Profile
-                      </Button>
-                    </div>
+                <CardContent className="pt-0">
+                  <div className="flex gap-3">
+                    <Button
+                      className="bg-gradient-primary hover:bg-primary-hover h-8 text-sm"
+                      onClick={() => {
+                        if (!currentUser) {
+                          alert("Please log in to contact freelancers");
+                          return;
+                        }
+                        setSelectedFreelancer(freelancer);
+                        setContactModalOpen(true);
+                      }}
+                      data-testid={`button-contact-${freelancer.id}`}
+                    >
+                      Contact
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-8 text-sm"
+                      onClick={() => {
+                        const userId = freelancer.id.replace("real-", "");
+                        setLocation(`/profile/${userId}`);
+                      }}
+                      data-testid={`button-view-profile-${freelancer.id}`}
+                    >
+                      View Profile
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
