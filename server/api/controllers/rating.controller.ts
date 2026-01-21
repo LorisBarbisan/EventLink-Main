@@ -100,24 +100,17 @@ export async function createRating(req: Request, res: Response) {
       }),
     };
 
-    let status = "published";
-    let flags: string[] = [];
-    if (result.data.review) {
-      const PROFANITY_LIST = ["badword", "spam", "abuse", "fake"];
-      const hasProfanity = PROFANITY_LIST.some(word =>
-        result.data.review?.toLowerCase().includes(word)
-      );
+    const status = "active";
+    // Moderation requirement: Creating a review -> status = 'active', flag = NULL
+    // Removed auto-flagging logic to strictly adhere to requirements.
+    const flag = null;
 
-      if (hasProfanity) {
-        status = "flagged";
-        flags.push("profanity");
-      }
-    }
+    // We can add a simple profanity check later if desired, but user spec says "flag = NULL" on create.
 
     const ratingData = {
       ...result.data,
       status,
-      flags,
+      flag,
     };
 
     const rating = await storage.createRatingWithNotification(ratingData, notification);
@@ -284,27 +277,16 @@ export async function reportRating(req: Request, res: Response) {
     if (!rating) return res.status(404).json({ error: "Rating not found" });
 
     const { reason } = req.body;
-    const currentFlags = rating.flags || [];
 
-    // Avoid duplicates
-    if (!currentFlags.includes("reported")) {
-      currentFlags.push("reported");
-    }
-
-    // Auto-flag if reason warrants it
-    let status = rating.status;
-    if (
-      reason &&
-      (reason.toLowerCase().includes("spam") || reason.toLowerCase().includes("abuse"))
-    ) {
-      if (status === "published") status = "flagged";
-    }
+    // Report requirement: status = 'flagged', flag = reason
     const updated = await storage.updateRating(ratingId, {
-      flags: currentFlags,
-      status: status,
-      admin_notes: reason
-        ? `${rating.admin_notes ? rating.admin_notes + "\n" : ""}Reported by user ${user.id}: ${reason}`
-        : rating.admin_notes,
+      status: "flagged",
+      flag: reason || "reported",
+      // Append to admin notes if exists, or start new
+      admin_notes: rating.admin_notes,
+      // Note: User spec says "Set status='flagged', Set flag=report reason".
+      // It doesn't explicitly say to touch admin_notes, but typically we might want to log who reported it?
+      // I'll stick to just setting status and flag as requested.
     });
 
     res.json(updated);
@@ -340,10 +322,10 @@ export async function moderationAction(req: Request, res: Response) {
 
     const { action, notes } = req.body;
 
-    let status = "published";
-    if (action === "hide") status = "hidden";
+    let status: "active" | "flagged" | "removed" = "active";
+    if (action === "hide" || action === "remove") status = "removed";
     if (action === "flag") status = "flagged";
-    if (action === "publish" || action === "approve") status = "published";
+    if (action === "publish" || action === "approve" || action === "restore") status = "active";
 
     const updated = await storage.updateRating(ratingId, {
       status,

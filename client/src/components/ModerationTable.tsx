@@ -40,10 +40,12 @@ export function ModerationTable() {
 
   const [selectedRating, setSelectedRating] = useState<Rating | null>(null);
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
-  const [moderationAction, setModerationAction] = useState<"hide" | "publish" | "flag">("hide");
+  const [moderationAction, setModerationAction] = useState<
+    "remove" | "approve" | "flag" | "restore"
+  >("remove");
   const [moderationNotes, setModerationNotes] = useState("");
 
-  const handleActionClick = (rating: Rating, action: "hide" | "publish" | "flag") => {
+  const handleActionClick = (rating: Rating, action: "remove" | "approve" | "flag" | "restore") => {
     setSelectedRating(rating);
     setModerationAction(action);
     setModerationNotes("");
@@ -69,10 +71,10 @@ export function ModerationTable() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "published":
-        return <Badge className="bg-green-100 text-green-800">Published</Badge>;
-      case "hidden":
-        return <Badge variant="destructive">Hidden</Badge>;
+      case "active":
+        return <Badge className="bg-green-100 text-green-800">Active</Badge>;
+      case "removed":
+        return <Badge variant="destructive">Removed</Badge>;
       case "flagged":
         return (
           <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
@@ -95,8 +97,8 @@ export function ModerationTable() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="flagged">Flagged</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="hidden">Hidden</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="removed">Removed</SelectItem>
               <SelectItem value="all">All Ratings</SelectItem>
             </SelectContent>
           </Select>
@@ -157,29 +159,29 @@ export function ModerationTable() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        {rating.status !== "published" && (
+                        {rating.status !== "active" && (
                           <Button
                             variant="outline"
                             size="sm"
                             className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-                            onClick={() => handleActionClick(rating, "publish")}
-                            title="Publish"
+                            onClick={() => handleActionClick(rating, "restore")}
+                            title="Restore"
                           >
                             <CheckCircle className="w-4 h-4" />
                           </Button>
                         )}
-                        {rating.status !== "hidden" && (
+                        {rating.status !== "removed" && (
                           <Button
                             variant="outline"
                             size="sm"
                             className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleActionClick(rating, "hide")}
-                            title="Hide"
+                            onClick={() => handleActionClick(rating, "remove")}
+                            title="Remove"
                           >
                             <EyeOff className="w-4 h-4" />
                           </Button>
                         )}
-                        {rating.status === "published" && (
+                        {rating.status === "active" && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -204,14 +206,14 @@ export function ModerationTable() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {moderationAction === "hide" && "Hide Rating"}
-              {moderationAction === "publish" && "Publish Rating"}
+              {moderationAction === "remove" && "Remove Rating"}
+              {moderationAction === "restore" && "Restore Rating"}
               {moderationAction === "flag" && "Flag Rating"}
             </DialogTitle>
             <DialogDescription>
-              {moderationAction === "hide" &&
-                "This rating will be hidden from the freelancer's profile."}
-              {moderationAction === "publish" &&
+              {moderationAction === "remove" &&
+                "This rating will be removed from the freelancer's profile."}
+              {moderationAction === "restore" &&
                 "This rating will be visible on the freelancer's profile."}
               {moderationAction === "flag" && "Mark this rating for further review."}
             </DialogDescription>
@@ -234,7 +236,7 @@ export function ModerationTable() {
             <Button
               onClick={submitModeration}
               disabled={isModerating}
-              variant={moderationAction === "hide" ? "destructive" : "default"}
+              variant={moderationAction === "remove" ? "destructive" : "default"}
             >
               {isModerating ? "Saving..." : "Confirm Action"}
             </Button>

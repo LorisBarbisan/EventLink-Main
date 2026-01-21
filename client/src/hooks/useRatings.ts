@@ -9,8 +9,8 @@ export interface Rating {
   freelancer_id: number;
   rating: number;
   review?: string;
-  status: "published" | "hidden" | "flagged";
-  flags?: string[];
+  status: "active" | "flagged" | "removed";
+  flag?: string | null;
   admin_notes?: string;
   created_at: string;
   updated_at: string;
@@ -98,7 +98,7 @@ export function useModerationAction() {
       notes,
     }: {
       ratingId: number;
-      action: "hide" | "publish" | "flag";
+      action: "remove" | "approve" | "flag" | "restore";
       notes?: string;
     }) => {
       const response = await apiRequest(`/api/ratings/${ratingId}/moderate`, {

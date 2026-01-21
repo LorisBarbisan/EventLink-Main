@@ -22,6 +22,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useReportRating } from "@/hooks/useRatings";
@@ -69,19 +76,22 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   // Report review state
   const [reportOpen, setReportOpen] = useState(false);
   const [selectedRatingId, setSelectedRatingId] = useState<number | null>(null);
-  const [reportReason, setReportReason] = useState("");
+  const [reportFlag, setReportFlag] = useState("");
+  const [reportNote, setReportNote] = useState("");
   const { mutate: reportRating, isPending: isReporting } = useReportRating();
 
   const handleReportClick = (ratingId: number) => {
     setSelectedRatingId(ratingId);
-    setReportReason("");
+    setReportFlag("");
+    setReportNote("");
     setReportOpen(true);
   };
 
   const submitReport = () => {
-    if (selectedRatingId && reportReason.trim()) {
+    if (selectedRatingId && reportFlag) {
+      const fullReason = reportNote ? `${reportFlag}: ${reportNote}` : reportFlag;
       reportRating(
-        { ratingId: selectedRatingId, reason: reportReason },
+        { ratingId: selectedRatingId, reason: fullReason },
         {
           onSuccess: () => {
             setReportOpen(false);
@@ -957,13 +967,29 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="reason">Reason</Label>
+              <Label htmlFor="flag-reason">Reason</Label>
+              <Select value={reportFlag} onValueChange={setReportFlag}>
+                <SelectTrigger id="flag-reason">
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="spam">Spam</SelectItem>
+                  <SelectItem value="harassment">Harassment</SelectItem>
+                  <SelectItem value="abusive_language">Abusive Language</SelectItem>
+                  <SelectItem value="profanity">Profanity</SelectItem>
+                  <SelectItem value="fake_review">Fake Review</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="note">Note</Label>
               <Textarea
-                id="reason"
-                placeholder="e.g. False claims, Abusive language, Not my project..."
-                value={reportReason}
+                id="note"
+                placeholder="Add additional details..."
+                value={reportNote}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  setReportReason(e.target.value)
+                  setReportNote(e.target.value)
                 }
               />
             </div>
@@ -974,7 +1000,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
             </Button>
             <Button
               onClick={submitReport}
-              disabled={!reportReason.trim() || isReporting}
+              disabled={!reportFlag || isReporting}
               variant="destructive"
             >
               {isReporting ? "Submitting..." : "Submit Report"}

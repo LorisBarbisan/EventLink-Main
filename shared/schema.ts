@@ -267,25 +267,34 @@ export const notifications = pgTable("notifications", {
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const ratings = pgTable("ratings", {
-  id: serial("id").primaryKey(),
-  job_application_id: integer("job_application_id").references(() => job_applications.id, {
-    onDelete: "cascade",
-  }), // Made nullable for standalone reviews
-  recruiter_id: integer("recruiter_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  freelancer_id: integer("freelancer_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  rating: integer("rating").notNull().$type<1 | 2 | 3 | 4 | 5>(), // 1-5 stars
-  review: text("review"), // Optional written review
-  status: text("status").default("published").$type<"published" | "flagged" | "hidden">(),
-  flags: text("flags").array(), // Array of flags like "profanity", "spam", "reported"
-  admin_notes: text("admin_notes"), // Notes from admin moderation
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const ratings = pgTable(
+  "ratings",
+  {
+    id: serial("id").primaryKey(),
+    job_application_id: integer("job_application_id").references(() => job_applications.id, {
+      onDelete: "cascade",
+    }), // Made nullable for standalone reviews
+    recruiter_id: integer("recruiter_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    rating: integer("rating").notNull().$type<1 | 2 | 3 | 4 | 5>(), // 1-5 stars
+    review: text("review"), // Optional written review
+    status: text("status").default("active").notNull().$type<"active" | "flagged" | "removed">(),
+    flag: text("flag"), // Reason for reporting: "spam", "harassment", etc.
+    admin_notes: text("admin_notes"), // Notes from admin moderation
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    statusCheck: check(
+      "ratings_status_check",
+      sql`${table.status} IN ('active', 'flagged', 'removed')`
+    ),
+  })
+);
 
 export const rating_requests = pgTable("rating_requests", {
   id: serial("id").primaryKey(),
@@ -430,7 +439,7 @@ export const insertRatingSchema = createInsertSchema(ratings)
     created_at: true,
     updated_at: true,
     status: true,
-    flags: true,
+    flag: true,
     admin_notes: true,
   })
   .extend({

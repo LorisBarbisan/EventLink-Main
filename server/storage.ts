@@ -2433,7 +2433,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createRatingWithNotification(
-    rating: InsertRating & { status?: string; flags?: string[] },
+    rating: InsertRating,
     notification: InsertNotification
   ): Promise<Rating> {
     return await db.transaction(async tx => {
@@ -2515,7 +2515,8 @@ export class DatabaseStorage implements IStorage {
         rating: ratings.rating,
         review: ratings.review,
         status: ratings.status,
-        flags: ratings.flags,
+        flag: ratings.flag,
+        admin_notes: ratings.admin_notes,
         created_at: ratings.created_at,
         updated_at: ratings.updated_at,
         recruiter: {
@@ -2543,7 +2544,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(ratings.freelancer_id, freelancerId),
-          ne(ratings.status, "hidden") // Filter out hidden reviews
+          ne(ratings.status, "removed") // Filter out removed reviews
         )
       )
       .orderBy(desc(ratings.created_at));
@@ -2565,7 +2566,11 @@ export class DatabaseStorage implements IStorage {
   }): Promise<Array<Rating & { recruiter: User; job_title?: string }>> {
     const conditions = [];
     if (filters?.status) {
-      conditions.push(eq(ratings.status, filters.status));
+      if (filters.status === "flagged") {
+        conditions.push(or(eq(ratings.status, "flagged"), eq(ratings.flag, "reported")));
+      } else {
+        conditions.push(eq(ratings.status, filters.status));
+      }
     }
 
     const result = await db
@@ -2577,7 +2582,7 @@ export class DatabaseStorage implements IStorage {
         rating: ratings.rating,
         review: ratings.review,
         status: ratings.status,
-        flags: ratings.flags,
+        flag: ratings.flag,
         admin_notes: ratings.admin_notes,
         created_at: ratings.created_at,
         updated_at: ratings.updated_at,
