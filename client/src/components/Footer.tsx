@@ -128,6 +128,11 @@ export const Footer = () => {
                   FAQ
                 </Link>
               </li>
+              <li>
+                <Link to="/about" className="hover:text-foreground" data-testid="footer-link-about">
+                  About
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
