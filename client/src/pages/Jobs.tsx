@@ -85,6 +85,9 @@ export default function Jobs() {
 
     const newUrl = `${window.location.pathname}${urlParams.toString() ? `?${urlParams.toString()}` : ""}`;
     window.history.replaceState({}, "", newUrl);
+
+    // Scroll to top when page changes
+    window.scrollTo(0, 0);
   }, [searchQuery, locationFilter, dateFrom, dateTo, currentPage]);
 
   // Reset page when filters change
@@ -558,7 +561,8 @@ export default function Jobs() {
                                 <CalendarIcon className="h-4 w-4 text-primary" />
                                 <span>
                                   {new Date(job.event_date).toLocaleDateString()}
-                                  {job.end_date && ` - ${new Date(job.end_date).toLocaleDateString()}`}
+                                  {job.end_date &&
+                                    ` - ${new Date(job.end_date).toLocaleDateString()}`}
                                 </span>
                               </div>
                             )}
@@ -575,13 +579,17 @@ export default function Jobs() {
                             {job.duration_type === "days" && job.days && (
                               <div className="flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
-                                <span>{job.days} day{job.days !== 1 ? "s" : ""}</span>
+                                <span>
+                                  {job.days} day{job.days !== 1 ? "s" : ""}
+                                </span>
                               </div>
                             )}
                             {job.duration_type === "hours" && job.hours && (
                               <div className="flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
-                                <span>{job.hours} hour{job.hours !== 1 ? "s" : ""}</span>
+                                <span>
+                                  {job.hours} hour{job.hours !== 1 ? "s" : ""}
+                                </span>
                               </div>
                             )}
                           </div>

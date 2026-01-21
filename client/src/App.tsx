@@ -15,7 +15,6 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Auth from "./pages/Auth";
 import ContactUs from "./pages/ContactUs";
 import Dashboard from "./pages/Dashboard";
-import About from "./pages/About";
 import FAQ from "./pages/FAQ";
 import ForgotPassword from "./pages/ForgotPassword";
 import Freelancers from "./pages/Freelancers";
@@ -29,31 +28,37 @@ import { RatingDashboard } from "./pages/RatingDashboard";
 import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
 
+import { ScrollToTop } from "@/components/ScrollToTop";
+
+// ... (other imports)
+
 function AppRouter() {
   // Track page views when routes change
   useAnalytics();
 
   return (
-    <Switch>
-      <Route path="/" component={Index} />
-      <Route path="/auth" component={Auth} />
-      <Route path="/forgot-password" component={ForgotPassword} />
-      <Route path="/reset-password" component={ResetPassword} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/profile" component={Profile} />
-      <Route path="/profile/:userId" component={Profile} />
-      <Route path="/settings" component={Settings} />
-      <Route path="/notification-settings" component={NotificationSettings} />
-      <Route path="/jobs" component={Jobs} />
-      <Route path="/freelancers" component={Freelancers} />
-      <Route path="/ratings" component={RatingDashboard} />
-      <Route path="/admin" component={AdminDashboard} />
-      <Route path="/how-it-works" component={HowItWorks} />
-      <Route path="/contact-us" component={ContactUs} />
-      <Route path="/faq" component={FAQ} />
-      <Route path="/about" component={About} />
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      <ScrollToTop />
+      <Switch>
+        <Route path="/" component={Index} />
+        <Route path="/auth" component={Auth} />
+        <Route path="/forgot-password" component={ForgotPassword} />
+        <Route path="/reset-password" component={ResetPassword} />
+        <Route path="/dashboard" component={Dashboard} />
+        <Route path="/profile" component={Profile} />
+        <Route path="/profile/:userId" component={Profile} />
+        <Route path="/settings" component={Settings} />
+        <Route path="/notification-settings" component={NotificationSettings} />
+        <Route path="/jobs" component={Jobs} />
+        <Route path="/freelancers" component={Freelancers} />
+        <Route path="/ratings" component={RatingDashboard} />
+        <Route path="/admin" component={AdminDashboard} />
+        <Route path="/how-it-works" component={HowItWorks} />
+        <Route path="/contact-us" component={ContactUs} />
+        <Route path="/faq" component={FAQ} />
+        <Route component={NotFound} />
+      </Switch>
+    </>
   );
 }
 
