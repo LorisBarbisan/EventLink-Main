@@ -706,14 +706,9 @@ export default function Profile() {
                   <div className="flex-1 space-y-4">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <h1 className="text-3xl font-bold">
-                            {freelancerProfile?.first_name} {freelancerProfile?.last_name}
-                          </h1>
-                          <Badge variant="secondary" className="bg-green-100 text-green-800">
-                            VERIFIED
-                          </Badge>
-                        </div>
+                        <h1 className="text-3xl font-bold">
+                          {freelancerProfile?.first_name} {freelancerProfile?.last_name}
+                        </h1>
                         {isOwnProfile && (
                           <Button variant="outline" onClick={() => setLocation("/dashboard")}>
                             Edit Profile
@@ -818,12 +813,7 @@ export default function Profile() {
                   <div className="flex-1 space-y-4">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <h1 className="text-3xl font-bold">{recruiterProfile?.company_name}</h1>
-                          <Badge variant="secondary" className="bg-green-100 text-green-800">
-                            VERIFIED
-                          </Badge>
-                        </div>
+                        <h1 className="text-3xl font-bold">{recruiterProfile?.company_name}</h1>
                         {isOwnProfile && (
                           <Button variant="outline" onClick={() => setLocation("/dashboard")}>
                             Edit Profile
