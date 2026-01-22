@@ -15,6 +15,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Auth from "./pages/Auth";
 import ContactUs from "./pages/ContactUs";
 import Dashboard from "./pages/Dashboard";
+import About from "./pages/About";
 import FAQ from "./pages/FAQ";
 import ForgotPassword from "./pages/ForgotPassword";
 import Freelancers from "./pages/Freelancers";
@@ -56,6 +57,7 @@ function AppRouter() {
         <Route path="/how-it-works" component={HowItWorks} />
         <Route path="/contact-us" component={ContactUs} />
         <Route path="/faq" component={FAQ} />
+        <Route path="/about" component={About} />
         <Route component={NotFound} />
       </Switch>
     </>
