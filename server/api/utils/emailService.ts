@@ -170,7 +170,7 @@ export async function sendVerificationEmail(
   baseUrl: string
 ): Promise<boolean> {
   const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
-
+  console.log(`📧 Sending verification url: ${verificationUrl}`);
   const htmlContent = `
     <!DOCTYPE html>
     <html>
