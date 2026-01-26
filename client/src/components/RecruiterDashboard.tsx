@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
 import { InviteFreelancerModal } from "./InviteFreelancerModal";
+import { InvitedFreelancersDialog } from "./InvitedFreelancersDialog";
 import { JobCard } from "./JobCard";
 import { JobForm } from "./JobForm";
 import { MessagingInterface } from "./MessagingInterface";
@@ -33,7 +34,8 @@ export default function SimplifiedRecruiterDashboard() {
   const [selectedJobForInvite, setSelectedJobForInvite] = useState<{
     id: number;
     title: string;
-
+  } | null>(null);
+  const [viewInvitedJob, setViewInvitedJob] = useState<{
     id: number;
     title: string;
   } | null>(null);
@@ -148,7 +150,7 @@ export default function SimplifiedRecruiterDashboard() {
 
   // Create job mutation
   const createJobMutation = useMutation({
-    mutationFn: async (jobData: JobFormData) => {
+    mutationFn: async (jobData: JobFormData & { status: "active" | "private" }) => {
       // Remove empty string fields to prevent validation errors
       const processedData: any = { ...jobData };
 
@@ -163,7 +165,8 @@ export default function SimplifiedRecruiterDashboard() {
       const requestPayload = {
         recruiter_id: user?.id,
         company: (profile as any)?.company_name || "Company",
-        status: "private",
+        // status is included in processedData spread, but let's be explicit if needed or rely on spread
+        // The JobFormData doesn't have status, but we are passing it in the extended type.
         ...processedData,
       };
 
@@ -203,7 +206,7 @@ export default function SimplifiedRecruiterDashboard() {
 
   // Update job mutation
   const updateJobMutation = useMutation({
-    mutationFn: async (jobData: JobFormData & { id: number }) => {
+    mutationFn: async (jobData: JobFormData & { id: number; status?: "active" | "private" }) => {
       // Remove empty string fields to prevent validation errors
       const processedData: any = { ...jobData };
 
@@ -221,14 +224,14 @@ export default function SimplifiedRecruiterDashboard() {
         headers: { "Content-Type": "application/json" },
       });
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       // Invalidate queries to ensure fresh data on next fetch
       queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       setEditingJob(null);
       toast({
         title: "Success",
-        description: "Job updated successfully!",
+        description: `Job ${variables.status === "private" ? "saved" : "updated"} successfully!`,
       });
     },
     onError: (error: any) => {
@@ -377,9 +380,9 @@ export default function SimplifiedRecruiterDashboard() {
     return applications.filter((app: JobApplication) => app.job_id === jobId).length;
   };
 
-  const handleJobSubmit = (jobData: JobFormData) => {
+  const handleJobSubmit = (jobData: JobFormData, status: "active" | "private") => {
     if (editingJob) {
-      updateJobMutation.mutate({ ...jobData, id: editingJob.id });
+      updateJobMutation.mutate({ ...jobData, id: editingJob.id, status });
     } else {
       const companyName = (profile as any)?.company_name?.trim();
       if (!user?.id || !companyName) {
@@ -391,7 +394,7 @@ export default function SimplifiedRecruiterDashboard() {
         });
         return;
       }
-      createJobMutation.mutate(jobData);
+      createJobMutation.mutate({ ...jobData, status });
     }
   };
 
@@ -426,6 +429,19 @@ export default function SimplifiedRecruiterDashboard() {
     return applications.filter(
       (app: JobApplication) => app.job_id === jobId && app.status === "invited"
     ).length;
+  };
+
+  const getInvitedApplicationsForJob = (jobId: number): JobApplication[] => {
+    return applications.filter(
+      (app: JobApplication) => app.job_id === jobId && app.status === "invited"
+    );
+  };
+
+  const handleViewInvited = (jobId: number) => {
+    const job = myJobs.find((j: Job) => j.id === jobId);
+    if (job) {
+      setViewInvitedJob({ id: job.id, title: job.title });
+    }
   };
 
   const handleCancelEdit = () => {
@@ -531,6 +547,7 @@ export default function SimplifiedRecruiterDashboard() {
                   onPublish={handlePublishJob}
                   onUnpublish={handleJobUnpublish}
                   onInvite={handleJobInvite}
+                  onViewInvited={handleViewInvited}
                   onExpandToggle={toggleJobExpansion}
                   isExpanded={expandedJobs.has(job.id)}
                   showHiredSection={true}
@@ -612,8 +629,18 @@ export default function SimplifiedRecruiterDashboard() {
           jobId={selectedJobForInvite.id}
           jobTitle={selectedJobForInvite.title}
           alreadyInvitedIds={applications
-            .filter(app => app.job_id === selectedJobForInvite.id)
-            .map(app => app.freelancer_id)}
+            .filter((app: JobApplication) => app.job_id === selectedJobForInvite.id)
+            .map((app: JobApplication) => app.freelancer_id)}
+        />
+      )}
+
+      {/* View Invited Dialog */}
+      {viewInvitedJob && (
+        <InvitedFreelancersDialog
+          isOpen={!!viewInvitedJob}
+          onClose={() => setViewInvitedJob(null)}
+          jobTitle={viewInvitedJob.title}
+          invitedApplications={getInvitedApplicationsForJob(viewInvitedJob.id)}
         />
       )}
     </div>

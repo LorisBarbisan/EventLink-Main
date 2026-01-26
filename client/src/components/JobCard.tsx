@@ -49,6 +49,7 @@ interface JobCardProps {
   onPublish?: (jobId: number) => void;
   onUnpublish?: (jobId: number) => void;
   onInvite?: (jobId: number) => void;
+  onViewInvited?: (jobId: number) => void;
   invitedCount?: number;
 }
 
@@ -65,6 +66,7 @@ export function JobCard({
   onPublish,
   onUnpublish,
   onInvite,
+  onViewInvited,
   invitedCount = 0,
 }: JobCardProps) {
   const [messageModalOpen, setMessageModalOpen] = useState(false);
@@ -155,7 +157,13 @@ export function JobCard({
                     : job.status}
               </Badge>
               {job.status === "private" && invitedCount > 0 && (
-                <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+                <Badge
+                  variant="outline"
+                  className={`text-blue-600 border-blue-200 bg-blue-50 ${
+                    onViewInvited ? "cursor-pointer hover:bg-blue-100" : ""
+                  }`}
+                  onClick={() => onViewInvited?.(job.id)}
+                >
                   <UserPlus className="w-3 h-3 mr-1" />
                   {invitedCount} invited
                 </Badge>
@@ -250,7 +258,7 @@ export function JobCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="text-amber-700 border-amber-200 hover:bg-amber-50"
+                className="text-amber-700 border-amber-200 hover:bg-amber-50 hover:text-amber-800"
                 onClick={() => onUnpublish(job.id)}
               >
                 <EyeOff className="w-4 h-4 mr-2" />
