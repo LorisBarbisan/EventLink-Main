@@ -1,3 +1,4 @@
+import { DocumentUploader } from "@/components/DocumentUploader";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
 import { MessageModal } from "@/components/MessageModal";
@@ -40,6 +41,7 @@ import {
   useReportRating,
 } from "@/hooks/useRatings";
 import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   Calendar,
@@ -52,6 +54,7 @@ import {
   MessageCircle,
   Phone,
   Quote,
+  Shield,
   Star,
   User,
 } from "lucide-react";
@@ -898,6 +901,16 @@ export default function Profile() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Documents & Certifications Section (Freelancers only) */}
+          {((freelancerProfile && profile?.role !== "admin") ||
+            (profile?.role === "admin" && freelancerProfile && !recruiterProfile)) && (
+            <DocumentUploader
+              userId={freelancerProfile?.user_id || 0}
+              isOwner={isOwnProfile}
+              viewerRole={user?.role}
+            />
           )}
 
           {/* Featured Reviews Section (Freelancers only) - for future use

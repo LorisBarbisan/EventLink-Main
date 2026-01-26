@@ -631,6 +631,57 @@ export const insertEmailNotificationLogSchema = createInsertSchema(email_notific
   sent_at: true,
 });
 
+// Document type constants for controlled list
+export const DOCUMENT_TYPES = [
+  "PLI",
+  "BS7909",
+  "IPAF",
+  "NRC",
+  "PASMA",
+  "First Aid",
+  "Electrical Safety",
+  "Working at Height",
+  "Risk Assessment",
+  "Method Statement",
+  "Other",
+] as const;
+
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+
+// Freelancer documents/certifications table
+export const freelancer_documents = pgTable(
+  "freelancer_documents",
+  {
+    id: serial("id").primaryKey(),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    document_type: text("document_type").notNull().$type<DocumentType>(),
+    file_url: text("file_url").notNull(),
+    original_filename: text("original_filename").notNull(),
+    file_size: integer("file_size").notNull(),
+    file_type: text("file_type").notNull(),
+    uploaded_at: timestamp("uploaded_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    freelancerIdx: index("freelancer_documents_freelancer_idx").on(table.freelancer_id),
+  })
+);
+
+export const insertFreelancerDocumentSchema = createInsertSchema(freelancer_documents)
+  .omit({
+    id: true,
+    uploaded_at: true,
+  })
+  .extend({
+    freelancer_id: z.number(),
+    document_type: z.enum(DOCUMENT_TYPES),
+    file_url: z.string().min(1),
+    original_filename: z.string().min(1),
+    file_size: z.number().positive(),
+    file_type: z.string().min(1),
+  });
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertSocialUser = z.infer<typeof insertSocialUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -668,3 +719,5 @@ export type JobAlertFilter = typeof job_alert_filters.$inferSelect;
 export type InsertJobAlertFilter = z.infer<typeof insertJobAlertFilterSchema>;
 export type EmailNotificationLog = typeof email_notification_logs.$inferSelect;
 export type InsertEmailNotificationLog = z.infer<typeof insertEmailNotificationLogSchema>;
+export type FreelancerDocument = typeof freelancer_documents.$inferSelect;
+export type InsertFreelancerDocument = z.infer<typeof insertFreelancerDocumentSchema>;
