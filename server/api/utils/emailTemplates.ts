@@ -363,3 +363,37 @@ export function passwordResetEmail(data: { recipientName: string; resetUrl: stri
     html: masterTemplate(content),
   };
 }
+
+/**
+ * Invitation to Apply Template
+ */
+export function invitationEmail(data: {
+  recipientName: string;
+  recruiterName: string;
+  jobTitle: string;
+  message: string;
+  jobUrl: string;
+}): { subject: string; html: string } {
+  const content = `
+    <h2>👋 You've been invited to apply!</h2>
+    <p>Hi ${data.recipientName},</p>
+    <p>
+      <strong>${data.recruiterName}</strong> has invited you to apply for their job
+      <strong>"${data.jobTitle}"</strong>.
+    </p>
+    <div style="background-color: #f9f9f9; border-left: 4px solid #D8690E; padding: 16px; margin: 16px 0; border-radius: 4px;">
+      <p style="margin: 0; font-style: italic;">"${data.message}"</p>
+    </div>
+    <p>
+      Review the job details and submit your application if you're interested!
+    </p>
+    <p>
+      <a href="${data.jobUrl}" class="button">View Job & Apply</a>
+    </p>
+  `;
+
+  return {
+    subject: `👋 Invited to apply: ${data.jobTitle}`,
+    html: masterTemplate(content),
+  };
+}

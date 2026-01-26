@@ -17,6 +17,32 @@ export async function getJobById(req: Request, res: Response) {
       return res.status(404).json({ error: "Job not found" });
     }
 
+    // Access control for Private jobs
+    if (job.status === "private") {
+      const user = (req as any).user;
+
+      // If not logged in, cannot see private jobs
+      if (!user) {
+        return res.status(404).json({ error: "Job not found" }); // Hide existence
+      }
+
+      // Owner and admin can see
+      const isOwner = job.recruiter_id === user.id;
+      const isAdmin = user.role === "admin";
+
+      if (!isOwner && !isAdmin) {
+        // Check if user is an invited freelancer
+        const applications = await storage.getJobApplicationsByFreelancer(user.id);
+        const hasInvitation = applications.some(
+          app => app.job_id === jobId && app.status === "invited"
+        );
+
+        if (!hasInvitation) {
+          return res.status(404).json({ error: "Job not found" }); // Hide existence
+        }
+      }
+    }
+
     res.json(job);
   } catch (error) {
     console.error("Get job by ID error:", error);
@@ -83,11 +109,12 @@ export async function createJob(req: Request, res: Response) {
     const job = await storage.createJob({
       ...result.data,
       recruiter_id: (req as any).user.id,
+      status: result.data.status || "private", // Default to private if not specified
     });
 
     // Send job alert emails to matching freelancers (non-blocking)
-    // Only for EventLink jobs (not external jobs)
-    if (job.type !== "external") {
+    // Only for EventLink jobs (not external jobs) AND only if active (published)
+    if (job.type !== "external" && job.status === "active") {
       const { emailService } = await import("../utils/emailNotificationService");
       emailService.sendJobAlertToMatchingFreelancers(job).catch(error => {
         console.error("Failed to send job alert emails:", error);
@@ -157,6 +184,16 @@ export async function updateJob(req: Request, res: Response) {
         })
       )
     );
+
+    // If job is being published (status changing to active), send alerts if not sent before
+    if (job.status === "private" && updatedJob.status === "active") {
+      if (updatedJob.type !== "external") {
+        const { emailService } = await import("../utils/emailNotificationService");
+        emailService.sendJobAlertToMatchingFreelancers(updatedJob).catch(error => {
+          console.error("Failed to send job alert emails:", error);
+        });
+      }
+    }
 
     res.json(updatedJob);
   } catch (error) {

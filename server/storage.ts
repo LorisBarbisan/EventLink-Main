@@ -156,6 +156,11 @@ export interface IStorage {
     status: "applied" | "reviewed" | "shortlisted" | "rejected" | "hired",
     rejectionMessage?: string
   ): Promise<JobApplication>;
+  updateInvitationResponse(
+    applicationId: number,
+    status: "applied" | "declined",
+    responseMessage?: string
+  ): Promise<JobApplication>;
   // Soft delete methods for applications
   softDeleteApplication(applicationId: number, userRole: "freelancer" | "recruiter"): Promise<void>;
   getRecruiterApplications(recruiterId: number): Promise<JobApplication[]>;
@@ -881,6 +886,7 @@ export class DatabaseStorage implements IStorage {
         first_name: freelancer_profiles.first_name,
         last_name: freelancer_profiles.last_name,
         title: freelancer_profiles.title,
+        superpower: freelancer_profiles.superpower,
         bio: freelancer_profiles.bio,
         location: freelancer_profiles.location,
         experience_years: freelancer_profiles.experience_years,
@@ -1298,6 +1304,8 @@ export class DatabaseStorage implements IStorage {
         recruiter_deleted: job_applications.recruiter_deleted,
         job_title: jobs.title,
         job_company: jobs.company,
+        invitation_message: job_applications.invitation_message,
+        freelancer_response: job_applications.freelancer_response,
         recruiter_id: jobs.recruiter_id,
         rating_id: sql<number>`(SELECT id FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
@@ -1331,6 +1339,8 @@ export class DatabaseStorage implements IStorage {
         recruiter_deleted: job_applications.recruiter_deleted,
         job_title: jobs.title,
         job_company: jobs.company,
+        invitation_message: job_applications.invitation_message,
+        freelancer_response: job_applications.freelancer_response,
         rating_id: sql<number>`(SELECT id FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
@@ -1386,12 +1396,15 @@ export class DatabaseStorage implements IStorage {
         recruiter_id: jobs.recruiter_id,
         job_title: jobs.title,
         job_company: jobs.company,
+        invitation_message: job_applications.invitation_message,
+        freelancer_response: job_applications.freelancer_response,
         freelancer_profile: {
           id: freelancer_profiles.id,
           user_id: freelancer_profiles.user_id,
           first_name: freelancer_profiles.first_name,
           last_name: freelancer_profiles.last_name,
           title: freelancer_profiles.title,
+          superpower: freelancer_profiles.superpower,
           bio: freelancer_profiles.bio,
           location: freelancer_profiles.location,
           experience_years: freelancer_profiles.experience_years,
@@ -1434,7 +1447,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateApplicationStatus(
     applicationId: number,
-    status: "applied" | "reviewed" | "shortlisted" | "rejected" | "hired",
+    status: "applied" | "reviewed" | "shortlisted" | "rejected" | "hired" | "invited" | "declined",
     rejectionMessage?: string
   ): Promise<JobApplication> {
     const updateData: any = {
@@ -1472,6 +1485,33 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Clear cached application lists so refetches get fresh data
+    cache.clearPattern("freelancer-applications-");
+    cache.clearPattern("recruiter-applications-");
+
+    return result[0];
+  }
+
+  async updateInvitationResponse(
+    applicationId: number,
+    status: "applied" | "declined",
+    responseMessage?: string
+  ): Promise<JobApplication> {
+    const updateData: any = {
+      status: status,
+      updated_at: sql`now()`,
+    };
+
+    if (status === "declined" && responseMessage) {
+      updateData.freelancer_response = responseMessage;
+    }
+
+    const result = await db
+      .update(job_applications)
+      .set(updateData)
+      .where(eq(job_applications.id, applicationId))
+      .returning();
+
+    // Clear cache
     cache.clearPattern("freelancer-applications-");
     cache.clearPattern("recruiter-applications-");
 

@@ -7,11 +7,19 @@ import {
   getFreelancerBookings,
   getJobApplications,
   getRecruiterApplications,
+  inviteFreelancer,
   rejectApplication,
+  respondToInvitation,
 } from "../controllers/applications.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
 
 export function registerApplicationRoutes(app: Express) {
+  // Respond to invitation (Accept/Decline)
+  app.post("/api/applications/:applicationId/respond", authenticateJWT, respondToInvitation);
+
+  // Invite freelancer to apply
+  app.post("/api/applications/invite", authenticateJWT, inviteFreelancer);
+
   // Get freelancer bookings (accepted applications)
   app.get("/api/freelancer/:freelancerId/bookings", authenticateJWT, getFreelancerBookings);
 

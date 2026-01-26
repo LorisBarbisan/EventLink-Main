@@ -13,6 +13,7 @@ import { Briefcase, Plus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
+import { InviteFreelancerModal } from "./InviteFreelancerModal";
 import { JobCard } from "./JobCard";
 import { JobForm } from "./JobForm";
 import { MessagingInterface } from "./MessagingInterface";
@@ -22,12 +23,20 @@ export default function SimplifiedRecruiterDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("profile");
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [expandedJobs, setExpandedJobs] = useState<Set<number>>(new Set());
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [selectedJobForInvite, setSelectedJobForInvite] = useState<{
+    id: number;
+    title: string;
+
+    id: number;
+    title: string;
+  } | null>(null);
 
   // Get badge counts for tabs
   const { roleSpecificCounts, markCategoryAsRead } = useBadgeCounts({
@@ -50,7 +59,10 @@ export default function SimplifiedRecruiterDashboard() {
       }
 
       // Update active conversation if present
-      const convParam = urlParams.get("conversation") || urlParams.get("conversationId") || urlParams.get("recipientId");
+      const convParam =
+        urlParams.get("conversation") ||
+        urlParams.get("conversationId") ||
+        urlParams.get("recipientId");
       const newConvId = convParam ? parseInt(convParam, 10) : null;
       if (newConvId !== activeConversationId) {
         setActiveConversationId(newConvId);
@@ -151,7 +163,7 @@ export default function SimplifiedRecruiterDashboard() {
       const requestPayload = {
         recruiter_id: user?.id,
         company: (profile as any)?.company_name || "Company",
-        status: "active",
+        status: "private",
         ...processedData,
       };
 
@@ -261,6 +273,60 @@ export default function SimplifiedRecruiterDashboard() {
     },
   });
 
+  // Publish job mutation
+  const publishJobMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      return await apiRequest(`/api/jobs/${jobId}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "active" }),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({
+        title: "Success",
+        description: "Job published successfully!",
+      });
+    },
+    onError: (error: any) => {
+      console.error("❌ Job publish error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to publish job. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Unpublish job mutation (Make Private)
+  const unpublishJobMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      return await apiRequest(`/api/jobs/${jobId}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "private" }),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({
+        title: "Success",
+        description: "Job is now private.",
+      });
+    },
+    onError: (error: any) => {
+      console.error("❌ Job unpublish error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to make job private. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Helper functions
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -338,6 +404,28 @@ export default function SimplifiedRecruiterDashboard() {
 
   const handleJobDelete = (jobId: number) => {
     deleteJobMutation.mutate(jobId);
+  };
+
+  const handlePublishJob = (jobId: number) => {
+    publishJobMutation.mutate(jobId);
+  };
+
+  const handleJobUnpublish = (jobId: number) => {
+    unpublishJobMutation.mutate(jobId);
+  };
+
+  const handleJobInvite = (jobId: number) => {
+    const job = myJobs.find((j: Job) => j.id === jobId);
+    if (job) {
+      setSelectedJobForInvite({ id: job.id, title: job.title });
+      setInviteModalOpen(true);
+    }
+  };
+
+  const getInvitedCountForJob = (jobId: number): number => {
+    return applications.filter(
+      (app: JobApplication) => app.job_id === jobId && app.status === "invited"
+    ).length;
   };
 
   const handleCancelEdit = () => {
@@ -437,8 +525,12 @@ export default function SimplifiedRecruiterDashboard() {
                   job={job}
                   hiredApplicants={getHiredApplicantsForJob(job.id)}
                   applicantCount={getApplicantCountForJob(job.id)}
+                  invitedCount={getInvitedCountForJob(job.id)}
                   onEdit={handleJobEdit}
                   onDelete={handleJobDelete}
+                  onPublish={handlePublishJob}
+                  onUnpublish={handleJobUnpublish}
+                  onInvite={handleJobInvite}
                   onExpandToggle={toggleJobExpansion}
                   isExpanded={expandedJobs.has(job.id)}
                   showHiredSection={true}
@@ -470,9 +562,7 @@ export default function SimplifiedRecruiterDashboard() {
               <p className="text-muted-foreground">Create new connections and grow your network</p>
             </div>
           </div>
-          <MessagingInterface
-            initialConversationId={activeConversationId}
-          />
+          <MessagingInterface initialConversationId={activeConversationId} />
         </TabsContent>
 
         {/* Applications Tab */}
@@ -510,6 +600,22 @@ export default function SimplifiedRecruiterDashboard() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Invite Modal */}
+      {selectedJobForInvite && (
+        <InviteFreelancerModal
+          isOpen={inviteModalOpen}
+          onClose={() => {
+            setInviteModalOpen(false);
+            setSelectedJobForInvite(null);
+          }}
+          jobId={selectedJobForInvite.id}
+          jobTitle={selectedJobForInvite.title}
+          alreadyInvitedIds={applications
+            .filter(app => app.job_id === selectedJobForInvite.id)
+            .map(app => app.freelancer_id)}
+        />
+      )}
     </div>
   );
 }

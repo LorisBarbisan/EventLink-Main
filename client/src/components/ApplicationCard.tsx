@@ -73,6 +73,10 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
 
   const [showMessageModal, setShowMessageModal] = useState(false);
 
+  // Invite response state
+  const [showDeclineInvitationDialog, setShowDeclineInvitationDialog] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+
   // Report review state
   const [reportOpen, setReportOpen] = useState(false);
   const [selectedRatingId, setSelectedRatingId] = useState<number | null>(null);
@@ -80,6 +84,57 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   const [reportNote, setReportNote] = useState("");
   const { mutate: reportRating, isPending: isReporting } = useReportRating();
 
+  // Handle invitation response
+  const respondMutation = useMutation({
+    mutationFn: async ({
+      status,
+      responseMessage,
+    }: {
+      status: "applied" | "declined";
+      responseMessage?: string;
+    }) => {
+      return await apiRequest(`/api/applications/${application.id}/respond`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, responseMessage }),
+      });
+    },
+    onSuccess: async (_, variables) => {
+      // Invalidate and refetch
+      if (userType === "freelancer") {
+        await queryClient.invalidateQueries({
+          queryKey: ["/api/freelancer/applications", currentUserId],
+        });
+      }
+
+      if (variables.status === "declined") {
+        setShowDeclineInvitationDialog(false);
+      }
+
+      toast({
+        title: variables.status === "applied" ? "Invitation Accepted" : "Invitation Declined",
+        description:
+          variables.status === "applied"
+            ? "Your application has been submitted."
+            : "You have declined the invitation.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to respond to invitation.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeclineInvitation = () => {
+    respondMutation.mutate({ status: "declined", responseMessage: declineReason });
+  };
+
+  const handleAcceptInvitation = () => {
+    respondMutation.mutate({ status: "applied", responseMessage: "Invitation accepted" });
+  };
   const handleReportClick = (ratingId: number) => {
     setSelectedRatingId(ratingId);
     setReportFlag("");
@@ -577,6 +632,67 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
               {userType === "freelancer" && (
                 <>
                   <div className="flex flex-wrap gap-2 justify-end w-full items-center">
+                    {application.status === "invited" && (
+                      <>
+                        <Button
+                          variant="outline"
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                          size="sm"
+                          onClick={() => setShowDeclineInvitationDialog(true)}
+                          disabled={respondMutation.isPending}
+                        >
+                          Decline
+                        </Button>
+                        <Button
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                          size="sm"
+                          onClick={handleAcceptInvitation}
+                          disabled={respondMutation.isPending}
+                        >
+                          Accept Invitation
+                        </Button>
+
+                        <Dialog
+                          open={showDeclineInvitationDialog}
+                          onOpenChange={setShowDeclineInvitationDialog}
+                        >
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Decline Invitation</DialogTitle>
+                              <DialogDescription>
+                                Please provide a reason for declining this invitation.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                              <Label htmlFor="decline-reason" className="mb-2 block">
+                                Reason
+                              </Label>
+                              <Textarea
+                                id="decline-reason"
+                                placeholder="e.g., Not available on these dates, Rate too low..."
+                                value={declineReason}
+                                onChange={e => setDeclineReason(e.target.value)}
+                              />
+                            </div>
+                            <DialogFooter>
+                              <Button
+                                variant="outline"
+                                onClick={() => setShowDeclineInvitationDialog(false)}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                onClick={handleDeclineInvitation}
+                                disabled={!declineReason.trim() || respondMutation.isPending}
+                              >
+                                Decline
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </>
+                    )}
                     <Dialog open={showJobDetailsDialog} onOpenChange={setShowJobDetailsDialog}>
                       <DialogTrigger asChild>
                         <Button
