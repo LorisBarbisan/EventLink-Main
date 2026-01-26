@@ -152,7 +152,7 @@ export class EmailNotificationService {
       return false;
     }
 
-    const applicationUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=applications`;
+    const applicationUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=jobs`;
     const { subject, html } = emailTemplates.applicationUpdateEmail({
       recipientName: params.recipientName,
       jobTitle: params.jobTitle,
@@ -478,6 +478,43 @@ export class EmailNotificationService {
       notificationType: "system",
       relatedEntityType: null,
       relatedEntityId: null,
+    });
+  }
+  /**
+   * Send invitation to apply notification email
+   */
+  async sendInvitationNotification(params: {
+    recipientId: number;
+    recipientEmail: string;
+    recipientName: string;
+    recruiterName: string;
+    jobTitle: string;
+    message: string;
+    jobId: number;
+  }): Promise<boolean> {
+    // Check if user wants job update notifications (using job_update preference for invitations)
+    if (!(await this.canSendEmail(params.recipientId, "job_update"))) {
+      console.log(`User ${params.recipientId} has job update notifications disabled`);
+      return false;
+    }
+
+    const jobUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=jobs`;
+    const { subject, html } = emailTemplates.invitationEmail({
+      recipientName: params.recipientName,
+      recruiterName: params.recruiterName,
+      jobTitle: params.jobTitle,
+      message: params.message,
+      jobUrl,
+    });
+
+    return this.sendEmailWithLogging({
+      to: params.recipientEmail,
+      subject,
+      html,
+      userId: params.recipientId,
+      notificationType: "job_update", // Reusing job_update type
+      relatedEntityType: "job",
+      relatedEntityId: params.jobId,
     });
   }
 }

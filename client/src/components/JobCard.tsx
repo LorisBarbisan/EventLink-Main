@@ -23,11 +23,15 @@ import {
   Coins,
   Edit,
   Eye,
+  EyeOff,
+  Lock,
   MapPin,
   MessageCircle,
+  Send,
   Star,
   Trash2,
   User,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { useState } from "react";
@@ -42,6 +46,10 @@ interface JobCardProps {
   isExpanded?: boolean;
   showHiredSection?: boolean;
   currentUserId?: number;
+  onPublish?: (jobId: number) => void;
+  onUnpublish?: (jobId: number) => void;
+  onInvite?: (jobId: number) => void;
+  invitedCount?: number;
 }
 
 export function JobCard({
@@ -54,6 +62,10 @@ export function JobCard({
   isExpanded = false,
   showHiredSection = true,
   currentUserId = 0,
+  onPublish,
+  onUnpublish,
+  onInvite,
+  invitedCount = 0,
 }: JobCardProps) {
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [selectedFreelancer, setSelectedFreelancer] = useState<{ id: number; name: string } | null>(
@@ -123,11 +135,31 @@ export function JobCard({
                     ? "default"
                     : job.status === "paused"
                       ? "secondary"
-                      : "outline"
+                      : job.status === "private"
+                        ? "secondary"
+                        : "outline"
+                }
+                className={
+                  job.status === "private"
+                    ? "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200"
+                    : job.status === "active"
+                      ? "bg-green-100 text-green-800 hover:bg-green-200 border-green-200"
+                      : ""
                 }
               >
-                {job.status}
+                {job.status === "private" && <Lock className="w-3 h-3 mr-1" />}
+                {job.status === "active"
+                  ? "Public"
+                  : job.status === "private"
+                    ? "Private"
+                    : job.status}
               </Badge>
+              {job.status === "private" && invitedCount > 0 && (
+                <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+                  <UserPlus className="w-3 h-3 mr-1" />
+                  {invitedCount} invited
+                </Badge>
+              )}
               {showHiredSection && hiredApplicants.length > 0 && (
                 <Badge variant="default" className="bg-green-600 hover:bg-green-700">
                   {hiredApplicants.length} hired
@@ -193,6 +225,38 @@ export function JobCard({
           </div>
 
           <div className="flex flex-row gap-2 sm:ml-4 w-full sm:w-auto justify-end sm:justify-start">
+            {job.status === "private" && onInvite && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                onClick={() => onInvite(job.id)}
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Invite
+              </Button>
+            )}
+            {job.status === "private" && onPublish && (
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => onPublish(job.id)}
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Publish
+              </Button>
+            )}
+            {job.status === "active" && onUnpublish && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-amber-700 border-amber-200 hover:bg-amber-50"
+                onClick={() => onUnpublish(job.id)}
+              >
+                <EyeOff className="w-4 h-4 mr-2" />
+                Make Private
+              </Button>
+            )}
             {onEdit && (
               <Button
                 variant="outline"

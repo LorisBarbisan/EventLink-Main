@@ -125,7 +125,7 @@ export const jobs = pgTable("jobs", {
   end_time: text("end_time"), // Optional end time (e.g., "17:00")
   days: integer("days"), // Number of days if duration_type = 'days'
   hours: integer("hours"), // Number of hours if duration_type = 'hours'
-  status: text("status").default("active").$type<"active" | "paused" | "closed">(),
+  status: text("status").default("private").$type<"active" | "paused" | "closed" | "private">(),
   external_id: text("external_id"), // For external job IDs (reed_123, adzuna_456)
   external_source: text("external_source").$type<"reed" | "adzuna" | null>(), // Source of external job
   external_url: text("external_url"), // URL to original job posting
@@ -144,9 +144,13 @@ export const job_applications = pgTable("job_applications", {
     .references(() => users.id, { onDelete: "cascade" }),
   status: text("status")
     .default("applied")
-    .$type<"applied" | "reviewed" | "shortlisted" | "rejected" | "hired">(),
+    .$type<
+      "applied" | "reviewed" | "shortlisted" | "rejected" | "hired" | "invited" | "declined"
+    >(),
   cover_letter: text("cover_letter"),
-  rejection_message: text("rejection_message"), // Message explaining rejection
+  rejection_message: text("rejection_message"), // Message explaining rejection (recruiter -> freelancer)
+  invitation_message: text("invitation_message"), // Message sent with invitation (recruiter -> freelancer)
+  freelancer_response: text("freelancer_response"), // Response message when declining (freelancer -> recruiter)
   freelancer_deleted: boolean("freelancer_deleted").default(false).notNull(), // Soft delete flag for freelancer view
   recruiter_deleted: boolean("recruiter_deleted").default(false).notNull(), // Soft delete flag for recruiter view
   applied_at: timestamp("applied_at", { withTimezone: true }).defaultNow().notNull(),

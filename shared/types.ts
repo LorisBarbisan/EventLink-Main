@@ -78,7 +78,7 @@ export interface Job {
   end_time?: string;
   days?: number;
   hours?: number;
-  status: "active" | "paused" | "closed";
+  status: "active" | "paused" | "closed" | "private";
   external_id?: string;
   external_source?: string;
   external_url?: string;
@@ -91,7 +91,7 @@ export interface JobApplication {
   id: number;
   job_id: number;
   freelancer_id: number;
-  status: "applied" | "pending" | "reviewed" | "rejected" | "hired";
+  status: "applied" | "pending" | "reviewed" | "rejected" | "hired" | "invited" | "declined";
   cover_letter?: string;
   rejection_message?: string;
   applied_at: string;
@@ -104,6 +104,8 @@ export interface JobApplication {
   rating?: number;
   review?: string;
   has_requested_rating?: boolean;
+  invitation_message?: string;
+  freelancer_response?: string;
 }
 
 export interface Message {

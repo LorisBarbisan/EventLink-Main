@@ -476,3 +476,206 @@ export async function deleteApplication(req: Request, res: Response) {
     res.status(500).json({ error: "Internal server error" });
   }
 }
+// Invite freelancer to job
+export async function inviteFreelancer(req: Request, res: Response) {
+  try {
+    const { jobId, freelancerId, message } = req.body;
+
+    if (!(req as any).user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if ((req as any).user.role !== "recruiter" && (req as any).user.role !== "admin") {
+      return res.status(403).json({ error: "Only recruiters can invite freelancers" });
+    }
+
+    // Check if job exists and user owns it
+    const job = await storage.getJobById(jobId);
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    if ((req as any).user.role !== "admin" && job.recruiter_id !== (req as any).user.id) {
+      return res.status(403).json({ error: "Not authorized to invite to this job" });
+    }
+
+    // Check if already applied/invited
+    const existingApplications = await storage.getFreelancerApplications(freelancerId);
+    const alreadyApplied = existingApplications.some(app => app.job_id === jobId);
+
+    if (alreadyApplied) {
+      return res
+        .status(400)
+        .json({ error: "Freelancer has already applied or been invited to this job" });
+    }
+
+    const applicationData = {
+      job_id: jobId,
+      freelancer_id: freelancerId,
+      status: "invited" as const,
+      invitation_message: message,
+      cover_letter: "", // No cover letter for invites initially
+    };
+
+    const result = insertJobApplicationSchema.safeParse(applicationData);
+    if (!result.success) {
+      return res.status(400).json({ error: "Invalid input", details: result.error.issues });
+    }
+
+    const application = await storage.createJobApplication(result.data);
+
+    // Create notification for freelancer
+    await storage.createNotification({
+      user_id: freelancerId,
+      type: "application_update", // Using application_update or maybe 'system' for invites
+      title: "Job Invitation",
+      message: `${(req as any).user.first_name || "A recruiter"} invited you to apply for "${job.title}" at ${job.company}`,
+      priority: "high",
+      related_entity_type: "application",
+      related_entity_id: application.id,
+      action_url: "/dashboard?tab=jobs",
+      metadata: JSON.stringify({
+        application_id: application.id,
+        job_id: jobId,
+        type: "invitation",
+      }),
+    });
+
+    // Send email notification to freelancer
+    try {
+      const freelancer = await storage.getUser(freelancerId);
+      const recruiter = await storage.getUser((req as any).user.id);
+      const recruiterProfile = await storage.getRecruiterProfile((req as any).user.id);
+
+      if (freelancer && recruiter) {
+        let recruiterDisplayName = recruiterProfile?.company_name || recruiter.email;
+        if (
+          (!recruiterDisplayName || recruiterDisplayName === recruiter.email) &&
+          (recruiter.first_name || recruiter.last_name)
+        ) {
+          recruiterDisplayName =
+            `${recruiter.first_name || ""} ${recruiter.last_name || ""}`.trim();
+        }
+
+        let freelancerDisplayName = freelancer.email;
+        const freelancerProfile = await storage.getFreelancerProfile(freelancerId);
+        if (freelancerProfile && (freelancerProfile.first_name || freelancerProfile.last_name)) {
+          freelancerDisplayName =
+            `${freelancerProfile.first_name || ""} ${freelancerProfile.last_name || ""}`.trim();
+        }
+
+        await emailService.sendInvitationNotification({
+          recipientId: freelancerId,
+          recipientEmail: freelancer.email,
+          recipientName: freelancerDisplayName,
+          recruiterName: recruiterDisplayName,
+          jobTitle: job.title,
+          message: message || "I'd like to invite you to apply for my job.",
+          jobId: jobId,
+        });
+      }
+    } catch (emailError) {
+      console.error("Failed to send invitation email:", emailError);
+      // Continue, don't fail the request
+    }
+
+    res.status(201).json(application);
+  } catch (error) {
+    console.error("Invite freelancer error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Respond to invitation (Accept/Decline)
+export async function respondToInvitation(req: Request, res: Response) {
+  try {
+    const applicationId = parseInt(req.params.applicationId);
+    const { status, responseMessage } = req.body; // status: 'applied' (accept) or 'declined'
+
+    if (!(req as any).user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const application = await storage.getJobApplicationById(applicationId);
+    if (!application) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    if (application.freelancer_id !== (req as any).user.id) {
+      return res.status(403).json({ error: "Not authorized to respond to this invitation" });
+    }
+
+    if (application.status !== "invited") {
+      return res
+        .status(400)
+        .json({ error: "This application is not an invitation or already responded to" });
+    }
+
+    if (status !== "applied" && status !== "declined") {
+      return res.status(400).json({ error: "Invalid status response" });
+    }
+
+    // Update status
+    // If declined, save response message key
+    // We need to update storage method or use direct db update if schema supports it
+    // Our updateApplicationStatus handles status, but not extra fields like responseMessage easily
+    // without schema change I made.
+
+    // I need to use db directly or extend storage method.
+    // For now I'll use storage.updateApplicationStatus but I need to handle freelancer_response.
+    // Actually I can't update freelancer_response with updateApplicationStatus.
+    // I should create a specific method in storage or extend updateApplicationStatus?
+    // Let's modify storage first? or just use db import here?
+    // I'll stick to 'storage' abstraction but since I can't edit storage in this tool call...
+    // I will wait.
+
+    // WAIT: I can't edit storage.ts in this tool call.
+    // I should have updated storage.ts to support updating freelancer_response.
+
+    // Let's implement what we can here and I'll do a separate fix for storage if needed.
+    // Actually, I can allow db usage here since it is available in imports?
+    // 'db' is NOT imported in applications.controller.ts currently.
+    // So I should stick to storage interface.
+
+    // I will use updateApplicationStatus for now, and handle the message separately or update storage later.
+    // BETTER: I'll finish this controller method assuming `updateInvitationResponse` exists,
+    // then I'll go add it to storage.ts. It's safer.
+
+    // Or I can just import 'db' and 'job_applications', 'eq' from schema/db config.
+    // Let's rely on adding a method to storage.ts
+
+    await storage.updateInvitationResponse(applicationId, status, responseMessage);
+
+    // Notify recruiter
+    const job = await storage.getJobById(application.job_id);
+    if (job) {
+      const title = status === "applied" ? "Invitation Accepted" : "Invitation Declined";
+      const message =
+        status === "applied"
+          ? `Freelancer accepted your invitation for "${job.title}"`
+          : `Freelancer declined your invitation for "${job.title}"`;
+
+      await storage.createNotification({
+        user_id: job.recruiter_id,
+        type: "application_update",
+        title: title,
+        message: message,
+        priority: "normal",
+        related_entity_type: "application",
+        related_entity_id: applicationId,
+        action_url: "/dashboard?tab=applications",
+        metadata: JSON.stringify({
+          application_id: applicationId,
+          job_id: job.id,
+          status: status,
+          response: responseMessage,
+        }),
+      });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Respond invitation error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
