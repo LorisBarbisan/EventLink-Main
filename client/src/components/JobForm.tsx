@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,10 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UKLocationInput } from "@/components/ui/uk-location-input";
 import type { JobFormData } from "@shared/types";
+import { useState } from "react";
 
 interface JobFormProps {
   initialData?: any; // Job data for editing
-  onSubmit: (data: JobFormData) => void;
+  onSubmit: (data: JobFormData, status: "active" | "private") => void;
   onCancel: () => void;
   isSubmitting: boolean;
   isEditing?: boolean;
@@ -38,12 +38,12 @@ export function JobForm({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleLocationChange = (value: string, locationData?: any) => {
+  const handleLocationChange = (value: string, _locationData?: any) => {
     setFormData(prev => ({ ...prev, location: value }));
   };
 
-  const handleSubmit = () => {
-    onSubmit(formData);
+  const handleSubmit = (status: "active" | "private") => {
+    onSubmit(formData, status);
     // Reset form only when creating new job
     if (!isEditing) {
       setFormData({
@@ -183,13 +183,27 @@ export function JobForm({
 
         {/* Submit buttons */}
         <div className="flex gap-2">
+          {/* Save Job Button - Makes it Private */}
           <Button
-            onClick={handleSubmit}
+            variant="secondary"
+            onClick={() => handleSubmit("private")}
             disabled={isSubmitting || !isValid}
-            data-testid="button-submit-job"
+            data-testid="button-save-job"
+            className="border-gray-200"
           >
-            {isSubmitting ? "Posting..." : isEditing ? "Update Job" : "Post Job"}
+            {isEditing ? "Save Job" : "Save Job"}
           </Button>
+
+          {/* Post Job Button - Makes it Active/Public */}
+          <Button
+            onClick={() => handleSubmit("active")}
+            disabled={isSubmitting || !isValid}
+            data-testid="button-post-job"
+            className="bg-[#EFA068] hover:bg-[#E59058] text-white"
+          >
+            {isSubmitting ? "Posting..." : isEditing ? "Post Job" : "Post Job"}
+          </Button>
+
           <Button variant="outline" onClick={onCancel} data-testid="button-cancel-job">
             Cancel
           </Button>
