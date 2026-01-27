@@ -71,7 +71,11 @@ export async function uploadDocument(req: Request, res: Response) {
       `📤 Uploading document to storage: path=${objectKey}, size=${actualSize} bytes`
     );
 
-    const replitClient = new ReplitStorageClient();
+    const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
+    if (!bucketId) {
+      throw new Error("Object storage not configured");
+    }
+    const replitClient = new ReplitStorageClient({ bucketId });
     
     try {
       const uploadResult = await replitClient.uploadFromBytes(objectKey, buffer);
@@ -98,7 +102,7 @@ export async function uploadDocument(req: Request, res: Response) {
 
     const validationResult = insertFreelancerDocumentSchema.safeParse(documentData);
     if (!validationResult.success) {
-      await replitClient.delete(objectKey, { ignoreNotFound: true }).catch(() => {});
+      replitClient.delete(objectKey, { ignoreNotFound: true }).catch(() => {});
       return res.status(400).json({
         error: "Invalid document data",
         details: validationResult.error.issues,
@@ -215,8 +219,11 @@ export async function deleteDocument(req: Request, res: Response) {
     }
 
     try {
-      const replitClient = new ReplitStorageClient();
-      await replitClient.delete(document.file_url, { ignoreNotFound: true });
+      const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
+      if (bucketId) {
+        const replitClient = new ReplitStorageClient({ bucketId });
+        await replitClient.delete(document.file_url, { ignoreNotFound: true });
+      }
     } catch (deleteError) {
       console.error("Object storage delete error:", deleteError);
     }
