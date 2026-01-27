@@ -64,7 +64,7 @@ export async function uploadDocument(req: Request, res: Response) {
 
     const { randomUUID } = await import("crypto");
     const fileExtension = filename.split(".").pop() || "pdf";
-    const objectKey = `uploads/documents/${(req as any).user.id}/${randomUUID()}.${fileExtension}`;
+    const objectKey = `uploads/${randomUUID()}.${fileExtension}`;
 
     const privateDir = process.env.PRIVATE_OBJECT_DIR;
     if (!privateDir) {
