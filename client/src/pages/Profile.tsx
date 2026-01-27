@@ -1,4 +1,3 @@
-import { DocumentUploader } from "@/components/DocumentUploader";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
 import { MessageModal } from "@/components/MessageModal";
@@ -903,15 +902,6 @@ export default function Profile() {
             </Card>
           )}
 
-          {/* Documents & Certifications Section (Freelancers only) */}
-          {((freelancerProfile && profile?.role !== "admin") ||
-            (profile?.role === "admin" && freelancerProfile && !recruiterProfile)) && (
-            <DocumentUploader
-              userId={freelancerProfile?.user_id || 0}
-              isOwner={isOwnProfile}
-              viewerRole={user?.role}
-            />
-          )}
 
           {/* Featured Reviews Section (Freelancers only) - for future use
           {((freelancerProfile && profile?.role !== "admin") ||
