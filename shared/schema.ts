@@ -657,6 +657,7 @@ export const freelancer_documents = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     document_type: text("document_type").notNull().$type<DocumentType>(),
+    custom_type_name: text("custom_type_name"),
     file_url: text("file_url").notNull(),
     original_filename: text("original_filename").notNull(),
     file_size: integer("file_size").notNull(),
@@ -676,6 +677,7 @@ export const insertFreelancerDocumentSchema = createInsertSchema(freelancer_docu
   .extend({
     freelancer_id: z.number(),
     document_type: z.enum(DOCUMENT_TYPES),
+    custom_type_name: z.string().max(50).nullable().optional(),
     file_url: z.string().min(1),
     original_filename: z.string().min(1),
     file_size: z.number().positive(),

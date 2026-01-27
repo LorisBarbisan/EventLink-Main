@@ -18,11 +18,17 @@ export async function uploadDocument(req: Request, res: Response) {
       return res.status(403).json({ error: "Only freelancers can upload documents" });
     }
 
-    const { fileData, filename, fileSize, contentType, documentType } = req.body;
+    const { fileData, filename, fileSize, contentType, documentType, customTypeName } = req.body;
 
     if (!fileData || !filename || !contentType || !documentType) {
       return res.status(400).json({
         error: "File data, filename, content type, and document type are required",
+      });
+    }
+
+    if (documentType === "Other" && (!customTypeName || !customTypeName.trim())) {
+      return res.status(400).json({
+        error: "Custom type name is required when document type is 'Other'",
       });
     }
 
@@ -96,6 +102,7 @@ export async function uploadDocument(req: Request, res: Response) {
     const documentData = {
       freelancer_id: (req as any).user.id,
       document_type: documentType,
+      custom_type_name: documentType === "Other" ? customTypeName?.trim() : null,
       file_url: objectKey,
       original_filename: filename,
       file_size: actualSize,

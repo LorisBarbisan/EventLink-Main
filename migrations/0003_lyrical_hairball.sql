@@ -1,0 +1,1 @@
+ALTER TABLE "freelancer_documents" ADD COLUMN "custom_type_name" text;

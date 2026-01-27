@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -18,6 +19,7 @@ interface Document {
   id: number;
   freelancer_id: number;
   document_type: string;
+  custom_type_name?: string | null;
   file_url: string;
   original_filename: string;
   file_size: number;
@@ -51,6 +53,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUploaderProps) {
   const { toast } = useToast();
   const [selectedType, setSelectedType] = useState<string>("");
+  const [customTypeName, setCustomTypeName] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
 
   const canViewDocuments = isOwner || viewerRole === "recruiter" || viewerRole === "admin";
@@ -94,6 +97,16 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
       toast({
         title: "Select document type",
         description: "Please select a document type before uploading.",
+        variant: "destructive",
+      });
+      event.target.value = "";
+      return;
+    }
+
+    if (selectedType === "Other" && !customTypeName.trim()) {
+      toast({
+        title: "Enter document type name",
+        description: "Please enter a name for your custom document type.",
         variant: "destructive",
       });
       event.target.value = "";
@@ -152,11 +165,13 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
           fileSize: file.size,
           contentType: file.type,
           documentType: selectedType,
+          customTypeName: selectedType === "Other" ? customTypeName.trim() : null,
         }),
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/documents", userId] });
       setSelectedType("");
+      setCustomTypeName("");
 
       toast({
         title: "Document uploaded",
@@ -259,7 +274,12 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
         {isOwner && documents.length < MAX_DOCUMENTS && (
           <div className="border-2 border-dashed rounded-lg p-4 space-y-3">
             <div className="flex flex-col sm:flex-row gap-3">
-              <Select value={selectedType} onValueChange={setSelectedType}>
+              <Select value={selectedType} onValueChange={(value) => {
+                setSelectedType(value);
+                if (value !== "Other") {
+                  setCustomTypeName("");
+                }
+              }}>
                 <SelectTrigger className="flex-1">
                   <SelectValue placeholder="Select document type" />
                 </SelectTrigger>
@@ -275,7 +295,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
               <label htmlFor="document-upload">
                 <Button
                   variant="outline"
-                  disabled={isUploading || !selectedType}
+                  disabled={isUploading || !selectedType || (selectedType === "Other" && !customTypeName.trim())}
                   asChild
                 >
                   <span>
@@ -290,9 +310,20 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
                 accept=".pdf,.jpg,.jpeg,.png"
                 onChange={handleFileSelect}
                 className="hidden"
-                disabled={isUploading || !selectedType}
+                disabled={isUploading || !selectedType || (selectedType === "Other" && !customTypeName.trim())}
               />
             </div>
+            
+            {selectedType === "Other" && (
+              <Input
+                placeholder="Enter custom document type name"
+                value={customTypeName}
+                onChange={(e) => setCustomTypeName(e.target.value)}
+                maxLength={50}
+                className="w-full"
+              />
+            )}
+            
             <p className="text-xs text-muted-foreground text-center">
               Accepted: PDF, JPG, PNG (max 10MB)
             </p>
@@ -324,7 +355,9 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
                   </div>
                   <div className="min-w-0 flex-1">
                     <Badge variant="secondary" className="mb-1">
-                      {doc.document_type}
+                      {doc.document_type === "Other" && doc.custom_type_name 
+                        ? doc.custom_type_name 
+                        : doc.document_type}
                     </Badge>
                     <p className="text-xs text-muted-foreground truncate">
                       {doc.original_filename}
@@ -418,7 +451,9 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
           className="gap-2"
         >
           <Shield className="w-3 h-3" />
-          {doc.document_type}
+          {doc.document_type === "Other" && doc.custom_type_name 
+            ? doc.custom_type_name 
+            : doc.document_type}
         </Button>
       ))}
     </div>
