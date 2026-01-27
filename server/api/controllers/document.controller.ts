@@ -1,7 +1,8 @@
 import { DOCUMENT_TYPES, insertFreelancerDocumentSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-import { ObjectStorageService, objectStorageClient } from "../utils/object-storage";
+import { ObjectStorageService } from "../utils/object-storage";
+import { Client as ReplitStorageClient } from "@replit/object-storage";
 
 const MAX_DOCUMENTS = 9;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -64,36 +65,21 @@ export async function uploadDocument(req: Request, res: Response) {
 
     const { randomUUID } = await import("crypto");
     const fileExtension = filename.split(".").pop() || "pdf";
-    // Use same path pattern as CV upload which works
     const objectKey = `docs/${(req as any).user.id}/${randomUUID()}.${fileExtension}`;
 
-    const privateDir = process.env.PRIVATE_OBJECT_DIR;
-    if (!privateDir) {
-      throw new Error("PRIVATE_OBJECT_DIR not set");
-    }
-
-    const fullPath = `${privateDir}/${objectKey}`;
-    const pathParts = fullPath.startsWith("/") ? fullPath.split("/") : `/${fullPath}`.split("/");
-    if (pathParts.length < 3) {
-      throw new Error("Invalid storage path");
-    }
-    const bucketName = pathParts[1];
-    const objectName = pathParts.slice(2).join("/");
-
-    const bucket = objectStorageClient.bucket(bucketName);
-    const file = bucket.file(objectName);
-
     console.log(
-      `📤 Uploading document to storage: bucket=${bucketName}, object=${objectName}, size=${actualSize} bytes`
+      `📤 Uploading document to storage: path=${objectKey}, size=${actualSize} bytes`
     );
 
+    const replitClient = new ReplitStorageClient();
+    
     try {
-      await file.save(buffer, {
-        contentType,
-        metadata: {
-          contentType,
-        },
-      });
+      const uploadResult = await replitClient.uploadFromBytes(objectKey, buffer);
+      
+      if (!uploadResult.ok) {
+        console.error("❌ Object storage upload error:", uploadResult.error);
+        throw new Error("Failed to upload document to storage");
+      }
       console.log(`✅ Document uploaded to storage successfully: ${objectKey}`);
     } catch (uploadError) {
       console.error("❌ Object storage upload error:", uploadError);
@@ -110,16 +96,16 @@ export async function uploadDocument(req: Request, res: Response) {
       file_type: contentType,
     };
 
-    const result = insertFreelancerDocumentSchema.safeParse(documentData);
-    if (!result.success) {
-      await file.delete().catch(() => {});
+    const validationResult = insertFreelancerDocumentSchema.safeParse(documentData);
+    if (!validationResult.success) {
+      await replitClient.delete(objectKey, { ignoreNotFound: true }).catch(() => {});
       return res.status(400).json({
         error: "Invalid document data",
-        details: result.error.issues,
+        details: validationResult.error.issues,
       });
     }
 
-    const document = await storage.createFreelancerDocument(result.data);
+    const document = await storage.createFreelancerDocument(validationResult.data);
 
     console.log(`✅ Document metadata saved for user ${(req as any).user.id}: ${filename}`);
     res.status(201).json({
@@ -229,7 +215,8 @@ export async function deleteDocument(req: Request, res: Response) {
     }
 
     try {
-      await ObjectStorageService.deleteObject(document.file_url);
+      const replitClient = new ReplitStorageClient();
+      await replitClient.delete(document.file_url, { ignoreNotFound: true });
     } catch (deleteError) {
       console.error("Object storage delete error:", deleteError);
     }
