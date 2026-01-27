@@ -12,11 +12,12 @@ import {
   uploadCV,
 } from "../controllers/file.controller";
 import {
+  confirmDocumentUpload,
   deleteDocument,
   downloadDocument,
   getDocuments,
   getDocumentTypes,
-  uploadDocument,
+  getDocumentUploadUrl,
 } from "../controllers/document.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
 
@@ -58,8 +59,11 @@ export function registerFileRoutes(app: Express) {
   // Get document types
   app.get("/api/documents/types", getDocumentTypes);
 
-  // Upload document
-  app.post("/api/documents", authenticateJWT, uploadDocument);
+  // Get document upload URL (step 1)
+  app.post("/api/documents/upload-url", authenticateJWT, getDocumentUploadUrl);
+
+  // Confirm document upload (step 2)
+  app.post("/api/documents/confirm", authenticateJWT, confirmDocumentUpload);
 
   // Get freelancer documents
   app.get("/api/documents/:freelancerId", authenticateJWT, getDocuments);

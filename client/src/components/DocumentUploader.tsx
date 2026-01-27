@@ -146,21 +146,37 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
 
     setIsUploading(true);
     try {
-      const fileData = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = (reader.result as string).split(",")[1];
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      await apiRequest("/api/documents", {
+      // Step 1: Get presigned upload URL
+      const urlResponse = await apiRequest("/api/documents/upload-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fileData,
+          filename: file.name,
+          contentType: file.type,
+          documentType: selectedType,
+          customTypeName: selectedType === "Other" ? customTypeName.trim() : null,
+        }),
+      });
+
+      const { uploadUrl, objectKey } = urlResponse as { uploadUrl: string; objectKey: string };
+
+      // Step 2: Upload file directly to presigned URL
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload file to storage");
+      }
+
+      // Step 3: Confirm the upload
+      await apiRequest("/api/documents/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          objectKey,
           filename: file.name,
           fileSize: file.size,
           contentType: file.type,
