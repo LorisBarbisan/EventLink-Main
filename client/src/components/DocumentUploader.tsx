@@ -146,53 +146,57 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
 
     setIsUploading(true);
     try {
-      // Step 1: Get presigned upload URL
-      const urlResponse = await apiRequest("/api/documents/upload-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type,
-          documentType: selectedType,
-          customTypeName: selectedType === "Other" ? customTypeName.trim() : null,
-        }),
-      });
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Data = (reader.result as string).split(",")[1];
 
-      const { uploadUrl, objectKey } = urlResponse as { uploadUrl: string; objectKey: string };
+          await apiRequest("/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fileData: base64Data,
+              filename: file.name,
+              fileSize: file.size,
+              contentType: file.type,
+              documentType: selectedType,
+              customTypeName: selectedType === "Other" ? customTypeName.trim() : null,
+            }),
+          });
 
-      // Step 2: Upload file directly to presigned URL
-      const uploadResponse = await fetch(uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
+          queryClient.invalidateQueries({ queryKey: ["/api/documents", userId] });
+          setSelectedType("");
+          setCustomTypeName("");
 
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload file to storage");
-      }
-
-      // Step 3: Confirm the upload
-      await apiRequest("/api/documents/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          objectKey,
-          filename: file.name,
-          fileSize: file.size,
-          contentType: file.type,
-          documentType: selectedType,
-          customTypeName: selectedType === "Other" ? customTypeName.trim() : null,
-        }),
-      });
-
-      queryClient.invalidateQueries({ queryKey: ["/api/documents", userId] });
-      setSelectedType("");
-      setCustomTypeName("");
-
-      toast({
-        title: "Document uploaded",
-        description: "Your document has been uploaded successfully.",
-      });
+          toast({
+            title: "Document uploaded",
+            description: "Your document has been uploaded successfully.",
+          });
+        } catch (error) {
+          let errorMessage = "Failed to upload document. Please try again.";
+          if (error instanceof Error) {
+            errorMessage = error.message;
+          }
+          toast({
+            title: "Upload failed",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        } finally {
+          setIsUploading(false);
+          event.target.value = "";
+        }
+      };
+      reader.onerror = () => {
+        toast({
+          title: "Upload failed",
+          description: "Failed to read file. Please try again.",
+          variant: "destructive",
+        });
+        setIsUploading(false);
+        event.target.value = "";
+      };
+      reader.readAsDataURL(file);
     } catch (error) {
       let errorMessage = "Failed to upload document. Please try again.";
       if (error instanceof Error) {
@@ -203,7 +207,6 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
         description: errorMessage,
         variant: "destructive",
       });
-    } finally {
       setIsUploading(false);
       event.target.value = "";
     }

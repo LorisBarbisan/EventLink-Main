@@ -1,7 +1,7 @@
 import { DOCUMENT_TYPES, insertFreelancerDocumentSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-import { ObjectStorageService } from "../utils/object-storage";
+import { ObjectStorageService, objectStorageClient } from "../utils/object-storage";
 
 const MAX_DOCUMENTS = 9;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -12,17 +12,17 @@ const ALLOWED_FILE_TYPES = [
   "image/png",
 ];
 
-export async function getDocumentUploadUrl(req: Request, res: Response) {
+export async function uploadDocument(req: Request, res: Response) {
   try {
     if (!(req as any).user || (req as any).user.role !== "freelancer") {
       return res.status(403).json({ error: "Only freelancers can upload documents" });
     }
 
-    const { filename, contentType, documentType, customTypeName } = req.body;
+    const { fileData, filename, fileSize, contentType, documentType, customTypeName } = req.body;
 
-    if (!filename || !contentType || !documentType) {
+    if (!fileData || !filename || !contentType || !documentType) {
       return res.status(400).json({
-        error: "Filename, content type, and document type are required",
+        error: "File data, filename, content type, and document type are required",
       });
     }
 
@@ -46,6 +46,15 @@ export async function getDocumentUploadUrl(req: Request, res: Response) {
       });
     }
 
+    const buffer = Buffer.from(fileData, "base64");
+    const actualSize = buffer.length;
+    
+    if (actualSize > MAX_FILE_SIZE) {
+      return res.status(400).json({
+        error: "File size must be less than 10MB",
+      });
+    }
+
     const currentCount = await storage.getFreelancerDocumentCount((req as any).user.id);
     if (currentCount >= MAX_DOCUMENTS) {
       return res.status(400).json({
@@ -55,45 +64,40 @@ export async function getDocumentUploadUrl(req: Request, res: Response) {
 
     const { randomUUID } = await import("crypto");
     const fileExtension = filename.split(".").pop() || "pdf";
-    const objectKey = `documents/${(req as any).user.id}/${randomUUID()}.${fileExtension}`;
+    // Use same path pattern as CV upload which works
+    const objectKey = `docs/${(req as any).user.id}/${randomUUID()}.${fileExtension}`;
 
-    const uploadUrl = await ObjectStorageService.getUploadUrl(objectKey, contentType);
-
-    console.log(`📤 Generated document upload URL for user ${(req as any).user.id}: ${objectKey}`);
-    res.json({
-      uploadUrl,
-      objectKey,
-    });
-  } catch (error) {
-    console.error("❌ Get document upload URL error:", error);
-    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to get upload URL" });
-  }
-}
-
-export async function confirmDocumentUpload(req: Request, res: Response) {
-  try {
-    if (!(req as any).user || (req as any).user.role !== "freelancer") {
-      return res.status(403).json({ error: "Only freelancers can upload documents" });
+    const privateDir = process.env.PRIVATE_OBJECT_DIR;
+    if (!privateDir) {
+      throw new Error("PRIVATE_OBJECT_DIR not set");
     }
 
-    const { objectKey, filename, fileSize, contentType, documentType, customTypeName } = req.body;
-
-    if (!objectKey || !filename || !fileSize || !contentType || !documentType) {
-      return res.status(400).json({
-        error: "Object key, filename, file size, content type, and document type are required",
-      });
+    const fullPath = `${privateDir}/${objectKey}`;
+    const pathParts = fullPath.startsWith("/") ? fullPath.split("/") : `/${fullPath}`.split("/");
+    if (pathParts.length < 3) {
+      throw new Error("Invalid storage path");
     }
+    const bucketName = pathParts[1];
+    const objectName = pathParts.slice(2).join("/");
 
-    if (documentType === "Other" && (!customTypeName || !customTypeName.trim())) {
-      return res.status(400).json({
-        error: "Custom type name is required when document type is 'Other'",
-      });
-    }
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
 
-    if (fileSize > MAX_FILE_SIZE) {
-      return res.status(400).json({
-        error: "File size must be less than 10MB",
+    console.log(
+      `📤 Uploading document to storage: bucket=${bucketName}, object=${objectName}, size=${actualSize} bytes`
+    );
+
+    try {
+      await file.save(buffer, {
+        contentType,
+        metadata: {
+          contentType,
+        },
       });
+      console.log(`✅ Document uploaded to storage successfully: ${objectKey}`);
+    } catch (uploadError) {
+      console.error("❌ Object storage upload error:", uploadError);
+      throw new Error("Failed to upload document to storage");
     }
 
     const documentData = {
@@ -102,12 +106,13 @@ export async function confirmDocumentUpload(req: Request, res: Response) {
       custom_type_name: documentType === "Other" ? customTypeName?.trim() : null,
       file_url: objectKey,
       original_filename: filename,
-      file_size: fileSize,
+      file_size: actualSize,
       file_type: contentType,
     };
 
     const result = insertFreelancerDocumentSchema.safeParse(documentData);
     if (!result.success) {
+      await file.delete().catch(() => {});
       return res.status(400).json({
         error: "Invalid document data",
         details: result.error.issues,
@@ -122,8 +127,8 @@ export async function confirmDocumentUpload(req: Request, res: Response) {
       document,
     });
   } catch (error) {
-    console.error("❌ Confirm document upload error:", error);
-    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to save document" });
+    console.error("❌ Upload document error:", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to upload document" });
   }
 }
 
