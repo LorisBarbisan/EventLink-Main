@@ -972,7 +972,7 @@ export class DatabaseStorage implements IStorage {
   }> {
     try {
       const { keyword, location, page = 1, limit = 20 } = filters;
-      const offset = (page - 1) * limit;
+      const EVENTLINK_EMAIL = "eventlink@eventlink.one";
 
       // Build conditions array
       const conditions = [];
@@ -1002,18 +1002,9 @@ export class DatabaseStorage implements IStorage {
         conditions.push(sql`LOWER(${freelancer_profiles.location}) LIKE ${locationTerm}`);
       }
 
-      // First, get total count for pagination
-      const countResult = await db
-        .select({ count: sql<number>`COUNT(*)::int` })
-        .from(freelancer_profiles)
-        .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
-        .where(and(...conditions));
-
-      const total = countResult[0]?.count || 0;
-      const totalPages = Math.ceil(total / limit);
-
-      // Fetch results with freelancer data and average rating
-      const results = await db
+      // Always fetch EventLink profile separately (if it matches filters)
+      const eventlinkConditions = [...conditions, sql`LOWER(${users.email}) = ${EVENTLINK_EMAIL}`];
+      const eventlinkResult = await db
         .select({
           id: freelancer_profiles.id,
           user_id: freelancer_profiles.user_id,
@@ -1036,16 +1027,87 @@ export class DatabaseStorage implements IStorage {
           cv_file_size: freelancer_profiles.cv_file_size,
           created_at: freelancer_profiles.created_at,
           updated_at: freelancer_profiles.updated_at,
+          user_email: users.email,
         })
         .from(freelancer_profiles)
         .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
-        .where(and(...conditions))
-        .limit(limit)
-        .offset(offset);
+        .where(and(...eventlinkConditions))
+        .limit(1);
+
+      const hasEventlinkProfile = eventlinkResult.length > 0;
+
+      // Exclude EventLink from regular results
+      const excludeEventlinkConditions = [...conditions, sql`LOWER(${users.email}) != ${EVENTLINK_EMAIL}`];
+
+      // Get total count excluding EventLink
+      const countResult = await db
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(freelancer_profiles)
+        .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
+        .where(and(...excludeEventlinkConditions));
+
+      const othersCount = countResult[0]?.count || 0;
+      // Total includes EventLink if it matches filters
+      const total = hasEventlinkProfile ? othersCount + 1 : othersCount;
+
+      // Calculate pagination
+      // On page 1, we show EventLink + (limit-1) others
+      // On other pages, we show 'limit' others with adjusted offset
+      let effectiveLimit = limit;
+      let effectiveOffset = 0;
+
+      if (page === 1) {
+        effectiveLimit = hasEventlinkProfile ? limit - 1 : limit;
+        effectiveOffset = 0;
+      } else {
+        // For page 2+, offset needs to account for EventLink taking a slot on page 1
+        effectiveLimit = limit;
+        effectiveOffset = hasEventlinkProfile ? (page - 1) * limit - 1 : (page - 1) * limit;
+      }
+
+      const totalPages = Math.ceil(total / limit);
+
+      // Fetch other results (excluding EventLink)
+      const otherResults = await db
+        .select({
+          id: freelancer_profiles.id,
+          user_id: freelancer_profiles.user_id,
+          first_name: freelancer_profiles.first_name,
+          last_name: freelancer_profiles.last_name,
+          title: freelancer_profiles.title,
+          superpower: freelancer_profiles.superpower,
+          bio: freelancer_profiles.bio,
+          location: freelancer_profiles.location,
+          experience_years: freelancer_profiles.experience_years,
+          skills: freelancer_profiles.skills,
+          portfolio_url: freelancer_profiles.portfolio_url,
+          linkedin_url: freelancer_profiles.linkedin_url,
+          website_url: freelancer_profiles.website_url,
+          availability_status: freelancer_profiles.availability_status,
+          profile_photo_url: freelancer_profiles.profile_photo_url,
+          cv_file_url: freelancer_profiles.cv_file_url,
+          cv_file_name: freelancer_profiles.cv_file_name,
+          cv_file_type: freelancer_profiles.cv_file_type,
+          cv_file_size: freelancer_profiles.cv_file_size,
+          created_at: freelancer_profiles.created_at,
+          updated_at: freelancer_profiles.updated_at,
+          user_email: users.email,
+        })
+        .from(freelancer_profiles)
+        .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
+        .where(and(...excludeEventlinkConditions))
+        .orderBy(sql`RANDOM()`)
+        .limit(effectiveLimit)
+        .offset(effectiveOffset);
+
+      // Combine results
+      const allResults = page === 1 && hasEventlinkProfile 
+        ? [...eventlinkResult, ...otherResults]
+        : otherResults;
 
       // Get ratings for all returned freelancers
       const resultsWithRatings = await Promise.all(
-        results.map(async profile => {
+        allResults.map(async profile => {
           const ratingStats = await this.getFreelancerAverageRating(profile.user_id);
           return {
             ...profile,
@@ -1055,32 +1117,8 @@ export class DatabaseStorage implements IStorage {
         })
       );
 
-      // Sort results by relevance and rating
-      const sortedResults = resultsWithRatings.sort((a, b) => {
-        if (!keyword) {
-          // No keyword - sort by rating only
-          const aRating = a.average_rating ?? 0;
-          const bRating = b.average_rating ?? 0;
-          return bRating - aRating;
-        }
-
-        // Calculate relevance scores with rating integration
-        const searchTerm = keyword.toLowerCase();
-        const aScore = this.calculateRelevanceScore(a, searchTerm, a.average_rating ?? 0);
-        const bScore = this.calculateRelevanceScore(b, searchTerm, b.average_rating ?? 0);
-
-        if (aScore !== bScore) {
-          return bScore - aScore; // Higher score first
-        }
-
-        // If same relevance, sort by rating as tiebreaker
-        const aRating = a.average_rating ?? 0;
-        const bRating = b.average_rating ?? 0;
-        return bRating - aRating;
-      });
-
       return {
-        results: sortedResults,
+        results: resultsWithRatings,
         total,
         page,
         totalPages,

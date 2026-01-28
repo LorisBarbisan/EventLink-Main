@@ -27,8 +27,10 @@ import type {
 } from "@shared/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2, Globe, MapPin, Plus, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RatingDisplay } from "./StarRating";
+
+const DRAFT_STORAGE_KEY_PREFIX = "eventlink_profile_draft_";
 
 interface ProfileFormProps {
   profile?: FreelancerProfile | RecruiterProfile;
@@ -39,10 +41,13 @@ interface ProfileFormProps {
 
 export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileFormProps) {
   const { user } = useAuth();
-  const [isEditing, setIsEditing] = useState(!profile);
-  const [formData, setFormData] = useState<FreelancerFormData | RecruiterFormData>(() => {
+  const [isEditing, setIsEditing] = useState(true);
+  const draftKey = user?.id ? `${DRAFT_STORAGE_KEY_PREFIX}${userType}_${user.id}` : null;
+  const initialLoadDone = useRef(false);
+
+  const getDefaultFormData = useCallback((profileData?: FreelancerProfile | RecruiterProfile): FreelancerFormData | RecruiterFormData => {
     if (userType === "freelancer") {
-      const freelancerProfile = profile as FreelancerProfile;
+      const freelancerProfile = profileData as FreelancerProfile | undefined;
       return {
         first_name: freelancerProfile?.first_name || "",
         last_name: freelancerProfile?.last_name || "",
@@ -59,7 +64,7 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
         profile_photo_url: freelancerProfile?.profile_photo_url || "",
       } as FreelancerFormData;
     } else {
-      const recruiterProfile = profile as RecruiterProfile;
+      const recruiterProfile = profileData as RecruiterProfile | undefined;
       return {
         company_name: recruiterProfile?.company_name || "",
         contact_name: recruiterProfile?.contact_name || "",
@@ -71,42 +76,47 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
         company_logo_url: recruiterProfile?.company_logo_url || "",
       } as RecruiterFormData;
     }
+  }, [userType]);
+
+  const [formData, setFormData] = useState<FreelancerFormData | RecruiterFormData>(() => {
+    if (draftKey) {
+      try {
+        const savedDraft = sessionStorage.getItem(draftKey);
+        if (savedDraft) {
+          return JSON.parse(savedDraft);
+        }
+      } catch (e) {
+        console.warn("Failed to load draft from sessionStorage:", e);
+      }
+    }
+    return getDefaultFormData(profile);
   });
 
   const [newSkill, setNewSkill] = useState("");
 
   useEffect(() => {
-    if (profile && userType === "freelancer") {
-      const freelancerProfile = profile as FreelancerProfile;
-      setFormData({
-        first_name: freelancerProfile.first_name || "",
-        last_name: freelancerProfile.last_name || "",
-        title: freelancerProfile.title || "",
-        superpower: freelancerProfile.superpower || "",
-        bio: freelancerProfile.bio || "",
-        location: freelancerProfile.location || "",
-        experience_years: freelancerProfile.experience_years?.toString() || "",
-        skills: freelancerProfile.skills || [],
-        portfolio_url: freelancerProfile.portfolio_url || "",
-        linkedin_url: freelancerProfile.linkedin_url || "",
-        website_url: freelancerProfile.website_url || "",
-        availability_status: freelancerProfile.availability_status || "available",
-        profile_photo_url: freelancerProfile.profile_photo_url || "",
-      } as FreelancerFormData);
-    } else if (profile && userType === "recruiter") {
-      const recruiterProfile = profile as RecruiterProfile;
-      setFormData({
-        company_name: recruiterProfile.company_name || "",
-        contact_name: recruiterProfile.contact_name || "",
-        company_type: recruiterProfile.company_type || "",
-        location: recruiterProfile.location || "",
-        description: recruiterProfile.description || "",
-        website_url: recruiterProfile.website_url || "",
-        linkedin_url: recruiterProfile.linkedin_url || "",
-        company_logo_url: recruiterProfile.company_logo_url || "",
-      } as RecruiterFormData);
+    if (profile && !initialLoadDone.current) {
+      if (draftKey) {
+        const savedDraft = sessionStorage.getItem(draftKey);
+        if (savedDraft) {
+          initialLoadDone.current = true;
+          return;
+        }
+      }
+      setFormData(getDefaultFormData(profile));
+      initialLoadDone.current = true;
     }
-  }, [profile, userType]);
+  }, [profile, draftKey, getDefaultFormData]);
+
+  useEffect(() => {
+    if (draftKey && initialLoadDone.current) {
+      try {
+        sessionStorage.setItem(draftKey, JSON.stringify(formData));
+      } catch (e) {
+        console.warn("Failed to save draft to sessionStorage:", e);
+      }
+    }
+  }, [formData, draftKey]);
 
   const handleInputChange = (field: string, value: string) => {
     console.log("ProfileForm handleInputChange:", {
@@ -147,7 +157,9 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
 
   const handleSave = () => {
     onSave(formData);
-    setIsEditing(false);
+    if (draftKey) {
+      sessionStorage.removeItem(draftKey);
+    }
   };
 
   if (!isEditing && profile) {
