@@ -1026,6 +1026,7 @@ export class DatabaseStorage implements IStorage {
           cv_file_size: freelancer_profiles.cv_file_size,
           created_at: freelancer_profiles.created_at,
           updated_at: freelancer_profiles.updated_at,
+          user_email: users.email,
         })
         .from(freelancer_profiles)
         .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
@@ -1045,29 +1046,32 @@ export class DatabaseStorage implements IStorage {
         })
       );
 
-      // Sort results by relevance and rating
-      const sortedResults = resultsWithRatings.sort((a, b) => {
-        if (!keyword) {
-          // No keyword - sort by rating only
-          const aRating = a.average_rating ?? 0;
-          const bRating = b.average_rating ?? 0;
-          return bRating - aRating;
+      // Shuffle function for randomizing results
+      const shuffleArray = <T>(array: T[]): T[] => {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
+        return shuffled;
+      };
 
-        // Calculate relevance scores with rating integration
-        const searchTerm = keyword.toLowerCase();
-        const aScore = this.calculateRelevanceScore(a, searchTerm, a.average_rating ?? 0);
-        const bScore = this.calculateRelevanceScore(b, searchTerm, b.average_rating ?? 0);
+      // Separate EventLink profile from others
+      const EVENTLINK_EMAIL = "eventlink@eventlink.one";
+      const eventlinkProfile = resultsWithRatings.find(
+        (p: any) => p.user_email?.toLowerCase() === EVENTLINK_EMAIL
+      );
+      const otherProfiles = resultsWithRatings.filter(
+        (p: any) => p.user_email?.toLowerCase() !== EVENTLINK_EMAIL
+      );
 
-        if (aScore !== bScore) {
-          return bScore - aScore; // Higher score first
-        }
+      // Randomize other profiles
+      const shuffledOthers = shuffleArray(otherProfiles);
 
-        // If same relevance, sort by rating as tiebreaker
-        const aRating = a.average_rating ?? 0;
-        const bRating = b.average_rating ?? 0;
-        return bRating - aRating;
-      });
+      // Combine with EventLink first (if present on this page)
+      const sortedResults = eventlinkProfile 
+        ? [eventlinkProfile, ...shuffledOthers]
+        : shuffledOthers;
 
       return {
         results: sortedResults,
