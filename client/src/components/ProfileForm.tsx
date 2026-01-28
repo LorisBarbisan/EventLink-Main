@@ -41,7 +41,7 @@ interface ProfileFormProps {
 
 export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileFormProps) {
   const { user } = useAuth();
-  const [isEditing, setIsEditing] = useState(!profile);
+  const [isEditing, setIsEditing] = useState(true);
   const draftKey = user?.id ? `${DRAFT_STORAGE_KEY_PREFIX}${userType}_${user.id}` : null;
   const initialLoadDone = useRef(false);
 
@@ -160,7 +160,6 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
     if (draftKey) {
       sessionStorage.removeItem(draftKey);
     }
-    setIsEditing(false);
   };
 
   if (!isEditing && profile) {
