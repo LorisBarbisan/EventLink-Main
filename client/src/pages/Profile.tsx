@@ -58,6 +58,8 @@ import {
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 
+const EVENTLINK_PROMOTIONAL_EMAIL = "eventlink@eventlink.one";
+
 interface Profile {
   id: string;
   role: "freelancer" | "recruiter" | "admin";
@@ -338,8 +340,9 @@ export default function Profile() {
   };
 
   // Handle CV download
-  const handleDownloadCV = async (profile: FreelancerProfile) => {
-    if (!profile.cv_file_url || !user) {
+  const handleDownloadCV = async (cvProfile: FreelancerProfile) => {
+    const isViewingPromotional = profile?.email?.toLowerCase() === EVENTLINK_PROMOTIONAL_EMAIL;
+    if (!cvProfile.cv_file_url || (!user && !isViewingPromotional)) {
       toast({
         title: "Error",
         description: "CV not available for download",
@@ -353,7 +356,7 @@ export default function Profile() {
       const token = localStorage.getItem("auth_token");
 
       // Get the presigned download URL from the backend
-      const response = await fetch(`/api/cv/download/${profile.user_id}`, {
+      const response = await fetch(`/api/cv/download/${cvProfile.user_id}`, {
         method: "GET",
         credentials: "include",
         headers: {
@@ -406,7 +409,17 @@ export default function Profile() {
         setShowStandaloneRatingDialog(true);
       }
     }
-  }, [user, location, freelancerProfile, setLocation]); // Added setLocation to dependencies
+    // Handle "Contact" deep link action for promotional profile
+    if (params.get("action") === "contact") {
+      if (profile?.email?.toLowerCase() === EVENTLINK_PROMOTIONAL_EMAIL) {
+        setIsMessageModalOpen(true);
+      } else if (!user) {
+        setLocation("/auth");
+      } else {
+        setIsMessageModalOpen(true);
+      }
+    }
+  }, [user, location, freelancerProfile, setLocation, profile]); // Added setLocation to dependencies
 
   useEffect(() => {
     if (!authLoading) {
@@ -425,9 +438,13 @@ export default function Profile() {
         // Viewing own profile
         setIsOwnProfile(true);
         fetchProfile();
-      } else {
+      } else if (!userId) {
         // Not logged in and no userId specified
         setLocation("/auth");
+      } else {
+        // Not logged in but viewing someone else's profile via URL - allow viewing
+        setIsOwnProfile(false);
+        fetchOtherProfile(userId);
       }
     }
   }, [user, authLoading, userId, setLocation]);
@@ -669,8 +686,10 @@ export default function Profile() {
     );
   }
 
+  const isPromotionalProfile = profile?.email?.toLowerCase() === EVENTLINK_PROMOTIONAL_EMAIL;
+
   const handleContactClick = () => {
-    if (!user) {
+    if (!user && !isPromotionalProfile) {
       setLocation("/auth");
       return;
     }

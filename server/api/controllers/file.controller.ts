@@ -118,22 +118,31 @@ export async function deleteCV(req: Request, res: Response) {
 }
 
 // Download CV
+const EVENTLINK_PROMOTIONAL_EMAIL = "eventlink@eventlink.one";
+
 export async function downloadCV(req: Request, res: Response) {
   try {
     const freelancerId = parseInt(req.params.freelancerId);
 
-    // Check authorization - recruiters and admins can download, freelancers can download their own
-    if (!(req as any).user) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    if ((req as any).user.role === "freelancer" && (req as any).user.id !== freelancerId) {
-      return res.status(403).json({ error: "Not authorized to download this CV" });
-    }
-
+    // Get profile first to check if it's the promotional account
     const profile = await storage.getFreelancerProfile(freelancerId);
     if (!profile || !profile.cv_file_url) {
       return res.status(404).json({ error: "CV not found" });
+    }
+
+    // Check if this is the promotional account (allow public access)
+    const user = await storage.getUser(freelancerId);
+    const isPromotionalAccount = user?.email?.toLowerCase() === EVENTLINK_PROMOTIONAL_EMAIL;
+
+    // Check authorization - promotional account is public, others require auth
+    if (!isPromotionalAccount) {
+      if (!(req as any).user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      if ((req as any).user.role === "freelancer" && (req as any).user.id !== freelancerId) {
+        return res.status(403).json({ error: "Not authorized to download this CV" });
+      }
     }
 
     console.log(`📥 Download request for CV: ${profile.cv_file_url}`);

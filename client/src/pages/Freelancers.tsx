@@ -11,6 +11,8 @@ import { ChevronLeft, ChevronRight, Loader2, MapPin, Search, Star, User } from "
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
+const EVENTLINK_PROMOTIONAL_EMAIL = "eventlink@eventlink.one";
+
 export default function Freelancers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
@@ -86,6 +88,8 @@ export default function Freelancers() {
     avatar: profile.profile_photo_url || null,
     isReal: true,
     relevanceScore: profile.relevance_score || 0,
+    userEmail: profile.user_email || "",
+    isPromotional: profile.user_email?.toLowerCase() === EVENTLINK_PROMOTIONAL_EMAIL,
   }));
 
   return (
@@ -296,8 +300,13 @@ export default function Freelancers() {
                     <Button
                       className="bg-gradient-primary hover:bg-primary-hover h-8 text-sm"
                       onClick={() => {
-                        if (!currentUser) {
+                        if (!currentUser && !freelancer.isPromotional) {
                           alert("Please log in to contact freelancers");
+                          return;
+                        }
+                        if (!currentUser && freelancer.isPromotional) {
+                          const userId = freelancer.id.replace("real-", "");
+                          setLocation(`/profile/${userId}?action=contact`);
                           return;
                         }
                         setSelectedFreelancer(freelancer);
