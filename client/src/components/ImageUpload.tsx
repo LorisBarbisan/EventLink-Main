@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Image as ImageIcon, Upload, X } from "lucide-react";
+import { Image as ImageIcon, Plus, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
 
 interface ImageUploadProps {
@@ -110,11 +110,11 @@ export function ImageUpload({
       <Label>{label}</Label>
 
       {value && value.trim() !== "" && value !== "null" ? (
-        <div className="relative">
+        <div className={`relative ${shape === "circle" ? "w-fit" : ""}`}>
           <div
             className={`relative overflow-hidden ${
               shape === "circle"
-                ? "rounded-full w-16 h-16 bg-gradient-primary border-2 border-muted"
+                ? "bg-gradient-primary h-16 w-16 rounded-full border-2 border-muted"
                 : "rounded-lg border-2 border-dashed border-muted"
             } ${
               shape === "circle"
@@ -129,8 +129,8 @@ export function ImageUpload({
             <img
               src={value}
               alt="Uploaded"
-              className="w-full h-full object-cover"
-              onError={e => {
+              className="h-full w-full object-cover"
+              onError={(e) => {
                 console.log("ImageUpload: Image failed to load:", value?.substring(0, 50));
                 // Hide the image preview if it fails to load
                 onChange("");
@@ -139,57 +139,79 @@ export function ImageUpload({
                 console.log("ImageUpload: Image loaded successfully");
               }}
             />
-            <Button
-              variant="destructive"
-              size="sm"
-              className="absolute top-2 right-2"
-              onClick={removeImage}
-              data-testid={`${testId}-remove`}
-            >
-              <X className="w-4 h-4" />
-            </Button>
           </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            className={`absolute ${
+              shape === "circle"
+                ? "-right-2 -top-2 h-6 w-6 rounded-full p-0 shadow-sm hover:bg-destructive/90"
+                : "right-2 top-2"
+            }`}
+            onClick={removeImage}
+            data-testid={`${testId}-remove`}
+          >
+            <X className={shape === "circle" ? "h-3 w-3" : "h-4 w-4"} />
+          </Button>
         </div>
       ) : (
         <div
-          className={`border-2 border-dashed border-muted text-center transition-colors ${
+          className={
             shape === "circle"
-              ? "rounded-full w-16 h-16 flex items-center justify-center"
-              : "rounded-lg p-12"
-          } ${isDragging ? "border-primary bg-primary/5" : "hover:border-primary/50"} ${
-            shape === "circle" ? "" : aspectRatio === "square" ? "aspect-square" : "min-h-64"
-          }`}
+              ? "relative w-fit"
+              : `rounded-lg border-2 border-dashed border-muted p-12 text-center transition-colors ${
+                  isDragging ? "border-primary bg-primary/5" : "hover:border-primary/50"
+                } ${aspectRatio === "square" ? "aspect-square" : "min-h-64"}`
+          }
           onDrop={handleDrop}
-          onDragOver={e => {
+          onDragOver={(e) => {
             e.preventDefault();
             setIsDragging(true);
           }}
           onDragLeave={() => setIsDragging(false)}
           data-testid={testId}
         >
-          <div
-            className={`flex flex-col items-center justify-center ${shape === "circle" ? "space-y-1" : "space-y-3"}`}
-          >
-            <ImageIcon
-              className={`${shape === "circle" ? "w-8 h-8" : "w-12 h-12"} text-muted-foreground`}
-            />
-            {shape !== "circle" && (
+          {shape === "circle" ? (
+            <>
+              <div
+                className={`relative flex h-16 w-16 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted transition-colors hover:border-primary/50 ${
+                  isDragging ? "border-primary bg-primary/5" : ""
+                }`}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+              </div>
+              <Button
+                size="sm"
+                className="absolute -right-2 -top-2 h-6 w-6 rounded-full p-0 shadow-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                data-testid={`${testId}-button`}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center space-y-3">
+              <ImageIcon className="h-12 w-12 text-muted-foreground" />
               <>
-                <p className="text-base text-muted-foreground font-medium">{placeholder}</p>
+                <p className="text-base font-medium text-muted-foreground">{placeholder}</p>
                 <p className="text-sm text-muted-foreground">Drag and drop or click to browse</p>
               </>
-            )}
-            <Button
-              variant="outline"
-              size={shape === "circle" ? "sm" : "default"}
-              onClick={() => fileInputRef.current?.click()}
-              data-testid={`${testId}-button`}
-              className={shape === "circle" ? "text-xs px-2 py-1" : "px-6 py-2"}
-            >
-              <Upload className={`${shape === "circle" ? "w-3 h-3 mr-1" : "w-5 h-5 mr-2"}`} />
-              {shape === "circle" ? "Add" : "Choose File"}
-            </Button>
-          </div>
+              <Button
+                variant="outline"
+                size="default"
+                onClick={() => fileInputRef.current?.click()}
+                data-testid={`${testId}-button`}
+                className="px-6 py-2"
+              >
+                <Upload className="mr-2 h-5 w-5" />
+                Choose File
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
