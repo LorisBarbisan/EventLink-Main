@@ -159,8 +159,8 @@ export function ImageUpload({
           className={
             shape === "circle"
               ? "relative w-fit"
-              : `rounded-lg border-2 border-dashed border-muted p-12 text-center transition-colors ${
-                  isDragging ? "border-primary bg-primary/5" : "hover:border-primary/50"
+              : `rounded-lg border-2 border-dashed border-primary/50 p-12 text-center transition-colors ${
+                  isDragging ? "border-primary bg-primary/5" : "hover:border-primary"
                 } ${aspectRatio === "square" ? "aspect-square" : "min-h-64"}`
           }
           onDrop={handleDrop}
@@ -174,7 +174,7 @@ export function ImageUpload({
           {shape === "circle" ? (
             <>
               <div
-                className={`relative flex h-16 w-16 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-muted transition-colors hover:border-primary/50 ${
+                className={`relative flex h-16 w-16 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-primary/50 transition-colors hover:border-primary ${
                   isDragging ? "border-primary bg-primary/5" : ""
                 }`}
                 onClick={() => fileInputRef.current?.click()}
@@ -183,7 +183,7 @@ export function ImageUpload({
               </div>
               <Button
                 size="sm"
-                className="absolute -right-2 -top-2 h-6 w-6 rounded-full p-0 shadow-sm"
+                className="absolute -right-1 -top-1 h-6 w-6 rounded-full p-0 shadow-sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   fileInputRef.current?.click();
