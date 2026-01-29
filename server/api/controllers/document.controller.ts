@@ -71,18 +71,15 @@ export async function uploadDocument(req: Request, res: Response) {
       `📤 Uploading document to storage: path=${objectKey}, size=${actualSize} bytes`
     );
 
-    const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
-    if (!bucketId) {
-      throw new Error("Object storage not configured");
-    }
-    const replitClient = new ReplitStorageClient({ bucketId });
+    // Use Replit's default bucket (no bucketId means use default)
+    const replitClient = new ReplitStorageClient();
     
     try {
       const uploadResult = await replitClient.uploadFromBytes(objectKey, buffer);
       
       if (!uploadResult.ok) {
         console.error("❌ Object storage upload error:", uploadResult.error);
-        throw new Error("Failed to upload document to storage");
+        throw new Error(`Failed to upload document: ${uploadResult.error}`);
       }
       console.log(`✅ Document uploaded to storage successfully: ${objectKey}`);
     } catch (uploadError) {
@@ -219,11 +216,8 @@ export async function deleteDocument(req: Request, res: Response) {
     }
 
     try {
-      const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
-      if (bucketId) {
-        const replitClient = new ReplitStorageClient({ bucketId });
-        await replitClient.delete(document.file_url, { ignoreNotFound: true });
-      }
+      const replitClient = new ReplitStorageClient();
+      await replitClient.delete(document.file_url, { ignoreNotFound: true });
     } catch (deleteError) {
       console.error("Object storage delete error:", deleteError);
     }
