@@ -49,7 +49,7 @@ export default function Freelancers() {
       if (searchQuery) params.append("keyword", searchQuery);
       if (locationFilter) params.append("location", locationFilter);
       params.append("page", currentPage.toString());
-      params.append("limit", "20");
+      params.append("limit", "21");
 
       const response = await fetch(`/api/freelancers/search?${params}`);
       if (!response.ok) throw new Error("Failed to fetch freelancers");
@@ -59,7 +59,7 @@ export default function Freelancers() {
 
   const freelancers = searchResults?.results || [];
   const totalResults = searchResults?.total || 0;
-  const totalPages = Math.ceil(totalResults / 20);
+  const totalPages = Math.ceil(totalResults / 21);
   const hasNextPage = currentPage < totalPages;
   const hasPrevPage = currentPage > 1;
 
