@@ -11,6 +11,13 @@ import {
   reportAttachment,
   uploadCV,
 } from "../controllers/file.controller";
+import {
+  deleteDocument,
+  downloadDocument,
+  getDocuments,
+  getDocumentTypes,
+  uploadDocument,
+} from "../controllers/document.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
 
 export function registerFileRoutes(app: Express) {
@@ -45,4 +52,21 @@ export function registerFileRoutes(app: Express) {
 
   // Report attachment
   app.post("/api/attachments/:attachmentId/report", authenticateJWT, reportAttachment);
+
+  // FREELANCER DOCUMENTS/CERTIFICATIONS
+
+  // Get document types
+  app.get("/api/documents/types", getDocumentTypes);
+
+  // Upload document
+  app.post("/api/documents", authenticateJWT, uploadDocument);
+
+  // Get freelancer documents
+  app.get("/api/documents/:freelancerId", authenticateJWT, getDocuments);
+
+  // Download document
+  app.get("/api/documents/:documentId/download", authenticateJWT, downloadDocument);
+
+  // Delete document
+  app.delete("/api/documents/:documentId", authenticateJWT, deleteDocument);
 }

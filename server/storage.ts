@@ -3,6 +3,7 @@ import {
   conversations,
   email_notification_logs,
   feedback,
+  freelancer_documents,
   freelancer_profiles,
   job_alert_filters,
   job_applications,
@@ -20,9 +21,11 @@ import {
   type Conversation,
   type EmailNotificationLog,
   type Feedback,
+  type FreelancerDocument,
   type FreelancerProfile,
   type InsertEmailNotificationLog,
   type InsertFeedback,
+  type InsertFreelancerDocument,
   type InsertFreelancerProfile,
   type InsertJob,
   type InsertJobAlertFilter,
@@ -331,6 +334,13 @@ export interface IStorage {
   // Email notification logging
   logEmailNotification(log: InsertEmailNotificationLog): Promise<EmailNotificationLog>;
   getEmailNotificationLogs(userId: number, limit?: number): Promise<EmailNotificationLog[]>;
+
+  // Freelancer document/certification management
+  getFreelancerDocuments(freelancerId: number): Promise<FreelancerDocument[]>;
+  getFreelancerDocumentById(documentId: number): Promise<FreelancerDocument | undefined>;
+  getFreelancerDocumentCount(freelancerId: number): Promise<number>;
+  createFreelancerDocument(document: InsertFreelancerDocument): Promise<FreelancerDocument>;
+  deleteFreelancerDocument(documentId: number, freelancerId: number): Promise<void>;
 
   // Cache management
   clearCache(): void;
@@ -3521,6 +3531,51 @@ export class DatabaseStorage implements IStorage {
       .where(eq(email_notification_logs.user_id, userId))
       .orderBy(desc(email_notification_logs.sent_at))
       .limit(limit);
+  }
+
+  // Freelancer document/certification management
+  async getFreelancerDocuments(freelancerId: number): Promise<FreelancerDocument[]> {
+    return db
+      .select()
+      .from(freelancer_documents)
+      .where(eq(freelancer_documents.freelancer_id, freelancerId))
+      .orderBy(desc(freelancer_documents.uploaded_at));
+  }
+
+  async getFreelancerDocumentById(documentId: number): Promise<FreelancerDocument | undefined> {
+    const result = await db
+      .select()
+      .from(freelancer_documents)
+      .where(eq(freelancer_documents.id, documentId))
+      .limit(1);
+    return result[0];
+  }
+
+  async getFreelancerDocumentCount(freelancerId: number): Promise<number> {
+    const result = await db
+      .select({ count: count() })
+      .from(freelancer_documents)
+      .where(eq(freelancer_documents.freelancer_id, freelancerId));
+    return result[0]?.count ?? 0;
+  }
+
+  async createFreelancerDocument(document: InsertFreelancerDocument): Promise<FreelancerDocument> {
+    const result = await db.insert(freelancer_documents).values(document).returning();
+    if (!result[0]) {
+      throw new Error("Failed to create freelancer document");
+    }
+    return result[0];
+  }
+
+  async deleteFreelancerDocument(documentId: number, freelancerId: number): Promise<void> {
+    await db
+      .delete(freelancer_documents)
+      .where(
+        and(
+          eq(freelancer_documents.id, documentId),
+          eq(freelancer_documents.freelancer_id, freelancerId)
+        )
+      );
   }
 
   clearCache(): void {

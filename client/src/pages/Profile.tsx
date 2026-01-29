@@ -40,6 +40,7 @@ import {
   useReportRating,
 } from "@/hooks/useRatings";
 import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   Calendar,
@@ -52,6 +53,7 @@ import {
   MessageCircle,
   Phone,
   Quote,
+  Shield,
   Star,
   User,
 } from "lucide-react";
@@ -918,6 +920,7 @@ export default function Profile() {
               </CardContent>
             </Card>
           )}
+
 
           {/* Featured Reviews Section (Freelancers only) - for future use
           {((freelancerProfile && profile?.role !== "admin") ||
