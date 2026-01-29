@@ -59,7 +59,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
   const canViewDocuments = isOwner || viewerRole === "recruiter" || viewerRole === "admin";
 
   const { data: documents = [], isLoading, isError } = useQuery<Document[]>({
-    queryKey: ["/api/documents", userId],
+    queryKey: [`/api/documents/${userId}`],
     enabled: canViewDocuments,
   });
 
@@ -74,7 +74,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/documents", userId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/documents/${userId}`] });
       toast({
         title: "Document deleted",
         description: "The document has been removed.",
@@ -164,7 +164,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
             }),
           });
 
-          queryClient.invalidateQueries({ queryKey: ["/api/documents", userId] });
+          queryClient.invalidateQueries({ queryKey: [`/api/documents/${userId}`] });
           setSelectedType("");
           setCustomTypeName("");
 
@@ -432,7 +432,7 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
   const canViewDocuments = isOwner || viewerRole === "recruiter" || viewerRole === "admin";
 
   const { data: documents = [], isLoading } = useQuery<Document[]>({
-    queryKey: ["/api/documents", freelancerId],
+    queryKey: [`/api/documents/${freelancerId}`],
     enabled: canViewDocuments,
   });
 
