@@ -1,3 +1,4 @@
+import { DocumentUploader } from "@/components/DocumentUploader";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
 import { MessageModal } from "@/components/MessageModal";
@@ -40,7 +41,6 @@ import {
   useReportRating,
 } from "@/hooks/useRatings";
 import { apiRequest } from "@/lib/queryClient";
-import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   Calendar,
@@ -53,7 +53,6 @@ import {
   MessageCircle,
   Phone,
   Quote,
-  Shield,
   Star,
   User,
 } from "lucide-react";
@@ -120,10 +119,10 @@ function FeaturedReviews({ freelancerId }: { freelancerId: number }) {
   if (featuredReviews.length === 0) return null;
 
   return (
-    <Card className="bg-gradient-to-br from-card to-accent/20 border-accent/20">
+    <Card className="border-accent/20 bg-gradient-to-br from-card to-accent/20">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+          <Star className="h-5 w-5 fill-yellow-500 text-yellow-500" />
           Featured Reviews
         </CardTitle>
       </CardHeader>
@@ -138,12 +137,12 @@ function FeaturedReviews({ freelancerId }: { freelancerId: number }) {
           <CarouselContent className="-ml-1">
             {featuredReviews.map((rating: any) => (
               <CarouselItem key={rating.id} className="pl-1 md:basis-1/2 lg:basis-1/3">
-                <div className="p-1 h-full">
-                  <Card className="h-full bg-card/50 hover:bg-card transition-colors">
-                    <CardContent className="flex flex-col h-full p-4">
-                      <div className="flex items-center justify-between mb-2">
+                <div className="h-full p-1">
+                  <Card className="h-full bg-card/50 transition-colors hover:bg-card">
+                    <CardContent className="flex h-full flex-col p-4">
+                      <div className="mb-2 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
                             <span className="text-xs font-bold text-primary">
                               {rating.recruiter?.first_name?.[0] || "R"}
                             </span>
@@ -155,12 +154,12 @@ function FeaturedReviews({ freelancerId }: { freelancerId: number }) {
                         <StarRating rating={rating.rating} readonly size="sm" />
                       </div>
                       <div className="relative flex-1">
-                        <Quote className="w-4 h-4 text-muted-foreground/30 absolute -top-1 -left-1" />
-                        <p className="text-sm text-muted-foreground line-clamp-4 pt-2 px-2 italic">
+                        <Quote className="absolute -left-1 -top-1 h-4 w-4 text-muted-foreground/30" />
+                        <p className="line-clamp-4 px-2 pt-2 text-sm italic text-muted-foreground">
                           &quot;{rating.review}&quot;
                         </p>
                       </div>
-                      <div className="mt-4 pt-2 border-t text-xs text-muted-foreground flex justify-between items-center">
+                      <div className="mt-4 flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
                         <span>{rating.job_title || "Project"}</span>
                         <span>{format(new Date(rating.created_at), "MMM yyyy")}</span>
                       </div>
@@ -225,13 +224,13 @@ function ReviewsSection({ freelancerId }: { freelancerId: number }) {
               <div key={rating.id}>
                 <div className="flex items-start gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">
                           {rating.recruiter?.first_name || "Recruiter"}{" "}
                           {rating.recruiter?.last_name || ""}
                         </span>
-                        <span className="text-muted-foreground text-sm">•</span>
+                        <span className="text-sm text-muted-foreground">•</span>
                         <StarRating rating={rating.rating} readonly size="sm" />
                       </div>
 
@@ -242,10 +241,10 @@ function ReviewsSection({ freelancerId }: { freelancerId: number }) {
                         onClick={() => handleReportClick(rating.id)}
                         title="Report review"
                       >
-                        <Flag className="w-4 h-4" />
+                        <Flag className="h-4 w-4" />
                       </Button>
                     </div>
-                    <p className="text-sm text-muted-foreground italic mb-2">
+                    <p className="mb-2 text-sm italic text-muted-foreground">
                       {" "}
                       &quot;{rating.review}&quot;
                     </p>
@@ -332,16 +331,6 @@ export default function Profile() {
   // Get rating data for freelancer profiles
   const { data: averageRating } = useFreelancerAverageRating(freelancerProfile?.user_id || 0);
 
-  // Helper function to format file size
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
-  // Handle CV download
   const handleDownloadCV = async (cvProfile: FreelancerProfile) => {
     const isViewingPromotional = profile?.email?.toLowerCase() === EVENTLINK_PROMOTIONAL_EMAIL;
     if (!cvProfile.cv_file_url || (!user && !isViewingPromotional)) {
@@ -609,7 +598,7 @@ export default function Profile() {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="mx-auto max-w-4xl space-y-6">
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-64 w-full" />
           </div>
@@ -622,8 +611,8 @@ export default function Profile() {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-2xl font-bold mb-4">Profile Not Found</h1>
+          <div className="mx-auto max-w-4xl text-center">
+            <h1 className="mb-4 text-2xl font-bold">Profile Not Found</h1>
             <Button onClick={() => setLocation("/dashboard")}>Go to Dashboard</Button>
           </div>
         </div>
@@ -636,9 +625,9 @@ export default function Profile() {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto text-center space-y-4">
-            <div className="w-24 h-24 bg-gradient-primary rounded-full flex items-center justify-center mx-auto">
-              <User className="w-12 h-12 text-white" />
+          <div className="mx-auto max-w-4xl space-y-4 text-center">
+            <div className="bg-gradient-primary mx-auto flex h-24 w-24 items-center justify-center rounded-full">
+              <User className="h-12 w-12 text-white" />
             </div>
             <h1 className="text-2xl font-bold">Complete Your Profile</h1>
             <p className="text-muted-foreground">
@@ -668,9 +657,9 @@ export default function Profile() {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto text-center space-y-4">
-            <div className="w-24 h-24 bg-gradient-primary rounded-full flex items-center justify-center mx-auto">
-              <User className="w-12 h-12 text-white" />
+          <div className="mx-auto max-w-4xl space-y-4 text-center">
+            <div className="bg-gradient-primary mx-auto flex h-24 w-24 items-center justify-center rounded-full">
+              <User className="h-12 w-12 text-white" />
             </div>
             <h1 className="text-2xl font-bold">Complete Your Company Profile</h1>
             <p className="text-muted-foreground">
@@ -702,14 +691,14 @@ export default function Profile() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="mx-auto max-w-4xl space-y-6">
           {/* Profile Header */}
           <Card>
             <CardContent className="p-8">
               {(freelancerProfile && profile?.role !== "admin") ||
               (profile?.role === "admin" && freelancerProfile && !recruiterProfile) ? (
-                <div className="flex flex-col md:flex-row items-start gap-6">
-                  <div className="w-32 h-32 bg-gradient-primary rounded-full flex items-center justify-center overflow-hidden">
+                <div className="flex flex-col items-start gap-6 md:flex-row">
+                  <div className="bg-gradient-primary flex h-32 w-32 items-center justify-center overflow-hidden rounded-full">
                     {freelancerProfile?.profile_photo_url &&
                     freelancerProfile.profile_photo_url.trim() !== "" &&
                     freelancerProfile.profile_photo_url !== "null" &&
@@ -717,16 +706,16 @@ export default function Profile() {
                       <img
                         src={freelancerProfile.profile_photo_url}
                         alt="Profile"
-                        className="w-full h-full object-cover"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      <User className="w-16 h-16 text-white" />
+                      <User className="h-16 w-16 text-white" />
                     )}
                   </div>
 
                   <div className="flex-1 space-y-4">
                     <div>
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="mb-2 flex items-center justify-between">
                         <h1 className="text-3xl font-bold">
                           {freelancerProfile?.first_name} {freelancerProfile?.last_name}
                         </h1>
@@ -736,7 +725,7 @@ export default function Profile() {
                           </Button>
                         )}
                       </div>
-                      <p className="text-xl text-primary font-semibold mb-2">
+                      <p className="mb-2 text-xl font-semibold text-primary">
                         {freelancerProfile?.title}
                       </p>
                       {freelancerProfile?.superpower && (
@@ -744,23 +733,23 @@ export default function Profile() {
                           <span className="text-sm font-medium text-muted-foreground">
                             Superpower:
                           </span>
-                          <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 border-0 text-sm py-1">
+                          <Badge className="border-0 bg-gradient-to-r from-purple-500 to-pink-500 py-1 text-sm hover:from-purple-600 hover:to-pink-600">
                             ⚡ {freelancerProfile.superpower}
                           </Badge>
                         </div>
                       )}
                       <div className="flex items-center gap-4 text-muted-foreground">
                         <div className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
+                          <MapPin className="h-4 w-4" />
                           {freelancerProfile?.location}
                         </div>
                         <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
+                          <Calendar className="h-4 w-4" />
                           {freelancerProfile?.experience_years} years experience
                         </div>
                         {averageRating && (
                           <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4" />
+                            <Star className="h-4 w-4" />
                             <RatingDisplay
                               average={averageRating.average}
                               count={averageRating.count}
@@ -793,7 +782,7 @@ export default function Profile() {
                           onClick={handleContactClick}
                           className="bg-gradient-primary hover:bg-primary-hover"
                         >
-                          <MessageCircle className="w-4 h-4 mr-2" />
+                          <MessageCircle className="mr-2 h-4 w-4" />
                           Send Message
                         </Button>
                       )}
@@ -807,7 +796,7 @@ export default function Profile() {
                             variant="outline"
                             data-testid="button-download-cv-profile"
                           >
-                            <Download className="w-4 h-4" />
+                            <Download className="h-4 w-4" />
                             Download CV
                           </Button>
                         )}
@@ -815,8 +804,8 @@ export default function Profile() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col md:flex-row items-start gap-6">
-                  <div className="w-32 h-32 bg-gradient-primary rounded-full flex items-center justify-center overflow-hidden">
+                <div className="flex flex-col items-start gap-6 md:flex-row">
+                  <div className="bg-gradient-primary flex h-32 w-32 items-center justify-center overflow-hidden rounded-full">
                     {recruiterProfile?.company_logo_url &&
                     recruiterProfile.company_logo_url.trim() !== "" &&
                     recruiterProfile.company_logo_url !== "null" &&
@@ -824,16 +813,16 @@ export default function Profile() {
                       <img
                         src={recruiterProfile.company_logo_url}
                         alt="Company Logo"
-                        className="w-full h-full object-cover"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      <User className="w-16 h-16 text-white" />
+                      <User className="h-16 w-16 text-white" />
                     )}
                   </div>
 
                   <div className="flex-1 space-y-4">
                     <div>
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="mb-2 flex items-center justify-between">
                         <h1 className="text-3xl font-bold">{recruiterProfile?.company_name}</h1>
                         {isOwnProfile && (
                           <Button variant="outline" onClick={() => setLocation("/dashboard")}>
@@ -841,21 +830,21 @@ export default function Profile() {
                           </Button>
                         )}
                       </div>
-                      <p className="text-xl text-primary font-semibold mb-2">
+                      <p className="mb-2 text-xl font-semibold text-primary">
                         {recruiterProfile?.company_type}
                       </p>
                       <div className="flex items-center gap-4 text-muted-foreground">
                         <div className="flex items-center gap-1">
-                          <User className="w-4 h-4" />
+                          <User className="h-4 w-4" />
                           {recruiterProfile?.contact_name}
                         </div>
                         <div className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
+                          <MapPin className="h-4 w-4" />
                           {recruiterProfile?.location}
                         </div>
                         {recruiterProfile?.phone && (
                           <div className="flex items-center gap-1">
-                            <Phone className="w-4 h-4" />
+                            <Phone className="h-4 w-4" />
                             {recruiterProfile.phone}
                           </div>
                         )}
@@ -868,7 +857,7 @@ export default function Profile() {
                           onClick={handleContactClick}
                           className="bg-gradient-primary hover:bg-primary-hover"
                         >
-                          <MessageCircle className="w-4 h-4 mr-2" />
+                          <MessageCircle className="mr-2 h-4 w-4" />
                           Send Message
                         </Button>
                       )}{" "}
@@ -890,7 +879,7 @@ export default function Profile() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="leading-relaxed text-muted-foreground">
                 {(freelancerProfile && profile?.role !== "admin") ||
                 (profile?.role === "admin" && freelancerProfile && !recruiterProfile)
                   ? freelancerProfile?.bio || "No bio available."
@@ -921,6 +910,17 @@ export default function Profile() {
             </Card>
           )}
 
+          {/* Documents & Certifications Section (Freelancers only) */}
+          {((freelancerProfile && profile?.role !== "admin") ||
+            (profile?.role === "admin" && freelancerProfile && !recruiterProfile)) && (
+            <div className="mb-6">
+              <DocumentUploader
+                userId={freelancerProfile?.user_id || 0}
+                isOwner={isOwnProfile}
+                viewerRole={user?.role as "freelancer" | "recruiter" | "admin"}
+              />
+            </div>
+          )}
 
           {/* Featured Reviews Section (Freelancers only) - for future use
           {((freelancerProfile && profile?.role !== "admin") ||
@@ -973,7 +973,7 @@ export default function Profile() {
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
                         >
-                          <ExternalLink className="w-4 h-4" />
+                          <ExternalLink className="h-4 w-4" />
                           Portfolio
                         </a>
                       )}
@@ -984,7 +984,7 @@ export default function Profile() {
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
                         >
-                          <Linkedin className="w-4 h-4" />
+                          <Linkedin className="h-4 w-4" />
                           LinkedIn
                         </a>
                       )}
@@ -995,7 +995,7 @@ export default function Profile() {
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
                         >
-                          <Globe className="w-4 h-4" />
+                          <Globe className="h-4 w-4" />
                           Website
                         </a>
                       )}
@@ -1009,7 +1009,7 @@ export default function Profile() {
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
                         >
-                          <Globe className="w-4 h-4" />
+                          <Globe className="h-4 w-4" />
                           Company Website
                         </a>
                       )}
@@ -1020,7 +1020,7 @@ export default function Profile() {
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
                         >
-                          <Linkedin className="w-4 h-4" />
+                          <Linkedin className="h-4 w-4" />
                           LinkedIn
                         </a>
                       )}
