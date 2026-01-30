@@ -376,7 +376,8 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
                 : "This freelancer hasn't uploaded any documents yet"}
             </p>
           </div>
-        ) : (
+        ) : isOwner ? (
+          /* Owner view - shows file details and delete option */
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {documents.map((doc) => (
               <div
@@ -410,19 +411,32 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
                     <Eye className="h-4 w-4" />
                     View
                   </Button>
-                  {isOwner && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteMutation.mutate(doc.id)}
-                      disabled={deleteMutation.isPending}
-                      title="Delete"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteMutation.mutate(doc.id)}
+                    disabled={deleteMutation.isPending}
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
                 </div>
               </div>
+            ))}
+          </div>
+        ) : (
+          /* Viewer view - simple orange buttons with just the type name */
+          <div className="flex flex-wrap gap-2">
+            {documents.map((doc) => (
+              <Button
+                key={doc.id}
+                onClick={() => handleDownload(doc)}
+                className="bg-gradient-primary hover:bg-primary-hover"
+              >
+                {doc.document_type === "Other" && doc.custom_type_name
+                  ? doc.custom_type_name
+                  : DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type}
+              </Button>
             ))}
           </div>
         )}
