@@ -12,7 +12,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Download, FileText, Shield, Trash2, Upload } from "lucide-react";
+import { Eye, FileText, Shield, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 
 interface Document {
@@ -402,11 +402,13 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
                 <div className="ml-2 flex shrink-0 gap-1">
                   <Button
                     variant="ghost"
-                    size="icon"
+                    size="sm"
                     onClick={() => handleDownload(doc)}
-                    title="View/Download"
+                    title="View"
+                    className="gap-1"
                   >
-                    <Download className="h-4 w-4" />
+                    <Eye className="h-4 w-4" />
+                    View
                   </Button>
                   {isOwner && (
                     <Button
