@@ -47,6 +47,21 @@ const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   Other: "Other Document",
 };
 
+// Shorter labels for button display (without "Certificate", PLI abbreviated)
+const DOCUMENT_BUTTON_LABELS: Record<string, string> = {
+  PLI: "PLI",
+  BS7909: "BS7909",
+  IPAF: "IPAF",
+  NRC: "NRC",
+  PASMA: "PASMA",
+  "First Aid": "First Aid",
+  "Electrical Safety": "Electrical Safety",
+  "Working at Height": "Working at Height",
+  "Risk Assessment": "Risk Assessment",
+  "Method Statement": "Method Statement",
+  Other: "Other",
+};
+
 const MAX_DOCUMENTS = 9;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -431,11 +446,11 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
               <Button
                 key={doc.id}
                 onClick={() => handleDownload(doc)}
-                className="bg-gradient-primary hover:bg-primary-hover"
+                className="bg-gradient-primary hover:bg-primary-hover w-[140px] h-10 text-sm"
               >
                 {doc.document_type === "Other" && doc.custom_type_name
                   ? doc.custom_type_name
-                  : DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type}
+                  : DOCUMENT_BUTTON_LABELS[doc.document_type] || doc.document_type}
               </Button>
             ))}
           </div>
@@ -493,15 +508,12 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
       {documents.map((doc) => (
         <Button
           key={doc.id}
-          variant="outline"
-          size="sm"
           onClick={() => handleDownload(doc)}
-          className="gap-2"
+          className="bg-gradient-primary hover:bg-primary-hover w-[140px] h-10 text-sm"
         >
-          <Shield className="h-3 w-3" />
           {doc.document_type === "Other" && doc.custom_type_name
             ? doc.custom_type_name
-            : DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type}
+            : DOCUMENT_BUTTON_LABELS[doc.document_type] || doc.document_type}
         </Button>
       ))}
     </div>
