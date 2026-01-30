@@ -11,8 +11,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Download, FileText, Plus, Trash2, Upload, Shield } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Download, FileText, Shield, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 
 interface Document {
@@ -58,7 +58,11 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
 
   const canViewDocuments = isOwner || viewerRole === "recruiter" || viewerRole === "admin";
 
-  const { data: documents = [], isLoading, isError } = useQuery<Document[]>({
+  const {
+    data: documents = [],
+    isLoading,
+    isError,
+  } = useQuery<Document[]>({
     queryKey: [`/api/documents/${userId}`],
     enabled: canViewDocuments,
   });
@@ -258,14 +262,14 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="w-5 h-5" />
+            <Shield className="h-5 w-5" />
             Documents & Certifications
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="animate-pulse space-y-3">
-            <div className="h-12 bg-muted rounded"></div>
-            <div className="h-12 bg-muted rounded"></div>
+            <div className="h-12 rounded bg-muted"></div>
+            <div className="h-12 rounded bg-muted"></div>
           </div>
         </CardContent>
       </Card>
@@ -280,7 +284,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Shield className="w-5 h-5" />
+          <Shield className="h-5 w-5" />
           Documents & Certifications
         </CardTitle>
         <CardDescription>
@@ -291,14 +295,17 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
       </CardHeader>
       <CardContent className="space-y-4">
         {isOwner && documents.length < MAX_DOCUMENTS && (
-          <div className="border-2 border-dashed rounded-lg p-4 space-y-3">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Select value={selectedType} onValueChange={(value) => {
-                setSelectedType(value);
-                if (value !== "Other") {
-                  setCustomTypeName("");
-                }
-              }}>
+          <div className="space-y-3 rounded-lg border-2 border-dashed p-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Select
+                value={selectedType}
+                onValueChange={(value) => {
+                  setSelectedType(value);
+                  if (value !== "Other") {
+                    setCustomTypeName("");
+                  }
+                }}
+              >
                 <SelectTrigger className="flex-1">
                   <SelectValue placeholder="Select document type" />
                 </SelectTrigger>
@@ -314,11 +321,15 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
               <label htmlFor="document-upload">
                 <Button
                   variant="outline"
-                  disabled={isUploading || !selectedType || (selectedType === "Other" && !customTypeName.trim())}
+                  disabled={
+                    isUploading ||
+                    !selectedType ||
+                    (selectedType === "Other" && !customTypeName.trim())
+                  }
                   asChild
                 >
                   <span>
-                    <Upload className="w-4 h-4 mr-2" />
+                    <Upload className="mr-2 h-4 w-4" />
                     {isUploading ? "Uploading..." : "Upload"}
                   </span>
                 </Button>
@@ -329,10 +340,14 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
                 accept=".pdf,.jpg,.jpeg,.png"
                 onChange={handleFileSelect}
                 className="hidden"
-                disabled={isUploading || !selectedType || (selectedType === "Other" && !customTypeName.trim())}
+                disabled={
+                  isUploading ||
+                  !selectedType ||
+                  (selectedType === "Other" && !customTypeName.trim())
+                }
               />
             </div>
-            
+
             {selectedType === "Other" && (
               <Input
                 placeholder="Enter custom document type name"
@@ -342,19 +357,19 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
                 className="w-full"
               />
             )}
-            
-            <p className="text-xs text-muted-foreground text-center">
+
+            <p className="text-center text-xs text-muted-foreground">
               Accepted: PDF, JPG, PNG (max 10MB)
             </p>
           </div>
         )}
 
         {documents.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileText className="w-8 h-8 text-muted-foreground" />
+          <div className="py-8 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+              <FileText className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="font-medium mb-2">No documents uploaded</h3>
+            <h3 className="mb-2 font-medium">No documents uploaded</h3>
             <p className="text-sm text-muted-foreground">
               {isOwner
                 ? "Upload your certifications to showcase your credentials"
@@ -366,34 +381,32 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
             {documents.map((doc) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
               >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="p-2 bg-primary/10 rounded shrink-0">
-                    <FileText className="w-4 h-4 text-primary" />
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <div className="shrink-0 rounded bg-primary/10 p-2">
+                    <FileText className="h-4 w-4 text-primary" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <Badge variant="secondary" className="mb-1">
-                      {doc.document_type === "Other" && doc.custom_type_name 
-                        ? doc.custom_type_name 
-                        : doc.document_type}
+                      {doc.document_type === "Other" && doc.custom_type_name
+                        ? doc.custom_type_name
+                        : DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type}
                     </Badge>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="truncate text-xs text-muted-foreground">
                       {doc.original_filename}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatFileSize(doc.file_size)}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{formatFileSize(doc.file_size)}</p>
                   </div>
                 </div>
-                <div className="flex gap-1 shrink-0 ml-2">
+                <div className="ml-2 flex shrink-0 gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => handleDownload(doc)}
                     title="View/Download"
                   >
-                    <Download className="w-4 h-4" />
+                    <Download className="h-4 w-4" />
                   </Button>
                   {isOwner && (
                     <Button
@@ -403,7 +416,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
                       disabled={deleteMutation.isPending}
                       title="Delete"
                     >
-                      <Trash2 className="w-4 h-4 text-destructive" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   )}
                 </div>
@@ -413,7 +426,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
         )}
 
         {isOwner && documents.length >= MAX_DOCUMENTS && (
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-center text-sm text-muted-foreground">
             Maximum documents reached. Delete an existing document to upload a new one.
           </p>
         )}
@@ -469,10 +482,10 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
           onClick={() => handleDownload(doc)}
           className="gap-2"
         >
-          <Shield className="w-3 h-3" />
-          {doc.document_type === "Other" && doc.custom_type_name 
-            ? doc.custom_type_name 
-            : doc.document_type}
+          <Shield className="h-3 w-3" />
+          {doc.document_type === "Other" && doc.custom_type_name
+            ? doc.custom_type_name
+            : DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type}
         </Button>
       ))}
     </div>
