@@ -180,8 +180,10 @@ export async function getAllUsers(req: Request, res: Response) {
     const search = (req.query.search as string) || undefined;
     const role = (req.query.role as string) || undefined;
     const status = (req.query.status as string) || undefined;
+    const sortBy = (req.query.sortBy as string) || "created_at";
+    const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
 
-    const { users, total } = await storage.getAllUsers(page, limit, search, role, status);
+    const { users, total } = await storage.getAllUsers(page, limit, search, role, status, sortBy, sortOrder);
 
     // Remove sensitive information
     const safeUsers = users.map((user: any) => {

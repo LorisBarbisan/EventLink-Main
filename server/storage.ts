@@ -50,7 +50,7 @@ import {
   type RecruiterProfile,
   type User,
 } from "@shared/schema";
-import { and, count, desc, eq, gt, gte, ilike, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, ilike, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
 
@@ -280,7 +280,9 @@ export interface IStorage {
     limit: number,
     search?: string,
     role?: string,
-    status?: string
+    status?: string,
+    sortBy?: string,
+    sortOrder?: "asc" | "desc"
   ): Promise<{ users: User[]; total: number }>;
   updateUserStatus(userId: number, status: string): Promise<User>;
 
@@ -3372,7 +3374,9 @@ export class DatabaseStorage implements IStorage {
     limit: number,
     search?: string,
     role?: string,
-    status?: string
+    status?: string,
+    sortBy?: string,
+    sortOrder?: "asc" | "desc"
   ): Promise<{ users: User[]; total: number }> {
     const offset = (page - 1) * limit;
 
@@ -3399,6 +3403,20 @@ export class DatabaseStorage implements IStorage {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
+    // Determine sort column and direction
+    const sortColumn = (() => {
+      switch (sortBy) {
+        case "email": return users.email;
+        case "first_name": return users.first_name;
+        case "last_name": return users.last_name;
+        case "role": return users.role;
+        case "status": return users.status;
+        case "created_at":
+        default: return users.created_at;
+      }
+    })();
+    const orderByClause = sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
+
     const [usersResult, totalResult] = await Promise.all([
       db
         .select()
@@ -3406,7 +3424,7 @@ export class DatabaseStorage implements IStorage {
         .where(whereClause)
         .limit(limit)
         .offset(offset)
-        .orderBy(desc(users.created_at)),
+        .orderBy(orderByClause),
       db.select({ count: count() }).from(users).where(whereClause),
     ]);
 

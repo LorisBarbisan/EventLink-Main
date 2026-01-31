@@ -165,6 +165,8 @@ function AdminDashboardContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -269,7 +271,7 @@ function AdminDashboardContent() {
 
   // Users query
   const { data: usersData, isLoading: usersLoading } = useQuery<UsersResponse>({
-    queryKey: ["/api/admin/users", currentPage, searchTerm, roleFilter, statusFilter],
+    queryKey: ["/api/admin/users", currentPage, searchTerm, roleFilter, statusFilter, sortBy, sortOrder],
     queryFn: () => {
       const params = new URLSearchParams();
       params.append("page", currentPage.toString());
@@ -277,6 +279,8 @@ function AdminDashboardContent() {
       if (searchTerm) params.append("search", searchTerm);
       if (roleFilter !== "all") params.append("role", roleFilter);
       if (statusFilter !== "all") params.append("status", statusFilter);
+      params.append("sortBy", sortBy);
+      params.append("sortOrder", sortOrder);
       return apiRequest(`/api/admin/users?${params.toString()}`);
     },
     retry: 1,
@@ -313,7 +317,7 @@ function AdminDashboardContent() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, roleFilter]);
+  }, [searchTerm, roleFilter, statusFilter, sortBy, sortOrder]);
 
   // Automatically mark notifications as read when the relevant tab is active
   useEffect(() => {
@@ -957,6 +961,30 @@ function AdminDashboardContent() {
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
                         <SelectItem value="deactivated">Deactivated</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="created_at">Joined Date</SelectItem>
+                        <SelectItem value="email">Email</SelectItem>
+                        <SelectItem value="first_name">First Name</SelectItem>
+                        <SelectItem value="last_name">Last Name</SelectItem>
+                        <SelectItem value="role">Role</SelectItem>
+                        <SelectItem value="status">Status</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as "asc" | "desc")}>
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue placeholder="Order" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="desc">Newest</SelectItem>
+                        <SelectItem value="asc">Oldest</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
