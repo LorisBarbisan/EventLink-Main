@@ -50,7 +50,7 @@ import {
   type RecruiterProfile,
   type User,
 } from "@shared/schema";
-import { and, asc, count, desc, eq, gt, gte, ilike, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, ilike, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
 
@@ -132,6 +132,7 @@ export interface IStorage {
   getJobByExternalId(externalId: string): Promise<Job | undefined>;
   createExternalJob(job: any): Promise<Job>;
   getExternalJobs(): Promise<Job[]>;
+  deleteAllExternalJobs(): Promise<number>;
   getAllJobsSortedByDate(): Promise<Job[]>;
 
   // Get all freelancer profiles for listings
@@ -1324,6 +1325,15 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(jobs)
       .where(and(isNull(jobs.recruiter_id), eq(jobs.type, "external"))); // External jobs have recruiter_id = null and type = 'external'
+  }
+
+  async deleteAllExternalJobs(): Promise<number> {
+    // Delete jobs that have an external_source (from Reed/Adzuna)
+    const result = await db
+      .delete(jobs)
+      .where(isNotNull(jobs.external_source))
+      .returning({ id: jobs.id });
+    return result.length;
   }
 
   // Job application methods

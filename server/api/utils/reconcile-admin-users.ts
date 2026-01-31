@@ -33,6 +33,16 @@ export async function reconcileAdminUsers(): Promise<void> {
     }
 
     console.log("✅ Admin reconciliation complete");
+
+    // One-time cleanup: Remove all external jobs (Reed/Adzuna) - external job sync is disabled
+    try {
+      const deletedCount = await storage.deleteAllExternalJobs();
+      if (deletedCount > 0) {
+        console.log(`🧹 Cleaned up ${deletedCount} external jobs`);
+      }
+    } catch (cleanupError) {
+      console.error("⚠️ External job cleanup failed:", cleanupError);
+    }
   } catch (error) {
     console.error("❌ Admin reconciliation failed:", error);
   }
