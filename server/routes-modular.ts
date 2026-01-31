@@ -266,7 +266,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Additional utility endpoints that don't fit into specific domains
 
   // External job sync endpoints
+  // TEMPORARILY DISABLED - External job sync is paused
   app.post("/api/jobs/sync-external", async (req, res) => {
+    console.log("⏸️ External job sync is temporarily disabled");
+    return res.json({
+      message: "External job sync is temporarily disabled",
+      synced: 0,
+      skipped: 0,
+    });
+    /* DISABLED - Re-enable when ready
     try {
       console.log("🔄 External job sync requested");
       const { jobAggregator } = await import("./api/utils/jobAggregator.js");
@@ -288,22 +296,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("❌ Sync external jobs error:", error);
       res.status(500).json({ error: "Failed to sync external jobs" });
     }
+    */
   });
 
   // Get external jobs only (public endpoint - no authentication required)
+  // TEMPORARILY DISABLED - Returns empty array
   app.get("/api/jobs/external", async (req, res) => {
-    try {
-      console.log(
-        "📤 External jobs requested - returning",
-        await storage.getExternalJobs().then(jobs => jobs.length),
-        "jobs"
-      );
-      const externalJobs = await storage.getExternalJobs();
-      res.json(externalJobs);
-    } catch (error) {
-      console.error("Get external jobs error:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
+    console.log("⏸️ External jobs endpoint is temporarily disabled - returning empty array");
+    return res.json([]);
   });
 
   // Location search endpoint
