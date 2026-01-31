@@ -282,8 +282,9 @@ export interface IStorage {
     role?: string,
     status?: string,
     sortBy?: string,
-    sortOrder?: "asc" | "desc"
-  ): Promise<{ users: User[]; total: number }>;
+    sortOrder?: "asc" | "desc",
+    profileStatus?: string
+  ): Promise<{ users: (User & { profile_status?: string })[]; total: number }>;
   updateUserStatus(userId: number, status: string): Promise<User>;
 
   // Category-specific notification counts
@@ -3376,8 +3377,9 @@ export class DatabaseStorage implements IStorage {
     role?: string,
     status?: string,
     sortBy?: string,
-    sortOrder?: "asc" | "desc"
-  ): Promise<{ users: User[]; total: number }> {
+    sortOrder?: "asc" | "desc",
+    profileStatus?: string
+  ): Promise<{ users: (User & { profile_status?: string })[]; total: number }> {
     const offset = (page - 1) * limit;
 
     const conditions = [];
@@ -3401,8 +3403,6 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(users.status, status));
     }
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
     // Determine sort column and direction
     const sortColumn = (() => {
       switch (sortBy) {
@@ -3417,6 +3417,83 @@ export class DatabaseStorage implements IStorage {
     })();
     const orderByClause = sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
 
+    // Helper function to compute profile status for a user
+    const computeProfileStatus = (
+      userId: number,
+      userRole: string,
+      profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }>
+    ): string | undefined => {
+      if (userRole !== "freelancer") return undefined;
+      const profileInfo = profileMap.get(userId);
+      if (!profileInfo) return "no_profile";
+      if (!profileInfo.isComplete) return "incomplete";
+      return "complete";
+    };
+
+    // Helper to build profile map from profiles
+    const buildProfileMap = (profiles: { user_id: number; title: string | null; bio: string | null; skills: string[] | null }[]) => {
+      const map: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+      for (const profile of profiles) {
+        const hasTitle = profile.title && profile.title.trim() !== "";
+        const hasBio = profile.bio && profile.bio.trim() !== "";
+        const hasSkills = profile.skills && profile.skills.length > 0;
+        const isComplete = hasTitle && hasBio && hasSkills;
+        map.set(profile.user_id, { hasProfile: true, isComplete: !!isComplete });
+      }
+      return map;
+    };
+
+    // If filtering by profile status, we need to get all matching freelancers first, then paginate
+    if (profileStatus && profileStatus !== "all") {
+      // Force role filter to freelancer since profile status only applies to freelancers
+      const freelancerConditions = [...conditions, eq(users.role, "freelancer")];
+      const freelancerWhere = and(...freelancerConditions);
+
+      // Get ALL freelancers matching base conditions (no pagination yet)
+      const allFreelancers = await db
+        .select()
+        .from(users)
+        .where(freelancerWhere)
+        .orderBy(orderByClause);
+
+      // Get all their profiles
+      const allFreelancerIds = allFreelancers.map(u => u.id);
+      let profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+
+      if (allFreelancerIds.length > 0) {
+        const profiles = await db
+          .select({
+            user_id: freelancer_profiles.user_id,
+            title: freelancer_profiles.title,
+            bio: freelancer_profiles.bio,
+            skills: freelancer_profiles.skills,
+          })
+          .from(freelancer_profiles)
+          .where(inArray(freelancer_profiles.user_id, allFreelancerIds));
+
+        profileMap = buildProfileMap(profiles);
+      }
+
+      // Add profile status and filter
+      const allWithStatus = allFreelancers.map(user => ({
+        ...user,
+        profile_status: computeProfileStatus(user.id, user.role, profileMap),
+      }));
+
+      const filtered = allWithStatus.filter(u => u.profile_status === profileStatus);
+
+      // Apply pagination to filtered results
+      const paginatedUsers = filtered.slice(offset, offset + limit);
+
+      return {
+        users: paginatedUsers,
+        total: filtered.length,
+      };
+    }
+
+    // Standard query without profile status filter
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
     const [usersResult, totalResult] = await Promise.all([
       db
         .select()
@@ -3428,8 +3505,35 @@ export class DatabaseStorage implements IStorage {
       db.select({ count: count() }).from(users).where(whereClause),
     ]);
 
+    // Get profile status for freelancer users in the result set
+    const freelancerIds = usersResult
+      .filter(u => u.role === "freelancer")
+      .map(u => u.id);
+
+    let profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+
+    if (freelancerIds.length > 0) {
+      const profiles = await db
+        .select({
+          user_id: freelancer_profiles.user_id,
+          title: freelancer_profiles.title,
+          bio: freelancer_profiles.bio,
+          skills: freelancer_profiles.skills,
+        })
+        .from(freelancer_profiles)
+        .where(inArray(freelancer_profiles.user_id, freelancerIds));
+
+      profileMap = buildProfileMap(profiles);
+    }
+
+    // Add profile_status to each user
+    const usersWithProfileStatus = usersResult.map(user => ({
+      ...user,
+      profile_status: computeProfileStatus(user.id, user.role, profileMap),
+    }));
+
     return {
-      users: usersResult,
+      users: usersWithProfileStatus,
       total: totalResult[0]?.count || 0,
     };
   }

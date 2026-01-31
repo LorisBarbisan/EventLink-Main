@@ -182,8 +182,9 @@ export async function getAllUsers(req: Request, res: Response) {
     const status = (req.query.status as string) || undefined;
     const sortBy = (req.query.sortBy as string) || "created_at";
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+    const profileStatus = (req.query.profileStatus as string) || undefined;
 
-    const { users, total } = await storage.getAllUsers(page, limit, search, role, status, sortBy, sortOrder);
+    const { users, total } = await storage.getAllUsers(page, limit, search, role, status, sortBy, sortOrder, profileStatus);
 
     // Remove sensitive information
     const safeUsers = users.map((user: any) => {

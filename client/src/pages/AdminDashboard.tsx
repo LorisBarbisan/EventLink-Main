@@ -102,6 +102,7 @@ interface User {
   auth_provider: string;
   created_at: string;
   last_login_at?: string;
+  profile_status?: "no_profile" | "incomplete" | "complete";
 }
 
 interface UsersResponse {
@@ -165,6 +166,7 @@ function AdminDashboardContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [profileStatusFilter, setProfileStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -271,7 +273,7 @@ function AdminDashboardContent() {
 
   // Users query
   const { data: usersData, isLoading: usersLoading } = useQuery<UsersResponse>({
-    queryKey: ["/api/admin/users", currentPage, searchTerm, roleFilter, statusFilter, sortBy, sortOrder],
+    queryKey: ["/api/admin/users", currentPage, searchTerm, roleFilter, statusFilter, profileStatusFilter, sortBy, sortOrder],
     queryFn: () => {
       const params = new URLSearchParams();
       params.append("page", currentPage.toString());
@@ -279,6 +281,7 @@ function AdminDashboardContent() {
       if (searchTerm) params.append("search", searchTerm);
       if (roleFilter !== "all") params.append("role", roleFilter);
       if (statusFilter !== "all") params.append("status", statusFilter);
+      if (profileStatusFilter !== "all") params.append("profileStatus", profileStatusFilter);
       params.append("sortBy", sortBy);
       params.append("sortOrder", sortOrder);
       return apiRequest(`/api/admin/users?${params.toString()}`);
@@ -317,7 +320,7 @@ function AdminDashboardContent() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, roleFilter, statusFilter, sortBy, sortOrder]);
+  }, [searchTerm, roleFilter, statusFilter, profileStatusFilter, sortBy, sortOrder]);
 
   // Automatically mark notifications as read when the relevant tab is active
   useEffect(() => {
@@ -964,6 +967,18 @@ function AdminDashboardContent() {
                       </SelectContent>
                     </Select>
 
+                    <Select value={profileStatusFilter} onValueChange={setProfileStatusFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Profile status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Profiles</SelectItem>
+                        <SelectItem value="no_profile">No Profile</SelectItem>
+                        <SelectItem value="incomplete">Incomplete</SelectItem>
+                        <SelectItem value="complete">Complete</SelectItem>
+                      </SelectContent>
+                    </Select>
+
                     <Select value={sortBy} onValueChange={setSortBy}>
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Sort by" />
@@ -996,6 +1011,7 @@ function AdminDashboardContent() {
                           <TableHead>Name</TableHead>
                           <TableHead>Email</TableHead>
                           <TableHead>Role</TableHead>
+                          <TableHead>Profile</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Joined</TableHead>
                           <TableHead>Last Login</TableHead>
@@ -1016,6 +1032,25 @@ function AdminDashboardContent() {
                                 <Badge variant={rowUser.role === "admin" ? "default" : "outline"}>
                                   {rowUser.role}
                                 </Badge>
+                              </TableCell>
+                              <TableCell className="py-2">
+                                {rowUser.role === "freelancer" ? (
+                                  rowUser.profile_status === "complete" ? (
+                                    <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                                      Complete
+                                    </Badge>
+                                  ) : rowUser.profile_status === "incomplete" ? (
+                                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">
+                                      Incomplete
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="destructive">
+                                      No Profile
+                                    </Badge>
+                                  )
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
                               </TableCell>
                               <TableCell className="py-2">
                                 {rowUser.status === "active" ? (
