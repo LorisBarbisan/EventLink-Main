@@ -1,3 +1,4 @@
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,6 +11,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { usePersistentState } from "@/hooks/usePersistentState";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, Send } from "lucide-react";
@@ -20,17 +22,12 @@ interface MessageModalProps {
   onClose: () => void;
   recipientId: number;
   recipientName: string;
-  senderId: number;
 }
 
-export function MessageModal({
-  isOpen,
-  onClose,
-  recipientId,
-  recipientName,
-  senderId,
-}: MessageModalProps) {
-  const [message, setMessage] = useState("");
+export function MessageModal({ isOpen, onClose, recipientId, recipientName }: MessageModalProps) {
+  const draftKey = `message_modal_draft_${recipientId}`;
+  const [message, setMessage, clearMessage, isDirty] = usePersistentState(draftKey, "");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -66,8 +63,9 @@ export function MessageModal({
       queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
       queryClient.invalidateQueries({ queryKey: [`/api/conversations/${response.id}/messages`] });
 
-      setMessage("");
-      onClose();
+      clearMessage();
+      // Wait a tick to ensure state update before closing
+      setTimeout(() => onClose(), 0);
     } catch (error) {
       console.error("Error sending message:", error);
       toast({
@@ -81,17 +79,34 @@ export function MessageModal({
     }
   };
 
-  const handleClose = () => {
-    setMessage("");
+  const handleCancel = () => {
+    if (isDirty) {
+      setShowConfirmDialog(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleConfirmClose = () => {
+    clearMessage();
+    setShowConfirmDialog(false);
     onClose();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <ConfirmDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        title="Unsaved Changes"
+        description="You have unsaved changes in your message. Are you sure you want to discard them?"
+        onConfirm={handleConfirmClose}
+        onCancel={() => setShowConfirmDialog(false)}
+      />
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MessageCircle className="w-5 h-5" />
+            <MessageCircle className="h-5 w-5" />
             Send Message to {recipientName}
           </DialogTitle>
           <DialogDescription>
@@ -107,17 +122,17 @@ export function MessageModal({
               id="message-content"
               placeholder="Type your message here..."
               value={message}
-              onChange={e => setMessage(e.target.value)}
+              onChange={(e) => setMessage(e.target.value)}
               rows={4}
               className="resize-none"
               data-testid="textarea-message-content"
             />
-            <p className="text-xs text-muted-foreground mt-1">{message.length}/1000 characters</p>
+            <p className="mt-1 text-xs text-muted-foreground">{message.length}/1000 characters</p>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={isSending}>
+          <Button variant="outline" onClick={handleCancel} disabled={isSending}>
             Cancel
           </Button>
           <Button
@@ -129,7 +144,7 @@ export function MessageModal({
               "Sending..."
             ) : (
               <>
-                <Send className="w-4 h-4 mr-2" />
+                <Send className="mr-2 h-4 w-4" />
                 Send Message
               </>
             )}

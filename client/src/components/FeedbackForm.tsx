@@ -1,3 +1,4 @@
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -17,12 +18,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { usePersistentState } from "@/hooks/usePersistentState";
 import { apiRequest } from "@/lib/queryClient";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { MessageSquare, Send } from "lucide-react";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 const feedbackSchema = z.object({
@@ -50,14 +52,47 @@ const feedbackTypes = [
 export function FeedbackForm({ open, onOpenChange, source = "header" }: FeedbackFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  // Default empty values
+  const defaultValues: Partial<FeedbackFormData> = {
+    feedbackType: undefined,
+    message: "",
+  };
+
+  const [draft, setDraft, clearDraft, isDraftDirty] = usePersistentState<Partial<FeedbackFormData>>(
+    "feedback_draft",
+    defaultValues
+  );
 
   const form = useForm<FeedbackFormData>({
     resolver: zodResolver(feedbackSchema),
-    defaultValues: {
-      feedbackType: undefined,
-      message: "",
-    },
+    defaultValues: draft as FeedbackFormData,
+    mode: "onChange",
   });
+
+  // Sync form changes to persistent state
+  const watchedValues = useWatch({ control: form.control });
+
+  useEffect(() => {
+    // Only update draft if open (to avoid clearing it when dialog unmounts if that were the case,
+    // though here component might stay mounted. But mainly to capture user input).
+    if (open) {
+      setDraft(watchedValues as Partial<FeedbackFormData>);
+    }
+  }, [watchedValues, open, setDraft]);
+
+  // Reset form to draft when opening if needed, or if draft explicitly changes externally?
+  // Actually, useForm defaultValues handles initial load.
+  // But if we clear draft, we might want to reset form.
+  useEffect(() => {
+    if (open) {
+      // Ensure form matches draft on open (in case it was closed without clearing)
+      // This is important because the component might not unmount.
+      form.reset(draft as FeedbackFormData);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, form]);
 
   const submitMutation = useMutation({
     mutationFn: async (data: FeedbackFormData) => {
@@ -80,13 +115,15 @@ export function FeedbackForm({ open, onOpenChange, source = "header" }: Feedback
         title: "Thank you for your feedback!",
         description: "Your feedback has been sent successfully. We appreciate your input.",
       });
-      form.reset();
+      // Clear draft and reset form
+      clearDraft();
+      form.reset(defaultValues as FeedbackFormData);
       onOpenChange(false);
 
       // Mark feedback as submitted in session storage
       sessionStorage.setItem("feedback_submitted", "true");
     },
-    onError: error => {
+    onError: (error) => {
       console.error("Feedback submission error:", error);
       toast({
         title: "Something went wrong",
@@ -108,17 +145,40 @@ export function FeedbackForm({ open, onOpenChange, source = "header" }: Feedback
       // Mark popup as dismissed to prevent showing again this session
       sessionStorage.setItem("feedback_popup_dismissed", "true");
     }
-    form.reset();
+    // Just close, keep draft
+    onOpenChange(false);
+  };
+
+  const handleCancel = () => {
+    if (isDraftDirty) {
+      setShowConfirmDialog(true);
+    } else {
+      handleClose();
+    }
+  };
+
+  const handleConfirmDiscard = () => {
+    clearDraft();
+    form.reset(defaultValues as FeedbackFormData);
+    setShowConfirmDialog(false);
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
+      <ConfirmDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        title="Unsaved Changes"
+        description="You have unsaved feedback. Are you sure you want to discard it?"
+        onConfirm={handleConfirmDiscard}
+        onCancel={() => setShowConfirmDialog(false)}
+      />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-blue-600" />
+              <MessageSquare className="h-5 w-5 text-blue-600" />
               Share Your Feedback
             </DialogTitle>
           </div>
@@ -143,7 +203,7 @@ export function FeedbackForm({ open, onOpenChange, source = "header" }: Feedback
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {feedbackTypes.map(type => (
+                      {feedbackTypes.map((type) => (
                         <SelectItem key={type.value} value={type.value}>
                           {type.label}
                         </SelectItem>
@@ -178,7 +238,7 @@ export function FeedbackForm({ open, onOpenChange, source = "header" }: Feedback
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleClose}
+                onClick={handleCancel}
                 disabled={isSubmitting}
                 data-testid="button-cancel-feedback"
               >
@@ -187,12 +247,12 @@ export function FeedbackForm({ open, onOpenChange, source = "header" }: Feedback
               <Button type="submit" disabled={isSubmitting} data-testid="button-submit-feedback">
                 {isSubmitting ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
                     Sending...
                   </>
                 ) : (
                   <>
-                    <Send className="w-4 h-4 mr-2" />
+                    <Send className="mr-2 h-4 w-4" />
                     Send Feedback
                   </>
                 )}

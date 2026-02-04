@@ -1,9 +1,11 @@
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { usePersistentState } from "@/hooks/usePersistentState";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, Send } from "lucide-react";
@@ -27,8 +29,10 @@ interface ContactModalProps {
   };
 }
 
-export function ContactModal({ isOpen, onClose, freelancer, currentUser }: ContactModalProps) {
-  const [message, setMessage] = useState("");
+export function ContactModal({ isOpen, onClose, freelancer }: ContactModalProps) {
+  const draftKey = `contact_draft_${freelancer.user_id}`;
+  const [message, setMessage, clearMessage, isDirty] = usePersistentState(draftKey, "");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -51,14 +55,15 @@ export function ContactModal({ isOpen, onClose, freelancer, currentUser }: Conta
       });
 
       // Clear form and close modal
-      setMessage("");
-      onClose();
+      clearMessage();
+      // Wait a tick to ensure state update before closing
+      setTimeout(() => onClose(), 0);
 
       // Refetch conversations immediately (including inactive queries)
       queryClient.refetchQueries({ queryKey: ["/api/conversations"], type: "all" });
       queryClient.invalidateQueries({ queryKey: ["/api/messages/unread-count"] });
     },
-    onError: error => {
+    onError: (error) => {
       console.error("Error sending message:", error);
       toast({
         title: "Error sending message",
@@ -91,12 +96,34 @@ export function ContactModal({ isOpen, onClose, freelancer, currentUser }: Conta
     });
   };
 
+  const handleCancel = () => {
+    if (isDirty) {
+      setShowConfirmDialog(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleConfirmClose = () => {
+    clearMessage();
+    setShowConfirmDialog(false);
+    onClose();
+  };
+
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <ConfirmDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        title="Unsaved Changes"
+        description="You have unsaved changes in your message. Are you sure you want to discard them?"
+        onConfirm={handleConfirmClose}
+        onCancel={() => setShowConfirmDialog(false)}
+      />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
@@ -107,7 +134,7 @@ export function ContactModal({ isOpen, onClose, freelancer, currentUser }: Conta
 
         <div className="space-y-4">
           {/* Freelancer Info */}
-          <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
             <Avatar className="h-12 w-12">
               <AvatarImage src={freelancer.photo_url} alt={freelancer.first_name} />
               <AvatarFallback className="bg-blue-600 text-white">
@@ -129,7 +156,7 @@ export function ContactModal({ isOpen, onClose, freelancer, currentUser }: Conta
               <Textarea
                 id="message"
                 value={message}
-                onChange={e => setMessage(e.target.value)}
+                onChange={(e) => setMessage(e.target.value)}
                 placeholder="Type your message here..."
                 rows={6}
                 required
@@ -141,7 +168,7 @@ export function ContactModal({ isOpen, onClose, freelancer, currentUser }: Conta
               <Button
                 type="button"
                 variant="outline"
-                onClick={onClose}
+                onClick={handleCancel}
                 disabled={isLoading}
                 data-testid="button-cancel"
               >
@@ -156,7 +183,7 @@ export function ContactModal({ isOpen, onClose, freelancer, currentUser }: Conta
                   "Sending..."
                 ) : (
                   <>
-                    <Send className="h-4 w-4 mr-2" />
+                    <Send className="mr-2 h-4 w-4" />
                     Send Message
                   </>
                 )}
