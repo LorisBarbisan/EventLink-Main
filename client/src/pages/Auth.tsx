@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { usePersistentState } from "@/hooks/usePersistentState";
 import { CheckCircle, Eye, EyeOff, Mail, Star, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -48,17 +49,19 @@ export default function Auth() {
       setActiveTab("signin");
     }
   }, []);
-  const [signUpData, setSignUpData] = useState({
+
+  const [signUpData, setSignUpData, clearSignUpData] = usePersistentState("auth_signup", {
     email: "",
     password: "",
     confirmPassword: "",
     role: "freelancer" as "freelancer" | "recruiter",
     acceptedTerms: false,
   });
-  const [signInData, setSignInData] = useState({
+  const [signInData, setSignInData] = usePersistentState("auth_signin", {
     email: "",
     password: "",
   });
+
   const [showPassword, setShowPassword] = useState(false);
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -159,9 +162,9 @@ export default function Auth() {
   // Show loading during validation to prevent premature redirects
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500"></div>
           <p>Loading...</p>
         </div>
       </div>
@@ -170,9 +173,9 @@ export default function Auth() {
 
   if (user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500"></div>
           <p>Redirecting to dashboard...</p>
         </div>
       </div>
@@ -260,13 +263,7 @@ export default function Auth() {
         setShowVerificationSuccess(true);
         setPendingVerificationEmail(signUpData.email);
         // Clear the form after successful signup
-        setSignUpData({
-          email: "",
-          password: "",
-          confirmPassword: "",
-          role: "freelancer",
-          acceptedTerms: false,
-        });
+        clearSignUpData();
       }
     } catch (err) {
       console.error("Sign Up Error:", err);
@@ -381,39 +378,39 @@ export default function Auth() {
   // Show verification success message if signup was successful
   if (showVerificationSuccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
         <div className="w-full max-w-2xl">
           <Card className="border-border/50 shadow-2xl">
             <CardContent className="p-12">
-              <div className="text-center space-y-6">
+              <div className="space-y-6 text-center">
                 {/* Success Icon */}
                 <div className="flex justify-center">
                   <div className="relative">
-                    <div className="w-24 h-24 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-16 h-16 text-green-600 dark:text-green-500" />
+                    <div className="flex h-24 w-24 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
+                      <CheckCircle className="h-16 w-16 text-green-600 dark:text-green-500" />
                     </div>
-                    <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
-                      <Mail className="w-7 h-7 text-blue-600 dark:text-blue-500" />
+                    <div className="absolute -bottom-2 -right-2 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20">
+                      <Mail className="h-7 w-7 text-blue-600 dark:text-blue-500" />
                     </div>
                   </div>
                 </div>
 
                 {/* Success Title */}
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                  <h2 className="mb-3 text-3xl font-bold text-gray-900 dark:text-gray-100">
                     Registration Successful!
                   </h2>
                   <p className="text-lg text-muted-foreground">
                     We&apos;ve sent a verification email to
                   </p>
-                  <p className="text-lg font-semibold text-primary mt-1">
+                  <p className="mt-1 text-lg font-semibold text-primary">
                     {pendingVerificationEmail}
                   </p>
                 </div>
 
                 {/* Instructions */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 space-y-3">
-                  <p className="text-base text-gray-700 dark:text-gray-300 leading-relaxed">
+                <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-6 dark:border-blue-800 dark:bg-blue-900/20">
+                  <p className="text-base leading-relaxed text-gray-700 dark:text-gray-300">
                     {verificationMessage}
                   </p>
                   <p className="text-sm text-muted-foreground">
@@ -428,7 +425,7 @@ export default function Auth() {
                     onClick={handleResendVerification}
                     variant="outline"
                     disabled={loading}
-                    className="w-full sm:w-auto px-8"
+                    className="w-full px-8 sm:w-auto"
                     data-testid="button-resend-verification"
                   >
                     {loading ? "Sending..." : "Resend Verification Email"}
@@ -436,8 +433,8 @@ export default function Auth() {
                 </div>
 
                 {/* Back to Sign In */}
-                <div className="pt-6 border-t border-border">
-                  <p className="text-sm text-muted-foreground mb-3">Already verified your email?</p>
+                <div className="border-t border-border pt-6">
+                  <p className="mb-3 text-sm text-muted-foreground">Already verified your email?</p>
                   <Button
                     onClick={() => {
                       setShowVerificationSuccess(false);
@@ -459,40 +456,40 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
       {/* Sticky Flash Banner */}
       {showRateBanner && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-50/95 dark:bg-yellow-950/90 border-b border-yellow-200 dark:border-yellow-800 px-4 py-3 shadow-md backdrop-blur-sm animate-in slide-in-from-top-full duration-300">
-          <div className="container mx-auto max-w-5xl flex items-start justify-center gap-3 relative">
-            <div className="mt-0.5 shrink-0 hidden sm:block">
-              <Star className="w-5 h-5 text-yellow-600 dark:text-yellow-400 fill-yellow-600/20" />
+        <div className="fixed left-0 right-0 top-0 z-50 border-b border-yellow-200 bg-yellow-50/95 px-4 py-3 shadow-md backdrop-blur-sm duration-300 animate-in slide-in-from-top-full dark:border-yellow-800 dark:bg-yellow-950/90">
+          <div className="container relative mx-auto flex max-w-5xl items-start justify-center gap-3">
+            <div className="mt-0.5 hidden shrink-0 sm:block">
+              <Star className="h-5 w-5 fill-yellow-600/20 text-yellow-600 dark:text-yellow-400" />
             </div>
-            <div className="flex-1 text-center sm:text-left max-w-2xl">
-              <h3 className="font-semibold text-yellow-900 dark:text-yellow-300 text-sm sm:text-base inline-block mr-2">
+            <div className="max-w-2xl flex-1 text-center sm:text-left">
+              <h3 className="mr-2 inline-block text-sm font-semibold text-yellow-900 dark:text-yellow-300 sm:text-base">
                 Please sign in to rate
               </h3>
-              <p className="text-sm text-yellow-800 dark:text-yellow-400 inline sm:block">
+              <p className="inline text-sm text-yellow-800 dark:text-yellow-400 sm:block">
                 You need to log in or create a <strong>recruiter</strong> account to submit a rating
                 for this freelancer.
               </p>
             </div>
             <button
               onClick={() => setShowRateBanner(false)}
-              className="shrink-0 text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-200 transition-colors absolute right-0 top-0 sm:static"
+              className="absolute right-0 top-0 shrink-0 text-yellow-600 transition-colors hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-200 sm:static"
             >
-              <X className="w-5 h-5" />
+              <X className="h-5 w-5" />
               <span className="sr-only">Dismiss</span>
             </button>
           </div>
         </div>
       )}
 
-      <div className="w-full max-w-md mt-12 sm:mt-0">
-        <div className="text-center mb-8">
+      <div className="mt-12 w-full max-w-md sm:mt-0">
+        <div className="mb-8 text-center">
           <Button variant="outline" onClick={() => setLocation("/")} className="mb-4">
             ← Back to Home Page
           </Button>
-          <p className="text-muted-foreground text-lg">Join the professional events community</p>
+          <p className="text-lg text-muted-foreground">Join the professional events community</p>
         </div>
 
         <Card className="border-border/50 shadow-xl">
@@ -515,7 +512,9 @@ export default function Auth() {
                       type="email"
                       placeholder="Enter your email"
                       value={signInData.email}
-                      onChange={e => setSignInData(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={(e) =>
+                        setSignInData((prev) => ({ ...prev, email: e.target.value }))
+                      }
                       required
                     />
                   </div>
@@ -528,8 +527,8 @@ export default function Auth() {
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
                         value={signInData.password}
-                        onChange={e =>
-                          setSignInData(prev => ({ ...prev, password: e.target.value }))
+                        onChange={(e) =>
+                          setSignInData((prev) => ({ ...prev, password: e.target.value }))
                         }
                         required
                         className="pr-10"
@@ -551,18 +550,18 @@ export default function Auth() {
 
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-primary hover:bg-primary-hover text-white font-semibold py-2 mt-4"
+                    className="bg-gradient-primary hover:bg-primary-hover mt-4 w-full py-2 font-semibold text-white"
                     disabled={loading}
                     data-testid="button-signin"
                   >
                     {loading ? "Signing In..." : "Sign In"}
                   </Button>
 
-                  <div className="text-center mt-4">
+                  <div className="mt-4 text-center">
                     <button
                       type="button"
                       onClick={() => setLocation("/forgot-password")}
-                      className="text-primary hover:text-primary-hover underline text-sm"
+                      className="hover:text-primary-hover text-sm text-primary underline"
                       data-testid="link-forgot-password"
                     >
                       Forgot Password?
@@ -577,15 +576,15 @@ export default function Auth() {
                     <Label>I want to join as:</Label>
                     <RadioGroup
                       value={signUpData.role}
-                      onValueChange={value =>
-                        setSignUpData(prev => ({
+                      onValueChange={(value) =>
+                        setSignUpData((prev) => ({
                           ...prev,
                           role: value as "freelancer" | "recruiter",
                         }))
                       }
                       className="grid grid-cols-2 gap-4"
                     >
-                      <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-accent/50 transition-colors">
+                      <div className="flex items-center space-x-2 rounded-lg border p-4 transition-colors hover:bg-accent/50">
                         <RadioGroupItem value="freelancer" id="freelancer" />
                         <div className="flex items-center space-x-2">
                           <span className="h-4 w-4 text-primary">👤</span>
@@ -594,7 +593,7 @@ export default function Auth() {
                           </Label>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-accent/50 transition-colors">
+                      <div className="flex items-center space-x-2 rounded-lg border p-4 transition-colors hover:bg-accent/50">
                         <RadioGroupItem value="recruiter" id="recruiter" />
                         <div className="flex items-center space-x-2">
                           <span className="h-4 w-4 text-primary">🏢</span>
@@ -613,7 +612,9 @@ export default function Auth() {
                       type="email"
                       placeholder="Enter your email"
                       value={signUpData.email}
-                      onChange={e => setSignUpData(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={(e) =>
+                        setSignUpData((prev) => ({ ...prev, email: e.target.value }))
+                      }
                       required
                     />
                   </div>
@@ -626,8 +627,8 @@ export default function Auth() {
                         type={showSignUpPassword ? "text" : "password"}
                         placeholder="Create a password"
                         value={signUpData.password}
-                        onChange={e =>
-                          setSignUpData(prev => ({ ...prev, password: e.target.value }))
+                        onChange={(e) =>
+                          setSignUpData((prev) => ({ ...prev, password: e.target.value }))
                         }
                         required
                         className="pr-10"
@@ -655,8 +656,8 @@ export default function Auth() {
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="Confirm your password"
                         value={signUpData.confirmPassword}
-                        onChange={e =>
-                          setSignUpData(prev => ({ ...prev, confirmPassword: e.target.value }))
+                        onChange={(e) =>
+                          setSignUpData((prev) => ({ ...prev, confirmPassword: e.target.value }))
                         }
                         className={`pr-10 ${
                           signUpData.confirmPassword &&
@@ -692,7 +693,7 @@ export default function Auth() {
                     {signUpData.confirmPassword &&
                       signUpData.password &&
                       signUpData.confirmPassword === signUpData.password && (
-                        <p className="text-sm text-success">Passwords match</p>
+                        <p className="text-success text-sm">Passwords match</p>
                       )}
                   </div>
 
@@ -701,21 +702,21 @@ export default function Auth() {
                     <Checkbox
                       id="terms"
                       checked={signUpData.acceptedTerms}
-                      onCheckedChange={checked =>
-                        setSignUpData(prev => ({ ...prev, acceptedTerms: !!checked }))
+                      onCheckedChange={(checked) =>
+                        setSignUpData((prev) => ({ ...prev, acceptedTerms: !!checked }))
                       }
                       data-testid="checkbox-terms"
                     />
                     <div className="grid gap-1.5 leading-none">
                       <Label
                         htmlFor="terms"
-                        className="text-sm font-normal leading-5 cursor-pointer"
+                        className="cursor-pointer text-sm font-normal leading-5"
                       >
                         I agree to the{" "}
                         <button
                           type="button"
                           onClick={() => window.open("/terms-of-use.pdf", "_blank")}
-                          className="text-primary hover:text-primary/80 underline"
+                          className="text-primary underline hover:text-primary/80"
                           data-testid="link-terms"
                         >
                           Terms and Conditions
@@ -726,7 +727,7 @@ export default function Auth() {
 
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-primary hover:bg-primary-hover text-white font-semibold py-2 mt-4"
+                    className="bg-gradient-primary hover:bg-primary-hover mt-4 w-full py-2 font-semibold text-white"
                     disabled={
                       loading ||
                       !signUpData.email.trim() ||
@@ -751,13 +752,13 @@ export default function Auth() {
           <Card className="mt-4 border-blue-200 bg-blue-50">
             <CardContent className="pt-6">
               <div className="text-center">
-                <p className="text-sm text-blue-800 mb-3">
+                <p className="mb-3 text-sm text-blue-800">
                   Click the verification link below to verify your account:
                 </p>
-                <div className="bg-white p-3 rounded border border-blue-200 mb-4">
+                <div className="mb-4 rounded border border-blue-200 bg-white p-3">
                   <a
                     href={showDirectLink}
-                    className="text-blue-600 hover:text-blue-800 underline break-all text-sm"
+                    className="break-all text-sm text-blue-600 underline hover:text-blue-800"
                     data-testid="link-direct-verification"
                   >
                     {showDirectLink}
@@ -772,7 +773,7 @@ export default function Auth() {
                 </Button>
                 <button
                   onClick={() => setShowDirectLink(null)}
-                  className="ml-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                  className="ml-2 text-sm text-blue-600 underline hover:text-blue-800"
                   data-testid="button-dismiss-link"
                 >
                   Dismiss
@@ -787,27 +788,27 @@ export default function Auth() {
           <Card className="mt-4 border-red-200 bg-red-50">
             <CardContent className="pt-6">
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-red-800 mb-2">
+                <h3 className="mb-2 text-lg font-semibold text-red-800">
                   Email Verification Required
                 </h3>
-                <p className="text-sm text-red-700 mb-3">
+                <p className="mb-3 text-sm text-red-700">
                   Please check your email and click the verification link before signing in.
                 </p>
-                <p className="text-sm text-red-700 mb-3">
+                <p className="mb-3 text-sm text-red-700">
                   Didn&apos;t receive the email? We can resend it to:
                 </p>
-                <p className="font-medium text-red-900 mb-4">{pendingVerificationEmail}</p>
+                <p className="mb-4 font-medium text-red-900">{pendingVerificationEmail}</p>
                 <Button
                   onClick={handleResendVerification}
                   disabled={loading}
-                  className="bg-red-600 hover:bg-red-700 text-white"
+                  className="bg-red-600 text-white hover:bg-red-700"
                   data-testid="button-resend-verification"
                 >
                   {loading ? "Sending..." : "Resend Verification Email"}
                 </Button>
                 <button
                   onClick={() => setShowResendOption(false)}
-                  className="ml-2 text-sm text-yellow-600 hover:text-yellow-800 underline"
+                  className="ml-2 text-sm text-yellow-600 underline hover:text-yellow-800"
                   data-testid="button-dismiss-resend"
                 >
                   Dismiss

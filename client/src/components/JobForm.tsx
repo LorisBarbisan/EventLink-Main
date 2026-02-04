@@ -1,9 +1,11 @@
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UKLocationInput } from "@/components/ui/uk-location-input";
+import { usePersistentState } from "@/hooks/usePersistentState";
 import type { JobFormData } from "@shared/types";
 import { useState } from "react";
 
@@ -22,41 +24,41 @@ export function JobForm({
   isSubmitting,
   isEditing = false,
 }: JobFormProps) {
-  const [formData, setFormData] = useState<JobFormData>({
-    title: initialData?.title || "",
-    type: "freelance", // All jobs are freelance/gig work
-    location: initialData?.location || "",
-    rate: initialData?.rate || "",
-    description: initialData?.description || "",
-    event_date: initialData?.event_date || "",
-    end_date: initialData?.end_date || "",
-    start_time: initialData?.start_time || "",
-    end_time: initialData?.end_time || "",
-  });
+  const persistenceKey = isEditing && initialData?.id ? `job_edit_${initialData.id}` : "job_new";
+
+  const [formData, setFormData, clearFormData, isDirty] = usePersistentState<JobFormData>(
+    persistenceKey,
+    {
+      title: initialData?.title || "",
+      type: "freelance", // All jobs are freelance/gig work
+      location: initialData?.location || "",
+      rate: initialData?.rate || "",
+      description: initialData?.description || "",
+      event_date: initialData?.event_date || "",
+      end_date: initialData?.end_date || "",
+      start_time: initialData?.start_time || "",
+      end_time: initialData?.end_time || "",
+    }
+  );
+
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   const handleInputChange = (field: keyof JobFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleLocationChange = (value: string, _locationData?: any) => {
-    setFormData(prev => ({ ...prev, location: value }));
+    setFormData((prev) => ({ ...prev, location: value }));
   };
 
   const handleSubmit = (status: "active" | "private") => {
     onSubmit(formData, status);
+    onSubmit(formData, status);
     // Reset form only when creating new job
     if (!isEditing) {
-      setFormData({
-        title: "",
-        type: "freelance",
-        location: "",
-        rate: "",
-        description: "",
-        event_date: "",
-        end_date: "",
-        start_time: "",
-        end_time: "",
-      });
+      clearFormData();
+    } else {
+      clearFormData(); // Also clear edit draft on success
     }
   };
 
@@ -70,6 +72,18 @@ export function JobForm({
 
   return (
     <Card>
+      <ConfirmDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        onConfirm={() => {
+          clearFormData();
+          setShowConfirmDialog(false);
+          onCancel();
+        }}
+        onCancel={() => setShowConfirmDialog(false)}
+        title="Unsaved Changes"
+        description="You have unsaved changes. Are you sure you want to discard them and leave?"
+      />
       <CardHeader>
         <CardTitle>{isEditing ? "Edit Job" : "Post New Job"}</CardTitle>
         <CardDescription>
@@ -79,13 +93,13 @@ export function JobForm({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <Label htmlFor="job-title">Job Title *</Label>
             <Input
               id="job-title"
               value={formData.title}
-              onChange={e => handleInputChange("title", e.target.value)}
+              onChange={(e) => handleInputChange("title", e.target.value)}
               placeholder="e.g. Senior Sound Engineer"
               data-testid="input-job-title"
             />
@@ -102,13 +116,13 @@ export function JobForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <Label htmlFor="job-rate">Rate *</Label>
             <Input
               id="job-rate"
               value={formData.rate}
-              onChange={e => handleInputChange("rate", e.target.value)}
+              onChange={(e) => handleInputChange("rate", e.target.value)}
               placeholder="£450 per day"
               data-testid="input-job-rate"
             />
@@ -119,20 +133,20 @@ export function JobForm({
               id="start-date"
               type="date"
               value={formData.event_date}
-              onChange={e => handleInputChange("event_date", e.target.value)}
+              onChange={(e) => handleInputChange("event_date", e.target.value)}
               data-testid="input-start-date"
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <Label htmlFor="end-date">End Date (Optional)</Label>
             <Input
               id="end-date"
               type="date"
               value={formData.end_date}
-              onChange={e => handleInputChange("end_date", e.target.value)}
+              onChange={(e) => handleInputChange("end_date", e.target.value)}
               data-testid="input-end-date"
             />
           </div>
@@ -142,17 +156,17 @@ export function JobForm({
         <div className="space-y-4 border-t pt-4">
           <div>
             <Label className="text-base font-semibold">Time (Optional)</Label>
-            <p className="text-sm text-gray-600 mb-3">Specify start and end times if applicable</p>
+            <p className="mb-3 text-sm text-gray-600">Specify start and end times if applicable</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="start-time">Start Time</Label>
               <Input
                 id="start-time"
                 type="time"
                 value={formData.start_time}
-                onChange={e => handleInputChange("start_time", e.target.value)}
+                onChange={(e) => handleInputChange("start_time", e.target.value)}
                 data-testid="input-start-time"
               />
             </div>
@@ -162,7 +176,7 @@ export function JobForm({
                 id="end-time"
                 type="time"
                 value={formData.end_time}
-                onChange={e => handleInputChange("end_time", e.target.value)}
+                onChange={(e) => handleInputChange("end_time", e.target.value)}
                 data-testid="input-end-time"
               />
             </div>
@@ -174,7 +188,7 @@ export function JobForm({
           <Textarea
             id="job-description"
             value={formData.description}
-            onChange={e => handleInputChange("description", e.target.value)}
+            onChange={(e) => handleInputChange("description", e.target.value)}
             placeholder="Describe the role, requirements, and responsibilities..."
             rows={4}
             data-testid="textarea-job-description"
@@ -199,12 +213,22 @@ export function JobForm({
             onClick={() => handleSubmit("active")}
             disabled={isSubmitting || !isValid}
             data-testid="button-post-job"
-            className="bg-[#EFA068] hover:bg-[#E59058] text-white"
+            className="bg-[#EFA068] text-white hover:bg-[#E59058]"
           >
             {isSubmitting ? "Posting..." : isEditing ? "Post Job" : "Post Job"}
           </Button>
 
-          <Button variant="outline" onClick={onCancel} data-testid="button-cancel-job">
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (isDirty) {
+                setShowConfirmDialog(true);
+              } else {
+                onCancel();
+              }
+            }}
+            data-testid="button-cancel-job"
+          >
             Cancel
           </Button>
         </div>

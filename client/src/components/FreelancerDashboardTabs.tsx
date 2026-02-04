@@ -20,6 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { usePersistentState } from "@/hooks/usePersistentState";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -81,21 +82,26 @@ interface FreelancerDashboardTabsProps {
 export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProps) {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
-  const [freelancerProfile, setFreelancerProfile] = useState<FreelancerProfile>({
-    first_name: "",
-    last_name: "",
-    title: "",
-    bio: "",
-    superpower: "",
-    location: "",
-    experience_years: null,
-    skills: [],
-    portfolio_url: "",
-    linkedin_url: "",
-    website_url: "",
-    availability_status: "available",
-    profile_photo_url: "",
-  });
+  const persistenceKey = `freelancer_profile_edit_${profile.id}`;
+
+  const [freelancerProfile, setFreelancerProfile] = usePersistentState<FreelancerProfile>(
+    persistenceKey,
+    {
+      first_name: "",
+      last_name: "",
+      title: "",
+      bio: "",
+      superpower: "",
+      location: "",
+      experience_years: null,
+      skills: [],
+      portfolio_url: "",
+      linkedin_url: "",
+      website_url: "",
+      availability_status: "available",
+      profile_photo_url: "",
+    }
+  );
   const [hasProfile, setHasProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -164,36 +170,43 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
       console.log("✅ Profile data received:", data);
 
       if (data) {
-        console.log(
-          "Profile loaded, photo URL length:",
-          data.profile_photo_url ? data.profile_photo_url.length : 0
-        );
-        console.log("CV data:", {
-          fileName: data.cv_file_name,
-          fileUrl: data.cv_file_url,
-          fileSize: data.cv_file_size,
-          fileType: data.cv_file_type,
-        });
-        setFreelancerProfile({
-          id: data.id,
-          first_name: data.first_name || "",
-          last_name: data.last_name || "",
-          title: data.title || "",
-          bio: data.bio || "",
-          superpower: data.superpower || "",
-          location: data.location || "",
-          experience_years: data.experience_years || null,
-          skills: data.skills || [],
-          portfolio_url: data.portfolio_url || "",
-          linkedin_url: data.linkedin_url || "",
-          website_url: data.website_url || "",
-          availability_status: data.availability_status || "available",
-          profile_photo_url: data.profile_photo_url || "",
-          cv_file_name: data.cv_file_name,
-          cv_file_type: data.cv_file_type,
-          cv_file_size: data.cv_file_size,
-          cv_file_url: data.cv_file_url,
-        });
+        // Check if we have a draft in storage. If we do, we prefer the draft (conceptually),
+        // but usePersistentState has ALREADY initialized with it if it existed.
+        // So we just rely on checking if `sessionStorage` has the key.
+        const hasDraft = sessionStorage.getItem(persistenceKey);
+
+        if (!hasDraft) {
+          console.log(
+            "Profile loaded, photo URL length:",
+            data.profile_photo_url ? data.profile_photo_url.length : 0
+          );
+          console.log("CV data:", {
+            fileName: data.cv_file_name,
+            fileUrl: data.cv_file_url,
+            fileSize: data.cv_file_size,
+            fileType: data.cv_file_type,
+          });
+          setFreelancerProfile({
+            id: data.id,
+            first_name: data.first_name || "",
+            last_name: data.last_name || "",
+            title: data.title || "",
+            bio: data.bio || "",
+            superpower: data.superpower || "",
+            location: data.location || "",
+            experience_years: data.experience_years || null,
+            skills: data.skills || [],
+            portfolio_url: data.portfolio_url || "",
+            linkedin_url: data.linkedin_url || "",
+            website_url: data.website_url || "",
+            availability_status: data.availability_status || "available",
+            profile_photo_url: data.profile_photo_url || "",
+            cv_file_name: data.cv_file_name,
+            cv_file_type: data.cv_file_type,
+            cv_file_size: data.cv_file_size,
+            cv_file_url: data.cv_file_url,
+          });
+        }
         setHasProfile(true);
       }
     } catch (error) {
@@ -235,6 +248,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
           method: "PUT",
           body: JSON.stringify(payload),
         });
+        sessionStorage.removeItem(persistenceKey);
         toast({
           title: "Profile updated successfully!",
           description: "Your freelancer profile has been updated.",
@@ -244,6 +258,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
           method: "POST",
           body: JSON.stringify(payload),
         });
+        sessionStorage.removeItem(persistenceKey);
         setHasProfile(true);
         toast({
           title: "Profile created successfully!",
@@ -264,7 +279,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
 
   const addSkill = () => {
     if (newSkill.trim() && !freelancerProfile.skills.includes(newSkill.trim())) {
-      setFreelancerProfile(prev => ({
+      setFreelancerProfile((prev) => ({
         ...prev,
         skills: [...prev.skills, newSkill.trim()],
       }));
@@ -273,9 +288,9 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
   };
 
   const removeSkill = (skillToRemove: string) => {
-    setFreelancerProfile(prev => ({
+    setFreelancerProfile((prev) => ({
       ...prev,
-      skills: prev.skills.filter(skill => skill !== skillToRemove),
+      skills: prev.skills.filter((skill) => skill !== skillToRemove),
     }));
   };
 
@@ -293,7 +308,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
       }
 
       const reader = new FileReader();
-      reader.onload = e => {
+      reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement("canvas");
@@ -323,7 +338,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
           const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.8);
           console.log("Compressed image size:", compressedDataUrl.length, "characters");
 
-          setFreelancerProfile(prev => ({
+          setFreelancerProfile((prev) => ({
             ...prev,
             profile_photo_url: compressedDataUrl,
           }));
@@ -342,7 +357,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
+        <div className="mx-auto max-w-6xl">
           <div className="text-center">Loading...</div>
         </div>
       </div>
@@ -404,25 +419,25 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="mx-auto max-w-6xl space-y-6">
         {/* Profile Header */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center overflow-hidden">
+                <div className="bg-gradient-primary flex h-16 w-16 items-center justify-center overflow-hidden rounded-full">
                   {freelancerProfile.profile_photo_url &&
                   freelancerProfile.profile_photo_url.trim() !== "" &&
                   freelancerProfile.profile_photo_url !== "null" ? (
                     <img
                       src={freelancerProfile.profile_photo_url}
                       alt="Profile"
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                       onLoad={() => console.log("Profile photo loaded successfully")}
-                      onError={e => console.log("Profile photo failed to load:", e)}
+                      onError={(e) => console.log("Profile photo failed to load:", e)}
                     />
                   ) : (
-                    <User className="w-8 h-8 text-white" />
+                    <User className="h-8 w-8 text-white" />
                   )}
                 </div>
                 <div>
@@ -467,7 +482,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
               {unreadCount && Number(unreadCount.count) > 0 && (
                 <Badge
                   variant="destructive"
-                  className="text-xs flex items-center justify-center ml-1"
+                  className="ml-1 flex items-center justify-center text-xs"
                 >
                   {Number(unreadCount.count)}
                 </Badge>
@@ -527,18 +542,18 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                 />
 
                 {/* Profile Photo Section */}
-                <div className="flex items-start gap-4 p-4 border rounded-lg">
-                  <div className="w-20 h-20 bg-gradient-primary rounded-full flex items-center justify-center overflow-hidden">
+                <div className="flex items-start gap-4 rounded-lg border p-4">
+                  <div className="bg-gradient-primary flex h-20 w-20 items-center justify-center overflow-hidden rounded-full">
                     {freelancerProfile.profile_photo_url &&
                     freelancerProfile.profile_photo_url.trim() !== "" &&
                     freelancerProfile.profile_photo_url !== "null" ? (
                       <img
                         src={freelancerProfile.profile_photo_url}
                         alt="Profile"
-                        className="w-full h-full object-cover"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      <Camera className="w-8 h-8 text-white" />
+                      <Camera className="h-8 w-8 text-white" />
                     )}
                   </div>
                   <div className="flex-1 space-y-2">
@@ -550,31 +565,31 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                         onClick={() => document.getElementById("photo-upload")?.click()}
                         className="text-xs"
                       >
-                        <Upload className="w-3 h-3 mr-1" />
+                        <Upload className="mr-1 h-3 w-3" />
                         {freelancerProfile.profile_photo_url ? "Change" : "Upload"}
                       </Button>
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold text-lg mb-2">Profile Photo</h3>
+                      <h3 className="mb-2 text-lg font-semibold">Profile Photo</h3>
                       <p className="text-sm text-muted-foreground">
                         Upload a professional headshot to make your profile stand out. This will be
                         visible to recruiters and on your public profile.
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         Recommended: Square image, at least 400x400 pixels
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="first_name">First Name (Optional)</Label>
                     <Input
                       id="first_name"
                       value={freelancerProfile.first_name}
-                      onChange={e =>
-                        setFreelancerProfile(prev => ({ ...prev, first_name: e.target.value }))
+                      onChange={(e) =>
+                        setFreelancerProfile((prev) => ({ ...prev, first_name: e.target.value }))
                       }
                       placeholder="Your first name"
                     />
@@ -584,8 +599,8 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                     <Input
                       id="last_name"
                       value={freelancerProfile.last_name}
-                      onChange={e =>
-                        setFreelancerProfile(prev => ({ ...prev, last_name: e.target.value }))
+                      onChange={(e) =>
+                        setFreelancerProfile((prev) => ({ ...prev, last_name: e.target.value }))
                       }
                       placeholder="Your last name"
                     />
@@ -597,8 +612,8 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                   <Input
                     id="title"
                     value={freelancerProfile.title}
-                    onChange={e =>
-                      setFreelancerProfile(prev => ({ ...prev, title: e.target.value }))
+                    onChange={(e) =>
+                      setFreelancerProfile((prev) => ({ ...prev, title: e.target.value }))
                     }
                     placeholder="e.g., Sound Engineer, Lighting Technician, AV Specialist"
                   />
@@ -609,20 +624,22 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                   <Textarea
                     id="bio"
                     value={freelancerProfile.bio}
-                    onChange={e => setFreelancerProfile(prev => ({ ...prev, bio: e.target.value }))}
+                    onChange={(e) =>
+                      setFreelancerProfile((prev) => ({ ...prev, bio: e.target.value }))
+                    }
                     placeholder="Tell us about your experience and expertise..."
                     rows={4}
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="location">Location (Optional)</Label>
                     <Input
                       id="location"
                       value={freelancerProfile.location}
-                      onChange={e =>
-                        setFreelancerProfile(prev => ({ ...prev, location: e.target.value }))
+                      onChange={(e) =>
+                        setFreelancerProfile((prev) => ({ ...prev, location: e.target.value }))
                       }
                       placeholder="City, Country"
                     />
@@ -633,8 +650,8 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                       id="experience_years"
                       type="number"
                       value={freelancerProfile.experience_years || ""}
-                      onChange={e =>
-                        setFreelancerProfile(prev => ({
+                      onChange={(e) =>
+                        setFreelancerProfile((prev) => ({
                           ...prev,
                           experience_years: e.target.value ? parseInt(e.target.value) : null,
                         }))
@@ -646,12 +663,12 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
 
                 <div className="space-y-2">
                   <Label>Skills (Optional)</Label>
-                  <div className="flex gap-2 mb-3">
+                  <div className="mb-3 flex gap-2">
                     <Input
                       value={newSkill}
-                      onChange={e => setNewSkill(e.target.value)}
+                      onChange={(e) => setNewSkill(e.target.value)}
                       placeholder="Add a skill"
-                      onKeyPress={e => e.key === "Enter" && addSkill()}
+                      onKeyPress={(e) => e.key === "Enter" && addSkill()}
                     />
                     <Button onClick={addSkill} size="sm">
                       <Plus className="h-4 w-4" />
@@ -670,14 +687,14 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="portfolio_url">Portfolio URL</Label>
                     <Input
                       id="portfolio_url"
                       value={freelancerProfile.portfolio_url}
-                      onChange={e =>
-                        setFreelancerProfile(prev => ({ ...prev, portfolio_url: e.target.value }))
+                      onChange={(e) =>
+                        setFreelancerProfile((prev) => ({ ...prev, portfolio_url: e.target.value }))
                       }
                       placeholder="https://yourportfolio.com"
                     />
@@ -687,8 +704,8 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                     <Input
                       id="linkedin_url"
                       value={freelancerProfile.linkedin_url}
-                      onChange={e =>
-                        setFreelancerProfile(prev => ({ ...prev, linkedin_url: e.target.value }))
+                      onChange={(e) =>
+                        setFreelancerProfile((prev) => ({ ...prev, linkedin_url: e.target.value }))
                       }
                       placeholder="https://linkedin.com/in/yourprofile"
                     />
@@ -698,8 +715,8 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                     <Input
                       id="website_url"
                       value={freelancerProfile.website_url}
-                      onChange={e =>
-                        setFreelancerProfile(prev => ({ ...prev, website_url: e.target.value }))
+                      onChange={(e) =>
+                        setFreelancerProfile((prev) => ({ ...prev, website_url: e.target.value }))
                       }
                       placeholder="https://yourwebsite.com"
                     />
@@ -711,7 +728,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                   <Select
                     value={freelancerProfile.availability_status}
                     onValueChange={(value: "available" | "busy" | "unavailable") =>
-                      setFreelancerProfile(prev => ({ ...prev, availability_status: value }))
+                      setFreelancerProfile((prev) => ({ ...prev, availability_status: value }))
                     }
                   >
                     <SelectTrigger>
@@ -750,7 +767,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                 <Button
                   onClick={saveProfile}
                   disabled={saving}
-                  className="w-full bg-gradient-primary hover:bg-primary-hover"
+                  className="bg-gradient-primary hover:bg-primary-hover w-full"
                 >
                   {saving ? "Saving..." : "Save Profile"}
                 </Button>
@@ -760,7 +777,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
 
           {/* Messages Tab */}
           <TabsContent value="messages" className="space-y-6">
-            <div className="flex justify-between items-center mb-6">
+            <div className="mb-6 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold">Messages</h2>
                 <p className="text-muted-foreground">
@@ -796,11 +813,11 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
               </CardHeader>
               <CardContent>
                 {applicationsLoading ? (
-                  <div className="text-center py-8">Loading your applications...</div>
+                  <div className="py-8 text-center">Loading your applications...</div>
                 ) : profileJobs.length === 0 ? (
-                  <div className="text-center py-8 space-y-4">
+                  <div className="space-y-4 py-8 text-center">
                     <div className="text-muted-foreground">
-                      <Briefcase className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                      <Briefcase className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" />
                       <p className="text-lg font-medium">No job applications yet</p>
                       <p className="text-sm">
                         Start browsing jobs and apply to see your applications here.
@@ -817,10 +834,10 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                 ) : (
                   <div className="space-y-4">
                     {profileJobs.map((job: any) => (
-                      <div key={job.id} className="p-4 border rounded-lg">
+                      <div key={job.id} className="rounded-lg border p-4">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="mb-2 flex items-center gap-2">
                               <h4 className="font-semibold">{job.title}</h4>
                               <Badge
                                 variant={
@@ -897,14 +914,14 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                     <DialogTitle>Application Declined</DialogTitle>
                                   </DialogHeader>
                                   <div className="space-y-4">
-                                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                                    <div className="rounded-lg border border-red-200 bg-red-50 p-4">
                                       <div className="flex items-start space-x-3">
-                                        <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
+                                        <AlertCircle className="mt-0.5 h-5 w-5 text-red-500" />
                                         <div>
                                           <h4 className="font-medium text-red-800">
                                             Rejection Message
                                           </h4>
-                                          <p className="text-red-700 mt-1">
+                                          <p className="mt-1 text-red-700">
                                             {job.rejectionMessage}
                                           </p>
                                         </div>
@@ -946,33 +963,33 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
               <CardContent>
                 {bookingsLoading ? (
                   <div className="space-y-4">
-                    <div className="p-4 border rounded-lg animate-pulse">
-                      <div className="h-4 bg-gray-200 rounded w-1/3 mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded w-1/2 mb-1"></div>
-                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                    <div className="animate-pulse rounded-lg border p-4">
+                      <div className="mb-2 h-4 w-1/3 rounded bg-gray-200"></div>
+                      <div className="mb-1 h-3 w-1/2 rounded bg-gray-200"></div>
+                      <div className="h-3 w-2/3 rounded bg-gray-200"></div>
                     </div>
                   </div>
                 ) : bookings.length === 0 ? (
-                  <div className="text-center py-8">
-                    <BookOpen className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium text-muted-foreground mb-2">
+                  <div className="py-8 text-center">
+                    <BookOpen className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                    <h3 className="mb-2 text-lg font-medium text-muted-foreground">
                       No Bookings Yet
                     </h3>
-                    <p className="text-sm text-muted-foreground mb-4">
+                    <p className="mb-4 text-sm text-muted-foreground">
                       When you get hired for jobs, they'll appear here as confirmed bookings.
                     </p>
                     <Button variant="outline" onClick={() => setActiveTab("find-jobs")}>
-                      <Search className="h-4 w-4 mr-2" />
+                      <Search className="mr-2 h-4 w-4" />
                       Browse Jobs
                     </Button>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {bookings.map((booking: any) => (
-                      <div key={booking.id} className="p-4 border rounded-lg">
+                      <div key={booking.id} className="rounded-lg border p-4">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="mb-2 flex items-center gap-2">
                               <h4 className="font-semibold">{booking.job_title}</h4>
                               <Badge
                                 variant={
@@ -1014,14 +1031,14 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                 </span>
                               </div>
                               <p className="font-medium text-foreground">{booking.company_name}</p>
-                              <p className="text-primary font-medium">
+                              <p className="font-medium text-primary">
                                 Hired on {new Date(booking.hired_at).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
                           <div className="flex gap-2">
                             <Button size="sm" variant="outline">
-                              <Mail className="h-4 w-4 mr-1" />
+                              <Mail className="mr-1 h-4 w-4" />
                               Contact
                             </Button>
                             <Button size="sm" variant="outline">

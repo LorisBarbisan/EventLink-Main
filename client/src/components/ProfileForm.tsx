@@ -1,3 +1,4 @@
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ImageUpload } from "@/components/ImageUpload";
 import { SimplifiedCVUploader } from "@/components/SimplifiedCVUploader";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { UKLocationInput } from "@/components/ui/uk-location-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { usePersistentState } from "@/hooks/usePersistentState";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest } from "@/lib/queryClient";
 import type {
@@ -42,81 +44,71 @@ interface ProfileFormProps {
 export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileFormProps) {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(true);
-  const draftKey = user?.id ? `${DRAFT_STORAGE_KEY_PREFIX}${userType}_${user.id}` : null;
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const draftKey = user?.id
+    ? `${DRAFT_STORAGE_KEY_PREFIX}${userType}_${user.id}`
+    : "profile_draft_temp";
   const initialLoadDone = useRef(false);
 
-  const getDefaultFormData = useCallback((profileData?: FreelancerProfile | RecruiterProfile): FreelancerFormData | RecruiterFormData => {
-    if (userType === "freelancer") {
-      const freelancerProfile = profileData as FreelancerProfile | undefined;
-      return {
-        first_name: freelancerProfile?.first_name || "",
-        last_name: freelancerProfile?.last_name || "",
-        title: freelancerProfile?.title || "",
-        superpower: freelancerProfile?.superpower || "",
-        bio: freelancerProfile?.bio || "",
-        location: freelancerProfile?.location || "",
-        experience_years: freelancerProfile?.experience_years?.toString() || "",
-        skills: freelancerProfile?.skills || [],
-        portfolio_url: freelancerProfile?.portfolio_url || "",
-        linkedin_url: freelancerProfile?.linkedin_url || "",
-        website_url: freelancerProfile?.website_url || "",
-        availability_status: freelancerProfile?.availability_status || "available",
-        profile_photo_url: freelancerProfile?.profile_photo_url || "",
-      } as FreelancerFormData;
-    } else {
-      const recruiterProfile = profileData as RecruiterProfile | undefined;
-      return {
-        company_name: recruiterProfile?.company_name || "",
-        contact_name: recruiterProfile?.contact_name || "",
-        company_type: recruiterProfile?.company_type || "",
-        location: recruiterProfile?.location || "",
-        description: recruiterProfile?.description || "",
-        website_url: recruiterProfile?.website_url || "",
-        linkedin_url: recruiterProfile?.linkedin_url || "",
-        company_logo_url: recruiterProfile?.company_logo_url || "",
-      } as RecruiterFormData;
-    }
-  }, [userType]);
-
-  const [formData, setFormData] = useState<FreelancerFormData | RecruiterFormData>(() => {
-    if (draftKey) {
-      try {
-        const savedDraft = sessionStorage.getItem(draftKey);
-        if (savedDraft) {
-          return JSON.parse(savedDraft);
-        }
-      } catch (e) {
-        console.warn("Failed to load draft from sessionStorage:", e);
+  const getDefaultFormData = useCallback(
+    (
+      profileData?: FreelancerProfile | RecruiterProfile
+    ): FreelancerFormData | RecruiterFormData => {
+      if (userType === "freelancer") {
+        const freelancerProfile = profileData as FreelancerProfile | undefined;
+        return {
+          first_name: freelancerProfile?.first_name || "",
+          last_name: freelancerProfile?.last_name || "",
+          title: freelancerProfile?.title || "",
+          superpower: freelancerProfile?.superpower || "",
+          bio: freelancerProfile?.bio || "",
+          location: freelancerProfile?.location || "",
+          experience_years: freelancerProfile?.experience_years?.toString() || "",
+          skills: freelancerProfile?.skills || [],
+          portfolio_url: freelancerProfile?.portfolio_url || "",
+          linkedin_url: freelancerProfile?.linkedin_url || "",
+          website_url: freelancerProfile?.website_url || "",
+          availability_status: freelancerProfile?.availability_status || "available",
+          profile_photo_url: freelancerProfile?.profile_photo_url || "",
+        } as FreelancerFormData;
+      } else {
+        const recruiterProfile = profileData as RecruiterProfile | undefined;
+        return {
+          company_name: recruiterProfile?.company_name || "",
+          contact_name: recruiterProfile?.contact_name || "",
+          company_type: recruiterProfile?.company_type || "",
+          location: recruiterProfile?.location || "",
+          description: recruiterProfile?.description || "",
+          website_url: recruiterProfile?.website_url || "",
+          linkedin_url: recruiterProfile?.linkedin_url || "",
+          company_logo_url: recruiterProfile?.company_logo_url || "",
+        } as RecruiterFormData;
       }
-    }
-    return getDefaultFormData(profile);
-  });
+    },
+    [userType]
+  );
 
+  const [formData, setFormData, , isDirty] = usePersistentState<
+    FreelancerFormData | RecruiterFormData
+  >(draftKey, getDefaultFormData(profile));
   const [newSkill, setNewSkill] = useState("");
 
   useEffect(() => {
-    if (profile && !initialLoadDone.current) {
-      if (draftKey) {
-        const savedDraft = sessionStorage.getItem(draftKey);
-        if (savedDraft) {
-          initialLoadDone.current = true;
-          return;
+    if (profile) {
+      // If we have a draft, ignore profile updates until draft is cleared
+      const hasDraft = sessionStorage.getItem(draftKey);
+      if (!hasDraft && !isEditing) {
+        // Only sync from profile when not editing or no draft exists
+        setFormData(getDefaultFormData(profile));
+      } else if (!initialLoadDone.current) {
+        // Initial load: if no draft, load profile
+        if (!hasDraft) {
+          setFormData(getDefaultFormData(profile));
         }
-      }
-      setFormData(getDefaultFormData(profile));
-      initialLoadDone.current = true;
-    }
-  }, [profile, draftKey, getDefaultFormData]);
-
-  useEffect(() => {
-    if (draftKey && initialLoadDone.current) {
-      try {
-        sessionStorage.setItem(draftKey, JSON.stringify(formData));
-      } catch (e) {
-        console.warn("Failed to save draft to sessionStorage:", e);
+        initialLoadDone.current = true;
       }
     }
-  }, [formData, draftKey]);
+  }, [profile, draftKey, getDefaultFormData, setFormData, isEditing]);
 
   const handleInputChange = (field: string, value: string) => {
     console.log("ProfileForm handleInputChange:", {
@@ -124,19 +116,19 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
       valueLength: value.length,
       isImageUpload: field.includes("url"),
     });
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleLocationChange = (value: string, locationData?: any) => {
     console.log("ProfileForm handleLocationChange:", { value, locationData });
-    setFormData(prev => ({ ...prev, location: value }));
+    setFormData((prev) => ({ ...prev, location: value }));
   };
 
   const handleSkillAdd = () => {
     if (newSkill.trim() && userType === "freelancer") {
       const freelancerData = formData as FreelancerFormData;
       if (!freelancerData.skills.includes(newSkill.trim())) {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           skills: [...freelancerData.skills, newSkill.trim()],
         }));
@@ -148,17 +140,21 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
   const handleSkillRemove = (skillToRemove: string) => {
     if (userType === "freelancer") {
       const freelancerData = formData as FreelancerFormData;
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        skills: freelancerData.skills.filter(skill => skill !== skillToRemove),
+        skills: freelancerData.skills.filter((skill) => skill !== skillToRemove),
       }));
     }
   };
 
   const handleSave = () => {
     onSave(formData);
-    if (draftKey) {
+    // Clear the draft from storage but keep the form data in state
+    // This allows the user to see their changes immediately while the background refresh happens
+    try {
       sessionStorage.removeItem(draftKey);
+    } catch (e) {
+      console.warn("Failed to clear draft:", e);
     }
   };
 
@@ -195,6 +191,24 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
 
   return (
     <Card>
+      <ConfirmDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        onConfirm={() => {
+          // Reset to profile data
+          setFormData(getDefaultFormData(profile));
+          try {
+            sessionStorage.removeItem(draftKey);
+          } catch (e) {
+            console.warn("Failed to clear draft:", e);
+          }
+          setShowConfirmDialog(false);
+          setIsEditing(false);
+        }}
+        onCancel={() => setShowConfirmDialog(false)}
+        title="Unsaved Changes"
+        description="You have unsaved changes. Are you sure you want to discard them and stop editing?"
+      />
       <CardHeader>
         <CardTitle>
           {profile
@@ -234,7 +248,13 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
           {profile && (
             <Button
               variant="outline"
-              onClick={() => setIsEditing(false)}
+              onClick={() => {
+                if (isDirty) {
+                  setShowConfirmDialog(true);
+                } else {
+                  setIsEditing(false);
+                }
+              }}
               data-testid="button-cancel-edit"
             >
               Cancel
@@ -247,20 +267,20 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
 }
 
 function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
-  const { data: averageRating } = useFreelancerAverageRating(profile.user_id);
+  const { data: averageRating } = useFreelancerAverageRating((profile as any).user_id);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center overflow-hidden">
+        <div className="bg-gradient-primary flex h-16 w-16 items-center justify-center overflow-hidden rounded-full">
           {profile.profile_photo_url &&
           profile.profile_photo_url.trim() !== "" &&
           profile.profile_photo_url !== "null" ? (
             <img
               src={profile.profile_photo_url}
               alt="Profile"
-              className="w-full h-full object-cover"
-              onError={e => {
+              className="h-full w-full object-cover"
+              onError={(e) => {
                 console.log(
                   "Profile photo failed to load:",
                   profile.profile_photo_url?.substring(0, 50)
@@ -268,7 +288,7 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
               }}
             />
           ) : (
-            <span className="w-8 h-8 text-white text-2xl">👤</span>
+            <span className="h-8 w-8 text-2xl text-white">👤</span>
           )}
         </div>
         <div className="flex-1">
@@ -277,14 +297,14 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
           </h3>
           <p className="text-muted-foreground">{profile.title}</p>
           {profile.superpower && (
-            <div className="flex items-center gap-2 mt-1">
+            <div className="mt-1 flex items-center gap-2">
               <span className="text-sm font-medium text-muted-foreground">Superpower:</span>
-              <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 border-0">
+              <Badge className="border-0 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
                 ⚡ {profile.superpower}
               </Badge>
             </div>
           )}
-          <div className="flex items-center gap-3 mt-1">
+          <div className="mt-1 flex items-center gap-3">
             <Badge variant="secondary">{profile.availability_status}</Badge>
             {averageRating && (
               <RatingDisplay
@@ -298,21 +318,21 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
         </div>
       </div>
       <Separator />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-muted-foreground" />
+          <MapPin className="h-4 w-4 text-muted-foreground" />
           <span>{profile.location}</span>
         </div>
       </div>
       {profile.bio && (
         <div>
-          <h4 className="font-medium mb-2">About</h4>
+          <h4 className="mb-2 font-medium">About</h4>
           <p className="text-muted-foreground">{profile.bio}</p>
         </div>
       )}
       {profile.skills && profile.skills.length > 0 && (
         <div>
-          <h4 className="font-medium mb-2">Skills</h4>
+          <h4 className="mb-2 font-medium">Skills</h4>
           <div className="flex flex-wrap gap-2">
             {profile.skills.map((skill, index) => (
               <Badge key={index} variant="outline">
@@ -332,7 +352,7 @@ function RecruiterProfileView({ profile }: { profile: RecruiterProfile }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center overflow-hidden">
+        <div className="bg-gradient-primary flex h-16 w-16 items-center justify-center overflow-hidden rounded-full">
           {profile.company_logo_url &&
           profile.company_logo_url.trim() !== "" &&
           profile.company_logo_url !== "null" &&
@@ -340,8 +360,8 @@ function RecruiterProfileView({ profile }: { profile: RecruiterProfile }) {
             <img
               src={profile.company_logo_url}
               alt={`${profile.company_name} logo`}
-              className="w-full h-full object-cover"
-              onError={e => {
+              className="h-full w-full object-cover"
+              onError={(e) => {
                 console.log(
                   "Company logo failed to load:",
                   profile.company_logo_url?.substring(0, 50)
@@ -351,26 +371,26 @@ function RecruiterProfileView({ profile }: { profile: RecruiterProfile }) {
               onLoad={() => setLogoError(false)}
             />
           ) : (
-            <Building2 className="w-8 h-8 text-white" />
+            <Building2 className="h-8 w-8 text-white" />
           )}
         </div>
         <div className="flex-1">
           <h3 className="text-xl font-semibold">{profile.company_name}</h3>
           <p className="text-muted-foreground">{profile.contact_name}</p>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="mt-1 flex items-center gap-3">
             <Badge variant="secondary">{profile.company_type}</Badge>
           </div>
         </div>
       </div>
       <Separator />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-muted-foreground" />
+          <MapPin className="h-4 w-4 text-muted-foreground" />
           <span>{profile.location}</span>
         </div>
         {profile.website_url && (
           <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-muted-foreground" />
+            <Globe className="h-4 w-4 text-muted-foreground" />
             <a
               href={profile.website_url}
               target="_blank"
@@ -384,7 +404,7 @@ function RecruiterProfileView({ profile }: { profile: RecruiterProfile }) {
       </div>
       {profile.description && (
         <div>
-          <h4 className="font-medium mb-2">About</h4>
+          <h4 className="mb-2 font-medium">About</h4>
           <p className="text-muted-foreground">{profile.description}</p>
         </div>
       )}
@@ -413,13 +433,13 @@ function FreelancerFormFields({
 }) {
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <Label htmlFor="first_name">First Name (Optional)</Label>
           <Input
             id="first_name"
             value={formData.first_name}
-            onChange={e => onInputChange("first_name", e.target.value)}
+            onChange={(e) => onInputChange("first_name", e.target.value)}
             data-testid="input-first-name"
           />
         </div>
@@ -428,7 +448,7 @@ function FreelancerFormFields({
           <Input
             id="last_name"
             value={formData.last_name}
-            onChange={e => onInputChange("last_name", e.target.value)}
+            onChange={(e) => onInputChange("last_name", e.target.value)}
             data-testid="input-last-name"
           />
         </div>
@@ -439,7 +459,7 @@ function FreelancerFormFields({
         <Input
           id="title"
           value={formData.title}
-          onChange={e => onInputChange("title", e.target.value)}
+          onChange={(e) => onInputChange("title", e.target.value)}
           placeholder="e.g. Senior Sound Engineer"
           data-testid="input-title"
         />
@@ -450,7 +470,7 @@ function FreelancerFormFields({
         <Input
           id="superpower"
           value={formData.superpower}
-          onChange={e => {
+          onChange={(e) => {
             if (e.target.value.length <= 40) {
               onInputChange("superpower", e.target.value);
             }
@@ -458,7 +478,7 @@ function FreelancerFormFields({
           placeholder="Enter one standout skill – e.g. Client-facing, vMix operator, RF specialist"
           data-testid="input-superpower"
         />
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="mt-1 text-xs text-muted-foreground">
           <strong>Best Practice:</strong> Keep it short (max 40 chars). Focus on your #1 strength
           recruiters should notice first. Avoid lists or generic terms like
           &quot;hard-working&quot;.
@@ -470,7 +490,7 @@ function FreelancerFormFields({
         <Textarea
           id="bio"
           value={formData.bio}
-          onChange={e => onInputChange("bio", e.target.value)}
+          onChange={(e) => onInputChange("bio", e.target.value)}
           placeholder="Tell us about your experience and expertise..."
           rows={3}
           data-testid="textarea-bio"
@@ -495,7 +515,7 @@ function FreelancerFormFields({
             id="experience_years"
             type="number"
             value={formData.experience_years}
-            onChange={e => onInputChange("experience_years", e.target.value)}
+            onChange={(e) => onInputChange("experience_years", e.target.value)}
             placeholder="0"
             data-testid="input-experience-years"
           />
@@ -504,16 +524,16 @@ function FreelancerFormFields({
 
       <div>
         <Label>Skills (Optional)</Label>
-        <div className="flex gap-2 mb-2">
+        <div className="mb-2 flex gap-2">
           <Input
             value={newSkill}
-            onChange={e => setNewSkill(e.target.value)}
+            onChange={(e) => setNewSkill(e.target.value)}
             placeholder="Add a skill"
-            onKeyPress={e => e.key === "Enter" && onSkillAdd()}
+            onKeyPress={(e) => e.key === "Enter" && onSkillAdd()}
             data-testid="input-new-skill"
           />
           <Button type="button" onClick={onSkillAdd} data-testid="button-add-skill">
-            <Plus className="w-4 h-4" />
+            <Plus className="h-4 w-4" />
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -521,7 +541,7 @@ function FreelancerFormFields({
             <Badge key={index} variant="secondary" className="flex items-center gap-1">
               {skill}
               <X
-                className="w-3 h-3 cursor-pointer"
+                className="h-3 w-3 cursor-pointer"
                 onClick={() => onSkillRemove(skill)}
                 data-testid={`button-remove-skill-${skill}`}
               />
@@ -534,7 +554,7 @@ function FreelancerFormFields({
         <Label htmlFor="availability_status">Availability Status</Label>
         <Select
           value={formData.availability_status}
-          onValueChange={value => onInputChange("availability_status", value)}
+          onValueChange={(value) => onInputChange("availability_status", value)}
         >
           <SelectTrigger data-testid="select-availability">
             <SelectValue />
@@ -547,14 +567,14 @@ function FreelancerFormFields({
         </Select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <Label htmlFor="portfolio_url">Portfolio URL</Label>
           <Input
             id="portfolio_url"
             type="url"
             value={formData.portfolio_url}
-            onChange={e => onInputChange("portfolio_url", e.target.value)}
+            onChange={(e) => onInputChange("portfolio_url", e.target.value)}
             placeholder="https://yourportfolio.com"
             data-testid="input-portfolio-url"
           />
@@ -565,7 +585,7 @@ function FreelancerFormFields({
             id="linkedin_url"
             type="url"
             value={formData.linkedin_url}
-            onChange={e => onInputChange("linkedin_url", e.target.value)}
+            onChange={(e) => onInputChange("linkedin_url", e.target.value)}
             placeholder="https://linkedin.com/in/yourprofile"
             data-testid="input-linkedin-url"
           />
@@ -583,7 +603,7 @@ function FreelancerFormFields({
 
       <div>
         <Label>CV Upload (Optional)</Label>
-        <p className="text-sm text-muted-foreground mb-2">
+        <p className="mb-2 text-sm text-muted-foreground">
           Upload your CV for recruiters to view. Accepted formats: PDF, DOC, DOCX (max 5MB)
         </p>
         <CVUploadSection profile={profile as FreelancerProfile} />
@@ -659,13 +679,13 @@ function RecruiterFormFields({
 }) {
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <Label htmlFor="company_name">Company Name</Label>
           <Input
             id="company_name"
             value={formData.company_name}
-            onChange={e => onInputChange("company_name", e.target.value)}
+            onChange={(e) => onInputChange("company_name", e.target.value)}
             data-testid="input-company-name"
           />
         </div>
@@ -674,18 +694,18 @@ function RecruiterFormFields({
           <Input
             id="contact_name"
             value={formData.contact_name}
-            onChange={e => onInputChange("contact_name", e.target.value)}
+            onChange={(e) => onInputChange("contact_name", e.target.value)}
             data-testid="input-contact-name"
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <Label htmlFor="company_type">Company Type</Label>
           <Select
             value={formData.company_type}
-            onValueChange={value => onInputChange("company_type", value)}
+            onValueChange={(value) => onInputChange("company_type", value)}
           >
             <SelectTrigger data-testid="select-company-type">
               <SelectValue placeholder="Select company type" />
@@ -719,21 +739,21 @@ function RecruiterFormFields({
         <Textarea
           id="description"
           value={formData.description}
-          onChange={e => onInputChange("description", e.target.value)}
+          onChange={(e) => onInputChange("description", e.target.value)}
           placeholder="Tell us about your company..."
           rows={3}
           data-testid="textarea-description"
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <Label htmlFor="website_url">Website URL</Label>
           <Input
             id="website_url"
             type="url"
             value={formData.website_url}
-            onChange={e => onInputChange("website_url", e.target.value)}
+            onChange={(e) => onInputChange("website_url", e.target.value)}
             placeholder="https://yourcompany.com"
             data-testid="input-website-url"
           />
@@ -744,7 +764,7 @@ function RecruiterFormFields({
             id="linkedin_url"
             type="url"
             value={formData.linkedin_url}
-            onChange={e => onInputChange("linkedin_url", e.target.value)}
+            onChange={(e) => onInputChange("linkedin_url", e.target.value)}
             placeholder="https://linkedin.com/company/yourcompany"
             data-testid="input-linkedin-url"
           />
