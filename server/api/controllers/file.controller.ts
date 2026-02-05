@@ -21,7 +21,7 @@ export async function uploadCV(req: Request, res: Response) {
     const { randomUUID } = await import("crypto");
     const objectKey = `cvs/${(req as any).user.id}/${randomUUID()}`;
 
-    // Upload file to storage from backend (avoids CORS issues)
+    // Upload file to storage using presigned URL approach
     const privateDir = process.env.PRIVATE_OBJECT_DIR;
     if (!privateDir) {
       throw new Error("PRIVATE_OBJECT_DIR not set");
@@ -37,23 +37,51 @@ export async function uploadCV(req: Request, res: Response) {
     const bucketName = pathParts[1];
     const objectName = pathParts.slice(2).join("/");
 
-    const { objectStorageClient } = await import("../utils/object-storage");
-    const bucket = objectStorageClient.bucket(bucketName);
-    const file = bucket.file(objectName);
-
-    // Convert base64 to buffer and upload
+    // Convert base64 to buffer
     const buffer = Buffer.from(fileData, "base64");
     console.log(
       `📤 Uploading CV to storage: bucket=${bucketName}, object=${objectName}, size=${buffer.length} bytes`
     );
 
     try {
-      await file.save(buffer, {
-        contentType,
-        metadata: {
-          contentType,
-        },
+      // Use presigned URL approach for upload
+      const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
+      const signRequest = {
+        bucket_name: bucketName,
+        object_name: objectName,
+        method: "PUT",
+        expires_at: new Date(Date.now() + 900 * 1000).toISOString(), // 15 minutes
+      };
+      
+      console.log(`📝 Requesting presigned URL for upload...`);
+      const signResponse = await fetch(`${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(signRequest),
       });
+      
+      if (!signResponse.ok) {
+        const errorText = await signResponse.text();
+        console.error(`❌ Failed to get presigned URL: ${signResponse.status} - ${errorText}`);
+        throw new Error(`Failed to get upload URL: ${errorText}`);
+      }
+      
+      const { signed_url: uploadUrl } = await signResponse.json();
+      console.log(`✅ Got presigned URL, uploading file...`);
+      
+      // Upload directly to the presigned URL
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        body: buffer,
+        headers: { "Content-Type": contentType },
+      });
+      
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error(`❌ Upload failed: ${uploadResponse.status} - ${errorText}`);
+        throw new Error(`Upload failed: ${uploadResponse.status}`);
+      }
+      
       console.log(`✅ CV uploaded to storage successfully: ${objectKey}`);
     } catch (uploadError: any) {
       console.error("❌ Object storage upload error:", uploadError);
