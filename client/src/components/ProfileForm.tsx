@@ -1,4 +1,5 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { CVParsingReview } from "@/components/CVParsingReview";
 import { ImageUpload } from "@/components/ImageUpload";
 import { SimplifiedCVUploader } from "@/components/SimplifiedCVUploader";
 import { Badge } from "@/components/ui/badge";
@@ -660,11 +661,19 @@ function CVUploadSection({ profile }: { profile?: FreelancerProfile }) {
       : undefined;
 
   return (
-    <SimplifiedCVUploader
-      userId={user.id}
-      currentCV={currentCV}
-      onUploadComplete={handleUploadComplete}
-    />
+    <div className="space-y-4">
+      <SimplifiedCVUploader
+        userId={user.id}
+        currentCV={currentCV}
+        onUploadComplete={handleUploadComplete}
+      />
+      <CVParsingReview
+        onProfileUpdated={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/freelancer", user.id] });
+          queryClient.invalidateQueries({ queryKey: ["/api/freelancer/profile", user.id] });
+        }}
+      />
+    </div>
   );
 }
 

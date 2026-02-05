@@ -1,6 +1,7 @@
 import {
   contact_messages,
   conversations,
+  cv_parsed_data,
   email_notification_logs,
   feedback,
   freelancer_documents,
@@ -19,10 +20,12 @@ import {
   users,
   type ContactMessage,
   type Conversation,
+  type CvParsedData,
   type EmailNotificationLog,
   type Feedback,
   type FreelancerDocument,
   type FreelancerProfile,
+  type InsertCvParsedData,
   type InsertEmailNotificationLog,
   type InsertFeedback,
   type InsertFreelancerDocument,
@@ -345,6 +348,12 @@ export interface IStorage {
   getFreelancerDocumentCount(freelancerId: number): Promise<number>;
   createFreelancerDocument(document: InsertFreelancerDocument): Promise<FreelancerDocument>;
   deleteFreelancerDocument(documentId: number, freelancerId: number): Promise<void>;
+
+  // CV parsed data management
+  getCvParsedData(userId: number): Promise<CvParsedData | undefined>;
+  createCvParsedData(data: InsertCvParsedData): Promise<CvParsedData>;
+  updateCvParsedData(userId: number, data: Partial<InsertCvParsedData>): Promise<CvParsedData | undefined>;
+  deleteCvParsedData(userId: number): Promise<void>;
 
   // Cache management
   clearCache(): void;
@@ -3743,6 +3752,40 @@ export class DatabaseStorage implements IStorage {
     status: "pending" | "replied" | "resolved"
   ): Promise<void> {
     await db.update(contact_messages).set({ status }).where(eq(contact_messages.id, id));
+  }
+
+  // CV Parsed Data Management
+  async getCvParsedData(userId: number): Promise<CvParsedData | undefined> {
+    const result = await db
+      .select()
+      .from(cv_parsed_data)
+      .where(eq(cv_parsed_data.user_id, userId))
+      .limit(1);
+    return result[0];
+  }
+
+  async createCvParsedData(data: InsertCvParsedData): Promise<CvParsedData> {
+    const result = await db.insert(cv_parsed_data).values(data).returning();
+    if (!result[0]) {
+      throw new Error("Failed to create CV parsed data");
+    }
+    return result[0];
+  }
+
+  async updateCvParsedData(
+    userId: number,
+    data: Partial<InsertCvParsedData>
+  ): Promise<CvParsedData | undefined> {
+    const result = await db
+      .update(cv_parsed_data)
+      .set({ ...data, updated_at: new Date() })
+      .where(eq(cv_parsed_data.user_id, userId))
+      .returning();
+    return result[0];
+  }
+
+  async deleteCvParsedData(userId: number): Promise<void> {
+    await db.delete(cv_parsed_data).where(eq(cv_parsed_data.user_id, userId));
   }
 }
 

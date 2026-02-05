@@ -1,5 +1,6 @@
 import { insertMessageAttachmentSchema } from "@shared/schema";
 import type { Request, Response } from "express";
+import { cvParserService } from "../services/cv-parser.service";
 import { storage } from "../../storage";
 import { ObjectNotFoundError, ObjectStorageService } from "../utils/object-storage";
 
@@ -68,9 +69,17 @@ export async function uploadCV(req: Request, res: Response) {
     });
 
     console.log(`✅ CV metadata saved for user ${(req as any).user.id}: ${filename}`);
+
+    // Trigger CV parsing in the background (async, non-blocking)
+    const userId = (req as any).user.id;
+    cvParserService.parseCV(userId, objectKey).catch(err => {
+      console.error(`Background CV parsing failed for user ${userId}:`, err);
+    });
+
     res.json({
       message: "CV uploaded successfully",
       profile: updatedProfile,
+      parsingStarted: true,
     });
   } catch (error) {
     console.error("❌ Save CV error:", error);
@@ -106,6 +115,13 @@ export async function deleteCV(req: Request, res: Response) {
       cv_file_size: null,
       cv_file_type: null,
     });
+
+    // Delete any CV parsed data
+    try {
+      await storage.deleteCvParsedData((req as any).user.id);
+    } catch (err) {
+      console.log("No CV parsed data to delete or error:", err);
+    }
 
     res.json({
       message: "CV deleted successfully",

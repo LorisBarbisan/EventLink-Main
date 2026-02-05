@@ -19,6 +19,7 @@ import { registerAdminRoutes } from "./api/routes/admin.route.js";
 import { registerApplicationRoutes } from "./api/routes/applications.route.js";
 import { registerAuthRoutes } from "./api/routes/auth.route.js";
 import { registerContactRoutes } from "./api/routes/contact.route.js";
+import { registerCVParserRoutes } from "./api/routes/cv-parser.route.js";
 import { registerFileRoutes } from "./api/routes/file.route.js";
 import { registerJobRoutes } from "./api/routes/job.route.js";
 import { registerMessagingRoutes } from "./api/routes/message.route.js";
@@ -232,6 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerNotificationRoutes(app);
   registerAdminRoutes(app);
   registerFileRoutes(app);
+  registerCVParserRoutes(app);
   registerRatingsRoutes(app);
   registerContactRoutes(app);
 

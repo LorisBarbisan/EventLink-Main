@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Upload, FileText, Download, Trash2, CheckCircle } from "lucide-react";
 
 interface CVUploaderProps {
@@ -78,8 +78,11 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
 
       toast({
         title: "CV uploaded successfully",
-        description: "Your CV has been uploaded and saved.",
+        description: "Your CV has been uploaded and is being analysed.",
       });
+
+      // Invalidate the CV parsing status to trigger refresh
+      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
 
       // Wait for the callback to complete with the response profile
       if (onUploadComplete) {
@@ -123,6 +126,9 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
         title: "CV deleted",
         description: "Your CV has been removed.",
       });
+
+      // Clear the CV parsing status
+      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
 
       // Wait for the callback to complete with the response profile
       if (onUploadComplete) {
