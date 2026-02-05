@@ -1,6 +1,4 @@
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
+import { PDFParse } from "pdf-parse";
 import OpenAI from "openai";
 import { storage } from "../../storage";
 import { ObjectStorageService } from "../utils/object-storage";
@@ -156,8 +154,11 @@ ${text.substring(0, 8000)}`;
     const [buffer] = await file.download();
     console.log(`📥 Downloaded CV file: ${buffer.length} bytes`);
 
-    const pdfData = await pdfParse(buffer);
-    return pdfData.text;
+    // Use PDFParse class to extract text
+    const parser = new PDFParse({});
+    await parser.load(buffer);
+    const text = await parser.getText();
+    return text;
   }
 
   private extractStructuredData(text: string): ParsedCVData {
