@@ -79,7 +79,7 @@
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.5",
     "drizzle-orm": "^0.39.1",
-    "drizzle-zod": "^0.7.0",
+    "drizzle-zod": "^0.7.1",
     "embla-carousel-react": "^8.6.0",
     "esbuild": "^0.25.10",
     "eslint": "^9.36.0",
@@ -105,7 +105,10 @@
     "msw": "^2.11.3",
     "nanoid": "^5.1.5",
     "next-themes": "^0.4.6",
+    "openai": "^6.18.0",
     "openid-client": "^6.7.1",
+    "p-limit": "^7.3.0",
+    "p-retry": "^7.1.1",
     "passport": "^0.7.0",
     "passport-apple": "^2.0.2",
     "passport-facebook": "^3.0.0",
@@ -133,8 +136,8 @@
     "vite": "^6.3.6",
     "wouter": "^3.3.5",
     "ws": "^8.18.0",
-    "zod": "^3.24.2",
-    "zod-validation-error": "^3.4.0"
+    "zod": "^3.25.76",
+    "zod-validation-error": "^3.5.4"
   },
   "devDependencies": {
     "@types/dotenv": "^6.1.1",

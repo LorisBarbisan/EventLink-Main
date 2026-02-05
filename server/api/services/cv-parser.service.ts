@@ -1,4 +1,5 @@
 import * as pdfParse from "pdf-parse";
+import OpenAI from "openai";
 import { storage } from "../../storage";
 import { ObjectStorageService } from "../utils/object-storage";
 
@@ -13,6 +14,11 @@ export interface ParsedCVData {
   workHistory?: string;
   certifications?: string[];
 }
+
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
 
 const SKILL_KEYWORDS = [
   "javascript", "typescript", "python", "java", "react", "node", "nodejs", "sql",
@@ -57,7 +63,15 @@ export class CVParserService {
       const text = await this.extractTextFromCV(cvFileUrl);
       console.log(`📄 Extracted ${text.length} characters from CV`);
 
-      const parsedData = this.extractStructuredData(text);
+      // Try AI-based parsing first, fall back to rule-based
+      let parsedData: ParsedCVData;
+      try {
+        parsedData = await this.extractWithAI(text);
+        console.log(`🤖 AI extraction successful`);
+      } catch (aiError) {
+        console.warn(`⚠️ AI extraction failed, falling back to rule-based:`, aiError);
+        parsedData = this.extractStructuredData(text);
+      }
       console.log(`✅ Extracted data:`, JSON.stringify(parsedData, null, 2));
 
       await this.saveParsedData(userId, parsedData, cvFileUrl);
@@ -69,6 +83,51 @@ export class CVParserService {
       await this.updateParsingStatus(userId, "failed", cvFileUrl, errorMessage);
       throw error;
     }
+  }
+
+  private async extractWithAI(text: string): Promise<ParsedCVData> {
+    const prompt = `You are an expert CV/resume parser for the events industry. Analyze this CV text and extract the following information in JSON format:
+
+{
+  "fullName": "The person's full name",
+  "title": "Their professional title or job role (e.g., 'Event Manager', 'AV Technician', 'Stage Manager')",
+  "skills": ["Array of relevant skills - include technical skills, software, equipment, certifications"],
+  "bio": "A 2-3 sentence professional summary about this person based on their experience",
+  "location": "Their city/region location",
+  "experienceYears": number of years of experience (estimate from work history),
+  "certifications": ["Array of certifications like IPAF, PASMA, First Aid, etc."]
+}
+
+Focus on events industry relevant skills like: AV equipment, staging, lighting, sound, video production, event coordination, etc.
+
+If a field cannot be determined, omit it from the response.
+
+CV TEXT:
+${text.substring(0, 8000)}`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-5-mini",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 1024,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error("No response from AI");
+    }
+
+    const parsed = JSON.parse(content);
+    
+    return {
+      fullName: parsed.fullName || undefined,
+      title: parsed.title || undefined,
+      skills: Array.isArray(parsed.skills) ? parsed.skills : undefined,
+      bio: parsed.bio || undefined,
+      location: parsed.location || undefined,
+      experienceYears: typeof parsed.experienceYears === "number" ? parsed.experienceYears : undefined,
+      certifications: Array.isArray(parsed.certifications) ? parsed.certifications : undefined,
+    };
   }
 
   private async extractTextFromCV(cvFileUrl: string): Promise<string> {
