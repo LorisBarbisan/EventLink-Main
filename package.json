@@ -111,6 +111,7 @@
     "passport-facebook": "^3.0.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-linkedin-oauth2": "^2.0.0",
+    "pdf-parse": "^2.4.5",
     "postcss": "^8.5.6",
     "postgres": "^3.4.7",
     "prettier": "^3.6.2",
