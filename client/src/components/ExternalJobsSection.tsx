@@ -12,7 +12,7 @@ import {
   ExternalLink,
   RefreshCw,
   MapPin,
-  Coins,
+  PoundSterling,
   Calendar,
   Building2,
   Settings,
@@ -187,7 +187,7 @@ export default function ExternalJobsSection({ showInJobsPage = false }: External
                         {job.location}
                       </div>
                       <div className="flex items-center gap-1">
-                        <Coins className="w-4 h-4" />
+                        <PoundSterling className="w-4 h-4" />
                         {job.rate}
                       </div>
                     </div>

@@ -20,7 +20,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  Coins,
+  PoundSterling,
   Edit,
   Eye,
   EyeOff,
@@ -181,7 +181,7 @@ export function JobCard({
                 {job.location}
               </div>
               <div className="flex items-center gap-1">
-                <Coins className="w-4 h-4" />
+                <PoundSterling className="w-4 h-4" />
                 {job.rate}
               </div>
               {job.event_date && (

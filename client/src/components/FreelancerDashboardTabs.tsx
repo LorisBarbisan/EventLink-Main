@@ -31,7 +31,7 @@ import {
   Camera,
   CheckCircle,
   Clock,
-  Coins,
+  PoundSterling,
   Mail,
   MapPin,
   MessageCircle,
@@ -881,7 +881,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                   Applied: {job.applicationDate}
                                 </span>
                                 <span className="flex items-center gap-1">
-                                  <Coins className="h-3 w-3" />
+                                  <PoundSterling className="h-3 w-3" />
                                   {job.rate}
                                 </span>
                               </div>
@@ -1026,7 +1026,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                     : "Date TBD"}
                                 </span>
                                 <span className="flex items-center gap-1">
-                                  <Coins className="h-3 w-3" />
+                                  <PoundSterling className="h-3 w-3" />
                                   {booking.rate}
                                 </span>
                               </div>
