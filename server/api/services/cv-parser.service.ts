@@ -15,10 +15,17 @@ export interface ParsedCVData {
   certifications?: string[];
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+// Lazy-initialized OpenAI client to avoid construction-time failures when env vars are missing
+let openaiClient: OpenAI | null = null;
+function getOpenAIClient(): OpenAI {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    });
+  }
+  return openaiClient;
+}
 
 const SKILL_KEYWORDS = [
   "javascript", "typescript", "python", "java", "react", "node", "nodejs", "sql",
@@ -86,6 +93,11 @@ export class CVParserService {
   }
 
   private async extractWithAI(text: string): Promise<ParsedCVData> {
+    // Check if OpenAI integration is configured
+    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY || !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+      throw new Error("OpenAI integration not configured");
+    }
+
     const prompt = `You are an expert CV/resume parser for the events industry. Analyze this CV text and extract the following information in JSON format:
 
 {
@@ -95,6 +107,8 @@ export class CVParserService {
   "bio": "A 2-3 sentence professional summary about this person based on their experience",
   "location": "Their city/region location",
   "experienceYears": number of years of experience (estimate from work history),
+  "education": "Education background summary",
+  "workHistory": "Brief work history summary",
   "certifications": ["Array of certifications like IPAF, PASMA, First Aid, etc."]
 }
 
@@ -105,7 +119,7 @@ If a field cannot be determined, omit it from the response.
 CV TEXT:
 ${text.substring(0, 8000)}`;
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAIClient().chat.completions.create({
       model: "gpt-5-mini",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
@@ -126,6 +140,8 @@ ${text.substring(0, 8000)}`;
       bio: parsed.bio || undefined,
       location: parsed.location || undefined,
       experienceYears: typeof parsed.experienceYears === "number" ? parsed.experienceYears : undefined,
+      education: parsed.education || undefined,
+      workHistory: parsed.workHistory || undefined,
       certifications: Array.isArray(parsed.certifications) ? parsed.certifications : undefined,
     };
   }
