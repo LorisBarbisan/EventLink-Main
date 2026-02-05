@@ -57,15 +57,18 @@ export async function uploadCV(req: Request, res: Response) {
       console.log(`✅ CV uploaded to storage successfully: ${objectKey}`);
     } catch (uploadError: any) {
       console.error("❌ Object storage upload error:", uploadError);
-      console.error("❌ Error details:", {
-        message: uploadError?.message,
+      const errorDetails = {
+        message: uploadError?.message || String(uploadError),
         code: uploadError?.code,
         statusCode: uploadError?.statusCode,
+        name: uploadError?.name,
         bucket: bucketName,
         object: objectName,
         privateDir: privateDir,
-      });
-      throw new Error(`Failed to upload CV to storage: ${uploadError?.message || 'Unknown error'}`);
+        stack: uploadError?.stack?.split('\n').slice(0, 3).join(' '),
+      };
+      console.error("❌ Error details:", JSON.stringify(errorDetails, null, 2));
+      throw new Error(`Failed to upload CV to storage: ${errorDetails.message}`);
     }
 
     // Update freelancer profile with CV information directly (no need to fetch first)

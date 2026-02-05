@@ -1,0 +1,95 @@
+📤 Starting CV upload: CV Fabrizio Barbisan 2025.pdf application/pdf 168705
+index-CJpAZw53.js:460 Step 1: Converting file to base64...
+index-CJpAZw53.js:460 ✅ Step 1: File converted to base64
+index-CJpAZw53.js:460 Step 2: Uploading to server...
+index-CJpAZw53.js:395  POST https://event-link-cv-parsing.replit.app/api/cv 500 (Internal Server Error)
+be @ index-CJpAZw53.js:395
+f @ index-CJpAZw53.js:460
+await in f
+xr @ index-CJpAZw53.js:37
+I2 @ index-CJpAZw53.js:37
+F2 @ index-CJpAZw53.js:37
+ly @ index-CJpAZw53.js:37
+cy @ index-CJpAZw53.js:37
+(anonymous) @ index-CJpAZw53.js:37
+Yh @ index-CJpAZw53.js:40
+an @ index-CJpAZw53.js:37
+Ym @ index-CJpAZw53.js:37
+Rm @ index-CJpAZw53.js:37
+X2 @ index-CJpAZw53.js:37Understand this error
+index-CJpAZw53.js:460 ❌ CV upload error: Error: Failed to upload CV to storage: Error code undefined
+    at be (index-CJpAZw53.js:395:64014)
+    at async f (index-CJpAZw53.js:460:190579)
+f @ index-CJpAZw53.js:460
+await in f
+xr @ index-CJpAZw53.js:37
+I2 @ index-CJpAZw53.js:37
+F2 @ index-CJpAZw53.js:37
+ly @ index-CJpAZw53.js:37
+cy @ index-CJpAZw53.js:37
+(anonymous) @ index-CJpAZw53.js:37
+Yh @ index-CJpAZw53.js:40
+an @ index-CJpAZw53.js:37
+Ym @ index-CJpAZw53.js:37
+Rm @ index-CJpAZw53.js:37
+X2 @ index-CJpAZw53.js:37Understand this error
+index-CJpAZw53.js:460 Error type: object
+f @ index-CJpAZw53.js:460
+await in f
+xr @ index-CJpAZw53.js:37
+I2 @ index-CJpAZw53.js:37
+F2 @ index-CJpAZw53.js:37
+ly @ index-CJpAZw53.js:37
+cy @ index-CJpAZw53.js:37
+(anonymous) @ index-CJpAZw53.js:37
+Yh @ index-CJpAZw53.js:40
+an @ index-CJpAZw53.js:37
+Ym @ index-CJpAZw53.js:37
+Rm @ index-CJpAZw53.js:37
+X2 @ index-CJpAZw53.js:37Understand this error
+index-CJpAZw53.js:460 Error details: {
+  "status": 500
+}
+f @ index-CJpAZw53.js:460
+await in f
+xr @ index-CJpAZw53.js:37
+I2 @ index-CJpAZw53.js:37
+F2 @ index-CJpAZw53.js:37
+ly @ index-CJpAZw53.js:37
+cy @ index-CJpAZw53.js:37
+(anonymous) @ index-CJpAZw53.js:37
+Yh @ index-CJpAZw53.js:40
+an @ index-CJpAZw53.js:37
+Ym @ index-CJpAZw53.js:37
+Rm @ index-CJpAZw53.js:37
+X2 @ index-CJpAZw53.js:37Understand this error
+index-CJpAZw53.js:460 Error message: Failed to upload CV to storage: Error code undefined
+f @ index-CJpAZw53.js:460
+await in f
+xr @ index-CJpAZw53.js:37
+I2 @ index-CJpAZw53.js:37
+F2 @ index-CJpAZw53.js:37
+ly @ index-CJpAZw53.js:37
+cy @ index-CJpAZw53.js:37
+(anonymous) @ index-CJpAZw53.js:37
+Yh @ index-CJpAZw53.js:40
+an @ index-CJpAZw53.js:37
+Ym @ index-CJpAZw53.js:37
+Rm @ index-CJpAZw53.js:37
+X2 @ index-CJpAZw53.js:37Understand this error
+index-CJpAZw53.js:460 Error stack: Error: Failed to upload CV to storage: Error code undefined
+    at be (https://event-link-cv-parsing.replit.app/assets/index-CJpAZw53.js:395:64014)
+    at async f (https://event-link-cv-parsing.replit.app/assets/index-CJpAZw53.js:460:190579)
+f @ index-CJpAZw53.js:460
+await in f
+xr @ index-CJpAZw53.js:37
+I2 @ index-CJpAZw53.js:37
+F2 @ index-CJpAZw53.js:37
+ly @ index-CJpAZw53.js:37
+cy @ index-CJpAZw53.js:37
+(anonymous) @ index-CJpAZw53.js:37
+Yh @ index-CJpAZw53.js:40
+an @ index-CJpAZw53.js:37
+Ym @ index-CJpAZw53.js:37
+Rm @ index-CJpAZw53.js:37
+X2 @ index-CJpAZw53.js:37Understand this error
