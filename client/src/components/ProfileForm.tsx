@@ -233,6 +233,17 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
             setNewSkill={setNewSkill}
             onSkillAdd={handleSkillAdd}
             onSkillRemove={handleSkillRemove}
+            onFieldsConfirmed={(confirmedFields) => {
+              setFormData((prev) => {
+                const updated = { ...prev };
+                for (const [key, value] of Object.entries(confirmedFields)) {
+                  if (value !== undefined && value !== null) {
+                    (updated as any)[key] = value;
+                  }
+                }
+                return updated;
+              });
+            }}
           />
         ) : (
           <RecruiterFormFields
@@ -422,6 +433,7 @@ function FreelancerFormFields({
   setNewSkill,
   onSkillAdd,
   onSkillRemove,
+  onFieldsConfirmed,
 }: {
   formData: FreelancerFormData;
   profile?: FreelancerProfile;
@@ -431,6 +443,7 @@ function FreelancerFormFields({
   setNewSkill: (value: string) => void;
   onSkillAdd: () => void;
   onSkillRemove: (skill: string) => void;
+  onFieldsConfirmed?: (fields: Record<string, any>) => void;
 }) {
   return (
     <>
@@ -446,7 +459,7 @@ function FreelancerFormFields({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CVUploadSection profile={profile as FreelancerProfile} />
+          <CVUploadSection profile={profile as FreelancerProfile} onFieldsConfirmed={onFieldsConfirmed} />
         </CardContent>
       </Card>
 
@@ -625,7 +638,7 @@ function FreelancerFormFields({
 }
 
 // CV Upload section for freelancers when editing their profile
-function CVUploadSection({ profile }: { profile?: FreelancerProfile }) {
+function CVUploadSection({ profile, onFieldsConfirmed }: { profile?: FreelancerProfile; onFieldsConfirmed?: (fields: Record<string, any>) => void }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -683,6 +696,7 @@ function CVUploadSection({ profile }: { profile?: FreelancerProfile }) {
           queryClient.invalidateQueries({ queryKey: ["/api/freelancer", user.id] });
           queryClient.invalidateQueries({ queryKey: ["/api/freelancer/profile", user.id] });
         }}
+        onFieldsConfirmed={onFieldsConfirmed}
       />
     </div>
   );

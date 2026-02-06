@@ -11,8 +11,19 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useWebSocket } from "@/contexts/WebSocketContext";
 import { Loader2, Sparkles, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react";
 
+interface ConfirmedFormFields {
+  first_name?: string;
+  last_name?: string;
+  title?: string;
+  skills?: string[];
+  bio?: string;
+  location?: string;
+  experience_years?: string;
+}
+
 interface CVParsingReviewProps {
   onProfileUpdated?: () => void;
+  onFieldsConfirmed?: (fields: ConfirmedFormFields) => void;
 }
 
 interface ExtractedData {
@@ -35,7 +46,7 @@ interface ParsingStatus {
   confirmedAt?: string;
 }
 
-export function CVParsingReview({ onProfileUpdated }: CVParsingReviewProps) {
+export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsingReviewProps) {
   const { toast } = useToast();
   const { subscribe } = useWebSocket();
   const [selectedFields, setSelectedFields] = useState<Record<string, boolean>>({
@@ -95,6 +106,23 @@ export function CVParsingReview({ onProfileUpdated }: CVParsingReviewProps) {
         title: "Profile updated",
         description: `${data.fieldsUpdated?.length || 0} fields updated from your CV.`,
       });
+
+      if (onFieldsConfirmed && data.profile) {
+        const p = data.profile;
+        const formFields: ConfirmedFormFields = {};
+        const updatedKeys = data.fieldsUpdated || [];
+        if (updatedKeys.includes("first_name")) formFields.first_name = p.first_name || "";
+        if (updatedKeys.includes("last_name")) formFields.last_name = p.last_name || "";
+        if (updatedKeys.includes("title")) formFields.title = p.title || "";
+        if (updatedKeys.includes("skills")) formFields.skills = p.skills || [];
+        if (updatedKeys.includes("bio")) formFields.bio = p.bio || "";
+        if (updatedKeys.includes("location")) formFields.location = p.location || "";
+        if (updatedKeys.includes("experience_years")) {
+          formFields.experience_years = p.experience_years != null ? String(p.experience_years) : "";
+        }
+        onFieldsConfirmed(formFields);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
       onProfileUpdated?.();
