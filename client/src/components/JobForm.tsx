@@ -53,7 +53,6 @@ export function JobForm({
 
   const handleSubmit = (status: "active" | "private") => {
     onSubmit(formData, status);
-    onSubmit(formData, status);
     // Reset form only when creating new job
     if (!isEditing) {
       clearFormData();
