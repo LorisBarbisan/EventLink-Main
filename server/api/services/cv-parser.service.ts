@@ -61,11 +61,15 @@ const LOCATION_PATTERNS = [
 ];
 
 export class CVParserService {
+  async initParsingStatus(userId: number, cvFileUrl: string): Promise<void> {
+    await this.updateParsingStatus(userId, "parsing", cvFileUrl);
+    console.log(`📊 Parsing status set to "parsing" for user ${userId}`);
+  }
+
   async parseCV(userId: number, cvFileUrl: string): Promise<ParsedCVData> {
     console.log(`🔍 Starting CV parsing for user ${userId}, file: ${cvFileUrl}`);
 
     try {
-      await this.updateParsingStatus(userId, "parsing", cvFileUrl);
 
       const text = await this.extractTextFromCV(cvFileUrl);
       console.log(`📄 Extracted ${text.length} characters from CV`);

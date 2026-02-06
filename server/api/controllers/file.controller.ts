@@ -109,16 +109,20 @@ export async function uploadCV(req: Request, res: Response) {
 
     console.log(`✅ CV metadata saved for user ${(req as any).user.id}: ${filename}`);
 
-    // Trigger CV parsing in the background (async, non-blocking)
+    // Set parsing status to "parsing" BEFORE sending response so frontend polling finds it immediately
     const userId = (req as any).user.id;
-    cvParserService.parseCV(userId, objectKey).catch(err => {
-      console.error(`Background CV parsing failed for user ${userId}:`, err);
-    });
+    await cvParserService.initParsingStatus(userId, objectKey);
 
+    // Send response immediately, then start parsing in background
     res.json({
       message: "CV uploaded successfully",
       profile: updatedProfile,
       parsingStarted: true,
+    });
+
+    // Trigger CV parsing in the background (async, non-blocking)
+    cvParserService.parseCV(userId, objectKey).catch(err => {
+      console.error(`Background CV parsing failed for user ${userId}:`, err);
     });
   } catch (error) {
     console.error("❌ Save CV error:", error);

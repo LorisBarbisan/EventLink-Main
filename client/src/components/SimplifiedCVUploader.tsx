@@ -81,8 +81,9 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
         description: "Your CV has been uploaded and is being analysed.",
       });
 
-      // Invalidate the CV parsing status to trigger refresh
-      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
+      // Set parsing status to "parsing" in the cache so CVParsingReview immediately starts polling
+      // The server sets "parsing" status in DB before responding, so polling will find it
+      queryClient.setQueryData(["/api/cv/parse/status"], { status: "parsing" });
 
       // Wait for the callback to complete with the response profile
       if (onUploadComplete) {
