@@ -93,6 +93,13 @@ export const MobileNavigation = ({ onFeedbackClick }: MobileNavigationProps) => 
             >
               Settings
             </Link>
+            <Link
+              to="/notification-settings"
+              className="text-foreground hover:text-primary transition-colors py-2 px-4 rounded-md hover:bg-muted"
+              data-testid="mobile-link-notification-settings"
+            >
+              Notification Settings
+            </Link>
             {user.role === "admin" && (
               <Link
                 to="/admin"
