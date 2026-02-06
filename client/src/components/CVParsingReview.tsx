@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useWebSocket } from "@/contexts/WebSocketContext";
 import { Loader2, Sparkles, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react";
 
 interface CVParsingReviewProps {
@@ -36,6 +37,7 @@ interface ParsingStatus {
 
 export function CVParsingReview({ onProfileUpdated }: CVParsingReviewProps) {
   const { toast } = useToast();
+  const { subscribe } = useWebSocket();
   const [selectedFields, setSelectedFields] = useState<Record<string, boolean>>({
     fullName: true,
     title: true,
@@ -50,17 +52,35 @@ export function CVParsingReview({ onProfileUpdated }: CVParsingReviewProps) {
     refetchInterval: (query) => {
       const data = query.state.data as ParsingStatus | undefined;
       if (data?.status === "parsing" || data?.status === "pending") {
-        return 2000;
+        return 3000;
       }
       return false;
     },
   });
 
-  useEffect(() => {
-    if (parsingStatus) {
-      console.log("📋 CV Parsing Status:", parsingStatus.status, parsingStatus.extractedData ? "has data" : "no data");
+  const handleWebSocketEvent = useCallback((data: any) => {
+    if (data.type === "cv_parsing_update") {
+      console.log("📡 WebSocket: CV parsing update received:", data.status);
+      if (data.status === "completed" && data.extractedData) {
+        queryClient.setQueryData(["/api/cv/parse/status"], {
+          status: "completed",
+          extractedData: data.extractedData,
+        });
+      } else if (data.status === "failed") {
+        queryClient.setQueryData(["/api/cv/parse/status"], {
+          status: "failed",
+          errorMessage: "CV analysis failed. You can try again.",
+        });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
+      }
     }
-  }, [parsingStatus]);
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribe(handleWebSocketEvent);
+    return unsubscribe;
+  }, [subscribe, handleWebSocketEvent]);
 
   const confirmMutation = useMutation({
     mutationFn: async (fields: Record<string, boolean>) => {

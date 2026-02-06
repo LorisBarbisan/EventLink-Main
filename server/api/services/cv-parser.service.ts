@@ -87,11 +87,38 @@ export class CVParserService {
 
       await this.saveParsedData(userId, parsedData, cvFileUrl);
 
+      // Notify frontend via WebSocket that parsing is complete
+      try {
+        const { wsService } = await import("../websocket/websocketService.js");
+        wsService.broadcastCVParsingUpdate(userId, "completed", {
+          fullName: parsedData.fullName,
+          title: parsedData.title,
+          skills: parsedData.skills,
+          bio: parsedData.bio,
+          location: parsedData.location,
+          experienceYears: parsedData.experienceYears,
+          education: parsedData.education,
+          workHistory: parsedData.workHistory,
+          certifications: parsedData.certifications,
+        });
+      } catch (wsError) {
+        console.error("WebSocket broadcast error (non-critical):", wsError);
+      }
+
       return parsedData;
     } catch (error) {
       console.error(`❌ CV parsing error for user ${userId}:`, error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error during CV parsing";
       await this.updateParsingStatus(userId, "failed", cvFileUrl, errorMessage);
+
+      // Notify frontend via WebSocket that parsing failed
+      try {
+        const { wsService } = await import("../websocket/websocketService.js");
+        wsService.broadcastCVParsingUpdate(userId, "failed");
+      } catch (wsError) {
+        console.error("WebSocket broadcast error (non-critical):", wsError);
+      }
+
       throw error;
     }
   }
