@@ -154,10 +154,13 @@ ${text.substring(0, 8000)}`;
     const [buffer] = await file.download();
     console.log(`📥 Downloaded CV file: ${buffer.length} bytes`);
 
-    // Use PDFParse class to extract text
-    const parser = new PDFParse({});
-    await parser.load(buffer);
-    const text = await parser.getText();
+    // PDFParse constructor takes options including data as Uint8Array
+    const parser = new PDFParse({ data: new Uint8Array(buffer) });
+    await parser.load();
+    const result = await parser.getText();
+    // getText() returns an object with .text property containing all page text
+    const text = typeof result === "string" ? result : (result?.text || JSON.stringify(result));
+    console.log(`📄 PDF text extracted: ${text.length} characters`);
     return text;
   }
 
