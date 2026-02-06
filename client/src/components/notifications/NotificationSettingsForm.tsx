@@ -43,6 +43,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
   const [filterSkills, setFilterSkills] = useState<string[]>([]);
   const [filterLocations, setFilterLocations] = useState<string[]>([]);
   const [filterKeywords, setFilterKeywords] = useState<string[]>([]);
+  const [locationRadiusKm, setLocationRadiusKm] = useState<number>(30);
 
   // Fetch notification preferences
   const { data: preferences, isLoading } = useQuery<NotificationPreferences>({
@@ -68,6 +69,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
       setFilterSkills(jobAlertFilter.skills || []);
       setFilterLocations(jobAlertFilter.locations || []);
       setFilterKeywords(jobAlertFilter.keywords || []);
+      setLocationRadiusKm(jobAlertFilter.location_radius_km ?? 30);
       setDateFrom(jobAlertFilter.date_from || "");
       setDateTo(jobAlertFilter.date_to || "");
     }
@@ -171,6 +173,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
       skills: filterSkills.length > 0 ? filterSkills : null,
       locations: filterLocations.length > 0 ? filterLocations : null,
       keywords: filterKeywords.length > 0 ? filterKeywords : null,
+      location_radius_km: locationRadiusKm,
       date_from: dateFrom || null,
       date_to: dateTo || null,
       is_active: true,
@@ -490,6 +493,27 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                   ))}
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Search Radius</Label>
+                <div className="flex gap-2">
+                  {[10, 30, 60, 100].map((radius) => (
+                    <Button
+                      key={radius}
+                      type="button"
+                      variant={locationRadiusKm === radius ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setLocationRadiusKm(radius)}
+                      className="flex-1"
+                    >
+                      {radius} km
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Receive alerts for jobs within {locationRadiusKm} km of your selected locations
+                </p>
+              </div>
             </div>
 
             <Separator />

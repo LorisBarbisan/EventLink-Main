@@ -1,6 +1,7 @@
 import { storage } from "../../storage";
 import { sendEmail } from "./emailService";
 import * as emailTemplates from "./emailTemplates";
+import { isWithinRadius } from "./uk-coordinates";
 
 /**
  * Email notification service
@@ -235,13 +236,22 @@ export class EmailNotificationService {
       }
     }
 
-    // Location matching - case-insensitive partial match
+    // Location matching - geographic radius-based matching with text fallback
     if (filter.locations && filter.locations.length > 0) {
-      const jobLocation = (job.location || "").toLowerCase();
+      const jobLocation = (job.location || "").trim();
+      const radiusKm = filter.location_radius_km || 30;
+
       const hasMatchingLocation = filter.locations.some(
-        (filterLocation: string) =>
-          jobLocation.includes(filterLocation.toLowerCase()) ||
-          filterLocation.toLowerCase().includes(jobLocation)
+        (filterLocation: string) => {
+          const geoResult = isWithinRadius(filterLocation, jobLocation, radiusKm);
+          if (geoResult !== null) {
+            return geoResult;
+          }
+          return (
+            jobLocation.toLowerCase().includes(filterLocation.toLowerCase()) ||
+            filterLocation.toLowerCase().includes(jobLocation.toLowerCase())
+          );
+        }
       );
       if (!hasMatchingLocation) {
         return false;
