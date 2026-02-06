@@ -350,7 +350,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
               <Filter className="h-5 w-5" />
               Job Alert Filters
             </CardTitle>
-            <CardDescription>Customize which jobs you get notified about</CardDescription>
+            <CardDescription>Customise which jobs you get notified about</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Skills Filter */}
