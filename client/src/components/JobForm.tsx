@@ -122,12 +122,12 @@ export function JobForm({
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <Label htmlFor="job-rate">Rate *</Label>
+            <Label htmlFor="job-rate">Rate * (£)</Label>
             <Input
               id="job-rate"
               value={formData.rate}
               onChange={(e) => handleInputChange("rate", e.target.value)}
-              placeholder="£450 per day"
+              placeholder="450"
               data-testid="input-job-rate"
             />
           </div>
