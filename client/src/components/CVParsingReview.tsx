@@ -49,12 +49,18 @@ export function CVParsingReview({ onProfileUpdated }: CVParsingReviewProps) {
     queryKey: ["/api/cv/parse/status"],
     refetchInterval: (query) => {
       const data = query.state.data as ParsingStatus | undefined;
-      if (data?.status === "parsing") {
+      if (data?.status === "parsing" || data?.status === "pending") {
         return 2000;
       }
       return false;
     },
   });
+
+  useEffect(() => {
+    if (parsingStatus) {
+      console.log("📋 CV Parsing Status:", parsingStatus.status, parsingStatus.extractedData ? "has data" : "no data");
+    }
+  }, [parsingStatus]);
 
   const confirmMutation = useMutation({
     mutationFn: async (fields: Record<string, boolean>) => {

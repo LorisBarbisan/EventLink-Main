@@ -120,7 +120,7 @@ CV TEXT:
 ${text.substring(0, 8000)}`;
 
     const response = await getOpenAIClient().chat.completions.create({
-      model: "gpt-5-mini",
+      model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
       max_completion_tokens: 1024,
@@ -156,7 +156,7 @@ ${text.substring(0, 8000)}`;
 
     // PDFParse constructor takes options including data as Uint8Array
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
-    await parser.load();
+    await (parser as any).load();
     const result = await parser.getText();
     // getText() returns an object with .text property containing all page text
     const text = typeof result === "string" ? result : (result?.text || JSON.stringify(result));
