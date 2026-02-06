@@ -219,7 +219,7 @@ export function JobForm({
             onClick={() => handleSubmit("active")}
             disabled={isSubmitting || !isValid}
             data-testid="button-post-job"
-            className={isValid ? "bg-[#EFA068] text-white hover:bg-[#E59058] font-semibold" : "bg-[#EFA068]/40 text-white/70"}
+            className={isValid ? "bg-gradient-primary text-white hover:bg-primary-hover font-semibold" : "opacity-40"}
           >
             {isSubmitting ? "Posting..." : "Post Job"}
           </Button>
