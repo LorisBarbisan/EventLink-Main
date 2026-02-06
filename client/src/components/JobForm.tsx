@@ -147,10 +147,10 @@ export function JobForm({
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="flex items-center gap-2 w-full py-3 px-4 mt-2 rounded-md border border-dashed border-primary/40 bg-primary/5 text-primary font-medium text-sm hover:bg-primary/10 hover:border-primary/60 transition-colors"
+              className="flex items-center gap-2 w-full py-3 px-4 mt-2 rounded-md text-foreground font-bold text-sm hover:bg-muted/50 transition-colors"
             >
               <ChevronDown className={`h-4 w-4 transition-transform ${showOptional ? "rotate-180" : ""}`} />
-              Additional Details (optional) {hasOptionalData && <span className="text-xs bg-primary/15 px-1.5 py-0.5 rounded">has content</span>}
+              Additional Details (optional) {hasOptionalData && <span className="text-xs bg-muted px-1.5 py-0.5 rounded">has content</span>}
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-4 pt-2">
