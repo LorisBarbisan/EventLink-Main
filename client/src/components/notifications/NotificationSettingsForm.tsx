@@ -206,23 +206,17 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
             Choose which email notifications you&apos;d like to receive
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Messages */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-start gap-3">
-              <MessageSquare className="h-5 w-5 mt-0.5 text-muted-foreground" />
-              <div className="space-y-1">
-                <Label
-                  htmlFor="email_messages"
-                  className="text-base font-medium cursor-pointer"
-                  data-testid="label-email-messages"
-                >
-                  New Messages
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Get notified when you receive a new internal message
-                </p>
-              </div>
+        <CardContent className="space-y-0 py-2">
+          <div className="flex items-center justify-between py-2.5 px-1">
+            <div className="flex items-center gap-2.5">
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              <Label
+                htmlFor="email_messages"
+                className="text-sm font-medium cursor-pointer"
+                data-testid="label-email-messages"
+              >
+                New Messages
+              </Label>
             </div>
             <Switch
               id="email_messages"
@@ -234,24 +228,18 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
 
           <Separator />
 
-          {/* Application Updates (Freelancers only) */}
           {user.role === "freelancer" && (
             <>
-              <div className="flex items-center justify-between">
-                <div className="flex items-start gap-3">
-                  <Briefcase className="h-5 w-5 mt-0.5 text-muted-foreground" />
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="email_application_updates"
-                      className="text-base font-medium cursor-pointer"
-                      data-testid="label-email-application-updates"
-                    >
-                      Application Updates
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get notified when your job application status changes
-                    </p>
-                  </div>
+              <div className="flex items-center justify-between py-2.5 px-1">
+                <div className="flex items-center gap-2.5">
+                  <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  <Label
+                    htmlFor="email_application_updates"
+                    className="text-sm font-medium cursor-pointer"
+                    data-testid="label-email-application-updates"
+                  >
+                    Application Updates
+                  </Label>
                 </div>
                 <Switch
                   id="email_application_updates"
@@ -264,24 +252,18 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
             </>
           )}
 
-          {/* Job Updates (Recruiters only) */}
           {user.role === "recruiter" && (
             <>
-              <div className="flex items-center justify-between">
-                <div className="flex items-start gap-3">
-                  <Briefcase className="h-5 w-5 mt-0.5 text-muted-foreground" />
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="email_job_updates"
-                      className="text-base font-medium cursor-pointer"
-                      data-testid="label-email-job-updates"
-                    >
-                      Job Applications
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get notified when freelancers apply to your posted jobs
-                    </p>
-                  </div>
+              <div className="flex items-center justify-between py-2.5 px-1">
+                <div className="flex items-center gap-2.5">
+                  <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  <Label
+                    htmlFor="email_job_updates"
+                    className="text-sm font-medium cursor-pointer"
+                    data-testid="label-email-job-updates"
+                  >
+                    Job Applications
+                  </Label>
                 </div>
                 <Switch
                   id="email_job_updates"
@@ -294,24 +276,18 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
             </>
           )}
 
-          {/* Job Alerts (Freelancers only) */}
           {user.role === "freelancer" && (
             <>
-              <div className="flex items-center justify-between">
-                <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 mt-0.5 text-muted-foreground" />
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="email_job_alerts"
-                      className="text-base font-medium cursor-pointer"
-                      data-testid="label-email-job-alerts"
-                    >
-                      Job Alerts
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get notified about new job posts matching your preferences
-                    </p>
-                  </div>
+              <div className="flex items-center justify-between py-2.5 px-1">
+                <div className="flex items-center gap-2.5">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <Label
+                    htmlFor="email_job_alerts"
+                    className="text-sm font-medium cursor-pointer"
+                    data-testid="label-email-job-alerts"
+                  >
+                    Job Alerts
+                  </Label>
                 </div>
                 <Switch
                   id="email_job_alerts"
@@ -324,22 +300,16 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
             </>
           )}
 
-          {/* Rating Requests */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-start gap-3">
-              <Star className="h-5 w-5 mt-0.5 text-muted-foreground" />
-              <div className="space-y-1">
-                <Label
-                  htmlFor="email_rating_requests"
-                  className="text-base font-medium cursor-pointer"
-                  data-testid="label-email-rating-requests"
-                >
-                  Rating Requests
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Get notified when someone requests a rating from you
-                </p>
-              </div>
+          <div className="flex items-center justify-between py-2.5 px-1">
+            <div className="flex items-center gap-2.5">
+              <Star className="h-4 w-4 text-muted-foreground" />
+              <Label
+                htmlFor="email_rating_requests"
+                className="text-sm font-medium cursor-pointer"
+                data-testid="label-email-rating-requests"
+              >
+                Rating Requests
+              </Label>
             </div>
             <Switch
               id="email_rating_requests"
@@ -351,22 +321,16 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
 
           <Separator />
 
-          {/* System Updates */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-start gap-3">
-              <Bell className="h-5 w-5 mt-0.5 text-muted-foreground" />
-              <div className="space-y-1">
-                <Label
-                  htmlFor="email_system_updates"
-                  className="text-base font-medium cursor-pointer"
-                  data-testid="label-email-system-updates"
-                >
-                  Platform Updates
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Receive important announcements and platform updates
-                </p>
-              </div>
+          <div className="flex items-center justify-between py-2.5 px-1">
+            <div className="flex items-center gap-2.5">
+              <Bell className="h-4 w-4 text-muted-foreground" />
+              <Label
+                htmlFor="email_system_updates"
+                className="text-sm font-medium cursor-pointer"
+                data-testid="label-email-system-updates"
+              >
+                Platform Updates
+              </Label>
             </div>
             <Switch
               id="email_system_updates"
