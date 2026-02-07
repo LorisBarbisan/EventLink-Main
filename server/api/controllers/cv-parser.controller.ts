@@ -198,9 +198,7 @@ export async function reparseCV(req: Request, res: Response) {
       return res.status(409).json({ error: "CV parsing is already in progress" });
     }
 
-    if (existing) {
-      await storage.deleteCvParsedData(userId);
-    }
+    await cvParserService.initParsingStatus(userId, profile.cv_file_url);
 
     cvParserService.parseCV(userId, profile.cv_file_url).catch(err => {
       console.error(`Background CV parsing failed for user ${userId}:`, err);
