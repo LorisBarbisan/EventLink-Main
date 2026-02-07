@@ -71,7 +71,7 @@ export default function Freelancers() {
     name: `${profile.first_name || ""} ${profile.last_name || ""}`.trim(),
     title: profile.title || "Event Professional",
     superpower: profile.superpower,
-    location: profile.location || "",
+    location: profile.location || "UK",
     experience: profile.experience_years
       ? `${profile.experience_years} years`
       : "Experience not specified",
@@ -287,12 +287,10 @@ export default function Freelancers() {
                         >
                           {freelancer.availability}
                         </Badge>
-                        {freelancer.location && (
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <MapPin className="h-3 w-3" />
-                            <span>{freelancer.location}</span>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <MapPin className="h-3 w-3" />
+                          <span>{freelancer.location}</span>
+                        </div>
                       </div>
                     </div>
                   </div>

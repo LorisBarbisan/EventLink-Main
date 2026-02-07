@@ -739,18 +739,14 @@ export default function Profile() {
                         </div>
                       )}
                       <div className="flex items-center gap-4 text-muted-foreground">
-                        {freelancerProfile?.location && (
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-4 w-4" />
-                            {freelancerProfile.location}
-                          </div>
-                        )}
-                        {freelancerProfile?.experience_years != null && (
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            {freelancerProfile.experience_years} years experience
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          {freelancerProfile?.location || "UK"}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          {freelancerProfile?.experience_years} years experience
+                        </div>
                         {averageRating && (
                           <div className="flex items-center gap-1">
                             <Star className="h-4 w-4" />
@@ -842,12 +838,10 @@ export default function Profile() {
                           <User className="h-4 w-4" />
                           {recruiterProfile?.contact_name}
                         </div>
-                        {recruiterProfile?.location && (
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-4 w-4" />
-                            {recruiterProfile.location}
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          {recruiterProfile?.location || "UK"}
+                        </div>
                         {recruiterProfile?.phone && (
                           <div className="flex items-center gap-1">
                             <Phone className="h-4 w-4" />
