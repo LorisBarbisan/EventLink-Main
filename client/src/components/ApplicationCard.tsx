@@ -159,10 +159,18 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
     }
   };
 
-  // Fetch full job details when dialog opens
-  const { data: jobDetails, isLoading: jobDetailsLoading } = useQuery<Job>({
-    queryKey: [`/api/jobs/${application.job_id}`],
-    queryFn: () => apiRequest(`/api/jobs/${application.job_id}`),
+  // Fetch full job details when dialog opens or expanded
+  const { data: jobDetails, isLoading: jobDetailsLoading, isError: jobDetailsError } = useQuery<Job>({
+    queryKey: ['/api/jobs', application.job_id],
+    queryFn: async () => {
+      const res = await fetch(`/api/jobs/${application.job_id}`, {
+        headers: {
+          ...(localStorage.getItem("auth_token") ? { Authorization: `Bearer ${localStorage.getItem("auth_token")}` } : {}),
+        },
+      });
+      if (!res.ok) throw new Error(`Failed to fetch job: ${res.status}`);
+      return res.json();
+    },
     enabled: (showJobDetailsDialog || showJobExpanded) && !!application.job_id,
   });
 
@@ -1110,7 +1118,9 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                 )}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-2">Job details not available</p>
+              <p className="text-sm text-muted-foreground text-center py-2">
+                {jobDetailsError ? "Unable to load job details. Please try again." : "Job details not available"}
+              </p>
             )}
           </div>
         )}
