@@ -39,6 +39,27 @@ export const authenticateJWT = async (req: any, res: any, next: any) => {
   }
 };
 
+// Optional JWT Authentication Middleware - sets req.user if token present, but doesn't block
+export const optionalAuthenticateJWT = async (req: any, res: any, next: any) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
+
+    if (token && !isTokenBlacklisted(token)) {
+      const decoded = verifyJWTToken(token);
+      if (decoded && typeof decoded === "object") {
+        const user = await storage.getUser((decoded as any).id);
+        if (user) {
+          req.user = computeUserRole(user);
+        }
+      }
+    }
+    next();
+  } catch (error) {
+    next();
+  }
+};
+
 // OAuth configuration endpoint
 export function getOAuthConfig(req: Request, res: Response) {
   res.json({

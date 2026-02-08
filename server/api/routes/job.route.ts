@@ -7,11 +7,11 @@ import {
   getJobsByRecruiter,
   updateJob,
 } from "../controllers/job.controller";
-import { authenticateJWT } from "../middleware/auth.middleware";
+import { authenticateJWT, optionalAuthenticateJWT } from "../middleware/auth.middleware";
 
 export function registerJobRoutes(app: Express) {
-  // Get job by ID
-  app.get("/api/jobs/:id", getJobById);
+  // Get job by ID (optional auth for private job access control)
+  app.get("/api/jobs/:id", optionalAuthenticateJWT, getJobById);
 
   // Get job posting presets
   app.get("/api/jobs/presets", getJobPresets);
