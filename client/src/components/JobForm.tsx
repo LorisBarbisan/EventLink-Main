@@ -7,10 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { UKLocationInput } from "@/components/ui/uk-location-input";
 import { usePersistentState } from "@/hooks/usePersistentState";
 import type { JobFormData } from "@shared/types";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
 interface JobFormProps {
-  initialData?: any; // Job data for editing
+  initialData?: any;
   onSubmit: (data: JobFormData, status: "active" | "private") => void;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -30,7 +31,7 @@ export function JobForm({
     persistenceKey,
     {
       title: initialData?.title || "",
-      type: "freelance", // All jobs are freelance/gig work
+      type: "freelance",
       location: initialData?.location || "",
       rate: initialData?.rate || "",
       description: initialData?.description || "",
@@ -42,6 +43,8 @@ export function JobForm({
   );
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const hasAdditionalDetails = !!(initialData?.end_date || initialData?.start_time || initialData?.end_time || initialData?.description);
+  const [showAdditional, setShowAdditional] = useState(hasAdditionalDetails);
 
   const handleInputChange = (field: keyof JobFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -53,20 +56,17 @@ export function JobForm({
 
   const handleSubmit = (status: "active" | "private") => {
     onSubmit(formData, status);
-    // Reset form only when creating new job
     if (!isEditing) {
       clearFormData();
     } else {
-      clearFormData(); // Also clear edit draft on success
+      clearFormData();
     }
   };
 
-  // Validation: title, location, rate, description, and event_date (start date) are mandatory
   const isValid =
     formData.title &&
     formData.location &&
     formData.rate &&
-    formData.description &&
     formData.event_date;
 
   return (
@@ -117,12 +117,12 @@ export function JobForm({
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <Label htmlFor="job-rate">Rate *</Label>
+            <Label htmlFor="job-rate">Rate * (£)</Label>
             <Input
               id="job-rate"
               value={formData.rate}
               onChange={(e) => handleInputChange("rate", e.target.value)}
-              placeholder="£450 per day"
+              placeholder="450"
               data-testid="input-job-rate"
             />
           </div>
@@ -138,65 +138,68 @@ export function JobForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <Label htmlFor="end-date">End Date (Optional)</Label>
-            <Input
-              id="end-date"
-              type="date"
-              value={formData.end_date}
-              onChange={(e) => handleInputChange("end_date", e.target.value)}
-              data-testid="input-end-date"
-            />
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowAdditional(!showAdditional)}
+          className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
+        >
+          {showAdditional ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          Additional Details (optional)
+        </button>
 
-        {/* Optional Time Fields */}
-        <div className="space-y-4 border-t pt-4">
-          <div>
-            <Label className="text-base font-semibold">Time (Optional)</Label>
-            <p className="mb-3 text-sm text-gray-600">Specify start and end times if applicable</p>
-          </div>
+        {showAdditional && (
+          <div className="space-y-4 border-t pt-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <Label htmlFor="end-date">End Date</Label>
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={formData.end_date}
+                  onChange={(e) => handleInputChange("end_date", e.target.value)}
+                  data-testid="input-end-date"
+                />
+              </div>
+            </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <Label htmlFor="start-time">Start Time</Label>
+                <Input
+                  id="start-time"
+                  type="time"
+                  value={formData.start_time}
+                  onChange={(e) => handleInputChange("start_time", e.target.value)}
+                  data-testid="input-start-time"
+                />
+              </div>
+              <div>
+                <Label htmlFor="end-time">End Time</Label>
+                <Input
+                  id="end-time"
+                  type="time"
+                  value={formData.end_time}
+                  onChange={(e) => handleInputChange("end_time", e.target.value)}
+                  data-testid="input-end-time"
+                />
+              </div>
+            </div>
+
             <div>
-              <Label htmlFor="start-time">Start Time</Label>
-              <Input
-                id="start-time"
-                type="time"
-                value={formData.start_time}
-                onChange={(e) => handleInputChange("start_time", e.target.value)}
-                data-testid="input-start-time"
+              <Label htmlFor="job-description">Job Description</Label>
+              <Textarea
+                id="job-description"
+                value={formData.description}
+                onChange={(e) => handleInputChange("description", e.target.value)}
+                placeholder="Describe the role, requirements, and responsibilities..."
+                rows={4}
+                data-testid="textarea-job-description"
               />
             </div>
-            <div>
-              <Label htmlFor="end-time">End Time</Label>
-              <Input
-                id="end-time"
-                type="time"
-                value={formData.end_time}
-                onChange={(e) => handleInputChange("end_time", e.target.value)}
-                data-testid="input-end-time"
-              />
-            </div>
           </div>
-        </div>
+        )}
 
-        <div>
-          <Label htmlFor="job-description">Job Description *</Label>
-          <Textarea
-            id="job-description"
-            value={formData.description}
-            onChange={(e) => handleInputChange("description", e.target.value)}
-            placeholder="Describe the role, requirements, and responsibilities..."
-            rows={4}
-            data-testid="textarea-job-description"
-          />
-        </div>
-
-        {/* Submit buttons */}
         <div className="flex gap-2">
-          {/* Save Job Button - Makes it Private */}
           <Button
             variant="secondary"
             onClick={() => handleSubmit("private")}
@@ -204,17 +207,16 @@ export function JobForm({
             data-testid="button-save-job"
             className="border-gray-200"
           >
-            {isEditing ? "Save Job" : "Save Job"}
+            Save Job
           </Button>
 
-          {/* Post Job Button - Makes it Active/Public */}
           <Button
             onClick={() => handleSubmit("active")}
             disabled={isSubmitting || !isValid}
             data-testid="button-post-job"
             className="bg-[#EFA068] text-white hover:bg-[#E59058]"
           >
-            {isSubmitting ? "Posting..." : isEditing ? "Post Job" : "Post Job"}
+            {isSubmitting ? "Posting..." : "Post Job"}
           </Button>
 
           <Button
