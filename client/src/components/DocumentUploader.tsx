@@ -14,6 +14,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Eye, FileText, Shield, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
+import { useLocation } from "wouter";
 
 interface Document {
   id: number;
@@ -67,6 +68,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUploaderProps) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedType, setSelectedType] = useState<string>("");
   const [customTypeName, setCustomTypeName] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
@@ -268,12 +270,9 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  const handleSignInRequired = () => {
-    toast({
-      title: "Sign in required",
-      description: "Please sign in to view attached documents.",
-      variant: "destructive",
-    });
+  const redirectToAuth = () => {
+    const currentPath = window.location.pathname;
+    setLocation(`/auth?redirect=${encodeURIComponent(currentPath)}`);
   };
 
   if (isLoading) {
@@ -449,7 +448,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
             {documents.map((doc) => (
               <Button
                 key={doc.id}
-                onClick={() => isSignedIn ? handleDownload(doc) : handleSignInRequired()}
+                onClick={() => isSignedIn ? handleDownload(doc) : redirectToAuth()}
                 className="bg-gradient-primary hover:bg-primary-hover w-[140px] h-10 text-sm"
               >
                 {doc.document_type === "Other" && doc.custom_type_name
@@ -477,7 +476,7 @@ interface DocumentBadgesProps {
 }
 
 export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBadgesProps) {
-  const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const isSignedIn = !!viewerRole || !!isOwner;
 
   const { data: documents = [], isLoading } = useQuery<Document[]>({
@@ -515,11 +514,8 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
           key={doc.id}
           onClick={() => {
             if (!isSignedIn) {
-              toast({
-                title: "Sign in required",
-                description: "Please sign in to view attached documents.",
-                variant: "destructive",
-              });
+              const currentPath = window.location.pathname;
+              setLocation(`/auth?redirect=${encodeURIComponent(currentPath)}`);
               return;
             }
             handleDownload(doc);

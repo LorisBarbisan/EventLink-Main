@@ -332,10 +332,14 @@ export default function Profile() {
   const { data: averageRating } = useFreelancerAverageRating(freelancerProfile?.user_id || 0);
 
   const handleDownloadCV = async (cvProfile: FreelancerProfile) => {
-    if (!cvProfile.cv_file_url || !user) {
+    if (!user) {
+      redirectToAuth();
+      return;
+    }
+    if (!cvProfile.cv_file_url) {
       toast({
         title: "Error",
-        description: !user ? "Please sign in to view attached documents." : "CV not available for download",
+        description: "CV not available for download",
         variant: "destructive",
       });
       return;
@@ -678,9 +682,14 @@ export default function Profile() {
 
   const isPromotionalProfile = profile?.email?.toLowerCase() === EVENTLINK_PROMOTIONAL_EMAIL;
 
+  const redirectToAuth = () => {
+    const currentPath = window.location.pathname;
+    setLocation(`/auth?redirect=${encodeURIComponent(currentPath)}`);
+  };
+
   const handleContactClick = () => {
     if (!user && !isPromotionalProfile) {
-      setLocation("/auth");
+      redirectToAuth();
       return;
     }
 
@@ -789,11 +798,7 @@ export default function Profile() {
                           <Button
                             onClick={() => {
                               if (!user) {
-                                toast({
-                                  title: "Sign in required",
-                                  description: "Please sign in to view attached documents.",
-                                  variant: "destructive",
-                                });
+                                redirectToAuth();
                                 return;
                               }
                               handleDownloadCV(freelancerProfile);
