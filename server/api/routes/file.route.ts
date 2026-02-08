@@ -61,8 +61,8 @@ export function registerFileRoutes(app: Express) {
   // Upload document
   app.post("/api/documents", authenticateJWT, uploadDocument);
 
-  // Get freelancer documents
-  app.get("/api/documents/:freelancerId", authenticateJWT, getDocuments);
+  // Get freelancer documents (public - visible to all viewers)
+  app.get("/api/documents/:freelancerId", getDocuments);
 
   // Download document
   app.get("/api/documents/:documentId/download", authenticateJWT, downloadDocument);
