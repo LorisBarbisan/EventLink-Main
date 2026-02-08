@@ -39,6 +39,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
   Eye,
   Flag,
   MessageCircle,
@@ -69,6 +71,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   const [showRatingDialog, setShowRatingDialog] = useState(false);
   const [showRatingRequestDialog, setShowRatingRequestDialog] = useState(false);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
+  const [showJobExpanded, setShowJobExpanded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [showMessageModal, setShowMessageModal] = useState(false);
@@ -160,7 +163,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   const { data: jobDetails, isLoading: jobDetailsLoading } = useQuery<Job>({
     queryKey: [`/api/jobs/${application.job_id}`],
     queryFn: () => apiRequest(`/api/jobs/${application.job_id}`),
-    enabled: showJobDetailsDialog && !!application.job_id,
+    enabled: (showJobDetailsDialog || showJobExpanded) && !!application.job_id,
   });
 
   const rejectMutation = useMutation({
@@ -581,6 +584,20 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         Rate Freelancer
                       </Button>
                     ))}
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowJobExpanded(!showJobExpanded)}
+                    data-testid={`button-job-details-${application.id}`}
+                  >
+                    {showJobExpanded ? (
+                      <ChevronUp className="w-4 h-4 mr-1" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 mr-1" />
+                    )}
+                    Job Details
+                  </Button>
 
                   {/* Delete button for recruiters to hide applications */}
                   <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
@@ -1029,6 +1046,74 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
             )}
           </div>
         </div>
+
+        {userType === "recruiter" && showJobExpanded && (
+          <div className="mt-4 border-t pt-4">
+            {jobDetailsLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <span className="text-sm text-muted-foreground ml-2">Loading job details...</span>
+              </div>
+            ) : jobDetails ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Job Title</p>
+                    <p className="text-sm font-semibold">{jobDetails.title || application.job_title}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Location</p>
+                    <p className="text-sm">{jobDetails.location || "Not specified"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Rate (£)</p>
+                    <p className="text-sm font-medium text-green-600">{jobDetails.rate || "Not specified"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Status</p>
+                    <Badge variant={jobDetails.status === "active" ? "default" : "secondary"} className="mt-0.5">
+                      {jobDetails.status ? jobDetails.status.charAt(0).toUpperCase() + jobDetails.status.slice(1) : "Unknown"}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Start Date</p>
+                    <p className="text-sm">
+                      {jobDetails.event_date
+                        ? new Date(jobDetails.event_date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+                        : "Not specified"}
+                    </p>
+                  </div>
+                  {jobDetails.end_date && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">End Date</p>
+                      <p className="text-sm">
+                        {new Date(jobDetails.end_date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Posted</p>
+                    <p className="text-sm">
+                      {jobDetails.created_at
+                        ? new Date(jobDetails.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+                        : "Not available"}
+                    </p>
+                  </div>
+                </div>
+                {jobDetails.description && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                    <div className="p-3 bg-muted rounded-lg max-h-40 overflow-y-auto">
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{jobDetails.description}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-2">Job details not available</p>
+            )}
+          </div>
+        )}
       </CardContent>
 
       {/* Rating Dialog for recruiters */}
