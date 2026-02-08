@@ -979,7 +979,7 @@ export default function Profile() {
                     <>
                       {freelancerProfile?.portfolio_url && (
                         <a
-                          href={freelancerProfile.portfolio_url}
+                          href={freelancerProfile.portfolio_url.match(/^https?:\/\//) ? freelancerProfile.portfolio_url : `https://${freelancerProfile.portfolio_url}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
@@ -990,7 +990,7 @@ export default function Profile() {
                       )}
                       {freelancerProfile?.linkedin_url && (
                         <a
-                          href={freelancerProfile.linkedin_url}
+                          href={freelancerProfile.linkedin_url.match(/^https?:\/\//) ? freelancerProfile.linkedin_url : `https://${freelancerProfile.linkedin_url}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
@@ -1001,7 +1001,7 @@ export default function Profile() {
                       )}
                       {freelancerProfile?.website_url && (
                         <a
-                          href={freelancerProfile.website_url}
+                          href={freelancerProfile.website_url.match(/^https?:\/\//) ? freelancerProfile.website_url : `https://${freelancerProfile.website_url}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
@@ -1015,7 +1015,7 @@ export default function Profile() {
                     <>
                       {recruiterProfile?.website_url && (
                         <a
-                          href={recruiterProfile.website_url}
+                          href={recruiterProfile.website_url.match(/^https?:\/\//) ? recruiterProfile.website_url : `https://${recruiterProfile.website_url}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
@@ -1026,7 +1026,7 @@ export default function Profile() {
                       )}
                       {recruiterProfile?.linkedin_url && (
                         <a
-                          href={recruiterProfile.linkedin_url}
+                          href={recruiterProfile.linkedin_url.match(/^https?:\/\//) ? recruiterProfile.linkedin_url : `https://${recruiterProfile.linkedin_url}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
