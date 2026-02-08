@@ -1,0 +1,237 @@
+Epic: Social Sharing of EventLink Jobs with Rich Preview
+Epic Name
+
+Job Social Sharing & Rich Link Previews
+
+Epic Description
+
+As a recruiter,
+I want to quickly share a job I have posted on EventLink via social media and messaging platforms,
+so that I can attract suitable freelancers beyond the platform while still driving traffic back to EventLink.
+
+As a platform owner,
+I want shared job links to display a rich, professional preview,
+so that EventLink jobs look credible, clear, and appealing when shared externally.
+
+Business Value
+
+Increases visibility of EventLink job postings
+
+Drives organic traffic and new user acquisition
+
+Improves job fill rates for recruiters
+
+Strengthens EventLink brand presence on social platforms
+
+Encourages recruiters to promote jobs themselves
+
+🔹 Core Concept
+
+Each job on EventLink has a shareable public URL
+
+Recruiters can generate and copy a share link
+
+When shared on social platforms (LinkedIn, WhatsApp, Facebook, X, etc.), the link renders a rich preview:
+
+Job title
+
+Key details (role, location, date)
+
+EventLink branding
+
+Call to action (“View & apply on EventLink”)
+
+🧩 User Stories
+1️⃣ Story: Generate Shareable Job Link
+
+As a recruiter
+I want a simple way to generate a shareable link for my job
+So that I can post it on social media or send it directly.
+
+Acceptance Criteria
+
+A “Share job” action is available on:
+
+Job detail page
+
+Recruiter job dashboard
+
+Clicking “Share job”:
+
+Reveals the public job URL
+
+Provides a “Copy link” button
+
+Copied link points to the public job page on EventLink
+
+Share action is available only for:
+
+Published jobs
+
+Draft or private jobs cannot be shared publicly
+
+2️⃣ Story: Rich Job Preview (Open Graph / Meta Tags)
+
+As a viewer on a social platform
+I want to see a clear preview of the job when a link is shared
+So that I understand the opportunity before clicking.
+
+Acceptance Criteria
+
+Shared job URLs include proper Open Graph / meta tags
+
+Preview displays:
+
+Job title
+
+Role / headline
+
+Location (or “UK-wide” if remote)
+
+Event date(s) (if applicable)
+
+EventLink logo or branded image
+
+Preview renders correctly on:
+
+LinkedIn
+
+Facebook
+
+WhatsApp
+
+X (Twitter)
+
+Fallback preview is provided if some fields are missing
+
+3️⃣ Story: Dedicated Job Preview Image Generation
+
+As a platform owner
+I want job links to include a visually consistent preview image
+So that EventLink jobs look professional when shared.
+
+Acceptance Criteria
+
+Each job has a preview image used in link sharing
+
+Preview image includes:
+
+EventLink branding
+
+Job title
+
+Key job detail (e.g. role or location)
+
+Image is:
+
+Automatically generated OR
+
+Selected from a default branded template
+
+Image meets social platform size requirements (e.g. 1200×630)
+
+Image is cached for performance
+
+4️⃣ Story: Public Job Landing Page (External View)
+
+As a freelancer clicking a shared job link
+I want to land on a clear job page
+So that I can quickly decide whether to apply.
+
+Acceptance Criteria
+
+Public job page shows:
+
+Job title
+
+Description
+
+Key details (location, dates, contract type)
+
+Recruiter name/company
+
+Clear CTA:
+
+“Apply on EventLink”
+
+If user is:
+
+Not logged in → redirected to sign up / log in, then back to job
+
+Logged in → taken directly to apply flow
+
+Page loads quickly and is mobile-friendly
+
+5️⃣ Story: Share UX Optimised for Recruiters
+
+As a recruiter
+I want sharing to be fast and intuitive
+So that I’m encouraged to promote my jobs.
+
+Acceptance Criteria
+
+“Share job” action supports:
+
+Copy link
+
+Optional quick-share buttons (LinkedIn, WhatsApp, Email)
+
+Clear confirmation when link is copied
+
+No complex configuration required by recruiter
+
+Share feature does not expose private recruiter data
+
+6️⃣ Story: Permissions & Privacy Controls
+
+As a platform owner
+I want to ensure only appropriate jobs can be shared publicly
+So that private hiring workflows are protected.
+
+Acceptance Criteria
+
+Only Published jobs generate shareable links
+
+Draft or invite-only jobs:
+
+Do not expose public URLs
+
+Return “Job not available” if accessed directly
+
+Closed jobs:
+
+Show status “This job is no longer accepting applications”
+
+Deleted jobs:
+
+Return a clear “Job no longer available” page
+
+7️⃣ Story: Tracking & Analytics (Foundational)
+
+As a platform owner
+I want to understand how shared job links perform
+So that we can optimise sharing features.
+
+Acceptance Criteria
+
+System tracks:
+
+Job link views
+
+Source (if available, e.g. referrer)
+
+Metrics are stored internally for future reporting
+
+No personal data tracking at MVP stage
+
+🔧 Technical Notes (Optimised for Replit AI Agent)
+
+Implement Open Graph tags server-side (important for crawlers)
+
+Ensure job pages are crawlable by social bots
+
+Use cache-busting carefully for preview image updates
+
+Separate public job view from authenticated apply flow
+
+Reuse existing job data models where possible

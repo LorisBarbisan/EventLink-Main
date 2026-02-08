@@ -7,6 +7,7 @@ import {
   freelancer_profiles,
   job_alert_filters,
   job_applications,
+  job_link_views,
   jobs,
   message_attachments,
   message_user_states,
@@ -28,6 +29,7 @@ import {
   type InsertFreelancerDocument,
   type InsertFreelancerProfile,
   type InsertJob,
+  type InsertJobLinkView,
   type InsertJobAlertFilter,
   type InsertJobApplication,
   type InsertMessage,
@@ -41,6 +43,7 @@ import {
   type Job,
   type JobAlertFilter,
   type JobApplication,
+  type JobLinkView,
   type Message,
   type MessageAttachment,
   type Notification,
@@ -345,6 +348,10 @@ export interface IStorage {
   getFreelancerDocumentCount(freelancerId: number): Promise<number>;
   createFreelancerDocument(document: InsertFreelancerDocument): Promise<FreelancerDocument>;
   deleteFreelancerDocument(documentId: number, freelancerId: number): Promise<void>;
+
+  // Job link view tracking
+  createJobLinkView(view: InsertJobLinkView): Promise<JobLinkView>;
+  getJobLinkViewCount(jobId: number): Promise<number>;
 
   // Cache management
   clearCache(): void;
@@ -3743,6 +3750,22 @@ export class DatabaseStorage implements IStorage {
     status: "pending" | "replied" | "resolved"
   ): Promise<void> {
     await db.update(contact_messages).set({ status }).where(eq(contact_messages.id, id));
+  }
+
+  async createJobLinkView(view: InsertJobLinkView): Promise<JobLinkView> {
+    const result = await db.insert(job_link_views).values(view).returning();
+    if (!result[0]) {
+      throw new Error("Failed to create job link view");
+    }
+    return result[0];
+  }
+
+  async getJobLinkViewCount(jobId: number): Promise<number> {
+    const result = await db
+      .select({ count: count() })
+      .from(job_link_views)
+      .where(eq(job_link_views.job_id, jobId));
+    return result[0]?.count ?? 0;
   }
 }
 

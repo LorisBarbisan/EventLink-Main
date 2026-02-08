@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import express, { NextFunction, type Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import { ogTagMiddleware } from "./api/middleware/ogTags";
 import { reconcileAdminUsers } from "./api/utils/reconcile-admin-users";
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
@@ -202,6 +203,9 @@ app.use((req, res, next) => {
 (async () => {
   // Reconcile admin users on startup
   await reconcileAdminUsers();
+
+  // OG tag middleware for social media crawlers (must be before Vite catch-all)
+  app.use(ogTagMiddleware);
 
   const server = await registerRoutes(app);
 
