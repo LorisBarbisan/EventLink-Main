@@ -94,7 +94,7 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
 
       const baseUrl = getBaseUrl(req);
       const jobUrl = `${baseUrl}/jobs/${job.id}`;
-      const ogImageUrl = `${baseUrl}/og-image.png`;
+      const ogImageUrl = `${baseUrl}/e8-logo.png`;
       const title = escapeHtml(`${job.title} | EventLink`);
       const description = escapeHtml(buildJobDescription(job));
 
@@ -146,7 +146,7 @@ function buildFallbackHtml(): string {
   <meta property="og:type" content="website" />
   <meta property="og:title" content="EventLink - Event Industry Professional Network" />
   <meta property="og:description" content="Connect with top event professionals. Find crew, post jobs, and grow your network in the UK events industry." />
-  <meta property="og:image" content="https://eventlink.one/og-image.png" />
+  <meta property="og:image" content="https://eventlink.one/e8-logo.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
 </head>
