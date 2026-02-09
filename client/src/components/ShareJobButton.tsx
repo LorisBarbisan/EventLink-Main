@@ -22,7 +22,7 @@ export function ShareJobButton({ job, variant = "outline", size = "sm", classNam
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
 
-  if (job.status !== "active") {
+  if (job.status !== "active" && job.status !== "private") {
     return null;
   }
 

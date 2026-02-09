@@ -73,7 +73,7 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
   storage
     .getJobById(jobId)
     .then(job => {
-      if (!job || job.status !== "active") {
+      if (!job || (job.status !== "active" && job.status !== "private")) {
         const fallbackHtml = buildFallbackHtml();
         return res.status(200).set({ "Content-Type": "text/html" }).end(fallbackHtml);
       }
