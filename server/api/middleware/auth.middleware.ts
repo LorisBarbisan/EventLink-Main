@@ -39,6 +39,49 @@ export const authenticateJWT = async (req: any, res: any, next: any) => {
   }
 };
 
+// Optional JWT Authentication Middleware
+// Does not return 401 if token is missing
+export const authenticateOptionalJWT = async (req: any, res: any, next: any) => {
+  try {
+    // Check for JWT token in Authorization header
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
+
+    if (!token) {
+      // No token, proceed without user (guest mode)
+      return next();
+    }
+
+    // Check if token is blacklisted (logged out)
+    if (isTokenBlacklisted(token)) {
+      // If token is provided but invalid, we should probably ignore it or return error.
+      // Returning error is safer to avoid confusion (client thinks they are logged in but server treats as guest)
+      return res.status(401).json({ error: "Token has been invalidated" });
+    }
+
+    // Verify JWT token
+    const decoded = verifyJWTToken(token);
+    if (!decoded || typeof decoded !== "object") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    // Get fresh user data from database and populate req.user
+    const user = await storage.getUser((decoded as any).id);
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    // Apply role computation and set req.user
+    req.user = computeUserRole(user);
+    next();
+  } catch (error) {
+    console.error("Optional JWT authentication error:", error);
+    // In optional auth, if technical error occurs during auth check,
+    // we can either fail or proceed as guest. Failing is safer to detect issues.
+    res.status(500).json({ error: "Authentication check failed" });
+  }
+};
+
 // OAuth configuration endpoint
 export function getOAuthConfig(req: Request, res: Response) {
   res.json({

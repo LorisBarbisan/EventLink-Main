@@ -10,7 +10,6 @@ export async function getJobById(req: Request, res: Response) {
     if (Number.isNaN(jobId)) {
       return res.status(400).json({ error: "Invalid job ID" });
     }
-
     const job = await storage.getJobById(jobId);
 
     if (!job) {
