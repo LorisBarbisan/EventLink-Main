@@ -94,7 +94,7 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
 
       const baseUrl = getBaseUrl(req);
       const jobUrl = `${baseUrl}/jobs/${job.id}`;
-      const ogImageUrl = `${baseUrl}/api/jobs/${job.id}/og-image.png`;
+      const ogImageUrl = `${baseUrl}/og-image.png`;
       const title = escapeHtml(`${job.title} | EventLink`);
       const description = escapeHtml(buildJobDescription(job));
 
