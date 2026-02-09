@@ -384,7 +384,7 @@ export const insertJobSchema = createInsertSchema(jobs)
     company: z.string().min(1, "Company name is required"),
     title: z.string().min(1, "Job title is required"),
     location: z.string().min(1, "Location is required"),
-    description: z.string().min(1, "Description is required"),
+    description: z.string().optional().default(""),
   });
 
 export const insertJobApplicationSchema = createInsertSchema(job_applications)
@@ -535,6 +535,7 @@ export const job_alert_filters = pgTable("job_alert_filters", {
   date_to: text("date_to"), // End date range (YYYY-MM-DD)
   job_types: text("job_types").array(), // Array of job types to match
   keywords: text("keywords").array(), // Array of keywords to search in title/description
+  location_radius_km: integer("location_radius_km").default(30), // Radius in km for geographic location matching (10, 30, 60, 100)
   is_active: boolean("is_active").default(true).notNull(), // Whether this filter is active
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

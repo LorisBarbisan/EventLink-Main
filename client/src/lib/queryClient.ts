@@ -117,9 +117,9 @@ export async function apiRequest(
 
   // Handle empty responses gracefully
   const contentLength = response.headers.get("content-length");
-  if (contentLength === "0" || !contentLength) {
-    return { success: true }; // Return a default success response for empty bodies
+  if (contentLength === "0") {
+    return { success: true };
   }
 
-  return response.json();
+  return response.json().catch(() => ({ success: true }));
 }

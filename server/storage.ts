@@ -1109,7 +1109,7 @@ export class DatabaseStorage implements IStorage {
         .from(freelancer_profiles)
         .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
         .where(and(...excludeEventlinkConditions))
-        .orderBy(sql`RANDOM()`)
+        .orderBy(desc(freelancer_profiles.created_at))
         .limit(effectiveLimit)
         .offset(effectiveOffset);
 

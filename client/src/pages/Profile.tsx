@@ -332,8 +332,11 @@ export default function Profile() {
   const { data: averageRating } = useFreelancerAverageRating(freelancerProfile?.user_id || 0);
 
   const handleDownloadCV = async (cvProfile: FreelancerProfile) => {
-    const isViewingPromotional = profile?.email?.toLowerCase() === EVENTLINK_PROMOTIONAL_EMAIL;
-    if (!cvProfile.cv_file_url || (!user && !isViewingPromotional)) {
+    if (!user) {
+      redirectToAuth();
+      return;
+    }
+    if (!cvProfile.cv_file_url) {
       toast({
         title: "Error",
         description: "CV not available for download",
@@ -679,9 +682,14 @@ export default function Profile() {
 
   const isPromotionalProfile = profile?.email?.toLowerCase() === EVENTLINK_PROMOTIONAL_EMAIL;
 
+  const redirectToAuth = () => {
+    const currentPath = window.location.pathname;
+    setLocation(`/auth?redirect=${encodeURIComponent(currentPath)}`);
+  };
+
   const handleContactClick = () => {
     if (!user && !isPromotionalProfile) {
-      setLocation("/auth");
+      redirectToAuth();
       return;
     }
 
@@ -786,12 +794,15 @@ export default function Profile() {
                           Send Message
                         </Button>
                       )}
-                      {freelancerProfile?.cv_file_url &&
-                        ((!isOwnProfile &&
-                          (user?.role === "recruiter" || user?.role === "admin")) ||
-                          isOwnProfile) && (
+                      {freelancerProfile?.cv_file_url && (
                           <Button
-                            onClick={() => handleDownloadCV(freelancerProfile)}
+                            onClick={() => {
+                              if (!user) {
+                                redirectToAuth();
+                                return;
+                              }
+                              handleDownloadCV(freelancerProfile);
+                            }}
                             className="flex items-center gap-2"
                             variant="outline"
                             data-testid="button-download-cv-profile"
@@ -968,7 +979,7 @@ export default function Profile() {
                     <>
                       {freelancerProfile?.portfolio_url && (
                         <a
-                          href={freelancerProfile.portfolio_url}
+                          href={(() => { const u = freelancerProfile.portfolio_url.trim(); return u.match(/^https?:\/\//) ? u : `https://${u}`; })()}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
@@ -979,7 +990,7 @@ export default function Profile() {
                       )}
                       {freelancerProfile?.linkedin_url && (
                         <a
-                          href={freelancerProfile.linkedin_url}
+                          href={(() => { const u = freelancerProfile.linkedin_url.trim(); return u.match(/^https?:\/\//) ? u : `https://${u}`; })()}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
@@ -990,7 +1001,7 @@ export default function Profile() {
                       )}
                       {freelancerProfile?.website_url && (
                         <a
-                          href={freelancerProfile.website_url}
+                          href={(() => { const u = freelancerProfile.website_url.trim(); return u.match(/^https?:\/\//) ? u : `https://${u}`; })()}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
@@ -1004,7 +1015,7 @@ export default function Profile() {
                     <>
                       {recruiterProfile?.website_url && (
                         <a
-                          href={recruiterProfile.website_url}
+                          href={(() => { const u = recruiterProfile.website_url.trim(); return u.match(/^https?:\/\//) ? u : `https://${u}`; })()}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
@@ -1015,7 +1026,7 @@ export default function Profile() {
                       )}
                       {recruiterProfile?.linkedin_url && (
                         <a
-                          href={recruiterProfile.linkedin_url}
+                          href={(() => { const u = recruiterProfile.linkedin_url.trim(); return u.match(/^https?:\/\//) ? u : `https://${u}`; })()}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"

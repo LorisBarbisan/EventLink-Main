@@ -10,7 +10,6 @@ export async function getJobById(req: Request, res: Response) {
     if (Number.isNaN(jobId)) {
       return res.status(400).json({ error: "Invalid job ID" });
     }
-
     const job = await storage.getJobById(jobId);
 
     if (!job) {
@@ -33,9 +32,7 @@ export async function getJobById(req: Request, res: Response) {
       if (!isOwner && !isAdmin) {
         // Check if user is an invited freelancer
         const applications = await storage.getJobApplicationsByFreelancer(user.id);
-        const hasInvitation = applications.some(
-          app => app.job_id === jobId && app.status === "invited"
-        );
+        const hasInvitation = applications.some((app) => app.job_id === jobId);
 
         if (!hasInvitation) {
           return res.status(404).json({ error: "Job not found" }); // Hide existence
@@ -103,6 +100,8 @@ export async function createJob(req: Request, res: Response) {
 
     const result = insertJobSchema.safeParse(req.body);
     if (!result.success) {
+      console.error("Job validation failed:", JSON.stringify(result.error.issues, null, 2));
+      console.error("Request body:", JSON.stringify(req.body, null, 2));
       return res.status(400).json({ error: "Invalid input", details: result.error.issues });
     }
 
@@ -116,7 +115,7 @@ export async function createJob(req: Request, res: Response) {
     // Only for EventLink jobs (not external jobs) AND only if active (published)
     if (job.type !== "external" && job.status === "active") {
       const { emailService } = await import("../utils/emailNotificationService");
-      emailService.sendJobAlertToMatchingFreelancers(job).catch(error => {
+      emailService.sendJobAlertToMatchingFreelancers(job).catch((error) => {
         console.error("Failed to send job alert emails:", error);
       });
     }
@@ -160,12 +159,12 @@ export async function updateJob(req: Request, res: Response) {
     // Notify only active applicants about the job update (not rejected or hired)
     const jobApplications = await storage.getJobApplications(jobId);
     const activeApplications = jobApplications.filter(
-      app => app.status === "applied" || app.status === "reviewed" || app.status === "shortlisted"
+      (app) => app.status === "applied" || app.status === "reviewed" || app.status === "shortlisted"
     );
 
     // Parallelize notification creation for performance
     await Promise.all(
-      activeApplications.map(application =>
+      activeApplications.map((application) =>
         storage.createNotification({
           user_id: application.freelancer_id,
           type: "job_update",
@@ -189,7 +188,7 @@ export async function updateJob(req: Request, res: Response) {
     if (job.status === "private" && updatedJob.status === "active") {
       if (updatedJob.type !== "external") {
         const { emailService } = await import("../utils/emailNotificationService");
-        emailService.sendJobAlertToMatchingFreelancers(updatedJob).catch(error => {
+        emailService.sendJobAlertToMatchingFreelancers(updatedJob).catch((error) => {
           console.error("Failed to send job alert emails:", error);
         });
       }
@@ -227,7 +226,7 @@ export async function deleteJob(req: Request, res: Response) {
 
     // Find all hired freelancers for this job before deletion
     const jobApplications = await storage.getJobApplications(jobId);
-    const hiredApplications = jobApplications.filter(app => app.status === "hired");
+    const hiredApplications = jobApplications.filter((app) => app.status === "hired");
 
     // Create cancellation notifications for hired freelancers
     for (const application of hiredApplications) {

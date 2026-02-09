@@ -18,7 +18,7 @@ import {
   ChevronRight,
   ChevronUp,
   Clock,
-  Coins,
+  PoundSterling,
   Filter,
   MapPin,
   RefreshCw,
@@ -553,7 +553,7 @@ export default function Jobs() {
                               <span>{job.location}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Coins className="h-4 w-4 text-muted-foreground" />
+                              <PoundSterling className="h-4 w-4 text-muted-foreground" />
                               <span>{job.rate}</span>
                             </div>
                             {job.event_date && (

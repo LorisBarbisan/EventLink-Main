@@ -147,18 +147,6 @@ export async function getDocuments(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid freelancer ID" });
     }
 
-    if (!(req as any).user) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    const requestingUser = (req as any).user;
-    const isOwner = requestingUser.id === freelancerId;
-    const isRecruiterOrAdmin = requestingUser.role === "recruiter" || requestingUser.role === "admin";
-
-    if (!isOwner && !isRecruiterOrAdmin) {
-      return res.status(403).json({ error: "Not authorized to view documents" });
-    }
-
     const user = await storage.getUser(freelancerId);
     if (!user || user.role !== "freelancer") {
       return res.status(404).json({ error: "Freelancer not found" });

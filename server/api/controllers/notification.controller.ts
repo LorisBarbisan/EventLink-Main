@@ -309,6 +309,7 @@ export async function createOrUpdateJobAlertFilter(req: Request, res: Response) 
         date_to: validationResult.data.date_to || null,
         job_types: validationResult.data.job_types || null,
         keywords: validationResult.data.keywords || null,
+        location_radius_km: validationResult.data.location_radius_km ?? 30,
         is_active: validationResult.data.is_active ?? true,
       });
     }

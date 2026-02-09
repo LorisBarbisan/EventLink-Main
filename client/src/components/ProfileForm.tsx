@@ -96,17 +96,18 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
 
   useEffect(() => {
     if (profile) {
-      // If we have a draft, ignore profile updates until draft is cleared
       const hasDraft = sessionStorage.getItem(draftKey);
-      if (!hasDraft && !isEditing) {
-        // Only sync from profile when not editing or no draft exists
-        setFormData(getDefaultFormData(profile));
-      } else if (!initialLoadDone.current) {
-        // Initial load: if no draft, load profile
-        if (!hasDraft) {
+      if (!initialLoadDone.current) {
+        const draftData = hasDraft ? JSON.parse(hasDraft) : null;
+        const draftHasContent = draftData && Object.values(draftData).some(
+          (v) => v && (typeof v === "string" ? v.trim() !== "" : Array.isArray(v) ? v.length > 0 : true)
+        );
+        if (!draftHasContent) {
           setFormData(getDefaultFormData(profile));
         }
         initialLoadDone.current = true;
+      } else if (!hasDraft && !isEditing) {
+        setFormData(getDefaultFormData(profile));
       }
     }
   }, [profile, draftKey, getDefaultFormData, setFormData, isEditing]);
