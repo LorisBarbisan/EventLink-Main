@@ -45,9 +45,16 @@ function buildJobDescription(job: {
   location: string;
   type: string;
   rate: string;
+  description: string;
   event_date?: string | null;
   end_date?: string | null;
 }): string {
+  if (job.description && job.description.trim()) {
+    const truncated = job.description.trim().length > 200
+      ? job.description.trim().substring(0, 197) + "..."
+      : job.description.trim();
+    return truncated;
+  }
   const parts: string[] = [];
   parts.push(job.location);
   parts.push(`£${job.rate.replace(/^£/, "")}`);
@@ -56,7 +63,6 @@ function buildJobDescription(job: {
     if (job.end_date) dateStr += ` - ${formatDateBritish(job.end_date)}`;
     parts.push(dateStr);
   }
-  parts.push(job.type);
   parts.push("View & apply on EventLink");
   return parts.join(" | ");
 }
