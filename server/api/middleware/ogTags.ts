@@ -113,11 +113,11 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
   <meta property="og:description" content="${description}" />
   <meta property="og:image" content="${escapeHtml(ogImageUrl)}" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:site_name" content="EventLink" />
 
   <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${title}" />
   <meta name="twitter:description" content="${description}" />
   <meta name="twitter:image" content="${escapeHtml(ogImageUrl)}" />
@@ -148,7 +148,7 @@ function buildFallbackHtml(): string {
   <meta property="og:description" content="Connect with top event professionals. Find crew, post jobs, and grow your network in the UK events industry." />
   <meta property="og:image" content="https://eventlink.one/og-image.png" />
   <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="1200" />
+  <meta property="og:image:height" content="630" />
 </head>
 <body>
   <p>This job is no longer available on EventLink.</p>
