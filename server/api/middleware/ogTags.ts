@@ -33,24 +33,30 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#039;");
 }
 
+function formatDateBritish(dateStr: string): string {
+  const parts = dateStr.split("-");
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+}
+
 function buildJobDescription(job: {
   location: string;
   type: string;
   rate: string;
   event_date?: string | null;
   end_date?: string | null;
-  company: string;
 }): string {
   const parts: string[] = [];
-  parts.push(`${job.company}`);
-  parts.push(`📍 ${job.location}`);
-  parts.push(`💷 ${job.rate}`);
+  parts.push(job.location);
+  parts.push(`£${job.rate.replace(/^£/, "")}`);
   if (job.event_date) {
-    let dateStr = job.event_date;
-    if (job.end_date) dateStr += ` - ${job.end_date}`;
-    parts.push(`📅 ${dateStr}`);
+    let dateStr = formatDateBritish(job.event_date);
+    if (job.end_date) dateStr += ` - ${formatDateBritish(job.end_date)}`;
+    parts.push(dateStr);
   }
-  parts.push(`Type: ${job.type}`);
+  parts.push(job.type);
   parts.push("View & apply on EventLink");
   return parts.join(" | ");
 }
@@ -81,7 +87,7 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
       const baseUrl = getBaseUrl(req);
       const jobUrl = `${baseUrl}/jobs/${job.id}`;
       const ogImageUrl = `${baseUrl}/og-image.png`;
-      const title = escapeHtml(`${job.title} - ${job.company} | EventLink`);
+      const title = escapeHtml(`${job.title} | EventLink`);
       const description = escapeHtml(buildJobDescription(job));
 
       const html = `<!DOCTYPE html>
