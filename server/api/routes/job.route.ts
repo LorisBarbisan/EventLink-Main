@@ -9,9 +9,13 @@ import {
   trackJobLinkView,
   updateJob,
 } from "../controllers/job.controller";
+import { getJobOgImage } from "../controllers/ogImage.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
 
 export function registerJobRoutes(app: Express) {
+  // Dynamic OG image for social sharing
+  app.get("/api/jobs/:id/og-image.png", getJobOgImage);
+
   // Get job by ID
   app.get("/api/jobs/:id", getJobById);
 
