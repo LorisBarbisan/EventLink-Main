@@ -49,22 +49,24 @@ function buildJobDescription(job: {
   event_date?: string | null;
   end_date?: string | null;
 }): string {
-  if (job.description && job.description.trim()) {
-    const truncated = job.description.trim().length > 200
-      ? job.description.trim().substring(0, 197) + "..."
-      : job.description.trim();
-    return truncated;
-  }
   const parts: string[] = [];
   parts.push(job.location);
-  parts.push(`£${job.rate.replace(/^£/, "")}`);
   if (job.event_date) {
     let dateStr = formatDateBritish(job.event_date);
     if (job.end_date) dateStr += ` - ${formatDateBritish(job.end_date)}`;
     parts.push(dateStr);
   }
-  parts.push("View & apply on EventLink");
-  return parts.join(" | ");
+  parts.push(`£${job.rate.replace(/^£/, "")}`);
+  const header = parts.join(" | ");
+  if (job.description && job.description.trim()) {
+    const maxDescLen = 200 - header.length - 3;
+    const desc = job.description.trim();
+    const truncated = desc.length > maxDescLen
+      ? desc.substring(0, maxDescLen - 3) + "..."
+      : desc;
+    return `${header} | ${truncated}`;
+  }
+  return `${header} | View & apply on EventLink`;
 }
 
 export function ogTagMiddleware(req: Request, res: Response, next: NextFunction) {
