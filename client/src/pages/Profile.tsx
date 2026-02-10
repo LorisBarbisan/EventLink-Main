@@ -148,7 +148,7 @@ function FeaturedReviews({ freelancerId }: { freelancerId: number }) {
                             </span>
                           </div>
                           <span className="text-sm font-semibold">
-                            {rating.recruiter?.first_name || "Recruiter"}
+                            {rating.recruiter?.first_name || "Employer"}
                           </span>
                         </div>
                         <StarRating rating={rating.rating} readonly size="sm" />
@@ -227,7 +227,7 @@ function ReviewsSection({ freelancerId }: { freelancerId: number }) {
                     <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">
-                          {rating.recruiter?.first_name || "Recruiter"}{" "}
+                          {rating.recruiter?.first_name || "Employer"}{" "}
                           {rating.recruiter?.last_name || ""}
                         </span>
                         <span className="text-sm text-muted-foreground">•</span>

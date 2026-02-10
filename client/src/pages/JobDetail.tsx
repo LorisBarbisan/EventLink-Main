@@ -80,7 +80,7 @@ export default function JobDetail() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Application submitted", description: "Your application has been sent to the recruiter." });
+      toast({ title: "Application submitted", description: "Your application has been sent to the employer." });
       setShowApplyForm(false);
       setCoverLetter("");
       queryClient.invalidateQueries({ queryKey: ["/api/applications/check", jobId] });
@@ -268,7 +268,7 @@ export default function JobDetail() {
                     <div>
                       <label className="text-sm text-muted-foreground mb-1 block">Cover letter (optional)</label>
                       <Textarea
-                        placeholder="Tell the recruiter why you're a great fit..."
+                        placeholder="Tell the employer why you're a great fit..."
                         value={coverLetter}
                         onChange={(e) => setCoverLetter(e.target.value)}
                         rows={4}

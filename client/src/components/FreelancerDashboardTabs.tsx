@@ -573,7 +573,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                       <h3 className="mb-2 text-lg font-semibold">Profile Photo</h3>
                       <p className="text-sm text-muted-foreground">
                         Upload a professional headshot to make your profile stand out. This will be
-                        visible to recruiters and on your public profile.
+                        visible to employers and on your public profile.
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Recommended: Square image, at least 400x400 pixels

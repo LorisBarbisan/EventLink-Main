@@ -29,14 +29,14 @@ export default function HowItWorks() {
     if (metaDescription) {
       metaDescription.setAttribute(
         "content",
-        "Learn how EventLink connects freelance event professionals with corporate event opportunities. Step-by-step guide for both freelancers and recruiters in the events industry."
+        "Learn how EventLink connects freelance event professionals with corporate event opportunities. Step-by-step guide for both freelancers and employers in the events industry."
       );
     } else {
       // Create meta description if it doesn't exist
       const meta = document.createElement("meta");
       meta.name = "description";
       meta.content =
-        "Learn how EventLink connects freelance event professionals with corporate event opportunities. Step-by-step guide for both freelancers and recruiters in the events industry.";
+        "Learn how EventLink connects freelance event professionals with corporate event opportunities. Step-by-step guide for both freelancers and employers in the events industry.";
       document.head.appendChild(meta);
     }
 
@@ -81,7 +81,7 @@ export default function HowItWorks() {
           </h1>
           <p className="text-xl text-muted-foreground leading-relaxed">
             EventLink connects event professionals with opportunities in the corporate events
-            industry. Whether you're a freelancer looking for work or a recruiter seeking skilled
+            industry. Whether you're a freelancer looking for work or an employer seeking skilled
             professionals, we make the process simple and efficient.
           </p>
         </div>
@@ -126,7 +126,7 @@ export default function HowItWorks() {
                     <div className="flex flex-col">
                       <h3 className="text-xl font-semibold mb-2">Get Matched with Jobs</h3>
                       <p className="text-muted-foreground text-sm leading-relaxed">
-                        Recruiters post opportunities and you can apply directly. Browse corporate
+                        Employers post opportunities and you can apply directly. Browse corporate
                         events, conferences, exhibitions, and other exciting projects that match
                         your skills.
                       </p>
@@ -144,7 +144,7 @@ export default function HowItWorks() {
                     <div className="flex flex-col">
                       <h3 className="text-xl font-semibold mb-2">Communicate Easily</h3>
                       <p className="text-muted-foreground text-sm leading-relaxed">
-                        Use our internal messaging system to stay connected with recruiters. Discuss
+                        Use our internal messaging system to stay connected with employers. Discuss
                         project details, negotiate terms, and confirm bookings all in one place.
                       </p>
                     </div>
@@ -161,7 +161,7 @@ export default function HowItWorks() {
                     <div className="flex flex-col">
                       <h3 className="text-xl font-semibold mb-2">Grow Your Reputation</h3>
                       <p className="text-muted-foreground text-sm leading-relaxed">
-                        Get rated by recruiters and showcase your reliability and expertise. Build a
+                        Get rated by employers and showcase your reliability and expertise. Build a
                         strong professional reputation that opens doors to better opportunities.
                       </p>
                     </div>
@@ -188,7 +188,7 @@ export default function HowItWorks() {
               <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Users className="w-8 h-8 text-white" />
               </div>
-              <h2 className="text-3xl font-bold mb-4 text-foreground">For Recruiters</h2>
+              <h2 className="text-3xl font-bold mb-4 text-foreground">For Employers</h2>
               <p className="text-muted-foreground">Find the perfect event professionals</p>
             </div>
 
@@ -300,7 +300,7 @@ export default function HowItWorks() {
               className="border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20"
               data-testid="button-join-recruiter"
             >
-              Join as Recruiter
+              Join as Employer
             </Button>
           </div>
         </div>

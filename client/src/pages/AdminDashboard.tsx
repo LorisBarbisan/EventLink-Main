@@ -951,7 +951,7 @@ function AdminDashboardContent() {
                         <SelectItem value="all">All Roles</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
                         <SelectItem value="freelancer">Freelancer</SelectItem>
-                        <SelectItem value="recruiter">Recruiter</SelectItem>
+                        <SelectItem value="recruiter">Employer</SelectItem>
                       </SelectContent>
                     </Select>
 

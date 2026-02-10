@@ -2,7 +2,7 @@
 
 ## Overview
 
-EventLink is a freelance marketplace platform tailored for the events industry, connecting event professionals (freelancers) with recruiters and companies. Its primary purpose is to streamline the hiring process for event staff by providing detailed profiles, job posting capabilities, and integrated communication tools. The platform aims to be a leading solution for event staffing needs.
+EventLink is a freelance marketplace platform tailored for the events industry, connecting event professionals (freelancers) with employers and companies. Its primary purpose is to streamline the hiring process for event staff by providing detailed profiles, job posting capabilities, and integrated communication tools. The platform aims to be a leading solution for event staffing needs.
 
 ## User Preferences
 

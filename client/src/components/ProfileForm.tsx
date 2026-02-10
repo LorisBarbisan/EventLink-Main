@@ -480,7 +480,7 @@ function FreelancerFormFields({
         />
         <p className="mt-1 text-xs text-muted-foreground">
           <strong>Best Practice:</strong> Keep it short (max 40 chars). Focus on your #1 strength
-          recruiters should notice first. Avoid lists or generic terms like
+          employers should notice first. Avoid lists or generic terms like
           &quot;hard-working&quot;.
         </p>
       </div>
@@ -604,7 +604,7 @@ function FreelancerFormFields({
       <div>
         <Label>CV Upload (Optional)</Label>
         <p className="mb-2 text-sm text-muted-foreground">
-          Upload your CV for recruiters to view. Accepted formats: PDF, DOC, DOCX (max 5MB)
+          Upload your CV for employers to view. Accepted formats: PDF, DOC, DOCX (max 5MB)
         </p>
         <CVUploadSection profile={profile as FreelancerProfile} />
       </div>

@@ -96,7 +96,7 @@ export async function getJobsByRecruiter(req: Request, res: Response) {
 export async function createJob(req: Request, res: Response) {
   try {
     if (!(req as any).user || (req as any).user.role !== "recruiter") {
-      return res.status(403).json({ error: "Only recruiters can create jobs" });
+      return res.status(403).json({ error: "Only employers can create jobs" });
     }
 
     const result = insertJobSchema.safeParse(req.body);
