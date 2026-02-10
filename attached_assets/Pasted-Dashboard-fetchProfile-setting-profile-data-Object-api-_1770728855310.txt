@@ -1,0 +1,126 @@
+Dashboard fetchProfile - setting profile data: Object
+api/freelancer/1:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+index-CF40_Qgm.js:465 No freelancer profile found for user 1 (this is normal if profile hasn't been created yet or user is wrong type)
+index-CF40_Qgm.js:400 ✅ WebSocket connected
+api/freelancer/1:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+api/cv/parse/status:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+api/cv/parse/status:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+api/cv/parse/status:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+api/documents:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+api/cv/parse/status:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+api/freelancer/1:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+index-CF40_Qgm.js:465 No freelancer profile found for user 1 (this is normal if profile hasn't been created yet or user is wrong type)
+api/freelancer/1:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+api/cv/parse/status:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+index-CF40_Qgm.js:400  GET https://event-link-conceal.replit.app/api/cv/parse/status 500 (Internal Server Error)
+be @ index-CF40_Qgm.js:400
+queryFn @ index-CF40_Qgm.js:400
+l @ index-CF40_Qgm.js:400
+k @ index-CF40_Qgm.js:400
+(anonymous) @ index-CF40_Qgm.js:400Understand this error
+index-CF40_Qgm.js:400  GET https://event-link-conceal.replit.app/api/cv/parse/status 500 (Internal Server Error)
+be @ index-CF40_Qgm.js:400
+queryFn @ index-CF40_Qgm.js:400
+l @ index-CF40_Qgm.js:400
+k @ index-CF40_Qgm.js:400
+(anonymous) @ index-CF40_Qgm.js:400
+Promise.then
+(anonymous) @ index-CF40_Qgm.js:400
+Promise.catch
+k @ index-CF40_Qgm.js:400
+(anonymous) @ index-CF40_Qgm.js:400Understand this error
+index-CF40_Qgm.js:465 📤 Starting CV upload: CV Fabrizio Barbisan 2025.pdf application/pdf 168705
+index-CF40_Qgm.js:465 Step 1: Converting file to base64...
+index-CF40_Qgm.js:465 ✅ Step 1: File converted to base64
+index-CF40_Qgm.js:465 Step 2: Uploading to server...
+index-CF40_Qgm.js:400  POST https://event-link-conceal.replit.app/api/cv 500 (Internal Server Error)
+be @ index-CF40_Qgm.js:400
+N @ index-CF40_Qgm.js:465
+await in N
+vr @ index-CF40_Qgm.js:37
+$2 @ index-CF40_Qgm.js:37
+z2 @ index-CF40_Qgm.js:37
+cy @ index-CF40_Qgm.js:37
+dy @ index-CF40_Qgm.js:37
+(anonymous) @ index-CF40_Qgm.js:37
+Gh @ index-CF40_Qgm.js:40
+an @ index-CF40_Qgm.js:37
+Gm @ index-CF40_Qgm.js:37
+Mm @ index-CF40_Qgm.js:37
+nE @ index-CF40_Qgm.js:37Understand this error
+index-CF40_Qgm.js:465 ❌ CV upload error: Error: Failed to upload CV to storage: Failed to get upload URL: 
+    at be (index-CF40_Qgm.js:400:64014)
+    at async N (index-CF40_Qgm.js:465:198369)
+N @ index-CF40_Qgm.js:465
+await in N
+vr @ index-CF40_Qgm.js:37
+$2 @ index-CF40_Qgm.js:37
+z2 @ index-CF40_Qgm.js:37
+cy @ index-CF40_Qgm.js:37
+dy @ index-CF40_Qgm.js:37
+(anonymous) @ index-CF40_Qgm.js:37
+Gh @ index-CF40_Qgm.js:40
+an @ index-CF40_Qgm.js:37
+Gm @ index-CF40_Qgm.js:37
+Mm @ index-CF40_Qgm.js:37
+nE @ index-CF40_Qgm.js:37Understand this error
+index-CF40_Qgm.js:465 Error type: object
+N @ index-CF40_Qgm.js:465
+await in N
+vr @ index-CF40_Qgm.js:37
+$2 @ index-CF40_Qgm.js:37
+z2 @ index-CF40_Qgm.js:37
+cy @ index-CF40_Qgm.js:37
+dy @ index-CF40_Qgm.js:37
+(anonymous) @ index-CF40_Qgm.js:37
+Gh @ index-CF40_Qgm.js:40
+an @ index-CF40_Qgm.js:37
+Gm @ index-CF40_Qgm.js:37
+Mm @ index-CF40_Qgm.js:37
+nE @ index-CF40_Qgm.js:37Understand this error
+index-CF40_Qgm.js:465 Error details: {
+  "status": 500
+}
+N @ index-CF40_Qgm.js:465
+await in N
+vr @ index-CF40_Qgm.js:37
+$2 @ index-CF40_Qgm.js:37
+z2 @ index-CF40_Qgm.js:37
+cy @ index-CF40_Qgm.js:37
+dy @ index-CF40_Qgm.js:37
+(anonymous) @ index-CF40_Qgm.js:37
+Gh @ index-CF40_Qgm.js:40
+an @ index-CF40_Qgm.js:37
+Gm @ index-CF40_Qgm.js:37
+Mm @ index-CF40_Qgm.js:37
+nE @ index-CF40_Qgm.js:37Understand this error
+index-CF40_Qgm.js:465 Error message: Failed to upload CV to storage: Failed to get upload URL: 
+N @ index-CF40_Qgm.js:465
+await in N
+vr @ index-CF40_Qgm.js:37
+$2 @ index-CF40_Qgm.js:37
+z2 @ index-CF40_Qgm.js:37
+cy @ index-CF40_Qgm.js:37
+dy @ index-CF40_Qgm.js:37
+(anonymous) @ index-CF40_Qgm.js:37
+Gh @ index-CF40_Qgm.js:40
+an @ index-CF40_Qgm.js:37
+Gm @ index-CF40_Qgm.js:37
+Mm @ index-CF40_Qgm.js:37
+nE @ index-CF40_Qgm.js:37Understand this error
+index-CF40_Qgm.js:465 Error stack: Error: Failed to upload CV to storage: Failed to get upload URL: 
+    at be (https://event-link-conceal.replit.app/assets/index-CF40_Qgm.js:400:64014)
+    at async N (https://event-link-conceal.replit.app/assets/index-CF40_Qgm.js:465:198369)
+N @ index-CF40_Qgm.js:465
+await in N
+vr @ index-CF40_Qgm.js:37
+$2 @ index-CF40_Qgm.js:37
+z2 @ index-CF40_Qgm.js:37
+cy @ index-CF40_Qgm.js:37
+dy @ index-CF40_Qgm.js:37
+(anonymous) @ index-CF40_Qgm.js:37
+Gh @ index-CF40_Qgm.js:40
+an @ index-CF40_Qgm.js:37
+Gm @ index-CF40_Qgm.js:37
+Mm @ index-CF40_Qgm.js:37
+nE @ index-CF40_Qgm.js:37Understand this error
