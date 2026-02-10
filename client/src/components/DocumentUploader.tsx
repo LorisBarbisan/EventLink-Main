@@ -507,7 +507,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
                   <li>Any other sensitive personal data</li>
                 </ul>
                 <p>
-                  EventLink does not require this information and recommends you hide it before uploading.
+                  EventLink can not conceal this information and recommends you hide it before uploading.
                 </p>
               </div>
             </AlertDialogDescription>
