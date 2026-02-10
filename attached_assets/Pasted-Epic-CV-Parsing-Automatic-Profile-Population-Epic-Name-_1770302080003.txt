@@ -1,0 +1,272 @@
+Epic: CV Parsing & Automatic Profile Population
+Epic Name
+CV Content Extraction & Smart Profile Autofill
+Epic Description
+As a freelancer,
+ I want the platform to automatically extract key information from my uploaded CV and populate my profile fields,
+ so that I can save time, reduce manual data entry, and create a complete, accurate profile more easily.
+As a platform owner,
+ I want CV parsing to be reliable, transparent, and user-controlled,
+ so that data quality remains high and users trust the automation.
+
+Business Value
+Significantly reduces onboarding friction for freelancers
+
+
+Increases profile completeness and quality
+
+
+Improves recruiter confidence and search accuracy
+
+
+Encourages CV uploads (already a key asset on the platform)
+
+
+Creates foundation for future AI-assisted profile enhancements
+
+
+
+🔹 Core Concept
+Freelancer uploads a CV (existing feature)
+
+
+System extracts structured data from the CV
+
+
+Extracted data is suggested, not forced
+
+
+Freelancer reviews and confirms before saving
+
+
+Only relevant profile fields are populated
+
+
+
+🧩 User Stories
+
+1️⃣ Story: Trigger CV Parsing After Upload
+As a freelancer
+ I want my CV to be automatically analysed after upload
+ So that the system can extract useful profile information.
+Acceptance Criteria
+When a freelancer uploads a CV:
+
+
+System automatically starts CV parsing in the background
+
+
+Supported file formats:
+
+
+PDF
+
+
+DOC / DOCX
+
+
+Freelancer sees a clear status indicator:
+
+
+“Analysing your CV…”
+
+
+“CV analysis complete”
+
+
+CV parsing does not block other profile actions
+
+
+Errors are handled gracefully with a fallback message
+
+
+
+2️⃣ Story: Extract Key Profile Fields from CV
+As a system
+ I want to extract structured data from the CV
+ So that it can be mapped to freelancer profile fields.
+Acceptance Criteria
+System attempts to extract the following fields (where available):
+
+
+Full name
+
+
+Professional headline / role
+
+
+Skills
+
+
+Work experience (job titles + companies)
+
+
+Education
+
+
+Certifications (basic detection)
+
+
+Extraction is best-effort:
+
+
+Missing fields are ignored
+
+
+No assumptions are forced
+
+
+Raw CV content is not displayed to other users
+
+
+
+3️⃣ Story: Map Extracted Data to Profile Fields (Draft State)
+As a freelancer
+ I want extracted CV data to be suggested in my profile
+ So that I can review and approve it before it is saved.
+Acceptance Criteria
+Extracted data is displayed in a review step:
+
+
+Pre-filled profile fields are clearly marked (e.g. “Suggested from CV”)
+
+
+Data is shown in editable form fields
+
+
+No profile field is overwritten automatically without user confirmation
+
+
+Freelancer can:
+
+
+Accept all suggestions
+
+
+Edit individual fields
+
+
+Reject suggestions entirely
+
+
+
+4️⃣ Story: Confirm & Save Extracted Profile Data
+As a freelancer
+ I want to confirm the extracted information
+ So that it becomes part of my public profile.
+Acceptance Criteria
+“Save profile” action persists accepted extracted data
+
+
+Only confirmed fields are saved
+
+
+Rejected fields remain unchanged
+
+
+Profile updates are reflected immediately in:
+
+
+Profile page
+
+
+Search results
+
+
+Profile previews
+
+
+
+5️⃣ Story: Re-run CV Parsing on CV Replacement
+As a freelancer
+ I want the system to re-analyse my CV when I upload a new one
+ So that my profile stays up to date.
+Acceptance Criteria
+Uploading a new CV triggers a fresh parsing process
+
+
+Previously extracted data does not auto-overwrite existing profile data
+
+
+Freelancer is prompted:
+
+
+“Do you want to update your profile from this CV?”
+
+
+Freelancer can choose to reapply suggestions or ignore them
+
+
+
+6️⃣ Story: Error Handling & Transparency
+As a freelancer
+ I want to understand what went wrong if CV parsing fails
+ So that I’m not confused or blocked.
+Acceptance Criteria
+If parsing fails:
+
+
+User sees a clear, friendly error message
+
+
+Manual profile editing remains available
+
+
+System logs parsing errors for debugging
+
+
+No sensitive CV content is exposed in error messages
+
+
+
+7️⃣ Story: Permissions, Privacy & Data Safety
+As a platform owner
+ I want CV parsing to be secure and privacy-compliant
+ So that user data is protected.
+Acceptance Criteria
+CV files are:
+
+
+Stored securely
+
+
+Accessible only to authorised users
+
+
+Parsed data is used only for:
+
+
+Profile population
+
+
+Internal processing
+
+
+CV content is not indexed or publicly exposed
+
+
+Deleting a CV removes associated parsed data references
+
+
+
+🔧 Technical Notes (Optimised for Replit AI Agent)
+CV parsing can be implemented via:
+
+
+Third-party CV parsing API (initial MVP), or
+
+
+Lightweight text extraction + rule-based parsing
+
+
+Parsing should be asynchronous (background job / worker)
+
+
+Store extracted data temporarily (draft state) until confirmed
+
+
+Map extracted fields carefully to existing profile schema
+
+
+Ensure parsing is idempotent and repeatable
+

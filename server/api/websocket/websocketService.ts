@@ -156,6 +156,26 @@ export class WebSocketService {
   }
 
   /**
+   * Broadcast CV parsing status update to a specific user
+   */
+  broadcastCVParsingUpdate(userId: number, status: string, extractedData?: any) {
+    try {
+      if (this.broadcastToUser) {
+        this.broadcastToUser(userId, {
+          type: "cv_parsing_update",
+          status,
+          extractedData,
+        });
+        console.log(`📡 CV parsing update broadcast to user ${userId}: status=${status}`);
+      } else {
+        console.warn("WebSocket broadcast function not initialized");
+      }
+    } catch (error) {
+      console.error("Failed to broadcast CV parsing update:", error);
+    }
+  }
+
+  /**
    * Broadcast an event to multiple users
    */
   broadcastToUsers(userIds: number[], data: any) {

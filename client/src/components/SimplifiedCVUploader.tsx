@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { Upload, FileText, Download, Trash2, CheckCircle } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Upload, FileText, Download, Trash2, CheckCircle, Sparkles } from "lucide-react";
 
 interface CVUploaderProps {
   userId: number;
@@ -20,6 +21,72 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollAbortedRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      pollAbortedRef.current = true;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+  }, []);
+
+  const { data: parsingStatus } = useQuery<{ status: string }>({
+    queryKey: ["/api/cv/parse/status"],
+  });
+
+  const extractMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("/api/cv/reparse", { method: "POST" });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Extracting CV data",
+        description: "We're analysing your CV to extract your profile information.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
+
+      pollAbortedRef.current = false;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      const pollForCompletion = async (attempt = 0) => {
+        if (pollAbortedRef.current || attempt > 30) return;
+        try {
+          const token = localStorage.getItem("auth_token");
+          const statusRes = await fetch("/api/cv/parse/status", {
+            headers: {
+              "Content-Type": "application/json",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          });
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (pollAbortedRef.current) return;
+            if (statusData.status === "completed" || statusData.status === "failed") {
+              const current = queryClient.getQueryData(["/api/cv/parse/status"]) as any;
+              if (current?.status !== "confirmed" && current?.status !== "rejected") {
+                queryClient.setQueryData(["/api/cv/parse/status"], statusData);
+              }
+              return;
+            }
+          }
+        } catch (e) {
+          // Silently continue polling
+        }
+        pollTimerRef.current = setTimeout(() => pollForCompletion(attempt + 1), 2000);
+      };
+      pollTimerRef.current = setTimeout(() => pollForCompletion(0), 3000);
+    },
+    onError: (error) => {
+      toast({
+        title: "Extraction failed",
+        description: error instanceof Error ? error.message : "Failed to extract CV data",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const showExtractButton = currentCV?.fileName && 
+    (!parsingStatus || parsingStatus.status === "none" || parsingStatus.status === "confirmed" || parsingStatus.status === "rejected" || parsingStatus.status === "failed");
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -78,13 +145,47 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
 
       toast({
         title: "CV uploaded successfully",
-        description: "Your CV has been uploaded and saved.",
+        description: "Your CV has been uploaded and is being analysed.",
       });
+
+      // Set parsing status to "parsing" in the cache so CVParsingReview shows loading state immediately
+      queryClient.setQueryData(["/api/cv/parse/status"], { status: "parsing" });
 
       // Wait for the callback to complete with the response profile
       if (onUploadComplete) {
         await onUploadComplete(response.profile);
       }
+
+      // Start a backup polling loop that explicitly fetches status until parsing completes
+      pollAbortedRef.current = false;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      const pollForCompletion = async (attempt = 0) => {
+        if (pollAbortedRef.current || attempt > 30) return;
+        try {
+          const token = localStorage.getItem("auth_token");
+          const statusRes = await fetch("/api/cv/parse/status", {
+            headers: {
+              "Content-Type": "application/json",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          });
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (pollAbortedRef.current) return;
+            if (statusData.status === "completed" || statusData.status === "failed") {
+              const current = queryClient.getQueryData(["/api/cv/parse/status"]) as any;
+              if (current?.status !== "confirmed" && current?.status !== "rejected") {
+                queryClient.setQueryData(["/api/cv/parse/status"], statusData);
+              }
+              return;
+            }
+          }
+        } catch (e) {
+          // Silently continue polling
+        }
+        pollTimerRef.current = setTimeout(() => pollForCompletion(attempt + 1), 2000);
+      };
+      pollTimerRef.current = setTimeout(() => pollForCompletion(0), 3000);
     } catch (error) {
       console.error("❌ CV upload error:", error);
       console.error("Error type:", typeof error);
@@ -123,6 +224,9 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
         title: "CV deleted",
         description: "Your CV has been removed.",
       });
+
+      // Clear the CV parsing status
+      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
 
       // Wait for the callback to complete with the response profile
       if (onUploadComplete) {
@@ -226,6 +330,18 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
                 </Button>
               </div>
             </div>
+
+            {showExtractButton && (
+              <Button
+                variant="default"
+                className="w-full"
+                onClick={() => extractMutation.mutate()}
+                disabled={extractMutation.isPending}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                {extractMutation.isPending ? "Extracting..." : "Extract profile data from CV"}
+              </Button>
+            )}
 
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-2">Want to upload a new CV?</p>

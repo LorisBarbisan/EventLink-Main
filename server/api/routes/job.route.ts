@@ -9,11 +9,11 @@ import {
   trackJobLinkView,
   updateJob,
 } from "../controllers/job.controller";
-import { authenticateJWT } from "../middleware/auth.middleware";
+import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
 
 export function registerJobRoutes(app: Express) {
   // Get job by ID
-  app.get("/api/jobs/:id", getJobById);
+  app.get("/api/jobs/:id", authenticateOptionalJWT, getJobById);
 
   // Get job posting presets
   app.get("/api/jobs/presets", getJobPresets);
@@ -27,6 +27,8 @@ export function registerJobRoutes(app: Express) {
   // Get job link view count (authenticated - recruiter/admin only)
   app.get("/api/jobs/:id/link-views", authenticateJWT, getJobLinkViewCount);
 
+  // Create new job
+  app.post("/api/jobs", authenticateJWT, createJob);
   // Create new job
   app.post("/api/jobs", authenticateJWT, createJob);
 

@@ -39,6 +39,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
   Eye,
   Flag,
   MessageCircle,
@@ -69,6 +71,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   const [showRatingDialog, setShowRatingDialog] = useState(false);
   const [showRatingRequestDialog, setShowRatingRequestDialog] = useState(false);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
+  const [showJobExpanded, setShowJobExpanded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [showMessageModal, setShowMessageModal] = useState(false);
@@ -156,11 +159,19 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
     }
   };
 
-  // Fetch full job details when dialog opens
-  const { data: jobDetails, isLoading: jobDetailsLoading } = useQuery<Job>({
-    queryKey: [`/api/jobs/${application.job_id}`],
-    queryFn: () => apiRequest(`/api/jobs/${application.job_id}`),
-    enabled: showJobDetailsDialog && !!application.job_id,
+  // Fetch full job details when dialog opens or expanded
+  const { data: jobDetails, isLoading: jobDetailsLoading, isError: jobDetailsError } = useQuery<Job>({
+    queryKey: ['/api/jobs', application.job_id],
+    queryFn: async () => {
+      const res = await fetch(`/api/jobs/${application.job_id}`, {
+        headers: {
+          ...(localStorage.getItem("auth_token") ? { Authorization: `Bearer ${localStorage.getItem("auth_token")}` } : {}),
+        },
+      });
+      if (!res.ok) throw new Error(`Failed to fetch job: ${res.status}`);
+      return res.json();
+    },
+    enabled: (showJobDetailsDialog || showJobExpanded) && !!application.job_id,
   });
 
   const rejectMutation = useMutation({
@@ -299,20 +310,20 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "hired":
-        return <CheckCircle className="w-4 h-4" />;
+        return <CheckCircle className="h-4 w-4" />;
       case "rejected":
-        return <X className="w-4 h-4" />;
+        return <X className="h-4 w-4" />;
       default:
-        return <AlertCircle className="w-4 h-4" />;
+        return <AlertCircle className="h-4 w-4" />;
     }
   };
 
   return (
     <Card>
       <CardContent className="p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="mb-2 flex items-center gap-2">
               <h4 className="font-medium">
                 {userType === "recruiter"
                   ? application.freelancer_profile
@@ -330,16 +341,16 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
             </div>
 
             {userType === "recruiter" ? (
-              <p className="text-sm text-muted-foreground mb-2">
+              <p className="mb-2 text-sm text-muted-foreground">
                 Applied for: {application.job_title}
               </p>
             ) : (
-              <p className="text-sm text-muted-foreground mb-2">
+              <p className="mb-2 text-sm text-muted-foreground">
                 Company: {application.job_company}
               </p>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
+            <div className="grid grid-cols-1 gap-4 text-sm text-muted-foreground md:grid-cols-3">
               {userType === "recruiter" && application.freelancer_profile && (
                 <>
                   <div>
@@ -355,16 +366,16 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
 
             {application.cover_letter && (
               <div className="mt-3">
-                <p className="text-sm font-medium mb-1">Cover Letter:</p>
-                <p className="text-sm text-muted-foreground line-clamp-2">
+                <p className="mb-1 text-sm font-medium">Cover Letter:</p>
+                <p className="line-clamp-2 text-sm text-muted-foreground">
                   {application.cover_letter}
                 </p>
               </div>
             )}
 
             {application.rejection_message && application.status === "rejected" && (
-              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
+              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+                <p className="mb-1 text-sm font-medium text-red-800 dark:text-red-200">
                   Rejection Reason:
                 </p>
                 <p className="text-sm text-red-700 dark:text-red-300">
@@ -375,7 +386,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     <Button
                       variant="link"
                       size="sm"
-                      className="text-red-600 hover:text-red-700 p-0 h-auto"
+                      className="h-auto p-0 text-red-600 hover:text-red-700"
                     >
                       View Details
                     </Button>
@@ -392,8 +403,8 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         </p>
                       </div>
                       <div>
-                        <p className="font-medium mb-2">Rejection Message:</p>
-                        <p className="text-sm text-muted-foreground bg-muted p-3 rounded">
+                        <p className="mb-2 font-medium">Rejection Message:</p>
+                        <p className="rounded bg-muted p-3 text-sm text-muted-foreground">
                           {application.rejection_message}
                         </p>
                       </div>
@@ -409,8 +420,8 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
             )}
           </div>
 
-          <div className="flex flex-col items-end gap-2 sm:ml-4 w-full sm:w-auto">
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto justify-end">
+          <div className="flex w-full flex-col items-end gap-2 sm:ml-4 sm:w-auto">
+            <div className="flex w-full flex-col justify-end gap-2 sm:w-auto sm:flex-row">
               {userType === "recruiter" && application.freelancer_profile && (
                 <>
                   <Button
@@ -421,7 +432,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     }
                     data-testid={`button-view-profile-${application.freelancer_profile.user_id}`}
                   >
-                    <Eye className="w-4 h-4 mr-1" />
+                    <Eye className="mr-1 h-4 w-4" />
                     Profile
                   </Button>
                   <Button
@@ -430,7 +441,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     onClick={() => setShowMessageModal(true)}
                     data-testid={`button-message-${application.freelancer_profile.user_id}`}
                   >
-                    <MessageCircle className="w-4 h-4 mr-1" />
+                    <MessageCircle className="mr-1 h-4 w-4" />
                     Message
                   </Button>
 
@@ -446,9 +457,9 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             size="sm"
                             disabled={hireMutation.isPending}
                             data-testid={`button-hire-${application.id}`}
-                            className="bg-green-600 hover:bg-green-700 text-white"
+                            className="bg-green-600 text-white hover:bg-green-700"
                           >
-                            <UserCheck className="w-4 h-4 mr-1" />
+                            <UserCheck className="mr-1 h-4 w-4" />
                             Accept
                           </Button>
                         </AlertDialogTrigger>
@@ -463,7 +474,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                                   : "this freelancer"}
                               </strong>{" "}
                               for the position <strong>&quot;{application.job_title}&quot;</strong>?
-                              <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20">
                                 <p className="text-sm text-green-700 dark:text-green-300">
                                   The applicant will be notified immediately and can start
                                   coordination with you.
@@ -478,7 +489,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             <AlertDialogAction
                               onClick={handleConfirmHire}
                               disabled={hireMutation.isPending}
-                              className="bg-green-600 hover:bg-green-700 text-white"
+                              className="bg-green-600 text-white hover:bg-green-700"
                               data-testid={`button-confirm-hire-${application.id}`}
                             >
                               {hireMutation.isPending ? "Accepting..." : "Yes, Accept Application"}
@@ -497,7 +508,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             data-testid={`button-reject-${application.id}`}
                             className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                           >
-                            <UserX className="w-4 h-4 mr-1" />
+                            <UserX className="mr-1 h-4 w-4" />
                             Reject
                           </Button>
                         </DialogTrigger>
@@ -528,11 +539,11 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                                 id="rejection-message"
                                 placeholder="Provide constructive feedback to help the applicant improve future applications..."
                                 value={rejectionMessage}
-                                onChange={e => setRejectionMessage(e.target.value)}
+                                onChange={(e) => setRejectionMessage(e.target.value)}
                                 className="mt-2 min-h-[100px]"
                                 data-testid={`textarea-rejection-message-${application.id}`}
                               />
-                              <p className="text-xs text-muted-foreground mt-1">
+                              <p className="mt-1 text-xs text-muted-foreground">
                                 This message will be sent to the applicant along with the rejection
                                 notification.
                               </p>
@@ -563,9 +574,9 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                   {/* Rating button for hired applications */}
                   {application.status === "hired" &&
                     (application.rating ? (
-                      <div className="flex flex-col gap-2 items-end">
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800 rounded-md">
-                          <Star className="w-4 h-4 fill-current" />
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-1.5 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-1.5 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400">
+                          <Star className="h-4 w-4 fill-current" />
                           <span className="text-sm font-medium">Rated: {application.rating}/5</span>
                         </div>
                       </div>
@@ -575,12 +586,26 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         size="sm"
                         onClick={() => setShowRatingDialog(true)}
                         data-testid={`button-rate-${application.id}`}
-                        className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <Star className="w-4 h-4 mr-1" />
+                        <Star className="mr-1 h-4 w-4" />
                         Rate Freelancer
                       </Button>
                     ))}
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowJobExpanded(!showJobExpanded)}
+                    data-testid={`button-job-details-${application.id}`}
+                  >
+                    {showJobExpanded ? (
+                      <ChevronUp className="w-4 h-4 mr-1" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 mr-1" />
+                    )}
+                    Job Details
+                  </Button>
 
                   {/* Delete button for recruiters to hide applications */}
                   <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
@@ -592,7 +617,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         data-testid={`button-delete-${application.id}`}
                         className="border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-700"
                       >
-                        <Trash2 className="w-4 h-4 mr-1" />
+                        <Trash2 className="mr-1 h-4 w-4" />
                         Hide
                       </Button>
                     </AlertDialogTrigger>
@@ -618,7 +643,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                           onClick={handleConfirmDelete}
                           disabled={deleteMutation.isPending}
                           data-testid={`button-confirm-delete-${application.id}`}
-                          className="bg-gray-600 hover:bg-gray-700 text-white"
+                          className="bg-gray-600 text-white hover:bg-gray-700"
                         >
                           {deleteMutation.isPending ? "Hiding..." : "Yes, Hide Application"}
                         </AlertDialogAction>
@@ -631,12 +656,12 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
               {/* Actions for freelancers viewing their own applications */}
               {userType === "freelancer" && (
                 <>
-                  <div className="flex flex-wrap gap-2 justify-end w-full items-center">
+                  <div className="flex w-full flex-wrap items-center justify-end gap-2">
                     {application.status === "invited" && (
                       <>
                         <Button
                           variant="outline"
-                          className="text-red-600 border-red-200 hover:bg-red-50"
+                          className="border-red-200 text-red-600 hover:bg-red-50"
                           size="sm"
                           onClick={() => setShowDeclineInvitationDialog(true)}
                           disabled={respondMutation.isPending}
@@ -644,7 +669,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                           Decline
                         </Button>
                         <Button
-                          className="bg-green-600 hover:bg-green-700 text-white"
+                          className="bg-green-600 text-white hover:bg-green-700"
                           size="sm"
                           onClick={handleAcceptInvitation}
                           disabled={respondMutation.isPending}
@@ -671,7 +696,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                                 id="decline-reason"
                                 placeholder="e.g., Not available on these dates, Rate too low..."
                                 value={declineReason}
-                                onChange={e => setDeclineReason(e.target.value)}
+                                onChange={(e) => setDeclineReason(e.target.value)}
                               />
                             </div>
                             <DialogFooter>
@@ -700,12 +725,12 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                           size="sm"
                           data-testid={`button-view-details-${application.id}`}
                         >
-                          <Eye className="w-4 h-4 mr-1" />
+                          <Eye className="mr-1 h-4 w-4" />
                           View Details
                         </Button>
                       </DialogTrigger>
 
-                      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+                      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
                         <DialogHeader>
                           <DialogTitle>Job Details</DialogTitle>
                         </DialogHeader>
@@ -713,8 +738,8 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         {jobDetailsLoading ? (
                           <div className="flex items-center justify-center py-8">
                             <div className="text-center">
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                              <p className="text-sm text-muted-foreground mt-2">
+                              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
+                              <p className="mt-2 text-sm text-muted-foreground">
                                 Loading job details...
                               </p>
                             </div>
@@ -722,23 +747,23 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         ) : (
                           <div className="space-y-6">
                             {/* Header Info */}
-                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-lg">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 p-4 dark:from-blue-900/20 dark:to-indigo-900/20">
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div>
-                                  <p className="font-medium text-sm text-muted-foreground mb-1">
+                                  <p className="mb-1 text-sm font-medium text-muted-foreground">
                                     Job Title
                                   </p>
-                                  <p className="font-bold text-lg">
+                                  <p className="text-lg font-bold">
                                     {jobDetails?.title ||
                                       application.job_title ||
                                       "No title available"}
                                   </p>
                                 </div>
                                 <div>
-                                  <p className="font-medium text-sm text-muted-foreground mb-1">
+                                  <p className="mb-1 text-sm font-medium text-muted-foreground">
                                     Company
                                   </p>
-                                  <p className="font-semibold text-lg">
+                                  <p className="text-lg font-semibold">
                                     {jobDetails?.company ||
                                       application.job_company ||
                                       "Company not specified"}
@@ -748,9 +773,9 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             </div>
 
                             {/* Job Information */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                               <div>
-                                <p className="font-medium text-sm text-muted-foreground mb-1">
+                                <p className="mb-1 text-sm font-medium text-muted-foreground">
                                   Location
                                 </p>
                                 <p className="font-medium">
@@ -758,18 +783,18 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                                 </p>
                               </div>
                               <div>
-                                <p className="font-medium text-sm text-muted-foreground mb-1">
+                                <p className="mb-1 text-sm font-medium text-muted-foreground">
                                   Job Type
                                 </p>
-                                <p className="capitalize font-medium">
+                                <p className="font-medium capitalize">
                                   {jobDetails?.type || "Type not specified"}
                                 </p>
                               </div>
                               <div>
-                                <p className="font-medium text-sm text-muted-foreground mb-1">
+                                <p className="mb-1 text-sm font-medium text-muted-foreground">
                                   Status
                                 </p>
-                                <p className="capitalize font-medium">
+                                <p className="font-medium capitalize">
                                   {jobDetails?.status || "Not specified"}
                                 </p>
                               </div>
@@ -777,7 +802,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
 
                             {/* Rate */}
                             <div>
-                              <p className="font-medium text-sm text-muted-foreground mb-1">
+                              <p className="mb-1 text-sm font-medium text-muted-foreground">
                                 Rate/Salary
                               </p>
                               <p className="font-medium text-green-600">
@@ -788,11 +813,11 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             {/* Description */}
                             {jobDetails?.description && (
                               <div>
-                                <p className="font-medium text-sm text-muted-foreground mb-2">
+                                <p className="mb-2 text-sm font-medium text-muted-foreground">
                                   Job Description
                                 </p>
-                                <div className="p-4 bg-muted rounded-lg max-h-48 overflow-y-auto">
-                                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                                <div className="max-h-48 overflow-y-auto rounded-lg bg-muted p-4">
+                                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
                                     {jobDetails.description}
                                   </p>
                                 </div>
@@ -801,7 +826,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
 
                             {/* Job Status */}
                             <div>
-                              <p className="font-medium text-sm text-muted-foreground mb-1">
+                              <p className="mb-1 text-sm font-medium text-muted-foreground">
                                 Job Status
                               </p>
                               <Badge
@@ -815,9 +840,9 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             </div>
 
                             {/* Job Dates */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                            <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-3 text-sm text-muted-foreground dark:bg-gray-800/50 md:grid-cols-2">
                               <div>
-                                <p className="font-medium mb-1">Job Posted</p>
+                                <p className="mb-1 font-medium">Job Posted</p>
                                 <p>
                                   {jobDetails?.created_at
                                     ? new Date(jobDetails.created_at).toLocaleDateString("en-GB", {
@@ -829,7 +854,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                                 </p>
                               </div>
                               <div>
-                                <p className="font-medium mb-1">Last Updated</p>
+                                <p className="mb-1 font-medium">Last Updated</p>
                                 <p>
                                   {jobDetails?.updated_at
                                     ? new Date(jobDetails.updated_at).toLocaleDateString("en-GB", {
@@ -844,7 +869,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
 
                             {/* Application Status */}
                             <div>
-                              <p className="font-medium text-sm text-muted-foreground mb-1">
+                              <p className="mb-1 text-sm font-medium text-muted-foreground">
                                 Application Status
                               </p>
                               <Badge
@@ -873,11 +898,11 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         {/* Application-specific information - always shown */}
                         {application.cover_letter && (
                           <div>
-                            <p className="font-medium text-sm text-muted-foreground mb-2">
+                            <p className="mb-2 text-sm font-medium text-muted-foreground">
                               Your Cover Letter
                             </p>
-                            <div className="p-3 bg-muted rounded-lg">
-                              <p className="text-sm whitespace-pre-wrap">
+                            <div className="rounded-lg bg-muted p-3">
+                              <p className="whitespace-pre-wrap text-sm">
                                 {application.cover_letter}
                               </p>
                             </div>
@@ -886,10 +911,10 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
 
                         {application.rejection_message && application.status === "rejected" && (
                           <div>
-                            <p className="font-medium text-sm text-muted-foreground mb-2">
+                            <p className="mb-2 text-sm font-medium text-muted-foreground">
                               Rejection Message
                             </p>
-                            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                            <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
                               <p className="text-sm text-red-700 dark:text-red-300">
                                 {application.rejection_message}
                               </p>
@@ -897,9 +922,9 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                           </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                        <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-3 text-sm text-muted-foreground dark:bg-gray-800/50 md:grid-cols-2">
                           <div>
-                            <p className="font-medium mb-1">Applied On</p>
+                            <p className="mb-1 font-medium">Applied On</p>
                             <p>
                               {new Date(application.applied_at).toLocaleDateString("en-GB", {
                                 day: "2-digit",
@@ -909,7 +934,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             </p>
                           </div>
                           <div>
-                            <p className="font-medium mb-1">Last Updated</p>
+                            <p className="mb-1 font-medium">Last Updated</p>
                             <p>
                               {new Date(application.updated_at).toLocaleDateString("en-GB", {
                                 day: "2-digit",
@@ -930,14 +955,14 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         onClick={() => setShowMessageModal(true)}
                         data-testid={`button-message-recruiter-${application.id}`}
                       >
-                        <MessageCircle className="w-4 h-4 mr-1" />
+                        <MessageCircle className="mr-1 h-4 w-4" />
                         Message Recruiter
                       </Button>
                     )}
 
                     {application.status === "hired" && application.rating && (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800 rounded-md">
-                        <Star className="w-4 h-4 fill-current" />
+                      <div className="flex items-center gap-1.5 rounded-md border border-yellow-200 bg-yellow-50 px-3 py-1.5 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400">
+                        <Star className="h-4 w-4 fill-current" />
                         <span className="text-sm font-medium">Rated: {application.rating}/5</span>
                       </div>
                     )}
@@ -945,8 +970,8 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     {/* Rating request button for hired/completed jobs */}
                     {application.status === "hired" &&
                       (application.rating ? null : application.has_requested_rating ? (
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-md">
-                          <Send className="w-4 h-4 fill-current" />
+                        <div className="flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                          <Send className="h-4 w-4 fill-current" />
                           <span className="text-sm font-medium">Rating Pending</span>
                         </div>
                       ) : (
@@ -957,7 +982,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                           data-testid={`button-request-rating-${application.id}`}
                           className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                         >
-                          <Send className="w-4 h-4 mr-1" />
+                          <Send className="mr-1 h-4 w-4" />
                           Request Rating
                         </Button>
                       ))}
@@ -972,7 +997,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                           data-testid={`button-delete-freelancer-${application.id}`}
                           className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                         >
-                          <Trash2 className="w-4 h-4 mr-1" />
+                          <Trash2 className="mr-1 h-4 w-4" />
                           Remove
                         </Button>
                       </AlertDialogTrigger>
@@ -994,7 +1019,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             onClick={handleConfirmDelete}
                             disabled={deleteMutation.isPending}
                             data-testid={`button-confirm-delete-freelancer-${application.id}`}
-                            className="bg-red-600 hover:bg-red-700 text-white"
+                            className="bg-red-600 text-white hover:bg-red-700"
                           >
                             {deleteMutation.isPending ? "Removing..." : "Yes, Remove Application"}
                           </AlertDialogAction>
@@ -1007,7 +1032,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
             </div>
 
             {application.review && (
-              <div className="flex flex-col items-end gap-2 text-right max-w-md ml-auto">
+              <div className="ml-auto flex max-w-md flex-col items-end gap-2 text-right">
                 <p className="text-sm text-muted-foreground">
                   <span className="font-medium">Review: </span>
                   <span className="italic">&quot;{application.review}&quot;</span>
@@ -1016,12 +1041,12 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 text-xs text-muted-foreground hover:text-destructive gap-1"
+                    className="h-6 gap-1 text-xs text-muted-foreground hover:text-destructive"
                     onClick={() =>
                       application.rating_id && handleReportClick(application.rating_id)
                     }
                   >
-                    <Flag className="w-3 h-3" />
+                    <Flag className="h-3 w-3" />
                     Report Review
                   </Button>
                 )}
@@ -1029,6 +1054,76 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
             )}
           </div>
         </div>
+
+        {userType === "recruiter" && showJobExpanded && (
+          <div className="mt-4 border-t pt-4">
+            {jobDetailsLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <span className="text-sm text-muted-foreground ml-2">Loading job details...</span>
+              </div>
+            ) : jobDetails ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Job Title</p>
+                    <p className="text-sm font-semibold">{jobDetails.title || application.job_title}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Location</p>
+                    <p className="text-sm">{jobDetails.location || "Not specified"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Rate (£)</p>
+                    <p className="text-sm font-medium text-green-600">{jobDetails.rate || "Not specified"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Status</p>
+                    <Badge variant={jobDetails.status === "active" ? "default" : "secondary"} className="mt-0.5">
+                      {jobDetails.status ? jobDetails.status.charAt(0).toUpperCase() + jobDetails.status.slice(1) : "Unknown"}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Start Date</p>
+                    <p className="text-sm">
+                      {jobDetails.event_date
+                        ? new Date(jobDetails.event_date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+                        : "Not specified"}
+                    </p>
+                  </div>
+                  {jobDetails.end_date && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">End Date</p>
+                      <p className="text-sm">
+                        {new Date(jobDetails.end_date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Posted</p>
+                    <p className="text-sm">
+                      {jobDetails.created_at
+                        ? new Date(jobDetails.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+                        : "Not available"}
+                    </p>
+                  </div>
+                </div>
+                {jobDetails.description && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                    <div className="p-3 bg-muted rounded-lg max-h-40 overflow-y-auto">
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{jobDetails.description}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-2">
+                {jobDetailsError ? "Unable to load job details. Please try again." : "Job details not available"}
+              </p>
+            )}
+          </div>
+        )}
       </CardContent>
 
       {/* Rating Dialog for recruiters */}

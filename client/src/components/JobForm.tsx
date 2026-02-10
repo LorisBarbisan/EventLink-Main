@@ -1,6 +1,7 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -68,6 +69,8 @@ export function JobForm({
     formData.location &&
     formData.rate &&
     formData.event_date;
+
+  const hasOptionalData = formData.end_date || formData.start_time || formData.end_time || formData.description;
 
   return (
     <Card>
@@ -205,7 +208,7 @@ export function JobForm({
             onClick={() => handleSubmit("private")}
             disabled={isSubmitting || !isValid}
             data-testid="button-save-job"
-            className="border-gray-200"
+            className={isValid ? "border border-gray-400 text-foreground font-semibold" : "opacity-40 border-gray-200"}
           >
             Save Job
           </Button>
@@ -214,7 +217,7 @@ export function JobForm({
             onClick={() => handleSubmit("active")}
             disabled={isSubmitting || !isValid}
             data-testid="button-post-job"
-            className="bg-[#EFA068] text-white hover:bg-[#E59058]"
+            className={isValid ? "bg-gradient-primary text-white hover:bg-primary-hover font-semibold" : "opacity-40"}
           >
             {isSubmitting ? "Posting..." : "Post Job"}
           </Button>

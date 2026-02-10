@@ -1,4 +1,5 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { CVParsingReview } from "@/components/CVParsingReview";
 import { ImageUpload } from "@/components/ImageUpload";
 import { SimplifiedCVUploader } from "@/components/SimplifiedCVUploader";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +29,7 @@ import type {
   RecruiterProfile,
 } from "@shared/types";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Globe, MapPin, Plus, X } from "lucide-react";
+import { Building2, FileText, Globe, MapPin, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RatingDisplay } from "./StarRating";
 
@@ -95,17 +96,22 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
 
   useEffect(() => {
     if (profile) {
-      // If we have a draft, ignore profile updates until draft is cleared
       const hasDraft = sessionStorage.getItem(draftKey);
-      if (!hasDraft && !isEditing) {
-        // Only sync from profile when not editing or no draft exists
-        setFormData(getDefaultFormData(profile));
-      } else if (!initialLoadDone.current) {
-        // Initial load: if no draft, load profile
-        if (!hasDraft) {
+      if (!initialLoadDone.current) {
+        const draftData = hasDraft ? JSON.parse(hasDraft) : null;
+        const draftHasContent =
+          draftData &&
+          Object.values(draftData).some(
+            (v) =>
+              v &&
+              (typeof v === "string" ? v.trim() !== "" : Array.isArray(v) ? v.length > 0 : true)
+          );
+        if (!draftHasContent) {
           setFormData(getDefaultFormData(profile));
         }
         initialLoadDone.current = true;
+      } else if (!hasDraft && !isEditing) {
+        setFormData(getDefaultFormData(profile));
       }
     }
   }, [profile, draftKey, getDefaultFormData, setFormData, isEditing]);
@@ -232,6 +238,17 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
             setNewSkill={setNewSkill}
             onSkillAdd={handleSkillAdd}
             onSkillRemove={handleSkillRemove}
+            onFieldsConfirmed={(confirmedFields) => {
+              setFormData((prev) => {
+                const updated = { ...prev };
+                for (const [key, value] of Object.entries(confirmedFields)) {
+                  if (value !== undefined && value !== null) {
+                    (updated as any)[key] = value;
+                  }
+                }
+                return updated;
+              });
+            }}
           />
         ) : (
           <RecruiterFormFields
@@ -421,6 +438,7 @@ function FreelancerFormFields({
   setNewSkill,
   onSkillAdd,
   onSkillRemove,
+  onFieldsConfirmed,
 }: {
   formData: FreelancerFormData;
   profile?: FreelancerProfile;
@@ -430,9 +448,33 @@ function FreelancerFormFields({
   setNewSkill: (value: string) => void;
   onSkillAdd: () => void;
   onSkillRemove: (skill: string) => void;
+  onFieldsConfirmed?: (fields: Record<string, any>) => void;
 }) {
   return (
     <>
+      {/* CV Upload Section - Moved to top with clear messaging */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <FileText className="h-5 w-5 text-primary" />
+            Quick Profile Setup with CV
+          </CardTitle>
+          <CardDescription>
+            Upload your CV and we'll automatically extract your skills, experience, and contact
+            details to fill in your profile. You can review and edit the suggestions before applying
+            them.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CVUploadSection
+            profile={profile as FreelancerProfile}
+            onFieldsConfirmed={onFieldsConfirmed}
+          />
+        </CardContent>
+      </Card>
+
+      <Separator className="my-6" />
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <Label htmlFor="first_name">First Name (Optional)</Label>
@@ -480,7 +522,7 @@ function FreelancerFormFields({
         />
         <p className="mt-1 text-xs text-muted-foreground">
           <strong>Best Practice:</strong> Keep it short (max 40 chars). Focus on your #1 strength
-          employers should notice first. Avoid lists or generic terms like
+          recruiters should notice first. Avoid lists or generic terms like
           &quot;hard-working&quot;.
         </p>
       </div>
@@ -600,20 +642,18 @@ function FreelancerFormFields({
           shape="circle"
         />
       </div>
-
-      <div>
-        <Label>CV Upload (Optional)</Label>
-        <p className="mb-2 text-sm text-muted-foreground">
-          Upload your CV for employers to view. Accepted formats: PDF, DOC, DOCX (max 5MB)
-        </p>
-        <CVUploadSection profile={profile as FreelancerProfile} />
-      </div>
     </>
   );
 }
 
 // CV Upload section for freelancers when editing their profile
-function CVUploadSection({ profile }: { profile?: FreelancerProfile }) {
+function CVUploadSection({
+  profile,
+  onFieldsConfirmed,
+}: {
+  profile?: FreelancerProfile;
+  onFieldsConfirmed?: (fields: Record<string, any>) => void;
+}) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -660,11 +700,20 @@ function CVUploadSection({ profile }: { profile?: FreelancerProfile }) {
       : undefined;
 
   return (
-    <SimplifiedCVUploader
-      userId={user.id}
-      currentCV={currentCV}
-      onUploadComplete={handleUploadComplete}
-    />
+    <div className="space-y-4">
+      <SimplifiedCVUploader
+        userId={user.id}
+        currentCV={currentCV}
+        onUploadComplete={handleUploadComplete}
+      />
+      <CVParsingReview
+        onProfileUpdated={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/freelancer", user.id] });
+          queryClient.invalidateQueries({ queryKey: ["/api/freelancer/profile", user.id] });
+        }}
+        onFieldsConfirmed={onFieldsConfirmed}
+      />
+    </div>
   );
 }
 

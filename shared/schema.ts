@@ -384,7 +384,7 @@ export const insertJobSchema = createInsertSchema(jobs)
     company: z.string().min(1, "Company name is required"),
     title: z.string().min(1, "Job title is required"),
     location: z.string().min(1, "Location is required"),
-    description: z.string().default(""),
+    description: z.string().optional().default(""),
   });
 
 export const insertJobApplicationSchema = createInsertSchema(job_applications)
@@ -535,6 +535,7 @@ export const job_alert_filters = pgTable("job_alert_filters", {
   date_to: text("date_to"), // End date range (YYYY-MM-DD)
   job_types: text("job_types").array(), // Array of job types to match
   keywords: text("keywords").array(), // Array of keywords to search in title/description
+  location_radius_km: integer("location_radius_km").default(30), // Radius in km for geographic location matching (10, 30, 60, 100)
   is_active: boolean("is_active").default(true).notNull(), // Whether this filter is active
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -560,6 +561,52 @@ export const email_notification_logs = pgTable("email_notification_logs", {
   metadata: text("metadata"), // JSON string for additional data
   sent_at: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// CV parsed data - stores extracted information from CV in draft state until confirmed
+export const cv_parsed_data = pgTable("cv_parsed_data", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // Parsing status
+  status: text("status")
+    .default("pending")
+    .notNull()
+    .$type<"pending" | "parsing" | "completed" | "failed" | "confirmed" | "rejected">(),
+  error_message: text("error_message"), // Error details if parsing failed
+  // Extracted fields (stored as JSON for flexibility)
+  extracted_full_name: text("extracted_full_name"),
+  extracted_title: text("extracted_title"),
+  extracted_skills: text("extracted_skills").array(), // Array of skills
+  extracted_bio: text("extracted_bio"),
+  extracted_location: text("extracted_location"),
+  extracted_experience_years: integer("extracted_experience_years"),
+  extracted_education: text("extracted_education"), // JSON string for education history
+  extracted_work_history: text("extracted_work_history"), // JSON string for work experience
+  extracted_certifications: text("extracted_certifications").array(), // Array of certifications
+  // Tracking
+  cv_file_url: text("cv_file_url"), // Reference to the CV that was parsed
+  parsed_at: timestamp("parsed_at", { withTimezone: true }),
+  confirmed_at: timestamp("confirmed_at", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const insertCvParsedDataSchema = createInsertSchema(cv_parsed_data)
+  .omit({
+    id: true,
+    created_at: true,
+    updated_at: true,
+    parsed_at: true,
+    confirmed_at: true,
+  })
+  .extend({
+    user_id: z.number(),
+  });
+
+export type CvParsedData = typeof cv_parsed_data.$inferSelect;
+export type InsertCvParsedData = z.infer<typeof insertCvParsedDataSchema>;
 
 export const insertRatingRequestSchema = createInsertSchema(rating_requests)
   .omit({

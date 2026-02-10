@@ -14,6 +14,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Eye, FileText, Shield, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
+import { useLocation } from "wouter";
 
 interface Document {
   id: number;
@@ -67,11 +68,12 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUploaderProps) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedType, setSelectedType] = useState<string>("");
   const [customTypeName, setCustomTypeName] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
 
-  const canViewDocuments = isOwner || viewerRole === "recruiter" || viewerRole === "admin";
+  const isSignedIn = !!viewerRole;
 
   const {
     data: documents = [],
@@ -79,7 +81,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
     isError,
   } = useQuery<Document[]>({
     queryKey: [`/api/documents/${userId}`],
-    enabled: canViewDocuments,
+    enabled: userId > 0,
   });
 
   const { data: documentTypes = [] } = useQuery<string[]>({
@@ -268,9 +270,10 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  if (!canViewDocuments) {
-    return null;
-  }
+  const redirectToAuth = () => {
+    const currentPath = window.location.pathname;
+    setLocation(`/auth?redirect=${encodeURIComponent(currentPath)}`);
+  };
 
   if (isLoading) {
     return (
@@ -445,7 +448,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
             {documents.map((doc) => (
               <Button
                 key={doc.id}
-                onClick={() => handleDownload(doc)}
+                onClick={() => isSignedIn ? handleDownload(doc) : redirectToAuth()}
                 className="bg-gradient-primary hover:bg-primary-hover w-[140px] h-10 text-sm"
               >
                 {doc.document_type === "Other" && doc.custom_type_name
@@ -473,11 +476,12 @@ interface DocumentBadgesProps {
 }
 
 export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBadgesProps) {
-  const canViewDocuments = isOwner || viewerRole === "recruiter" || viewerRole === "admin";
+  const [, setLocation] = useLocation();
+  const isSignedIn = !!viewerRole || !!isOwner;
 
   const { data: documents = [], isLoading } = useQuery<Document[]>({
     queryKey: [`/api/documents/${freelancerId}`],
-    enabled: canViewDocuments,
+    enabled: freelancerId > 0,
   });
 
   const handleDownload = async (document: Document) => {
@@ -499,7 +503,7 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
     }
   };
 
-  if (!canViewDocuments || isLoading || documents.length === 0) {
+  if (isLoading || documents.length === 0) {
     return null;
   }
 
@@ -508,7 +512,14 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
       {documents.map((doc) => (
         <Button
           key={doc.id}
-          onClick={() => handleDownload(doc)}
+          onClick={() => {
+            if (!isSignedIn) {
+              const currentPath = window.location.pathname;
+              setLocation(`/auth?redirect=${encodeURIComponent(currentPath)}`);
+              return;
+            }
+            handleDownload(doc);
+          }}
           className="bg-gradient-primary hover:bg-primary-hover w-[140px] h-10 text-sm"
         >
           {doc.document_type === "Other" && doc.custom_type_name

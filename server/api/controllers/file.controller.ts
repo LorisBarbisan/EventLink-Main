@@ -1,5 +1,6 @@
 import { insertMessageAttachmentSchema } from "@shared/schema";
 import type { Request, Response } from "express";
+import { cvParserService } from "../services/cv-parser.service";
 import { storage } from "../../storage";
 import { ObjectNotFoundError, ObjectStorageService } from "../utils/object-storage";
 
@@ -20,7 +21,7 @@ export async function uploadCV(req: Request, res: Response) {
     const { randomUUID } = await import("crypto");
     const objectKey = `cvs/${(req as any).user.id}/${randomUUID()}`;
 
-    // Upload file to storage from backend (avoids CORS issues)
+    // Upload file to storage using presigned URL approach
     const privateDir = process.env.PRIVATE_OBJECT_DIR;
     if (!privateDir) {
       throw new Error("PRIVATE_OBJECT_DIR not set");
@@ -36,27 +37,66 @@ export async function uploadCV(req: Request, res: Response) {
     const bucketName = pathParts[1];
     const objectName = pathParts.slice(2).join("/");
 
-    const { objectStorageClient } = await import("../utils/object-storage");
-    const bucket = objectStorageClient.bucket(bucketName);
-    const file = bucket.file(objectName);
-
-    // Convert base64 to buffer and upload
+    // Convert base64 to buffer
     const buffer = Buffer.from(fileData, "base64");
     console.log(
       `📤 Uploading CV to storage: bucket=${bucketName}, object=${objectName}, size=${buffer.length} bytes`
     );
 
     try {
-      await file.save(buffer, {
-        contentType,
-        metadata: {
-          contentType,
-        },
+      // Use presigned URL approach for upload
+      const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
+      const signRequest = {
+        bucket_name: bucketName,
+        object_name: objectName,
+        method: "PUT",
+        expires_at: new Date(Date.now() + 900 * 1000).toISOString(), // 15 minutes
+      };
+      
+      console.log(`📝 Requesting presigned URL for upload...`);
+      const signResponse = await fetch(`${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(signRequest),
       });
+      
+      if (!signResponse.ok) {
+        const errorText = await signResponse.text();
+        console.error(`❌ Failed to get presigned URL: ${signResponse.status} - ${errorText}`);
+        throw new Error(`Failed to get upload URL: ${errorText}`);
+      }
+      
+      const { signed_url: uploadUrl } = await signResponse.json();
+      console.log(`✅ Got presigned URL, uploading file...`);
+      
+      // Upload directly to the presigned URL
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        body: buffer,
+        headers: { "Content-Type": contentType },
+      });
+      
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error(`❌ Upload failed: ${uploadResponse.status} - ${errorText}`);
+        throw new Error(`Upload failed: ${uploadResponse.status}`);
+      }
+      
       console.log(`✅ CV uploaded to storage successfully: ${objectKey}`);
-    } catch (uploadError) {
+    } catch (uploadError: any) {
       console.error("❌ Object storage upload error:", uploadError);
-      throw new Error("Failed to upload CV to storage");
+      const errorDetails = {
+        message: uploadError?.message || String(uploadError),
+        code: uploadError?.code,
+        statusCode: uploadError?.statusCode,
+        name: uploadError?.name,
+        bucket: bucketName,
+        object: objectName,
+        privateDir: privateDir,
+        stack: uploadError?.stack?.split('\n').slice(0, 3).join(' '),
+      };
+      console.error("❌ Error details:", JSON.stringify(errorDetails, null, 2));
+      throw new Error(`Failed to upload CV to storage: ${errorDetails.message}`);
     }
 
     // Update freelancer profile with CV information directly (no need to fetch first)
@@ -68,9 +108,21 @@ export async function uploadCV(req: Request, res: Response) {
     });
 
     console.log(`✅ CV metadata saved for user ${(req as any).user.id}: ${filename}`);
+
+    // Set parsing status to "parsing" BEFORE sending response so frontend polling finds it immediately
+    const userId = (req as any).user.id;
+    await cvParserService.initParsingStatus(userId, objectKey);
+
+    // Send response immediately, then start parsing in background
     res.json({
       message: "CV uploaded successfully",
       profile: updatedProfile,
+      parsingStarted: true,
+    });
+
+    // Trigger CV parsing in the background (async, non-blocking)
+    cvParserService.parseCV(userId, objectKey).catch(err => {
+      console.error(`Background CV parsing failed for user ${userId}:`, err);
     });
   } catch (error) {
     console.error("❌ Save CV error:", error);
@@ -106,6 +158,13 @@ export async function deleteCV(req: Request, res: Response) {
       cv_file_size: null,
       cv_file_type: null,
     });
+
+    // Delete any CV parsed data
+    try {
+      await storage.deleteCvParsedData((req as any).user.id);
+    } catch (err) {
+      console.log("No CV parsed data to delete or error:", err);
+    }
 
     res.json({
       message: "CV deleted successfully",

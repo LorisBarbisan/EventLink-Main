@@ -10,7 +10,6 @@ export async function getJobById(req: Request, res: Response) {
     if (Number.isNaN(jobId)) {
       return res.status(400).json({ error: "Invalid job ID" });
     }
-
     const job = await storage.getJobById(jobId);
 
     if (!job) {
@@ -101,6 +100,8 @@ export async function createJob(req: Request, res: Response) {
 
     const result = insertJobSchema.safeParse(req.body);
     if (!result.success) {
+      console.error("Job validation failed:", JSON.stringify(result.error.issues, null, 2));
+      console.error("Request body:", JSON.stringify(req.body, null, 2));
       return res.status(400).json({ error: "Invalid input", details: result.error.issues });
     }
 

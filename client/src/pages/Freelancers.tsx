@@ -71,7 +71,7 @@ export default function Freelancers() {
     name: `${profile.first_name || ""} ${profile.last_name || ""}`.trim(),
     title: profile.title || "Event Professional",
     superpower: profile.superpower,
-    location: profile.location || "Location not specified",
+    location: profile.location || "UK",
     experience: profile.experience_years
       ? `${profile.experience_years} years`
       : "Experience not specified",

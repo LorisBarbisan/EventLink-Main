@@ -105,8 +105,12 @@ export class ObjectStorageService {
 
   // Gets the CV file from the object path.
   async getCVFile(objectPath: string): Promise<File> {
+    // Normalize path - handle both with and without leading slash
+    let normalizedPath = objectPath.startsWith("/") ? objectPath : `/${objectPath}`;
+    
     // Handle both /cvs/ and /objects/uploads/ path formats
-    if (!objectPath.startsWith("/cvs/") && !objectPath.startsWith("/objects/uploads/")) {
+    if (!normalizedPath.startsWith("/cvs/") && !normalizedPath.startsWith("/objects/uploads/")) {
+      console.error(`❌ Invalid CV path format: ${objectPath}`);
       throw new ObjectNotFoundError();
     }
 
@@ -116,19 +120,23 @@ export class ObjectStorageService {
     }
 
     let cvPath;
-    if (objectPath.startsWith("/objects/uploads/")) {
+    if (normalizedPath.startsWith("/objects/uploads/")) {
       // Handle legacy /objects/uploads/ format - use path as is
-      cvPath = objectPath;
+      cvPath = normalizedPath;
     } else {
-      // Handle /cvs/ format
-      cvPath = `${privateDir}${objectPath.substring(1)}`; // Remove leading slash
+      // Handle /cvs/ format - append to private dir
+      cvPath = `${privateDir}${normalizedPath.substring(1)}`; // Remove leading slash
     }
 
+    console.log(`📂 Looking for CV at: ${cvPath}`);
     const { bucketName, objectName } = parseObjectPath(cvPath);
+    console.log(`📂 Bucket: ${bucketName}, Object: ${objectName}`);
+    
     const bucket = objectStorageClient.bucket(bucketName);
     const cvFile = bucket.file(objectName);
     const [exists] = await cvFile.exists();
     if (!exists) {
+      console.error(`❌ CV file not found at path: ${cvPath}`);
       throw new ObjectNotFoundError();
     }
     return cvFile;
