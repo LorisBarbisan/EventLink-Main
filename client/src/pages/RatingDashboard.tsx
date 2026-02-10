@@ -94,7 +94,7 @@ export function RatingDashboard() {
           <Award className="w-8 h-8 text-yellow-500" />
           <div>
             <h1 className="text-3xl font-bold">My Ratings</h1>
-            <p className="text-muted-foreground">Track your performance ratings from recruiters</p>
+            <p className="text-muted-foreground">Track your performance ratings from employers</p>
           </div>
         </div>
 
@@ -162,7 +162,7 @@ export function RatingDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Rating History</CardTitle>
-            <p className="text-sm text-muted-foreground">All ratings received from recruiters</p>
+            <p className="text-sm text-muted-foreground">All ratings received from employers</p>
           </CardHeader>
           <CardContent>
             {ratingsLoading ? (
@@ -174,10 +174,10 @@ export function RatingDashboard() {
                 <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium mb-2">No ratings yet</h3>
                 <p className="text-muted-foreground mb-4">
-                  Complete projects and get hired to receive ratings from recruiters.
+                  Complete projects and get hired to receive ratings from employers.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  You can also request ratings from recruiters for completed work.
+                  You can also request ratings from employers for completed work.
                 </p>
               </div>
             ) : (
@@ -197,7 +197,7 @@ export function RatingDashboard() {
                             Rated by{" "}
                             {rating.recruiter.first_name && rating.recruiter.last_name
                               ? `${rating.recruiter.first_name} ${rating.recruiter.last_name}`
-                              : "Recruiter"}
+                              : "Employer"}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {format(new Date(rating.created_at), "MMMM dd, yyyy • h:mm a")}
@@ -251,11 +251,11 @@ export function RatingDashboard() {
           </CardHeader>
           <CardContent className="text-blue-800">
             <ul className="space-y-2 text-sm">
-              <li>• Communicate clearly and professionally with recruiters</li>
+              <li>• Communicate clearly and professionally with employers</li>
               <li>• Deliver work on time and meet project requirements</li>
               <li>• Be responsive to feedback and willing to make revisions</li>
               <li>• Maintain a positive attitude throughout the project</li>
-              <li>• Request ratings from recruiters after successful project completion</li>
+              <li>• Request ratings from employers after successful project completion</li>
             </ul>
           </CardContent>
         </Card>

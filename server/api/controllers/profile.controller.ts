@@ -117,13 +117,13 @@ export async function getRecruiterProfile(req: Request, res: Response) {
 
     // If user is not a recruiter, return 404 (not an error, just no profile)
     if (user.role !== "recruiter" && user.role !== "admin") {
-      return res.status(404).json({ error: "Recruiter profile not found" });
+      return res.status(404).json({ error: "Employer profile not found" });
     }
 
     const profile = await storage.getRecruiterProfile(userId);
 
     if (!profile) {
-      return res.status(404).json({ error: "Recruiter profile not found" });
+      return res.status(404).json({ error: "Employer profile not found" });
     }
 
     // Prevent caching to ensure fresh profile data

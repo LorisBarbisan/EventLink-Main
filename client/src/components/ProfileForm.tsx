@@ -99,9 +99,13 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
       const hasDraft = sessionStorage.getItem(draftKey);
       if (!initialLoadDone.current) {
         const draftData = hasDraft ? JSON.parse(hasDraft) : null;
-        const draftHasContent = draftData && Object.values(draftData).some(
-          (v) => v && (typeof v === "string" ? v.trim() !== "" : Array.isArray(v) ? v.length > 0 : true)
-        );
+        const draftHasContent =
+          draftData &&
+          Object.values(draftData).some(
+            (v) =>
+              v &&
+              (typeof v === "string" ? v.trim() !== "" : Array.isArray(v) ? v.length > 0 : true)
+          );
         if (!draftHasContent) {
           setFormData(getDefaultFormData(profile));
         }
@@ -451,16 +455,21 @@ function FreelancerFormFields({
       {/* CV Upload Section - Moved to top with clear messaging */}
       <Card className="border-primary/20 bg-primary/5">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <FileText className="h-5 w-5 text-primary" />
             Quick Profile Setup with CV
           </CardTitle>
           <CardDescription>
-            Upload your CV and we'll automatically extract your skills, experience, and contact details to fill in your profile. You can review and edit the suggestions before applying them.
+            Upload your CV and we'll automatically extract your skills, experience, and contact
+            details to fill in your profile. You can review and edit the suggestions before applying
+            them.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CVUploadSection profile={profile as FreelancerProfile} onFieldsConfirmed={onFieldsConfirmed} />
+          <CVUploadSection
+            profile={profile as FreelancerProfile}
+            onFieldsConfirmed={onFieldsConfirmed}
+          />
         </CardContent>
       </Card>
 
@@ -633,13 +642,18 @@ function FreelancerFormFields({
           shape="circle"
         />
       </div>
-
     </>
   );
 }
 
 // CV Upload section for freelancers when editing their profile
-function CVUploadSection({ profile, onFieldsConfirmed }: { profile?: FreelancerProfile; onFieldsConfirmed?: (fields: Record<string, any>) => void }) {
+function CVUploadSection({
+  profile,
+  onFieldsConfirmed,
+}: {
+  profile?: FreelancerProfile;
+  onFieldsConfirmed?: (fields: Record<string, any>) => void;
+}) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();

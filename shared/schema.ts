@@ -678,6 +678,30 @@ export const insertEmailNotificationLogSchema = createInsertSchema(email_notific
   sent_at: true,
 });
 
+// Job link view tracking for social sharing analytics
+export const job_link_views = pgTable(
+  "job_link_views",
+  {
+    id: serial("id").primaryKey(),
+    job_id: integer("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    source: text("source").$type<"direct" | "linkedin" | "whatsapp" | "email" | "facebook" | "twitter" | "copy" | "other">(),
+    referrer: text("referrer"),
+    user_agent: text("user_agent"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    jobIdIdx: index("job_link_views_job_id_idx").on(table.job_id),
+    createdAtIdx: index("job_link_views_created_at_idx").on(table.created_at),
+  })
+);
+
+export const insertJobLinkViewSchema = createInsertSchema(job_link_views).omit({
+  id: true,
+  created_at: true,
+});
+
 // Document type constants for controlled list
 export const DOCUMENT_TYPES = [
   "PLI",
@@ -770,3 +794,5 @@ export type EmailNotificationLog = typeof email_notification_logs.$inferSelect;
 export type InsertEmailNotificationLog = z.infer<typeof insertEmailNotificationLogSchema>;
 export type FreelancerDocument = typeof freelancer_documents.$inferSelect;
 export type InsertFreelancerDocument = z.infer<typeof insertFreelancerDocumentSchema>;
+export type JobLinkView = typeof job_link_views.$inferSelect;
+export type InsertJobLinkView = z.infer<typeof insertJobLinkViewSchema>;

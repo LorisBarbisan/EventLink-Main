@@ -1,4 +1,4 @@
-import { insertJobSchema } from "@shared/schema";
+import { insertJobSchema, insertJobLinkViewSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 
@@ -95,7 +95,7 @@ export async function getJobsByRecruiter(req: Request, res: Response) {
 export async function createJob(req: Request, res: Response) {
   try {
     if (!(req as any).user || (req as any).user.role !== "recruiter") {
-      return res.status(403).json({ error: "Only recruiters can create jobs" });
+      return res.status(403).json({ error: "Only employers can create jobs" });
     }
 
     const result = insertJobSchema.safeParse(req.body);
@@ -197,6 +197,48 @@ export async function updateJob(req: Request, res: Response) {
     res.json(updatedJob);
   } catch (error) {
     console.error("Update job error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Track job link view
+export async function trackJobLinkView(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.id || req.params.jobId);
+    if (isNaN(jobId)) {
+      return res.status(400).json({ error: "Invalid job ID" });
+    }
+
+    const { source } = req.body;
+    const referrer = req.headers.referer || req.headers.referrer || null;
+    const userAgent = req.headers["user-agent"] || null;
+
+    await storage.createJobLinkView({
+      job_id: jobId,
+      source: source || "direct",
+      referrer: referrer as string | undefined,
+      user_agent: userAgent as string | undefined,
+    });
+
+    res.status(201).json({ success: true });
+  } catch (error) {
+    console.error("Track job link view error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Get job link view count (for recruiter/admin)
+export async function getJobLinkViewCount(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.id || req.params.jobId);
+    if (isNaN(jobId)) {
+      return res.status(400).json({ error: "Invalid job ID" });
+    }
+
+    const count = await storage.getJobLinkViewCount(jobId);
+    res.json({ job_id: jobId, views: count });
+  } catch (error) {
+    console.error("Get job link view count error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }

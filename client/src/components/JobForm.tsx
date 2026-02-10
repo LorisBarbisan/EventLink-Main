@@ -8,11 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { UKLocationInput } from "@/components/ui/uk-location-input";
 import { usePersistentState } from "@/hooks/usePersistentState";
 import type { JobFormData } from "@shared/types";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
 interface JobFormProps {
-  initialData?: any; // Job data for editing
+  initialData?: any;
   onSubmit: (data: JobFormData, status: "active" | "private") => void;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -32,7 +32,7 @@ export function JobForm({
     persistenceKey,
     {
       title: initialData?.title || "",
-      type: "freelance", // All jobs are freelance/gig work
+      type: "freelance",
       location: initialData?.location || "",
       rate: initialData?.rate || "",
       description: initialData?.description || "",
@@ -44,9 +44,8 @@ export function JobForm({
   );
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showOptional, setShowOptional] = useState(
-    isEditing && (initialData?.end_date || initialData?.start_time || initialData?.end_time || initialData?.description)
-  );
+  const hasAdditionalDetails = !!(initialData?.end_date || initialData?.start_time || initialData?.end_time || initialData?.description);
+  const [showAdditional, setShowAdditional] = useState(hasAdditionalDetails);
 
   const handleInputChange = (field: keyof JobFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -58,11 +57,10 @@ export function JobForm({
 
   const handleSubmit = (status: "active" | "private") => {
     onSubmit(formData, status);
-    // Reset form only when creating new job
     if (!isEditing) {
       clearFormData();
     } else {
-      clearFormData(); // Also clear edit draft on success
+      clearFormData();
     }
   };
 
@@ -143,17 +141,17 @@ export function JobForm({
           </div>
         </div>
 
-        <Collapsible open={showOptional} onOpenChange={setShowOptional}>
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              className="flex items-center gap-2 w-full py-3 px-4 mt-2 rounded-md text-foreground font-bold text-sm hover:bg-muted/50 transition-colors"
-            >
-              <ChevronDown className={`h-4 w-4 transition-transform ${showOptional ? "rotate-180" : ""}`} />
-              Additional Details (optional) {hasOptionalData && <span className="text-xs bg-muted px-1.5 py-0.5 rounded">has content</span>}
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-4 pt-2">
+        <button
+          type="button"
+          onClick={() => setShowAdditional(!showAdditional)}
+          className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
+        >
+          {showAdditional ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          Additional Details (optional)
+        </button>
+
+        {showAdditional && (
+          <div className="space-y-4 border-t pt-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="end-date">End Date</Label>
@@ -201,8 +199,8 @@ export function JobForm({
                 data-testid="textarea-job-description"
               />
             </div>
-          </CollapsibleContent>
-        </Collapsible>
+          </div>
+        )}
 
         <div className="flex gap-2">
           <Button

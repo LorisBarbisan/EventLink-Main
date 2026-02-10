@@ -411,7 +411,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="freelancer">Freelancer</SelectItem>
-                  <SelectItem value="recruiter">Recruiter</SelectItem>
+                  <SelectItem value="recruiter">Employer</SelectItem>
                 </SelectContent>
               </Select>
             </div>

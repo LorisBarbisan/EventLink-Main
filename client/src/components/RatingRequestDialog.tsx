@@ -33,7 +33,7 @@ export function RatingRequestDialog({
       const recruiterId = application.recruiter_id;
 
       if (!recruiterId) {
-        throw new Error("Unable to identify the recruiter for this application.");
+        throw new Error("Unable to identify the employer for this application.");
       }
 
       return await apiRequest("/api/rating-requests", {
@@ -57,7 +57,7 @@ export function RatingRequestDialog({
       onOpenChange(false);
       toast({
         title: "Rating request sent!",
-        description: "The recruiter has been notified of your rating request.",
+        description: "The employer has been notified of your rating request.",
       });
     },
     onError: (error: any) => {
@@ -91,7 +91,7 @@ export function RatingRequestDialog({
         <div className="space-y-4">
           <div>
             <p className="text-sm text-muted-foreground">
-              Would you like to request a rating from the recruiter for your work on this project?
+              Would you like to request a rating from the employer for your work on this project?
             </p>
           </div>
 
@@ -109,7 +109,7 @@ export function RatingRequestDialog({
 
           <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-sm">
             <p className="text-blue-800">
-              <strong>Note:</strong> Requesting a rating will send a notification to the recruiter.
+              <strong>Note:</strong> Requesting a rating will send a notification to the employer.
               They can choose to provide a rating or decline the request.
             </p>
           </div>

@@ -8,6 +8,7 @@ import {
   freelancer_profiles,
   job_alert_filters,
   job_applications,
+  job_link_views,
   jobs,
   message_attachments,
   message_user_states,
@@ -31,6 +32,7 @@ import {
   type InsertFreelancerDocument,
   type InsertFreelancerProfile,
   type InsertJob,
+  type InsertJobLinkView,
   type InsertJobAlertFilter,
   type InsertJobApplication,
   type InsertMessage,
@@ -44,6 +46,7 @@ import {
   type Job,
   type JobAlertFilter,
   type JobApplication,
+  type JobLinkView,
   type Message,
   type MessageAttachment,
   type Notification,
@@ -53,7 +56,22 @@ import {
   type RecruiterProfile,
   type User,
 } from "@shared/schema";
-import { and, asc, count, desc, eq, gt, gte, ilike, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  gte,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
 
@@ -349,10 +367,16 @@ export interface IStorage {
   createFreelancerDocument(document: InsertFreelancerDocument): Promise<FreelancerDocument>;
   deleteFreelancerDocument(documentId: number, freelancerId: number): Promise<void>;
 
+  // Job link view tracking
+  createJobLinkView(view: InsertJobLinkView): Promise<JobLinkView>;
+  getJobLinkViewCount(jobId: number): Promise<number>;
   // CV parsed data management
   getCvParsedData(userId: number): Promise<CvParsedData | undefined>;
   createCvParsedData(data: InsertCvParsedData): Promise<CvParsedData>;
-  updateCvParsedData(userId: number, data: Partial<InsertCvParsedData>): Promise<CvParsedData | undefined>;
+  updateCvParsedData(
+    userId: number,
+    data: Partial<InsertCvParsedData>
+  ): Promise<CvParsedData | undefined>;
   deleteCvParsedData(userId: number): Promise<void>;
 
   // Cache management
@@ -936,7 +960,7 @@ export class DatabaseStorage implements IStorage {
       );
 
     // Additional safeguard: Filter out any profiles with deleted user indicators
-    const safeResult = result.filter(profile => {
+    const safeResult = result.filter((profile) => {
       return (
         profile.first_name &&
         profile.last_name &&
@@ -1050,7 +1074,10 @@ export class DatabaseStorage implements IStorage {
       const hasEventlinkProfile = eventlinkResult.length > 0;
 
       // Exclude EventLink from regular results
-      const excludeEventlinkConditions = [...conditions, sql`LOWER(${users.email}) != ${EVENTLINK_EMAIL}`];
+      const excludeEventlinkConditions = [
+        ...conditions,
+        sql`LOWER(${users.email}) != ${EVENTLINK_EMAIL}`,
+      ];
 
       // Get total count excluding EventLink
       const countResult = await db
@@ -1114,13 +1141,12 @@ export class DatabaseStorage implements IStorage {
         .offset(effectiveOffset);
 
       // Combine results
-      const allResults = page === 1 && hasEventlinkProfile 
-        ? [...eventlinkResult, ...otherResults]
-        : otherResults;
+      const allResults =
+        page === 1 && hasEventlinkProfile ? [...eventlinkResult, ...otherResults] : otherResults;
 
       // Get ratings for all returned freelancers
       const resultsWithRatings = await Promise.all(
-        allResults.map(async profile => {
+        allResults.map(async (profile) => {
           const ratingStats = await this.getFreelancerAverageRating(profile.user_id);
           return {
             ...profile,
@@ -1162,7 +1188,10 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Skills match: 30 points (30% weight)
-    if (profile.skills && profile.skills.some(skill => skill.toLowerCase().includes(searchTerm))) {
+    if (
+      profile.skills &&
+      profile.skills.some((skill) => skill.toLowerCase().includes(searchTerm))
+    ) {
       score += 30;
     }
 
@@ -1735,7 +1764,7 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(conversations.last_message_at));
 
-    return result.map(row => ({
+    return result.map((row) => ({
       id: row.id,
       participant_one_id: row.participant_one_id,
       participant_two_id: row.participant_two_id,
@@ -1778,7 +1807,7 @@ export class DatabaseStorage implements IStorage {
     // 1. Insert message
     // 2. Update conversation last_message_at
     // 3. Restore soft-deleted conversation ONLY for the sender
-    const result = await db.transaction(async tx => {
+    const result = await db.transaction(async (tx) => {
       // Insert the message
       const result = await tx.insert(messages).values(message).returning();
 
@@ -1880,7 +1909,7 @@ export class DatabaseStorage implements IStorage {
 
     // Load attachments for each message
     const messagesWithAttachments = await Promise.all(
-      result.map(async row => {
+      result.map(async (row) => {
         const attachments = await this.getMessageAttachments(row.id);
         return {
           id: row.id,
@@ -1980,7 +2009,7 @@ export class DatabaseStorage implements IStorage {
 
     // Load attachments for each message
     const messagesWithAttachments = await Promise.all(
-      result.map(async row => {
+      result.map(async (row) => {
         const attachments = await this.getMessageAttachments(row.id);
         return {
           id: row.id,
@@ -2155,7 +2184,7 @@ export class DatabaseStorage implements IStorage {
 
     if (userConversations.length === 0) return 0;
 
-    const conversationIds = userConversations.map(c => c.id);
+    const conversationIds = userConversations.map((c) => c.id);
 
     const result = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -2423,7 +2452,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(notifications.user_id, userId),
           eq(notifications.is_read, false),
-          or(...notificationTypes.map(type => eq(notifications.type, type as any)))
+          or(...notificationTypes.map((type) => eq(notifications.type, type as any)))
         )
       );
   }
@@ -2446,7 +2475,7 @@ export class DatabaseStorage implements IStorage {
   async deleteUserAccount(userId: number): Promise<void> {
     try {
       // Start a transaction to ensure all operations succeed or all fail
-      await db.transaction(async tx => {
+      await db.transaction(async (tx) => {
         // 1. Get user info before soft deletion
         const user = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
         if (!user.length) {
@@ -2580,7 +2609,7 @@ export class DatabaseStorage implements IStorage {
     rating: InsertRating,
     notification: InsertNotification
   ): Promise<Rating> {
-    return await db.transaction(async tx => {
+    return await db.transaction(async (tx) => {
       // 1. Create the rating
       const ratingResult = await tx
         .insert(ratings)
@@ -2815,7 +2844,7 @@ export class DatabaseStorage implements IStorage {
     request: InsertRatingRequest,
     notification: InsertNotification
   ): Promise<RatingRequest> {
-    return await db.transaction(async tx => {
+    return await db.transaction(async (tx) => {
       // 1. Create the rating request
       const requestResult = await tx
         .insert(rating_requests)
@@ -3168,7 +3197,7 @@ export class DatabaseStorage implements IStorage {
       .groupBy(feedback.feedback_type);
 
     const byType: Record<string, number> = {};
-    typeStats.forEach(stat => {
+    typeStats.forEach((stat) => {
       if (stat.feedback_type) {
         byType[stat.feedback_type] = Number(stat.count);
       }
@@ -3226,7 +3255,7 @@ export class DatabaseStorage implements IStorage {
 
     // Get admin emails from environment variable (same as auth.ts)
     const ADMIN_EMAILS = process.env.ADMIN_EMAILS
-      ? process.env.ADMIN_EMAILS.split(",").map(email => email.trim().toLowerCase())
+      ? process.env.ADMIN_EMAILS.split(",").map((email) => email.trim().toLowerCase())
       : [];
 
     // Get admin users from environment variable list (regardless of their role column)
@@ -3248,7 +3277,7 @@ export class DatabaseStorage implements IStorage {
         })
         .from(users)
         .where(
-          or(...ADMIN_EMAILS.map(email => eq(sql`LOWER(${users.email})`, email.toLowerCase())))
+          or(...ADMIN_EMAILS.map((email) => eq(sql`LOWER(${users.email})`, email.toLowerCase())))
         )
         .orderBy(desc(users.created_at));
     }
@@ -3261,7 +3290,7 @@ export class DatabaseStorage implements IStorage {
     // Add env admins if they exist in DB but aren't marked as admin role yet
     // This is a safety check/fallback
     if (hardcodedAdmins.length > 0) {
-      const existingIds = new Set(allAdmins.map(u => u.id));
+      const existingIds = new Set(allAdmins.map((u) => u.id));
       for (const admin of hardcodedAdmins) {
         if (!existingIds.has(admin.id)) {
           allAdmins.push(admin as any);
@@ -3349,17 +3378,17 @@ export class DatabaseStorage implements IStorage {
 
     // Combine and sort
     const allActivity = [
-      ...recentFeedback.map(f => ({
+      ...recentFeedback.map((f) => ({
         type: "feedback" as const,
         message: "New feedback submitted",
         time: f.created_at,
       })),
-      ...recentUsers.map(u => ({
+      ...recentUsers.map((u) => ({
         type: "user" as const,
         message: "New user registered",
         time: u.created_at,
       })),
-      ...recentApplications.map(a => ({
+      ...recentApplications.map((a) => ({
         type: "application" as const,
         message: "Job application submitted",
         time: a.created_at,
@@ -3425,13 +3454,19 @@ export class DatabaseStorage implements IStorage {
     // Determine sort column and direction
     const sortColumn = (() => {
       switch (sortBy) {
-        case "email": return users.email;
-        case "first_name": return users.first_name;
-        case "last_name": return users.last_name;
-        case "role": return users.role;
-        case "status": return users.status;
+        case "email":
+          return users.email;
+        case "first_name":
+          return users.first_name;
+        case "last_name":
+          return users.last_name;
+        case "role":
+          return users.role;
+        case "status":
+          return users.status;
         case "created_at":
-        default: return users.created_at;
+        default:
+          return users.created_at;
       }
     })();
     const orderByClause = sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
@@ -3450,7 +3485,14 @@ export class DatabaseStorage implements IStorage {
     };
 
     // Helper to build profile map from profiles
-    const buildProfileMap = (profiles: { user_id: number; title: string | null; bio: string | null; skills: string[] | null }[]) => {
+    const buildProfileMap = (
+      profiles: {
+        user_id: number;
+        title: string | null;
+        bio: string | null;
+        skills: string[] | null;
+      }[]
+    ) => {
       const map: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
       for (const profile of profiles) {
         const hasTitle = profile.title && profile.title.trim() !== "";
@@ -3476,7 +3518,7 @@ export class DatabaseStorage implements IStorage {
         .orderBy(orderByClause);
 
       // Get all their profiles
-      const allFreelancerIds = allFreelancers.map(u => u.id);
+      const allFreelancerIds = allFreelancers.map((u) => u.id);
       let profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
 
       if (allFreelancerIds.length > 0) {
@@ -3494,12 +3536,12 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Add profile status and filter
-      const allWithStatus = allFreelancers.map(user => ({
+      const allWithStatus = allFreelancers.map((user) => ({
         ...user,
         profile_status: computeProfileStatus(user.id, user.role, profileMap),
       }));
 
-      const filtered = allWithStatus.filter(u => u.profile_status === profileStatus);
+      const filtered = allWithStatus.filter((u) => u.profile_status === profileStatus);
 
       // Apply pagination to filtered results
       const paginatedUsers = filtered.slice(offset, offset + limit);
@@ -3514,20 +3556,12 @@ export class DatabaseStorage implements IStorage {
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [usersResult, totalResult] = await Promise.all([
-      db
-        .select()
-        .from(users)
-        .where(whereClause)
-        .limit(limit)
-        .offset(offset)
-        .orderBy(orderByClause),
+      db.select().from(users).where(whereClause).limit(limit).offset(offset).orderBy(orderByClause),
       db.select({ count: count() }).from(users).where(whereClause),
     ]);
 
     // Get profile status for freelancer users in the result set
-    const freelancerIds = usersResult
-      .filter(u => u.role === "freelancer")
-      .map(u => u.id);
+    const freelancerIds = usersResult.filter((u) => u.role === "freelancer").map((u) => u.id);
 
     let profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
 
@@ -3546,7 +3580,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Add profile_status to each user
-    const usersWithProfileStatus = usersResult.map(user => ({
+    const usersWithProfileStatus = usersResult.map((user) => ({
       ...user,
       profile_status: computeProfileStatus(user.id, user.role, profileMap),
     }));
@@ -3753,7 +3787,6 @@ export class DatabaseStorage implements IStorage {
   ): Promise<void> {
     await db.update(contact_messages).set({ status }).where(eq(contact_messages.id, id));
   }
-
   // CV Parsed Data Management
   async getCvParsedData(userId: number): Promise<CvParsedData | undefined> {
     const result = await db
@@ -3786,6 +3819,22 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCvParsedData(userId: number): Promise<void> {
     await db.delete(cv_parsed_data).where(eq(cv_parsed_data.user_id, userId));
+  }
+
+  async createJobLinkView(view: InsertJobLinkView): Promise<JobLinkView> {
+    const result = await db.insert(job_link_views).values(view).returning();
+    if (!result[0]) {
+      throw new Error("Failed to create job link view");
+    }
+    return result[0];
+  }
+
+  async getJobLinkViewCount(jobId: number): Promise<number> {
+    const result = await db
+      .select({ count: count() })
+      .from(job_link_views)
+      .where(eq(job_link_views.job_id, jobId));
+    return result[0]?.count ?? 0;
   }
 }
 

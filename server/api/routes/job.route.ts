@@ -1,30 +1,40 @@
-  import type { Express } from "express";
-  import {
-    createJob,
-    deleteJob,
-    getJobById,
-    getJobPresets,
-    getJobsByRecruiter,
-    updateJob,
-  } from "../controllers/job.controller";
-  import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
+import type { Express } from "express";
+import {
+  createJob,
+  deleteJob,
+  getJobById,
+  getJobLinkViewCount,
+  getJobPresets,
+  getJobsByRecruiter,
+  trackJobLinkView,
+  updateJob,
+} from "../controllers/job.controller";
+import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
 
-  export function registerJobRoutes(app: Express) {
-    // Get job by ID
-    app.get("/api/jobs/:id", authenticateOptionalJWT, getJobById);
+export function registerJobRoutes(app: Express) {
+  // Get job by ID
+  app.get("/api/jobs/:id", authenticateOptionalJWT, getJobById);
 
-    // Get job posting presets
-    app.get("/api/jobs/presets", getJobPresets);
+  // Get job posting presets
+  app.get("/api/jobs/presets", getJobPresets);
 
-    // Get jobs by recruiter
-    app.get("/api/jobs/recruiter/:recruiterId", getJobsByRecruiter);
+  // Get jobs by recruiter
+  app.get("/api/jobs/recruiter/:recruiterId", getJobsByRecruiter);
 
-    // Create new job
-    app.post("/api/jobs", authenticateJWT, createJob);
+  // Track job link view (public, no auth required)
+  app.post("/api/jobs/:id/link-view", trackJobLinkView);
 
-    // Update job
-    app.put("/api/jobs/:jobId", authenticateJWT, updateJob);
+  // Get job link view count (authenticated - recruiter/admin only)
+  app.get("/api/jobs/:id/link-views", authenticateJWT, getJobLinkViewCount);
 
-    // Delete job
-    app.delete("/api/jobs/:jobId", authenticateJWT, deleteJob);
-  }
+  // Create new job
+  app.post("/api/jobs", authenticateJWT, createJob);
+  // Create new job
+  app.post("/api/jobs", authenticateJWT, createJob);
+
+  // Update job
+  app.put("/api/jobs/:jobId", authenticateJWT, updateJob);
+
+  // Delete job
+  app.delete("/api/jobs/:jobId", authenticateJWT, deleteJob);
+}
