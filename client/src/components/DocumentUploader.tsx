@@ -1,3 +1,13 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,8 +22,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Eye, FileText, Shield, Trash2, Upload } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, Eye, FileText, Info, Shield, Trash2, Upload } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 import { useLocation } from "wouter";
 
 interface Document {
@@ -72,6 +82,9 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
   const [selectedType, setSelectedType] = useState<string>("");
   const [customTypeName, setCustomTypeName] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [privacyConfirmed, setPrivacyConfirmed] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isSignedIn = !!viewerRole;
 
@@ -113,6 +126,12 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (!privacyConfirmed) {
+      event.target.value = "";
+      return;
+    }
+    setPrivacyConfirmed(false);
 
     if (!selectedType) {
       toast({
@@ -270,6 +289,38 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const handleUploadClick = useCallback(() => {
+    if (!selectedType) {
+      toast({
+        title: "Select document type",
+        description: "Please select a document type before uploading.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (selectedType === "Other" && !customTypeName.trim()) {
+      toast({
+        title: "Enter document type name",
+        description: "Please enter a name for your custom document type.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowPrivacyModal(true);
+  }, [selectedType, customTypeName, toast]);
+
+  const handlePrivacyConfirm = useCallback(() => {
+    setShowPrivacyModal(false);
+    setPrivacyConfirmed(true);
+    setTimeout(() => {
+      fileInputRef.current?.click();
+    }, 0);
+  }, []);
+
+  const handlePrivacyCancel = useCallback(() => {
+    setShowPrivacyModal(false);
+  }, []);
+
   const redirectToAuth = () => {
     const currentPath = window.location.pathname;
     setLocation(`/auth?redirect=${encodeURIComponent(currentPath)}`);
@@ -314,6 +365,14 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
       <CardContent className="space-y-4">
         {isOwner && documents.length < MAX_DOCUMENTS && (
           <div className="space-y-3 rounded-lg border-2 border-dashed p-4">
+            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                <strong>Important:</strong> Documents uploaded here can be viewed by signed-in employers on EventLink.
+                Please ensure you remove or conceal personal information such as your home address or other sensitive details before uploading.
+              </p>
+            </div>
+
             <div className="flex flex-col gap-3 sm:flex-row">
               <Select
                 value={selectedType}
@@ -336,33 +395,22 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
                 </SelectContent>
               </Select>
 
-              <label htmlFor="document-upload">
-                <Button
-                  variant="outline"
-                  disabled={
-                    isUploading ||
-                    !selectedType ||
-                    (selectedType === "Other" && !customTypeName.trim())
-                  }
-                  asChild
-                >
-                  <span>
-                    <Upload className="mr-2 h-4 w-4" />
-                    {isUploading ? "Uploading..." : "Upload"}
-                  </span>
-                </Button>
-              </label>
+              <Button
+                variant="outline"
+                disabled={isUploading}
+                onClick={handleUploadClick}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {isUploading ? "Uploading..." : "Upload"}
+              </Button>
               <input
-                id="document-upload"
+                ref={fileInputRef}
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
                 onChange={handleFileSelect}
                 className="hidden"
-                disabled={
-                  isUploading ||
-                  !selectedType ||
-                  (selectedType === "Other" && !customTypeName.trim())
-                }
+                tabIndex={-1}
+                aria-hidden="true"
               />
             </div>
 
@@ -381,6 +429,44 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
             </p>
           </div>
         )}
+
+        <AlertDialog open={showPrivacyModal} onOpenChange={setShowPrivacyModal}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" aria-hidden="true" />
+                Before you upload
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>
+                    Certificates uploaded to EventLink can be viewed by signed-in employers.
+                  </p>
+                  <p>
+                    Please make sure you have removed or concealed personal information, including:
+                  </p>
+                  <ul className="ml-4 list-disc space-y-1 text-sm">
+                    <li>Home address</li>
+                    <li>Date of birth</li>
+                    <li>National Insurance number</li>
+                    <li>Any other sensitive personal data</li>
+                  </ul>
+                  <p className="text-sm font-medium">
+                    EventLink does not require this information and recommends you hide it before uploading.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handlePrivacyCancel}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handlePrivacyConfirm}>
+                I understand and wish to continue
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {documents.length === 0 ? (
           <div className="py-8 text-center">
