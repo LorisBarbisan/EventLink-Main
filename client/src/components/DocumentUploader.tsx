@@ -12,7 +12,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Eye, FileText, Shield, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, Eye, FileText, Shield, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
@@ -314,6 +314,16 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
       <CardContent className="space-y-4">
         {isOwner && documents.length < MAX_DOCUMENTS && (
           <div className="space-y-3 rounded-lg border-2 border-dashed p-4">
+            <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-semibold">Important</p>
+                <p className="mt-1">
+                  Documents uploaded here can be viewed by signed-in employers on EventLink.
+                  Please ensure you remove or conceal personal information such as your home address or other sensitive details before uploading.
+                </p>
+              </div>
+            </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Select
                 value={selectedType}
