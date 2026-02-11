@@ -147,7 +147,9 @@ export function JobCard({
                     ? "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200"
                     : job.status === "active"
                       ? "bg-green-100 text-green-800 hover:bg-green-200 border-green-200"
-                      : ""
+                      : job.status === "closed"
+                        ? "bg-red-100 text-red-800 hover:bg-red-200 border-red-200"
+                        : ""
                 }
               >
                 {job.status === "private" && <Lock className="w-3 h-3 mr-1" />}
@@ -155,7 +157,9 @@ export function JobCard({
                   ? "Public"
                   : job.status === "private"
                     ? "Private"
-                    : job.status}
+                    : job.status === "closed"
+                      ? "Expired"
+                      : job.status}
               </Badge>
               {job.status === "private" && invitedCount > 0 && (
                 <Badge
@@ -234,6 +238,9 @@ export function JobCard({
           </div>
 
           <div className="flex flex-row gap-2 sm:ml-4 w-full sm:w-auto justify-end sm:justify-start">
+            {job.status === "closed" && (
+              <span className="text-xs text-red-600 font-medium self-center mr-2">Event date passed</span>
+            )}
             {job.status === "private" && onInvite && (
               <Button
                 variant="outline"

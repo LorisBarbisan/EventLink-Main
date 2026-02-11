@@ -1218,6 +1218,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getJobsByRecruiterId(recruiterId: number): Promise<Job[]> {
+    const today = new Date().toISOString().split("T")[0];
+    await db
+      .update(jobs)
+      .set({ status: "closed", updated_at: new Date() })
+      .where(
+        and(
+          eq(jobs.recruiter_id, recruiterId),
+          or(eq(jobs.status, "active"), isNull(jobs.status)),
+          sql`${jobs.event_date} IS NOT NULL AND ${jobs.event_date} < ${today}`
+        )
+      );
+
     return await db
       .select()
       .from(jobs)
@@ -1283,6 +1295,12 @@ export class DatabaseStorage implements IStorage {
 
       // Only show active jobs
       conditions.push(or(eq(jobs.status, "active"), isNull(jobs.status)));
+
+      // Exclude jobs whose event_date has passed
+      const today = new Date().toISOString().split("T")[0];
+      conditions.push(
+        or(isNull(jobs.event_date), sql`${jobs.event_date} >= ${today}`)
+      );
 
       // Keyword search: title, description, or company (case-insensitive)
       if (keyword && keyword.trim()) {
