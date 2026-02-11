@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { ogTagMiddleware } from "./api/middleware/ogTags";
 import { reconcileAdminUsers } from "./api/utils/reconcile-admin-users";
+import { seedProductionJobs } from "./api/utils/seed-production-jobs";
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
 import { log, serveStatic, setupVite } from "./vite";
@@ -203,6 +204,7 @@ app.use((req, res, next) => {
 (async () => {
   // Reconcile admin users on startup
   await reconcileAdminUsers();
+  await seedProductionJobs();
 
   // OG tag middleware for social media crawlers (must be before Vite catch-all)
   app.use(ogTagMiddleware);
