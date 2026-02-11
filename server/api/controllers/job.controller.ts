@@ -16,30 +16,6 @@ export async function getJobById(req: Request, res: Response) {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    // Access control for Private jobs
-    if (job.status === "private") {
-      const user = (req as any).user;
-
-      // If not logged in, cannot see private jobs
-      if (!user) {
-        return res.status(404).json({ error: "Job not found" }); // Hide existence
-      }
-
-      // Owner and admin can see
-      const isOwner = job.recruiter_id === user.id;
-      const isAdmin = user.role === "admin";
-
-      if (!isOwner && !isAdmin) {
-        // Check if user is an invited freelancer
-        const applications = await storage.getJobApplicationsByFreelancer(user.id);
-        const hasInvitation = applications.some((app) => app.job_id === jobId);
-
-        if (!hasInvitation) {
-          return res.status(404).json({ error: "Job not found" }); // Hide existence
-        }
-      }
-    }
-
     res.json(job);
   } catch (error) {
     console.error("Get job by ID error:", error);
