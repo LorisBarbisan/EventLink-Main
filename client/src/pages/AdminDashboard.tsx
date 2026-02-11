@@ -1,4 +1,5 @@
 import { AdminGuard } from "@/components/AdminGuard";
+import { ShareJobButton } from "@/components/ShareJobButton";
 import { Layout } from "@/components/Layout";
 import { ModerationTable } from "@/components/ModerationTable";
 import { Badge } from "@/components/ui/badge";
@@ -1218,9 +1219,14 @@ function AdminDashboardContent() {
                   <Dialog open={selectedJobId !== null} onOpenChange={(open) => { if (!open) setSelectedJobId(null); }}>
                     <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
                       <DialogHeader>
-                        <DialogTitle className="text-xl">
-                          {jobDetailLoading ? "Loading..." : jobDetailData?.job?.title || "Job Details"}
-                        </DialogTitle>
+                        <div className="flex items-center justify-between gap-4">
+                          <DialogTitle className="text-xl">
+                            {jobDetailLoading ? "Loading..." : jobDetailData?.job?.title || "Job Details"}
+                          </DialogTitle>
+                          {jobDetailData?.job && jobDetailData.job.status === "active" && (
+                            <ShareJobButton job={jobDetailData.job as any} />
+                          )}
+                        </div>
                       </DialogHeader>
                       {jobDetailLoading ? (
                         <div className="flex items-center justify-center py-8">
