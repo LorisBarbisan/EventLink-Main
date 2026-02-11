@@ -179,6 +179,7 @@ function AdminDashboardContent() {
   const [jobSortBy, setJobSortBy] = useState("company");
   const [jobSortOrder, setJobSortOrder] = useState<"asc" | "desc">("desc");
   const [jobCurrentPage, setJobCurrentPage] = useState(1);
+  const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ userId, status }: { userId: number; status: string }) => {
@@ -340,6 +341,48 @@ function AdminDashboardContent() {
     staleTime: 0,
     gcTime: 0,
     placeholderData: keepPreviousData,
+  });
+
+  const { data: jobDetailData, isLoading: jobDetailLoading } = useQuery<{
+    job: {
+      id: number;
+      title: string;
+      company: string;
+      location: string;
+      type: string;
+      rate: string;
+      description: string;
+      status: string;
+      event_date?: string;
+      end_date?: string;
+      start_time?: string;
+      end_time?: string;
+      duration_type?: string;
+      days?: number;
+      hours?: number;
+      external_source?: string | null;
+      external_url?: string | null;
+      created_at: string;
+      updated_at: string;
+      application_count: number;
+      hired_count: number;
+      recruiter_email?: string;
+      recruiter_name?: string;
+    };
+    applications: Array<{
+      id: number;
+      freelancer_id: number;
+      status: string;
+      applied_at: string;
+      freelancer_name: string;
+      freelancer_email: string;
+      freelancer_title?: string | null;
+    }>;
+  }>({
+    queryKey: ["/api/admin/jobs", selectedJobId, "detail"],
+    queryFn: () => apiRequest(`/api/admin/jobs/${selectedJobId}`),
+    enabled: selectedJobId !== null,
+    retry: 1,
   });
 
   // Admin users query
@@ -1069,7 +1112,7 @@ function AdminDashboardContent() {
                       <TableBody>
                         {(jobsData?.jobs || []).length > 0 ? (
                           (jobsData?.jobs || []).map((job) => (
-                            <TableRow key={job.id} className="h-10">
+                            <TableRow key={job.id} className="h-10 cursor-pointer hover:bg-muted/50" onClick={() => setSelectedJobId(job.id)}>
                               <TableCell className="py-2 font-medium max-w-[200px] truncate" title={job.title}>
                                 {job.title}
                               </TableCell>
@@ -1171,6 +1214,166 @@ function AdminDashboardContent() {
                       </PaginationContent>
                     </Pagination>
                   )}
+
+                  <Dialog open={selectedJobId !== null} onOpenChange={(open) => { if (!open) setSelectedJobId(null); }}>
+                    <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="text-xl">
+                          {jobDetailLoading ? "Loading..." : jobDetailData?.job?.title || "Job Details"}
+                        </DialogTitle>
+                      </DialogHeader>
+                      {jobDetailLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        </div>
+                      ) : jobDetailData ? (
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Company</p>
+                              <p className="font-medium">{jobDetailData.job.company}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Location</p>
+                              <p className="font-medium">{jobDetailData.job.location}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Rate</p>
+                              <p className="font-medium">{jobDetailData.job.rate}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Type</p>
+                              <p className="font-medium capitalize">{jobDetailData.job.type}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Status</p>
+                              <Badge
+                                variant={jobDetailData.job.status === "active" ? "default" : jobDetailData.job.status === "paused" ? "secondary" : jobDetailData.job.status === "closed" ? "destructive" : "outline"}
+                                className={jobDetailData.job.status === "active" ? "bg-green-600 hover:bg-green-700" : ""}
+                              >
+                                {jobDetailData.job.status}
+                              </Badge>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Event Date</p>
+                              <p className="font-medium">
+                                {jobDetailData.job.event_date || "Not set"}
+                                {jobDetailData.job.end_date ? ` - ${jobDetailData.job.end_date}` : ""}
+                              </p>
+                            </div>
+                            {jobDetailData.job.start_time && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">Time</p>
+                                <p className="font-medium">
+                                  {jobDetailData.job.start_time}
+                                  {jobDetailData.job.end_time ? ` - ${jobDetailData.job.end_time}` : ""}
+                                </p>
+                              </div>
+                            )}
+                            {jobDetailData.job.duration_type === "days" && jobDetailData.job.days && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">Duration</p>
+                                <p className="font-medium">{jobDetailData.job.days} days</p>
+                              </div>
+                            )}
+                            {jobDetailData.job.duration_type === "hours" && jobDetailData.job.hours && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">Duration</p>
+                                <p className="font-medium">{jobDetailData.job.hours} hours</p>
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-sm text-muted-foreground">Posted By</p>
+                              <p className="font-medium">{jobDetailData.job.recruiter_name || "External"}</p>
+                              {jobDetailData.job.recruiter_email && (
+                                <p className="text-xs text-muted-foreground">{jobDetailData.job.recruiter_email}</p>
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Created</p>
+                              <p className="font-medium">{new Date(jobDetailData.job.created_at).toLocaleDateString()}</p>
+                            </div>
+                            {jobDetailData.job.external_source && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">Source</p>
+                                <p className="font-medium capitalize">{jobDetailData.job.external_source}</p>
+                                {jobDetailData.job.external_url && (
+                                  <a href={jobDetailData.job.external_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
+                                    View original listing
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Description</p>
+                            <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded-md p-3">{jobDetailData.job.description}</p>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-3 mb-3">
+                              <h3 className="font-semibold">Applications</h3>
+                              <Badge variant="secondary">{jobDetailData.job.application_count} total</Badge>
+                              {jobDetailData.job.hired_count > 0 && (
+                                <Badge className="bg-green-600 hover:bg-green-700">{jobDetailData.job.hired_count} hired</Badge>
+                              )}
+                            </div>
+                            {jobDetailData.applications.length > 0 ? (
+                              <div className="rounded-md border">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Freelancer</TableHead>
+                                      <TableHead>Title</TableHead>
+                                      <TableHead>Status</TableHead>
+                                      <TableHead>Applied</TableHead>
+                                      <TableHead>Profile</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {jobDetailData.applications.map((app) => (
+                                      <TableRow key={app.id} className={app.status === "hired" ? "bg-green-50 dark:bg-green-950/20" : ""}>
+                                        <TableCell className="py-2">
+                                          <p className="font-medium text-sm">{app.freelancer_name}</p>
+                                          <p className="text-xs text-muted-foreground">{app.freelancer_email}</p>
+                                        </TableCell>
+                                        <TableCell className="py-2 text-sm">{app.freelancer_title || "-"}</TableCell>
+                                        <TableCell className="py-2">
+                                          <Badge
+                                            variant={app.status === "hired" ? "default" : app.status === "rejected" ? "destructive" : "secondary"}
+                                            className={app.status === "hired" ? "bg-green-600 hover:bg-green-700" : ""}
+                                          >
+                                            {app.status}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="py-2 text-xs">
+                                          {new Date(app.applied_at).toLocaleDateString()}
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                          <a
+                                            href={`/freelancer/${app.freelancer_id}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline text-xs"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            View Profile
+                                          </a>
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No applications yet.</p>
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                    </DialogContent>
+                  </Dialog>
                 </div>
               )}
             </CardContent>
