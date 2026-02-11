@@ -1,0 +1,117 @@
+Story: Display Mandatory Privacy Reminder Pop-Up on Upload
+
+As a freelancer
+I want a clear reminder before uploading documents
+So that I consciously confirm I have removed sensitive personal information.
+
+Acceptance Criteria
+
+When the user clicks the Upload button:
+
+A modal / pop-up is displayed
+
+Upload does not proceed until acknowledged
+
+Pop-up includes:
+
+Clear explanation
+
+Explicit warning about personal data
+
+Single primary confirmation action
+
+Pop-up cannot be bypassed or auto-dismissed
+
+UX Copy (Pop-Up Title)
+
+Before you upload
+
+UX Copy (Pop-Up Body)
+
+Certificates uploaded to EventLink can be viewed by signed-in employers.
+
+Please make sure you have removed or concealed personal information, including:
+
+Home address
+
+Date of birth
+
+National Insurance number
+
+Any other sensitive personal data
+
+EventLink does not require this information and recommends you hide it before uploading.
+
+3️⃣ Story: Explicit User Acknowledgement Before Upload Proceeds
+
+As a platform owner
+I want users to explicitly acknowledge the privacy notice
+So that uploads are informed and intentional.
+
+Acceptance Criteria
+
+Pop-up includes a clear confirmation action, e.g.:
+
+Button: “I understand and wish to continue”
+
+Upload proceeds only after the confirmation button is pressed
+
+Closing the modal without confirmation cancels the upload
+
+Confirmation state applies only to the current upload action
+
+4️⃣ Story: Block Upload Until Confirmation Is Given
+
+As a system
+I want to prevent document uploads without confirmation
+So that privacy guidance cannot be ignored.
+
+Acceptance Criteria
+
+File upload is disabled until:
+
+Pop-up is shown
+
+Confirmation button is clicked
+
+If the user cancels:
+
+No file is uploaded
+
+User is returned to the upload form
+
+Confirmation must be repeated for each upload session
+
+5️⃣ Story: Employer Visibility Clarification
+
+As a freelancer
+I want to clearly understand who can see my documents
+So that there is no ambiguity about access.
+
+Acceptance Criteria
+
+Disclosure explicitly states:
+
+Documents are visible to signed-in employers
+
+No implication that documents are public
+
+Text does not over-promise security or anonymity
+
+6️⃣ Story: Accessibility & UX Compliance
+
+As a user
+I want the notice and pop-up to be accessible
+So that I can understand it regardless of device or ability.
+
+Acceptance Criteria
+
+Modal is:
+
+Keyboard navigable
+
+Screen-reader compatible
+
+Text contrast meets accessibility standards
+
+Mobile and desktop layouts are supported

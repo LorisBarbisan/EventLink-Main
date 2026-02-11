@@ -2,7 +2,7 @@ import { insertMessageAttachmentSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { cvParserService } from "../services/cv-parser.service";
 import { storage } from "../../storage";
-import { ObjectNotFoundError, ObjectStorageService } from "../utils/object-storage";
+import { ObjectNotFoundError, ObjectStorageService, objectStorageClient } from "../utils/object-storage";
 
 // Upload CV - combined endpoint that receives base64 file data and uploads to storage
 export async function uploadCV(req: Request, res: Response) {
@@ -44,44 +44,16 @@ export async function uploadCV(req: Request, res: Response) {
     );
 
     try {
-      // Use presigned URL approach for upload
-      const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
-      const signRequest = {
-        bucket_name: bucketName,
-        object_name: objectName,
-        method: "PUT",
-        expires_at: new Date(Date.now() + 900 * 1000).toISOString(), // 15 minutes
-      };
-      
-      console.log(`📝 Requesting presigned URL for upload...`);
-      const signResponse = await fetch(`${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(signRequest),
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+
+      await file.save(buffer, {
+        contentType,
+        metadata: {
+          contentType,
+        },
       });
-      
-      if (!signResponse.ok) {
-        const errorText = await signResponse.text();
-        console.error(`❌ Failed to get presigned URL: ${signResponse.status} - ${errorText}`);
-        throw new Error(`Failed to get upload URL: ${errorText}`);
-      }
-      
-      const { signed_url: uploadUrl } = await signResponse.json();
-      console.log(`✅ Got presigned URL, uploading file...`);
-      
-      // Upload directly to the presigned URL
-      const uploadResponse = await fetch(uploadUrl, {
-        method: "PUT",
-        body: buffer,
-        headers: { "Content-Type": contentType },
-      });
-      
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error(`❌ Upload failed: ${uploadResponse.status} - ${errorText}`);
-        throw new Error(`Upload failed: ${uploadResponse.status}`);
-      }
-      
+
       console.log(`✅ CV uploaded to storage successfully: ${objectKey}`);
     } catch (uploadError: any) {
       console.error("❌ Object storage upload error:", uploadError);
