@@ -1108,6 +1108,7 @@ function AdminDashboardContent() {
                           <TableHead>Event Date</TableHead>
                           <TableHead>Posted By</TableHead>
                           <TableHead>Created</TableHead>
+                          <TableHead></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1165,6 +1166,11 @@ function AdminDashboardContent() {
                               <TableCell className="py-2 text-xs">
                                 {new Date(job.created_at).toLocaleDateString()}
                               </TableCell>
+                              <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                                {job.status === "active" && (
+                                  <ShareJobButton job={job as any} size="sm" variant="ghost" />
+                                )}
+                              </TableCell>
                             </TableRow>
                           ))
                         ) : (
@@ -1219,14 +1225,9 @@ function AdminDashboardContent() {
                   <Dialog open={selectedJobId !== null} onOpenChange={(open) => { if (!open) setSelectedJobId(null); }}>
                     <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
                       <DialogHeader>
-                        <div className="flex items-center justify-between gap-4">
-                          <DialogTitle className="text-xl">
-                            {jobDetailLoading ? "Loading..." : jobDetailData?.job?.title || "Job Details"}
-                          </DialogTitle>
-                          {jobDetailData?.job && jobDetailData.job.status === "active" && (
-                            <ShareJobButton job={jobDetailData.job as any} />
-                          )}
-                        </div>
+                        <DialogTitle className="text-xl">
+                          {jobDetailLoading ? "Loading..." : jobDetailData?.job?.title || "Job Details"}
+                        </DialogTitle>
                       </DialogHeader>
                       {jobDetailLoading ? (
                         <div className="flex items-center justify-center py-8">
