@@ -58,7 +58,11 @@ export default function JobDetail() {
     queryKey: ["/api/applications/check", jobId],
     queryFn: async () => {
       if (!user || user.role !== "freelancer") return null;
-      const res = await fetch(`/api/applications/freelancer/${user.id}`);
+      const res = await fetch(`/api/freelancer/${user.id}/applications`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      });
       if (!res.ok) return null;
       const apps = await res.json();
       return apps.find((a: any) => a.job_id === parseInt(jobId!));
@@ -68,11 +72,9 @@ export default function JobDetail() {
 
   const applyMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/applications", {
+      return await apiRequest(`/api/jobs/${jobId}/apply`, {
         method: "POST",
         body: JSON.stringify({
-          job_id: parseInt(jobId!),
-          freelancer_id: user!.id,
           cover_letter: coverLetter || undefined,
         }),
       });
