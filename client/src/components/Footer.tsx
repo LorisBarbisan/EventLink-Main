@@ -133,6 +133,11 @@ export const Footer = () => {
                   About
                 </Link>
               </li>
+              <li>
+                <a href="/terms-of-use.pdf" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
+                  Terms &amp; Conditions
+                </a>
+              </li>
             </ul>
           </div>
         </div>

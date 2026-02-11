@@ -172,6 +172,49 @@ export async function sendContactReply(req: Request, res: Response) {
   }
 }
 
+// Get all jobs (admin only)
+export async function getAdminJobs(req: Request, res: Response) {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const search = (req.query.search as string) || undefined;
+    const status = (req.query.status as string) || undefined;
+    const type = (req.query.type as string) || undefined;
+    const sortBy = (req.query.sortBy as string) || "created_at";
+    const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+
+    const { jobs, total } = await storage.getAdminJobs(page, limit, search, status, type, sortBy, sortOrder);
+
+    res.json({
+      jobs,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    });
+  } catch (error) {
+    console.error("Get admin jobs error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+export async function getAdminJobDetail(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.id);
+    if (isNaN(jobId)) {
+      return res.status(400).json({ error: "Invalid job ID" });
+    }
+    const result = await storage.getAdminJobDetail(jobId);
+    if (!result) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+    res.json(result);
+  } catch (error) {
+    console.error("Get admin job detail error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Get all users (admin only)
 export async function getAllUsers(req: Request, res: Response) {
   try {

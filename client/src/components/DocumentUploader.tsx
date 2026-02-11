@@ -1,3 +1,13 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,8 +22,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Eye, FileText, Shield, Trash2, Upload } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, Eye, FileText, Shield, Trash2, Upload } from "lucide-react";
+import { useRef, useState } from "react";
 import { useLocation } from "wouter";
 
 interface Document {
@@ -72,6 +82,9 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
   const [selectedType, setSelectedType] = useState<string>("");
   const [customTypeName, setCustomTypeName] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
+  const privacyConfirmedRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isSignedIn = !!viewerRole;
 
@@ -113,6 +126,12 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (!privacyConfirmedRef.current) {
+      event.target.value = "";
+      return;
+    }
+    privacyConfirmedRef.current = false;
 
     if (!selectedType) {
       toast({
@@ -314,6 +333,16 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
       <CardContent className="space-y-4">
         {isOwner && documents.length < MAX_DOCUMENTS && (
           <div className="space-y-3 rounded-lg border-2 border-dashed p-4">
+            <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-semibold">Important</p>
+                <p className="mt-1">
+                  Documents uploaded here can be viewed by signed-in employers on EventLink.
+                  Please ensure you remove or conceal personal information such as your home address or other sensitive details before uploading.
+                </p>
+              </div>
+            </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Select
                 value={selectedType}
@@ -336,33 +365,26 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
                 </SelectContent>
               </Select>
 
-              <label htmlFor="document-upload">
-                <Button
-                  variant="outline"
-                  disabled={
-                    isUploading ||
-                    !selectedType ||
-                    (selectedType === "Other" && !customTypeName.trim())
-                  }
-                  asChild
-                >
-                  <span>
-                    <Upload className="mr-2 h-4 w-4" />
-                    {isUploading ? "Uploading..." : "Upload"}
-                  </span>
-                </Button>
-              </label>
-              <input
-                id="document-upload"
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={handleFileSelect}
-                className="hidden"
+              <Button
+                variant="outline"
                 disabled={
                   isUploading ||
                   !selectedType ||
                   (selectedType === "Other" && !customTypeName.trim())
                 }
+                onClick={() => setShowPrivacyDialog(true)}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {isUploading ? "Uploading..." : "Upload"}
+              </Button>
+              <input
+                ref={fileInputRef}
+                id="document-upload"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={handleFileSelect}
+                className="hidden"
+                disabled={isUploading}
               />
             </div>
 
@@ -465,6 +487,44 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
           </p>
         )}
       </CardContent>
+
+      <AlertDialog open={showPrivacyDialog} onOpenChange={setShowPrivacyDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Before you upload</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Certificates uploaded to EventLink can be viewed by signed-in employers.
+                </p>
+                <p>
+                  Please make sure you have removed or concealed personal information, including:
+                </p>
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>Home address</li>
+                  <li>Date of birth</li>
+                  <li>National Insurance number</li>
+                  <li>Any other sensitive personal data</li>
+                </ul>
+                <p>
+                  EventLink can not conceal this information and recommends you hide it before uploading.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                privacyConfirmedRef.current = true;
+                fileInputRef.current?.click();
+              }}
+            >
+              I understand and wish to continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

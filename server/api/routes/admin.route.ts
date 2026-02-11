@@ -3,6 +3,8 @@ import {
   addFeedbackResponse,
   bootstrapCreateFirstAdmin,
   bootstrapGrantAdminAccess,
+  getAdminJobDetail,
+  getAdminJobs,
   getAdminUsers,
   getAllContactMessages,
   getAllFeedback,
@@ -35,6 +37,12 @@ export function registerAdminRoutes(app: Express) {
 
   // Send reply to contact message (admin only)
   app.post("/api/admin/contact-messages/:id/reply", requireAdminAuth, sendContactReply);
+
+  // Get all jobs (admin only)
+  app.get("/api/admin/jobs", requireAdminAuth, getAdminJobs);
+
+  // Get job detail (admin only)
+  app.get("/api/admin/jobs/:id", requireAdminAuth, getAdminJobDetail);
 
   // Get all users (admin only)
   app.get("/api/admin/users", requireAdminAuth, getAllUsers);

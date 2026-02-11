@@ -156,6 +156,24 @@ export interface IStorage {
   deleteAllExternalJobs(): Promise<number>;
   getAllJobsSortedByDate(): Promise<Job[]>;
 
+  getAdminJobs(
+    page: number,
+    limit: number,
+    search?: string,
+    status?: string,
+    type?: string,
+    sortBy?: string,
+    sortOrder?: "asc" | "desc"
+  ): Promise<{
+    jobs: (Job & { application_count: number; hired_count: number; recruiter_email?: string; recruiter_name?: string })[];
+    total: number;
+  }>;
+
+  getAdminJobDetail(jobId: number): Promise<{
+    job: Job & { recruiter_email?: string; recruiter_name?: string; application_count: number; hired_count: number };
+    applications: { id: number; freelancer_id: number; status: string; applied_at: Date; freelancer_name: string; freelancer_email: string; freelancer_title?: string | null }[];
+  } | null>;
+
   // Get all freelancer profiles for listings
   getAllFreelancerProfiles(): Promise<FreelancerProfile[]>;
   getAllRecruiterProfiles(): Promise<RecruiterProfile[]>;
@@ -1215,6 +1233,213 @@ export class DatabaseStorage implements IStorage {
 
   async getAllJobsSortedByDate(): Promise<Job[]> {
     return await db.select().from(jobs).orderBy(desc(jobs.created_at));
+  }
+
+  async getAdminJobs(
+    page: number,
+    limit: number,
+    search?: string,
+    status?: string,
+    type?: string,
+    sortBy?: string,
+    sortOrder?: "asc" | "desc"
+  ): Promise<{
+    jobs: (Job & { application_count: number; hired_count: number; recruiter_email?: string; recruiter_name?: string })[];
+    total: number;
+  }> {
+    const offset = (page - 1) * limit;
+    const conditions = [];
+
+    if (search) {
+      const searchLower = search.toLowerCase();
+      conditions.push(
+        or(
+          ilike(jobs.title, `%${searchLower}%`),
+          ilike(jobs.company, `%${searchLower}%`),
+          ilike(jobs.location, `%${searchLower}%`)
+        )
+      );
+    }
+
+    if (status && status !== "all") {
+      conditions.push(eq(jobs.status, status as "active" | "paused" | "closed" | "private"));
+    }
+
+    if (type && type !== "all") {
+      if (type === "published") {
+        conditions.push(ne(jobs.status, "private"));
+      } else if (type === "private") {
+        conditions.push(eq(jobs.status, "private" as "active" | "paused" | "closed" | "private"));
+      } else if (type === "external") {
+        conditions.push(isNotNull(jobs.external_source));
+      } else if (type === "internal") {
+        conditions.push(isNull(jobs.external_source));
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countResult] = await db
+      .select({ count: count() })
+      .from(jobs)
+      .where(whereClause);
+    const total = countResult.count;
+
+    let jobRows;
+    if (sortBy === "company" || sortBy === "location") {
+      const col = sortBy === "company" ? jobs.company : jobs.location;
+      const popularitySubquery = db
+        .select({ value: col, cnt: count().as("cnt") })
+        .from(jobs)
+        .groupBy(col)
+        .as("popularity");
+      const joinCol = sortBy === "company" ? jobs.company : jobs.location;
+      const orderDir = sortOrder === "asc" ? asc(sql`popularity.cnt`) : desc(sql`popularity.cnt`);
+      jobRows = await db
+        .select({ job: jobs })
+        .from(jobs)
+        .leftJoin(popularitySubquery, eq(joinCol, popularitySubquery.value))
+        .where(whereClause)
+        .orderBy(orderDir, asc(joinCol))
+        .limit(limit)
+        .offset(offset)
+        .then(rows => rows.map(r => r.job));
+    } else {
+      const sortColumn = (() => {
+        switch (sortBy) {
+          case "title":
+            return jobs.title;
+          case "status":
+            return jobs.status;
+          case "created_at":
+          default:
+            return jobs.created_at;
+        }
+      })();
+      const orderByClause = sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
+      jobRows = await db
+        .select()
+        .from(jobs)
+        .where(whereClause)
+        .orderBy(orderByClause)
+        .limit(limit)
+        .offset(offset);
+    }
+
+    const jobIds = jobRows.map((j) => j.id);
+    let appCounts: Map<number, { total: number; hired: number }> = new Map();
+
+    if (jobIds.length > 0) {
+      const appStats = await db
+        .select({
+          job_id: job_applications.job_id,
+          total: count(),
+          hired: sql<number>`count(*) filter (where ${job_applications.status} = 'hired')`,
+        })
+        .from(job_applications)
+        .where(inArray(job_applications.job_id, jobIds))
+        .groupBy(job_applications.job_id);
+
+      for (const row of appStats) {
+        appCounts.set(row.job_id, { total: row.total, hired: Number(row.hired) });
+      }
+    }
+
+    const recruiterIds = jobRows
+      .map((j) => j.recruiter_id)
+      .filter((id): id is number => id !== null);
+    let recruiterMap: Map<number, { email: string; name: string }> = new Map();
+
+    if (recruiterIds.length > 0) {
+      const uniqueIds = Array.from(new Set(recruiterIds));
+      const recruiters = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          first_name: users.first_name,
+          last_name: users.last_name,
+        })
+        .from(users)
+        .where(inArray(users.id, uniqueIds));
+
+      for (const r of recruiters) {
+        recruiterMap.set(r.id, {
+          email: r.email,
+          name: [r.first_name, r.last_name].filter(Boolean).join(" ") || r.email,
+        });
+      }
+    }
+
+    const enrichedJobs = jobRows.map((job) => {
+      const counts = appCounts.get(job.id) || { total: 0, hired: 0 };
+      const recruiter = job.recruiter_id ? recruiterMap.get(job.recruiter_id) : undefined;
+      return {
+        ...job,
+        application_count: counts.total,
+        hired_count: counts.hired,
+        recruiter_email: recruiter?.email,
+        recruiter_name: recruiter?.name,
+      };
+    });
+
+    return { jobs: enrichedJobs, total };
+  }
+
+  async getAdminJobDetail(jobId: number): Promise<{
+    job: Job & { recruiter_email?: string; recruiter_name?: string; application_count: number; hired_count: number };
+    applications: { id: number; freelancer_id: number; status: string; applied_at: Date; freelancer_name: string; freelancer_email: string; freelancer_title?: string | null }[];
+  } | null> {
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1);
+    if (!job) return null;
+
+    let recruiter_email: string | undefined;
+    let recruiter_name: string | undefined;
+    if (job.recruiter_id) {
+      const [recruiter] = await db
+        .select({ email: users.email, first_name: users.first_name, last_name: users.last_name })
+        .from(users)
+        .where(eq(users.id, job.recruiter_id))
+        .limit(1);
+      if (recruiter) {
+        recruiter_email = recruiter.email;
+        recruiter_name = [recruiter.first_name, recruiter.last_name].filter(Boolean).join(" ") || recruiter.email;
+      }
+    }
+
+    const appRows = await db
+      .select({
+        id: job_applications.id,
+        freelancer_id: job_applications.freelancer_id,
+        status: job_applications.status,
+        applied_at: job_applications.applied_at,
+        email: users.email,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        title: freelancer_profiles.title,
+      })
+      .from(job_applications)
+      .leftJoin(users, eq(job_applications.freelancer_id, users.id))
+      .leftJoin(freelancer_profiles, eq(job_applications.freelancer_id, freelancer_profiles.user_id))
+      .where(eq(job_applications.job_id, jobId))
+      .orderBy(desc(job_applications.applied_at));
+
+    const totalApps = appRows.length;
+    const hiredCount = appRows.filter(a => a.status === "hired").length;
+
+    const applications = appRows.map(a => ({
+      id: a.id,
+      freelancer_id: a.freelancer_id,
+      status: a.status || "applied",
+      applied_at: a.applied_at,
+      freelancer_name: [a.first_name, a.last_name].filter(Boolean).join(" ") || a.email || "Unknown",
+      freelancer_email: a.email || "",
+      freelancer_title: a.title,
+    }));
+
+    return {
+      job: { ...job, recruiter_email, recruiter_name, application_count: totalApps, hired_count: hiredCount },
+      applications,
+    };
   }
 
   async getJobsByRecruiterId(recruiterId: number): Promise<Job[]> {

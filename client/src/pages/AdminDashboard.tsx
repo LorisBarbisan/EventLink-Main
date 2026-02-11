@@ -1,4 +1,5 @@
 import { AdminGuard } from "@/components/AdminGuard";
+import { ShareJobButton } from "@/components/ShareJobButton";
 import { Layout } from "@/components/Layout";
 import { ModerationTable } from "@/components/ModerationTable";
 import { Badge } from "@/components/ui/badge";
@@ -172,6 +173,15 @@ function AdminDashboardContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
+  // Jobs Tab State
+  const [jobSearch, setJobSearch] = useState("");
+  const [jobStatusFilter, setJobStatusFilter] = useState("all");
+  const [jobTypeFilter, setJobTypeFilter] = useState("all");
+  const [jobSortBy, setJobSortBy] = useState("company");
+  const [jobSortOrder, setJobSortOrder] = useState<"asc" | "desc">("desc");
+  const [jobCurrentPage, setJobCurrentPage] = useState(1);
+  const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ userId, status }: { userId: number; status: string }) => {
       await apiRequest(`/api/admin/users/${userId}/status`, {
@@ -203,7 +213,7 @@ function AdminDashboardContent() {
   useEffect(() => {
     const handleHashSync = () => {
       const hash = window.location.hash.replace("#", "");
-      const validTabs = ["overview", "users", "feedback", "contact", "admin-management"];
+      const validTabs = ["overview", "users", "jobs", "feedback", "contact", "admin-management"];
       if (hash && validTabs.includes(hash)) {
         setActiveTab(prev => (prev !== hash ? hash : prev));
       }
@@ -292,6 +302,90 @@ function AdminDashboardContent() {
     placeholderData: keepPreviousData,
   });
 
+  // Jobs query
+  const { data: jobsData, isLoading: jobsLoading } = useQuery<{
+    jobs: Array<{
+      id: number;
+      title: string;
+      company: string;
+      location: string;
+      type: string;
+      rate: string;
+      status: string;
+      external_source?: string | null;
+      created_at: string;
+      event_date?: string;
+      end_date?: string;
+      application_count: number;
+      hired_count: number;
+      recruiter_email?: string;
+      recruiter_name?: string;
+    }>;
+    total: number;
+    totalPages: number;
+    page: number;
+    limit: number;
+  }>({
+    queryKey: ["/api/admin/jobs", jobCurrentPage, jobSearch, jobStatusFilter, jobTypeFilter, jobSortBy, jobSortOrder],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.append("page", jobCurrentPage.toString());
+      params.append("limit", itemsPerPage.toString());
+      if (jobSearch) params.append("search", jobSearch);
+      if (jobStatusFilter !== "all") params.append("status", jobStatusFilter);
+      if (jobTypeFilter !== "all") params.append("type", jobTypeFilter);
+      params.append("sortBy", jobSortBy);
+      params.append("sortOrder", jobSortOrder);
+      return apiRequest(`/api/admin/jobs?${params.toString()}`);
+    },
+    retry: 1,
+    staleTime: 0,
+    gcTime: 0,
+    placeholderData: keepPreviousData,
+  });
+
+  const { data: jobDetailData, isLoading: jobDetailLoading } = useQuery<{
+    job: {
+      id: number;
+      title: string;
+      company: string;
+      location: string;
+      type: string;
+      rate: string;
+      description: string;
+      status: string;
+      event_date?: string;
+      end_date?: string;
+      start_time?: string;
+      end_time?: string;
+      duration_type?: string;
+      days?: number;
+      hours?: number;
+      external_source?: string | null;
+      external_url?: string | null;
+      created_at: string;
+      updated_at: string;
+      application_count: number;
+      hired_count: number;
+      recruiter_email?: string;
+      recruiter_name?: string;
+    };
+    applications: Array<{
+      id: number;
+      freelancer_id: number;
+      status: string;
+      applied_at: string;
+      freelancer_name: string;
+      freelancer_email: string;
+      freelancer_title?: string | null;
+    }>;
+  }>({
+    queryKey: ["/api/admin/jobs", selectedJobId, "detail"],
+    queryFn: () => apiRequest(`/api/admin/jobs/${selectedJobId}`),
+    enabled: selectedJobId !== null,
+    retry: 1,
+  });
+
   // Admin users query
   const {
     data: adminUsers,
@@ -321,6 +415,10 @@ function AdminDashboardContent() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, roleFilter, statusFilter, profileStatusFilter, sortBy, sortOrder]);
+
+  useEffect(() => {
+    setJobCurrentPage(1);
+  }, [jobSearch, jobStatusFilter, jobTypeFilter, jobSortBy, jobSortOrder]);
 
   // Automatically mark notifications as read when the relevant tab is active
   useEffect(() => {
@@ -498,7 +596,7 @@ function AdminDashboardContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
             Overview
@@ -516,6 +614,10 @@ function AdminDashboardContent() {
             <Mail className="w-4 h-4" />
             Contact
             <TabBadge count={counts.contact_messages} />
+          </TabsTrigger>
+          <TabsTrigger value="jobs" className="flex items-center gap-2">
+            <Briefcase className="w-4 h-4" />
+            Jobs
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
@@ -913,6 +1015,372 @@ function AdminDashboardContent() {
                       </div>
                     ))
                   )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Jobs Tab */}
+        <TabsContent value="jobs" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="w-5 h-5" />
+                All Jobs
+                {jobsData && (
+                  <Badge variant="secondary" className="ml-2">
+                    {jobsData.total} total
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {jobsLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex gap-4 flex-wrap">
+                    <div className="flex-1 min-w-[200px]">
+                      <Input
+                        placeholder="Search by title, company, or location..."
+                        value={jobSearch}
+                        onChange={e => setJobSearch(e.target.value)}
+                        className="max-w-sm"
+                      />
+                    </div>
+                    <Select value={jobStatusFilter} onValueChange={setJobStatusFilter}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="paused">Paused</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="published">Published</SelectItem>
+                        <SelectItem value="private">Private</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={jobSortBy} onValueChange={setJobSortBy}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Search by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="company">Company</SelectItem>
+                        <SelectItem value="location">Location</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={jobSortOrder} onValueChange={(v) => setJobSortOrder(v as "asc" | "desc")}>
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue placeholder="Order" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="desc">Most Popular</SelectItem>
+                        <SelectItem value="asc">Least Popular</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Company</TableHead>
+                          <TableHead>Location</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Applications</TableHead>
+                          <TableHead>Hired</TableHead>
+                          <TableHead>Event Date</TableHead>
+                          <TableHead>Posted By</TableHead>
+                          <TableHead>Created</TableHead>
+                          <TableHead></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(jobsData?.jobs || []).length > 0 ? (
+                          (jobsData?.jobs || []).map((job) => (
+                            <TableRow key={job.id} className="h-10 cursor-pointer hover:bg-muted/50" onClick={() => setSelectedJobId(job.id)}>
+                              <TableCell className="py-2 font-medium max-w-[200px] truncate" title={job.title}>
+                                {job.title}
+                              </TableCell>
+                              <TableCell className="py-2 max-w-[150px] truncate" title={job.company}>
+                                {job.company}
+                              </TableCell>
+                              <TableCell className="py-2 max-w-[120px] truncate" title={job.location}>
+                                {job.location}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <Badge
+                                  variant={
+                                    job.status === "active"
+                                      ? "default"
+                                      : job.status === "paused"
+                                        ? "secondary"
+                                        : job.status === "closed"
+                                          ? "destructive"
+                                          : "outline"
+                                  }
+                                  className={
+                                    job.status === "active"
+                                      ? "bg-green-600 hover:bg-green-700"
+                                      : ""
+                                  }
+                                >
+                                  {job.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="py-2 text-center">
+                                <Badge variant="secondary">{job.application_count}</Badge>
+                              </TableCell>
+                              <TableCell className="py-2 text-center">
+                                {job.hired_count > 0 ? (
+                                  <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                                    {job.hired_count}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">0</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2 text-xs">
+                                {job.event_date || "-"}
+                                {job.end_date ? ` - ${job.end_date}` : ""}
+                              </TableCell>
+                              <TableCell className="py-2 text-xs max-w-[150px] truncate" title={job.recruiter_name || job.recruiter_email || "External"}>
+                                {job.recruiter_name || job.recruiter_email || "External"}
+                              </TableCell>
+                              <TableCell className="py-2 text-xs">
+                                {new Date(job.created_at).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                                {job.status === "active" && (
+                                  <ShareJobButton job={job as any} size="sm" variant="ghost" />
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={10} className="h-24 text-center">
+                              No jobs found.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {(jobsData?.totalPages || 1) > 1 && (
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => setJobCurrentPage(prev => Math.max(prev - 1, 1))}
+                            className={
+                              jobCurrentPage === 1
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
+                          />
+                        </PaginationItem>
+                        {Array.from({ length: jobsData?.totalPages || 1 }, (_, i) => i + 1).map(page => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setJobCurrentPage(page)}
+                              isActive={jobCurrentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => setJobCurrentPage(prev => Math.min(prev + 1, jobsData?.totalPages || 1))}
+                            className={
+                              jobCurrentPage === (jobsData?.totalPages || 1)
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  )}
+
+                  <Dialog open={selectedJobId !== null} onOpenChange={(open) => { if (!open) setSelectedJobId(null); }}>
+                    <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="text-xl">
+                          {jobDetailLoading ? "Loading..." : jobDetailData?.job?.title || "Job Details"}
+                        </DialogTitle>
+                      </DialogHeader>
+                      {jobDetailLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        </div>
+                      ) : jobDetailData ? (
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Company</p>
+                              <p className="font-medium">{jobDetailData.job.company}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Location</p>
+                              <p className="font-medium">{jobDetailData.job.location}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Rate</p>
+                              <p className="font-medium">{jobDetailData.job.rate}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Type</p>
+                              <p className="font-medium capitalize">{jobDetailData.job.type}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Status</p>
+                              <Badge
+                                variant={jobDetailData.job.status === "active" ? "default" : jobDetailData.job.status === "paused" ? "secondary" : jobDetailData.job.status === "closed" ? "destructive" : "outline"}
+                                className={jobDetailData.job.status === "active" ? "bg-green-600 hover:bg-green-700" : ""}
+                              >
+                                {jobDetailData.job.status}
+                              </Badge>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Event Date</p>
+                              <p className="font-medium">
+                                {jobDetailData.job.event_date || "Not set"}
+                                {jobDetailData.job.end_date ? ` - ${jobDetailData.job.end_date}` : ""}
+                              </p>
+                            </div>
+                            {jobDetailData.job.start_time && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">Time</p>
+                                <p className="font-medium">
+                                  {jobDetailData.job.start_time}
+                                  {jobDetailData.job.end_time ? ` - ${jobDetailData.job.end_time}` : ""}
+                                </p>
+                              </div>
+                            )}
+                            {jobDetailData.job.duration_type === "days" && jobDetailData.job.days && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">Duration</p>
+                                <p className="font-medium">{jobDetailData.job.days} days</p>
+                              </div>
+                            )}
+                            {jobDetailData.job.duration_type === "hours" && jobDetailData.job.hours && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">Duration</p>
+                                <p className="font-medium">{jobDetailData.job.hours} hours</p>
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-sm text-muted-foreground">Posted By</p>
+                              <p className="font-medium">{jobDetailData.job.recruiter_name || "External"}</p>
+                              {jobDetailData.job.recruiter_email && (
+                                <p className="text-xs text-muted-foreground">{jobDetailData.job.recruiter_email}</p>
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Created</p>
+                              <p className="font-medium">{new Date(jobDetailData.job.created_at).toLocaleDateString()}</p>
+                            </div>
+                            {jobDetailData.job.external_source && (
+                              <div>
+                                <p className="text-sm text-muted-foreground">Source</p>
+                                <p className="font-medium capitalize">{jobDetailData.job.external_source}</p>
+                                {jobDetailData.job.external_url && (
+                                  <a href={jobDetailData.job.external_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
+                                    View original listing
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Description</p>
+                            <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded-md p-3">{jobDetailData.job.description}</p>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-3 mb-3">
+                              <h3 className="font-semibold">Applications</h3>
+                              <Badge variant="secondary">{jobDetailData.job.application_count} total</Badge>
+                              {jobDetailData.job.hired_count > 0 && (
+                                <Badge className="bg-green-600 hover:bg-green-700">{jobDetailData.job.hired_count} hired</Badge>
+                              )}
+                            </div>
+                            {jobDetailData.applications.length > 0 ? (
+                              <div className="rounded-md border">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Freelancer</TableHead>
+                                      <TableHead>Title</TableHead>
+                                      <TableHead>Status</TableHead>
+                                      <TableHead>Applied</TableHead>
+                                      <TableHead>Profile</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {jobDetailData.applications.map((app) => (
+                                      <TableRow key={app.id} className={app.status === "hired" ? "bg-green-50 dark:bg-green-950/20" : ""}>
+                                        <TableCell className="py-2">
+                                          <p className="font-medium text-sm">{app.freelancer_name}</p>
+                                          <p className="text-xs text-muted-foreground">{app.freelancer_email}</p>
+                                        </TableCell>
+                                        <TableCell className="py-2 text-sm">{app.freelancer_title || "-"}</TableCell>
+                                        <TableCell className="py-2">
+                                          <Badge
+                                            variant={app.status === "hired" ? "default" : app.status === "rejected" ? "destructive" : "secondary"}
+                                            className={app.status === "hired" ? "bg-green-600 hover:bg-green-700" : ""}
+                                          >
+                                            {app.status}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="py-2 text-xs">
+                                          {new Date(app.applied_at).toLocaleDateString()}
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                          <a
+                                            href={`/freelancer/${app.freelancer_id}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline text-xs"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            View Profile
+                                          </a>
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No applications yet.</p>
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                    </DialogContent>
+                  </Dialog>
                 </div>
               )}
             </CardContent>

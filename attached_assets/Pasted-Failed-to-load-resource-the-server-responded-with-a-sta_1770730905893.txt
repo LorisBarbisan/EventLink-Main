@@ -1,0 +1,47 @@
+Failed to load resource: the server responded with a status of 404 ()Understand this error
+api/cv/parse/status:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+index-zl7X8XZ6.js:395 ✅ WebSocket connected
+api/cv/parse/status:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+api/cv/parse/status:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+index-zl7X8XZ6.js:460 📤 Starting CV upload: CV Fabrizio Barbisan 2025.pdf application/pdf 168705
+index-zl7X8XZ6.js:460 Step 1: Converting file to base64...
+index-zl7X8XZ6.js:460 ✅ Step 1: File converted to base64
+index-zl7X8XZ6.js:460 Step 2: Uploading to server...
+api/cv:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+index-zl7X8XZ6.js:460 ❌ CV upload error: Error: Failed to upload CV to storage: Failed to get upload URL: 
+    at be (index-zl7X8XZ6.js:395:64014)
+    at async j (index-zl7X8XZ6.js:460:196305)
+j @ index-zl7X8XZ6.js:460Understand this error
+index-zl7X8XZ6.js:460 Error type: object
+j @ index-zl7X8XZ6.js:460Understand this error
+index-zl7X8XZ6.js:460 Error details: {
+  "status": 500
+}
+j @ index-zl7X8XZ6.js:460Understand this error
+index-zl7X8XZ6.js:460 Error message: Failed to upload CV to storage: Failed to get upload URL: 
+j @ index-zl7X8XZ6.js:460Understand this error
+index-zl7X8XZ6.js:460 Error stack: Error: Failed to upload CV to storage: Failed to get upload URL: 
+    at be (https://event-link-conceal.replit.app/assets/index-zl7X8XZ6.js:395:64014)
+    at async j (https://event-link-conceal.replit.app/assets/index-zl7X8XZ6.js:460:196305)
+j @ index-zl7X8XZ6.js:460Understand this error
+index-zl7X8XZ6.js:395  GET https://event-link-conceal.replit.app/api/cv/parse/status 500 (Internal Server Error)
+be @ index-zl7X8XZ6.js:395
+queryFn @ index-zl7X8XZ6.js:395
+l @ index-zl7X8XZ6.js:395
+k @ index-zl7X8XZ6.js:395
+start @ index-zl7X8XZ6.js:395
+fetch @ index-zl7X8XZ6.js:395
+Mc @ index-zl7X8XZ6.js:395
+fetch @ index-zl7X8XZ6.js:395
+refetch @ index-zl7X8XZ6.js:395
+onFocus @ index-zl7X8XZ6.js:395
+(anonymous) @ index-zl7X8XZ6.js:395
+(anonymous) @ index-zl7X8XZ6.js:395
+batch @ index-zl7X8XZ6.js:395
+onFocus @ index-zl7X8XZ6.js:395
+(anonymous) @ index-zl7X8XZ6.js:395
+await in (anonymous)
+(anonymous) @ index-zl7X8XZ6.js:395
+onFocus @ index-zl7X8XZ6.js:395
+(anonymous) @ index-zl7X8XZ6.js:395
+r @ index-zl7X8XZ6.js:395Understand this error
