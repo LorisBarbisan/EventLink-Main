@@ -176,7 +176,7 @@ function AdminDashboardContent() {
   const [jobSearch, setJobSearch] = useState("");
   const [jobStatusFilter, setJobStatusFilter] = useState("all");
   const [jobTypeFilter, setJobTypeFilter] = useState("all");
-  const [jobSortBy, setJobSortBy] = useState("created_at");
+  const [jobSortBy, setJobSortBy] = useState("company");
   const [jobSortOrder, setJobSortOrder] = useState<"asc" | "desc">("desc");
   const [jobCurrentPage, setJobCurrentPage] = useState(1);
 
@@ -1016,7 +1016,6 @@ function AdminDashboardContent() {
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="paused">Paused</SelectItem>
                         <SelectItem value="closed">Closed</SelectItem>
-                        <SelectItem value="private">Private</SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -1026,20 +1025,18 @@ function AdminDashboardContent() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="internal">EventLink</SelectItem>
-                        <SelectItem value="external">External</SelectItem>
+                        <SelectItem value="published">Published</SelectItem>
+                        <SelectItem value="private">Private</SelectItem>
                       </SelectContent>
                     </Select>
 
                     <Select value={jobSortBy} onValueChange={setJobSortBy}>
                       <SelectTrigger className="w-[160px]">
-                        <SelectValue placeholder="Sort by" />
+                        <SelectValue placeholder="Search by" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="created_at">Date Created</SelectItem>
-                        <SelectItem value="title">Title</SelectItem>
                         <SelectItem value="company">Company</SelectItem>
-                        <SelectItem value="status">Status</SelectItem>
+                        <SelectItem value="location">Location</SelectItem>
                       </SelectContent>
                     </Select>
 
@@ -1048,8 +1045,8 @@ function AdminDashboardContent() {
                         <SelectValue placeholder="Order" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="desc">Newest</SelectItem>
-                        <SelectItem value="asc">Oldest</SelectItem>
+                        <SelectItem value="desc">Most Popular</SelectItem>
+                        <SelectItem value="asc">Least Popular</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1062,7 +1059,6 @@ function AdminDashboardContent() {
                           <TableHead>Company</TableHead>
                           <TableHead>Location</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Source</TableHead>
                           <TableHead>Applications</TableHead>
                           <TableHead>Hired</TableHead>
                           <TableHead>Event Date</TableHead>
@@ -1102,17 +1098,6 @@ function AdminDashboardContent() {
                                 >
                                   {job.status}
                                 </Badge>
-                              </TableCell>
-                              <TableCell className="py-2">
-                                {job.external_source ? (
-                                  <Badge variant="outline" className="text-xs">
-                                    {job.external_source}
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="default" className="text-xs bg-orange-600 hover:bg-orange-700">
-                                    EventLink
-                                  </Badge>
-                                )}
                               </TableCell>
                               <TableCell className="py-2 text-center">
                                 <Badge variant="secondary">{job.application_count}</Badge>

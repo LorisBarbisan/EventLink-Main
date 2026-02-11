@@ -1261,7 +1261,11 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (type && type !== "all") {
-      if (type === "external") {
+      if (type === "published") {
+        conditions.push(ne(jobs.status, "private"));
+      } else if (type === "private") {
+        conditions.push(eq(jobs.status, "private" as "active" | "paused" | "closed" | "private"));
+      } else if (type === "external") {
         conditions.push(isNotNull(jobs.external_source));
       } else if (type === "internal") {
         conditions.push(isNull(jobs.external_source));
@@ -1270,34 +1274,52 @@ export class DatabaseStorage implements IStorage {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const sortColumn = (() => {
-      switch (sortBy) {
-        case "title":
-          return jobs.title;
-        case "company":
-          return jobs.company;
-        case "status":
-          return jobs.status;
-        case "created_at":
-        default:
-          return jobs.created_at;
-      }
-    })();
-    const orderByClause = sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
-
     const [countResult] = await db
       .select({ count: count() })
       .from(jobs)
       .where(whereClause);
     const total = countResult.count;
 
-    const jobRows = await db
-      .select()
-      .from(jobs)
-      .where(whereClause)
-      .orderBy(orderByClause)
-      .limit(limit)
-      .offset(offset);
+    let jobRows;
+    if (sortBy === "company" || sortBy === "location") {
+      const col = sortBy === "company" ? jobs.company : jobs.location;
+      const popularitySubquery = db
+        .select({ value: col, cnt: count().as("cnt") })
+        .from(jobs)
+        .groupBy(col)
+        .as("popularity");
+      const joinCol = sortBy === "company" ? jobs.company : jobs.location;
+      const orderDir = sortOrder === "asc" ? asc(sql`popularity.cnt`) : desc(sql`popularity.cnt`);
+      jobRows = await db
+        .select({ job: jobs })
+        .from(jobs)
+        .leftJoin(popularitySubquery, eq(joinCol, popularitySubquery.value))
+        .where(whereClause)
+        .orderBy(orderDir, asc(joinCol))
+        .limit(limit)
+        .offset(offset)
+        .then(rows => rows.map(r => r.job));
+    } else {
+      const sortColumn = (() => {
+        switch (sortBy) {
+          case "title":
+            return jobs.title;
+          case "status":
+            return jobs.status;
+          case "created_at":
+          default:
+            return jobs.created_at;
+        }
+      })();
+      const orderByClause = sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
+      jobRows = await db
+        .select()
+        .from(jobs)
+        .where(whereClause)
+        .orderBy(orderByClause)
+        .limit(limit)
+        .offset(offset);
+    }
 
     const jobIds = jobRows.map((j) => j.id);
     let appCounts: Map<number, { total: number; hired: number }> = new Map();
