@@ -156,6 +156,19 @@ export interface IStorage {
   deleteAllExternalJobs(): Promise<number>;
   getAllJobsSortedByDate(): Promise<Job[]>;
 
+  getAdminJobs(
+    page: number,
+    limit: number,
+    search?: string,
+    status?: string,
+    type?: string,
+    sortBy?: string,
+    sortOrder?: "asc" | "desc"
+  ): Promise<{
+    jobs: (Job & { application_count: number; hired_count: number; recruiter_email?: string; recruiter_name?: string })[];
+    total: number;
+  }>;
+
   // Get all freelancer profiles for listings
   getAllFreelancerProfiles(): Promise<FreelancerProfile[]>;
   getAllRecruiterProfiles(): Promise<RecruiterProfile[]>;
@@ -1215,6 +1228,134 @@ export class DatabaseStorage implements IStorage {
 
   async getAllJobsSortedByDate(): Promise<Job[]> {
     return await db.select().from(jobs).orderBy(desc(jobs.created_at));
+  }
+
+  async getAdminJobs(
+    page: number,
+    limit: number,
+    search?: string,
+    status?: string,
+    type?: string,
+    sortBy?: string,
+    sortOrder?: "asc" | "desc"
+  ): Promise<{
+    jobs: (Job & { application_count: number; hired_count: number; recruiter_email?: string; recruiter_name?: string })[];
+    total: number;
+  }> {
+    const offset = (page - 1) * limit;
+    const conditions = [];
+
+    if (search) {
+      const searchLower = search.toLowerCase();
+      conditions.push(
+        or(
+          ilike(jobs.title, `%${searchLower}%`),
+          ilike(jobs.company, `%${searchLower}%`),
+          ilike(jobs.location, `%${searchLower}%`)
+        )
+      );
+    }
+
+    if (status && status !== "all") {
+      conditions.push(eq(jobs.status, status as "active" | "paused" | "closed" | "private"));
+    }
+
+    if (type && type !== "all") {
+      if (type === "external") {
+        conditions.push(isNotNull(jobs.external_source));
+      } else if (type === "internal") {
+        conditions.push(isNull(jobs.external_source));
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const sortColumn = (() => {
+      switch (sortBy) {
+        case "title":
+          return jobs.title;
+        case "company":
+          return jobs.company;
+        case "status":
+          return jobs.status;
+        case "created_at":
+        default:
+          return jobs.created_at;
+      }
+    })();
+    const orderByClause = sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
+
+    const [countResult] = await db
+      .select({ count: count() })
+      .from(jobs)
+      .where(whereClause);
+    const total = countResult.count;
+
+    const jobRows = await db
+      .select()
+      .from(jobs)
+      .where(whereClause)
+      .orderBy(orderByClause)
+      .limit(limit)
+      .offset(offset);
+
+    const jobIds = jobRows.map((j) => j.id);
+    let appCounts: Map<number, { total: number; hired: number }> = new Map();
+
+    if (jobIds.length > 0) {
+      const appStats = await db
+        .select({
+          job_id: job_applications.job_id,
+          total: count(),
+          hired: sql<number>`count(*) filter (where ${job_applications.status} = 'hired')`,
+        })
+        .from(job_applications)
+        .where(inArray(job_applications.job_id, jobIds))
+        .groupBy(job_applications.job_id);
+
+      for (const row of appStats) {
+        appCounts.set(row.job_id, { total: row.total, hired: Number(row.hired) });
+      }
+    }
+
+    const recruiterIds = jobRows
+      .map((j) => j.recruiter_id)
+      .filter((id): id is number => id !== null);
+    let recruiterMap: Map<number, { email: string; name: string }> = new Map();
+
+    if (recruiterIds.length > 0) {
+      const uniqueIds = Array.from(new Set(recruiterIds));
+      const recruiters = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          first_name: users.first_name,
+          last_name: users.last_name,
+        })
+        .from(users)
+        .where(inArray(users.id, uniqueIds));
+
+      for (const r of recruiters) {
+        recruiterMap.set(r.id, {
+          email: r.email,
+          name: [r.first_name, r.last_name].filter(Boolean).join(" ") || r.email,
+        });
+      }
+    }
+
+    const enrichedJobs = jobRows.map((job) => {
+      const counts = appCounts.get(job.id) || { total: 0, hired: 0 };
+      const recruiter = job.recruiter_id ? recruiterMap.get(job.recruiter_id) : undefined;
+      return {
+        ...job,
+        application_count: counts.total,
+        hired_count: counts.hired,
+        recruiter_email: recruiter?.email,
+        recruiter_name: recruiter?.name,
+      };
+    });
+
+    return { jobs: enrichedJobs, total };
   }
 
   async getJobsByRecruiterId(recruiterId: number): Promise<Job[]> {

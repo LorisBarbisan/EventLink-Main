@@ -172,6 +172,14 @@ function AdminDashboardContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
+  // Jobs Tab State
+  const [jobSearch, setJobSearch] = useState("");
+  const [jobStatusFilter, setJobStatusFilter] = useState("all");
+  const [jobTypeFilter, setJobTypeFilter] = useState("all");
+  const [jobSortBy, setJobSortBy] = useState("created_at");
+  const [jobSortOrder, setJobSortOrder] = useState<"asc" | "desc">("desc");
+  const [jobCurrentPage, setJobCurrentPage] = useState(1);
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ userId, status }: { userId: number; status: string }) => {
       await apiRequest(`/api/admin/users/${userId}/status`, {
@@ -203,7 +211,7 @@ function AdminDashboardContent() {
   useEffect(() => {
     const handleHashSync = () => {
       const hash = window.location.hash.replace("#", "");
-      const validTabs = ["overview", "users", "feedback", "contact", "admin-management"];
+      const validTabs = ["overview", "users", "jobs", "feedback", "contact", "admin-management"];
       if (hash && validTabs.includes(hash)) {
         setActiveTab(prev => (prev !== hash ? hash : prev));
       }
@@ -292,6 +300,48 @@ function AdminDashboardContent() {
     placeholderData: keepPreviousData,
   });
 
+  // Jobs query
+  const { data: jobsData, isLoading: jobsLoading } = useQuery<{
+    jobs: Array<{
+      id: number;
+      title: string;
+      company: string;
+      location: string;
+      type: string;
+      rate: string;
+      status: string;
+      external_source?: string | null;
+      created_at: string;
+      event_date?: string;
+      end_date?: string;
+      application_count: number;
+      hired_count: number;
+      recruiter_email?: string;
+      recruiter_name?: string;
+    }>;
+    total: number;
+    totalPages: number;
+    page: number;
+    limit: number;
+  }>({
+    queryKey: ["/api/admin/jobs", jobCurrentPage, jobSearch, jobStatusFilter, jobTypeFilter, jobSortBy, jobSortOrder],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.append("page", jobCurrentPage.toString());
+      params.append("limit", itemsPerPage.toString());
+      if (jobSearch) params.append("search", jobSearch);
+      if (jobStatusFilter !== "all") params.append("status", jobStatusFilter);
+      if (jobTypeFilter !== "all") params.append("type", jobTypeFilter);
+      params.append("sortBy", jobSortBy);
+      params.append("sortOrder", jobSortOrder);
+      return apiRequest(`/api/admin/jobs?${params.toString()}`);
+    },
+    retry: 1,
+    staleTime: 0,
+    gcTime: 0,
+    placeholderData: keepPreviousData,
+  });
+
   // Admin users query
   const {
     data: adminUsers,
@@ -321,6 +371,10 @@ function AdminDashboardContent() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, roleFilter, statusFilter, profileStatusFilter, sortBy, sortOrder]);
+
+  useEffect(() => {
+    setJobCurrentPage(1);
+  }, [jobSearch, jobStatusFilter, jobTypeFilter, jobSortBy, jobSortOrder]);
 
   // Automatically mark notifications as read when the relevant tab is active
   useEffect(() => {
@@ -498,7 +552,7 @@ function AdminDashboardContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
             Overview
@@ -516,6 +570,10 @@ function AdminDashboardContent() {
             <Mail className="w-4 h-4" />
             Contact
             <TabBadge count={counts.contact_messages} />
+          </TabsTrigger>
+          <TabsTrigger value="jobs" className="flex items-center gap-2">
+            <Briefcase className="w-4 h-4" />
+            Jobs
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
@@ -912,6 +970,221 @@ function AdminDashboardContent() {
                         </div>
                       </div>
                     ))
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Jobs Tab */}
+        <TabsContent value="jobs" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="w-5 h-5" />
+                All Jobs
+                {jobsData && (
+                  <Badge variant="secondary" className="ml-2">
+                    {jobsData.total} total
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {jobsLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex gap-4 flex-wrap">
+                    <div className="flex-1 min-w-[200px]">
+                      <Input
+                        placeholder="Search by title, company, or location..."
+                        value={jobSearch}
+                        onChange={e => setJobSearch(e.target.value)}
+                        className="max-w-sm"
+                      />
+                    </div>
+                    <Select value={jobStatusFilter} onValueChange={setJobStatusFilter}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="paused">Paused</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                        <SelectItem value="private">Private</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="internal">EventLink</SelectItem>
+                        <SelectItem value="external">External</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={jobSortBy} onValueChange={setJobSortBy}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="created_at">Date Created</SelectItem>
+                        <SelectItem value="title">Title</SelectItem>
+                        <SelectItem value="company">Company</SelectItem>
+                        <SelectItem value="status">Status</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={jobSortOrder} onValueChange={(v) => setJobSortOrder(v as "asc" | "desc")}>
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue placeholder="Order" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="desc">Newest</SelectItem>
+                        <SelectItem value="asc">Oldest</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Company</TableHead>
+                          <TableHead>Location</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Source</TableHead>
+                          <TableHead>Applications</TableHead>
+                          <TableHead>Hired</TableHead>
+                          <TableHead>Event Date</TableHead>
+                          <TableHead>Posted By</TableHead>
+                          <TableHead>Created</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(jobsData?.jobs || []).length > 0 ? (
+                          (jobsData?.jobs || []).map((job) => (
+                            <TableRow key={job.id} className="h-10">
+                              <TableCell className="py-2 font-medium max-w-[200px] truncate" title={job.title}>
+                                {job.title}
+                              </TableCell>
+                              <TableCell className="py-2 max-w-[150px] truncate" title={job.company}>
+                                {job.company}
+                              </TableCell>
+                              <TableCell className="py-2 max-w-[120px] truncate" title={job.location}>
+                                {job.location}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <Badge
+                                  variant={
+                                    job.status === "active"
+                                      ? "default"
+                                      : job.status === "paused"
+                                        ? "secondary"
+                                        : job.status === "closed"
+                                          ? "destructive"
+                                          : "outline"
+                                  }
+                                  className={
+                                    job.status === "active"
+                                      ? "bg-green-600 hover:bg-green-700"
+                                      : ""
+                                  }
+                                >
+                                  {job.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="py-2">
+                                {job.external_source ? (
+                                  <Badge variant="outline" className="text-xs">
+                                    {job.external_source}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="default" className="text-xs bg-orange-600 hover:bg-orange-700">
+                                    EventLink
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2 text-center">
+                                <Badge variant="secondary">{job.application_count}</Badge>
+                              </TableCell>
+                              <TableCell className="py-2 text-center">
+                                {job.hired_count > 0 ? (
+                                  <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                                    {job.hired_count}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">0</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2 text-xs">
+                                {job.event_date || "-"}
+                                {job.end_date ? ` - ${job.end_date}` : ""}
+                              </TableCell>
+                              <TableCell className="py-2 text-xs max-w-[150px] truncate" title={job.recruiter_name || job.recruiter_email || "External"}>
+                                {job.recruiter_name || job.recruiter_email || "External"}
+                              </TableCell>
+                              <TableCell className="py-2 text-xs">
+                                {new Date(job.created_at).toLocaleDateString()}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={10} className="h-24 text-center">
+                              No jobs found.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {(jobsData?.totalPages || 1) > 1 && (
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => setJobCurrentPage(prev => Math.max(prev - 1, 1))}
+                            className={
+                              jobCurrentPage === 1
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
+                          />
+                        </PaginationItem>
+                        {Array.from({ length: jobsData?.totalPages || 1 }, (_, i) => i + 1).map(page => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setJobCurrentPage(page)}
+                              isActive={jobCurrentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => setJobCurrentPage(prev => Math.min(prev + 1, jobsData?.totalPages || 1))}
+                            className={
+                              jobCurrentPage === (jobsData?.totalPages || 1)
+                                ? "pointer-events-none opacity-50"
+                                : "cursor-pointer"
+                            }
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
                   )}
                 </div>
               )}
