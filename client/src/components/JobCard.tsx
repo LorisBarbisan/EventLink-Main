@@ -1,5 +1,6 @@
 import { MessageModal } from "@/components/MessageModal";
 import { RatingDialog } from "@/components/RatingDialog";
+import { ShareJobButton } from "@/components/ShareJobButton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -254,6 +255,7 @@ export function JobCard({
                 Publish
               </Button>
             )}
+            <ShareJobButton job={job} size="sm" />
             {job.status === "active" && onUnpublish && (
               <Button
                 variant="outline"

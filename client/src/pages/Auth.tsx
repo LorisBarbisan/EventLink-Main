@@ -469,7 +469,7 @@ export default function Auth() {
                 Please sign in to rate
               </h3>
               <p className="inline text-sm text-yellow-800 dark:text-yellow-400 sm:block">
-                You need to log in or create a <strong>recruiter</strong> account to submit a rating
+                You need to log in or create an <strong>employer</strong> account to submit a rating
                 for this freelancer.
               </p>
             </div>
@@ -598,7 +598,7 @@ export default function Auth() {
                         <div className="flex items-center space-x-2">
                           <span className="h-4 w-4 text-primary">🏢</span>
                           <Label htmlFor="recruiter" className="cursor-pointer">
-                            Recruiter
+                            Employer
                           </Label>
                         </div>
                       </div>

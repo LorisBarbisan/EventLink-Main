@@ -36,7 +36,7 @@ export default function FAQ() {
           id: "account-1",
           question: "How do I create an EventLink account?",
           answer:
-            "You can sign up for free by clicking 'Sign Up' on the homepage. Choose whether you're a freelancer or a recruiter and fill in the required information.",
+            "You can sign up for free by clicking 'Sign Up' on the homepage. Choose whether you're a freelancer or an employer and fill in the required information.",
         },
         {
           id: "account-2",
@@ -65,7 +65,7 @@ export default function FAQ() {
           id: "jobs-1",
           question: "How do I post a job?",
           answer:
-            "Recruiters can post jobs by clicking 'Post a New Job' in their dashboard or header menu.",
+            "Employers can post jobs by clicking 'Post a New Job' in their dashboard or header menu.",
         },
         {
           id: "jobs-2",
@@ -75,7 +75,7 @@ export default function FAQ() {
         {
           id: "jobs-3",
           question: "How do I know if my application was viewed?",
-          answer: "You'll receive a dashboard notification when a recruiter views your profile.",
+          answer: "You'll receive a dashboard notification when an employer views your profile.",
         },
         {
           id: "jobs-4",
@@ -89,7 +89,7 @@ export default function FAQ() {
       questions: [
         {
           id: "messaging-1",
-          question: "How do I contact a recruiter or freelancer?",
+          question: "How do I contact an employer or freelancer?",
           answer: "You can message them directly from their profile or from your message inbox.",
         },
         {
@@ -106,7 +106,7 @@ export default function FAQ() {
           id: "ratings-1",
           question: "How does the star rating system work?",
           answer:
-            "After a job is completed, recruiters can rate freelancers from 1 to 5 stars. Ratings appear on profiles.",
+            "After a job is completed, employers can rate freelancers from 1 to 5 stars. Ratings appear on profiles.",
         },
         {
           id: "ratings-2",
@@ -128,7 +128,7 @@ export default function FAQ() {
           id: "privacy-2",
           question: "Who can see my profile?",
           answer:
-            "Recruiters and Freelancers can view freelancer profiles; freelancers can view recruiter job listings.",
+            "Employers and Freelancers can view freelancer profiles; freelancers can view employer job listings.",
         },
         {
           id: "privacy-3",

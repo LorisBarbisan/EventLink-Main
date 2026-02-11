@@ -44,11 +44,11 @@ export default function About() {
             </p>
 
             <p>
-              For freelancers, EventLink provides a professional space to showcase skills, experience, and availability, receive relevant job alerts, and build a visible reputation through ratings. For recruiters and event teams, it offers a straightforward way to post roles, discover talent, and connect directly with the people they need to deliver successful events.
+              For freelancers, EventLink provides a professional space to showcase skills, experience, and availability, receive relevant job alerts, and build a visible reputation through ratings. For employers and event teams, it offers a straightforward way to post roles, discover talent, and connect directly with the people they need to deliver successful events.
             </p>
 
             <p className="font-semibold text-foreground">
-              EventLink is not an agency. It does not take a cut, mediate relationships, or restrict how people work. Freelancers remain fully independent, and recruiters retain complete control over their hiring decisions. The platform simply provides the tools to help both sides connect more efficiently.
+              EventLink is not an agency. It does not take a cut, mediate relationships, or restrict how people work. Freelancers remain fully independent, and employers retain complete control over their hiring decisions. The platform simply provides the tools to help both sides connect more efficiently.
             </p>
 
             <p>

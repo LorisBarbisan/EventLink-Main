@@ -85,7 +85,7 @@ export const Footer = () => {
                       toast({
                         title: "Access Denied",
                         description:
-                          "Only recruiters can post jobs. Please sign in with a recruiter account.",
+                          "Only employers can post jobs. Please sign in with an employer account.",
                         variant: "destructive",
                       });
                     } else if (user.role === "recruiter") {

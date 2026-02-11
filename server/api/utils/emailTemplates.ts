@@ -159,7 +159,7 @@ export function applicationUpdateEmail(data: {
         ? `
       <div style="background-color: #f0fdf4; border-left: 4px solid #22c55e; padding: 16px; margin: 16px 0; border-radius: 4px;">
         <p style="margin: 0; color: #166534;">
-          <strong>Congratulations!</strong> The recruiter has selected you for this position.
+          <strong>Congratulations!</strong> The employer has selected you for this position.
           Check your dashboard for next steps.
         </p>
       </div>

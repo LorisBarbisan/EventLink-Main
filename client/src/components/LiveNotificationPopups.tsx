@@ -116,7 +116,7 @@ export function LiveNotificationPopups({ enabled = true }: LiveNotificationPopup
   const showRatingRequestPopup = (request: any) => {
     toast({
       title: "⭐ Rating Request",
-      description: `A recruiter would like you to rate your experience working on "${request.job_title || "a recent job"}". Your feedback helps build trust in the EventLink community.`,
+      description: `An employer would like you to rate your experience working on "${request.job_title || "a recent job"}". Your feedback helps build trust in the EventLink community.`,
       duration: 8000,
       className: "w-96 p-6", // Bigger notification
       action: (

@@ -159,7 +159,7 @@ export function NewConversationModal({
               }}
             >
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="recruiters">Recruiters</TabsTrigger>
+                <TabsTrigger value="recruiters">Employers</TabsTrigger>
                 <TabsTrigger value="freelancers">Freelancers</TabsTrigger>
               </TabsList>
             </Tabs>
@@ -167,7 +167,7 @@ export function NewConversationModal({
 
           <div className="space-y-2">
             <Label htmlFor="search">
-              Search {contactType === "recruiters" ? "Recruiters" : "Freelancers"}
+              Search {contactType === "recruiters" ? "Employers" : "Freelancers"}
             </Label>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -214,7 +214,7 @@ export function NewConversationModal({
                     <p className="text-sm text-muted-foreground">{getDisplaySubtext(profile)}</p>
                   </div>
                   <Badge variant="outline" className="capitalize">
-                    {currentUser.role === "freelancer" ? "recruiter" : "freelancer"}
+                    {currentUser.role === "freelancer" ? "employer" : "freelancer"}
                   </Badge>
                 </div>
               ))

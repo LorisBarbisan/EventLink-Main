@@ -2,7 +2,7 @@
 
 ## Overview
 
-EventLink is a freelance marketplace platform tailored for the events industry, connecting event professionals (freelancers) with recruiters and companies. Its primary purpose is to streamline the hiring process for event staff by providing detailed profiles, job posting capabilities, and integrated communication tools. The platform aims to be a leading solution for event staffing needs.
+EventLink is a freelance marketplace platform tailored for the events industry, connecting event professionals (freelancers) with employers and companies. Its primary purpose is to streamline the hiring process for event staff by providing detailed profiles, job posting capabilities, and integrated communication tools. The platform aims to be a leading solution for event staffing needs.
 
 ## User Preferences
 
@@ -41,6 +41,7 @@ The EventLink platform utilizes a modern web application stack designed for effi
 - **Job Search & Filtering**: Comprehensive server-side search system with keyword, location, and date range filters. EventLink jobs are prioritized above external jobs, with visual distinction badges ("EventLink Opportunity" vs. "External • [source]").
 - **Freelancer Search ("Find Crew")**: Server-side search with weighted relevance scoring (40% title, 30% skills, 20% bio, 10% rating), pagination (20 results/page), keyword/location filters, and rating integration. Performance optimized with database indexes achieving <400ms response time.
 - **Email Notification System**: Comprehensive notification system with user-configurable preferences via dedicated settings page accessible from account dropdown. Supports role-based notifications (freelancers vs. recruiters) including message alerts, application updates, job alerts with filters, and rating requests. Branded email templates with EventLink orange gradient (#D8690E) and full logging for debugging and reliability tracking. Email addressing logic prioritizes company name (from Settings) for recruiters, falling back to user's full name, then email. **Note: Currently blocked by SendGrid account credit limitations.**
+- **Job Social Sharing & Rich Link Previews**: Recruiters can share active jobs via a Share button (copy link, LinkedIn, WhatsApp, Facebook, Email). Server-side OG tag injection middleware serves rich previews to social media crawlers (LinkedIn, Facebook, WhatsApp, X) with job title, company, location, rate, and dates. Public job detail page at `/jobs/:id` allows non-logged-in users to view and sign in to apply. Privacy controls ensure only active jobs are shareable; private/closed/deleted jobs show appropriate messages. Foundational analytics via `job_link_views` table tracks link views with source attribution.
 
 ## External Dependencies
 

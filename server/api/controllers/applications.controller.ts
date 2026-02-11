@@ -265,7 +265,7 @@ export async function acceptApplication(req: Request, res: Response) {
       user_id: application.freelancer_id,
       type: "application_update",
       title: "Application Accepted!",
-      message: `Congratulations! Your application for "${job.title}" at ${job.company} has been accepted. The recruiter will contact you soon.`,
+      message: `Congratulations! Your application for "${job.title}" at ${job.company} has been accepted. The employer will contact you soon.`,
       priority: "high",
       related_entity_type: "application",
       related_entity_id: applicationId,
@@ -354,7 +354,7 @@ export async function rejectApplication(req: Request, res: Response) {
       user_id: application.freelancer_id,
       type: "application_update",
       title: "Application Update",
-      message: `Your application for "${job.title}" at ${job.company} was not selected this time. ${req.body.message ? "The recruiter left you feedback." : ""}`,
+      message: `Your application for "${job.title}" at ${job.company} was not selected this time. ${req.body.message ? "The employer left you feedback." : ""}`,
       priority: "normal",
       related_entity_type: "application",
       related_entity_id: applicationId,
@@ -486,7 +486,7 @@ export async function inviteFreelancer(req: Request, res: Response) {
     }
 
     if ((req as any).user.role !== "recruiter" && (req as any).user.role !== "admin") {
-      return res.status(403).json({ error: "Only recruiters can invite freelancers" });
+      return res.status(403).json({ error: "Only employers can invite freelancers" });
     }
 
     // Check if job exists and user owns it
@@ -529,7 +529,7 @@ export async function inviteFreelancer(req: Request, res: Response) {
       user_id: freelancerId,
       type: "application_update", // Using application_update or maybe 'system' for invites
       title: "Job Invitation",
-      message: `${(req as any).user.first_name || "A recruiter"} invited you to apply for "${job.title}" at ${job.company}`,
+      message: `${(req as any).user.first_name || "An employer"} invited you to apply for "${job.title}" at ${job.company}`,
       priority: "high",
       related_entity_type: "application",
       related_entity_id: application.id,
