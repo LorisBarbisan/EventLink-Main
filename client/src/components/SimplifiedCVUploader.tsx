@@ -86,7 +86,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
   });
 
   const showExtractButton = currentCV?.fileName && 
-    (!parsingStatus || parsingStatus.status === "none" || parsingStatus.status === "confirmed" || parsingStatus.status === "rejected" || parsingStatus.status === "failed");
+    (!parsingStatus || parsingStatus.status !== "parsing" && parsingStatus.status !== "pending");
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
