@@ -70,6 +70,12 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     },
   });
 
+  useEffect(() => {
+    if (parsingStatus?.status === "parsing" || parsingStatus?.status === "pending" || parsingStatus?.status === "completed") {
+      setDismissed(false);
+    }
+  }, [parsingStatus?.status]);
+
   const handleWebSocketEvent = useCallback((data: any) => {
     if (data.type === "cv_parsing_update") {
       console.log("📡 WebSocket: CV parsing update received:", data.status);
