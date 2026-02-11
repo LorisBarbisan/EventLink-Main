@@ -49,6 +49,7 @@ interface ParsingStatus {
 export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsingReviewProps) {
   const { toast } = useToast();
   const { subscribe } = useWebSocket();
+  const [dismissed, setDismissed] = useState(false);
   const [selectedFields, setSelectedFields] = useState<Record<string, boolean>>({
     fullName: true,
     title: true,
@@ -102,6 +103,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       });
     },
     onSuccess: (data) => {
+      setDismissed(true);
       toast({
         title: "Profile updated",
         description: `${data.fieldsUpdated?.length || 0} fields updated from your CV.`,
@@ -143,6 +145,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       });
     },
     onSuccess: () => {
+      setDismissed(true);
       toast({
         title: "Suggestions dismissed",
         description: "You can always edit your profile manually.",
@@ -194,7 +197,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     );
   }
 
-  if (!parsingStatus || parsingStatus.status === "none" || parsingStatus.status === "confirmed" || parsingStatus.status === "rejected") {
+  if (dismissed || !parsingStatus || parsingStatus.status === "none" || parsingStatus.status === "confirmed" || parsingStatus.status === "rejected") {
     return null;
   }
 
