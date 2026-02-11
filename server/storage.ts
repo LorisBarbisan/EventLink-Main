@@ -1226,7 +1226,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(jobs.recruiter_id, recruiterId),
           or(eq(jobs.status, "active"), isNull(jobs.status)),
-          sql`${jobs.event_date} IS NOT NULL AND ${jobs.event_date} < ${today}`
+          sql`${jobs.event_date} IS NOT NULL AND ${jobs.event_date}::date < ${today}::date`
         )
       );
 
@@ -1299,7 +1299,7 @@ export class DatabaseStorage implements IStorage {
       // Exclude jobs whose event_date has passed
       const today = new Date().toISOString().split("T")[0];
       conditions.push(
-        or(isNull(jobs.event_date), sql`${jobs.event_date} >= ${today}`)
+        or(isNull(jobs.event_date), sql`${jobs.event_date}::date >= ${today}::date`)
       );
 
       // Keyword search: title, description, or company (case-insensitive)

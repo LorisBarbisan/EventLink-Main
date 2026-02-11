@@ -262,7 +262,7 @@ export function JobCard({
                 Publish
               </Button>
             )}
-            <ShareJobButton job={job} size="sm" />
+            {job.status !== "closed" && <ShareJobButton job={job} size="sm" />}
             {job.status === "active" && onUnpublish && (
               <Button
                 variant="outline"
@@ -274,7 +274,7 @@ export function JobCard({
                 Make Private
               </Button>
             )}
-            {onEdit && (
+            {onEdit && job.status !== "closed" && (
               <Button
                 variant="outline"
                 size="sm"
