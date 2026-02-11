@@ -68,16 +68,14 @@ export default function JobDetail() {
 
   const applyMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("/api/applications", {
+      return await apiRequest("/api/applications", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           job_id: parseInt(jobId!),
           freelancer_id: user!.id,
           cover_letter: coverLetter || undefined,
         }),
       });
-      return res.json();
     },
     onSuccess: () => {
       toast({ title: "Application submitted", description: "Your application has been sent to the employer." });
