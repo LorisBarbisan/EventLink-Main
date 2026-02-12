@@ -257,7 +257,6 @@ export async function acceptApplication(req: Request, res: Response) {
       return res.status(403).json({ error: "Not authorized to accept this application" });
     }
 
-    // Mark application as hired (this also automatically closes the job)
     await storage.updateApplicationStatus(applicationId, "hired");
 
     // Create notification for freelancer

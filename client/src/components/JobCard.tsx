@@ -161,7 +161,7 @@ export function JobCard({
                       ? "Expired"
                       : job.status}
               </Badge>
-              {job.status === "private" && invitedCount > 0 && (
+              {job.status !== "closed" && invitedCount > 0 && (
                 <Badge
                   variant="outline"
                   className={`text-blue-600 border-blue-200 bg-blue-50 ${
@@ -241,7 +241,7 @@ export function JobCard({
             {job.status === "closed" && (
               <span className="text-xs text-red-600 font-medium self-center mr-2">Event date passed</span>
             )}
-            {job.status === "private" && onInvite && (
+            {job.status !== "closed" && onInvite && (
               <Button
                 variant="outline"
                 size="sm"
@@ -252,18 +252,7 @@ export function JobCard({
                 Invite
               </Button>
             )}
-            {job.status === "private" && onPublish && (
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={() => onPublish(job.id)}
-              >
-                <Send className="w-4 h-4 mr-2" />
-                Publish
-              </Button>
-            )}
-            {job.status !== "closed" && <ShareJobButton job={job} size="sm" />}
-            {job.status === "active" && onUnpublish && (
+            {job.status !== "closed" && job.status === "active" && onUnpublish && (
               <Button
                 variant="outline"
                 size="sm"
@@ -271,9 +260,20 @@ export function JobCard({
                 onClick={() => onUnpublish(job.id)}
               >
                 <EyeOff className="w-4 h-4 mr-2" />
-                Make Private
+                Unpost
               </Button>
             )}
+            {job.status !== "closed" && job.status !== "active" && onPublish && (
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => onPublish(job.id)}
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Post
+              </Button>
+            )}
+            {job.status !== "closed" && <ShareJobButton job={job} size="sm" />}
             {onEdit && job.status !== "closed" && (
               <Button
                 variant="outline"
