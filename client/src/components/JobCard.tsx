@@ -34,6 +34,7 @@ import {
   User,
   UserPlus,
   Users,
+  XCircle,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -51,6 +52,7 @@ interface JobCardProps {
   onUnpublish?: (jobId: number) => void;
   onInvite?: (jobId: number) => void;
   onViewInvited?: (jobId: number) => void;
+  onClose?: (jobId: number) => void;
   invitedCount?: number;
 }
 
@@ -68,6 +70,7 @@ export function JobCard({
   onUnpublish,
   onInvite,
   onViewInvited,
+  onClose,
   invitedCount = 0,
 }: JobCardProps) {
   const [messageModalOpen, setMessageModalOpen] = useState(false);
@@ -77,7 +80,6 @@ export function JobCard({
   const [showRatingDialog, setShowRatingDialog] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
 
-  // Helper function to format duration display
   const formatDuration = (job: Job): string | null => {
     if (!job.duration_type) return null;
 
@@ -103,7 +105,6 @@ export function JobCard({
   };
 
   const handleProfileView = (userId: number) => {
-    // Navigate directly to the freelancer's profile page
     window.open(`/profile/${userId}`, "_blank");
   };
 
@@ -125,43 +126,41 @@ export function JobCard({
     setShowRatingDialog(true);
   };
 
+  const isClosed = job.status === "closed";
+  const isPosted = job.status === "active";
+  const isUnposted = job.status === "private";
+
   return (
     <Card>
       <CardContent className="p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <h3 className="text-lg font-semibold">{job.title}</h3>
-              <Badge
-                variant={
-                  job.status === "active"
-                    ? "default"
-                    : job.status === "paused"
-                      ? "secondary"
-                      : job.status === "private"
-                        ? "secondary"
-                        : "outline"
-                }
-                className={
-                  job.status === "private"
-                    ? "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200"
-                    : job.status === "active"
-                      ? "bg-green-100 text-green-800 hover:bg-green-200 border-green-200"
-                      : job.status === "closed"
-                        ? "bg-red-100 text-red-800 hover:bg-red-200 border-red-200"
-                        : ""
-                }
-              >
-                {job.status === "private" && <Lock className="w-3 h-3 mr-1" />}
-                {job.status === "active"
-                  ? "Public"
-                  : job.status === "private"
-                    ? "Private"
-                    : job.status === "closed"
-                      ? "Expired"
-                      : job.status}
-              </Badge>
-              {job.status === "private" && invitedCount > 0 && (
+              {isPosted && (
+                <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-green-200">
+                  <Eye className="w-3 h-3 mr-1" />
+                  Posted
+                </Badge>
+              )}
+              {isUnposted && (
+                <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200">
+                  <Lock className="w-3 h-3 mr-1" />
+                  Unposted
+                </Badge>
+              )}
+              {isClosed && (
+                <Badge className="bg-red-100 text-red-800 hover:bg-red-200 border-red-200">
+                  <XCircle className="w-3 h-3 mr-1" />
+                  Closed
+                </Badge>
+              )}
+              {!isClosed && (
+                <Badge variant="outline" className="text-blue-700 border-blue-300">
+                  Open
+                </Badge>
+              )}
+              {invitedCount > 0 && (
                 <Badge
                   variant="outline"
                   className={`text-blue-600 border-blue-200 bg-blue-50 ${
@@ -237,11 +236,11 @@ export function JobCard({
             </div>
           </div>
 
-          <div className="flex flex-row gap-2 sm:ml-4 w-full sm:w-auto justify-end sm:justify-start">
-            {job.status === "closed" && (
-              <span className="text-xs text-red-600 font-medium self-center mr-2">Event date passed</span>
+          <div className="flex flex-row gap-2 sm:ml-4 w-full sm:w-auto justify-end sm:justify-start flex-wrap">
+            {isClosed && (
+              <span className="text-xs text-red-600 font-medium self-center mr-2">Closed</span>
             )}
-            {job.status === "private" && onInvite && (
+            {!isClosed && onInvite && (
               <Button
                 variant="outline"
                 size="sm"
@@ -252,29 +251,100 @@ export function JobCard({
                 Invite
               </Button>
             )}
-            {job.status === "private" && onPublish && (
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={() => onPublish(job.id)}
-              >
-                <Send className="w-4 h-4 mr-2" />
-                Publish
-              </Button>
+            {isUnposted && onPublish && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Send className="w-4 h-4 mr-2" />
+                    Post
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Post Job</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will make &quot;{job.title}&quot; visible to all freelancers on the Find Jobs page. Are you sure?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => onPublish(job.id)}
+                    >
+                      Post Job
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
-            {job.status !== "closed" && <ShareJobButton job={job} size="sm" />}
-            {job.status === "active" && onUnpublish && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-amber-700 border-amber-200 hover:bg-amber-50 hover:text-amber-800"
-                onClick={() => onUnpublish(job.id)}
-              >
-                <EyeOff className="w-4 h-4 mr-2" />
-                Make Private
-              </Button>
+            {!isClosed && <ShareJobButton job={job} size="sm" />}
+            {isPosted && onUnpublish && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-amber-700 border-amber-200 hover:bg-amber-50 hover:text-amber-800"
+                  >
+                    <EyeOff className="w-4 h-4 mr-2" />
+                    Unpost
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Unpost Job</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will remove &quot;{job.title}&quot; from the public Find Jobs page. Freelancers will only be able to access it via invitation. Are you sure?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-amber-600 hover:bg-amber-700"
+                      onClick={() => onUnpublish(job.id)}
+                    >
+                      Unpost Job
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
-            {onEdit && job.status !== "closed" && (
+            {!isClosed && onClose && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Close
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Close Job</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Closing &quot;{job.title}&quot; will stop all new applications and disable invitations. The job will remain visible in your dashboard. This action cannot be undone. Are you sure?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={() => onClose(job.id)}
+                    >
+                      Close Job
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            {onEdit && !isClosed && (
               <Button
                 variant="outline"
                 size="sm"
@@ -314,7 +384,6 @@ export function JobCard({
           </div>
         </div>
 
-        {/* Hired Applicants Details - Expandable Section */}
         {showHiredSection && isExpanded && hiredApplicants.length > 0 && (
           <div className="mt-4 pt-4 border-t border-border">
             <h4 className="font-medium mb-3 flex items-center gap-2">
@@ -386,7 +455,6 @@ export function JobCard({
                     </div>
                   </div>
 
-                  {/* Review Display Section */}
                   {(applicant as any).review && (
                     <div className="mt-2 flex flex-col items-end">
                       <div className="text-right max-w-md">
@@ -406,7 +474,6 @@ export function JobCard({
         )}
       </CardContent>
 
-      {/* Message Modal */}
       {selectedFreelancer && (
         <MessageModal
           isOpen={messageModalOpen}
@@ -420,7 +487,6 @@ export function JobCard({
         />
       )}
 
-      {/* Rating Dialog */}
       {selectedApplication && (
         <RatingDialog
           open={showRatingDialog}

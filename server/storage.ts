@@ -1812,20 +1812,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(job_applications.id, applicationId))
       .returning();
 
-    // If hiring a freelancer, close the job posting
-    if (status === "hired") {
-      const application = result[0];
-      if (application?.job_id) {
-        await db
-          .update(jobs)
-          .set({
-            status: "closed",
-            updated_at: sql`now()`,
-          })
-          .where(eq(jobs.id, application.job_id));
-      }
-    }
-
     // Clear cached application lists so refetches get fresh data
     cache.clearPattern("freelancer-applications-");
     cache.clearPattern("recruiter-applications-");

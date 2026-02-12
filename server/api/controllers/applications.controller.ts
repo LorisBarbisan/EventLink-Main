@@ -50,6 +50,10 @@ export async function applyToJob(req: Request, res: Response) {
       return res.status(404).json({ error: "Job not found" });
     }
 
+    if (job.status === "closed") {
+      return res.status(400).json({ error: "This job is no longer accepting applications" });
+    }
+
     // Check if already applied
     let existingApplications: JobApplication[] = [];
     try {
@@ -497,6 +501,10 @@ export async function inviteFreelancer(req: Request, res: Response) {
 
     if ((req as any).user.role !== "admin" && job.recruiter_id !== (req as any).user.id) {
       return res.status(403).json({ error: "Not authorized to invite to this job" });
+    }
+
+    if (job.status === "closed") {
+      return res.status(400).json({ error: "This job is closed and no longer accepting invitations" });
     }
 
     // Check if already applied/invited

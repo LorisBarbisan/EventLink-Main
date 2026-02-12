@@ -303,7 +303,7 @@ export default function SimplifiedRecruiterDashboard() {
     },
   });
 
-  // Unpublish job mutation (Make Private)
+  // Unpublish job mutation (Unpost)
   const unpublishJobMutation = useMutation({
     mutationFn: async (jobId: number) => {
       return await apiRequest(`/api/jobs/${jobId}`, {
@@ -317,14 +317,40 @@ export default function SimplifiedRecruiterDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({
         title: "Success",
-        description: "Job is now private.",
+        description: "Job has been unposted and is no longer visible publicly.",
       });
     },
     onError: (error: any) => {
       console.error("❌ Job unpublish error:", error);
       toast({
         title: "Error",
-        description: "Failed to make job private. Please try again.",
+        description: "Failed to unpost job. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Close job mutation
+  const closeJobMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      return await apiRequest(`/api/jobs/${jobId}/close`, {
+        method: "PUT",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/recruiter", user?.id, "applications"] });
+      toast({
+        title: "Job Closed",
+        description: "Job has been closed. No more applications or invitations will be accepted.",
+      });
+    },
+    onError: (error: any) => {
+      console.error("❌ Job close error:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to close job. Please try again.",
         variant: "destructive",
       });
     },
@@ -415,6 +441,10 @@ export default function SimplifiedRecruiterDashboard() {
 
   const handleJobUnpublish = (jobId: number) => {
     unpublishJobMutation.mutate(jobId);
+  };
+
+  const handleJobClose = (jobId: number) => {
+    closeJobMutation.mutate(jobId);
   };
 
   const handleJobInvite = (jobId: number) => {
@@ -547,6 +577,7 @@ export default function SimplifiedRecruiterDashboard() {
                   onPublish={handlePublishJob}
                   onUnpublish={handleJobUnpublish}
                   onInvite={handleJobInvite}
+                  onClose={handleJobClose}
                   onViewInvited={handleViewInvited}
                   onExpandToggle={toggleJobExpansion}
                   isExpanded={expandedJobs.has(job.id)}
@@ -631,6 +662,9 @@ export default function SimplifiedRecruiterDashboard() {
           alreadyInvitedIds={applications
             .filter((app: JobApplication) => app.job_id === selectedJobForInvite.id)
             .map((app: JobApplication) => app.freelancer_id)}
+          existingApplications={applications
+            .filter((app: JobApplication) => app.job_id === selectedJobForInvite.id)
+            .map((app: JobApplication) => ({ freelancer_id: app.freelancer_id, status: app.status }))}
         />
       )}
 
