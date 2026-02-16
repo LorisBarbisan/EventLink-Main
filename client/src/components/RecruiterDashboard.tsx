@@ -46,6 +46,12 @@ export default function SimplifiedRecruiterDashboard() {
   const [crewSearch, setCrewSearch] = useState("");
   const [crewLocation, setCrewLocation] = useState("");
 
+  const [jobSearch, setJobSearch] = useState("");
+  const [jobStatusFilter, setJobStatusFilter] = useState<"all" | "active" | "private" | "closed">("all");
+
+  const [appSearch, setAppSearch] = useState("");
+  const [appStatusFilter, setAppStatusFilter] = useState<"all" | "applied" | "hired" | "invited" | "rejected" | "declined">("all");
+
   // Get badge counts for tabs
   const { roleSpecificCounts, markCategoryAsRead } = useBadgeCounts({
     enabled: !!user?.id,
@@ -753,6 +759,31 @@ export default function SimplifiedRecruiterDashboard() {
             </Button>
           </div>
 
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by title or location..."
+                value={jobSearch}
+                onChange={(e) => setJobSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {(["all", "active", "private", "closed"] as const).map((s) => (
+                <Button
+                  key={s}
+                  variant={jobStatusFilter === s ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setJobStatusFilter(s)}
+                  className={jobStatusFilter === s ? "bg-orange-500 hover:bg-orange-600" : ""}
+                >
+                  {s === "all" ? "All" : s === "active" ? "Posted" : s === "private" ? "Unposted" : "Closed"}
+                </Button>
+              ))}
+            </div>
+          </div>
+
           {(showJobForm || editingJob) && (
             <JobForm
               initialData={editingJob}
@@ -766,41 +797,59 @@ export default function SimplifiedRecruiterDashboard() {
           <div className="space-y-4">
             {jobsLoading ? (
               <div className="flex justify-center p-8">Loading jobs...</div>
-            ) : myJobs.length > 0 ? (
-              myJobs.map((job: Job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  hiredApplicants={getHiredApplicantsForJob(job.id)}
-                  applicantCount={getApplicantCountForJob(job.id)}
-                  invitedCount={getInvitedCountForJob(job.id)}
-                  onEdit={handleJobEdit}
-                  onDelete={handleJobDelete}
-                  onPublish={handlePublishJob}
-                  onUnpublish={handleJobUnpublish}
-                  onInvite={handleJobInvite}
-                  onClose={handleJobClose}
-                  onViewInvited={handleViewInvited}
-                  onExpandToggle={toggleJobExpansion}
-                  isExpanded={expandedJobs.has(job.id)}
-                  showHiredSection={true}
-                  currentUserId={user?.id || 0}
-                />
-              ))
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Briefcase className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Jobs Posted Yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Start by posting your first job to find talented crew members.
-                  </p>
-                  <Button onClick={() => setShowJobForm(true)} data-testid="button-post-first-job">
-                    Post Your First Job
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+            ) : (() => {
+              const filteredJobs = myJobs.filter((job: Job) => {
+                const searchLower = jobSearch.toLowerCase().trim();
+                const matchesSearch = !searchLower || job.title.toLowerCase().includes(searchLower) || job.location.toLowerCase().includes(searchLower) || job.company.toLowerCase().includes(searchLower);
+                const matchesStatus = jobStatusFilter === "all" || job.status === jobStatusFilter;
+                return matchesSearch && matchesStatus;
+              });
+              return filteredJobs.length > 0 ? (
+                filteredJobs.map((job: Job) => (
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    hiredApplicants={getHiredApplicantsForJob(job.id)}
+                    applicantCount={getApplicantCountForJob(job.id)}
+                    invitedCount={getInvitedCountForJob(job.id)}
+                    onEdit={handleJobEdit}
+                    onDelete={handleJobDelete}
+                    onPublish={handlePublishJob}
+                    onUnpublish={handleJobUnpublish}
+                    onInvite={handleJobInvite}
+                    onClose={handleJobClose}
+                    onViewInvited={handleViewInvited}
+                    onExpandToggle={toggleJobExpansion}
+                    isExpanded={expandedJobs.has(job.id)}
+                    showHiredSection={true}
+                    currentUserId={user?.id || 0}
+                  />
+                ))
+              ) : myJobs.length > 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Matching Jobs</h3>
+                    <p className="text-muted-foreground">
+                      Try adjusting your search or filters.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Briefcase className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Jobs Posted Yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Start by posting your first job to find talented crew members.
+                    </p>
+                    <Button onClick={() => setShowJobForm(true)} data-testid="button-post-first-job">
+                      Post Your First Job
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })()}
           </div>
         </TabsContent>
 
@@ -822,32 +871,76 @@ export default function SimplifiedRecruiterDashboard() {
             <p className="text-muted-foreground">Review and manage job applications</p>
           </div>
 
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or job title..."
+                value={appSearch}
+                onChange={(e) => setAppSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {(["all", "applied", "invited", "hired", "rejected", "declined"] as const).map((s) => (
+                <Button
+                  key={s}
+                  variant={appStatusFilter === s ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAppStatusFilter(s)}
+                  className={appStatusFilter === s ? "bg-orange-500 hover:bg-orange-600" : ""}
+                >
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </Button>
+              ))}
+            </div>
+          </div>
+
           {applicationsLoading ? (
             <div className="flex justify-center p-8">
               <div>Loading applications...</div>
             </div>
-          ) : applications.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No Applications Yet</h3>
-                <p className="text-muted-foreground">
-                  Job applications will appear here when freelancers apply to your posted jobs.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {applications.map((application: JobApplication) => (
-                <ApplicationCard
-                  key={application.id}
-                  application={application}
-                  userType="recruiter"
-                  currentUserId={user.id}
-                />
-              ))}
-            </div>
-          )}
+          ) : (() => {
+            const filteredApps = applications.filter((app: JobApplication) => {
+              const searchLower = appSearch.toLowerCase().trim();
+              const freelancerName = `${app.freelancer_profile?.first_name || ""} ${app.freelancer_profile?.last_name || ""}`.toLowerCase();
+              const matchesSearch = !searchLower || freelancerName.includes(searchLower) || (app.job_title || "").toLowerCase().includes(searchLower) || (app.job_company || "").toLowerCase().includes(searchLower);
+              const matchesStatus = appStatusFilter === "all" || app.status === appStatusFilter;
+              return matchesSearch && matchesStatus;
+            });
+            return filteredApps.length > 0 ? (
+              <div className="space-y-4">
+                {filteredApps.map((application: JobApplication) => (
+                  <ApplicationCard
+                    key={application.id}
+                    application={application}
+                    userType="recruiter"
+                    currentUserId={user.id}
+                  />
+                ))}
+              </div>
+            ) : applications.length > 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Matching Applications</h3>
+                  <p className="text-muted-foreground">
+                    Try adjusting your search or filters.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Applications Yet</h3>
+                  <p className="text-muted-foreground">
+                    Job applications will appear here when freelancers apply to your posted jobs.
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })()}
         </TabsContent>
       </Tabs>
 
