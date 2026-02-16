@@ -796,3 +796,29 @@ export type FreelancerDocument = typeof freelancer_documents.$inferSelect;
 export type InsertFreelancerDocument = z.infer<typeof insertFreelancerDocumentSchema>;
 export type JobLinkView = typeof job_link_views.$inferSelect;
 export type InsertJobLinkView = z.infer<typeof insertJobLinkViewSchema>;
+
+export const saved_freelancers = pgTable(
+  "saved_freelancers",
+  {
+    id: serial("id").primaryKey(),
+    recruiter_id: integer("recruiter_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    recruiterIdx: index("saved_freelancers_recruiter_idx").on(table.recruiter_id),
+    uniquePair: index("saved_freelancers_unique_pair_idx").on(table.recruiter_id, table.freelancer_id),
+  })
+);
+
+export const insertSavedFreelancerSchema = createInsertSchema(saved_freelancers).omit({
+  id: true,
+  created_at: true,
+});
+
+export type SavedFreelancer = typeof saved_freelancers.$inferSelect;
+export type InsertSavedFreelancer = z.infer<typeof insertSavedFreelancerSchema>;

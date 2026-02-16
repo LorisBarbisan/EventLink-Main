@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { UKLocationInput } from "@/components/ui/uk-location-input";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Loader2, MapPin, Search, Star, User } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Bookmark, ChevronLeft, ChevronRight, Loader2, MapPin, Search, Star, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -22,6 +23,38 @@ export default function Freelancers() {
   const [selectedFreelancer, setSelectedFreelancer] = useState<any>(null);
   const { user: currentUser } = useAuth();
   const [highlightedFreelancer, setHighlightedFreelancer] = useState<string | null>(null);
+  const isRecruiter = currentUser?.role === "recruiter" || currentUser?.role === "admin";
+
+  const { data: savedIds = [] } = useQuery<number[]>({
+    queryKey: ["/api/saved-freelancers"],
+    enabled: isRecruiter,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (freelancerId: number) => {
+      return apiRequest("/api/saved-freelancers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ freelancerId }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/saved-freelancers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-crew"] });
+    },
+  });
+
+  const unsaveMutation = useMutation({
+    mutationFn: async (freelancerId: number) => {
+      return apiRequest(`/api/saved-freelancers/${freelancerId}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/saved-freelancers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-crew"] });
+    },
+  });
 
   // Check for highlight parameter in URL
   useEffect(() => {
@@ -327,6 +360,28 @@ export default function Freelancers() {
                     >
                       View Profile
                     </Button>
+                    {isRecruiter && (() => {
+                      const freelancerUserId = parseInt(freelancer.id.replace("real-", ""), 10);
+                      const isSaved = savedIds.includes(freelancerUserId);
+                      return (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`h-8 w-8 ml-auto ${isSaved ? "text-orange-500" : "text-muted-foreground"}`}
+                          onClick={() => {
+                            if (isSaved) {
+                              unsaveMutation.mutate(freelancerUserId);
+                            } else {
+                              saveMutation.mutate(freelancerUserId);
+                            }
+                          }}
+                          disabled={saveMutation.isPending || unsaveMutation.isPending}
+                          title={isSaved ? "Remove from My Crew" : "Save to My Crew"}
+                        >
+                          <Bookmark className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
+                        </Button>
+                      );
+                    })()}
                   </div>
                 </CardContent>
               </Card>

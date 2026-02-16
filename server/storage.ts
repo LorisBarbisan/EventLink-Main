@@ -10,6 +10,7 @@ import {
   job_applications,
   job_link_views,
   jobs,
+  saved_freelancers,
   message_attachments,
   message_user_states,
   messages,
@@ -54,6 +55,7 @@ import {
   type Rating,
   type RatingRequest,
   type RecruiterProfile,
+  type SavedFreelancer,
   type User,
 } from "@shared/schema";
 import {
@@ -396,6 +398,16 @@ export interface IStorage {
     data: Partial<InsertCvParsedData>
   ): Promise<CvParsedData | undefined>;
   deleteCvParsedData(userId: number): Promise<void>;
+
+  // Saved freelancers management
+  saveFreelancer(recruiterId: number, freelancerId: number): Promise<SavedFreelancer>;
+  unsaveFreelancer(recruiterId: number, freelancerId: number): Promise<void>;
+  getSavedFreelancerIds(recruiterId: number): Promise<number[]>;
+  getMyCrewFreelancers(recruiterId: number, filters?: {
+    keyword?: string;
+    location?: string;
+    tab?: "all" | "saved" | "worked";
+  }): Promise<Array<FreelancerProfile & { isSaved: boolean; isWorkedWith: boolean; average_rating?: number; user_email?: string }>>;
 
   // Cache management
   clearCache(): void;
@@ -4064,6 +4076,102 @@ export class DatabaseStorage implements IStorage {
       .from(job_link_views)
       .where(eq(job_link_views.job_id, jobId));
     return result[0]?.count ?? 0;
+  }
+
+  async saveFreelancer(recruiterId: number, freelancerId: number): Promise<SavedFreelancer> {
+    const existing = await db
+      .select()
+      .from(saved_freelancers)
+      .where(and(
+        eq(saved_freelancers.recruiter_id, recruiterId),
+        eq(saved_freelancers.freelancer_id, freelancerId)
+      ));
+    if (existing.length > 0) return existing[0];
+    const result = await db.insert(saved_freelancers).values({ recruiter_id: recruiterId, freelancer_id: freelancerId }).returning();
+    return result[0];
+  }
+
+  async unsaveFreelancer(recruiterId: number, freelancerId: number): Promise<void> {
+    await db.delete(saved_freelancers).where(and(
+      eq(saved_freelancers.recruiter_id, recruiterId),
+      eq(saved_freelancers.freelancer_id, freelancerId)
+    ));
+  }
+
+  async getSavedFreelancerIds(recruiterId: number): Promise<number[]> {
+    const result = await db
+      .select({ freelancer_id: saved_freelancers.freelancer_id })
+      .from(saved_freelancers)
+      .where(eq(saved_freelancers.recruiter_id, recruiterId));
+    return result.map(r => r.freelancer_id);
+  }
+
+  async getMyCrewFreelancers(recruiterId: number, filters?: {
+    keyword?: string;
+    location?: string;
+    tab?: "all" | "saved" | "worked";
+  }): Promise<Array<FreelancerProfile & { isSaved: boolean; isWorkedWith: boolean; average_rating?: number; user_email?: string }>> {
+    const savedIds = await this.getSavedFreelancerIds(recruiterId);
+
+    const workedWithRows = await db
+      .selectDistinct({ freelancer_id: job_applications.freelancer_id })
+      .from(job_applications)
+      .innerJoin(jobs, eq(jobs.id, job_applications.job_id))
+      .where(and(
+        eq(jobs.recruiter_id, recruiterId),
+        eq(job_applications.status, "hired")
+      ));
+    const workedWithIds = workedWithRows.map(r => r.freelancer_id);
+
+    const allIds = [...new Set([...savedIds, ...workedWithIds])];
+    if (allIds.length === 0) return [];
+
+    const tab = filters?.tab || "all";
+    let targetIds: number[];
+    if (tab === "saved") {
+      targetIds = savedIds;
+    } else if (tab === "worked") {
+      targetIds = workedWithIds;
+    } else {
+      targetIds = allIds;
+    }
+    if (targetIds.length === 0) return [];
+
+    const conditions: any[] = [inArray(freelancer_profiles.user_id, targetIds)];
+
+    if (filters?.keyword?.trim()) {
+      const term = `%${filters.keyword.toLowerCase()}%`;
+      conditions.push(or(
+        sql`LOWER(${freelancer_profiles.title}) LIKE ${term}`,
+        sql`LOWER(${freelancer_profiles.first_name}) LIKE ${term}`,
+        sql`LOWER(${freelancer_profiles.last_name}) LIKE ${term}`,
+        sql`LOWER(${freelancer_profiles.bio}) LIKE ${term}`,
+        sql`LOWER(COALESCE(array_to_string(${freelancer_profiles.skills}, ' '), '')) LIKE ${term}`
+      ));
+    }
+
+    if (filters?.location?.trim()) {
+      const locTerm = `%${filters.location.toLowerCase()}%`;
+      conditions.push(sql`LOWER(${freelancer_profiles.location}) LIKE ${locTerm}`);
+    }
+
+    const profiles = await db
+      .select({
+        profile: freelancer_profiles,
+        average_rating: sql<number>`COALESCE((SELECT AVG(${ratings.score})::numeric(3,1) FROM ${ratings} WHERE ${ratings.freelancer_id} = ${freelancer_profiles.user_id} AND ${ratings.status} = 'approved'), 0)`,
+        user_email: sql<string>`(SELECT ${users.email} FROM ${users} WHERE ${users.id} = ${freelancer_profiles.user_id})`,
+      })
+      .from(freelancer_profiles)
+      .where(and(...conditions))
+      .orderBy(desc(freelancer_profiles.id));
+
+    return profiles.map(row => ({
+      ...row.profile,
+      isSaved: savedIds.includes(row.profile.user_id),
+      isWorkedWith: workedWithIds.includes(row.profile.user_id),
+      average_rating: Number(row.average_rating) || 0,
+      user_email: row.user_email || undefined,
+    }));
   }
 }
 

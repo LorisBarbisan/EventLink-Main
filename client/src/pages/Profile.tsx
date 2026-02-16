@@ -40,9 +40,11 @@ import {
   useFreelancerRatings,
   useReportRating,
 } from "@/hooks/useRatings";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
+  Bookmark,
   Calendar,
   Download,
   ExternalLink,
@@ -327,6 +329,41 @@ export default function Profile() {
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
 
   const { toast } = useToast();
+
+  const isRecruiter = user?.role === "recruiter" || user?.role === "admin";
+  const profileUserId = userId ? parseInt(userId, 10) : 0;
+
+  const { data: savedIds = [] } = useQuery<number[]>({
+    queryKey: ["/api/saved-freelancers"],
+    enabled: isRecruiter && !isOwnProfile,
+  });
+  const isSaved = savedIds.includes(profileUserId);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("/api/saved-freelancers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ freelancerId: profileUserId }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/saved-freelancers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-crew"] });
+      toast({ title: "Saved to My Crew", description: "Freelancer saved to your My Crew list." });
+    },
+  });
+
+  const unsaveMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/saved-freelancers/${profileUserId}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/saved-freelancers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-crew"] });
+      toast({ title: "Removed from My Crew", description: "Freelancer removed from your saved list." });
+    },
+  });
 
   // Get rating data for freelancer profiles
   const { data: averageRating } = useFreelancerAverageRating(freelancerProfile?.user_id || 0);
@@ -792,6 +829,17 @@ export default function Profile() {
                         >
                           <MessageCircle className="mr-2 h-4 w-4" />
                           Send Message
+                        </Button>
+                      )}
+                      {isRecruiter && !isOwnProfile && profile?.role === "freelancer" && (
+                        <Button
+                          variant={isSaved ? "default" : "outline"}
+                          className={isSaved ? "bg-orange-500 hover:bg-orange-600" : ""}
+                          onClick={() => isSaved ? unsaveMutation.mutate() : saveMutation.mutate()}
+                          disabled={saveMutation.isPending || unsaveMutation.isPending}
+                        >
+                          <Bookmark className={`mr-2 h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
+                          {isSaved ? "Saved" : "Save"}
                         </Button>
                       )}
                       {freelancerProfile?.cv_file_url && (
