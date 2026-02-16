@@ -73,6 +73,7 @@ export class CVParserService {
 
       const text = await this.extractTextFromCV(cvFileUrl);
       console.log(`📄 Extracted ${text.length} characters from CV`);
+      console.log(`📄 CV text preview (first 500 chars): ${text.substring(0, 500)}`);
 
       // Try AI-based parsing first, fall back to rule-based
       let parsedData: ParsedCVData;
@@ -124,37 +125,52 @@ export class CVParserService {
   }
 
   private async extractWithAI(text: string): Promise<ParsedCVData> {
-    // Check if OpenAI integration is configured
     if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY || !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
       throw new Error("OpenAI integration not configured");
     }
 
-    const prompt = `You are an expert CV/resume parser for the events industry. Analyze this CV text and extract the following information in JSON format:
+    const prompt = `You are a precise CV/resume data extractor. Your job is to extract ONLY information that is explicitly stated in the CV text below. Do NOT guess, infer, or fabricate any information.
+
+CRITICAL RULES:
+- ONLY extract text that actually appears in the CV. Never invent or rephrase.
+- For "title": Use the EXACT job title or professional title the person uses in the CV. Look for it near the top of the CV, in a header, or in a personal statement (e.g., "AV Technician & FOH Engineer"). Do NOT make up a title.
+- For "bio": Copy the person's actual profile summary, personal statement, or "About" section VERBATIM from the CV. Do not rewrite or summarize it. If there is no explicit summary section, omit this field entirely.
+- For "skills": Extract ALL technical skills, software, equipment, tools, and competencies mentioned anywhere in the CV. Include specific brand names (e.g., "DiGiCo", "Yamaha", "Dante"). Be comprehensive — extract every skill mentioned.
+- For "location": Extract ONLY the city/region explicitly stated. Look for addresses, "based in", or location mentions. Do NOT guess from other context.
+- For "experienceYears": Extract ONLY if the CV explicitly states years of experience (e.g., "5+ years"). If not explicitly stated, omit this field. Do NOT calculate or estimate.
+- For "education": Extract the education section verbatim. Include institution names, qualifications, and dates exactly as written.
+- For "workHistory": Extract work experience entries with job titles, company names, dates, and key responsibilities. Preserve the original text as closely as possible.
+- For "certifications": Extract ALL certifications, accreditations, and professional qualifications mentioned (e.g., "IPAF", "PASMA", "Dante certification", "BS7909", "First Aid").
+- For "fullName": Extract the person's full name, typically found at the very top of the CV.
+
+Return a JSON object with these fields. If a field cannot be found in the CV text, OMIT it entirely from the response. Never return empty strings or placeholder text.
 
 {
-  "fullName": "The person's full name",
-  "title": "Their professional title or job role (e.g., 'Event Manager', 'AV Technician', 'Stage Manager')",
-  "skills": ["Array of relevant skills - include technical skills, software, equipment, certifications"],
-  "bio": "A 2-3 sentence professional summary about this person based on their experience",
-  "location": "Their city/region/country location (e.g. 'London', 'Manchester', 'UK', 'Scotland')",
-  "experienceYears": number of years of experience (estimate from work history),
-  "education": "Education background summary",
-  "workHistory": "Brief work history summary",
-  "certifications": ["Array of certifications like IPAF, PASMA, First Aid, etc."]
+  "fullName": "string - exact name from CV",
+  "title": "string - exact professional title from CV",
+  "skills": ["array of every skill, tool, software, equipment mentioned"],
+  "bio": "string - verbatim profile/summary/about section from CV",
+  "location": "string - city or region explicitly stated",
+  "experienceYears": "number - only if explicitly stated",
+  "education": "string - education details from CV",
+  "workHistory": "string - work experience from CV",
+  "certifications": ["array of all certifications and accreditations"]
 }
 
-Focus on events industry relevant skills like: AV equipment, staging, lighting, sound, video production, event coordination, etc.
-
-If a field cannot be determined, omit it from the response.
-
 CV TEXT:
-${text.substring(0, 8000)}`;
+${text.substring(0, 12000)}`;
 
     const response = await getOpenAIClient().chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        {
+          role: "system",
+          content: "You are a precise data extraction tool. You extract information exactly as it appears in documents. You never fabricate, guess, or infer information that is not explicitly present. When in doubt, omit the field rather than guess."
+        },
+        { role: "user", content: prompt }
+      ],
       response_format: { type: "json_object" },
-      max_completion_tokens: 1024,
+      max_completion_tokens: 2048,
     });
 
     const content = response.choices[0]?.message?.content;
@@ -162,19 +178,31 @@ ${text.substring(0, 8000)}`;
       throw new Error("No response from AI");
     }
 
+    console.log(`🤖 AI raw response: ${content.substring(0, 1000)}`);
+
     const parsed = JSON.parse(content);
-    
-    return {
-      fullName: parsed.fullName || undefined,
-      title: parsed.title || undefined,
-      skills: Array.isArray(parsed.skills) ? parsed.skills : undefined,
-      bio: parsed.bio || undefined,
-      location: parsed.location || undefined,
-      experienceYears: typeof parsed.experienceYears === "number" ? parsed.experienceYears : undefined,
-      education: parsed.education || undefined,
-      workHistory: parsed.workHistory || undefined,
-      certifications: Array.isArray(parsed.certifications) ? parsed.certifications : undefined,
+
+    const cleanString = (val: any): string | undefined => {
+      if (!val || typeof val !== "string") return undefined;
+      const trimmed = val.trim();
+      if (trimmed.length === 0 || trimmed === "N/A" || trimmed === "n/a" || trimmed === "Not specified" || trimmed === "Unknown") return undefined;
+      return trimmed;
     };
+
+    const result: ParsedCVData = {
+      fullName: cleanString(parsed.fullName),
+      title: cleanString(parsed.title),
+      skills: Array.isArray(parsed.skills) && parsed.skills.length > 0 ? parsed.skills.filter((s: any) => typeof s === "string" && s.trim().length > 0) : undefined,
+      bio: cleanString(parsed.bio),
+      location: cleanString(parsed.location),
+      experienceYears: typeof parsed.experienceYears === "number" && parsed.experienceYears >= 1 && parsed.experienceYears <= 50 ? parsed.experienceYears : undefined,
+      education: cleanString(parsed.education),
+      workHistory: cleanString(parsed.workHistory),
+      certifications: Array.isArray(parsed.certifications) && parsed.certifications.length > 0 ? parsed.certifications.filter((c: any) => typeof c === "string" && c.trim().length > 0) : undefined,
+    };
+
+    console.log(`🤖 Parsed fields: ${Object.keys(result).filter(k => (result as any)[k] !== undefined).join(", ")}`);
+    return result;
   }
 
   private async extractTextFromCV(cvFileUrl: string): Promise<string> {
