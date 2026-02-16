@@ -129,33 +129,29 @@ export class CVParserService {
       throw new Error("OpenAI integration not configured");
     }
 
-    const prompt = `You are a precise CV/resume data extractor. Your job is to extract ONLY information that is explicitly stated in the CV text below. Do NOT guess, infer, or fabricate any information.
+    const prompt = `Extract structured data from this CV. Return a JSON object.
 
-CRITICAL RULES:
-- ONLY extract text that actually appears in the CV. Never invent or rephrase.
-- For "title": Use the EXACT job title or professional title the person uses in the CV. Look for it near the top of the CV, in a header, or in a personal statement (e.g., "AV Technician & FOH Engineer"). Do NOT make up a title.
-- For "bio": Copy the person's actual profile summary, personal statement, or "About" section VERBATIM from the CV. Do not rewrite or summarize it. If there is no explicit summary section, omit this field entirely.
-- For "skills": Extract ALL technical skills, software, equipment, tools, and competencies mentioned anywhere in the CV. Include specific brand names (e.g., "DiGiCo", "Yamaha", "Dante"). Be comprehensive — extract every skill mentioned.
-- For "location": Extract ONLY the city/region explicitly stated. Look for addresses, "based in", or location mentions. Do NOT guess from other context.
-- For "experienceYears": Extract ONLY if the CV explicitly states years of experience (e.g., "5+ years"). If not explicitly stated, omit this field. Do NOT calculate or estimate.
-- For "education": Extract the education section verbatim. Include institution names, qualifications, and dates exactly as written.
-- For "workHistory": Extract work experience entries with job titles, company names, dates, and key responsibilities. Preserve the original text as closely as possible.
-- For "certifications": Extract ALL certifications, accreditations, and professional qualifications mentioned (e.g., "IPAF", "PASMA", "Dante certification", "BS7909", "First Aid").
-- For "fullName": Extract the person's full name, typically found at the very top of the CV.
+STRICT RULES — violating any of these makes the output useless:
 
-Return a JSON object with these fields. If a field cannot be found in the CV text, OMIT it entirely from the response. Never return empty strings or placeholder text.
+1. "fullName": The person's full name. Usually the first line or largest text in the CV. Must be 1-4 words, just a name (e.g. "John Smith", "Fabrizio Barbisan"). If unclear, omit.
 
-{
-  "fullName": "string - exact name from CV",
-  "title": "string - exact professional title from CV",
-  "skills": ["array of every skill, tool, software, equipment mentioned"],
-  "bio": "string - verbatim profile/summary/about section from CV",
-  "location": "string - city or region explicitly stated",
-  "experienceYears": "number - only if explicitly stated",
-  "education": "string - education details from CV",
-  "workHistory": "string - work experience from CV",
-  "certifications": ["array of all certifications and accreditations"]
-}
+2. "title": Their professional job title — a SHORT label like "AV Technician", "Sound Engineer", "Event Manager", "FOH Engineer", "Stage Manager". This is NOT a sentence or description. Maximum 6 words. Look near the top of the CV or in the first line of their profile summary. BAD examples to avoid: "in the planning and execution of high-profile events" (this is a sentence, not a title). GOOD examples: "AV Technician & FOH Engineer", "Senior Event Producer", "Lighting Designer".
+
+3. "skills": Array of individual skills, tools, software, and equipment mentioned. Each skill should be 1-3 words. Include brand names (DiGiCo, Yamaha, vMix, etc.). Extract ALL skills from the entire CV — be comprehensive.
+
+4. "bio": The person's profile summary or about section, copied exactly as written. If no such section exists, omit entirely. Do NOT write your own summary.
+
+5. "location": A real city, region, or country name explicitly mentioned as where they are based. Must be a proper place name like "Glasgow", "Manchester", "London, UK". NOT descriptions like "a single region" or "UK and Europe". Omit if no specific base location is stated.
+
+6. "experienceYears": A number, ONLY if the CV explicitly says something like "5+ years experience" or "10 years in the industry". Do NOT count or calculate from work history dates. Omit if not explicitly stated.
+
+7. "education": Education details copied from the CV. Omit if none found.
+
+8. "workHistory": Work experience entries. Include job titles, companies, and dates. Copy from the CV text.
+
+9. "certifications": Array of certifications and qualifications (e.g. "Dante Certification", "IPAF", "First Aid", "BS7909"). Omit if none found.
+
+IMPORTANT: If you cannot find clear data for a field, DO NOT include it. Never make up content. Return only fields you are confident about.
 
 CV TEXT:
 ${text.substring(0, 12000)}`;
@@ -165,12 +161,13 @@ ${text.substring(0, 12000)}`;
       messages: [
         {
           role: "system",
-          content: "You are a precise data extraction tool. You extract information exactly as it appears in documents. You never fabricate, guess, or infer information that is not explicitly present. When in doubt, omit the field rather than guess."
+          content: "You extract structured data from CV documents. You return ONLY information explicitly present in the text. You never guess or fabricate. For the title field, return only a short job title (1-6 words), never a sentence. For location, return only a real place name. Omit any field you are not confident about."
         },
         { role: "user", content: prompt }
       ],
       response_format: { type: "json_object" },
       max_completion_tokens: 2048,
+      temperature: 0.1,
     });
 
     const content = response.choices[0]?.message?.content;
@@ -185,20 +182,55 @@ ${text.substring(0, 12000)}`;
     const cleanString = (val: any): string | undefined => {
       if (!val || typeof val !== "string") return undefined;
       const trimmed = val.trim();
-      if (trimmed.length === 0 || trimmed === "N/A" || trimmed === "n/a" || trimmed === "Not specified" || trimmed === "Unknown") return undefined;
+      if (trimmed.length === 0) return undefined;
+      const junkValues = ["n/a", "not specified", "unknown", "not found", "none", "not available", "not provided", "not mentioned", "omitted"];
+      if (junkValues.includes(trimmed.toLowerCase())) return undefined;
       return trimmed;
+    };
+
+    const cleanTitle = (val: any): string | undefined => {
+      const title = cleanString(val);
+      if (!title) return undefined;
+      if (title.split(/\s+/).length > 8) {
+        console.log(`🤖 Title rejected (too long, likely a sentence): "${title}"`);
+        return undefined;
+      }
+      if (/^(in |for |the |a |an |this |with |and |to |of )/i.test(title)) {
+        console.log(`🤖 Title rejected (starts like a sentence fragment): "${title}"`);
+        return undefined;
+      }
+      if (title.includes(",") && title.split(",").length > 3) {
+        console.log(`🤖 Title rejected (too many commas, likely a list): "${title}"`);
+        return undefined;
+      }
+      return title;
+    };
+
+    const cleanLocation = (val: any): string | undefined => {
+      const loc = cleanString(val);
+      if (!loc) return undefined;
+      const fakeLocations = ["a single region", "single region", "multiple locations", "various locations", "uk and europe", "across the uk", "nationwide", "remote", "freelance"];
+      if (fakeLocations.includes(loc.toLowerCase())) {
+        console.log(`🤖 Location rejected (not a real place): "${loc}"`);
+        return undefined;
+      }
+      if (loc.split(/\s+/).length > 5) {
+        console.log(`🤖 Location rejected (too long): "${loc}"`);
+        return undefined;
+      }
+      return loc;
     };
 
     const result: ParsedCVData = {
       fullName: cleanString(parsed.fullName),
-      title: cleanString(parsed.title),
-      skills: Array.isArray(parsed.skills) && parsed.skills.length > 0 ? parsed.skills.filter((s: any) => typeof s === "string" && s.trim().length > 0) : undefined,
+      title: cleanTitle(parsed.title),
+      skills: Array.isArray(parsed.skills) && parsed.skills.length > 0 ? parsed.skills.filter((s: any) => typeof s === "string" && s.trim().length > 0).map((s: string) => s.trim()) : undefined,
       bio: cleanString(parsed.bio),
-      location: cleanString(parsed.location),
+      location: cleanLocation(parsed.location),
       experienceYears: typeof parsed.experienceYears === "number" && parsed.experienceYears >= 1 && parsed.experienceYears <= 50 ? parsed.experienceYears : undefined,
       education: cleanString(parsed.education),
       workHistory: cleanString(parsed.workHistory),
-      certifications: Array.isArray(parsed.certifications) && parsed.certifications.length > 0 ? parsed.certifications.filter((c: any) => typeof c === "string" && c.trim().length > 0) : undefined,
+      certifications: Array.isArray(parsed.certifications) && parsed.certifications.length > 0 ? parsed.certifications.filter((c: any) => typeof c === "string" && c.trim().length > 0).map((c: string) => c.trim()) : undefined,
     };
 
     console.log(`🤖 Parsed fields: ${Object.keys(result).filter(k => (result as any)[k] !== undefined).join(", ")}`);
