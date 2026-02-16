@@ -212,7 +212,7 @@ export function JobCard({
                   {applicantCount} {applicantCount === 1 ? "applicant" : "applicants"}
                 </span>
               </div>
-              {showHiredSection && hiredApplicants.length > 0 && onExpandToggle && (
+              {showHiredSection && (hiredApplicants.length > 0 || isClosed) && onExpandToggle && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -228,7 +228,7 @@ export function JobCard({
                   ) : (
                     <>
                       <ChevronDown className="w-4 h-4 mr-1" />
-                      View Hired ({hiredApplicants.length})
+                      {hiredApplicants.length > 0 ? `View Hired (${hiredApplicants.length})` : "View Details"}
                     </>
                   )}
                 </Button>
@@ -384,12 +384,15 @@ export function JobCard({
           </div>
         </div>
 
-        {showHiredSection && isExpanded && hiredApplicants.length > 0 && (
+        {showHiredSection && isExpanded && (
           <div className="mt-4 pt-4 border-t border-border">
             <h4 className="font-medium mb-3 flex items-center gap-2">
               <User className="w-4 h-4" />
               Hired Freelancers
             </h4>
+            {hiredApplicants.length === 0 && (
+              <p className="text-sm text-muted-foreground italic">No freelancers were hired for this job.</p>
+            )}
             <div className="space-y-3">
               {hiredApplicants.map(applicant => (
                 <div
