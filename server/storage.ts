@@ -4158,7 +4158,7 @@ export class DatabaseStorage implements IStorage {
     const profiles = await db
       .select({
         profile: freelancer_profiles,
-        average_rating: sql<number>`COALESCE((SELECT AVG("score")::numeric(3,1) FROM "ratings" WHERE "ratings"."freelancer_id" = ${freelancer_profiles.user_id} AND "ratings"."status" = 'approved'), 0)`,
+        average_rating: sql<number>`COALESCE((SELECT AVG("rating")::numeric(3,1) FROM "ratings" WHERE "ratings"."freelancer_id" = ${freelancer_profiles.user_id} AND "ratings"."status" = 'active'), 0)`,
         user_email: sql<string>`(SELECT "email" FROM "users" WHERE "users"."id" = ${freelancer_profiles.user_id})`,
       })
       .from(freelancer_profiles)

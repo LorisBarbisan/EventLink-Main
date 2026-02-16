@@ -638,7 +638,7 @@ export default function SimplifiedRecruiterDashboard() {
                 <Button
                   variant="outline"
                   className="mt-4"
-                  onClick={() => setLocation("/find-crew")}
+                  onClick={() => setLocation("/freelancers")}
                 >
                   <Search className="mr-2 h-4 w-4" />
                   Find Crew
