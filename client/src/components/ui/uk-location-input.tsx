@@ -245,8 +245,14 @@ export function UKLocationInput({
   };
 
   // Validate on blur
-  const handleBlur = () => {
-    // Small delay to allow click on suggestions
+  const handleBlur = (e: React.FocusEvent) => {
+    // Check if the new focus target is inside the suggestions dropdown
+    const relatedTarget = e.relatedTarget as Node | null;
+    if (suggestionsRef.current && relatedTarget && suggestionsRef.current.contains(relatedTarget)) {
+      return;
+    }
+
+    // Delay to allow click on suggestions to complete
     setTimeout(() => {
       setShowSuggestions(false);
       setSelectedIndex(-1);
@@ -260,7 +266,7 @@ export function UKLocationInput({
           setError("Location not found. Please check spelling or try a different format");
         }
       }
-    }, 150);
+    }, 300);
   };
 
   // Close suggestions when clicking outside
@@ -356,6 +362,7 @@ export function UKLocationInput({
                 "w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-start gap-2",
                 selectedIndex === index && "bg-gray-100 dark:bg-gray-700"
               )}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleSuggestionSelect(location)}
               data-testid={`suggestion-${index}`}
             >
