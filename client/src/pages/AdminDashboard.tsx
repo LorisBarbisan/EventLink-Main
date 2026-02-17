@@ -1359,7 +1359,7 @@ function AdminDashboardContent() {
                                         </TableCell>
                                         <TableCell className="py-2">
                                           <a
-                                            href={`/freelancer/${app.freelancer_id}`}
+                                            href={`/profile/${app.freelancer_id}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="text-blue-600 hover:underline text-xs"
