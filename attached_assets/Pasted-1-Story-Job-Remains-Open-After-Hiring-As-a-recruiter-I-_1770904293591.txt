@@ -1,0 +1,206 @@
+1️⃣ Story: Job Remains Open After Hiring
+
+As a recruiter
+I want a job to remain open after I hire someone
+So that I can continue receiving applications or hire multiple freelancers.
+
+Acceptance Criteria
+
+Hiring a freelancer:
+
+Does NOT change job visibility
+
+Does NOT close the job automatically
+
+Recruiter sees:
+
+“1 freelancer hired”
+
+Job still marked as Open
+
+Recruiter can hire multiple freelancers per job
+
+System supports multiple accepted applicants
+
+2️⃣ Story: Manual Post/Unpost Toggle
+
+As a recruiter
+I want a clear toggle to post or unpost a job
+So that I control its visibility on the Find Jobs page.
+
+Acceptance Criteria
+
+Job detail page includes a Post / Unpost toggle
+
+If toggled to:
+
+Posted → job appears in Find Jobs
+
+Unposted → job disappears from Find Jobs
+
+Toggle action:
+
+Requires confirmation
+
+Updates immediately
+
+Toggle is available at all times unless job is manually closed
+
+3️⃣ Story: Invite Button Always Available
+
+As a recruiter
+I want the invite button to always be available
+So that I can invite freelancers regardless of job visibility.
+
+Acceptance Criteria
+
+Invite button is visible on:
+
+Posted jobs
+
+Unposted jobs
+
+Jobs with hired freelancers
+
+Invite functionality works regardless of:
+
+Visibility state
+
+Number of freelancers already hired
+
+Invite option is disabled only if job is manually closed
+
+4️⃣ Story: Invite Multiple Freelancers
+
+As a recruiter
+I want to invite multiple freelancers to the same job
+So that I can build a shortlist or crew.
+
+Acceptance Criteria
+
+Recruiter can:
+
+Search freelancers
+
+Select multiple freelancers
+
+Send invitations in bulk or individually
+
+Invitation statuses displayed:
+
+Sent
+
+Viewed
+
+Applied
+
+Hired
+
+Multiple invitations can exist simultaneously
+
+No artificial limit on number of invites (unless defined later)
+
+5️⃣ Story: Public Job Page Behaviour
+
+As a freelancer
+I want clarity about job status
+So that I understand whether I can apply.
+
+Acceptance Criteria
+
+If job is:
+
+Posted → visible publicly
+
+Unposted → accessible only via invitation
+
+If job has hired freelancers:
+
+Still shows “Open” unless manually closed
+
+Clear message displayed if:
+
+Job is closed → “This job is no longer accepting applications”
+
+6️⃣ Story: Manual Close Job
+
+As a recruiter
+I want to manually close a job
+So that no more applications or invites are accepted.
+
+Acceptance Criteria
+
+Close Job button available
+
+Closing:
+
+Stops public applications
+
+Disables invitation functionality
+
+Job remains visible in dashboard
+
+Closed status clearly displayed
+
+7️⃣ Story: Dashboard Status Clarity
+
+As a recruiter
+I want clear indicators of job state
+So that I understand visibility and hiring status at a glance.
+
+Acceptance Criteria
+
+Dashboard displays:
+
+Visibility:
+
+Posted / Unposted
+
+Hiring:
+
+Open
+
+X freelancers hired
+
+Closed
+
+Invite count
+
+Applicant count
+
+🔧 Technical Notes (Optimised for Replit AI Agent)
+Database Updates
+
+Add separate fields:
+
+jobs:
+  visibility_status: posted | unposted
+  hiring_status: open | closed
+
+
+Existing:
+
+job_assignments:
+  freelancer_id
+  status (invited / applied / hired)
+
+
+Do NOT auto-update visibility when hiring.
+
+API Adjustments
+
+GET /jobs (public)
+
+Return only visibility_status = posted AND hiring_status != closed
+
+GET /jobs/:id
+
+Validate access for unposted jobs (invited freelancers only)
+
+UI Adjustments
+
+Add toggle component for visibility
+
+Add persistent invite button
+
+Add multi-select invite modal

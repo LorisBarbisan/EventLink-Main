@@ -26,6 +26,7 @@ import { registerMessagingRoutes } from "./api/routes/message.route.js";
 import { registerNotificationRoutes } from "./api/routes/notification.route.js";
 import { registerProfileRoutes } from "./api/routes/profile.route.js";
 import { registerRatingsRoutes } from "./api/routes/rating.route.js";
+import { registerSavedFreelancerRoutes } from "./api/routes/saved-freelancers.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { wsService } from "./api/websocket/websocketService";
 
@@ -235,6 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerFileRoutes(app);
   registerCVParserRoutes(app);
   registerRatingsRoutes(app);
+  registerSavedFreelancerRoutes(app);
   registerContactRoutes(app);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering

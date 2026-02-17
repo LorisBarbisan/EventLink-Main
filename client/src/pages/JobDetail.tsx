@@ -17,9 +17,11 @@ import {
   Building2,
   Calendar,
   Clock,
+  Lock,
   MapPin,
   PoundSterling,
   Send,
+  XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
@@ -45,7 +47,12 @@ export default function JobDetail() {
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ["/api/jobs", jobId],
     queryFn: async () => {
-      const res = await fetch(`/api/jobs/${jobId}`);
+      const headers: Record<string, string> = {};
+      const token = localStorage.getItem("auth_token");
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch(`/api/jobs/${jobId}`, { headers });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to load job");
@@ -119,19 +126,26 @@ export default function JobDetail() {
 
   if (error || !job) {
     const errorMessage = error?.message || "Job not found";
+    const isInviteOnly = errorMessage.includes("invitation");
     const isNotAvailable = errorMessage.includes("not found") || errorMessage.includes("not available");
 
     return (
       <Layout>
         <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-          <AlertCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          {isInviteOnly ? (
+            <Lock className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          ) : (
+            <AlertCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          )}
           <h1 className="text-2xl font-bold mb-2">
-            {isNotAvailable ? "Job Not Available" : "Something went wrong"}
+            {isInviteOnly ? "Invite Only" : isNotAvailable ? "Job Not Available" : "Something went wrong"}
           </h1>
           <p className="text-muted-foreground mb-6">
-            {isNotAvailable
-              ? "This job is no longer available or has been removed from EventLink."
-              : "We couldn't load this job. Please try again later."}
+            {isInviteOnly
+              ? errorMessage
+              : isNotAvailable
+                ? "This job is no longer available or has been removed from EventLink."
+                : "We couldn't load this job. Please try again later."}
           </p>
           <div className="flex gap-3 justify-center">
             <Link href="/jobs">
@@ -150,8 +164,8 @@ export default function JobDetail() {
     return (
       <Layout>
         <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-          <AlertCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Applications Closed</h1>
+          <XCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Job Closed</h1>
           <p className="text-muted-foreground mb-2">{job.title} at {job.company}</p>
           <p className="text-muted-foreground mb-6">This job is no longer accepting applications.</p>
           <Link href="/jobs">
@@ -181,13 +195,19 @@ export default function JobDetail() {
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
                     EventLink Opportunity
                   </Badge>
                   {job.status === "active" && (
                     <Badge variant="outline" className="text-green-700 border-green-300">
                       Open
+                    </Badge>
+                  )}
+                  {job.status === "private" && (
+                    <Badge variant="outline" className="text-amber-700 border-amber-300">
+                      <Lock className="w-3 h-3 mr-1" />
+                      Invite Only
                     </Badge>
                   )}
                 </div>

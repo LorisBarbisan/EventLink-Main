@@ -204,22 +204,12 @@ export function JobForm({
 
         <div className="flex gap-2">
           <Button
-            variant="secondary"
-            onClick={() => handleSubmit("private")}
-            disabled={isSubmitting || !isValid}
-            data-testid="button-save-job"
-            className={isValid ? "border border-gray-400 text-foreground font-semibold" : "opacity-40 border-gray-200"}
-          >
-            Save Job
-          </Button>
-
-          <Button
             onClick={() => handleSubmit("active")}
             disabled={isSubmitting || !isValid}
             data-testid="button-post-job"
             className={isValid ? "bg-gradient-primary text-white hover:bg-primary-hover font-semibold" : "opacity-40"}
           >
-            {isSubmitting ? "Posting..." : "Post Job"}
+            {isSubmitting ? "Creating..." : isEditing ? "Update Job" : "Create Job"}
           </Button>
 
           <Button

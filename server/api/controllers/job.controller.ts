@@ -16,6 +16,22 @@ export async function getJobById(req: Request, res: Response) {
       return res.status(404).json({ error: "Job not found" });
     }
 
+    const currentUser = (req as any).user;
+
+    if (job.status === "private") {
+      if (!currentUser) {
+        return res.status(403).json({ error: "This job is only accessible via invitation. Please sign in to check if you have been invited." });
+      }
+      const isOwner = currentUser.role === "admin" || job.recruiter_id === currentUser.id;
+      if (!isOwner && currentUser.role === "freelancer") {
+        const apps = await storage.getFreelancerApplications(currentUser.id);
+        const hasInviteOrApplication = apps.some(app => app.job_id === jobId);
+        if (!hasInviteOrApplication) {
+          return res.status(403).json({ error: "This job is only accessible via invitation." });
+        }
+      }
+    }
+
     res.json(job);
   } catch (error) {
     console.error("Get job by ID error:", error);
@@ -215,6 +231,68 @@ export async function getJobLinkViewCount(req: Request, res: Response) {
     res.json({ job_id: jobId, views: count });
   } catch (error) {
     console.error("Get job link view count error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Close job manually
+export async function closeJob(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.jobId);
+
+    if (Number.isNaN(jobId)) {
+      return res.status(400).json({ error: "Invalid job ID" });
+    }
+
+    if (!(req as any).user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const job = await storage.getJobById(jobId);
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    if ((req as any).user.role !== "admin" && job.recruiter_id !== (req as any).user.id) {
+      return res.status(403).json({ error: "Not authorized to close this job" });
+    }
+
+    if (job.status === "closed") {
+      return res.status(400).json({ error: "Job is already closed" });
+    }
+
+    const updatedJob = await storage.updateJob(jobId, { status: "closed" });
+
+    const jobApplications = await storage.getJobApplications(jobId);
+    const activeApplications = jobApplications.filter(
+      (app) => app.status === "applied" || app.status === "reviewed" || app.status === "shortlisted" || app.status === "invited"
+    );
+
+    await Promise.all(
+      activeApplications.map((application) =>
+        storage.createNotification({
+          user_id: application.freelancer_id,
+          type: "job_update",
+          title: "Job Closed",
+          message: `The job "${job.title}" at ${job.company} has been closed by the employer and is no longer accepting applications.`,
+          priority: "normal",
+          related_entity_type: "job",
+          related_entity_id: jobId,
+          action_url: `/jobs/${jobId}`,
+          metadata: JSON.stringify({
+            job_id: jobId,
+            application_id: application.id,
+            job_title: job.title,
+            company: job.company,
+          }),
+        })
+      )
+    );
+
+    res.set("Cache-Control", "no-store");
+    res.json(updatedJob);
+  } catch (error) {
+    console.error("Close job error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }

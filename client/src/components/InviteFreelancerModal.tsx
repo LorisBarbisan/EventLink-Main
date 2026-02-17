@@ -12,9 +12,14 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2, Search, Send, UserPlus } from "lucide-react";
 import { useState } from "react";
+
+interface ExistingApplication {
+  freelancer_id: number;
+  status: string;
+}
 
 interface InviteFreelancerModalProps {
   isOpen: boolean;
@@ -22,6 +27,7 @@ interface InviteFreelancerModalProps {
   jobId: number;
   jobTitle: string;
   alreadyInvitedIds?: number[];
+  existingApplications?: ExistingApplication[];
 }
 
 export function InviteFreelancerModal({
@@ -30,12 +36,13 @@ export function InviteFreelancerModal({
   jobId,
   jobTitle,
   alreadyInvitedIds = [],
+  existingApplications = [],
 }: InviteFreelancerModalProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFreelancers, setSelectedFreelancers] = useState<Set<number>>(new Set());
 
-  // Fetch freelancers
   const { data: searchResults, isLoading } = useQuery({
     queryKey: ["/api/freelancers/search", searchQuery],
     queryFn: async () => {
@@ -46,12 +53,11 @@ export function InviteFreelancerModal({
       if (!response.ok) throw new Error("Failed to fetch freelancers");
       return await response.json();
     },
-    enabled: isOpen, // Only fetch when open
+    enabled: isOpen,
   });
 
   const freelancers = searchResults?.results || [];
 
-  // Send invitations mutation
   const inviteMutation = useMutation({
     mutationFn: async () => {
       const promises = Array.from(selectedFreelancers).map(freelancerId =>
@@ -69,9 +75,10 @@ export function InviteFreelancerModal({
     onSuccess: () => {
       toast({
         title: "Invitations Sent",
-        description: `Successfully sent invitations to ${selectedFreelancers.size} freelancers.`,
+        description: `Successfully sent invitations to ${selectedFreelancers.size} freelancer${selectedFreelancers.size > 1 ? "s" : ""}.`,
       });
-      setSelectedFreelancers(new Set()); // Reset selection
+      setSelectedFreelancers(new Set());
+      queryClient.invalidateQueries({ queryKey: ["/api/recruiter"] });
       onClose();
     },
     onError: (error: any) => {
@@ -92,6 +99,37 @@ export function InviteFreelancerModal({
       newSelection.add(id);
     }
     setSelectedFreelancers(newSelection);
+  };
+
+  const getFreelancerStatus = (userId: number): string | null => {
+    if (alreadyInvitedIds.includes(userId)) {
+      const app = existingApplications.find(a => a.freelancer_id === userId);
+      if (app) return app.status;
+      return "invited";
+    }
+    const app = existingApplications.find(a => a.freelancer_id === userId);
+    if (app) return app.status;
+    return null;
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "invited":
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-none font-medium">Invited</Badge>;
+      case "applied":
+        return <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-none font-medium">Applied</Badge>;
+      case "hired":
+        return <Badge variant="secondary" className="bg-green-100 text-green-700 border-none font-medium">Hired</Badge>;
+      case "declined":
+        return <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-none font-medium">Declined</Badge>;
+      case "reviewed":
+      case "shortlisted":
+        return <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-none font-medium">In Review</Badge>;
+      case "rejected":
+        return <Badge variant="secondary" className="bg-red-100 text-red-600 border-none font-medium">Rejected</Badge>;
+      default:
+        return <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-none font-medium">{status}</Badge>;
+    }
   };
 
   return (
@@ -136,20 +174,21 @@ export function InviteFreelancerModal({
                 ) : (
                   <div className="space-y-1">
                     {freelancers.map((freelancer: any) => {
-                      const isAlreadyInvited = alreadyInvitedIds.includes(freelancer.user_id);
+                      const existingStatus = getFreelancerStatus(freelancer.user_id);
+                      const hasExistingRelation = !!existingStatus;
                       const isSelected = selectedFreelancers.has(freelancer.user_id);
 
                       return (
                         <div
                           key={freelancer.user_id}
                           className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer group ${
-                            isAlreadyInvited
+                            hasExistingRelation
                               ? "bg-gray-50 border-gray-100 opacity-75 cursor-default"
                               : isSelected
                                 ? "border-orange-200 bg-orange-50"
                                 : "border-transparent hover:bg-gray-50"
                           }`}
-                          onClick={() => !isAlreadyInvited && toggleSelection(freelancer.user_id)}
+                          onClick={() => !hasExistingRelation && toggleSelection(freelancer.user_id)}
                         >
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10">
@@ -169,13 +208,8 @@ export function InviteFreelancerModal({
                             </div>
                           </div>
 
-                          {isAlreadyInvited ? (
-                            <Badge
-                              variant="secondary"
-                              className="bg-green-100 text-green-700 hover:bg-green-100 border-none font-medium"
-                            >
-                              Invited
-                            </Badge>
+                          {hasExistingRelation ? (
+                            getStatusBadge(existingStatus!)
                           ) : (
                             isSelected && (
                               <div className="h-6 w-6 rounded-full bg-orange-500 flex items-center justify-center">
@@ -195,7 +229,11 @@ export function InviteFreelancerModal({
 
         <div className="p-4 border-t mt-auto">
           <div className="flex justify-between items-center w-full">
-            <div className="text-sm text-gray-500 font-medium">Select freelancers to invite</div>
+            <div className="text-sm text-gray-500 font-medium">
+              {selectedFreelancers.size > 0
+                ? `${selectedFreelancers.size} freelancer${selectedFreelancers.size > 1 ? "s" : ""} selected`
+                : "Select freelancers to invite"}
+            </div>
             <div className="flex gap-3">
               <Button
                 variant="outline"

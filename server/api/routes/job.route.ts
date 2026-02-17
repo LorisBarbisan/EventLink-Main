@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import {
+  closeJob,
   createJob,
   deleteJob,
   getJobById,
@@ -29,11 +30,12 @@ export function registerJobRoutes(app: Express) {
 
   // Create new job
   app.post("/api/jobs", authenticateJWT, createJob);
-  // Create new job
-  app.post("/api/jobs", authenticateJWT, createJob);
 
   // Update job
   app.put("/api/jobs/:jobId", authenticateJWT, updateJob);
+
+  // Close job manually
+  app.put("/api/jobs/:jobId/close", authenticateJWT, closeJob);
 
   // Delete job
   app.delete("/api/jobs/:jobId", authenticateJWT, deleteJob);

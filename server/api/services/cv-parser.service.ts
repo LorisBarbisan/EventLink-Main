@@ -73,6 +73,7 @@ export class CVParserService {
 
       const text = await this.extractTextFromCV(cvFileUrl);
       console.log(`📄 Extracted ${text.length} characters from CV`);
+      console.log(`📄 CV text preview (first 500 chars): ${text.substring(0, 500)}`);
 
       // Try AI-based parsing first, fall back to rule-based
       let parsedData: ParsedCVData;
@@ -124,37 +125,49 @@ export class CVParserService {
   }
 
   private async extractWithAI(text: string): Promise<ParsedCVData> {
-    // Check if OpenAI integration is configured
     if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY || !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
       throw new Error("OpenAI integration not configured");
     }
 
-    const prompt = `You are an expert CV/resume parser for the events industry. Analyze this CV text and extract the following information in JSON format:
+    const prompt = `Extract structured data from this CV. Return a JSON object.
 
-{
-  "fullName": "The person's full name",
-  "title": "Their professional title or job role (e.g., 'Event Manager', 'AV Technician', 'Stage Manager')",
-  "skills": ["Array of relevant skills - include technical skills, software, equipment, certifications"],
-  "bio": "A 2-3 sentence professional summary about this person based on their experience",
-  "location": "Their city/region/country location (e.g. 'London', 'Manchester', 'UK', 'Scotland')",
-  "experienceYears": number of years of experience (estimate from work history),
-  "education": "Education background summary",
-  "workHistory": "Brief work history summary",
-  "certifications": ["Array of certifications like IPAF, PASMA, First Aid, etc."]
-}
+STRICT RULES — violating any of these makes the output useless:
 
-Focus on events industry relevant skills like: AV equipment, staging, lighting, sound, video production, event coordination, etc.
+1. "fullName": The person's full name. Usually the first line or largest text in the CV. Must be 1-4 words, just a name (e.g. "John Smith", "Fabrizio Barbisan"). If unclear, omit.
 
-If a field cannot be determined, omit it from the response.
+2. "title": Their professional job title — a SHORT label like "AV Technician", "Sound Engineer", "Event Manager", "FOH Engineer", "Stage Manager". This is NOT a sentence or description. Maximum 6 words. Look near the top of the CV or in the first line of their profile summary. BAD examples to avoid: "in the planning and execution of high-profile events" (this is a sentence, not a title). GOOD examples: "AV Technician & FOH Engineer", "Senior Event Producer", "Lighting Designer".
+
+3. "skills": Array of individual skills, tools, software, and equipment mentioned. Each skill should be 1-3 words. Include brand names (DiGiCo, Yamaha, vMix, etc.). Extract ALL skills from the entire CV — be comprehensive.
+
+4. "bio": The person's profile summary or about section, copied exactly as written. If no such section exists, omit entirely. Do NOT write your own summary.
+
+5. "location": A real city, region, or country name explicitly mentioned as where they are based. Must be a proper place name like "Glasgow", "Manchester", "London, UK". NOT descriptions like "a single region" or "UK and Europe". Omit if no specific base location is stated.
+
+6. "experienceYears": A number, ONLY if the CV explicitly says something like "5+ years experience" or "10 years in the industry". Do NOT count or calculate from work history dates. Omit if not explicitly stated.
+
+7. "education": Education details copied from the CV. Omit if none found.
+
+8. "workHistory": Work experience entries. Include job titles, companies, and dates. Copy from the CV text.
+
+9. "certifications": Array of certifications and qualifications (e.g. "Dante Certification", "IPAF", "First Aid", "BS7909"). Omit if none found.
+
+IMPORTANT: If you cannot find clear data for a field, DO NOT include it. Never make up content. Return only fields you are confident about.
 
 CV TEXT:
-${text.substring(0, 8000)}`;
+${text.substring(0, 12000)}`;
 
     const response = await getOpenAIClient().chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        {
+          role: "system",
+          content: "You extract structured data from CV documents. You return ONLY information explicitly present in the text. You never guess or fabricate. For the title field, return only a short job title (1-6 words), never a sentence. For location, return only a real place name. Omit any field you are not confident about."
+        },
+        { role: "user", content: prompt }
+      ],
       response_format: { type: "json_object" },
-      max_completion_tokens: 1024,
+      max_completion_tokens: 2048,
+      temperature: 0.1,
     });
 
     const content = response.choices[0]?.message?.content;
@@ -162,19 +175,66 @@ ${text.substring(0, 8000)}`;
       throw new Error("No response from AI");
     }
 
+    console.log(`🤖 AI raw response: ${content.substring(0, 1000)}`);
+
     const parsed = JSON.parse(content);
-    
-    return {
-      fullName: parsed.fullName || undefined,
-      title: parsed.title || undefined,
-      skills: Array.isArray(parsed.skills) ? parsed.skills : undefined,
-      bio: parsed.bio || undefined,
-      location: parsed.location || undefined,
-      experienceYears: typeof parsed.experienceYears === "number" ? parsed.experienceYears : undefined,
-      education: parsed.education || undefined,
-      workHistory: parsed.workHistory || undefined,
-      certifications: Array.isArray(parsed.certifications) ? parsed.certifications : undefined,
+
+    const cleanString = (val: any): string | undefined => {
+      if (!val || typeof val !== "string") return undefined;
+      const trimmed = val.trim();
+      if (trimmed.length === 0) return undefined;
+      const junkValues = ["n/a", "not specified", "unknown", "not found", "none", "not available", "not provided", "not mentioned", "omitted"];
+      if (junkValues.includes(trimmed.toLowerCase())) return undefined;
+      return trimmed;
     };
+
+    const cleanTitle = (val: any): string | undefined => {
+      const title = cleanString(val);
+      if (!title) return undefined;
+      if (title.split(/\s+/).length > 8) {
+        console.log(`🤖 Title rejected (too long, likely a sentence): "${title}"`);
+        return undefined;
+      }
+      if (/^(in |for |the |a |an |this |with |and |to |of )/i.test(title)) {
+        console.log(`🤖 Title rejected (starts like a sentence fragment): "${title}"`);
+        return undefined;
+      }
+      if (title.includes(",") && title.split(",").length > 3) {
+        console.log(`🤖 Title rejected (too many commas, likely a list): "${title}"`);
+        return undefined;
+      }
+      return title;
+    };
+
+    const cleanLocation = (val: any): string | undefined => {
+      const loc = cleanString(val);
+      if (!loc) return undefined;
+      const fakeLocations = ["a single region", "single region", "multiple locations", "various locations", "uk and europe", "across the uk", "nationwide", "remote", "freelance"];
+      if (fakeLocations.includes(loc.toLowerCase())) {
+        console.log(`🤖 Location rejected (not a real place): "${loc}"`);
+        return undefined;
+      }
+      if (loc.split(/\s+/).length > 5) {
+        console.log(`🤖 Location rejected (too long): "${loc}"`);
+        return undefined;
+      }
+      return loc;
+    };
+
+    const result: ParsedCVData = {
+      fullName: cleanString(parsed.fullName),
+      title: cleanTitle(parsed.title),
+      skills: Array.isArray(parsed.skills) && parsed.skills.length > 0 ? parsed.skills.filter((s: any) => typeof s === "string" && s.trim().length > 0).map((s: string) => s.trim()) : undefined,
+      bio: cleanString(parsed.bio),
+      location: cleanLocation(parsed.location),
+      experienceYears: typeof parsed.experienceYears === "number" && parsed.experienceYears >= 1 && parsed.experienceYears <= 50 ? parsed.experienceYears : undefined,
+      education: cleanString(parsed.education),
+      workHistory: cleanString(parsed.workHistory),
+      certifications: Array.isArray(parsed.certifications) && parsed.certifications.length > 0 ? parsed.certifications.filter((c: any) => typeof c === "string" && c.trim().length > 0).map((c: string) => c.trim()) : undefined,
+    };
+
+    console.log(`🤖 Parsed fields: ${Object.keys(result).filter(k => (result as any)[k] !== undefined).join(", ")}`);
+    return result;
   }
 
   private async extractTextFromCV(cvFileUrl: string): Promise<string> {
