@@ -53,7 +53,6 @@ import {
   Linkedin,
   MapPin,
   MessageCircle,
-  Phone,
   Quote,
   Star,
   User,
@@ -96,11 +95,10 @@ interface RecruiterProfile {
   company_name: string;
   contact_name: string;
   company_type: string;
-  company_description: string;
+  description: string;
   location: string;
   website_url: string;
   linkedin_url: string;
-  phone: string;
   company_logo_url?: string;
 }
 
@@ -361,7 +359,10 @@ export default function Profile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/saved-freelancers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/my-crew"] });
-      toast({ title: "Removed from My Crew", description: "Freelancer removed from your saved list." });
+      toast({
+        title: "Removed from My Crew",
+        description: "Freelancer removed from your saved list.",
+      });
     },
   });
 
@@ -541,11 +542,10 @@ export default function Profile() {
               company_name: data.company_name || "",
               contact_name: data.contact_name || "",
               company_type: data.company_type || "",
-              company_description: data.company_description || "",
+              description: data.description || "",
               location: data.location || "",
               website_url: data.website_url || "",
               linkedin_url: data.linkedin_url || "",
-              phone: data.phone || "",
               company_logo_url: data.company_logo_url || "",
             });
             console.log("Recruiter profile set successfully");
@@ -615,11 +615,10 @@ export default function Profile() {
               company_name: data.company_name || "",
               contact_name: data.contact_name || "",
               company_type: data.company_type || "",
-              company_description: data.company_description || "",
+              description: data.description || "",
               location: data.location || "",
               website_url: data.website_url || "",
               linkedin_url: data.linkedin_url || "",
-              phone: data.phone || "",
               company_logo_url: data.company_logo_url || "",
             });
           }
@@ -835,7 +834,9 @@ export default function Profile() {
                         <Button
                           variant={isSaved ? "default" : "outline"}
                           className={isSaved ? "bg-orange-500 hover:bg-orange-600" : ""}
-                          onClick={() => isSaved ? unsaveMutation.mutate() : saveMutation.mutate()}
+                          onClick={() =>
+                            isSaved ? unsaveMutation.mutate() : saveMutation.mutate()
+                          }
                           disabled={saveMutation.isPending || unsaveMutation.isPending}
                         >
                           <Bookmark className={`mr-2 h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
@@ -843,22 +844,22 @@ export default function Profile() {
                         </Button>
                       )}
                       {freelancerProfile?.cv_file_url && (
-                          <Button
-                            onClick={() => {
-                              if (!user) {
-                                redirectToAuth();
-                                return;
-                              }
-                              handleDownloadCV(freelancerProfile);
-                            }}
-                            className="flex items-center gap-2"
-                            variant="outline"
-                            data-testid="button-download-cv-profile"
-                          >
-                            <Download className="h-4 w-4" />
-                            Download CV
-                          </Button>
-                        )}
+                        <Button
+                          onClick={() => {
+                            if (!user) {
+                              redirectToAuth();
+                              return;
+                            }
+                            handleDownloadCV(freelancerProfile);
+                          }}
+                          className="flex items-center gap-2"
+                          variant="outline"
+                          data-testid="button-download-cv-profile"
+                        >
+                          <Download className="h-4 w-4" />
+                          Download CV
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -890,7 +891,9 @@ export default function Profile() {
                         )}
                       </div>
                       <p className="mb-2 text-xl font-semibold text-primary">
-                        {recruiterProfile?.company_type}
+                        {recruiterProfile.company_type
+                          .replace(/_/g, " ")
+                          .replace(/\b\w/g, (l) => l.toUpperCase())}
                       </p>
                       <div className="flex items-center gap-4 text-muted-foreground">
                         <div className="flex items-center gap-1">
@@ -901,12 +904,6 @@ export default function Profile() {
                           <MapPin className="h-4 w-4" />
                           {recruiterProfile?.location || "UK"}
                         </div>
-                        {recruiterProfile?.phone && (
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-4 w-4" />
-                            {recruiterProfile.phone}
-                          </div>
-                        )}
                       </div>
                     </div>
 
@@ -942,7 +939,7 @@ export default function Profile() {
                 {(freelancerProfile && profile?.role !== "admin") ||
                 (profile?.role === "admin" && freelancerProfile && !recruiterProfile)
                   ? freelancerProfile?.bio || "No bio available."
-                  : recruiterProfile?.company_description || "No company description available."}
+                  : recruiterProfile?.description || "No company description available."}
               </p>
             </CardContent>
           </Card>
@@ -1027,7 +1024,10 @@ export default function Profile() {
                     <>
                       {freelancerProfile?.portfolio_url && (
                         <a
-                          href={(() => { const u = freelancerProfile.portfolio_url.trim(); return u.match(/^https?:\/\//) ? u : `https://${u}`; })()}
+                          href={(() => {
+                            const u = freelancerProfile.portfolio_url.trim();
+                            return u.match(/^https?:\/\//) ? u : `https://${u}`;
+                          })()}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
@@ -1038,7 +1038,10 @@ export default function Profile() {
                       )}
                       {freelancerProfile?.linkedin_url && (
                         <a
-                          href={(() => { const u = freelancerProfile.linkedin_url.trim(); return u.match(/^https?:\/\//) ? u : `https://${u}`; })()}
+                          href={(() => {
+                            const u = freelancerProfile.linkedin_url.trim();
+                            return u.match(/^https?:\/\//) ? u : `https://${u}`;
+                          })()}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
@@ -1049,7 +1052,10 @@ export default function Profile() {
                       )}
                       {freelancerProfile?.website_url && (
                         <a
-                          href={(() => { const u = freelancerProfile.website_url.trim(); return u.match(/^https?:\/\//) ? u : `https://${u}`; })()}
+                          href={(() => {
+                            const u = freelancerProfile.website_url.trim();
+                            return u.match(/^https?:\/\//) ? u : `https://${u}`;
+                          })()}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
@@ -1063,7 +1069,10 @@ export default function Profile() {
                     <>
                       {recruiterProfile?.website_url && (
                         <a
-                          href={(() => { const u = recruiterProfile.website_url.trim(); return u.match(/^https?:\/\//) ? u : `https://${u}`; })()}
+                          href={(() => {
+                            const u = recruiterProfile.website_url.trim();
+                            return u.match(/^https?:\/\//) ? u : `https://${u}`;
+                          })()}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"
@@ -1074,7 +1083,10 @@ export default function Profile() {
                       )}
                       {recruiterProfile?.linkedin_url && (
                         <a
-                          href={(() => { const u = recruiterProfile.linkedin_url.trim(); return u.match(/^https?:\/\//) ? u : `https://${u}`; })()}
+                          href={(() => {
+                            const u = recruiterProfile.linkedin_url.trim();
+                            return u.match(/^https?:\/\//) ? u : `https://${u}`;
+                          })()}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-2 text-primary hover:underline"

@@ -38,14 +38,32 @@ const DRAFT_STORAGE_KEY_PREFIX = "eventlink_profile_draft_";
 interface ProfileFormProps {
   profile?: FreelancerProfile | RecruiterProfile;
   userType: "freelancer" | "recruiter";
-  onSave: (data: FreelancerFormData | RecruiterFormData) => void;
+  onSave: (data: FreelancerFormData | RecruiterFormData) => Promise<void>;
   isSaving: boolean;
 }
 
 export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileFormProps) {
   const { user } = useAuth();
-  const [isEditing, setIsEditing] = useState(true);
+  const hasProfileContent = (() => {
+    if (!profile) return false;
+    if (userType === "recruiter") return !!(profile as RecruiterProfile).company_name;
+    return !!(profile as FreelancerProfile).first_name;
+  })();
+
+  const [isEditing, setIsEditing] = useState(!hasProfileContent);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const hasInitializedEditing = useRef(false);
+
+  useEffect(() => {
+    if (!hasInitializedEditing.current && profile) {
+      hasInitializedEditing.current = true;
+      const hasContent =
+        userType === "recruiter"
+          ? !!(profile as RecruiterProfile).company_name
+          : !!(profile as FreelancerProfile).first_name;
+      setIsEditing(!hasContent);
+    }
+  }, [profile, userType]);
   const draftKey = user?.id
     ? `${DRAFT_STORAGE_KEY_PREFIX}${userType}_${user.id}`
     : "profile_draft_temp";
@@ -153,14 +171,17 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
     }
   };
 
-  const handleSave = () => {
-    onSave(formData);
-    // Clear the draft from storage but keep the form data in state
-    // This allows the user to see their changes immediately while the background refresh happens
+  const handleSave = async () => {
     try {
-      sessionStorage.removeItem(draftKey);
-    } catch (e) {
-      console.warn("Failed to clear draft:", e);
+      await onSave(formData);
+      try {
+        sessionStorage.removeItem(draftKey);
+      } catch (e) {
+        console.warn("Failed to clear draft:", e);
+      }
+      setIsEditing(false);
+    } catch {
+      // Error toast is handled by the useProfile hook
     }
   };
 
@@ -397,28 +418,47 @@ function RecruiterProfileView({ profile }: { profile: RecruiterProfile }) {
           <div className="mt-1 flex items-center gap-3">
             <Badge variant="secondary">{profile.company_type}</Badge>
           </div>
+          <div className="mt-2 flex flex-wrap items-center gap-4 text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              <span>{profile.location}</span>
+            </div>
+            {profile.website_url && (
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                <a
+                  href={(() => {
+                    const u = profile.website_url.trim();
+                    return u.match(/^https?:\/\//) ? u : `https://${u}`;
+                  })()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  Website
+                </a>
+              </div>
+            )}
+            {profile.linkedin_url && (
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                <a
+                  href={(() => {
+                    const u = profile.linkedin_url.trim();
+                    return u.match(/^https?:\/\//) ? u : `https://${u}`;
+                  })()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  LinkedIn
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <Separator />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-muted-foreground" />
-          <span>{profile.location}</span>
-        </div>
-        {profile.website_url && (
-          <div className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-muted-foreground" />
-            <a
-              href={profile.website_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
-            >
-              Website
-            </a>
-          </div>
-        )}
-      </div>
       {profile.description && (
         <div>
           <h4 className="mb-2 font-medium">About</h4>
