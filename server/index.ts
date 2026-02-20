@@ -8,6 +8,7 @@ import { reconcileAdminUsers } from "./api/utils/reconcile-admin-users";
 import { seedProductionJobs } from "./api/utils/seed-production-jobs";
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
+import { storage } from "./storage";
 import { log, serveStatic, setupVite } from "./vite";
 dotenv.config();
 
@@ -227,7 +228,22 @@ app.use((req, res, next) => {
 
   const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
   const host = process.env.NODE_ENV === "production" ? "0.0.0.0" : "0.0.0.0";
-  server.listen(port, host, () => {
+  server.listen(port, host, async () => {
     log(`serving on port ${port} (host: ${host})`);
+
+    try {
+      const closed = await storage.closeExpiredJobs();
+      if (closed > 0) log(`Startup: auto-closed ${closed} expired job(s)`);
+    } catch (err) {
+      console.error("Failed to close expired jobs on startup:", err);
+    }
+
+    setInterval(async () => {
+      try {
+        await storage.closeExpiredJobs();
+      } catch (err) {
+        console.error("Periodic job expiry check failed:", err);
+      }
+    }, 60 * 60 * 1000);
   });
 })();

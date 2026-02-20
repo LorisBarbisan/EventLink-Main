@@ -1474,6 +1474,24 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(jobs.created_at));
   }
 
+  async closeExpiredJobs(): Promise<number> {
+    const today = new Date().toISOString().split("T")[0];
+    const result = await db
+      .update(jobs)
+      .set({ status: "closed", updated_at: new Date() })
+      .where(
+        and(
+          or(eq(jobs.status, "active"), isNull(jobs.status)),
+          sql`${jobs.event_date} IS NOT NULL AND ${jobs.event_date}::date <= ${today}::date`
+        )
+      )
+      .returning();
+    if (result.length > 0) {
+      console.log(`Auto-closed ${result.length} expired job(s): ${result.map(j => j.id).join(", ")}`);
+    }
+    return result.length;
+  }
+
   async getJobById(jobId: number): Promise<Job | undefined> {
     const result = await db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1);
     return result[0];
@@ -1525,6 +1543,7 @@ export class DatabaseStorage implements IStorage {
     endDate?: string;
   }): Promise<Job[]> {
     try {
+      await this.closeExpiredJobs();
       const { keyword, location, startDate, endDate } = filters;
 
       // Build conditions array
