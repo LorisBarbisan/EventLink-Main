@@ -1,13 +1,12 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import type {
-  FreelancerProfile,
-  RecruiterProfile,
   FreelancerFormData,
+  FreelancerProfile,
   RecruiterFormData,
+  RecruiterProfile,
 } from "@shared/types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface UseProfileProps {
   userId: number;
@@ -94,7 +93,7 @@ export function useProfile({ userId, userType }: UseProfileProps) {
         headers: { "Content-Type": "application/json" },
       });
     },
-    onSuccess: newProfile => {
+    onSuccess: (newProfile) => {
       // Invalidate and refetch to get the newly created profile
       queryClient.invalidateQueries({ queryKey: [`/api/${userType}`, userId] });
       queryClient.refetchQueries({ queryKey: [`/api/${userType}`, userId] });
@@ -103,7 +102,7 @@ export function useProfile({ userId, userType }: UseProfileProps) {
         description: "Your profile has been created successfully.",
       });
     },
-    onError: error => {
+    onError: (error) => {
       console.error("Profile creation error:", error);
       toast({
         title: "Error",
@@ -113,11 +112,11 @@ export function useProfile({ userId, userType }: UseProfileProps) {
     },
   });
 
-  const saveProfile = (data: FreelancerFormData | RecruiterFormData) => {
+  const saveProfile = async (data: FreelancerFormData | RecruiterFormData) => {
     if (profile) {
-      updateMutation.mutate(data);
+      await updateMutation.mutateAsync(data);
     } else {
-      createMutation.mutate(data);
+      await createMutation.mutateAsync(data);
     }
   };
 
