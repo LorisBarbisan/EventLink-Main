@@ -10,7 +10,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePersistentState } from "@/hooks/usePersistentState";
 import { CheckCircle, Eye, EyeOff, Mail, Star, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { SiGoogle, SiLinkedin } from "react-icons/si";
+import { FcGoogle } from "react-icons/fc";
+import { SiLinkedin } from "react-icons/si";
 import { useLocation } from "wouter";
 
 export default function Auth() {
@@ -575,7 +576,7 @@ export default function Auth() {
                       onClick={() => { window.location.href = "/api/auth/google"; }}
                       data-testid="button-signin-google"
                     >
-                      <SiGoogle className="mr-2 h-4 w-4" />
+                      <FcGoogle className="mr-2 h-4 w-4" />
                       Google
                     </Button>
                     <Button
@@ -792,7 +793,7 @@ export default function Auth() {
                       onClick={() => { window.location.href = `/api/auth/google?role=${signUpData.role}`; }}
                       data-testid="button-signup-google"
                     >
-                      <SiGoogle className="mr-2 h-4 w-4" />
+                      <FcGoogle className="mr-2 h-4 w-4" />
                       Google
                     </Button>
                     <Button
