@@ -4,13 +4,8 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as LinkedInStrategy } from "passport-linkedin-oauth2";
 import { storage } from "./storage";
 
-// ⚠️ LEGACY CODE WARNING ⚠️
-// OAuth authentication strategies below are LEGACY CODE and not actively used.
-// - UI for social login has been removed from sign-in/sign-up pages (email/password only)
-// - No OAuth users exist in the database (all users use 'email' auth_provider)
-// - KNOWN BUG: All OAuth signups hardcode role='freelancer', which causes incorrect dashboard display
-// - If OAuth is re-enabled in the future, add proper role selection during signup flow
-// - Last checked: 2025-11-10
+// OAuth authentication strategies for Google, Facebook, and LinkedIn social login.
+// Role selection is passed via OAuth state parameter from the signup form.
 
 // Initialize passport
 export function initializePassport() {
@@ -37,37 +32,37 @@ export function initializePassport() {
           clientID: process.env.GOOGLE_CLIENT_ID,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
           callbackURL: `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}/api/auth/google/callback`,
-          scope: ["profile", "email"], // Request minimal required scopes
+          scope: ["profile", "email"],
+          passReqToCallback: true,
         },
-        async (accessToken: any, refreshToken: any, profile: any, done: any) => {
+        async (req: any, accessToken: any, refreshToken: any, profile: any, done: any) => {
           try {
-            // Handle scope consent verification
             if (!profile.emails || !profile.emails[0] || !profile.emails[0].value) {
               console.warn("Google OAuth: Email scope not granted by user");
               return done(new Error("Email permission is required for registration"), undefined);
             }
 
-            // Store OAuth tokens securely (if refresh token provided)
-            const oauthData = {
-              accessToken,
-              refreshToken,
-              tokenExpiry: Date.now() + 3600 * 1000, // Standard 1 hour expiry
-            };
+            let selectedRole: "freelancer" | "recruiter" = "freelancer";
+            try {
+              const state = req.query?.state;
+              if (state) {
+                const decoded = JSON.parse(Buffer.from(state, "base64").toString());
+                if (decoded.role === "recruiter" || decoded.role === "freelancer") {
+                  selectedRole = decoded.role;
+                }
+              }
+            } catch {}
 
-            // Check if user already exists with Google ID
             const existingUser = await storage.getUserBySocialProvider("google", profile.id);
 
             if (existingUser) {
-              // Update last login info
               await storage.updateUserLastLogin(existingUser.id, "google");
               return done(null, existingUser);
             }
 
-            // Check if user exists with same email
             const emailUser = await storage.getUserByEmail(profile.emails?.[0]?.value || "");
 
             if (emailUser) {
-              // Link Google account to existing email user
               await storage.linkSocialProvider(
                 emailUser.id,
                 "google",
@@ -78,7 +73,6 @@ export function initializePassport() {
               return done(null, emailUser);
             }
 
-            // Create new user with Google auth
             const newUser = await storage.createSocialUser({
               email: profile.emails?.[0]?.value || "",
               first_name: profile.name?.givenName,
@@ -86,8 +80,8 @@ export function initializePassport() {
               auth_provider: "google",
               google_id: profile.id,
               profile_photo_url: profile.photos?.[0]?.value,
-              email_verified: true, // Google accounts are pre-verified
-              role: "freelancer" as const, // Default role, can be changed later
+              email_verified: true,
+              role: selectedRole,
             });
 
             await storage.updateUserLastLogin(newUser.id, "google");
@@ -168,10 +162,21 @@ export function initializePassport() {
           clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
           callbackURL: `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}/api/auth/linkedin/callback`,
           scope: ["r_liteprofile", "r_emailaddress"],
+          passReqToCallback: true,
         },
-        async (accessToken: any, refreshToken: any, profile: any, done: any) => {
+        async (req: any, accessToken: any, refreshToken: any, profile: any, done: any) => {
           try {
-            // Check if user already exists with LinkedIn ID
+            let selectedRole: "freelancer" | "recruiter" = "freelancer";
+            try {
+              const state = req.query?.state;
+              if (state) {
+                const decoded = JSON.parse(Buffer.from(state, "base64").toString());
+                if (decoded.role === "recruiter" || decoded.role === "freelancer") {
+                  selectedRole = decoded.role;
+                }
+              }
+            } catch {}
+
             const existingUser = await storage.getUserBySocialProvider("linkedin", profile.id);
 
             if (existingUser) {
@@ -179,11 +184,9 @@ export function initializePassport() {
               return done(null, existingUser);
             }
 
-            // Check if user exists with same email
             const emailUser = await storage.getUserByEmail(profile.emails?.[0]?.value || "");
 
             if (emailUser) {
-              // Link LinkedIn account to existing email user
               await storage.linkSocialProvider(
                 emailUser.id,
                 "linkedin",
@@ -194,7 +197,6 @@ export function initializePassport() {
               return done(null, emailUser);
             }
 
-            // Create new user with LinkedIn auth
             const newUser = await storage.createSocialUser({
               email: profile.emails?.[0]?.value || "",
               first_name: profile.name?.givenName,
@@ -202,8 +204,8 @@ export function initializePassport() {
               auth_provider: "linkedin",
               linkedin_id: profile.id,
               profile_photo_url: profile.photos?.[0]?.value,
-              email_verified: true, // LinkedIn accounts are pre-verified
-              role: "freelancer" as const, // Default role, can be changed later
+              email_verified: true,
+              role: selectedRole,
             });
 
             await storage.updateUserLastLogin(newUser.id, "linkedin");

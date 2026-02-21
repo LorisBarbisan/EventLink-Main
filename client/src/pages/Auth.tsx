@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePersistentState } from "@/hooks/usePersistentState";
 import { CheckCircle, Eye, EyeOff, Mail, Star, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { SiGoogle, SiLinkedin } from "react-icons/si";
 import { useLocation } from "wouter";
 
 export default function Auth() {
@@ -557,6 +558,38 @@ export default function Auth() {
                     {loading ? "Signing In..." : "Sign In"}
                   </Button>
 
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => { window.location.href = "/api/auth/google"; }}
+                      data-testid="button-signin-google"
+                    >
+                      <SiGoogle className="mr-2 h-4 w-4" />
+                      Google
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => { window.location.href = "/api/auth/linkedin"; }}
+                      data-testid="button-signin-linkedin"
+                    >
+                      <SiLinkedin className="mr-2 h-4 w-4 text-[#0A66C2]" />
+                      LinkedIn
+                    </Button>
+                  </div>
+
                   <div className="mt-4 text-center">
                     <button
                       type="button"
@@ -741,6 +774,38 @@ export default function Auth() {
                   >
                     {loading ? "Creating Account..." : "Create Account"}
                   </Button>
+
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Or sign up with</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => { window.location.href = `/api/auth/google?role=${signUpData.role}`; }}
+                      data-testid="button-signup-google"
+                    >
+                      <SiGoogle className="mr-2 h-4 w-4" />
+                      Google
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => { window.location.href = `/api/auth/linkedin?role=${signUpData.role}`; }}
+                      data-testid="button-signup-linkedin"
+                    >
+                      <SiLinkedin className="mr-2 h-4 w-4 text-[#0A66C2]" />
+                      LinkedIn
+                    </Button>
+                  </div>
                 </form>
               </TabsContent>
             </Tabs>
