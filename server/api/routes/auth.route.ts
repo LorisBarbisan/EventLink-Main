@@ -79,7 +79,7 @@ export function registerAuthRoutes(app: Express) {
     const role = req.query.role as string;
     const state = role ? Buffer.from(JSON.stringify({ role })).toString("base64") : undefined;
     passport.authenticate("linkedin", {
-      scope: ["r_liteprofile", "r_emailaddress"],
+      scope: ["openid", "profile", "email"],
       state,
     })(req, res, next);
   });
