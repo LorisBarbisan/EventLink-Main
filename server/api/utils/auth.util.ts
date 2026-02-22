@@ -50,7 +50,9 @@ export const blacklistToken = (token: string): void => {
 
 // Helper function to get the correct origin for redirects and email links
 export function getOrigin(req: Request): string {
-  // Use X-Forwarded-Proto if available (for proxied environments like Replit)
+  if (process.env.NODE_ENV === "production") {
+    return "https://eventlink.one";
+  }
   const protocol = req.headers["x-forwarded-proto"]?.includes("https") ? "https" : req.protocol;
   const host = req.get("host");
   return `${protocol}://${host}`;

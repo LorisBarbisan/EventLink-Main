@@ -127,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           store: new PgSession({
             conString: process.env.DATABASE_URL,
             tableName: "user_sessions", // Custom table name
-            createTableIfMissing: false, // Don't auto-create to prevent deployment hangs - table should be pre-created
+            createTableIfMissing: true,
             pruneSessionInterval: 24 * 60 * 60, // Clean up expired sessions daily (seconds)
             errorLog: (...args: any[]) => {
               console.error("Session store error:", ...args);

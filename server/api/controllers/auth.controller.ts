@@ -42,51 +42,43 @@ export function handleGoogleCallback(req: Request, res: Response, next: any) {
         );
       }
 
-      // Manually establish the session
-      req.logIn(user, async loginErr => {
+      // Compute role
+      const userWithRole = computeUserRole(user);
+
+      // Generate JWT token for OAuth users
+      const jwtToken = generateJWTToken(userWithRole);
+
+      // Update last login
+      await storage.updateUserLastLogin(user.id, "google");
+
+      // Try to establish session (non-blocking — JWT is primary auth)
+      req.logIn(user, (loginErr) => {
         if (loginErr) {
-          console.error("Session login error:", loginErr);
-          return res.redirect(
-            "/api/auth/oauth-error?error=server_error&error_description=Session creation failed"
-          );
+          console.warn("Session login warning (non-fatal):", loginErr.message);
         }
-
-        // Compute role after login
-        const userWithRole = computeUserRole(user);
-
-        // Update the session with the computed role
-        (req as any).user = userWithRole;
-
-        // CRITICAL FIX: Generate JWT token for OAuth users
-        const jwtToken = generateJWTToken(userWithRole);
-
-        // Update last login
-        await storage.updateUserLastLogin(user.id, "google");
-
-        console.log("Google OAuth successful login:", {
-          id: user.id,
-          email: user.email,
-          role: userWithRole.role,
-          sessionId: (req as any).session?.id,
-        });
-
-        // Redirect to frontend with JWT token for storage
-        const frontendUrl = getOrigin(req);
-
-        // SECURITY FIX: Use URL fragment instead of query params to prevent JWT leakage
-        const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(
-          JSON.stringify({
-            id: userWithRole.id,
-            email: userWithRole.email,
-            first_name: userWithRole.first_name,
-            last_name: userWithRole.last_name,
-            role: userWithRole.role,
-            email_verified: userWithRole.email_verified,
-          })
-        )}`;
-
-        return res.redirect(redirectUrl);
       });
+
+      console.log("Google OAuth successful login:", {
+        id: user.id,
+        email: user.email,
+        role: userWithRole.role,
+      });
+
+      // Redirect to frontend with JWT token for storage
+      const frontendUrl = getOrigin(req);
+
+      const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(
+        JSON.stringify({
+          id: userWithRole.id,
+          email: userWithRole.email,
+          first_name: userWithRole.first_name,
+          last_name: userWithRole.last_name,
+          role: userWithRole.role,
+          email_verified: userWithRole.email_verified,
+        })
+      )}`;
+
+      return res.redirect(redirectUrl);
     } catch (error) {
       console.error("Google OAuth callback processing error:", error);
       return res.redirect(
@@ -124,46 +116,43 @@ export function handleFacebookCallback(req: Request, res: Response, next: any) {
         );
       }
 
-      req.logIn(user, async loginErr => {
+      // Compute role
+      const userWithRole = computeUserRole(user);
+
+      // Generate JWT token for OAuth users
+      const jwtToken = generateJWTToken(userWithRole);
+
+      // Update last login
+      await storage.updateUserLastLogin(user.id, "facebook");
+
+      // Try to establish session (non-blocking — JWT is primary auth)
+      req.logIn(user, (loginErr) => {
         if (loginErr) {
-          console.error("Session login error:", loginErr);
-          return res.redirect(
-            "/api/auth/oauth-error?error=server_error&error_description=Session creation failed"
-          );
+          console.warn("Session login warning (non-fatal):", loginErr.message);
         }
-
-        const userWithRole = computeUserRole(user);
-        (req as any).user = userWithRole;
-
-        // CRITICAL FIX: Generate JWT token for OAuth users
-        const jwtToken = generateJWTToken(userWithRole);
-
-        // Update last login
-        await storage.updateUserLastLogin(user.id, "facebook");
-
-        console.log("Facebook OAuth successful login:", {
-          id: user.id,
-          email: user.email,
-          role: userWithRole.role,
-        });
-
-        // Redirect to frontend with JWT token for storage
-        const frontendUrl = getOrigin(req);
-
-        // SECURITY FIX: Use URL fragment instead of query params to prevent JWT leakage
-        const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(
-          JSON.stringify({
-            id: userWithRole.id,
-            email: userWithRole.email,
-            first_name: userWithRole.first_name,
-            last_name: userWithRole.last_name,
-            role: userWithRole.role,
-            email_verified: userWithRole.email_verified,
-          })
-        )}`;
-
-        return res.redirect(redirectUrl);
       });
+
+      console.log("Facebook OAuth successful login:", {
+        id: user.id,
+        email: user.email,
+        role: userWithRole.role,
+      });
+
+      // Redirect to frontend with JWT token for storage
+      const frontendUrl = getOrigin(req);
+
+      const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(
+        JSON.stringify({
+          id: userWithRole.id,
+          email: userWithRole.email,
+          first_name: userWithRole.first_name,
+          last_name: userWithRole.last_name,
+          role: userWithRole.role,
+          email_verified: userWithRole.email_verified,
+        })
+      )}`;
+
+      return res.redirect(redirectUrl);
     } catch (error) {
       console.error("Facebook OAuth callback processing error:", error);
       return res.redirect(
@@ -201,46 +190,43 @@ export function handleAppleCallback(req: Request, res: Response, next: any) {
         );
       }
 
-      req.logIn(user, async loginErr => {
+      // Compute role
+      const userWithRole = computeUserRole(user);
+
+      // Generate JWT token for OAuth users
+      const jwtToken = generateJWTToken(userWithRole);
+
+      // Update last login
+      await storage.updateUserLastLogin(user.id, "apple");
+
+      // Try to establish session (non-blocking — JWT is primary auth)
+      req.logIn(user, (loginErr) => {
         if (loginErr) {
-          console.error("Session login error:", loginErr);
-          return res.redirect(
-            "/api/auth/oauth-error?error=server_error&error_description=Session creation failed"
-          );
+          console.warn("Session login warning (non-fatal):", loginErr.message);
         }
-
-        const userWithRole = computeUserRole(user);
-        (req as any).user = userWithRole;
-
-        // CRITICAL FIX: Generate JWT token for OAuth users
-        const jwtToken = generateJWTToken(userWithRole);
-
-        // Update last login
-        await storage.updateUserLastLogin(user.id, "apple"); // Note: "apple" needs to be added to schema if strict typing used
-
-        console.log("Apple OAuth successful login:", {
-          id: user.id,
-          email: user.email,
-          role: userWithRole.role,
-        });
-
-        // Redirect to frontend with JWT token for storage
-        const frontendUrl = getOrigin(req);
-
-        // SECURITY FIX: Use URL fragment instead of query params to prevent JWT leakage
-        const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(
-          JSON.stringify({
-            id: userWithRole.id,
-            email: userWithRole.email,
-            first_name: userWithRole.first_name,
-            last_name: userWithRole.last_name,
-            role: userWithRole.role,
-            email_verified: userWithRole.email_verified,
-          })
-        )}`;
-
-        return res.redirect(redirectUrl);
       });
+
+      console.log("Apple OAuth successful login:", {
+        id: user.id,
+        email: user.email,
+        role: userWithRole.role,
+      });
+
+      // Redirect to frontend with JWT token for storage
+      const frontendUrl = getOrigin(req);
+
+      const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(
+        JSON.stringify({
+          id: userWithRole.id,
+          email: userWithRole.email,
+          first_name: userWithRole.first_name,
+          last_name: userWithRole.last_name,
+          role: userWithRole.role,
+          email_verified: userWithRole.email_verified,
+        })
+      )}`;
+
+      return res.redirect(redirectUrl);
     } catch (error) {
       console.error("Apple OAuth callback processing error:", error);
       return res.redirect(
@@ -278,46 +264,43 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
         );
       }
 
-      req.logIn(user, async loginErr => {
+      // Compute role
+      const userWithRole = computeUserRole(user);
+
+      // Generate JWT token for OAuth users
+      const jwtToken = generateJWTToken(userWithRole);
+
+      // Update last login
+      await storage.updateUserLastLogin(user.id, "linkedin");
+
+      // Try to establish session (non-blocking — JWT is primary auth)
+      req.logIn(user, (loginErr) => {
         if (loginErr) {
-          console.error("Session login error:", loginErr);
-          return res.redirect(
-            "/api/auth/oauth-error?error=server_error&error_description=Session creation failed"
-          );
+          console.warn("Session login warning (non-fatal):", loginErr.message);
         }
-
-        const userWithRole = computeUserRole(user);
-        (req as any).user = userWithRole;
-
-        // CRITICAL FIX: Generate JWT token for OAuth users
-        const jwtToken = generateJWTToken(userWithRole);
-
-        // Update last login
-        await storage.updateUserLastLogin(user.id, "linkedin");
-
-        console.log("LinkedIn OAuth successful login:", {
-          id: user.id,
-          email: user.email,
-          role: userWithRole.role,
-        });
-
-        // Redirect to frontend with JWT token for storage
-        const frontendUrl = getOrigin(req);
-
-        // SECURITY FIX: Use URL fragment instead of query params to prevent JWT leakage
-        const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(
-          JSON.stringify({
-            id: userWithRole.id,
-            email: userWithRole.email,
-            first_name: userWithRole.first_name,
-            last_name: userWithRole.last_name,
-            role: userWithRole.role,
-            email_verified: userWithRole.email_verified,
-          })
-        )}`;
-
-        return res.redirect(redirectUrl);
       });
+
+      console.log("LinkedIn OAuth successful login:", {
+        id: user.id,
+        email: user.email,
+        role: userWithRole.role,
+      });
+
+      // Redirect to frontend with JWT token for storage
+      const frontendUrl = getOrigin(req);
+
+      const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(
+        JSON.stringify({
+          id: userWithRole.id,
+          email: userWithRole.email,
+          first_name: userWithRole.first_name,
+          last_name: userWithRole.last_name,
+          role: userWithRole.role,
+          email_verified: userWithRole.email_verified,
+        })
+      )}`;
+
+      return res.redirect(redirectUrl);
     } catch (error) {
       console.error("LinkedIn OAuth callback processing error:", error);
       return res.redirect(
