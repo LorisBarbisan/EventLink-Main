@@ -26,11 +26,19 @@ export function initializePassport() {
 
   // Google OAuth Strategy (only if credentials are available)
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    const googleClientId = process.env.GOOGLE_CLIENT_ID.trim();
+    const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET.trim();
+    console.log("Google OAuth config:", {
+      clientIdLength: googleClientId.length,
+      clientIdPrefix: googleClientId.substring(0, 20) + "...",
+      secretLength: googleClientSecret.length,
+      callbackURL: "https://eventlink.one/api/auth/google/callback",
+    });
     passport.use(
       new GoogleStrategy(
         {
-          clientID: process.env.GOOGLE_CLIENT_ID,
-          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          clientID: googleClientId,
+          clientSecret: googleClientSecret,
           callbackURL: "https://eventlink.one/api/auth/google/callback",
           authorizationURL: "https://accounts.google.com/o/oauth2/v2/auth",
           tokenURL: "https://oauth2.googleapis.com/token",
