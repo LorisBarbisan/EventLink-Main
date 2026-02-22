@@ -31,7 +31,7 @@ export function initializePassport() {
         {
           clientID: process.env.GOOGLE_CLIENT_ID,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          callbackURL: `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}/api/auth/google/callback`,
+          callbackURL: "https://eventlink.one/api/auth/google/callback",
           scope: ["profile", "email"],
           passReqToCallback: true,
         },
@@ -102,7 +102,7 @@ export function initializePassport() {
         {
           clientID: process.env.FACEBOOK_APP_ID,
           clientSecret: process.env.FACEBOOK_APP_SECRET,
-          callbackURL: `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}/api/auth/facebook/callback`,
+          callbackURL: "https://eventlink.one/api/auth/facebook/callback",
           profileFields: ["id", "emails", "name", "picture.type(large)"],
         },
         async (accessToken: any, refreshToken: any, profile: any, done: any) => {
@@ -160,7 +160,7 @@ export function initializePassport() {
         {
           clientID: process.env.LINKEDIN_CLIENT_ID,
           clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-          callbackURL: `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}/api/auth/linkedin/callback`,
+          callbackURL: "https://eventlink.one/api/auth/linkedin/callback",
           scope: ["r_liteprofile", "r_emailaddress"],
           passReqToCallback: true,
         },
