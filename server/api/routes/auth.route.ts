@@ -52,7 +52,7 @@ export function registerAuthRoutes(app: Express) {
     const role = req.query.role as string;
     const state = role ? Buffer.from(JSON.stringify({ role })).toString("base64") : undefined;
     passport.authenticate("google", {
-      scope: ["profile", "email"],
+      scope: ["openid", "profile", "email"],
       state,
     })(req, res, next);
   });

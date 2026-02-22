@@ -1,6 +1,5 @@
 import passport from "passport";
 import { Strategy as FacebookStrategy } from "passport-facebook";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as OAuth2Strategy } from "passport-oauth2";
 import { storage } from "./storage";
 
@@ -24,7 +23,7 @@ export function initializePassport() {
     }
   });
 
-  // Google OAuth Strategy (only if credentials are available)
+  // Google OAuth Strategy using raw OAuth2Strategy (same approach as LinkedIn)
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     const googleClientId = process.env.GOOGLE_CLIENT_ID.trim();
     const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET.trim();
@@ -34,76 +33,86 @@ export function initializePassport() {
       secretLength: googleClientSecret.length,
       callbackURL: "https://eventlink.one/api/auth/google/callback",
     });
-    passport.use(
-      new GoogleStrategy(
-        {
-          clientID: googleClientId,
-          clientSecret: googleClientSecret,
-          callbackURL: "https://eventlink.one/api/auth/google/callback",
-          authorizationURL: "https://accounts.google.com/o/oauth2/v2/auth",
-          tokenURL: "https://oauth2.googleapis.com/token",
-          userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
-          scope: ["profile", "email"],
-          passReqToCallback: true,
-        },
-        async (req: any, accessToken: any, refreshToken: any, profile: any, done: any) => {
-          try {
-            if (!profile.emails || !profile.emails[0] || !profile.emails[0].value) {
-              console.warn("Google OAuth: Email scope not granted by user");
-              return done(new Error("Email permission is required for registration"), undefined);
-            }
 
-            let selectedRole: "freelancer" | "recruiter" = "freelancer";
-            try {
-              const state = req.query?.state;
-              if (state) {
-                const decoded = JSON.parse(Buffer.from(state, "base64").toString());
-                if (decoded.role === "recruiter" || decoded.role === "freelancer") {
-                  selectedRole = decoded.role;
-                }
-              }
-            } catch {}
-
-            const existingUser = await storage.getUserBySocialProvider("google", profile.id);
-
-            if (existingUser) {
-              await storage.updateUserLastLogin(existingUser.id, "google");
-              return done(null, existingUser);
-            }
-
-            const emailUser = await storage.getUserByEmail(profile.emails?.[0]?.value || "");
-
-            if (emailUser) {
-              await storage.linkSocialProvider(
-                emailUser.id,
-                "google",
-                profile.id,
-                profile.photos?.[0]?.value
-              );
-              await storage.updateUserLastLogin(emailUser.id, "google");
-              return done(null, emailUser);
-            }
-
-            const newUser = await storage.createSocialUser({
-              email: profile.emails?.[0]?.value || "",
-              first_name: profile.name?.givenName,
-              last_name: profile.name?.familyName,
-              auth_provider: "google",
-              google_id: profile.id,
-              profile_photo_url: profile.photos?.[0]?.value,
-              email_verified: true,
-              role: selectedRole,
-            });
-
-            await storage.updateUserLastLogin(newUser.id, "google");
-            return done(null, newUser);
-          } catch (error) {
-            console.error("Google OAuth error:", error);
-            return done(error as Error, undefined);
+    const googleStrategy = new OAuth2Strategy(
+      {
+        authorizationURL: "https://accounts.google.com/o/oauth2/v2/auth",
+        tokenURL: "https://oauth2.googleapis.com/token",
+        clientID: googleClientId,
+        clientSecret: googleClientSecret,
+        callbackURL: "https://eventlink.one/api/auth/google/callback",
+        scope: ["openid", "profile", "email"],
+        passReqToCallback: true,
+      },
+      async (req: any, accessToken: any, refreshToken: any, params: any, profile: any, done: any) => {
+        try {
+          const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (!userInfoRes.ok) {
+            console.error("Google userinfo fetch failed:", userInfoRes.status, await userInfoRes.text());
+            return done(new Error("Failed to fetch Google user info"), undefined);
           }
+          const userInfo = await userInfoRes.json();
+          console.log("Google userinfo received:", { sub: userInfo.sub, email: userInfo.email });
+
+          const email = userInfo.email || "";
+          if (!email) {
+            return done(new Error("Email permission is required for registration"), undefined);
+          }
+
+          const googleId = userInfo.sub;
+          const firstName = userInfo.given_name || "";
+          const lastName = userInfo.family_name || "";
+          const picture = userInfo.picture || "";
+
+          let selectedRole: "freelancer" | "recruiter" = "freelancer";
+          try {
+            const state = req.query?.state;
+            if (state) {
+              const decoded = JSON.parse(Buffer.from(state, "base64").toString());
+              if (decoded.role === "recruiter" || decoded.role === "freelancer") {
+                selectedRole = decoded.role;
+              }
+            }
+          } catch {}
+
+          const existingUser = await storage.getUserBySocialProvider("google", googleId);
+
+          if (existingUser) {
+            await storage.updateUserLastLogin(existingUser.id, "google");
+            return done(null, existingUser);
+          }
+
+          const emailUser = await storage.getUserByEmail(email);
+
+          if (emailUser) {
+            await storage.linkSocialProvider(emailUser.id, "google", googleId, picture);
+            await storage.updateUserLastLogin(emailUser.id, "google");
+            return done(null, emailUser);
+          }
+
+          const newUser = await storage.createSocialUser({
+            email,
+            first_name: firstName,
+            last_name: lastName,
+            auth_provider: "google",
+            google_id: googleId,
+            profile_photo_url: picture,
+            email_verified: true,
+            role: selectedRole,
+          });
+
+          await storage.updateUserLastLogin(newUser.id, "google");
+          return done(null, newUser);
+        } catch (error) {
+          console.error("Google OAuth error:", error);
+          return done(error as Error, undefined);
         }
-      )
+      }
     );
+    googleStrategy.name = "google";
+    passport.use(googleStrategy);
   }
 
   // Facebook OAuth Strategy (only if credentials are available)
