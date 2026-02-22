@@ -14,78 +14,166 @@ import {
 } from "../utils/auth.util";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../utils/emailService";
 
-// Google OAuth callback
-export function handleGoogleCallback(req: Request, res: Response, next: any) {
-  passport.authenticate("google", async (err: any, user: any, info: any) => {
-    try {
-      if (err) {
-        console.error("Google OAuth callback error:", err);
-        return res.redirect(
-          "/api/auth/oauth-error?error=server_error&error_description=Authentication failed"
-        );
-      }
+// Google OAuth callback — manual token exchange bypassing passport-oauth2
+export async function handleGoogleCallback(req: Request, res: Response) {
+  try {
+    const code = req.query.code as string;
+    const state = req.query.state as string;
+    const error = req.query.error as string;
 
-      if (!user) {
-        const error = info?.message || "Authentication failed";
-        console.log("Google OAuth - No user returned:", info);
-        return res.redirect(
-          `/api/auth/oauth-error?error=access_denied&error_description=${encodeURIComponent(error)}`
-        );
-      }
-
-      // Check if user is deactivated
-      if (user.status === "deactivated") {
-        return res.redirect(
-          `/api/auth/oauth-error?error=access_denied&error_description=${encodeURIComponent(
-            "Your account has been deactivated. Please contact support."
-          )}`
-        );
-      }
-
-      // Compute role
-      const userWithRole = computeUserRole(user);
-
-      // Generate JWT token for OAuth users
-      const jwtToken = generateJWTToken(userWithRole);
-
-      // Update last login
-      await storage.updateUserLastLogin(user.id, "google");
-
-      // Try to establish session (non-blocking — JWT is primary auth)
-      req.logIn(user, (loginErr) => {
-        if (loginErr) {
-          console.warn("Session login warning (non-fatal):", loginErr.message);
-        }
-      });
-
-      console.log("Google OAuth successful login:", {
-        id: user.id,
-        email: user.email,
-        role: userWithRole.role,
-      });
-
-      // Redirect to frontend with JWT token for storage
-      const frontendUrl = getOrigin(req);
-
-      const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(
-        JSON.stringify({
-          id: userWithRole.id,
-          email: userWithRole.email,
-          first_name: userWithRole.first_name,
-          last_name: userWithRole.last_name,
-          role: userWithRole.role,
-          email_verified: userWithRole.email_verified,
-        })
-      )}`;
-
-      return res.redirect(redirectUrl);
-    } catch (error) {
-      console.error("Google OAuth callback processing error:", error);
+    if (error) {
+      console.error("Google OAuth error from Google:", error);
       return res.redirect(
-        "/api/auth/oauth-error?error=server_error&error_description=Authentication processing failed"
+        `/api/auth/oauth-error?error=access_denied&error_description=${encodeURIComponent(error)}`
       );
     }
-  })(req, res, next);
+
+    if (!code) {
+      return res.redirect(
+        "/api/auth/oauth-error?error=server_error&error_description=No authorization code received"
+      );
+    }
+
+    const clientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
+    const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || "").trim();
+
+    // Step 1: Exchange authorization code for tokens
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: "https://eventlink.one/api/auth/google/callback",
+        grant_type: "authorization_code",
+      }).toString(),
+    });
+
+    const tokenData = await tokenRes.json();
+
+    if (!tokenRes.ok || tokenData.error) {
+      console.error("Google token exchange failed:", {
+        status: tokenRes.status,
+        error: tokenData.error,
+        error_description: tokenData.error_description,
+      });
+      return res.redirect(
+        `/api/auth/oauth-error?error=server_error&error_description=${encodeURIComponent(
+          tokenData.error_description || "Token exchange failed"
+        )}`
+      );
+    }
+
+    const accessToken = tokenData.access_token;
+
+    // Step 2: Fetch user info from Google
+    const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!userInfoRes.ok) {
+      console.error("Google userinfo fetch failed:", userInfoRes.status);
+      return res.redirect(
+        "/api/auth/oauth-error?error=server_error&error_description=Failed to fetch user info"
+      );
+    }
+
+    const userInfo = await userInfoRes.json();
+    console.log("Google userinfo received:", { sub: userInfo.sub, email: userInfo.email });
+
+    const email = userInfo.email || "";
+    if (!email) {
+      return res.redirect(
+        "/api/auth/oauth-error?error=access_denied&error_description=Email permission is required"
+      );
+    }
+
+    const googleId = userInfo.sub;
+    const firstName = userInfo.given_name || "";
+    const lastName = userInfo.family_name || "";
+    const picture = userInfo.picture || "";
+
+    // Parse role from state
+    let selectedRole: "freelancer" | "recruiter" = "freelancer";
+    try {
+      if (state) {
+        const decoded = JSON.parse(Buffer.from(state, "base64").toString());
+        if (decoded.role === "recruiter" || decoded.role === "freelancer") {
+          selectedRole = decoded.role;
+        }
+      }
+    } catch {}
+
+    // Step 3: Find or create user
+    let user = await storage.getUserBySocialProvider("google", googleId);
+
+    if (!user) {
+      const emailUser = await storage.getUserByEmail(email);
+      if (emailUser) {
+        await storage.linkSocialProvider(emailUser.id, "google", googleId, picture);
+        user = emailUser;
+      } else {
+        user = await storage.createSocialUser({
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          auth_provider: "google",
+          google_id: googleId,
+          profile_photo_url: picture,
+          email_verified: true,
+          role: selectedRole,
+        });
+      }
+    }
+
+    // Check if user is deactivated
+    if (user.status === "deactivated") {
+      return res.redirect(
+        `/api/auth/oauth-error?error=access_denied&error_description=${encodeURIComponent(
+          "Your account has been deactivated. Please contact support."
+        )}`
+      );
+    }
+
+    // Compute role and generate JWT
+    const userWithRole = computeUserRole(user);
+    const jwtToken = generateJWTToken(userWithRole);
+
+    await storage.updateUserLastLogin(user.id, "google");
+
+    // Try to establish session (non-blocking)
+    req.logIn(user, (loginErr) => {
+      if (loginErr) {
+        console.warn("Session login warning (non-fatal):", loginErr.message);
+      }
+    });
+
+    console.log("Google OAuth successful login:", {
+      id: user.id,
+      email: user.email,
+      role: userWithRole.role,
+    });
+
+    const frontendUrl = getOrigin(req);
+    const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(
+      JSON.stringify({
+        id: userWithRole.id,
+        email: userWithRole.email,
+        first_name: userWithRole.first_name,
+        last_name: userWithRole.last_name,
+        role: userWithRole.role,
+        email_verified: userWithRole.email_verified,
+      })
+    )}`;
+
+    return res.redirect(redirectUrl);
+  } catch (error) {
+    console.error("Google OAuth callback processing error:", error);
+    return res.redirect(
+      "/api/auth/oauth-error?error=server_error&error_description=Authentication processing failed"
+    );
+  }
 }
 
 // Facebook OAuth callback

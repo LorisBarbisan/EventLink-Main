@@ -47,14 +47,21 @@ export function registerAuthRoutes(app: Express) {
   // OAuth configuration endpoint
   app.get("/api/oauth-config", getOAuthConfig);
 
-  // Google OAuth routes
-  app.get("/api/auth/google", (req, res, next) => {
+  // Google OAuth routes — manual implementation bypassing passport-oauth2 token exchange
+  app.get("/api/auth/google", (req, res) => {
     const role = req.query.role as string;
-    const state = role ? Buffer.from(JSON.stringify({ role })).toString("base64") : undefined;
-    passport.authenticate("google", {
-      scope: ["openid", "profile", "email"],
-      state,
-    })(req, res, next);
+    const state = role ? Buffer.from(JSON.stringify({ role })).toString("base64") : "";
+    const clientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: "https://eventlink.one/api/auth/google/callback",
+      response_type: "code",
+      scope: "openid profile email",
+      access_type: "offline",
+      prompt: "consent",
+      ...(state ? { state } : {}),
+    });
+    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
   });
 
   app.get("/api/auth/google/callback", handleGoogleCallback);
