@@ -48,12 +48,14 @@ export function registerAuthRoutes(app: Express) {
   app.get("/api/oauth-config", getOAuthConfig);
 
   // Google OAuth routes
-  app.get(
-    "/api/auth/google",
+  app.get("/api/auth/google", (req, res, next) => {
+    const role = req.query.role as string;
+    const state = role ? Buffer.from(JSON.stringify({ role })).toString("base64") : undefined;
     passport.authenticate("google", {
       scope: ["profile", "email"],
-    })
-  );
+      state,
+    })(req, res, next);
+  });
 
   app.get("/api/auth/google/callback", handleGoogleCallback);
 
@@ -73,12 +75,14 @@ export function registerAuthRoutes(app: Express) {
   app.post("/api/auth/apple/callback", handleAppleCallback);
 
   // LinkedIn OAuth routes
-  app.get(
-    "/api/auth/linkedin",
+  app.get("/api/auth/linkedin", (req, res, next) => {
+    const role = req.query.role as string;
+    const state = role ? Buffer.from(JSON.stringify({ role })).toString("base64") : undefined;
     passport.authenticate("linkedin", {
-      scope: ["profile", "email"],
-    })
-  );
+      scope: ["r_liteprofile", "r_emailaddress"],
+      state,
+    })(req, res, next);
+  });
 
   app.get("/api/auth/linkedin/callback", handleLinkedInCallback);
 
