@@ -431,91 +431,100 @@ export function SettingsForm({ user }: SettingsFormProps) {
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="password">Password</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="password"
-                type="password"
-                value="••••••••••••"
-                readOnly
-                className="bg-muted"
-                data-testid="input-password"
-              />
-              <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" data-testid="button-change-password">
-                    <Key className="w-4 h-4 mr-1" />
-                    Change
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Change Password</DialogTitle>
-                    <DialogDescription>
-                      Enter your current password and choose a new one.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="old-password">Current Password</Label>
-                      <Input
-                        id="old-password"
-                        type="password"
-                        value={passwordForm.oldPassword}
-                        onChange={e =>
-                          setPasswordForm(prev => ({ ...prev, oldPassword: e.target.value }))
-                        }
-                        data-testid="input-old-password"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="new-password">New Password</Label>
-                      <Input
-                        id="new-password"
-                        type="password"
-                        value={passwordForm.newPassword}
-                        onChange={e =>
-                          setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))
-                        }
-                        data-testid="input-new-password"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="confirm-password">Confirm New Password</Label>
-                      <Input
-                        id="confirm-password"
-                        type="password"
-                        value={passwordForm.confirmPassword}
-                        onChange={e =>
-                          setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))
-                        }
-                        data-testid="input-confirm-password"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowPasswordDialog(false)}
-                      disabled={isChangingPassword}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handlePasswordChange}
-                      disabled={
-                        isChangingPassword || !passwordForm.oldPassword || !passwordForm.newPassword
-                      }
-                      data-testid="button-confirm-password-change"
-                    >
-                      {isChangingPassword ? "Changing..." : "Change Password"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+          {isOAuthUser ? (
+            <div>
+              <Label>Password</Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                You signed in with {user.auth_provider === "google" ? "Google" : user.auth_provider === "linkedin" ? "LinkedIn" : user.auth_provider}. Password management is not available for social sign-in accounts.
+              </p>
             </div>
-          </div>
+          ) : (
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="password"
+                  type="password"
+                  value="••••••••••••"
+                  readOnly
+                  className="bg-muted"
+                  data-testid="input-password"
+                />
+                <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" data-testid="button-change-password">
+                      <Key className="w-4 h-4 mr-1" />
+                      Change
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Change Password</DialogTitle>
+                      <DialogDescription>
+                        Enter your current password and choose a new one.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="old-password">Current Password</Label>
+                        <Input
+                          id="old-password"
+                          type="password"
+                          value={passwordForm.oldPassword}
+                          onChange={e =>
+                            setPasswordForm(prev => ({ ...prev, oldPassword: e.target.value }))
+                          }
+                          data-testid="input-old-password"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="new-password">New Password</Label>
+                        <Input
+                          id="new-password"
+                          type="password"
+                          value={passwordForm.newPassword}
+                          onChange={e =>
+                            setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))
+                          }
+                          data-testid="input-new-password"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="confirm-password">Confirm New Password</Label>
+                        <Input
+                          id="confirm-password"
+                          type="password"
+                          value={passwordForm.confirmPassword}
+                          onChange={e =>
+                            setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))
+                          }
+                          data-testid="input-confirm-password"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowPasswordDialog(false)}
+                        disabled={isChangingPassword}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handlePasswordChange}
+                        disabled={
+                          isChangingPassword || !passwordForm.oldPassword || !passwordForm.newPassword
+                        }
+                        data-testid="button-confirm-password-change"
+                      >
+                        {isChangingPassword ? "Changing..." : "Change Password"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

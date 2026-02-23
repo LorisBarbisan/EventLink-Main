@@ -203,6 +203,7 @@ export async function handleGoogleCallback(req: Request, res: Response) {
         last_name: userWithRole.last_name,
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
+        auth_provider: userWithRole.auth_provider || "email",
       })
     )}`;
 
@@ -276,6 +277,7 @@ export function handleFacebookCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
+        auth_provider: userWithRole.auth_provider || "email",
         })
       )}`;
 
@@ -350,6 +352,7 @@ export function handleAppleCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
+        auth_provider: userWithRole.auth_provider || "email",
         })
       )}`;
 
@@ -434,6 +437,7 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
+        auth_provider: userWithRole.auth_provider || "email",
         })
       )}`;
 
@@ -490,6 +494,7 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
+        auth_provider: userWithRole.auth_provider || "email",
         },
       });
     }
@@ -512,6 +517,7 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
+        auth_provider: userWithRole.auth_provider || "email",
         },
       });
     }
@@ -551,6 +557,7 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
         last_name: userWithRole.last_name,
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
+        auth_provider: userWithRole.auth_provider || "email",
       },
     });
   } catch (error) {
@@ -600,6 +607,7 @@ export async function getSession(req: Request, res: Response) {
         last_name: userWithRole.last_name,
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
+        auth_provider: userWithRole.auth_provider || "email",
       },
     });
   } catch (error) {
@@ -667,6 +675,7 @@ export async function signup(req: Request, res: Response) {
         last_name: userWithRole.last_name,
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
+        auth_provider: userWithRole.auth_provider || "email",
       },
     });
   } catch (error) {
@@ -1018,6 +1027,7 @@ export async function updateAccount(req: Request, res: Response) {
         last_name: userWithRole.last_name,
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
+        auth_provider: userWithRole.auth_provider || "email",
       },
     });
   } catch (error) {
