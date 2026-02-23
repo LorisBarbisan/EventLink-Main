@@ -2,6 +2,7 @@ import { insertUserSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import type { Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import passport from "passport";
 import { storage } from "../../storage";
 import {
@@ -13,6 +14,42 @@ import {
   verifyJWTToken,
 } from "../utils/auth.util";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../utils/emailService";
+
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "eventlink-secret-key";
+const OAUTH_PENDING_SECRET = JWT_SECRET + "-oauth-pending";
+const OAUTH_PENDING_EXPIRY = "10m";
+
+function generatePendingOAuthToken(data: {
+  email: string;
+  first_name: string;
+  last_name: string;
+  auth_provider: string;
+  provider_id: string;
+  profile_photo_url: string;
+}): string {
+  return jwt.sign(
+    { ...data, purpose: "oauth_pending_registration" },
+    OAUTH_PENDING_SECRET,
+    { expiresIn: OAUTH_PENDING_EXPIRY }
+  );
+}
+
+function verifyPendingOAuthToken(token: string): {
+  email: string;
+  first_name: string;
+  last_name: string;
+  auth_provider: string;
+  provider_id: string;
+  profile_photo_url: string;
+} | null {
+  try {
+    const decoded = jwt.verify(token, OAUTH_PENDING_SECRET) as any;
+    if (decoded.purpose !== "oauth_pending_registration") return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
 
 // Google OAuth callback — manual token exchange bypassing passport-oauth2
 export async function handleGoogleCallback(req: Request, res: Response) {
@@ -114,16 +151,19 @@ export async function handleGoogleCallback(req: Request, res: Response) {
         await storage.linkSocialProvider(emailUser.id, "google", googleId, picture);
         user = emailUser;
       } else {
-        user = await storage.createSocialUser({
+        // New user — redirect to role selection with signed pending token
+        const frontendUrl = getOrigin(req);
+        const pendingToken = generatePendingOAuthToken({
           email,
           first_name: firstName,
           last_name: lastName,
           auth_provider: "google",
-          google_id: googleId,
+          provider_id: googleId,
           profile_photo_url: picture,
-          email_verified: true,
-          role: selectedRole,
         });
+        const redirectUrl = `${frontendUrl}/auth#needs_role=true&pending_token=${encodeURIComponent(pendingToken)}`;
+        console.log("Google OAuth new user — redirecting to role selection:", { email });
+        return res.redirect(redirectUrl);
       }
     }
 
@@ -136,13 +176,12 @@ export async function handleGoogleCallback(req: Request, res: Response) {
       );
     }
 
-    // Compute role and generate JWT
+    // Existing user — generate JWT and redirect
     const userWithRole = computeUserRole(user);
     const jwtToken = generateJWTToken(userWithRole);
 
     await storage.updateUserLastLogin(user.id, "google");
 
-    // Try to establish session (non-blocking)
     req.logIn(user, (loginErr) => {
       if (loginErr) {
         console.warn("Session login warning (non-fatal):", loginErr.message);
@@ -343,6 +382,22 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
         );
       }
 
+      // Check if this is a new user needing role selection
+      if (user._isNewOAuthUser) {
+        const frontendUrl = getOrigin(req);
+        const pendingToken = generatePendingOAuthToken({
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          auth_provider: user.auth_provider,
+          provider_id: user.provider_id,
+          profile_photo_url: user.profile_photo_url,
+        });
+        const redirectUrl = `${frontendUrl}/auth#needs_role=true&pending_token=${encodeURIComponent(pendingToken)}`;
+        console.log("LinkedIn OAuth new user — redirecting to role selection:", { email: user.email });
+        return res.redirect(redirectUrl);
+      }
+
       // Check if user is deactivated
       if (user.status === "deactivated") {
         return res.redirect(
@@ -352,16 +407,12 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
         );
       }
 
-      // Compute role
+      // Existing user — generate JWT and redirect
       const userWithRole = computeUserRole(user);
-
-      // Generate JWT token for OAuth users
       const jwtToken = generateJWTToken(userWithRole);
 
-      // Update last login
       await storage.updateUserLastLogin(user.id, "linkedin");
 
-      // Try to establish session (non-blocking — JWT is primary auth)
       req.logIn(user, (loginErr) => {
         if (loginErr) {
           console.warn("Session login warning (non-fatal):", loginErr.message);
@@ -374,9 +425,7 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
         role: userWithRole.role,
       });
 
-      // Redirect to frontend with JWT token for storage
       const frontendUrl = getOrigin(req);
-
       const redirectUrl = `${frontendUrl}/auth#oauth_success=true&token=${encodeURIComponent(jwtToken)}&user=${encodeURIComponent(
         JSON.stringify({
           id: userWithRole.id,
@@ -396,6 +445,118 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
       );
     }
   })(req, res, next);
+}
+
+// Complete OAuth registration with chosen role (for new users)
+// Security: Requires a signed pending_token generated server-side during OAuth callback
+export async function completeOAuthRegistration(req: Request, res: Response) {
+  try {
+    const { pending_token, role } = req.body;
+
+    if (!pending_token) {
+      return res.status(400).json({ error: "Missing pending token" });
+    }
+
+    if (role !== "freelancer" && role !== "recruiter") {
+      return res.status(400).json({ error: "Invalid role. Must be 'freelancer' or 'recruiter'" });
+    }
+
+    // Verify the server-signed pending OAuth token
+    const oauthData = verifyPendingOAuthToken(pending_token);
+    if (!oauthData) {
+      return res.status(401).json({ error: "Invalid or expired registration token. Please sign in again." });
+    }
+
+    const { email, first_name, last_name, auth_provider, provider_id, profile_photo_url } = oauthData;
+
+    if (!["google", "linkedin", "facebook"].includes(auth_provider)) {
+      return res.status(400).json({ error: "Invalid auth provider" });
+    }
+
+    // Check if user already exists (race condition guard)
+    const existingUser = await storage.getUserBySocialProvider(auth_provider as any, provider_id);
+    if (existingUser) {
+      if (existingUser.status === "deactivated") {
+        return res.status(403).json({ error: "Your account has been deactivated. Please contact support." });
+      }
+      const userWithRole = computeUserRole(existingUser);
+      const jwtToken = generateJWTToken(userWithRole);
+      return res.json({
+        token: jwtToken,
+        user: {
+          id: userWithRole.id,
+          email: userWithRole.email,
+          first_name: userWithRole.first_name,
+          last_name: userWithRole.last_name,
+          role: userWithRole.role,
+          email_verified: userWithRole.email_verified,
+        },
+      });
+    }
+
+    const existingEmailUser = await storage.getUserByEmail(email);
+    if (existingEmailUser) {
+      if (existingEmailUser.status === "deactivated") {
+        return res.status(403).json({ error: "Your account has been deactivated. Please contact support." });
+      }
+      await storage.linkSocialProvider(existingEmailUser.id, auth_provider as any, provider_id, profile_photo_url);
+      await storage.updateUserLastLogin(existingEmailUser.id, auth_provider as any);
+      const userWithRole = computeUserRole(existingEmailUser);
+      const jwtToken = generateJWTToken(userWithRole);
+      return res.json({
+        token: jwtToken,
+        user: {
+          id: userWithRole.id,
+          email: userWithRole.email,
+          first_name: userWithRole.first_name,
+          last_name: userWithRole.last_name,
+          role: userWithRole.role,
+          email_verified: userWithRole.email_verified,
+        },
+      });
+    }
+
+    const providerIdField = auth_provider === "google" ? "google_id" :
+      auth_provider === "linkedin" ? "linkedin_id" : "facebook_id";
+
+    const newUser = await storage.createSocialUser({
+      email,
+      first_name,
+      last_name,
+      auth_provider: auth_provider as any,
+      [providerIdField]: provider_id,
+      profile_photo_url,
+      email_verified: true,
+      role,
+    });
+
+    await storage.updateUserLastLogin(newUser.id, auth_provider as any);
+
+    const userWithRole = computeUserRole(newUser);
+    const jwtToken = generateJWTToken(userWithRole);
+
+    console.log("OAuth registration completed:", {
+      id: newUser.id,
+      email: newUser.email,
+      role: userWithRole.role,
+      provider: auth_provider,
+    });
+
+    return res.json({
+      token: jwtToken,
+      user: {
+        id: userWithRole.id,
+        email: userWithRole.email,
+        first_name: userWithRole.first_name,
+        last_name: userWithRole.last_name,
+        role: userWithRole.role,
+        email_verified: userWithRole.email_verified,
+      },
+    });
+  } catch (error) {
+    console.error("OAuth registration error:", error);
+    return res.status(500).json({ error: "Registration failed" });
+  }
 }
 
 // Get current user session (JWT-based)

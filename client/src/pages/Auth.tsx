@@ -68,6 +68,13 @@ export default function Auth() {
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // OAuth role selection state for new users (only holds signed pending token)
+  const [pendingOAuthData, setPendingOAuthData] = useState<{
+    pending_token: string;
+  } | null>(null);
+  const [oauthRoleSelection, setOauthRoleSelection] = useState<"freelancer" | "recruiter">("freelancer");
+  const [oauthRegistering, setOauthRegistering] = useState(false);
+
   // Redirect if already authenticated (but only after loading is complete to ensure validation is done)
   useEffect(() => {
     if (user && !authLoading) {
@@ -134,6 +141,17 @@ export default function Auth() {
       }
     }
 
+    // Handle new OAuth user needing role selection (signed pending token)
+    const needsRole = hashParams.get("needs_role");
+    const pendingTokenParam = hashParams.get("pending_token");
+
+    if (needsRole === "true" && pendingTokenParam) {
+      setPendingOAuthData({ pending_token: decodeURIComponent(pendingTokenParam) });
+      const newUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      return;
+    }
+
     // Handle OAuth error messages
     const oauthError = urlParams.get("oauth_error");
     const provider = urlParams.get("provider");
@@ -180,6 +198,117 @@ export default function Auth() {
           <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500"></div>
           <p>Redirecting to dashboard...</p>
         </div>
+      </div>
+    );
+  }
+
+  const handleOAuthRoleComplete = async () => {
+    if (!pendingOAuthData) return;
+    setOauthRegistering(true);
+    try {
+      const response = await fetch("/api/auth/oauth/complete-registration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pending_token: pendingOAuthData.pending_token,
+          role: oauthRoleSelection,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Registration failed");
+      }
+      localStorage.setItem("auth_token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      updateUser(data.user);
+      toast({
+        title: "Welcome to EventLink!",
+        description: `Your account has been created as ${oauthRoleSelection === "freelancer" ? "a Freelancer" : "an Employer"}.`,
+      });
+      setPendingOAuthData(null);
+      setLocation("/dashboard");
+    } catch (error: any) {
+      toast({
+        title: "Registration Failed",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setOauthRegistering(false);
+    }
+  };
+
+  // Show role selection for new OAuth users
+  if (pendingOAuthData) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50 p-4 dark:from-gray-900 dark:to-gray-800">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30">
+              <CheckCircle className="h-8 w-8 text-orange-600" />
+            </div>
+            <CardTitle className="text-2xl">Almost there!</CardTitle>
+            <p className="mt-2 text-muted-foreground">
+              Welcome! Please select how you'd like to use EventLink.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <RadioGroup
+              value={oauthRoleSelection}
+              onValueChange={(val) => setOauthRoleSelection(val as "freelancer" | "recruiter")}
+              className="space-y-3"
+            >
+              <label
+                htmlFor="oauth-role-freelancer"
+                className={`flex cursor-pointer items-start gap-4 rounded-lg border-2 p-4 transition-colors ${
+                  oauthRoleSelection === "freelancer"
+                    ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
+                    : "border-gray-200 hover:border-gray-300 dark:border-gray-700"
+                }`}
+              >
+                <RadioGroupItem value="freelancer" id="oauth-role-freelancer" className="mt-1" />
+                <div>
+                  <div className="font-semibold">Freelancer</div>
+                  <div className="text-sm text-muted-foreground">
+                    I'm looking for event work opportunities. I want to showcase my skills and apply for jobs.
+                  </div>
+                </div>
+              </label>
+              <label
+                htmlFor="oauth-role-recruiter"
+                className={`flex cursor-pointer items-start gap-4 rounded-lg border-2 p-4 transition-colors ${
+                  oauthRoleSelection === "recruiter"
+                    ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
+                    : "border-gray-200 hover:border-gray-300 dark:border-gray-700"
+                }`}
+              >
+                <RadioGroupItem value="recruiter" id="oauth-role-recruiter" className="mt-1" />
+                <div>
+                  <div className="font-semibold">Employer</div>
+                  <div className="text-sm text-muted-foreground">
+                    I want to hire event professionals. I'll be posting jobs and managing crew.
+                  </div>
+                </div>
+              </label>
+            </RadioGroup>
+
+            <Button
+              onClick={handleOAuthRoleComplete}
+              disabled={oauthRegistering}
+              className="w-full bg-orange-600 hover:bg-orange-700"
+              size="lg"
+            >
+              {oauthRegistering ? "Creating your account..." : "Continue"}
+            </Button>
+
+            <button
+              onClick={() => setPendingOAuthData(null)}
+              className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

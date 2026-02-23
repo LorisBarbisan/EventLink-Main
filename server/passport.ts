@@ -227,19 +227,17 @@ export function initializePassport() {
             return done(null, emailUser);
           }
 
-          const newUser = await storage.createSocialUser({
+          // New user — pass pending data back instead of creating account
+          const pendingUser = {
+            _isNewOAuthUser: true,
             email,
             first_name: firstName,
             last_name: lastName,
             auth_provider: "linkedin",
-            linkedin_id: linkedinId,
+            provider_id: linkedinId,
             profile_photo_url: picture,
-            email_verified: true,
-            role: selectedRole,
-          });
-
-          await storage.updateUserLastLogin(newUser.id, "linkedin");
-          return done(null, newUser);
+          };
+          return done(null, pendingUser);
         } catch (error) {
           console.error("LinkedIn OAuth error:", error);
           return done(error as Error, undefined);

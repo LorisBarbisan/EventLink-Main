@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import passport from "passport";
 import {
   changePassword,
+  completeOAuthRegistration,
   deleteAccount,
   forgotPassword,
   getAdminDiagnostics,
@@ -46,6 +47,9 @@ export function registerAuthRoutes(app: Express) {
 
   // OAuth configuration endpoint
   app.get("/api/oauth-config", getOAuthConfig);
+
+  // OAuth registration completion (role selection for new users)
+  app.post("/api/auth/oauth/complete-registration", completeOAuthRegistration);
 
   // Google OAuth routes — manual implementation bypassing passport-oauth2 token exchange
   app.get("/api/auth/google", (req, res) => {
