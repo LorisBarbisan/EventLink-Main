@@ -1033,24 +1033,30 @@ export async function deleteAccount(req: Request, res: Response) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { password } = req.body;
-
-    if (!password) {
-      return res.status(400).json({ error: "Password is required to delete account" });
-    }
+    const { password, confirmPhrase } = req.body;
 
     const user = await storage.getUser((req as any).user.id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Verify password
-    if (!user.password) {
-      return res.status(400).json({ error: "Account has no password set" });
-    }
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      return res.status(400).json({ error: "Incorrect password" });
+    const isOAuthUser = user.auth_provider && user.auth_provider !== "email" && !user.password;
+
+    if (isOAuthUser) {
+      if (confirmPhrase !== "DELETE") {
+        return res.status(400).json({ error: "Please type DELETE to confirm account deletion" });
+      }
+    } else {
+      if (!password) {
+        return res.status(400).json({ error: "Password is required to delete account" });
+      }
+      if (!user.password) {
+        return res.status(400).json({ error: "Account has no password set" });
+      }
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        return res.status(400).json({ error: "Incorrect password" });
+      }
     }
 
     // Delete only the current user's data

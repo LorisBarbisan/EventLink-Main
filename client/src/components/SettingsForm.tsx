@@ -56,6 +56,8 @@ export function SettingsForm({ user }: SettingsFormProps) {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirmPhrase, setDeleteConfirmPhrase] = useState("");
+  const isOAuthUser = user.auth_provider && user.auth_provider !== "email";
   const [accountForm, setAccountForm] = useState({
     first_name: user.first_name || "",
     last_name: user.last_name || "",
@@ -124,13 +126,24 @@ export function SettingsForm({ user }: SettingsFormProps) {
   };
 
   const handleDeleteAccount = async () => {
-    if (!deletePassword) {
-      toast({
-        title: "Password required",
-        description: "Please enter your password to confirm account deletion.",
-        variant: "destructive",
-      });
-      return;
+    if (isOAuthUser) {
+      if (deleteConfirmPhrase !== "DELETE") {
+        toast({
+          title: "Confirmation required",
+          description: "Please type DELETE to confirm account deletion.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      if (!deletePassword) {
+        toast({
+          title: "Password required",
+          description: "Please enter your password to confirm account deletion.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setIsDeletingAccount(true);
@@ -138,14 +151,15 @@ export function SettingsForm({ user }: SettingsFormProps) {
       await apiRequest("/api/auth/delete-account", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user.id,
-          password: deletePassword,
-        }),
+        body: JSON.stringify(
+          isOAuthUser
+            ? { userId: user.id, confirmPhrase: deleteConfirmPhrase }
+            : { userId: user.id, password: deletePassword }
+        ),
       });
 
-      // Clear the password field and close dialog immediately
       setDeletePassword("");
+      setDeleteConfirmPhrase("");
       setShowDeleteDialog(false);
 
       // Immediately log out the user and clear their session
@@ -565,22 +579,39 @@ export function SettingsForm({ user }: SettingsFormProps) {
                       <li>Uploaded files and documents</li>
                     </ul>
                     <div className="mt-4">
-                      <Label htmlFor="delete-password">Enter your password to confirm:</Label>
-                      <Input
-                        id="delete-password"
-                        type="password"
-                        value={deletePassword}
-                        onChange={e => setDeletePassword(e.target.value)}
-                        placeholder="Your password"
-                        className="mt-2"
-                        data-testid="input-delete-password"
-                      />
+                      {isOAuthUser ? (
+                        <>
+                          <Label htmlFor="delete-confirm">Type <span className="font-bold">DELETE</span> to confirm:</Label>
+                          <Input
+                            id="delete-confirm"
+                            type="text"
+                            value={deleteConfirmPhrase}
+                            onChange={e => setDeleteConfirmPhrase(e.target.value)}
+                            placeholder="Type DELETE"
+                            className="mt-2"
+                            data-testid="input-delete-confirm"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Label htmlFor="delete-password">Enter your password to confirm:</Label>
+                          <Input
+                            id="delete-password"
+                            type="password"
+                            value={deletePassword}
+                            onChange={e => setDeletePassword(e.target.value)}
+                            placeholder="Your password"
+                            className="mt-2"
+                            data-testid="input-delete-password"
+                          />
+                        </>
+                      )}
                     </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel
-                    onClick={() => setDeletePassword("")}
+                    onClick={() => { setDeletePassword(""); setDeleteConfirmPhrase(""); }}
                     disabled={isDeletingAccount}
                   >
                     Cancel
@@ -588,7 +619,7 @@ export function SettingsForm({ user }: SettingsFormProps) {
                   <AlertDialogAction
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     onClick={handleDeleteAccount}
-                    disabled={!deletePassword || isDeletingAccount}
+                    disabled={isOAuthUser ? deleteConfirmPhrase !== "DELETE" || isDeletingAccount : !deletePassword || isDeletingAccount}
                     data-testid="button-confirm-delete"
                   >
                     {isDeletingAccount ? "Deleting..." : "Yes, delete my account"}
