@@ -609,7 +609,7 @@ export class DatabaseStorage implements IStorage {
         break;
     }
 
-    const result = await db.select().from(users).where(condition).limit(1);
+    const result = await db.select().from(users).where(and(condition, isNull(users.deleted_at))).limit(1);
     if (result[0]) {
       cache.set(cacheKey, result[0], 300);
     }
@@ -2789,7 +2789,10 @@ export class DatabaseStorage implements IStorage {
           .update(users)
           .set({
             deleted_at: new Date(),
-            email: `deleted_${userId}_${user[0].email}`, // Prevent email conflicts for new registrations
+            email: `deleted_${userId}_${user[0].email}`,
+            google_id: null,
+            facebook_id: null,
+            linkedin_id: null,
           })
           .where(eq(users.id, userId));
 
