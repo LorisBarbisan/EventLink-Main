@@ -1,6 +1,7 @@
 import { insertFreelancerProfileSchema, insertRecruiterProfileSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
+import sharp from "sharp";
 
 // Get user by ID
 export async function getUserById(req: Request, res: Response) {
@@ -42,15 +43,16 @@ export async function getProfilePhoto(req: Request, res: Response) {
       return res.redirect(302, photoUrl);
     }
 
-    // If it's a base64 data URL, decode and serve it as an image
+    // If it's a base64 data URL, decode, convert to JPEG, and serve
+    // Always convert to JPEG for maximum compatibility (WhatsApp, etc. don't support WebP)
     if (photoUrl.startsWith("data:")) {
       const match = photoUrl.match(/^data:([^;]+);base64,(.+)$/);
       if (!match) return res.status(400).end();
-      const mimeType = match[1];
       const imageData = Buffer.from(match[2], "base64");
-      res.set("Content-Type", mimeType);
+      const jpegData = await sharp(imageData).jpeg({ quality: 85 }).toBuffer();
+      res.set("Content-Type", "image/jpeg");
       res.set("Cache-Control", "public, max-age=3600");
-      return res.send(imageData);
+      return res.send(jpegData);
     }
 
     return res.status(404).end();
