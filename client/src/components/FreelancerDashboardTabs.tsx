@@ -453,8 +453,8 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                {hasProfile && freelancerProfile.user_id && (
-                  <ShareProfileButton userId={freelancerProfile.user_id} />
+                {hasProfile && (
+                  <ShareProfileButton userId={parseInt(profile.id)} />
                 )}
                 <div className="flex items-center gap-2">
                   <div
