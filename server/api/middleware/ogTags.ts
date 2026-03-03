@@ -194,7 +194,11 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
         }
         const baseUrl = getBaseUrl(req);
         const profileUrl = `${baseUrl}/profile/${userId}`;
-        const ogImageUrl = `${baseUrl}/og-image.png`;
+        // Use the freelancer's own photo if available, otherwise fall back to the EventLink logo
+        const hasPhoto = !!(profile.profile_photo_url && profile.profile_photo_url.trim());
+        const ogImageUrl = hasPhoto
+          ? `${baseUrl}/api/profile-photo/${userId}`
+          : `${baseUrl}/og-image.png`;
         const fullName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Freelancer";
         const html = buildOgHtml({
           url: profileUrl,

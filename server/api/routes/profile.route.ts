@@ -5,6 +5,7 @@ import {
   getAllFreelancers,
   getAllRecruiterProfiles,
   getFreelancerProfile,
+  getProfilePhoto,
   getRecruiterProfile,
   getUserById,
   searchFreelancers,
@@ -16,6 +17,9 @@ import { authenticateJWT } from "../middleware/auth.middleware";
 export function registerProfileRoutes(app: Express) {
   // Get user by ID
   app.get("/api/users/:id", getUserById);
+
+  // Serve freelancer profile photo as a real image (used by OG tags for social previews)
+  app.get("/api/profile-photo/:userId", getProfilePhoto);
 
   // Get freelancer profile
   app.get("/api/freelancer/:userId", getFreelancerProfile);

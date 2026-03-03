@@ -25,6 +25,41 @@ export async function getUserById(req: Request, res: Response) {
   }
 }
 
+// Serve freelancer profile photo as a real image (for OG tags / social previews)
+export async function getProfilePhoto(req: Request, res: Response) {
+  try {
+    const userId = parseInt(req.params.userId);
+    const profile = await storage.getFreelancerProfile(userId);
+
+    if (!profile || !profile.profile_photo_url) {
+      return res.status(404).end();
+    }
+
+    const photoUrl = profile.profile_photo_url;
+
+    // If it's an external HTTP URL (e.g. Google/LinkedIn OAuth avatar), redirect to it
+    if (photoUrl.startsWith("http://") || photoUrl.startsWith("https://")) {
+      return res.redirect(302, photoUrl);
+    }
+
+    // If it's a base64 data URL, decode and serve it as an image
+    if (photoUrl.startsWith("data:")) {
+      const match = photoUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) return res.status(400).end();
+      const mimeType = match[1];
+      const imageData = Buffer.from(match[2], "base64");
+      res.set("Content-Type", mimeType);
+      res.set("Cache-Control", "public, max-age=3600");
+      return res.send(imageData);
+    }
+
+    return res.status(404).end();
+  } catch (error) {
+    console.error("Profile photo error:", error);
+    res.status(500).end();
+  }
+}
+
 // Get freelancer profile
 export async function getFreelancerProfile(req: Request, res: Response) {
   try {
