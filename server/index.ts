@@ -88,18 +88,10 @@ if (process.env.NODE_ENV === "production") {
   );
 }
 
-// HTTPS enforcement and additional security middleware in production
+// Additional production security headers
+// NOTE: Do NOT add HTTPS redirect here — Replit's reverse proxy handles SSL termination.
+// The app must serve plain HTTP; redirecting to HTTPS breaks Replit's health checks.
 if (process.env.NODE_ENV === "production") {
-  // HTTPS redirection
-  app.use((req, res, next) => {
-    if (req.header("x-forwarded-proto") !== "https") {
-      res.redirect(`https://${req.header("host")}${req.url}`);
-    } else {
-      next();
-    }
-  });
-
-  // Additional production security headers
   app.use((req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
