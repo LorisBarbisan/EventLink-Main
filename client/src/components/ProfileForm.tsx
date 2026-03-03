@@ -30,6 +30,7 @@ import type {
 } from "@shared/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2, FileText, Globe, MapPin, Plus, X } from "lucide-react";
+import { ShareProfileButton } from "@/components/ShareProfileButton";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RatingDisplay } from "./StarRating";
 
@@ -200,9 +201,14 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
                   : "Your company information and details"}
               </CardDescription>
             </div>
-            <Button onClick={() => setIsEditing(true)} data-testid="button-edit-profile">
-              Edit Profile
-            </Button>
+            <div className="flex items-center gap-2">
+              {userType === "freelancer" && user?.id && (
+                <ShareProfileButton userId={user.id} />
+              )}
+              <Button onClick={() => setIsEditing(true)} data-testid="button-edit-profile">
+                Edit Profile
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
