@@ -46,6 +46,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { CVUploader } from "./CVUploader";
 import { MessagingInterface } from "./MessagingInterface";
+import { ShareProfileButton } from "./ShareProfileButton";
 
 interface Profile {
   id: string;
@@ -451,19 +452,24 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div
-                  className={`h-3 w-3 rounded-full ${
-                    freelancerProfile.availability_status === "available"
-                      ? "bg-green-500"
-                      : freelancerProfile.availability_status === "busy"
-                        ? "bg-yellow-500"
-                        : "bg-red-500"
-                  }`}
-                ></div>
-                <Badge variant="outline" className="capitalize">
-                  {freelancerProfile.availability_status}
-                </Badge>
+              <div className="flex items-center gap-3">
+                {hasProfile && freelancerProfile.user_id && (
+                  <ShareProfileButton userId={freelancerProfile.user_id} />
+                )}
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`h-3 w-3 rounded-full ${
+                      freelancerProfile.availability_status === "available"
+                        ? "bg-green-500"
+                        : freelancerProfile.availability_status === "busy"
+                          ? "bg-yellow-500"
+                          : "bg-red-500"
+                    }`}
+                  ></div>
+                  <Badge variant="outline" className="capitalize">
+                    {freelancerProfile.availability_status}
+                  </Badge>
+                </div>
               </div>
             </div>
           </CardHeader>
