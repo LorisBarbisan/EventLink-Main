@@ -18,8 +18,7 @@ export const Footer = () => {
               <span className="font-semibold text-lg">EventLink</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Connecting technical professionals with event opportunities in the corporate events
-              sector.
+              Connecting technical professionals with event opportunities across the events industry.
             </p>
           </div>
 

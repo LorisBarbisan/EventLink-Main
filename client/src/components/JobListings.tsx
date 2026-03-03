@@ -30,7 +30,7 @@ const featuredJobs = [
     date: "Dec 20-21, 2024",
     skills: ["LED Systems", "Moving Lights", "grandMA2"],
     urgent: true,
-    description: "Experienced lighting tech for corporate awards ceremony at Manchester Central.",
+    description: "Experienced lighting tech for awards ceremony at Manchester Central.",
   },
   {
     id: 3,

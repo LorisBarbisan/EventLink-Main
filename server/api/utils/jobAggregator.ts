@@ -67,8 +67,6 @@ const EVENT_ROLE_KEYWORDS = [
   "conference technician",
   "exhibition",
   "trade show",
-  "corporate events",
-
   // Broadcasting and media
   "video production",
   "live broadcast",

@@ -497,7 +497,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
               <div className="flex gap-2">
                 <Input
                   id="keyword-input"
-                  placeholder="e.g., festival, corporate, live music"
+                  placeholder="e.g., festival, awards, live music"
                   value={keywordInput}
                   onChange={e => setKeywordInput(e.target.value)}
                   onKeyPress={e => e.key === "Enter" && (e.preventDefault(), handleAddKeyword())}

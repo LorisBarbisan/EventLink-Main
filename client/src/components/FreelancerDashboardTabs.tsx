@@ -377,9 +377,9 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     },
     {
       id: 2,
-      sender: "Corporate AV Solutions",
+      sender: "AV Solutions Ltd",
       subject: "Re: AV Specialist Position",
-      preview: `Thank you for your interest in working with us on corporate events. Your expertise in ${freelancerProfile.skills[0] || "audio engineering"} is exactly what we need...`,
+      preview: `Thank you for your interest in working with us on upcoming events. Your expertise in ${freelancerProfile.skills[0] || "audio engineering"} is exactly what we need...`,
       time: "1 day ago",
       unread: false,
     },

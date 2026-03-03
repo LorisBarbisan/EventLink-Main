@@ -35,7 +35,7 @@ const SKILL_KEYWORDS = [
   "camera operator", "vmix", "obs", "streaming", "broadcast", "technical director",
   "av technician", "sound engineer", "lighting designer", "stage hand", "rigger",
   "production assistant", "runner", "coordinator", "live events", "festival",
-  "conference", "exhibition", "corporate events", "weddings", "concerts",
+  "conference", "exhibition", "weddings", "concerts",
   "powerpoint", "excel", "word", "photoshop", "premiere", "after effects",
   "final cut", "davinci resolve", "ableton", "pro tools", "logic pro",
   "first aid", "driving license", "forklift", "scissor lift", "cherry picker",

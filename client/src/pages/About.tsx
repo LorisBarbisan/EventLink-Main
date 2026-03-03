@@ -40,7 +40,7 @@ export default function About() {
             </p>
 
             <p>
-              Built by people who have worked as freelancers and alongside freelance crews, EventLink exists to solve everyday challenges faced by technical professionals and event teams. The platform was designed with a clear understanding of how corporate events actually operate — tight timelines, specialist roles, and the need for reliable, direct communication.
+              Built by people who have worked as freelancers and alongside freelance crews, EventLink exists to solve everyday challenges faced by technical professionals and event teams. The platform was designed with a clear understanding of how events actually operate — tight timelines, specialist roles, and the need for reliable, direct communication.
             </p>
 
             <p>

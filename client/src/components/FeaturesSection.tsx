@@ -75,7 +75,7 @@ export const FeaturesSection = () => {
           <h2 className="text-3xl lg:text-5xl font-bold">Built for the Events Industry</h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
             Whether you're a freelance technician looking for your next gig or a company seeking
-            skilled crew, we've designed the perfect platform for the corporate events sector.
+            skilled crew, we've designed the perfect platform for the events industry.
           </p>
         </div>
 

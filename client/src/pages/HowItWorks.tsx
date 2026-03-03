@@ -29,14 +29,14 @@ export default function HowItWorks() {
     if (metaDescription) {
       metaDescription.setAttribute(
         "content",
-        "Learn how EventLink connects freelance event professionals with corporate event opportunities. Step-by-step guide for both freelancers and employers in the events industry."
+        "Learn how EventLink connects freelance event professionals with event opportunities. Step-by-step guide for both freelancers and employers in the events industry."
       );
     } else {
       // Create meta description if it doesn't exist
       const meta = document.createElement("meta");
       meta.name = "description";
       meta.content =
-        "Learn how EventLink connects freelance event professionals with corporate event opportunities. Step-by-step guide for both freelancers and employers in the events industry.";
+        "Learn how EventLink connects freelance event professionals with event opportunities. Step-by-step guide for both freelancers and employers in the events industry.";
       document.head.appendChild(meta);
     }
 
@@ -47,7 +47,7 @@ export default function HowItWorks() {
       if (metaDesc) {
         metaDesc.setAttribute(
           "content",
-          "Connecting technical professionals with event opportunities in the corporate events sector."
+          "Connecting technical professionals with event opportunities across the events industry."
         );
       }
     };
@@ -80,8 +80,8 @@ export default function HowItWorks() {
             How Does It Work?
           </h1>
           <p className="text-xl text-muted-foreground leading-relaxed">
-            EventLink connects event professionals with opportunities in the corporate events
-            industry. Whether you're a freelancer looking for work or an employer seeking skilled
+            EventLink connects event professionals with opportunities across the events industry.
+            Whether you're a freelancer looking for work or an employer seeking skilled
             professionals, we make the process simple and efficient.
           </p>
         </div>
@@ -126,8 +126,8 @@ export default function HowItWorks() {
                     <div className="flex flex-col">
                       <h3 className="text-xl font-semibold mb-2">Get Matched with Jobs</h3>
                       <p className="text-muted-foreground text-sm leading-relaxed">
-                        Employers post opportunities and you can apply directly. Browse corporate
-                        events, conferences, exhibitions, and other exciting projects that match
+                        Employers post opportunities and you can apply directly. Browse events,
+                        conferences, exhibitions, and other exciting projects that match
                         your skills.
                       </p>
                     </div>
@@ -203,8 +203,7 @@ export default function HowItWorks() {
                       <h3 className="text-xl font-semibold mb-2">post jobs</h3>
                       <p className="text-muted-foreground text-sm leading-relaxed">
                         Share event roles quickly and for free. Detail your requirements, location,
-                        budget, and timeline to attract the right candidates for your corporate
-                        events.
+                        budget, and timeline to attract the right candidates for your events.
                       </p>
                     </div>
                   </div>

@@ -17,13 +17,13 @@ export default function FAQ() {
     if (metaDescription) {
       metaDescription.setAttribute(
         "content",
-        "Find answers to frequently asked questions about EventLink - the premier platform connecting event professionals with opportunities in the corporate events sector."
+        "Find answers to frequently asked questions about EventLink - the premier platform connecting event professionals with opportunities across the events industry."
       );
     } else {
       const meta = document.createElement("meta");
       meta.name = "description";
       meta.content =
-        "Find answers to frequently asked questions about EventLink - the premier platform connecting event professionals with opportunities in the corporate events sector.";
+        "Find answers to frequently asked questions about EventLink - the premier platform connecting event professionals with opportunities across the events industry.";
       document.head.appendChild(meta);
     }
   }, []);
