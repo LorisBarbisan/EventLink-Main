@@ -27,11 +27,9 @@ function generatePendingOAuthToken(data: {
   provider_id: string;
   profile_photo_url: string;
 }): string {
-  return jwt.sign(
-    { ...data, purpose: "oauth_pending_registration" },
-    OAUTH_PENDING_SECRET,
-    { expiresIn: OAUTH_PENDING_EXPIRY }
-  );
+  return jwt.sign({ ...data, purpose: "oauth_pending_registration" }, OAUTH_PENDING_SECRET, {
+    expiresIn: OAUTH_PENDING_EXPIRY,
+  });
 }
 
 function verifyPendingOAuthToken(token: string): {
@@ -277,7 +275,7 @@ export function handleFacebookCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
         })
       )}`;
 
@@ -352,7 +350,7 @@ export function handleAppleCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
         })
       )}`;
 
@@ -397,7 +395,9 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
           profile_photo_url: user.profile_photo_url,
         });
         const redirectUrl = `${frontendUrl}/auth#needs_role=true&pending_token=${encodeURIComponent(pendingToken)}`;
-        console.log("LinkedIn OAuth new user — redirecting to role selection:", { email: user.email });
+        console.log("LinkedIn OAuth new user — redirecting to role selection:", {
+          email: user.email,
+        });
         return res.redirect(redirectUrl);
       }
 
@@ -437,7 +437,7 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
         })
       )}`;
 
@@ -468,10 +468,13 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
     // Verify the server-signed pending OAuth token
     const oauthData = verifyPendingOAuthToken(pending_token);
     if (!oauthData) {
-      return res.status(401).json({ error: "Invalid or expired registration token. Please sign in again." });
+      return res
+        .status(401)
+        .json({ error: "Invalid or expired registration token. Please sign in again." });
     }
 
-    const { email, first_name, last_name, auth_provider, provider_id, profile_photo_url } = oauthData;
+    const { email, first_name, last_name, auth_provider, provider_id, profile_photo_url } =
+      oauthData;
 
     if (!["google", "linkedin", "facebook"].includes(auth_provider)) {
       return res.status(400).json({ error: "Invalid auth provider" });
@@ -481,7 +484,9 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
     const existingUser = await storage.getUserBySocialProvider(auth_provider as any, provider_id);
     if (existingUser) {
       if (existingUser.status === "deactivated") {
-        return res.status(403).json({ error: "Your account has been deactivated. Please contact support." });
+        return res
+          .status(403)
+          .json({ error: "Your account has been deactivated. Please contact support." });
       }
       const userWithRole = computeUserRole(existingUser);
       const jwtToken = generateJWTToken(userWithRole);
@@ -494,7 +499,7 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
         },
       });
     }
@@ -502,9 +507,16 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
     const existingEmailUser = await storage.getUserByEmail(email);
     if (existingEmailUser) {
       if (existingEmailUser.status === "deactivated") {
-        return res.status(403).json({ error: "Your account has been deactivated. Please contact support." });
+        return res
+          .status(403)
+          .json({ error: "Your account has been deactivated. Please contact support." });
       }
-      await storage.linkSocialProvider(existingEmailUser.id, auth_provider as any, provider_id, profile_photo_url);
+      await storage.linkSocialProvider(
+        existingEmailUser.id,
+        auth_provider as any,
+        provider_id,
+        profile_photo_url
+      );
       await storage.updateUserLastLogin(existingEmailUser.id, auth_provider as any);
       const userWithRole = computeUserRole(existingEmailUser);
       const jwtToken = generateJWTToken(userWithRole);
@@ -517,13 +529,17 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
         },
       });
     }
 
-    const providerIdField = auth_provider === "google" ? "google_id" :
-      auth_provider === "linkedin" ? "linkedin_id" : "facebook_id";
+    const providerIdField =
+      auth_provider === "google"
+        ? "google_id"
+        : auth_provider === "linkedin"
+          ? "linkedin_id"
+          : "facebook_id";
 
     const newUser = await storage.createSocialUser({
       email,
@@ -902,7 +918,7 @@ export async function forgotPassword(req: Request, res: Response) {
       const baseUrl =
         process.env.NODE_ENV === "production"
           ? `https://${req.get("host")}`
-          : `http://localhost:5000`;
+          : `http://localhost:3000`;
       await sendPasswordResetEmail(email, resetToken, baseUrl, user.first_name);
     } catch (emailError) {
       console.error("Failed to send password reset email:", emailError);
@@ -1107,7 +1123,23 @@ export async function getAdminDiagnostics(req: Request, res: Response) {
     }
 
     const adminEmails = process.env.ADMIN_EMAILS
-      ? process.env.ADMIN_EMAILS.split(",").map(email => email.trim().toLowerCase())
+      ? process.env.ADMIN_EMAILS.split(",").map((email)
+
+// Admin diagnostics endpoint
+export async function getAdminDiagnostics(req: Request, res: Response) {
+  try {
+    if (!(req as any).user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    // Check if user is admin
+    const userWithRole = computeUserRole((req as any).user);
+    if (userWithRole.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    const adminEmails = process.env.ADMIN_EMAILS
+      ? process.env.ADMIN_EMAILS.split(",").map((email) => email.trim().toLowerCase())
       : [];
 
     const diagnostics = {

@@ -18,13 +18,13 @@ The easiest way to refine your job searches is to use the built-in presets:
 
 ```bash
 # Sync jobs with audio preset
-curl -X POST http://localhost:5000/api/jobs/sync-preset/audio
+curl -X POST http://localhost:3000/api/jobs/sync-preset/audio
 
 # Sync jobs with high-paying preset
-curl -X POST http://localhost:5000/api/jobs/sync-preset/highPaying
+curl -X POST http://localhost:3000/api/jobs/sync-preset/highPaying
 
 # Get all available presets
-curl http://localhost:5000/api/jobs/presets
+curl http://localhost:3000/api/jobs/presets
 ```
 
 ## Advanced Configuration
