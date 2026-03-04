@@ -32,7 +32,6 @@ export function JobForm({
     persistenceKey,
     {
       title: initialData?.title || "",
-      type: "freelance",
       location: initialData?.location || "",
       rate: initialData?.rate || "",
       description: initialData?.description || "",

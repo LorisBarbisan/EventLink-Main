@@ -784,14 +784,6 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                               </div>
                               <div>
                                 <p className="mb-1 text-sm font-medium text-muted-foreground">
-                                  Job Type
-                                </p>
-                                <p className="font-medium capitalize">
-                                  {jobDetails?.type || "Type not specified"}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="mb-1 text-sm font-medium text-muted-foreground">
                                   Status
                                 </p>
                                 <p className="font-medium capitalize">

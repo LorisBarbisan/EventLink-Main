@@ -534,12 +534,6 @@ export default function Jobs() {
                                 External • {job.external_source}
                               </Badge>
                             )}
-                            <Badge
-                              variant="secondary"
-                              className="bg-primary/10 text-primary text-xs"
-                            >
-                              {job.type}
-                            </Badge>
                           </div>
                         </div>
                       </CardHeader>

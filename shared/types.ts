@@ -154,7 +154,6 @@ export interface RecruiterFormData {
 
 export interface JobFormData {
   title: string;
-  type: string;
   location: string;
   rate: string;
   description: string;
