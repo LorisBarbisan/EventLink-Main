@@ -231,10 +231,6 @@ export default function JobDetail() {
                 <PoundSterling className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span>{job.rate}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Briefcase className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <span className="capitalize">{job.type}</span>
-              </div>
               {job.event_date && (
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />

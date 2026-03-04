@@ -1249,10 +1249,6 @@ function AdminDashboardContent() {
                               <p className="font-medium">{jobDetailData.job.rate}</p>
                             </div>
                             <div>
-                              <p className="text-sm text-muted-foreground">Type</p>
-                              <p className="font-medium capitalize">{jobDetailData.job.type}</p>
-                            </div>
-                            <div>
                               <p className="text-sm text-muted-foreground">Status</p>
                               <Badge
                                 variant={jobDetailData.job.status === "active" ? "default" : jobDetailData.job.status === "paused" ? "secondary" : jobDetailData.job.status === "closed" ? "destructive" : "outline"}

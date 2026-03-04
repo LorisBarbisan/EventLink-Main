@@ -125,10 +125,6 @@ export const JobListings = () => {
                     <Calendar className="w-4 h-4 mr-2" />
                     {job.date}
                   </div>
-                  <div className="flex items-center text-muted-foreground">
-                    <Users className="w-4 h-4 mr-2" />
-                    {job.type}
-                  </div>
                 </div>
 
                 {/* Skills */}

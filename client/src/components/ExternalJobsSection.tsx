@@ -174,7 +174,6 @@ export default function ExternalJobsSection({ showInJobsPage = false }: External
                       <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                         {job.external_source}
                       </Badge>
-                      <Badge variant="outline">{job.type}</Badge>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground mb-3">
