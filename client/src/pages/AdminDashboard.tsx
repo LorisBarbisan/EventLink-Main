@@ -367,6 +367,7 @@ function AdminDashboardContent() {
       updated_at: string;
       application_count: number;
       hired_count: number;
+      recruiter_id?: number;
       recruiter_email?: string;
       recruiter_name?: string;
     };
@@ -1301,7 +1302,20 @@ function AdminDashboardContent() {
                               <p className="text-sm text-muted-foreground">Posted By</p>
                               <p className="font-medium">{jobDetailData.job.recruiter_name || "External"}</p>
                               {jobDetailData.job.recruiter_email && (
-                                <p className="text-xs text-muted-foreground">{jobDetailData.job.recruiter_email}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {jobDetailData.job.recruiter_id ? (
+                                    <a
+                                      href={`/profile/${jobDetailData.job.recruiter_id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline"
+                                    >
+                                      {jobDetailData.job.recruiter_email}
+                                    </a>
+                                  ) : (
+                                    jobDetailData.job.recruiter_email
+                                  )}
+                                </p>
                               )}
                             </div>
                             <div>
@@ -1368,7 +1382,15 @@ function AdminDashboardContent() {
                                       <TableRow key={app.id} className={app.status === "hired" ? "bg-green-50 dark:bg-green-950/20" : ""}>
                                         <TableCell className="py-2">
                                           <p className="font-medium text-sm">{app.freelancer_name}</p>
-                                          <p className="text-xs text-muted-foreground">{app.freelancer_email}</p>
+                                          <a
+                                            href={`/profile/${app.freelancer_id}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs text-primary hover:underline"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            {app.freelancer_email}
+                                          </a>
                                         </TableCell>
                                         <TableCell className="py-2 text-sm">{app.freelancer_title || "-"}</TableCell>
                                         <TableCell className="py-2">
@@ -1520,7 +1542,20 @@ function AdminDashboardContent() {
                                   ? `${rowUser.first_name || ""} ${rowUser.last_name || ""}`.trim()
                                   : "N/A"}
                               </TableCell>
-                              <TableCell className="py-2">{rowUser.email}</TableCell>
+                              <TableCell className="py-2">
+                                {rowUser.role !== "admin" ? (
+                                  <a
+                                    href={`/profile/${rowUser.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:underline"
+                                  >
+                                    {rowUser.email}
+                                  </a>
+                                ) : (
+                                  rowUser.email
+                                )}
+                              </TableCell>
                               <TableCell className="py-2">
                                 <Badge variant={rowUser.role === "admin" ? "default" : "outline"}>
                                   {rowUser.role}
