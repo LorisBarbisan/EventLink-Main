@@ -12,6 +12,7 @@ import {
   getAnalyticsOverview,
   getFeedbackStats,
   grantAdminAccess,
+  retriggerJobAlerts,
   revokeAdminAccess,
   sendContactReply,
   updateFeedbackStatus,
@@ -43,6 +44,9 @@ export function registerAdminRoutes(app: Express) {
 
   // Get job detail (admin only)
   app.get("/api/admin/jobs/:id", requireAdminAuth, getAdminJobDetail);
+
+  // Manually retrigger job alert emails for a specific job (admin only)
+  app.post("/api/admin/jobs/:id/send-alerts", requireAdminAuth, retriggerJobAlerts);
 
   // Get all users (admin only)
   app.get("/api/admin/users", requireAdminAuth, getAllUsers);

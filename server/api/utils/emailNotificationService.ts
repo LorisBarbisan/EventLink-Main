@@ -221,15 +221,14 @@ export class EmailNotificationService {
       return false;
     }
 
-    // Skills matching - at least one skill must match
+    // Skills matching - match against job title and description since EventLink jobs
+    // don't have a dedicated skills array
     if (filter.skills && filter.skills.length > 0) {
-      const jobSkills = job.skills || [];
+      const jobTitle = (job.title || "").toLowerCase();
+      const jobDescription = (job.description || "").toLowerCase();
+      const searchText = `${jobTitle} ${jobDescription}`;
       const hasMatchingSkill = filter.skills.some((filterSkill: string) =>
-        jobSkills.some(
-          (jobSkill: string) =>
-            jobSkill.toLowerCase().includes(filterSkill.toLowerCase()) ||
-            filterSkill.toLowerCase().includes(jobSkill.toLowerCase())
-        )
+        searchText.includes(filterSkill.toLowerCase())
       );
       if (!hasMatchingSkill) {
         return false;
@@ -273,8 +272,9 @@ export class EmailNotificationService {
     }
 
     // Date range matching - job start date should be within filter date range
+    // Uses event_date (the actual DB field name)
     if (filter.date_from || filter.date_to) {
-      const jobStartDate = job.start_date ? new Date(job.start_date) : null;
+      const jobStartDate = job.event_date ? new Date(job.event_date) : null;
 
       if (!jobStartDate) {
         // If job has no start date and filter has date criteria, don't match
@@ -335,8 +335,9 @@ export class EmailNotificationService {
           }
 
           // Format job details for email
-          const eventDate = job.start_date
-            ? new Date(job.start_date).toLocaleDateString("en-GB", {
+          // Uses event_date and rate (actual DB field names)
+          const eventDate = job.event_date
+            ? new Date(job.event_date).toLocaleDateString("en-GB", {
                 weekday: "short",
                 year: "numeric",
                 month: "short",
@@ -344,12 +345,10 @@ export class EmailNotificationService {
               })
             : "Date TBC";
 
-          const rate = job.pay_rate
-            ? `£${job.pay_rate}${job.pay_type === "hourly" ? "/hr" : job.pay_type === "daily" ? "/day" : ""}`
-            : "Competitive";
+          const rate = job.rate || "Competitive";
 
-          // Send job alert email (non-blocking)
-          this.sendJobAlertNotification({
+          // Send job alert email (awaited so it completes before moving to next freelancer)
+          await this.sendJobAlertNotification({
             recipientId: freelancerProfile.user_id,
             recipientEmail: user.email,
             recipientName: freelancerDisplayName,
@@ -359,8 +358,6 @@ export class EmailNotificationService {
             rate: rate,
             eventDate: eventDate,
             jobId: job.id,
-          }).catch(error => {
-            console.error(`Failed to send job alert to user ${freelancerProfile.user_id}:`, error);
           });
         } catch (error) {
           console.error(

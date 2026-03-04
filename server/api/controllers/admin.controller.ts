@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { generateJWTToken } from "../utils/auth.util";
 import { sendContactReplyEmail } from "../utils/emailService";
+import { emailService } from "../utils/emailNotificationService";
 
 // Get all feedback (admin only)
 export async function getAllFeedback(req: Request, res: Response) {
@@ -504,5 +505,43 @@ export async function bootstrapCreateFirstAdmin(req: Request, res: Response) {
   } catch (error) {
     console.error("Bootstrap admin creation error:", error);
     res.status(500).json({ error: "Failed to create first admin" });
+  }
+}
+
+// Manually trigger job alert emails for a specific job (admin only)
+export async function retriggerJobAlerts(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.id);
+    if (isNaN(jobId)) {
+      return res.status(400).json({ error: "Invalid job ID" });
+    }
+
+    const job = await storage.getJobById(jobId);
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    if (job.status !== "active") {
+      return res.status(400).json({ error: "Job must be active (published) to send alerts" });
+    }
+
+    if ((job as any).type === "external") {
+      return res.status(400).json({ error: "Cannot send alerts for external jobs" });
+    }
+
+    console.log(`🔔 Admin triggered job alerts for job ${jobId}: "${job.title}"`);
+
+    // Run async without blocking response
+    emailService.sendJobAlertToMatchingFreelancers(job).catch((error) => {
+      console.error(`Failed to send job alerts for job ${jobId}:`, error);
+    });
+
+    res.json({
+      success: true,
+      message: `Job alert emails are being sent for "${job.title}". Check the email notification logs for results.`,
+    });
+  } catch (error) {
+    console.error("Retrigger job alerts error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 }

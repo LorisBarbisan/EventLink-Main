@@ -386,6 +386,18 @@ function AdminDashboardContent() {
     retry: 1,
   });
 
+  // Send job alert emails mutation
+  const sendAlertsMutation = useMutation({
+    mutationFn: (jobId: number) =>
+      apiRequest(`/api/admin/jobs/${jobId}/send-alerts`, { method: "POST" }),
+    onSuccess: (data: any) => {
+      toast({ title: "Alerts sent", description: data.message });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to send alerts", variant: "destructive" });
+    },
+  });
+
   // Admin users query
   const {
     data: adminUsers,
@@ -1313,6 +1325,23 @@ function AdminDashboardContent() {
                             <p className="text-sm text-muted-foreground mb-1">Description</p>
                             <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded-md p-3">{jobDetailData.job.description}</p>
                           </div>
+
+                          {jobDetailData.job.status === "active" && !jobDetailData.job.external_source && (
+                            <div className="flex items-center gap-3 rounded-md border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800 p-3">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">Job Alert Emails</p>
+                                <p className="text-xs text-muted-foreground">Send this job to all freelancers whose alert preferences match it.</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => sendAlertsMutation.mutate(jobDetailData.job.id)}
+                                disabled={sendAlertsMutation.isPending}
+                                className="bg-gradient-primary text-white hover:bg-primary-hover shrink-0"
+                              >
+                                {sendAlertsMutation.isPending ? "Sending..." : "Send Alerts"}
+                              </Button>
+                            </div>
+                          )}
 
                           <div>
                             <div className="flex items-center gap-3 mb-3">
