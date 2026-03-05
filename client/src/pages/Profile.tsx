@@ -396,34 +396,30 @@ export default function Profile() {
     }
 
     try {
-      // Get JWT token from localStorage for authentication
       const token = localStorage.getItem("auth_token");
 
-      // Get the presigned download URL from the backend
+      // Stream the CV directly through the server (never expiring URL)
       const response = await fetch(`/api/cv/download/${cvProfile.user_id}`, {
         method: "GET",
         credentials: "include",
         headers: {
-          "Content-Type": "application/json",
           ...(token && { Authorization: `Bearer ${token}` }),
         },
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: response.statusText }));
-        throw new Error(errorData.error || "Failed to get download URL");
+        throw new Error(errorData.error || "Failed to download CV");
       }
 
-      const { downloadUrl } = await response.json();
-
-      // Open the presigned URL in a new tab to view/download the CV
-      if (downloadUrl) {
-        window.open(downloadUrl, "_blank");
-        toast({
-          title: "Success",
-          description: "CV opened in new tab",
-        });
-      }
+      // Create a blob URL from the streamed file and open it in a new tab
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+      toast({
+        title: "Success",
+        description: "CV opened in new tab",
+      });
     } catch (error) {
       console.error("Error downloading CV:", error);
       toast({

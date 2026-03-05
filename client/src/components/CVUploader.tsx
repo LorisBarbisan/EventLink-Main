@@ -226,10 +226,10 @@ export function CVUploader({
                         Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
                       },
                     });
-                    const data = await response.json();
-                    if (data.downloadUrl) {
-                      window.open(data.downloadUrl, "_blank");
-                    }
+                    if (!response.ok) throw new Error("Failed to open CV");
+                    const blob = await response.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    window.open(blobUrl, "_blank");
                   } catch (error) {
                     console.error("Error opening CV:", error);
                     toast({

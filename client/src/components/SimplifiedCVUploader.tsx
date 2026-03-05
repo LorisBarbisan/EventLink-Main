@@ -293,10 +293,9 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
                           },
                         });
                         if (response.ok) {
-                          const data = await response.json();
-                          if (data.downloadUrl) {
-                            window.open(data.downloadUrl, "_blank");
-                          }
+                          const blob = await response.blob();
+                          const blobUrl = URL.createObjectURL(blob);
+                          window.open(blobUrl, "_blank");
                         } else {
                           toast({
                             title: "Download failed",

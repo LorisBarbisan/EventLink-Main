@@ -179,17 +179,32 @@ export async function downloadCV(req: Request, res: Response) {
     console.log(`📥 Download request for CV: ${profile.cv_file_url}`);
 
     try {
-      // Get presigned download URL
-      const downloadUrl = await ObjectStorageService.getDownloadUrl(profile.cv_file_url);
-      console.log(`✅ Generated download URL for: ${profile.cv_file_url}`);
+      // Get the CV file object and stream it directly through the server.
+      // This avoids exposing expiring pre-signed GCS URLs to the browser.
+      const objectStorageService = new ObjectStorageService();
+      const cvFile = await objectStorageService.getCVFile(profile.cv_file_url);
 
-      // Return the download URL as JSON so frontend can handle the download
-      res.json({
-        downloadUrl,
-        fileName: profile.cv_file_name || "CV.pdf",
+      const fileName = profile.cv_file_name || "CV.pdf";
+      const contentType = profile.cv_file_type || "application/pdf";
+
+      res.set({
+        "Content-Type": contentType,
+        "Content-Disposition": `inline; filename="${encodeURIComponent(fileName)}"`,
+        "Cache-Control": "private, no-store",
       });
+
+      const stream = cvFile.createReadStream();
+      stream.on("error", (err: Error) => {
+        console.error(`❌ Stream error for CV ${profile.cv_file_url}:`, err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Error streaming CV file" });
+        }
+      });
+      stream.pipe(res);
+
+      console.log(`✅ Streaming CV for freelancer ${freelancerId}: ${fileName}`);
     } catch (objectError) {
-      console.error(`❌ Failed to get download URL for ${profile.cv_file_url}:`, objectError);
+      console.error(`❌ Failed to stream CV for ${profile.cv_file_url}:`, objectError);
       if (objectError instanceof ObjectNotFoundError) {
         return res.status(404).json({ error: "CV file not found in storage" });
       }
@@ -197,7 +212,9 @@ export async function downloadCV(req: Request, res: Response) {
     }
   } catch (error) {
     console.error("Download CV error:", error);
-    res.status(500).json({ error: "Failed to download CV" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to download CV" });
+    }
   }
 }
 
