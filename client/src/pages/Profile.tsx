@@ -741,8 +741,8 @@ export default function Profile() {
             <CardContent className="p-8">
               {(freelancerProfile && profile?.role !== "admin") ||
               (profile?.role === "admin" && freelancerProfile && !recruiterProfile) ? (
-                <div className="flex flex-col items-start gap-6 md:flex-row">
-                  <div className="bg-gradient-primary flex h-32 w-32 items-center justify-center overflow-hidden rounded-full">
+                <div className="flex flex-col items-center gap-6 text-center md:flex-row md:items-start md:text-left">
+                  <div className="bg-gradient-primary flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-lg ring-4 ring-background">
                     {freelancerProfile?.profile_photo_url &&
                     freelancerProfile.profile_photo_url.trim() !== "" &&
                     freelancerProfile.profile_photo_url !== "null" &&
@@ -759,12 +759,16 @@ export default function Profile() {
 
                   <div className="flex-1 space-y-4">
                     <div>
-                      <div className="mb-2 flex items-center justify-between">
-                        <h1 className="text-3xl font-bold">
+                      <div className="mb-2 flex flex-col items-center justify-between gap-4 sm:flex-row sm:items-start">
+                        <h1 className="text-3xl font-bold leading-tight">
                           {freelancerProfile?.first_name} {freelancerProfile?.last_name}
                         </h1>
                         {isOwnProfile && (
-                          <Button variant="outline" onClick={() => setLocation("/dashboard")}>
+                          <Button
+                            variant="outline"
+                            onClick={() => setLocation("/dashboard")}
+                            className="w-full sm:w-auto"
+                          >
                             Edit Profile
                           </Button>
                         )}
@@ -773,16 +777,16 @@ export default function Profile() {
                         {freelancerProfile?.title}
                       </p>
                       {freelancerProfile?.superpower && (
-                        <div className="mb-3 flex items-center gap-2">
+                        <div className="mb-3 flex flex-col items-center gap-1 sm:flex-row sm:gap-2 md:justify-start">
                           <span className="text-sm font-medium text-muted-foreground">
                             Superpower:
                           </span>
-                          <Badge className="border-0 bg-gradient-to-r from-purple-500 to-pink-500 py-1 text-sm hover:from-purple-600 hover:to-pink-600">
+                          <Badge className="max-w-full border-0 bg-gradient-to-r from-purple-500 to-pink-500 py-1 text-center text-sm hover:from-purple-600 hover:to-pink-600 sm:text-left">
                             ⚡ {freelancerProfile.superpower}
                           </Badge>
                         </div>
                       )}
-                      <div className="flex items-center gap-4 text-muted-foreground">
+                      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-muted-foreground md:justify-start">
                         <div className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
                           {freelancerProfile?.location || "UK"}
@@ -805,7 +809,7 @@ export default function Profile() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center gap-2 md:justify-start">
                       <div
                         className={`h-3 w-3 rounded-full ${
                           freelancerProfile?.availability_status === "available"
@@ -820,11 +824,11 @@ export default function Profile() {
                       </Badge>
                     </div>
 
-                    <div className="flex gap-3 pt-2">
+                    <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                       {!isOwnProfile && (
                         <Button
                           onClick={handleContactClick}
-                          className="bg-gradient-primary hover:bg-primary-hover"
+                          className="bg-gradient-primary hover:bg-primary-hover w-full sm:w-auto"
                         >
                           <MessageCircle className="mr-2 h-4 w-4" />
                           Send Message
@@ -833,7 +837,10 @@ export default function Profile() {
                       {isRecruiter && !isOwnProfile && profile?.role === "freelancer" && (
                         <Button
                           variant={isSaved ? "default" : "outline"}
-                          className={isSaved ? "bg-orange-500 hover:bg-orange-600" : ""}
+                          className={cn(
+                            "w-full sm:w-auto",
+                            isSaved ? "bg-orange-500 hover:bg-orange-600" : ""
+                          )}
                           onClick={() =>
                             isSaved ? unsaveMutation.mutate() : saveMutation.mutate()
                           }
@@ -852,7 +859,7 @@ export default function Profile() {
                             }
                             handleDownloadCV(freelancerProfile);
                           }}
-                          className="flex items-center gap-2"
+                          className="flex w-full items-center gap-2 sm:w-auto"
                           variant="outline"
                           data-testid="button-download-cv-profile"
                         >

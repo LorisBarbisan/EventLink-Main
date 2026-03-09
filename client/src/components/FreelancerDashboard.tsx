@@ -41,7 +41,10 @@ export default function SimplifiedFreelancerDashboard() {
       ? location.split("?")[1]
       : window.location.search.replace(/^\?/, "");
     const urlParams = new URLSearchParams(search);
-    const convParam = urlParams.get("conversation") || urlParams.get("conversationId") || urlParams.get("recipientId");
+    const convParam =
+      urlParams.get("conversation") ||
+      urlParams.get("conversationId") ||
+      urlParams.get("recipientId");
     return convParam ? parseInt(convParam, 10) : null;
   });
 
@@ -56,7 +59,10 @@ export default function SimplifiedFreelancerDashboard() {
       }
 
       // Update active conversation if present
-      const convParam = urlParams.get("conversation") || urlParams.get("conversationId") || urlParams.get("recipientId");
+      const convParam =
+        urlParams.get("conversation") ||
+        urlParams.get("conversationId") ||
+        urlParams.get("recipientId");
       const newConvId = convParam ? parseInt(convParam, 10) : null;
       if (newConvId !== activeConversationId) {
         setActiveConversationId(newConvId);
@@ -155,35 +161,26 @@ export default function SimplifiedFreelancerDashboard() {
   const hasNewJobUpdates = false;
 
   return (
-    <div className="container mx-auto p-4 sm:p-6">
-      <div className="mb-4 sm:mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold">Freelancer Dashboard</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">
+    <div className="[dden container mx-auto px-1 py-4 sm:px-6 sm:py-6">
+      <div className="sm mb-4 px-3 sm:px-0">
+        <h1 className="text-2xl font-bold sm:text-3xl">Freelancer Dashboard</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">
           Manage your profile, applications, and messages
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <TabsTrigger value="profile" className="text-xs sm:text-sm">
-            Edit Profile
-          </TabsTrigger>
-          <TabsTrigger value="jobs" className="flex items-center justify-center text-xs sm:text-sm">
-            <span className="hidden sm:inline">My Applications</span>
-            <span className="sm:hidden">Applications</span>
+        <TabsList>
+          <TabsTrigger value="profile">Edit Profile</TabsTrigger>
+          <TabsTrigger value="jobs" className="gap-2">
+            My Applications
             <TabBadge count={roleSpecificCounts.applications || 0} />
           </TabsTrigger>
-          <TabsTrigger
-            value="messages"
-            className="flex items-center justify-center text-xs sm:text-sm"
-          >
+          <TabsTrigger value="messages" className="gap-2">
             Messages
             <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
-          <TabsTrigger
-            value="bookings"
-            className="flex items-center justify-center text-xs sm:text-sm"
-          >
+          <TabsTrigger value="bookings" className="gap-2">
             Pending Ratings
             <TabBadge count={roleSpecificCounts.ratings || 0} />
           </TabsTrigger>
@@ -197,7 +194,7 @@ export default function SimplifiedFreelancerDashboard() {
             <ProfileForm
               profile={profile}
               userType="freelancer"
-              onSave={async formData => {
+              onSave={async (formData) => {
                 try {
                   console.log("🚀 SAVE CLICKED! Saving freelancer profile data:", formData);
 
@@ -257,15 +254,11 @@ export default function SimplifiedFreelancerDashboard() {
               isSaving={false}
             />
           )}
-          
+
           {/* Documents & Certifications Section */}
           {user?.id && (
             <div className="mt-6">
-              <DocumentUploader
-                userId={user.id}
-                isOwner={true}
-                viewerRole="freelancer"
-              />
+              <DocumentUploader userId={user.id} isOwner={true} viewerRole="freelancer" />
             </div>
           )}
         </TabsContent>
@@ -281,11 +274,11 @@ export default function SimplifiedFreelancerDashboard() {
           {!applicationsLoading && jobApplications.length > 0 && (
             <Card data-testid="card-application-summary">
               <CardContent className="p-6">
-                <h3 className="font-medium mb-4">Application Summary</h3>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <h3 className="mb-4 font-medium">Application Summary</h3>
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
                   <div className="text-center">
-                    <div className="flex items-center justify-center w-8 h-8 bg-yellow-100 dark:bg-yellow-900/20 rounded-full mx-auto mb-2">
-                      <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                    <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/20">
+                      <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
                     </div>
                     <div className="text-2xl font-bold">
                       {
@@ -296,8 +289,8 @@ export default function SimplifiedFreelancerDashboard() {
                     <div className="text-sm text-muted-foreground">Pending</div>
                   </div>
                   <div className="text-center">
-                    <div className="flex items-center justify-center w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-full mx-auto mb-2">
-                      <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20">
+                      <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="text-2xl font-bold">
                       {
@@ -308,8 +301,8 @@ export default function SimplifiedFreelancerDashboard() {
                     <div className="text-sm text-muted-foreground">Reviewed</div>
                   </div>
                   <div className="text-center">
-                    <div className="flex items-center justify-center w-8 h-8 bg-green-100 dark:bg-green-900/20 rounded-full mx-auto mb-2">
-                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
+                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                     </div>
                     <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                       {
@@ -320,8 +313,8 @@ export default function SimplifiedFreelancerDashboard() {
                     <div className="text-sm text-muted-foreground">Hired</div>
                   </div>
                   <div className="text-center">
-                    <div className="flex items-center justify-center w-8 h-8 bg-red-100 dark:bg-red-900/20 rounded-full mx-auto mb-2">
-                      <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
+                      <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                     </div>
                     <div className="text-2xl font-bold">
                       {
@@ -332,8 +325,8 @@ export default function SimplifiedFreelancerDashboard() {
                     <div className="text-sm text-muted-foreground">Rejected</div>
                   </div>
                   <div className="text-center">
-                    <div className="flex items-center justify-center w-8 h-8 bg-yellow-100 dark:bg-yellow-900/20 rounded-full mx-auto mb-2">
-                      <Star className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                    <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/20">
+                      <Star className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
                     </div>
                     <div className="text-2xl font-bold">{averageRating?.count || 0}</div>
                     <div className="text-sm text-muted-foreground">Ratings</div>
@@ -349,8 +342,8 @@ export default function SimplifiedFreelancerDashboard() {
           ) : jobApplications.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
-                <Briefcase className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No Applications Yet</h3>
+                <Briefcase className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 className="mb-2 text-lg font-medium">No Applications Yet</h3>
                 <p className="text-muted-foreground">
                   Start applying to jobs to see your applications here.
                 </p>
@@ -372,17 +365,13 @@ export default function SimplifiedFreelancerDashboard() {
 
         {/* Messages Tab */}
         <TabsContent value="messages" className="space-y-6">
-          <div className="flex justify-between items-center mb-6">
+          <div className="mb-6 flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold">Messages</h2>
               <p className="text-muted-foreground">Create new connections and grow your network</p>
             </div>
           </div>
-          {user && (
-            <MessagingInterface
-              initialConversationId={activeConversationId}
-            />
-          )}
+          {user && <MessagingInterface initialConversationId={activeConversationId} />}
         </TabsContent>
 
         {/* Bookings Tab */}
@@ -398,8 +387,8 @@ export default function SimplifiedFreelancerDashboard() {
             0 ? (
             <Card>
               <CardContent className="p-8 text-center">
-                <BookOpen className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No Bookings Yet</h3>
+                <BookOpen className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 className="mb-2 text-lg font-medium">No Bookings Yet</h3>
                 <p className="text-muted-foreground">
                   When you get hired for jobs, they will appear here.
                 </p>

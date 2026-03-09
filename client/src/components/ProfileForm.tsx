@@ -189,8 +189,8 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex-1">
               <CardTitle>
                 {userType === "freelancer" ? "Freelancer Profile" : "Company Profile"}
               </CardTitle>
@@ -200,7 +200,11 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
                   : "Your company information and details"}
               </CardDescription>
             </div>
-            <Button onClick={() => setIsEditing(true)} data-testid="button-edit-profile">
+            <Button
+              onClick={() => setIsEditing(true)}
+              data-testid="button-edit-profile"
+              className="shrink-0"
+            >
               Edit Profile
             </Button>
           </div>
@@ -318,7 +322,7 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
               src={profile.profile_photo_url}
               alt="Profile"
               className="h-full w-full object-cover"
-              onError={(e) => {
+              onError={() => {
                 console.log(
                   "Profile photo failed to load:",
                   profile.profile_photo_url?.substring(0, 50)
@@ -335,15 +339,22 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
           </h3>
           <p className="text-muted-foreground">{profile.title}</p>
           {profile.superpower && (
-            <div className="mt-1 flex items-center gap-2">
-              <span className="text-sm font-medium text-muted-foreground">Superpower:</span>
-              <Badge className="border-0 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+            <div className="mt-2 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
+              <span className="whiwhspace-nowrap teitespace-nowrap tex text-sm font-medium">
+                Superpower:
+              </span>
+              <Badge className="max-w-full border-0 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
                 ⚡ {profile.superpower}
               </Badge>
             </div>
           )}
-          <div className="mt-1 flex items-center gap-3">
-            <Badge variant="secondary">{profile.availability_status}</Badge>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <Badge
+              variant="secondary"
+              className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+            >
+              {profile.availability_status}
+            </Badge>
             {averageRating && (
               <RatingDisplay
                 average={averageRating.average}
@@ -399,7 +410,7 @@ function RecruiterProfileView({ profile }: { profile: RecruiterProfile }) {
               src={profile.company_logo_url}
               alt={`${profile.company_name} logo`}
               className="h-full w-full object-cover"
-              onError={(e) => {
+              onError={() => {
                 console.log(
                   "Company logo failed to load:",
                   profile.company_logo_url?.substring(0, 50)
@@ -500,7 +511,7 @@ function FreelancerFormFields({
             Quick Profile Setup with CV
           </CardTitle>
           <CardDescription>
-            Upload your CV and we'll automatically extract your skills, experience, and contact
+            Upload your CV and we&apos;ll automatically extract your skills, experience, and contact
             details to fill in your profile. You can review and edit the suggestions before applying
             them.
           </CardDescription>

@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Star } from "lucide-react";
+import { useState } from "react";
 
 interface StarRatingProps {
   rating: number;
@@ -52,13 +52,13 @@ export function StarRating({
   return (
     <div className={cn("flex items-center gap-1", className)}>
       <div className="flex">
-        {[1, 2, 3, 4, 5].map(star => (
+        {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
             type="button"
             className={cn(
               "transition-colors",
-              !readonly && "hover:scale-110 cursor-pointer",
+              !readonly && "cursor-pointer hover:scale-110",
               readonly && "cursor-default"
             )}
             onClick={() => handleClick(star)}
@@ -81,13 +81,9 @@ export function StarRating({
       </div>
 
       {showCount && count !== undefined && (
-        <span className="text-sm text-muted-foreground ml-2">
+        <span className="ml-2 text-sm text-muted-foreground">
           ({count} {count === 1 ? "rating" : "ratings"})
         </span>
-      )}
-
-      {rating > 0 && !showCount && (
-        <span className="text-sm text-muted-foreground ml-1">{rating}/5</span>
       )}
     </div>
   );
@@ -112,13 +108,13 @@ export function RatingDisplay({
     return (
       <div
         className={cn(
-          "inline-flex items-center gap-2 px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800",
+          "inline-flex items-center gap-2 rounded-md bg-gray-50 px-2 py-1 dark:bg-gray-800",
           className
         )}
       >
         <StarRating rating={0} readonly size={size} />
         {showText && (
-          <span className="text-sm text-muted-foreground font-medium">No ratings yet</span>
+          <span className="text-sm font-medium text-muted-foreground">No ratings yet</span>
         )}
       </div>
     );
@@ -127,17 +123,17 @@ export function RatingDisplay({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 px-2 py-1 rounded-md bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border border-yellow-200/50 dark:border-yellow-700/50",
+        "inline-flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-yellow-200/50 bg-gradient-to-r from-yellow-50 to-orange-50 px-2 py-1 dark:border-yellow-700/50 dark:from-yellow-900/20 dark:to-orange-900/20",
         className
       )}
     >
       <StarRating rating={Math.round(average)} readonly size={size} />
       {showText && (
-        <div className="flex items-center gap-1">
-          <span className="text-sm font-semibold text-yellow-700 dark:text-yellow-300">
+        <div className="flex items-center gap-1.5 leading-none">
+          <span className="text-sm font-bold text-yellow-700 dark:text-yellow-300">
             {average.toFixed(1)}
           </span>
-          <span className="text-xs text-muted-foreground font-medium">
+          <span className="text-[11px] font-medium text-amber-600/80 dark:text-amber-400/80">
             ({count} {count === 1 ? "rating" : "ratings"})
           </span>
         </div>

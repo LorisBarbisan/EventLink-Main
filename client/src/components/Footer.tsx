@@ -9,13 +9,13 @@ export const Footer = () => {
   const { toast } = useToast();
 
   return (
-    <footer className="bg-card border-t mt-auto">
+    <footer className="mt-auto border-t bg-card">
       <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div>
-            <div className="flex items-center space-x-2 mb-4">
+        <div className="grid grid-cols-1 gap-8 text-center md:grid-cols-4 md:text-left">
+          <div className="flex flex-col items-center md:items-start">
+            <div className="mb-4 flex items-center justify-center space-x-2 md:justify-start">
               <EventLinkLogo size={40} />
-              <span className="font-semibold text-lg">EventLink</span>
+              <span className="text-lg font-semibold">EventLink</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Connecting technical professionals with event opportunities in the corporate events
@@ -24,7 +24,7 @@ export const Footer = () => {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-3">For Freelancers</h4>
+            <h4 className="mb-3 font-semibold">For Freelancers</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link
@@ -63,7 +63,7 @@ export const Footer = () => {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-3">For Companies</h4>
+            <h4 className="mb-3 font-semibold">For Companies</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link
@@ -112,7 +112,7 @@ export const Footer = () => {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-3">Support</h4>
+            <h4 className="mb-3 font-semibold">Support</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link
@@ -134,7 +134,12 @@ export const Footer = () => {
                 </Link>
               </li>
               <li>
-                <a href="/terms-of-use.pdf" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
+                <a
+                  href="/terms-of-use.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-foreground"
+                >
                   Terms &amp; Conditions
                 </a>
               </li>
@@ -142,7 +147,7 @@ export const Footer = () => {
           </div>
         </div>
 
-        <div className="border-t mt-8 pt-6 text-center text-sm text-muted-foreground">
+        <div className="mt-8 border-t pt-6 text-center text-sm text-muted-foreground">
           <p>&copy; 2024 Kite. All rights reserved.</p>
         </div>
       </div>

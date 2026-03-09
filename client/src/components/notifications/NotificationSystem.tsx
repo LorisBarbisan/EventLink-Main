@@ -140,7 +140,7 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
     }
   };
 
-  const unreadNotifications = notifications.filter(n => !n.is_read);
+  const unreadNotifications = notifications.filter((n) => !n.is_read);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -165,7 +165,7 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
   useEffect(() => {
     if (!userId) return;
 
-    const subscribeWS = subscribe(data => {
+    const subscribeWS = subscribe((data) => {
       switch (data.type) {
         case "new_notification":
           queryClient.invalidateQueries({ queryKey: ["/api/notifications", userId] });
@@ -196,11 +196,11 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
         className="relative"
         data-testid="button-notifications"
       >
-        <Bell className="w-5 h-5" />
+        <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
           <Badge
             variant="destructive"
-            className="absolute -top-1 -right-1 h-5 w-5 text-xs p-0 flex items-center justify-center"
+            className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center p-0 text-xs"
           >
             {unreadCount > 99 ? "99+" : unreadCount}
           </Badge>
@@ -208,51 +208,58 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
       </Button>
 
       {isOpen && (
-        <div
-          ref={dropdownRef}
-          className="absolute right-0 top-full mt-2 w-96 bg-white border rounded-lg shadow-lg z-50"
-        >
-          <Card className="border-0 shadow-none">
-            <NotificationHeader
-              unreadCount={unreadNotifications.length}
-              onMarkAllRead={() => markAllAsReadMutation.mutate()}
-              isMarkingAll={markAllAsReadMutation.isPending}
-              onClose={() => setIsOpen(false)}
-            />
-            <Separator />
+        <>
+          {/* Mobile backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/5 sm:hidden"
+            onClick={() => setIsOpen(false)}
+          />
+          <div
+            ref={dropdownRef}
+            className="fixed inset-x-4 top-16 z-50 mx-auto max-w-sm rounded-lg border bg-white shadow-lg sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96"
+          >
+            <Card className="border-0 shadow-none">
+              <NotificationHeader
+                unreadCount={unreadNotifications.length}
+                onMarkAllRead={() => markAllAsReadMutation.mutate()}
+                isMarkingAll={markAllAsReadMutation.isPending}
+                onClose={() => setIsOpen(false)}
+              />
+              <Separator />
 
-            <CardContent className="p-0">
-              <ScrollArea className="h-96">
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="text-sm text-muted-foreground">Loading notifications...</div>
-                  </div>
-                ) : notifications.length === 0 ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="text-center">
-                      <Bell className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">No notifications yet</p>
+              <CardContent className="p-0">
+                <ScrollArea className="h-[min(384px,60vh)]">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-sm text-muted-foreground">Loading notifications...</div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {notifications.map(n => (
-                      <NotificationItem
-                        key={n.id}
-                        notification={n}
-                        onMarkRead={() => markAsReadMutation.mutate(n.id)}
-                        onDelete={() => deleteNotificationMutation.mutate(n.id)}
-                        onClick={() => handleNotificationClick(n)}
-                        isMarkAsReadDisabled={markAsReadMutation.isPending}
-                        isDeleteDisabled={deleteNotificationMutation.isPending}
-                      />
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-center">
+                        <Bell className="mx-auto mb-2 h-12 w-12 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">No notifications yet</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {notifications.map((n) => (
+                        <NotificationItem
+                          key={n.id}
+                          notification={n}
+                          onMarkRead={() => markAsReadMutation.mutate(n.id)}
+                          onDelete={() => deleteNotificationMutation.mutate(n.id)}
+                          onClick={() => handleNotificationClick(n)}
+                          isMarkAsReadDisabled={markAsReadMutation.isPending}
+                          isDeleteDisabled={deleteNotificationMutation.isPending}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+        </>
       )}
     </div>
   );
