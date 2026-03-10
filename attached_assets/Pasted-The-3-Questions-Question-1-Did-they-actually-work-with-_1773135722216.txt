@@ -1,0 +1,51 @@
+The 3 Questions
+
+Question 1 — Did they actually work with you?
+This is the foundational verification gate.
+
+"Can you confirm that [First Name] worked with you or your organisation?"
+○ Yes, I can confirm this
+○ No, I can't confirm this
+
+Simple. Binary. This alone gives the profile a "Work History Confirmed" badge. If they click No, the request is quietly flagged for review — no drama.
+
+Question 2 — How did they perform?
+This captures the reliability signal employers actually care about.
+
+"How would you describe [First Name]'s reliability and professionalism?"
+○ ⭐⭐⭐⭐⭐ Excellent — I'd hire them again without hesitation
+○ ⭐⭐⭐⭐ Good — solid performer, no major issues
+○ ⭐⭐⭐ Mixed — some positives but also some concerns
+○ Would prefer not to say
+
+
+💡 Note: "Would prefer not to say" is critical. It gives referees an honest exit that isn't a damaging public negative — you handle anything below ⭐⭐⭐⭐ carefully behind the scenes.
+
+
+Question 3 — The money question for employers
+This is the one hiring managers actually want answered.
+
+"Would you work with [First Name] again?"
+○ Absolutely — already have / would without hesitation
+○ Yes, given the right role
+○ Unlikely
+○ Prefer not to say
+
+
+How the Answers Map to Profile Badges
+ResultWhat Shows on ProfileQ1 ✓ + Q2 Excellent + Q3 Absolutely🟢 Verified & Highly RecommendedQ1 ✓ + Q2 Good + Q3 Yes🟢 Verified & RecommendedQ1 ✓ + Q2 Mixed or Q3 Unlikely🔒 Verified (privately flagged, no public badge)Q1 ✓ + Q2/Q3 "Prefer not to say"🔵 Work History Confirmed (no performance badge)Q1 ✗❌ Not shown publicly, internal flag
+
+The Optional 4th Field
+Not a question — a text box, completely optional:
+
+"Anything else you'd like to add about working with [First Name]? (Optional — this may be shown on their profile)"
+
+Keep it optional and low pressure. When referees do fill it in, these short quotes become the most powerful thing on a freelancer's profile — authentic, specific, from a named company.
+
+Critical Design Details
+
+The entire form should live on one page, no login required for the referee
+Pre-fill everything possible — their name, the freelancer's name, the event if known
+Mobile-first design — most referees will open this on their phone
+Add a "This will take 45 seconds" line at the top — it dramatically increases completion rates
+Send a confirmation email to the freelancer when a reference is completed so they feel the momentum
