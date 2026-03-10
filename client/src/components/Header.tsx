@@ -93,7 +93,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
                 data-testid="button-invite-clients"
               >
                 <Star className="w-4 h-4 mr-2 fill-white" />
-                Invite Clients to Rate You
+                Build My Reputation
               </Button>
             )}
 

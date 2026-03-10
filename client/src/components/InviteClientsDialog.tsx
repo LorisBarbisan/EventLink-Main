@@ -105,7 +105,7 @@ export function InviteClientsDialog({ open, onOpenChange, userId }: InviteClient
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LinkIcon className="w-5 h-5 text-orange-500" />
-            Invite Clients to Rate You
+            Build My Reputation
           </DialogTitle>
           <DialogDescription>
             Share your personal rating link with clients you&apos;ve worked with outside the
