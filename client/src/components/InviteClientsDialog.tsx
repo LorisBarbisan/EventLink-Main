@@ -108,8 +108,8 @@ export function InviteClientsDialog({ open, onOpenChange, userId }: InviteClient
             Build My Reputation
           </DialogTitle>
           <DialogDescription>
-            Share your personal rating link with clients you&apos;ve worked with outside the
-            platform to build your reputation.
+            Share your personal reference request link with clients you&apos;ve worked with in
+            the past to build your reputation.
           </DialogDescription>
         </DialogHeader>
 
