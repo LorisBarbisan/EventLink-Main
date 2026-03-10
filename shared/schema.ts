@@ -78,6 +78,7 @@ export const freelancer_profiles = pgTable(
     cv_file_name: text("cv_file_name"),
     cv_file_type: text("cv_file_type"),
     cv_file_size: integer("cv_file_size"),
+    reference_token: text("reference_token"), // UUID for public reference request link
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -822,3 +823,30 @@ export const insertSavedFreelancerSchema = createInsertSchema(saved_freelancers)
 
 export type SavedFreelancer = typeof saved_freelancers.$inferSelect;
 export type InsertSavedFreelancer = z.infer<typeof insertSavedFreelancerSchema>;
+
+// Freelancer References (external reputation building)
+export const freelancer_references = pgTable("freelancer_references", {
+  id: serial("id").primaryKey(),
+  freelancer_id: integer("freelancer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  referee_name: text("referee_name"),
+  referee_organisation: text("referee_organisation"),
+  q1_confirmed: boolean("q1_confirmed").notNull(), // Did they work together?
+  q2_rating: text("q2_rating").$type<"excellent" | "good" | "mixed" | "prefer_not_to_say">(),
+  q3_would_work_again: text("q3_would_work_again").$type<"absolutely" | "yes" | "unlikely" | "prefer_not_to_say">(),
+  comment: text("comment"),
+  badge_result: text("badge_result").$type<"highly_recommended" | "recommended" | "verified_private" | "work_history_confirmed" | "flagged">(),
+  is_flagged: boolean("is_flagged").default(false).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const insertFreelancerReferenceSchema = createInsertSchema(freelancer_references).omit({
+  id: true,
+  badge_result: true,
+  is_flagged: true,
+  created_at: true,
+});
+
+export type FreelancerReference = typeof freelancer_references.$inferSelect;
+export type InsertFreelancerReference = z.infer<typeof insertFreelancerReferenceSchema>;

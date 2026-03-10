@@ -8,6 +8,7 @@ import { registerJobRoutes } from "./job.route";
 import { registerMessagingRoutes } from "./message.route";
 import { registerProfileRoutes } from "./profile.route";
 import { registerRatingsRoutes } from "./rating.route";
+import referenceRouter from "./reference.route";
 
 const router = express.Router();
 
@@ -20,5 +21,6 @@ router.use("/application", registerApplicationRoutes);
 router.use("/file", registerFileRoutes);
 router.use("/rating", registerRatingsRoutes);
 router.use("/contact", registerContactRoutes);
+router.use("/references", referenceRouter);
 
 export default router;

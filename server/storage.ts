@@ -11,6 +11,7 @@ import {
   job_link_views,
   jobs,
   saved_freelancers,
+  freelancer_references,
   message_attachments,
   message_user_states,
   messages,
@@ -56,6 +57,9 @@ import {
   type RatingRequest,
   type RecruiterProfile,
   type SavedFreelancer,
+  type InsertSavedFreelancer,
+  type FreelancerReference,
+  type InsertFreelancerReference,
   type User,
 } from "@shared/schema";
 import {
@@ -408,6 +412,12 @@ export interface IStorage {
     location?: string;
     tab?: "all" | "saved" | "worked";
   }): Promise<Array<FreelancerProfile & { isSaved: boolean; isWorkedWith: boolean; average_rating?: number; user_email?: string }>>;
+
+  // Freelancer references (reputation system)
+  getOrCreateReferenceToken(userId: number): Promise<string>;
+  getFreelancerByReferenceToken(token: string): Promise<{ userId: number; firstName: string | null; lastName: string | null } | undefined>;
+  createFreelancerReference(data: InsertFreelancerReference & { badge_result: string; is_flagged: boolean }): Promise<FreelancerReference>;
+  getPublicReferences(freelancerId: number): Promise<FreelancerReference[]>;
 
   // Cache management
   clearCache(): void;
@@ -4194,6 +4204,48 @@ export class DatabaseStorage implements IStorage {
       average_rating: Number(row.average_rating) || 0,
       user_email: row.user_email || undefined,
     }));
+  }
+
+  // ── Freelancer References ────────────────────────────────────────────────
+
+  async getOrCreateReferenceToken(userId: number): Promise<string> {
+    const profile = await this.getFreelancerProfile(userId);
+    if (!profile) throw new Error("Freelancer profile not found");
+    if (profile.reference_token) return profile.reference_token;
+    const { randomUUID } = await import("crypto");
+    const token = randomUUID();
+    await db.update(freelancer_profiles)
+      .set({ reference_token: token })
+      .where(eq(freelancer_profiles.user_id, userId));
+    return token;
+  }
+
+  async getFreelancerByReferenceToken(token: string): Promise<{ userId: number; firstName: string | null; lastName: string | null } | undefined> {
+    const rows = await db.select({
+      userId: freelancer_profiles.user_id,
+      firstName: freelancer_profiles.first_name,
+      lastName: freelancer_profiles.last_name,
+    })
+      .from(freelancer_profiles)
+      .where(eq(freelancer_profiles.reference_token, token))
+      .limit(1);
+    return rows[0];
+  }
+
+  async createFreelancerReference(data: InsertFreelancerReference & { badge_result: string; is_flagged: boolean }): Promise<FreelancerReference> {
+    const rows = await db.insert(freelancer_references).values(data).returning();
+    return rows[0];
+  }
+
+  async getPublicReferences(freelancerId: number): Promise<FreelancerReference[]> {
+    return db.select()
+      .from(freelancer_references)
+      .where(and(
+        eq(freelancer_references.freelancer_id, freelancerId),
+        eq(freelancer_references.is_flagged, false),
+        sql`${freelancer_references.badge_result} NOT IN ('verified_private', 'flagged')`
+      ))
+      .orderBy(desc(freelancer_references.created_at));
   }
 }
 

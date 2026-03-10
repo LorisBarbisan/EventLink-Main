@@ -29,6 +29,7 @@ import Profile from "./pages/Profile";
 import { RatingDashboard } from "./pages/RatingDashboard";
 import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
+import ReferencePage from "./pages/ReferencePage";
 
 import { ScrollToTop } from "@/components/ScrollToTop";
 
@@ -60,6 +61,7 @@ function AppRouter() {
         <Route path="/contact-us" component={ContactUs} />
         <Route path="/faq" component={FAQ} />
         <Route path="/about" component={About} />
+        <Route path="/reference/:token" component={ReferencePage} />
         <Route component={NotFound} />
       </Switch>
     </>
