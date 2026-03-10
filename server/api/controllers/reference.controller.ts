@@ -124,7 +124,8 @@ export async function getMyReferenceToken(req: Request, res: Response) {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ error: "Not authenticated" });
     const token = await storage.getOrCreateReferenceToken(userId);
-    res.json({ token, url: `${req.protocol}://${req.get("host")}/reference/${token}` });
+    const baseUrl = "https://eventlink.one";
+    res.json({ token, url: `${baseUrl}/reference/${token}` });
   } catch (err) {
     console.error("getMyReferenceToken error:", err);
     res.status(500).json({ error: "Failed to get reference token" });
