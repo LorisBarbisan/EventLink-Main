@@ -104,7 +104,7 @@ export default function ReferencePage() {
     );
   }
 
-  const canSubmit = q1 !== "";
+  const canSubmit = q1 !== "" && refereeName.trim() !== "" && refereeOrg.trim() !== "";
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -223,29 +223,36 @@ export default function ReferencePage() {
               </div>
             )}
 
-            {/* Referee details */}
+            {/* Referee details — required */}
             {q1 !== "" && (
               <div className="border-t pt-6">
-                <p className="text-sm font-medium text-gray-700 mb-4">Your details <span className="text-gray-400 font-normal">(optional — adds credibility)</span></p>
+                <p className="text-sm font-medium text-gray-700 mb-1">Your details</p>
+                <p className="text-xs text-gray-400 mb-4">Required so the recipient knows who this reference is from.</p>
                 <div className="space-y-3">
                   <div>
-                    <Label htmlFor="ref-name" className="text-sm text-gray-600 mb-1 block">Your name</Label>
+                    <Label htmlFor="ref-name" className="text-sm text-gray-600 mb-1 block">
+                      Your name <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       id="ref-name"
                       value={refereeName}
                       onChange={e => setRefereeName(e.target.value)}
                       placeholder="e.g. Sarah Johnson"
                       maxLength={100}
+                      required
                     />
                   </div>
                   <div>
-                    <Label htmlFor="ref-org" className="text-sm text-gray-600 mb-1 block">Your organisation</Label>
+                    <Label htmlFor="ref-org" className="text-sm text-gray-600 mb-1 block">
+                      Your organisation <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       id="ref-org"
                       value={refereeOrg}
                       onChange={e => setRefereeOrg(e.target.value)}
                       placeholder="e.g. Live Nation UK"
                       maxLength={100}
+                      required
                     />
                   </div>
                 </div>

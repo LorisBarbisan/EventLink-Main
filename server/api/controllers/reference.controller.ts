@@ -55,6 +55,14 @@ export async function submitReference(req: Request, res: Response) {
       return res.status(400).json({ error: "Question 1 answer is required" });
     }
 
+    if (!referee_name || !referee_name.trim()) {
+      return res.status(400).json({ error: "Your name is required" });
+    }
+
+    if (!referee_organisation || !referee_organisation.trim()) {
+      return res.status(400).json({ error: "Your organisation is required" });
+    }
+
     const { badge_result, is_flagged } = computeBadge(q1_confirmed, q2_rating, q3_would_work_again);
 
     const reference = await storage.createFreelancerReference({
