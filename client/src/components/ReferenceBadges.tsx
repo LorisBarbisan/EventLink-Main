@@ -16,9 +16,9 @@ export const BADGE_CONFIG: Record<string, { label: string; colour: string; icon:
 };
 
 export const VERIFICATION_BADGE: Record<string, { label: string; colour: string; icon: typeof ShieldCheck }> = {
-  eventlink_member: { label: "EventLink Member Reference", colour: "bg-green-50 text-green-700 border-green-300", icon: UserCheck },
-  linkedin: { label: "LinkedIn Verified Reference", colour: "bg-green-50 text-green-700 border-green-300", icon: Linkedin },
-  email: { label: "Email Verified Reference", colour: "bg-blue-50 text-blue-700 border-blue-300", icon: Mail },
+  eventlink_member: { label: "EventLink Member", colour: "bg-green-50 text-green-700 border-green-400", icon: UserCheck },
+  linkedin: { label: "LinkedIn Verified", colour: "bg-sky-50 text-sky-700 border-sky-300", icon: Linkedin },
+  email: { label: "Email Verified", colour: "bg-amber-50 text-amber-700 border-amber-300", icon: Mail },
 };
 
 export function VerificationBadge({ reference }: { reference: any }) {
