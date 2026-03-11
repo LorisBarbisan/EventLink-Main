@@ -160,6 +160,7 @@ export function ReferenceBadges({ freelancerId }: { freelancerId: number }) {
 
 export function CompactReferenceBadge({ freelancerId }: { freelancerId: number }) {
   const { data: references = [] } = useReferences(freelancerId);
+  const [popupOpen, setPopupOpen] = useState(false);
 
   if (!references.length) return null;
 
@@ -177,12 +178,22 @@ export function CompactReferenceBadge({ freelancerId }: { freelancerId: number }
   const total = references.length;
 
   return (
-    <div className="flex items-center gap-1.5 mt-1">
-      <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full border ${cfg.colour}`}>
-        <ShieldCheck className="h-3 w-3" />
-        {cfg.icon} {cfg.label}
-      </span>
-      <span className="text-[11px] text-muted-foreground">({total})</span>
-    </div>
+    <>
+      <div
+        role="button"
+        tabIndex={0}
+        className="flex items-center gap-1.5 mt-1 cursor-pointer hover:opacity-80 transition-opacity"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPopupOpen(true); }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setPopupOpen(true); } }}
+        title="Click to view references"
+      >
+        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full border ${cfg.colour}`}>
+          <ShieldCheck className="h-3 w-3" />
+          {cfg.icon} {cfg.label}
+        </span>
+        <span className="text-[11px] text-muted-foreground">({total})</span>
+      </div>
+      <ReferenceListPopup references={references} open={popupOpen} onOpenChange={setPopupOpen} />
+    </>
   );
 }
