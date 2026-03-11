@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Star, CheckCircle, Clock, Shield, UserCheck, Mail } from "lucide-react";
+import { Star, CheckCircle, Clock, Shield, UserCheck, Mail, Linkedin, LogIn } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -33,6 +33,9 @@ export default function ReferencePage() {
   const [refereeRole, setRefereeRole] = useState("");
   const [badge, setBadge] = useState<string | null>(null);
   const [verificationType, setVerificationType] = useState<string>("none");
+  const [verifyMethod, setVerifyMethod] = useState<"email" | "linkedin" | "eventlink">(
+    user ? "eventlink" : "email"
+  );
 
   const { data: freelancer, isLoading, error } = useQuery<FreelancerInfo>({
     queryKey: [`/api/references/form/${token}`],
@@ -52,7 +55,7 @@ export default function ReferencePage() {
           comment: comment.trim() || null,
           referee_name: refereeName.trim() || null,
           referee_organisation: refereeOrg.trim() || null,
-          referee_email: refereeEmail.trim() || null,
+          referee_email: verifyMethod === "email" ? (refereeEmail.trim() || null) : (user?.email || null),
           referee_role: refereeRole.trim() || null,
         }),
       });
@@ -121,7 +124,7 @@ export default function ReferencePage() {
             </div>
           )}
 
-          {verificationType === "none" && refereeEmail && (
+          {verificationType === "none" && refereeEmail && verifyMethod === "email" && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
               <div className="flex items-center justify-center gap-2 text-blue-700 text-sm font-medium">
                 <Mail className="w-4 h-4" />
@@ -329,9 +332,73 @@ export default function ReferencePage() {
                       maxLength={100}
                     />
                   </div>
-                  <div>
+                </div>
+              </div>
+            )}
+
+            {q1 !== "" && !isEventLinkMember && (
+              <div className="border-t pt-6">
+                <p className="text-sm font-medium text-gray-700 mb-1">Verify your identity</p>
+                <p className="text-xs text-gray-400 mb-4">
+                  Verified references carry more weight. Choose how you'd like to verify.
+                </p>
+                <div className="space-y-2">
+                  <div
+                    onClick={() => setVerifyMethod("email")}
+                    className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${verifyMethod === "email" ? "border-orange-500 bg-orange-50" : "border-gray-200 hover:border-gray-300"}`}
+                  >
+                    <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${verifyMethod === "email" ? "border-orange-500" : "border-gray-300"}`}>
+                      {verifyMethod === "email" && <div className="w-2 h-2 rounded-full bg-orange-500" />}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm font-medium text-gray-900">Verify by email</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">We'll send a one-click verification link to your email</p>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => setVerifyMethod("linkedin")}
+                    className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${verifyMethod === "linkedin" ? "border-orange-500 bg-orange-50" : "border-gray-200 hover:border-gray-300"}`}
+                  >
+                    <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${verifyMethod === "linkedin" ? "border-orange-500" : "border-gray-300"}`}>
+                      {verifyMethod === "linkedin" && <div className="w-2 h-2 rounded-full bg-orange-500" />}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Linkedin className="w-4 h-4 text-[#0A66C2]" />
+                        <span className="text-sm font-medium text-gray-900">Verify with LinkedIn</span>
+                        <span className="text-[10px] font-medium text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">Coming soon</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">Link your LinkedIn profile for stronger verification</p>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => {
+                      const redirect = encodeURIComponent(`/reference/${token}`);
+                      setLocation(`/auth?redirect=${redirect}`);
+                    }}
+                    className="flex items-start gap-3 p-3 rounded-xl border-2 border-gray-200 hover:border-gray-300 cursor-pointer transition-colors"
+                  >
+                    <div className="mt-0.5 w-4 h-4 rounded-full border-2 border-gray-300 flex items-center justify-center shrink-0" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <LogIn className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-medium text-gray-900">Sign in to EventLink</span>
+                        <span className="text-[10px] font-medium text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">Strongest</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">Already have an EventLink account? Sign in for maximum credibility</p>
+                    </div>
+                  </div>
+                </div>
+
+                {verifyMethod === "email" && (
+                  <div className="mt-4">
                     <Label htmlFor="ref-email" className="text-sm text-gray-600 mb-1 block">
-                      Your email <span className="text-gray-400 text-xs">(For verification)</span>
+                      Your email
                     </Label>
                     <Input
                       id="ref-email"
@@ -343,10 +410,18 @@ export default function ReferencePage() {
                     />
                     <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
                       <Shield className="w-3 h-3" />
-                      We'll send a one-click verification to strengthen your reference. Your email won't be displayed publicly.
+                      Your email won't be displayed publicly.
                     </p>
                   </div>
-                </div>
+                )}
+
+                {verifyMethod === "linkedin" && (
+                  <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-xs text-blue-700">
+                      LinkedIn verification will be available soon. For now, you can verify by email or sign in to EventLink.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -354,11 +429,16 @@ export default function ReferencePage() {
           <div className="px-6 pb-6">
             <Button
               onClick={() => submitMutation.mutate()}
-              disabled={!canSubmit || submitMutation.isPending}
+              disabled={!canSubmit || submitMutation.isPending || verifyMethod === "linkedin"}
               className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-3 rounded-xl text-base"
             >
               {submitMutation.isPending ? "Submitting..." : "Submit Reference"}
             </Button>
+            {verifyMethod === "linkedin" && (
+              <p className="text-xs text-amber-600 text-center mt-2">
+                LinkedIn verification is coming soon. Please choose email or sign in instead.
+              </p>
+            )}
             {submitMutation.isError && (
               <p className="text-red-500 text-sm text-center mt-2">
                 Something went wrong. Please try again.
