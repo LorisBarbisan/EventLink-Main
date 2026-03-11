@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -16,26 +16,60 @@ interface FreelancerInfo {
   lastName: string | null;
 }
 
+interface SavedFormState {
+  q1: "yes" | "no" | "";
+  q2: string;
+  q3: string;
+  comment: string;
+  refereeName: string;
+  refereeOrg: string;
+  refereeEmail: string;
+  refereeRole: string;
+  verifyMethod: "email" | "linkedin" | "eventlink";
+}
+
+function getSavedForm(token: string): SavedFormState | null {
+  try {
+    const raw = sessionStorage.getItem(`ref_form_${token}`);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function clearSavedForm(token: string) {
+  sessionStorage.removeItem(`ref_form_${token}`);
+}
+
 export default function ReferencePage() {
   const { token } = useParams<{ token: string }>();
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const saved = token ? getSavedForm(token) : null;
   const [submitted, setSubmitted] = useState(false);
-  const [q1, setQ1] = useState<"yes" | "no" | "">("");
-  const [q2, setQ2] = useState("");
-  const [q3, setQ3] = useState("");
-  const [comment, setComment] = useState("");
+  const [q1, setQ1] = useState<"yes" | "no" | "">(saved?.q1 || "");
+  const [q2, setQ2] = useState(saved?.q2 || "");
+  const [q3, setQ3] = useState(saved?.q3 || "");
+  const [comment, setComment] = useState(saved?.comment || "");
   const [refereeName, setRefereeName] = useState(
-    user ? [user.first_name, user.last_name].filter(Boolean).join(" ") : ""
+    user ? [user.first_name, user.last_name].filter(Boolean).join(" ") : (saved?.refereeName || "")
   );
-  const [refereeOrg, setRefereeOrg] = useState("");
-  const [refereeEmail, setRefereeEmail] = useState(user?.email || "");
-  const [refereeRole, setRefereeRole] = useState("");
+  const [refereeOrg, setRefereeOrg] = useState(saved?.refereeOrg || "");
+  const [refereeEmail, setRefereeEmail] = useState(user?.email || saved?.refereeEmail || "");
+  const [refereeRole, setRefereeRole] = useState(saved?.refereeRole || "");
   const [badge, setBadge] = useState<string | null>(null);
   const [verificationType, setVerificationType] = useState<string>("none");
   const [verifyMethod, setVerifyMethod] = useState<"email" | "linkedin" | "eventlink">(
-    user ? "eventlink" : "email"
+    user ? "eventlink" : (saved?.verifyMethod || "email")
   );
+  const autoSubmitTriggered = useRef(false);
+
+  const saveFormState = useCallback(() => {
+    if (!token) return;
+    const state: SavedFormState = { q1, q2, q3, comment, refereeName, refereeOrg, refereeEmail, refereeRole, verifyMethod };
+    sessionStorage.setItem(`ref_form_${token}`, JSON.stringify(state));
+  }, [token, q1, q2, q3, comment, refereeName, refereeOrg, refereeEmail, refereeRole, verifyMethod]);
 
   const { data: freelancer, isLoading, error } = useQuery<FreelancerInfo>({
     queryKey: [`/api/references/form/${token}`],
@@ -61,6 +95,7 @@ export default function ReferencePage() {
       });
     },
     onSuccess: (data: any) => {
+      if (token) clearSavedForm(token);
       setBadge(data.badge_result);
       setVerificationType(data.verification_type);
       if (verifyMethod === "linkedin" && data.reference_id) {
@@ -70,6 +105,13 @@ export default function ReferencePage() {
       setSubmitted(true);
     },
   });
+
+  useEffect(() => {
+    if (saved && user && !autoSubmitTriggered.current && !submitted && freelancer) {
+      autoSubmitTriggered.current = true;
+      submitMutation.mutate();
+    }
+  }, [user, saved, submitted, freelancer]);
 
   const firstName = freelancer?.firstName || "this person";
 
@@ -96,6 +138,18 @@ export default function ReferencePage() {
           <div className="text-4xl mb-4">🔗</div>
           <h1 className="text-xl font-semibold text-gray-900 mb-2">Link not found</h1>
           <p className="text-gray-500">This reference link is invalid or has expired.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (autoSubmitTriggered.current && !submitted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-md w-full text-center">
+          <div className="animate-spin w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-4" />
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">Submitting your reference...</h1>
+          <p className="text-gray-500 text-sm">You signed in successfully. Submitting your reference now.</p>
         </div>
       </div>
     );
@@ -381,6 +435,7 @@ export default function ReferencePage() {
 
                   <div
                     onClick={() => {
+                      saveFormState();
                       const redirect = encodeURIComponent(`/reference/${token}`);
                       setLocation(`/auth?redirect=${redirect}`);
                     }}
