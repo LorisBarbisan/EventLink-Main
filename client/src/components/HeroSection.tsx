@@ -1,12 +1,36 @@
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import eventlinkLogo from "@assets/E8-Logo-Orange-New.png";
-import eventImage from "@assets/Landing_Page_optimized.jpg";
+import heroImg1 from "@assets/Landing_Page_optimized.jpg";
+import heroImg2 from "@assets/2s_1773236252421.jpg";
+import heroImg3 from "@assets/3s_1773236252421.jpg";
+import heroImg4 from "@assets/4s_1773236252422.jpg";
+import heroImg5 from "@assets/5s_1773236252422.jpg";
+import heroImg6 from "@assets/6s_1773236252422.jpg";
 import { ArrowRight, Briefcase, MapPin, Star } from "lucide-react";
 import { Link } from "wouter";
 
+const heroImages = [
+  { src: heroImg1, alt: "Professional event production setup with video monitors, cameras, mixing console and stage lighting" },
+  { src: heroImg2, alt: "Audio technicians patching cables into rack equipment at an outdoor festival stage" },
+  { src: heroImg3, alt: "Event crew setting up staging, lighting rigs and AV equipment in a conference venue" },
+  { src: heroImg4, alt: "Stage lighting rig with LED wash fixtures and spotlights on truss structure" },
+  { src: heroImg5, alt: "Camera operator filming a live broadcast production with stage lighting" },
+  { src: heroImg6, alt: "Aerial view of an outdoor festival stage and site infrastructure" },
+];
+
 export const HeroSection = () => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % heroImages.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-background via-secondary/20 to-background">
       {/* Hero Content */}
@@ -75,19 +99,20 @@ export const HeroSection = () => {
             </div>
           </div>
 
-          {/* Right Column - Image & Cards */}
+          {/* Right Column - Rotating Images & Cards */}
           <div className="animate-scale-in relative">
-            <div className="relative overflow-hidden rounded-2xl shadow-lg">
-              <img
-                src={eventImage}
-                alt="Professional event production setup with video monitors, cameras, mixing console and stage lighting"
-                className="h-[500px] w-full object-cover"
-                loading="eager"
-                decoding="async"
-                width="1200"
-                height="500"
-                style={{ contentVisibility: "auto" }}
-              />
+            <div className="relative overflow-hidden rounded-2xl shadow-lg h-[500px]">
+              {heroImages.map((img, index) => (
+                <img
+                  key={index}
+                  src={img.src}
+                  alt={img.alt}
+                  className="absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out"
+                  style={{ opacity: index === currentIndex ? 1 : 0 }}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  decoding="async"
+                />
+              ))}
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
             </div>
 
