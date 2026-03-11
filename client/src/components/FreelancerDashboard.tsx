@@ -11,13 +11,20 @@ import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import type { FreelancerFormData, JobApplication } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, BookOpen, Briefcase, CheckCircle, Clock, Mail, Send, ShieldCheck, Star, X } from "lucide-react";
+import { AlertCircle, BookOpen, Briefcase, Building2, CheckCircle, Clock, Mail, Send, ShieldCheck, Star, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
 import { DocumentUploader } from "./DocumentUploader";
 import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
+import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
+
+const RATING_LABELS: Record<string, { label: string; stars: number }> = {
+  excellent: { label: "Excellent", stars: 5 },
+  good: { label: "Good", stars: 4 },
+  mixed: { label: "Mixed", stars: 3 },
+};
 
 export default function SimplifiedFreelancerDashboard() {
   const { user } = useAuth();
@@ -486,6 +493,17 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
     },
   });
 
+  const { data: receivedRefs = [] } = useQuery<any[]>({
+    queryKey: ["/api/references/freelancer", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/references/freelancer/${userId}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!userId,
+  });
+
   const summary = referenceData?.summary || { total: 0, completed: 0, pending: 0 };
   const requests = referenceData?.requests || [];
 
@@ -644,6 +662,76 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
           ))}
         </div>
       )}
+
+      <div className="pt-4 border-t">
+        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-green-600" />
+          Received References
+        </h3>
+        {receivedRefs.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-muted-foreground text-sm">No references received yet. Send requests above to start building your reputation.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {receivedRefs.map((ref: any) => {
+              const badge = BADGE_CONFIG[ref.badge_result];
+              const rating = RATING_LABELS[ref.q2_rating];
+              return (
+                <Card key={ref.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {ref.referee_organisation && (
+                            <span className="font-medium text-sm flex items-center gap-1">
+                              <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                              {ref.referee_organisation}
+                            </span>
+                          )}
+                          {ref.referee_name && (
+                            <span className="text-xs text-muted-foreground">— {ref.referee_name}</span>
+                          )}
+                        </div>
+                        {ref.comment && (
+                          <p className="text-sm text-muted-foreground mt-1 italic line-clamp-2">"{ref.comment}"</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          {badge && (
+                            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${badge.colour}`}>
+                              {badge.icon} {badge.label}
+                            </span>
+                          )}
+                          <VerificationBadge reference={ref} />
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        {rating && (
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: rating.stars }).map((_, i) => (
+                              <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                            ))}
+                            {Array.from({ length: 5 - rating.stars }).map((_, i) => (
+                              <Star key={i} className="h-3.5 w-3.5 text-gray-200" />
+                            ))}
+                          </div>
+                        )}
+                        {ref.created_at && (
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            {new Date(ref.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
