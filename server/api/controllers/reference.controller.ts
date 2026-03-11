@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { sendEmail } from "../utils/emailService";
+import { getOrigin } from "../utils/auth.util";
 import crypto from "crypto";
 
 const HIGH_TRUST_DOMAINS = [
@@ -332,39 +333,159 @@ export async function verifyRefereeEmail(req: Request, res: Response) {
   }
 }
 
-export async function submitLinkedInVerification(req: Request, res: Response) {
+function signLinkedInState(payload: Record<string, string>): string {
+  const secret = process.env.LINKEDIN_CLIENT_SECRET || process.env.SESSION_SECRET || "fallback-secret";
+  const data = JSON.stringify(payload);
+  const signature = crypto.createHmac("sha256", secret).update(data).digest("base64url");
+  return Buffer.from(JSON.stringify({ d: data, s: signature })).toString("base64url");
+}
+
+function verifyLinkedInState(state: string): Record<string, string> | null {
   try {
-    const userId = (req as any).user?.id;
-    if (!userId) return res.status(401).json({ error: "Not authenticated" });
+    const secret = process.env.LINKEDIN_CLIENT_SECRET || process.env.SESSION_SECRET || "fallback-secret";
+    const { d, s } = JSON.parse(Buffer.from(state, "base64url").toString());
+    const expected = crypto.createHmac("sha256", secret).update(d).digest("base64url");
+    if (s !== expected) return null;
+    const payload = JSON.parse(d);
+    if (payload.exp && Date.now() > parseInt(payload.exp)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
 
-    const { reference_id, linkedin_name, linkedin_title, linkedin_company, linkedin_profile_id } = req.body;
-
+export async function startLinkedInReferenceAuth(req: Request, res: Response) {
+  try {
+    const { reference_id } = req.query;
     if (!reference_id) {
-      return res.status(400).json({ error: "Reference ID is required" });
+      return res.redirect("/reference-verified?status=invalid");
     }
 
-    const reference = await storage.getReferenceById(reference_id);
+    const refId = parseInt(String(reference_id));
+    if (isNaN(refId)) {
+      return res.redirect("/reference-verified?status=invalid");
+    }
+
+    const reference = await storage.getReferenceById(refId);
     if (!reference) {
-      return res.status(404).json({ error: "Reference not found" });
+      return res.redirect("/reference-verified?status=invalid");
     }
 
-    if (reference.eventlink_user_id !== userId) {
-      return res.status(403).json({ error: "Not authorized to modify this reference" });
+    if (reference.verification_type === "linkedin" || reference.verification_type === "eventlink_member") {
+      return res.redirect("/reference-verified?status=success&method=linkedin");
     }
 
-    const updated = await storage.updateReferenceVerification(reference_id, {
-      verification_type: "linkedin",
-      linkedin_name: linkedin_name || null,
-      linkedin_title: linkedin_title || null,
-      linkedin_company: linkedin_company || null,
-      linkedin_profile_id: linkedin_profile_id || null,
-      verification_timestamp: new Date(),
+    const clientId = process.env.LINKEDIN_CLIENT_ID;
+    if (!clientId) {
+      return res.redirect("/reference-verified?status=error&reason=linkedin_not_configured");
+    }
+
+    const origin = getOrigin(req);
+    const redirectUri = `${origin}/api/references/linkedin-callback`;
+    const nonce = crypto.randomBytes(16).toString("hex");
+    const exp = String(Date.now() + 10 * 60 * 1000);
+    const state = signLinkedInState({ reference_id: String(refId), nonce, exp });
+
+    const params = new URLSearchParams({
+      response_type: "code",
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: "openid profile email",
+      state,
     });
 
-    res.json({ message: "LinkedIn verification added", reference: updated });
+    res.redirect(`https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`);
   } catch (err) {
-    console.error("submitLinkedInVerification error:", err);
-    res.status(500).json({ error: "Failed to submit LinkedIn verification" });
+    console.error("startLinkedInReferenceAuth error:", err);
+    res.redirect("/reference-verified?status=error");
+  }
+}
+
+export async function linkedInReferenceCallback(req: Request, res: Response) {
+  try {
+    const { code, state, error: oauthError } = req.query;
+
+    if (oauthError || !code || !state) {
+      return res.redirect("/reference-verified?status=invalid");
+    }
+
+    const payload = verifyLinkedInState(String(state));
+    if (!payload || !payload.reference_id) {
+      console.warn("LinkedIn reference callback: invalid or expired state");
+      return res.redirect("/reference-verified?status=invalid");
+    }
+
+    const referenceId = parseInt(payload.reference_id);
+    if (isNaN(referenceId)) {
+      return res.redirect("/reference-verified?status=invalid");
+    }
+
+    const reference = await storage.getReferenceById(referenceId);
+    if (!reference) {
+      return res.redirect("/reference-verified?status=invalid");
+    }
+
+    if (reference.verification_type === "linkedin" || reference.verification_type === "eventlink_member") {
+      return res.redirect("/reference-verified?status=success&method=linkedin");
+    }
+
+    const clientId = process.env.LINKEDIN_CLIENT_ID;
+    const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+      return res.redirect("/reference-verified?status=error&reason=linkedin_not_configured");
+    }
+
+    const origin = getOrigin(req);
+    const redirectUri = `${origin}/api/references/linkedin-callback`;
+
+    const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: String(code),
+        redirect_uri: redirectUri,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      console.error("LinkedIn token exchange failed:", await tokenRes.text());
+      return res.redirect("/reference-verified?status=error&reason=linkedin_token_failed");
+    }
+
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
+
+    const userInfoRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!userInfoRes.ok) {
+      console.error("LinkedIn userinfo fetch failed:", await userInfoRes.text());
+      return res.redirect("/reference-verified?status=error&reason=linkedin_profile_failed");
+    }
+
+    const userInfo = await userInfoRes.json();
+
+    const linkedinName = [userInfo.given_name, userInfo.family_name].filter(Boolean).join(" ") || null;
+
+    await storage.updateReferenceVerification(referenceId, {
+      verification_type: "linkedin",
+      linkedin_name: linkedinName,
+      linkedin_title: null,
+      linkedin_company: null,
+      linkedin_profile_id: userInfo.sub || null,
+      verified_email: userInfo.email || null,
+      verification_timestamp: new Date(),
+      verification_token: null,
+    });
+
+    return res.redirect("/reference-verified?status=success&method=linkedin");
+  } catch (err) {
+    console.error("linkedInReferenceCallback error:", err);
+    return res.redirect("/reference-verified?status=error");
   }
 }
 

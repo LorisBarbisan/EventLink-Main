@@ -1,25 +1,40 @@
 import { useLocation } from "wouter";
-import { CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function ReferenceVerified() {
   const [, setLocation] = useLocation();
   const params = new URLSearchParams(window.location.search);
   const status = params.get("status");
+  const method = params.get("method");
 
   if (status === "success") {
+    const isLinkedIn = method === "linkedin";
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-md w-full text-center">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Email Verified!</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            {isLinkedIn ? "LinkedIn Verified!" : "Email Verified!"}
+          </h1>
           <p className="text-gray-600 mb-4">
-            Your email has been verified. The reference now carries an
-            <span className="inline-flex items-center gap-1 text-blue-600 font-medium ml-1">
-              Email Verified
-            </span> badge.
+            {isLinkedIn ? (
+              <>
+                Your LinkedIn profile has been verified. The reference now carries a
+                <span className="inline-flex items-center gap-1 text-[#0A66C2] font-medium ml-1">
+                  <Linkedin className="w-3.5 h-3.5" /> LinkedIn Verified
+                </span> badge.
+              </>
+            ) : (
+              <>
+                Your email has been verified. The reference now carries an
+                <span className="inline-flex items-center gap-1 text-blue-600 font-medium ml-1">
+                  Email Verified
+                </span> badge.
+              </>
+            )}
           </p>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className={`${isLinkedIn ? "bg-blue-50 border-blue-200" : "bg-blue-50 border-blue-200"} border rounded-lg p-4 mb-6`}>
             <p className="text-sm text-blue-800">
               Your reference is now more credible and will stand out to potential employers viewing this freelancer's profile.
             </p>

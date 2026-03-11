@@ -55,7 +55,7 @@ export default function ReferencePage() {
           comment: comment.trim() || null,
           referee_name: refereeName.trim() || null,
           referee_organisation: refereeOrg.trim() || null,
-          referee_email: verifyMethod === "email" ? (refereeEmail.trim() || null) : (user?.email || null),
+          referee_email: verifyMethod === "email" ? (refereeEmail.trim() || null) : null,
           referee_role: refereeRole.trim() || null,
         }),
       });
@@ -63,6 +63,10 @@ export default function ReferencePage() {
     onSuccess: (data: any) => {
       setBadge(data.badge_result);
       setVerificationType(data.verification_type);
+      if (verifyMethod === "linkedin" && data.reference_id) {
+        window.location.href = `/api/references/linkedin-auth?reference_id=${data.reference_id}`;
+        return;
+      }
       setSubmitted(true);
     },
   });
@@ -370,9 +374,8 @@ export default function ReferencePage() {
                       <div className="flex items-center gap-2">
                         <Linkedin className="w-4 h-4 text-[#0A66C2]" />
                         <span className="text-sm font-medium text-gray-900">Verify with LinkedIn</span>
-                        <span className="text-[10px] font-medium text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">Coming soon</span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">Link your LinkedIn profile for stronger verification</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Sign in with LinkedIn to attach your professional profile</p>
                     </div>
                   </div>
 
@@ -418,7 +421,7 @@ export default function ReferencePage() {
                 {verifyMethod === "linkedin" && (
                   <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p className="text-xs text-blue-700">
-                      LinkedIn verification will be available soon. For now, you can verify by email or sign in to EventLink.
+                      After submitting, you'll be redirected to LinkedIn to verify your identity. Your name will be attached to this reference.
                     </p>
                   </div>
                 )}
@@ -429,16 +432,11 @@ export default function ReferencePage() {
           <div className="px-6 pb-6">
             <Button
               onClick={() => submitMutation.mutate()}
-              disabled={!canSubmit || submitMutation.isPending || verifyMethod === "linkedin"}
+              disabled={!canSubmit || submitMutation.isPending}
               className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-3 rounded-xl text-base"
             >
-              {submitMutation.isPending ? "Submitting..." : "Submit Reference"}
+              {submitMutation.isPending ? "Submitting..." : verifyMethod === "linkedin" ? "Submit & Verify with LinkedIn" : "Submit Reference"}
             </Button>
-            {verifyMethod === "linkedin" && (
-              <p className="text-xs text-amber-600 text-center mt-2">
-                LinkedIn verification is coming soon. Please choose email or sign in instead.
-              </p>
-            )}
             {submitMutation.isError && (
               <p className="text-red-500 text-sm text-center mt-2">
                 Something went wrong. Please try again.

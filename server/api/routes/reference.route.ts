@@ -6,7 +6,8 @@ import {
   getMyReferenceToken,
   getPublicReferences,
   verifyRefereeEmail,
-  submitLinkedInVerification,
+  startLinkedInReferenceAuth,
+  linkedInReferenceCallback,
   createReferenceRequest,
   getReferenceRequests,
   cancelReferenceRequest,
@@ -20,7 +21,8 @@ const router = express.Router();
 router.get("/form/:token", getReferenceFormInfo);
 router.post("/submit/:token", authenticateOptionalJWT, submitReference);
 router.get("/verify-email", verifyRefereeEmail);
-router.post("/linkedin-verify", authenticateJWT, submitLinkedInVerification);
+router.get("/linkedin-auth", startLinkedInReferenceAuth);
+router.get("/linkedin-callback", linkedInReferenceCallback);
 router.get("/my-token", authenticateJWT, getMyReferenceToken);
 router.get("/freelancer/:freelancerId", getPublicReferences);
 router.post("/requests", authenticateJWT, createReferenceRequest);
