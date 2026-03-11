@@ -1,0 +1,295 @@
+Epic: Tiered Referee Verification & Reference Trust System
+Epic Name
+Tiered Referee Verification & Reference Credibility System
+Epic Description
+As an employer using EventLink,
+ I want freelancer references to carry visible trust signals based on how the referee verified their identity,
+ so that I can assess the credibility of references quickly and confidently.
+As a freelancer,
+ I want to collect professional references easily from previous employers without requiring them to create an account,
+ so that I can demonstrate my reputation without creating friction for my referees.
+As a referee,
+ I want to provide a quick reference with minimal effort,
+ so that I can help freelancers while maintaining my professional credibility.
+This Epic introduces a three-tier verification system for references to balance low friction for referees with high trust for employers.
+
+Core Concept
+References are verified at three levels:
+Tier 1 — Email Verified Reference
+Referee confirms ownership of their email address via one-click verification.
+Badge displayed:
+ 🔵 Email Verified Reference
+
+Tier 2 — LinkedIn Verified Reference
+Referee authenticates via LinkedIn OAuth, verifying identity and professional affiliation.
+Badge displayed:
+ 🟢 LinkedIn Verified Reference — [Name], [Title] at [Company]
+
+Tier 3 — EventLink Member Reference
+Referee is an authenticated EventLink user with an existing profile.
+Badge displayed:
+ 🟢 EventLink Member Reference — [Profile Link]
+
+Business Value
+Builds credible freelancer reputation signals
+
+
+Minimises friction for referees
+
+
+Deters fake references
+
+
+Creates organic employer acquisition channel
+
+
+Increases employer trust in freelancer profiles
+
+
+Establishes scalable trust infrastructure
+
+
+
+User Stories
+
+Story 1 — Email Verification (Tier 1)
+User Story
+As a referee
+ I want to confirm my email address
+ so that my reference is verified without creating an account.
+Acceptance Criteria
+Referee submits reference
+
+
+System sends one-click verification email
+
+
+Clicking link confirms ownership
+
+
+Reference status updates to:
+
+
+Email Verified Reference
+System stores:
+Verified email address
+
+
+Domain name
+
+
+Timestamp
+
+
+
+Story 2 — LinkedIn Verification (Tier 2)
+User Story
+As a referee
+ I want to verify my identity using LinkedIn
+ so that my reference carries stronger credibility.
+Acceptance Criteria
+Reference form includes Verify with LinkedIn button
+
+
+LinkedIn OAuth retrieves:
+
+
+Name
+
+
+Job title
+
+
+Company
+
+
+LinkedIn verification attaches identity data to reference
+
+
+Badge displayed:
+
+
+🟢 LinkedIn Verified Reference
+No EventLink account required
+
+
+
+Story 3 — EventLink Member Reference (Tier 3)
+User Story
+As a recruiter already on EventLink
+ I want my reference to be associated with my EventLink profile
+ so that my professional reputation supports the reference.
+Acceptance Criteria
+Logged-in EventLink users can submit references
+
+
+System links reference to their profile
+
+
+Badge displayed:
+
+
+🟢 EventLink Member Reference
+Profile link appears next to reference
+
+
+
+Story 4 — Reference Trust Badge Display
+User Story
+As an employer viewing freelancer references
+ I want to see verification badges
+ so that I can assess credibility quickly.
+Acceptance Criteria
+References display:
+Badge type
+
+
+Verification method
+
+
+Referee name
+
+
+Company (if available)
+
+
+Role (if available)
+
+
+Badges must be visually distinct.
+
+Story 5 — Freelancer Dashboard Visibility
+User Story
+As a freelancer
+ I want to see the status of my reference requests
+ so that I know who has completed them.
+Acceptance Criteria
+Dashboard displays:
+Total requests sent
+
+
+Completed references
+
+
+Pending references
+
+
+Verification level
+
+
+Example display:
+3 Requests Sent
+1 Completed
+2 Pending
+Freelancer can:
+Send reminder message
+
+
+Cancel request
+
+
+
+Story 6 — Automated Reminder System
+User Story
+As a referee
+ I want only one polite reminder if I forget to complete a reference
+ so that I am not spammed.
+Acceptance Criteria
+Reminder sent 5 days after request
+
+
+Only one reminder allowed
+
+
+Reminder email is brief and polite
+
+
+No further follow-ups
+
+
+
+Story 7 — Fraud Detection & Reference Integrity
+User Story
+As a platform owner
+ I want safeguards against fake references
+ so that the system remains trustworthy.
+Acceptance Criteria
+System checks:
+Referee email ≠ freelancer email
+
+
+Email domain scoring
+
+
+Multiple Gmail references flagged
+
+
+Rapid reference submission patterns flagged
+
+
+Example trigger:
+5 Gmail references within 48 hours
+Triggers manual review flag.
+
+Story 8 — Employer Reporting of Suspicious References
+User Story
+As an employer
+ I want to report suspicious references
+ so that platform integrity is maintained.
+Acceptance Criteria
+Employers can:
+Flag reference privately
+
+
+Provide optional reason
+
+
+Flagged references enter moderation queue.
+
+Story 9 — Domain Trust Scoring
+User Story
+As an employer
+ I want to see the credibility of referee email domains
+ so that I can judge the strength of the reference.
+Acceptance Criteria
+Examples:
+@gmail.com → lower trust weight
+
+
+@aeg.com → higher trust weight
+
+
+@livenation.com → higher trust weight
+
+
+Domain category stored internally.
+
+Story 10 — Referee Conversion Opportunity
+User Story
+As a referee
+ I want to understand what EventLink does after submitting a reference
+ so that I can explore the platform if relevant.
+Acceptance Criteria
+After submission page displays message:
+"You’re already helping build trust in the events industry. EventLink helps companies find verified crew faster."
+Includes link to:
+platform overview
+
+
+recruiter signup page
+
+
+
+Technical Notes (For Replit Implementation)
+Key database tables:
+references
+reference_requests
+reference_verifications
+Reference object includes:
+verification_type
+verified_email
+linkedin_profile_id
+eventlink_user_id
+verification_timestamp
+email_domain
+Trust scoring stored separately.

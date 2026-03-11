@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Star, CheckCircle, Clock } from "lucide-react";
+import { Star, CheckCircle, Clock, Shield, UserCheck, Mail } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 
 interface FreelancerInfo {
   freelancerUserId: number;
@@ -17,19 +18,28 @@ interface FreelancerInfo {
 
 export default function ReferencePage() {
   const { token } = useParams<{ token: string }>();
+  const [, setLocation] = useLocation();
+  const { user } = useAuth();
   const [submitted, setSubmitted] = useState(false);
   const [q1, setQ1] = useState<"yes" | "no" | "">("");
   const [q2, setQ2] = useState("");
   const [q3, setQ3] = useState("");
   const [comment, setComment] = useState("");
-  const [refereeName, setRefereeName] = useState("");
+  const [refereeName, setRefereeName] = useState(
+    user ? [user.first_name, user.last_name].filter(Boolean).join(" ") : ""
+  );
   const [refereeOrg, setRefereeOrg] = useState("");
+  const [refereeEmail, setRefereeEmail] = useState(user?.email || "");
+  const [refereeRole, setRefereeRole] = useState("");
   const [badge, setBadge] = useState<string | null>(null);
+  const [verificationType, setVerificationType] = useState<string>("none");
 
   const { data: freelancer, isLoading, error } = useQuery<FreelancerInfo>({
     queryKey: [`/api/references/form/${token}`],
     retry: false,
   });
+
+  const isEventLinkMember = !!user;
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -42,11 +52,14 @@ export default function ReferencePage() {
           comment: comment.trim() || null,
           referee_name: refereeName.trim() || null,
           referee_organisation: refereeOrg.trim() || null,
+          referee_email: refereeEmail.trim() || null,
+          referee_role: refereeRole.trim() || null,
         }),
       });
     },
     onSuccess: (data: any) => {
       setBadge(data.badge_result);
+      setVerificationType(data.verification_type);
       setSubmitted(true);
     },
   });
@@ -64,7 +77,7 @@ export default function ReferencePage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center text-gray-500">Loading…</div>
+        <div className="text-center text-gray-500">Loading...</div>
       </div>
     );
   }
@@ -85,20 +98,65 @@ export default function ReferencePage() {
     const badgeInfo = badge ? badgeLabels[badge] : null;
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-sm w-full text-center">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-md w-full text-center">
           <CheckCircle className="w-14 h-14 text-green-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Thank you!</h1>
           <p className="text-gray-600 mb-4">
             Your reference for <strong>{freelancer.firstName}</strong> has been submitted.
           </p>
+
           {badgeInfo && badge !== "flagged" && (
-            <div className={`text-sm font-medium ${badgeInfo.color} bg-gray-50 rounded-lg py-2 px-4`}>
+            <div className={`text-sm font-medium ${badgeInfo.color} bg-gray-50 rounded-lg py-2 px-4 mb-4`}>
               🏅 {badgeInfo.label}
             </div>
           )}
-          <p className="text-xs text-gray-400 mt-4">
-            This reference will appear on their EventLink profile.
-          </p>
+
+          {verificationType === "eventlink_member" && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+              <div className="flex items-center justify-center gap-2 text-green-700 text-sm font-medium">
+                <UserCheck className="w-4 h-4" />
+                EventLink Member Verified
+              </div>
+              <p className="text-xs text-green-600 mt-1">Your reference is linked to your EventLink profile</p>
+            </div>
+          )}
+
+          {verificationType === "none" && refereeEmail && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <div className="flex items-center justify-center gap-2 text-blue-700 text-sm font-medium">
+                <Mail className="w-4 h-4" />
+                Verification Email Sent
+              </div>
+              <p className="text-xs text-blue-600 mt-1">
+                Check your inbox at <strong>{refereeEmail}</strong> to verify your email and strengthen this reference
+              </p>
+            </div>
+          )}
+
+          <div className="border-t pt-6 mt-4">
+            <p className="text-gray-500 text-sm mb-3">
+              You're already helping build trust in the events industry. EventLink helps companies find verified crew faster.
+            </p>
+            {!isEventLinkMember && (
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={() => setLocation("/about")}
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                >
+                  Learn About EventLink
+                </Button>
+                <Button
+                  onClick={() => setLocation("/auth")}
+                  size="sm"
+                  className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
+                >
+                  Sign Up as a Recruiter
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -109,7 +167,6 @@ export default function ReferencePage() {
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="max-w-lg mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-semibold mb-4">
             <Star className="w-4 h-4 fill-white" />
@@ -128,9 +185,18 @@ export default function ReferencePage() {
           </p>
         </div>
 
+        {isEventLinkMember && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4 flex items-center gap-3">
+            <UserCheck className="w-5 h-5 text-green-600 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-green-800">Submitting as EventLink Member</p>
+              <p className="text-xs text-green-600">Your reference will be linked to your profile for maximum credibility</p>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-6 space-y-8">
-            {/* Q1 */}
             <div>
               <p className="text-xs uppercase tracking-wider text-orange-500 font-semibold mb-2">Question 1 of 3</p>
               <p className="font-semibold text-gray-900 mb-4">
@@ -150,7 +216,6 @@ export default function ReferencePage() {
               </RadioGroup>
             </div>
 
-            {/* Q2 — only shown if Q1 = yes */}
             {q1 === "yes" && (
               <div>
                 <p className="text-xs uppercase tracking-wider text-orange-500 font-semibold mb-2">Question 2 of 3</p>
@@ -177,7 +242,6 @@ export default function ReferencePage() {
               </div>
             )}
 
-            {/* Q3 — only shown if Q1 = yes */}
             {q1 === "yes" && (
               <div>
                 <p className="text-xs uppercase tracking-wider text-orange-500 font-semibold mb-2">Question 3 of 3</p>
@@ -204,7 +268,6 @@ export default function ReferencePage() {
               </div>
             )}
 
-            {/* Optional comment — shown if Q1 = yes */}
             {q1 === "yes" && (
               <div>
                 <p className="font-semibold text-gray-900 mb-1">
@@ -216,14 +279,13 @@ export default function ReferencePage() {
                 <Textarea
                   value={comment}
                   onChange={e => setComment(e.target.value)}
-                  placeholder="A short quote about their work, attitude, or a specific project…"
+                  placeholder="A short quote about their work, attitude, or a specific project..."
                   className="min-h-[100px] resize-none"
                   maxLength={500}
                 />
               </div>
             )}
 
-            {/* Referee details — required */}
             {q1 !== "" && (
               <div className="border-t pt-6">
                 <p className="text-sm font-medium text-gray-700 mb-1">Your details</p>
@@ -255,19 +317,47 @@ export default function ReferencePage() {
                       required
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="ref-role" className="text-sm text-gray-600 mb-1 block">
+                      Your role <span className="text-gray-400 text-xs">(Optional)</span>
+                    </Label>
+                    <Input
+                      id="ref-role"
+                      value={refereeRole}
+                      onChange={e => setRefereeRole(e.target.value)}
+                      placeholder="e.g. Production Manager"
+                      maxLength={100}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="ref-email" className="text-sm text-gray-600 mb-1 block">
+                      Your email <span className="text-gray-400 text-xs">(For verification)</span>
+                    </Label>
+                    <Input
+                      id="ref-email"
+                      type="email"
+                      value={refereeEmail}
+                      onChange={e => setRefereeEmail(e.target.value)}
+                      placeholder="e.g. sarah@livenation.com"
+                      maxLength={200}
+                    />
+                    <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                      <Shield className="w-3 h-3" />
+                      We'll send a one-click verification to strengthen your reference. Your email won't be displayed publicly.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Submit */}
           <div className="px-6 pb-6">
             <Button
               onClick={() => submitMutation.mutate()}
               disabled={!canSubmit || submitMutation.isPending}
               className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-3 rounded-xl text-base"
             >
-              {submitMutation.isPending ? "Submitting…" : "Submit Reference"}
+              {submitMutation.isPending ? "Submitting..." : "Submit Reference"}
             </Button>
             {submitMutation.isError && (
               <p className="text-red-500 text-sm text-center mt-2">

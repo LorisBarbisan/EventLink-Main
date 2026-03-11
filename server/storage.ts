@@ -60,6 +60,12 @@ import {
   type InsertSavedFreelancer,
   type FreelancerReference,
   type InsertFreelancerReference,
+  type ReferenceRequest,
+  type InsertReferenceRequest,
+  type ReferenceReport,
+  type InsertReferenceReport,
+  reference_requests,
+  reference_reports,
   type User,
 } from "@shared/schema";
 import {
@@ -416,8 +422,22 @@ export interface IStorage {
   // Freelancer references (reputation system)
   getOrCreateReferenceToken(userId: number): Promise<string>;
   getFreelancerByReferenceToken(token: string): Promise<{ userId: number; firstName: string | null; lastName: string | null } | undefined>;
-  createFreelancerReference(data: InsertFreelancerReference & { badge_result: string; is_flagged: boolean }): Promise<FreelancerReference>;
+  createFreelancerReference(data: InsertFreelancerReference & { badge_result: string; is_flagged: boolean; [key: string]: any }): Promise<FreelancerReference>;
   getPublicReferences(freelancerId: number): Promise<FreelancerReference[]>;
+  getReferenceById(id: number): Promise<FreelancerReference | undefined>;
+  updateReferenceVerification(id: number, data: Partial<FreelancerReference>): Promise<FreelancerReference | undefined>;
+  getRecentReferencesByEmail(email: string, hoursBack: number): Promise<FreelancerReference[]>;
+
+  // Reference requests
+  createReferenceRequest(data: InsertReferenceRequest): Promise<ReferenceRequest>;
+  getReferenceRequests(freelancerId: number): Promise<ReferenceRequest[]>;
+  getReferenceRequestById(id: number): Promise<ReferenceRequest | undefined>;
+  updateReferenceRequest(id: number, data: Partial<ReferenceRequest>): Promise<ReferenceRequest | undefined>;
+  getPendingReminders(daysSinceRequest: number): Promise<ReferenceRequest[]>;
+
+  // Reference reports
+  createReferenceReport(data: InsertReferenceReport): Promise<ReferenceReport>;
+  getReferenceReports(referenceId: number): Promise<ReferenceReport[]>;
 
   // Cache management
   clearCache(): void;
@@ -4246,6 +4266,71 @@ export class DatabaseStorage implements IStorage {
         sql`${freelancer_references.badge_result} NOT IN ('verified_private', 'flagged')`
       ))
       .orderBy(desc(freelancer_references.created_at));
+  }
+
+  async getReferenceById(id: number): Promise<FreelancerReference | undefined> {
+    const rows = await db.select().from(freelancer_references).where(eq(freelancer_references.id, id)).limit(1);
+    return rows[0];
+  }
+
+  async updateReferenceVerification(id: number, data: Partial<FreelancerReference>): Promise<FreelancerReference | undefined> {
+    const rows = await db.update(freelancer_references).set(data).where(eq(freelancer_references.id, id)).returning();
+    return rows[0];
+  }
+
+  async getRecentReferencesByEmail(email: string, hoursBack: number): Promise<FreelancerReference[]> {
+    const cutoff = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
+    return db.select()
+      .from(freelancer_references)
+      .where(and(
+        eq(freelancer_references.referee_email, email),
+        gte(freelancer_references.created_at, cutoff)
+      ));
+  }
+
+  async createReferenceRequest(data: InsertReferenceRequest): Promise<ReferenceRequest> {
+    const rows = await db.insert(reference_requests).values(data).returning();
+    return rows[0];
+  }
+
+  async getReferenceRequests(freelancerId: number): Promise<ReferenceRequest[]> {
+    return db.select()
+      .from(reference_requests)
+      .where(eq(reference_requests.freelancer_id, freelancerId))
+      .orderBy(desc(reference_requests.created_at));
+  }
+
+  async getReferenceRequestById(id: number): Promise<ReferenceRequest | undefined> {
+    const rows = await db.select().from(reference_requests).where(eq(reference_requests.id, id)).limit(1);
+    return rows[0];
+  }
+
+  async updateReferenceRequest(id: number, data: Partial<ReferenceRequest>): Promise<ReferenceRequest | undefined> {
+    const rows = await db.update(reference_requests).set(data).where(eq(reference_requests.id, id)).returning();
+    return rows[0];
+  }
+
+  async getPendingReminders(daysSinceRequest: number): Promise<ReferenceRequest[]> {
+    const cutoff = new Date(Date.now() - daysSinceRequest * 24 * 60 * 60 * 1000);
+    return db.select()
+      .from(reference_requests)
+      .where(and(
+        eq(reference_requests.status, "pending"),
+        eq(reference_requests.reminder_sent, false),
+        sql`${reference_requests.created_at} <= ${cutoff}`
+      ));
+  }
+
+  async createReferenceReport(data: InsertReferenceReport): Promise<ReferenceReport> {
+    const rows = await db.insert(reference_reports).values(data).returning();
+    return rows[0];
+  }
+
+  async getReferenceReports(referenceId: number): Promise<ReferenceReport[]> {
+    return db.select()
+      .from(reference_reports)
+      .where(eq(reference_reports.reference_id, referenceId))
+      .orderBy(desc(reference_reports.created_at));
   }
 }
 

@@ -832,12 +832,25 @@ export const freelancer_references = pgTable("freelancer_references", {
     .references(() => users.id, { onDelete: "cascade" }),
   referee_name: text("referee_name"),
   referee_organisation: text("referee_organisation"),
-  q1_confirmed: boolean("q1_confirmed").notNull(), // Did they work together?
+  referee_email: text("referee_email"),
+  referee_role: text("referee_role"),
+  q1_confirmed: boolean("q1_confirmed").notNull(),
   q2_rating: text("q2_rating").$type<"excellent" | "good" | "mixed" | "prefer_not_to_say">(),
   q3_would_work_again: text("q3_would_work_again").$type<"absolutely" | "yes" | "unlikely" | "prefer_not_to_say">(),
   comment: text("comment"),
   badge_result: text("badge_result").$type<"highly_recommended" | "recommended" | "verified_private" | "work_history_confirmed" | "flagged">(),
   is_flagged: boolean("is_flagged").default(false).notNull(),
+  verification_type: text("verification_type").$type<"none" | "email" | "linkedin" | "eventlink_member">().default("none").notNull(),
+  verified_email: text("verified_email"),
+  email_domain: text("email_domain"),
+  domain_trust_level: text("domain_trust_level").$type<"high" | "medium" | "low">(),
+  linkedin_name: text("linkedin_name"),
+  linkedin_title: text("linkedin_title"),
+  linkedin_company: text("linkedin_company"),
+  linkedin_profile_id: text("linkedin_profile_id"),
+  eventlink_user_id: integer("eventlink_user_id").references(() => users.id),
+  verification_token: text("verification_token"),
+  verification_timestamp: timestamp("verification_timestamp", { withTimezone: true }),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -845,8 +858,69 @@ export const insertFreelancerReferenceSchema = createInsertSchema(freelancer_ref
   id: true,
   badge_result: true,
   is_flagged: true,
+  verification_type: true,
+  verified_email: true,
+  email_domain: true,
+  domain_trust_level: true,
+  linkedin_name: true,
+  linkedin_title: true,
+  linkedin_company: true,
+  linkedin_profile_id: true,
+  eventlink_user_id: true,
+  verification_token: true,
+  verification_timestamp: true,
   created_at: true,
 });
 
 export type FreelancerReference = typeof freelancer_references.$inferSelect;
 export type InsertFreelancerReference = z.infer<typeof insertFreelancerReferenceSchema>;
+
+// Reference Requests (tracking sent/pending/completed)
+export const reference_requests = pgTable("reference_requests", {
+  id: serial("id").primaryKey(),
+  freelancer_id: integer("freelancer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  referee_email: text("referee_email").notNull(),
+  referee_name: text("referee_name"),
+  status: text("status").$type<"pending" | "completed" | "cancelled">().default("pending").notNull(),
+  reminder_sent: boolean("reminder_sent").default(false).notNull(),
+  reminder_sent_at: timestamp("reminder_sent_at", { withTimezone: true }),
+  reference_id: integer("reference_id").references(() => freelancer_references.id),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const insertReferenceRequestSchema = createInsertSchema(reference_requests).omit({
+  id: true,
+  status: true,
+  reminder_sent: true,
+  reminder_sent_at: true,
+  reference_id: true,
+  created_at: true,
+});
+
+export type ReferenceRequest = typeof reference_requests.$inferSelect;
+export type InsertReferenceRequest = z.infer<typeof insertReferenceRequestSchema>;
+
+// Reference Reports (employer flagging suspicious references)
+export const reference_reports = pgTable("reference_reports", {
+  id: serial("id").primaryKey(),
+  reference_id: integer("reference_id")
+    .notNull()
+    .references(() => freelancer_references.id, { onDelete: "cascade" }),
+  reporter_id: integer("reporter_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  reason: text("reason"),
+  status: text("status").$type<"pending" | "reviewed" | "dismissed">().default("pending").notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const insertReferenceReportSchema = createInsertSchema(reference_reports).omit({
+  id: true,
+  status: true,
+  created_at: true,
+});
+
+export type ReferenceReport = typeof reference_reports.$inferSelect;
+export type InsertReferenceReport = z.infer<typeof insertReferenceReportSchema>;
