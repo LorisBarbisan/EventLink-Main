@@ -72,7 +72,9 @@ export default function Auth() {
   const [pendingOAuthData, setPendingOAuthData] = useState<{
     pending_token: string;
   } | null>(null);
-  const [oauthRoleSelection, setOauthRoleSelection] = useState<"freelancer" | "recruiter">("freelancer");
+  const [oauthRoleSelection, setOauthRoleSelection] = useState<"freelancer" | "recruiter">(
+    "freelancer"
+  );
   const [oauthRegistering, setOauthRegistering] = useState(false);
 
   // Redirect if already authenticated (but only after loading is complete to ensure validation is done)
@@ -270,7 +272,8 @@ export default function Auth() {
                 <div>
                   <div className="font-semibold">Freelancer</div>
                   <div className="text-sm text-muted-foreground">
-                    I'm looking for event work opportunities. I want to showcase my skills and apply for jobs.
+                    I'm looking for event work opportunities. I want to showcase my skills and apply
+                    for jobs.
                   </div>
                 </div>
               </label>
@@ -702,7 +705,9 @@ export default function Auth() {
                       type="button"
                       variant="outline"
                       className="w-full"
-                      onClick={() => { window.location.href = "/api/auth/google"; }}
+                      onClick={() => {
+                        window.location.href = "/api/auth/google";
+                      }}
                       data-testid="button-signin-google"
                     >
                       <FcGoogle className="mr-2 h-4 w-4" />
@@ -712,7 +717,9 @@ export default function Auth() {
                       type="button"
                       variant="outline"
                       className="w-full"
-                      onClick={() => { window.location.href = "/api/auth/linkedin"; }}
+                      onClick={() => {
+                        window.location.href = "/api/auth/linkedin";
+                      }}
                       data-testid="button-signin-linkedin"
                     >
                       <SiLinkedin className="mr-2 h-4 w-4 text-[#0A66C2]" />
@@ -745,9 +752,9 @@ export default function Auth() {
                           role: value as "freelancer" | "recruiter",
                         }))
                       }
-                      className="grid grid-cols-2 gap-4"
+                      className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4"
                     >
-                      <div className="flex items-center space-x-2 rounded-lg border p-4 transition-colors hover:bg-accent/50">
+                      <div className="flex items-center space-x-2 rounded-lg border p-3 transition-colors hover:bg-accent/50 sm:p-4">
                         <RadioGroupItem value="freelancer" id="freelancer" />
                         <div className="flex items-center space-x-2">
                           <span className="h-4 w-4 text-primary">👤</span>
@@ -756,7 +763,7 @@ export default function Auth() {
                           </Label>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2 rounded-lg border p-4 transition-colors hover:bg-accent/50">
+                      <div className="flex items-center space-x-2 rounded-lg border p-3 transition-colors hover:bg-accent/50 sm:p-4">
                         <RadioGroupItem value="recruiter" id="recruiter" />
                         <div className="flex items-center space-x-2">
                           <span className="h-4 w-4 text-primary">🏢</span>
@@ -919,7 +926,9 @@ export default function Auth() {
                       type="button"
                       variant="outline"
                       className="w-full"
-                      onClick={() => { window.location.href = `/api/auth/google?role=${signUpData.role}`; }}
+                      onClick={() => {
+                        window.location.href = `/api/auth/google?role=${signUpData.role}`;
+                      }}
                       data-testid="button-signup-google"
                     >
                       <FcGoogle className="mr-2 h-4 w-4" />
@@ -929,7 +938,9 @@ export default function Auth() {
                       type="button"
                       variant="outline"
                       className="w-full"
-                      onClick={() => { window.location.href = `/api/auth/linkedin?role=${signUpData.role}`; }}
+                      onClick={() => {
+                        window.location.href = `/api/auth/linkedin?role=${signUpData.role}`;
+                      }}
                       data-testid="button-signup-linkedin"
                     >
                       <SiLinkedin className="mr-2 h-4 w-4 text-[#0A66C2]" />

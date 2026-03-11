@@ -1,22 +1,22 @@
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Link } from "wouter";
-import { ArrowRight, Users, Briefcase, Star, MapPin, Clock } from "lucide-react";
-import eventImage from "@assets/Landing_Page_optimized.jpg";
 import eventlinkLogo from "@assets/E8-Logo-Orange-New.png";
+import eventImage from "@assets/Landing_Page_optimized.jpg";
+import { ArrowRight, Briefcase, MapPin, Star } from "lucide-react";
+import { Link } from "wouter";
 
 export const HeroSection = () => {
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-background via-secondary/20 to-background">
       {/* Hero Content */}
       <div className="container mx-auto px-4 py-16 lg:py-24">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
           {/* Left Column - Content */}
-          <div className="space-y-8 animate-fade-in">
+          <div className="animate-fade-in space-y-8">
             <div className="space-y-6">
               {/* Large EventLink Logo */}
-              <div className="flex justify-center lg:justify-start mb-4 items-center gap-4">
+              <div className="mb-4 hidden items-center justify-center gap-4 md:flex lg:justify-start">
                 <div className="relative">
                   <img
                     src={eventlinkLogo}
@@ -30,18 +30,18 @@ export const HeroSection = () => {
                 <div className="text-3xl font-bold text-gray-800 dark:text-gray-200">EventLink</div>
               </div>
 
-              <Badge variant="secondary" className="w-fit hidden">
-                <Star className="w-3 h-3 mr-1" />
+              <Badge variant="secondary" className="hidden w-fit">
+                <Star className="mr-1 h-3 w-3" />
                 Trusted by 500+ companies
               </Badge>
 
-              <h1 className="text-4xl lg:text-6xl font-bold leading-tight">
+              <h1 className="text-4xl font-bold leading-tight lg:text-6xl">
                 Connect with
                 <span className="text-primary"> Technical</span>
                 <span className="text-accent"> Crew</span> for Events
               </h1>
 
-              <p className="text-xl text-muted-foreground leading-relaxed">
+              <p className="text-xl leading-relaxed text-muted-foreground">
                 EventLink connects top event industry professionals with companies across the UK.
                 Whether you're seeking skilled technical crew or looking for your next opportunity,
                 we make professional connections that drive successful events.
@@ -49,39 +49,39 @@ export const HeroSection = () => {
             </div>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row">
               <Button
                 size="lg"
-                className="bg-gradient-primary hover:bg-primary-hover text-white text-lg px-8 transition-all duration-200"
+                className="bg-gradient-primary hover:bg-primary-hover px-8 text-lg text-white transition-all duration-200"
                 asChild
               >
                 <Link to="/auth?tab=signup" data-testid="button-get-started">
                   Get Started
-                  <ArrowRight className="w-5 h-5 ml-2" />
+                  <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
 
               <Button
                 variant="outline"
                 size="lg"
-                className="text-lg px-8 border-2 border-primary text-primary hover:bg-primary/10 hover:border-primary/80 hover:text-primary transition-all duration-200"
+                className="border-2 border-primary px-8 text-lg text-primary transition-all duration-200 hover:border-primary/80 hover:bg-primary/10 hover:text-primary"
                 asChild
               >
                 <Link to="/jobs">
                   Browse Opportunities
-                  <Briefcase className="w-5 h-5 ml-2" />
+                  <Briefcase className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
             </div>
           </div>
 
           {/* Right Column - Image & Cards */}
-          <div className="relative animate-scale-in">
-            <div className="relative rounded-2xl overflow-hidden shadow-lg">
+          <div className="animate-scale-in relative">
+            <div className="relative overflow-hidden rounded-2xl shadow-lg">
               <img
                 src={eventImage}
                 alt="Professional event production setup with video monitors, cameras, mixing console and stage lighting"
-                className="w-full h-[500px] object-cover"
+                className="h-[500px] w-full object-cover"
                 loading="eager"
                 decoding="async"
                 width="1200"
@@ -92,30 +92,30 @@ export const HeroSection = () => {
             </div>
 
             {/* Floating Job Cards - matching E8 design */}
-            <Card className="absolute -top-4 -left-4 p-3 shadow-lg bg-card/95 backdrop-blur-sm animate-fade-in border-l-4 border-l-primary hidden">
+            <Card className="animate-fade-in absolute -left-4 -top-4 hidden border-l-4 border-l-primary bg-card/95 p-3 shadow-lg backdrop-blur-sm">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <div className="w-2 h-2 bg-primary rounded-full" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <div className="h-2 w-2 rounded-full bg-primary" />
                 </div>
                 <div>
-                  <div className="font-semibold text-sm text-foreground">Audio Engineer</div>
-                  <div className="text-xs text-muted-foreground flex items-center">
-                    <MapPin className="w-3 h-3 mr-1" />
+                  <div className="text-sm font-semibold text-foreground">Audio Engineer</div>
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <MapPin className="mr-1 h-3 w-3" />
                     London • £350/day
                   </div>
                 </div>
               </div>
             </Card>
 
-            <Card className="absolute -bottom-4 -right-4 p-3 shadow-lg bg-card/95 backdrop-blur-sm animate-fade-in border-l-4 border-l-accent hidden">
+            <Card className="animate-fade-in absolute -bottom-4 -right-4 hidden border-l-4 border-l-accent bg-card/95 p-3 shadow-lg backdrop-blur-sm">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-accent/10 rounded-lg flex items-center justify-center">
-                  <div className="w-2 h-2 bg-accent rounded-full" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10">
+                  <div className="h-2 w-2 rounded-full bg-accent" />
                 </div>
                 <div>
-                  <div className="font-semibold text-sm text-foreground">Lighting Tech</div>
-                  <div className="text-xs text-muted-foreground flex items-center">
-                    <MapPin className="w-3 h-3 mr-1" />
+                  <div className="text-sm font-semibold text-foreground">Lighting Tech</div>
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <MapPin className="mr-1 h-3 w-3" />
                     Manchester • 2 days
                   </div>
                 </div>
@@ -127,8 +127,8 @@ export const HeroSection = () => {
 
       {/* Background Pattern */}
       <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-gradient-accent opacity-5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-1/2 -left-1/2 w-full h-full bg-gradient-primary opacity-5 rounded-full blur-3xl" />
+        <div className="bg-gradient-accent absolute -right-1/2 -top-1/2 h-full w-full rounded-full opacity-5 blur-3xl" />
+        <div className="bg-gradient-primary absolute -bottom-1/2 -left-1/2 h-full w-full rounded-full opacity-5 blur-3xl" />
       </div>
     </section>
   );

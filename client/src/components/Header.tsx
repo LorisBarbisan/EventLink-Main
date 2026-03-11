@@ -22,27 +22,29 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
   const [showInviteDialog, setShowInviteDialog] = useState(false);
 
   return (
-    <header className="bg-card border-b shadow-sm">
-      <div className="container mx-auto px-4 py-4">
+    <header className="border-b bg-card shadow-sm">
+      <div className="container mx-auto px-4 py-3 md:py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3" data-testid="link-logo">
             <EventLinkLogo size={48} />
-            <span className="text-2xl font-bold text-foreground">EventLink</span>
+            <span className="hidden text-2xl font-bold text-foreground min-[420px]:inline">
+              EventLink
+            </span>
           </Link>
 
           {/* Navigation */}
-          <nav className="hidden md:flex items-center space-x-6">
+          <nav className="hidden items-center space-x-6 md:flex">
             <Link
               to="/jobs"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground transition-colors hover:text-foreground"
               data-testid="link-jobs"
             >
               Find Jobs
             </Link>
             <Link
               to="/freelancers"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground transition-colors hover:text-foreground"
               data-testid="link-freelancers"
             >
               Find Crew
@@ -55,32 +57,32 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
                   setLocation("/auth");
                 }
               }}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground transition-colors hover:text-foreground"
               data-testid="button-dashboard"
             >
               Dashboard
             </button>
             <button
               onClick={onFeedbackClick}
-              className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              className="flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
               data-testid="button-feedback"
             >
-              <MessageSquare className="w-4 h-4" />
+              <MessageSquare className="h-4 w-4" />
               Feedback
             </button>
           </nav>
 
           {/* Actions */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-1 sm:space-x-3">
             {!isHomePage && <SearchBar />}
 
             {user?.role === "recruiter" && (
               <Button
                 onClick={() => setLocation("/dashboard?tab=jobs&action=post")}
-                className="hidden md:flex bg-gradient-primary hover:bg-gradient-primary/90 text-white"
+                className="bg-gradient-primary hover:bg-gradient-primary/90 hidden text-white md:flex"
                 data-testid="button-post-job-header"
               >
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="mr-2 h-4 w-4" />
                 Post New Job
               </Button>
             )}
@@ -89,7 +91,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
             {user?.role === "freelancer" && (
               <Button
                 onClick={() => setShowInviteDialog(true)}
-                className="hidden md:flex bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border-0 shadow-md transition-all duration-300 transform hover:scale-[1.02]"
+                className="hidden transform border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md transition-all duration-300 hover:scale-[1.02] hover:from-amber-600 hover:to-orange-700 md:flex"
                 data-testid="button-invite-clients"
               >
                 <Star className="w-4 h-4 mr-2 fill-white" />
@@ -98,12 +100,12 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
             )}
 
             {user ? (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 sm:space-x-2">
                 <NotificationSystem userId={user.id} />
                 <UserMenu />
               </div>
             ) : (
-              <div className="hidden md:flex items-center space-x-3">
+              <div className="hidden items-center space-x-3 md:flex">
                 <Link to="/auth">
                   <Button variant="ghost" data-testid="button-signin">
                     Sign In
@@ -123,7 +125,10 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-80">
-                <MobileNavigation onFeedbackClick={onFeedbackClick} />
+                <MobileNavigation
+                  onFeedbackClick={onFeedbackClick}
+                  onInviteClick={() => setShowInviteDialog(true)}
+                />
               </SheetContent>
             </Sheet>
           </div>

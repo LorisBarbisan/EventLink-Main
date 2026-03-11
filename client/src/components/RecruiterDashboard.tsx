@@ -11,7 +11,17 @@ import { useProfile } from "@/hooks/useProfile";
 import { apiRequest } from "@/lib/queryClient";
 import type { Job, JobApplication, JobFormData } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bookmark, Briefcase, Loader2, MapPin, Plus, Search, Star, User, Users } from "lucide-react";
+import {
+  Bookmark,
+  Briefcase,
+  Loader2,
+  MapPin,
+  Plus,
+  Search,
+  Star,
+  User,
+  Users,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
@@ -47,10 +57,14 @@ export default function SimplifiedRecruiterDashboard() {
   const [crewLocation, setCrewLocation] = useState("");
 
   const [jobSearch, setJobSearch] = useState("");
-  const [jobStatusFilter, setJobStatusFilter] = useState<"all" | "active" | "private" | "closed">("all");
+  const [jobStatusFilter, setJobStatusFilter] = useState<"all" | "active" | "private" | "closed">(
+    "all"
+  );
 
   const [appSearch, setAppSearch] = useState("");
-  const [appStatusFilter, setAppStatusFilter] = useState<"all" | "applied" | "hired" | "invited" | "rejected" | "declined">("all");
+  const [appStatusFilter, setAppStatusFilter] = useState<
+    "all" | "applied" | "hired" | "invited" | "rejected" | "declined"
+  >("all");
 
   // Get badge counts for tabs
   const { roleSpecificCounts, markCategoryAsRead } = useBadgeCounts({
@@ -142,7 +156,7 @@ export default function SimplifiedRecruiterDashboard() {
     queryKey: ["/api/recruiter", user?.id, "applications"],
     queryFn: () => apiRequest(`/api/recruiter/${user?.id}/applications`),
     enabled: !!user?.id,
-    select: data => {
+    select: (data) => {
       // Filter out applications for jobs that might have been deleted
       return data.filter((app: JobApplication) => {
         // Only show applications that have valid job data
@@ -170,7 +184,10 @@ export default function SimplifiedRecruiterDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/my-crew"] });
       queryClient.invalidateQueries({ queryKey: ["/api/saved-freelancers"] });
-      toast({ title: "Removed from saved", description: "Freelancer removed from your saved list." });
+      toast({
+        title: "Removed from saved",
+        description: "Freelancer removed from your saved list.",
+      });
     },
   });
 
@@ -525,45 +542,28 @@ export default function SimplifiedRecruiterDashboard() {
   );
 
   return (
-    <div className="container mx-auto p-4 sm:p-6">
-      <div className="mb-4 sm:mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold">Employer Dashboard</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">
+    <div className="[dden container mx-auto px-1 py-4 sm:px-6 sm:py-6">
+      <div className="sm mb-4 px-3 sm:px-0">
+        <h1 className="text-2xl font-bold sm:text-3xl">Employer Dashboard</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">
           Manage your company profile, job postings, and applications
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="w-full grid grid-cols-3 sm:grid-cols-5 gap-2">
-          <TabsTrigger value="profile" className="text-xs sm:text-sm">
-            <span className="hidden sm:inline">Company Profile</span>
-            <span className="sm:hidden">Profile</span>
-          </TabsTrigger>
-          <TabsTrigger value="jobs" className="flex items-center justify-center text-xs sm:text-sm">
-            <span className="hidden sm:inline">My Jobs</span>
-            <span className="sm:hidden">Jobs</span>
+        <TabsList>
+          <TabsTrigger value="profile">Company Profile</TabsTrigger>
+          <TabsTrigger value="jobs" className="gap-2">
+            My Jobs
             <TabBadge count={roleSpecificCounts.jobs || 0} />
           </TabsTrigger>
-          <TabsTrigger
-            value="crew"
-            className="flex items-center justify-center text-xs sm:text-sm"
-          >
-            <span className="hidden sm:inline">My Crew</span>
-            <span className="sm:hidden">Crew</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="messages"
-            className="flex items-center justify-center text-xs sm:text-sm"
-          >
+          <TabsTrigger value="crew">My Crew</TabsTrigger>
+          <TabsTrigger value="messages" className="gap-2">
             Messages
             <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
-          <TabsTrigger
-            value="applications"
-            className="flex items-center justify-center text-xs sm:text-sm"
-          >
-            <span className="hidden sm:inline">Applications</span>
-            <span className="sm:hidden">Apps</span>
+          <TabsTrigger value="applications" className="gap-2">
+            Applications
             <TabBadge count={roleSpecificCounts.applications || 0} />
           </TabsTrigger>
         </TabsList>
@@ -577,17 +577,14 @@ export default function SimplifiedRecruiterDashboard() {
             isSaving={isSaving}
           />
         </TabsContent>
-
         {/* My Crew Tab */}
         <TabsContent value="crew" className="space-y-6">
           <div>
             <h2 className="text-2xl font-bold">My Crew</h2>
-            <p className="text-muted-foreground">
-              Freelancers you've saved or worked with
-            </p>
+            <p className="text-muted-foreground">Freelancers you&apos;ve saved or worked with</p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <div className="flex gap-2">
               {(["all", "saved", "worked"] as const).map((tab) => (
                 <Button
@@ -601,9 +598,9 @@ export default function SimplifiedRecruiterDashboard() {
                 </Button>
               ))}
             </div>
-            <div className="flex-1 flex gap-2">
+            <div className="flex flex-1 gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, title, skills..."
                   value={crewSearch}
@@ -611,8 +608,8 @@ export default function SimplifiedRecruiterDashboard() {
                   className="pl-9"
                 />
               </div>
-              <div className="relative flex-1 max-w-[200px]">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <div className="relative max-w-[200px] flex-1">
+                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Location"
                   value={crewLocation}
@@ -630,16 +627,20 @@ export default function SimplifiedRecruiterDashboard() {
           ) : crewFreelancers.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">
-                  {crewTab === "saved" ? "No saved freelancers" : crewTab === "worked" ? "No freelancers worked with yet" : "No crew members yet"}
+                <Users className="mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 className="mb-2 text-lg font-semibold">
+                  {crewTab === "saved"
+                    ? "No saved freelancers"
+                    : crewTab === "worked"
+                      ? "No freelancers worked with yet"
+                      : "No crew members yet"}
                 </h3>
-                <p className="text-muted-foreground max-w-md">
+                <p className="max-w-md text-muted-foreground">
                   {crewTab === "saved"
                     ? "Save freelancers from the Find Crew page to build your crew list."
                     : crewTab === "worked"
-                    ? "Hire freelancers through job postings to see them here."
-                    : "Save or hire freelancers to build your crew."}
+                      ? "Hire freelancers through job postings to see them here."
+                      : "Save or hire freelancers to build your crew."}
                 </p>
                 <Button
                   variant="outline"
@@ -656,25 +657,25 @@ export default function SimplifiedRecruiterDashboard() {
               {crewFreelancers.map((freelancer: any) => (
                 <Card
                   key={freelancer.user_id}
-                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  className="cursor-pointer transition-shadow hover:shadow-md"
                   onClick={() => setLocation(`/profile/${freelancer.user_id}`)}
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
+                    <div className="mb-3 flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         {freelancer.profile_image_url ? (
                           <img
                             src={freelancer.profile_image_url}
                             alt={`${freelancer.first_name} ${freelancer.last_name}`}
-                            className="w-12 h-12 rounded-full object-cover"
+                            className="h-12 w-12 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
                             <User className="h-6 w-6 text-orange-600" />
                           </div>
                         )}
                         <div>
-                          <h3 className="font-semibold text-sm">
+                          <h3 className="text-sm font-semibold">
                             {freelancer.first_name} {freelancer.last_name}
                           </h3>
                           {freelancer.title && (
@@ -701,21 +702,23 @@ export default function SimplifiedRecruiterDashboard() {
                     </div>
 
                     {freelancer.location && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                      <div className="mb-2 flex items-center gap-1 text-xs text-muted-foreground">
                         <MapPin className="h-3 w-3" />
                         {freelancer.location}
                       </div>
                     )}
 
                     {freelancer.average_rating > 0 && (
-                      <div className="flex items-center gap-1 text-xs mb-2">
+                      <div className="mb-2 flex items-center gap-1 text-xs">
                         <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        <span className="font-medium">{Number(freelancer.average_rating).toFixed(1)}</span>
+                        <span className="font-medium">
+                          {Number(freelancer.average_rating).toFixed(1)}
+                        </span>
                       </div>
                     )}
 
                     {freelancer.skills && freelancer.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-2">
+                      <div className="mb-2 flex flex-wrap gap-1">
                         {freelancer.skills.slice(0, 4).map((skill: string, idx: number) => (
                           <Badge key={idx} variant="secondary" className="text-xs">
                             {skill}
@@ -729,12 +732,12 @@ export default function SimplifiedRecruiterDashboard() {
                       </div>
                     )}
 
-                    <div className="flex gap-1 mt-2">
+                    <div className="mt-2 flex gap-1">
                       {freelancer.isSaved && (
-                        <Badge className="bg-orange-100 text-orange-700 text-xs">Saved</Badge>
+                        <Badge className="bg-orange-100 text-xs text-orange-700">Saved</Badge>
                       )}
                       {freelancer.isWorkedWith && (
-                        <Badge className="bg-green-100 text-green-700 text-xs">Worked With</Badge>
+                        <Badge className="bg-green-100 text-xs text-green-700">Worked With</Badge>
                       )}
                     </div>
                   </CardContent>
@@ -746,22 +749,26 @@ export default function SimplifiedRecruiterDashboard() {
 
         {/* Jobs Tab */}
         <TabsContent value="jobs" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex-1">
               <h2 className="text-2xl font-bold">My Job Postings</h2>
               <p className="text-muted-foreground">
                 Manage your job listings and track applications
               </p>
             </div>
-            <Button onClick={() => setShowJobForm(!showJobForm)} data-testid="button-post-job">
-              <Plus className="w-4 h-4 mr-2" />
+            <Button
+              onClick={() => setShowJobForm(!showJobForm)}
+              data-testid="button-post-job"
+              className="shrink-0"
+            >
+              <Plus className="mr-2 h-4 w-4" />
               Post New Job
             </Button>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search by title or location..."
                 value={jobSearch}
@@ -769,7 +776,7 @@ export default function SimplifiedRecruiterDashboard() {
                 className="pl-9"
               />
             </div>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex flex-wrap gap-2">
               {(["all", "active", "private", "closed"] as const).map((s) => (
                 <Button
                   key={s}
@@ -778,7 +785,13 @@ export default function SimplifiedRecruiterDashboard() {
                   onClick={() => setJobStatusFilter(s)}
                   className={jobStatusFilter === s ? "bg-orange-500 hover:bg-orange-600" : ""}
                 >
-                  {s === "all" ? "All" : s === "active" ? "Posted" : s === "private" ? "Unposted" : "Closed"}
+                  {s === "all"
+                    ? "All"
+                    : s === "active"
+                      ? "Posted"
+                      : s === "private"
+                        ? "Unposted"
+                        : "Closed"}
                 </Button>
               ))}
             </div>
@@ -797,65 +810,72 @@ export default function SimplifiedRecruiterDashboard() {
           <div className="space-y-4">
             {jobsLoading ? (
               <div className="flex justify-center p-8">Loading jobs...</div>
-            ) : (() => {
-              const filteredJobs = myJobs.filter((job: Job) => {
-                const searchLower = jobSearch.toLowerCase().trim();
-                const matchesSearch = !searchLower || job.title.toLowerCase().includes(searchLower) || job.location.toLowerCase().includes(searchLower) || job.company.toLowerCase().includes(searchLower);
-                const matchesStatus = jobStatusFilter === "all" || job.status === jobStatusFilter;
-                return matchesSearch && matchesStatus;
-              });
-              return filteredJobs.length > 0 ? (
-                filteredJobs.map((job: Job) => (
-                  <JobCard
-                    key={job.id}
-                    job={job}
-                    hiredApplicants={getHiredApplicantsForJob(job.id)}
-                    applicantCount={getApplicantCountForJob(job.id)}
-                    invitedCount={getInvitedCountForJob(job.id)}
-                    onEdit={handleJobEdit}
-                    onDelete={handleJobDelete}
-                    onPublish={handlePublishJob}
-                    onUnpublish={handleJobUnpublish}
-                    onInvite={handleJobInvite}
-                    onClose={handleJobClose}
-                    onViewInvited={handleViewInvited}
-                    onExpandToggle={toggleJobExpansion}
-                    isExpanded={expandedJobs.has(job.id)}
-                    showHiredSection={true}
-                    currentUserId={user?.id || 0}
-                  />
-                ))
-              ) : myJobs.length > 0 ? (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No Matching Jobs</h3>
-                    <p className="text-muted-foreground">
-                      Try adjusting your search or filters.
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <Briefcase className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No Jobs Posted Yet</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Start by posting your first job to find talented crew members.
-                    </p>
-                    <Button onClick={() => setShowJobForm(true)} data-testid="button-post-first-job">
-                      Post Your First Job
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })()}
+            ) : (
+              (() => {
+                const filteredJobs = myJobs.filter((job: Job) => {
+                  const searchLower = jobSearch.toLowerCase().trim();
+                  const matchesSearch =
+                    !searchLower ||
+                    job.title.toLowerCase().includes(searchLower) ||
+                    job.location.toLowerCase().includes(searchLower) ||
+                    job.company.toLowerCase().includes(searchLower);
+                  const matchesStatus = jobStatusFilter === "all" || job.status === jobStatusFilter;
+                  return matchesSearch && matchesStatus;
+                });
+                return filteredJobs.length > 0 ? (
+                  filteredJobs.map((job: Job) => (
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      hiredApplicants={getHiredApplicantsForJob(job.id)}
+                      applicantCount={getApplicantCountForJob(job.id)}
+                      invitedCount={getInvitedCountForJob(job.id)}
+                      onEdit={handleJobEdit}
+                      onDelete={handleJobDelete}
+                      onPublish={handlePublishJob}
+                      onUnpublish={handleJobUnpublish}
+                      onInvite={handleJobInvite}
+                      onClose={handleJobClose}
+                      onViewInvited={handleViewInvited}
+                      onExpandToggle={toggleJobExpansion}
+                      isExpanded={expandedJobs.has(job.id)}
+                      showHiredSection={true}
+                      currentUserId={user?.id || 0}
+                    />
+                  ))
+                ) : myJobs.length > 0 ? (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <Search className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                      <h3 className="mb-2 text-lg font-medium">No Matching Jobs</h3>
+                      <p className="text-muted-foreground">Try adjusting your search or filters.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <Briefcase className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                      <h3 className="mb-2 text-lg font-medium">No Jobs Posted Yet</h3>
+                      <p className="mb-4 text-muted-foreground">
+                        Start by posting your first job to find talented crew members.
+                      </p>
+                      <Button
+                        onClick={() => setShowJobForm(true)}
+                        data-testid="button-post-first-job"
+                      >
+                        Post Your First Job
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })()
+            )}
           </div>
         </TabsContent>
 
         {/* Messages Tab */}
         <TabsContent value="messages" className="space-y-6">
-          <div className="flex justify-between items-center mb-6">
+          <div className="mb-6 flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold">Messages</h2>
               <p className="text-muted-foreground">Create new connections and grow your network</p>
@@ -871,9 +891,9 @@ export default function SimplifiedRecruiterDashboard() {
             <p className="text-muted-foreground">Review and manage job applications</p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search by name or job title..."
                 value={appSearch}
@@ -881,18 +901,20 @@ export default function SimplifiedRecruiterDashboard() {
                 className="pl-9"
               />
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {(["all", "applied", "invited", "hired", "rejected", "declined"] as const).map((s) => (
-                <Button
-                  key={s}
-                  variant={appStatusFilter === s ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setAppStatusFilter(s)}
-                  className={appStatusFilter === s ? "bg-orange-500 hover:bg-orange-600" : ""}
-                >
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
-                </Button>
-              ))}
+            <div className="flex flex-wrap gap-2">
+              {(["all", "applied", "invited", "hired", "rejected", "declined"] as const).map(
+                (s) => (
+                  <Button
+                    key={s}
+                    variant={appStatusFilter === s ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setAppStatusFilter(s)}
+                    className={appStatusFilter === s ? "bg-orange-500 hover:bg-orange-600" : ""}
+                  >
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </Button>
+                )
+              )}
             </div>
           </div>
 
@@ -900,47 +922,52 @@ export default function SimplifiedRecruiterDashboard() {
             <div className="flex justify-center p-8">
               <div>Loading applications...</div>
             </div>
-          ) : (() => {
-            const filteredApps = applications.filter((app: JobApplication) => {
-              const searchLower = appSearch.toLowerCase().trim();
-              const freelancerName = `${app.freelancer_profile?.first_name || ""} ${app.freelancer_profile?.last_name || ""}`.toLowerCase();
-              const matchesSearch = !searchLower || freelancerName.includes(searchLower) || (app.job_title || "").toLowerCase().includes(searchLower) || (app.job_company || "").toLowerCase().includes(searchLower);
-              const matchesStatus = appStatusFilter === "all" || app.status === appStatusFilter;
-              return matchesSearch && matchesStatus;
-            });
-            return filteredApps.length > 0 ? (
-              <div className="space-y-4">
-                {filteredApps.map((application: JobApplication) => (
-                  <ApplicationCard
-                    key={application.id}
-                    application={application}
-                    userType="recruiter"
-                    currentUserId={user.id}
-                  />
-                ))}
-              </div>
-            ) : applications.length > 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Matching Applications</h3>
-                  <p className="text-muted-foreground">
-                    Try adjusting your search or filters.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Applications Yet</h3>
-                  <p className="text-muted-foreground">
-                    Job applications will appear here when freelancers apply to your posted jobs.
-                  </p>
-                </CardContent>
-              </Card>
-            );
-          })()}
+          ) : (
+            (() => {
+              const filteredApps = applications.filter((app: JobApplication) => {
+                const searchLower = appSearch.toLowerCase().trim();
+                const freelancerName =
+                  `${app.freelancer_profile?.first_name || ""} ${app.freelancer_profile?.last_name || ""}`.toLowerCase();
+                const matchesSearch =
+                  !searchLower ||
+                  freelancerName.includes(searchLower) ||
+                  (app.job_title || "").toLowerCase().includes(searchLower) ||
+                  (app.job_company || "").toLowerCase().includes(searchLower);
+                const matchesStatus = appStatusFilter === "all" || app.status === appStatusFilter;
+                return matchesSearch && matchesStatus;
+              });
+              return filteredApps.length > 0 ? (
+                <div className="space-y-4">
+                  {filteredApps.map((application: JobApplication) => (
+                    <ApplicationCard
+                      key={application.id}
+                      application={application}
+                      userType="recruiter"
+                      currentUserId={user.id}
+                    />
+                  ))}
+                </div>
+              ) : applications.length > 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Search className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                    <h3 className="mb-2 text-lg font-medium">No Matching Applications</h3>
+                    <p className="text-muted-foreground">Try adjusting your search or filters.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                    <h3 className="mb-2 text-lg font-medium">No Applications Yet</h3>
+                    <p className="text-muted-foreground">
+                      Job applications will appear here when freelancers apply to your posted jobs.
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            })()
+          )}
         </TabsContent>
       </Tabs>
 
@@ -959,7 +986,10 @@ export default function SimplifiedRecruiterDashboard() {
             .map((app: JobApplication) => app.freelancer_id)}
           existingApplications={applications
             .filter((app: JobApplication) => app.job_id === selectedJobForInvite.id)
-            .map((app: JobApplication) => ({ freelancer_id: app.freelancer_id, status: app.status }))}
+            .map((app: JobApplication) => ({
+              freelancer_id: app.freelancer_id,
+              status: app.status,
+            }))}
         />
       )}
 
