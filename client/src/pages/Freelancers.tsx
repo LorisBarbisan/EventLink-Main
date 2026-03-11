@@ -1,5 +1,6 @@
 import { ContactModal } from "@/components/ContactModal";
 import { Layout } from "@/components/Layout";
+import { CompactReferenceBadge } from "@/components/ReferenceBadges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -325,6 +326,7 @@ export default function Freelancers() {
                           <span>{freelancer.location}</span>
                         </div>
                       </div>
+                      <CompactReferenceBadge freelancerId={parseInt(freelancer.id.replace("real-", ""), 10)} />
                     </div>
                   </div>
                 </CardHeader>

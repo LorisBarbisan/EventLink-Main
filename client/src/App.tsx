@@ -30,6 +30,7 @@ import { RatingDashboard } from "./pages/RatingDashboard";
 import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
 import ReferencePage from "./pages/ReferencePage";
+import ReferenceVerified from "./pages/ReferenceVerified";
 
 import { ScrollToTop } from "@/components/ScrollToTop";
 
@@ -62,6 +63,7 @@ function AppRouter() {
         <Route path="/faq" component={FAQ} />
         <Route path="/about" component={About} />
         <Route path="/reference/:token" component={ReferencePage} />
+        <Route path="/reference-verified" component={ReferenceVerified} />
         <Route component={NotFound} />
       </Switch>
     </>

@@ -1,20 +1,30 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import type { FreelancerFormData, JobApplication } from "@shared/types";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, BookOpen, Briefcase, CheckCircle, Clock, Star } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertCircle, BookOpen, Briefcase, Building2, CheckCircle, Clock, Mail, Send, ShieldCheck, Star, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
 import { DocumentUploader } from "./DocumentUploader";
 import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
+import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
+
+const RATING_LABELS: Record<string, { label: string; stars: number }> = {
+  excellent: { label: "Excellent", stars: 5 },
+  good: { label: "Good", stars: 4 },
+  mixed: { label: "Mixed", stars: 3 },
+};
 
 export default function SimplifiedFreelancerDashboard() {
   const { user } = useAuth();
@@ -183,6 +193,10 @@ export default function SimplifiedFreelancerDashboard() {
           <TabsTrigger value="bookings" className="gap-2">
             Pending Ratings
             <TabBadge count={roleSpecificCounts.ratings || 0} />
+          </TabsTrigger>
+          <TabsTrigger value="references" className="gap-2">
+            <ShieldCheck className="h-4 w-4" />
+            References
           </TabsTrigger>
         </TabsList>
 
@@ -409,7 +423,315 @@ export default function SimplifiedFreelancerDashboard() {
             </div>
           )}
         </TabsContent>
+
+        {/* References Tab */}
+        <TabsContent value="references" className="space-y-6">
+          <ReferenceRequestsSection userId={user.id} />
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function ReferenceRequestsSection({ userId }: { userId: number }) {
+  const { toast } = useToast();
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+
+  const { data: referenceData, isLoading } = useQuery<{
+    requests: any[];
+    summary: { total: number; completed: number; pending: number };
+  }>({
+    queryKey: ["/api/references/requests"],
+  });
+
+  const { data: tokenData } = useQuery<{ token: string; url: string }>({
+    queryKey: ["/api/references/my-token"],
+  });
+
+  const createRequestMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("/api/references/requests", {
+        method: "POST",
+        body: JSON.stringify({
+          referee_email: newEmail.trim(),
+          referee_name: newName.trim() || null,
+        }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Request sent", description: "Reference request email has been sent." });
+      setNewEmail("");
+      setNewName("");
+      qc.invalidateQueries({ queryKey: ["/api/references/requests"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Failed to send request", variant: "destructive" });
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/references/requests/${id}/cancel`, { method: "PATCH" });
+    },
+    onSuccess: () => {
+      toast({ title: "Cancelled", description: "Reference request has been cancelled." });
+      qc.invalidateQueries({ queryKey: ["/api/references/requests"] });
+    },
+  });
+
+  const reminderMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/references/requests/${id}/remind`, { method: "POST" });
+    },
+    onSuccess: () => {
+      toast({ title: "Reminder sent", description: "A polite reminder has been sent." });
+      qc.invalidateQueries({ queryKey: ["/api/references/requests"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Could not send reminder", variant: "destructive" });
+    },
+  });
+
+  const { data: receivedRefs = [] } = useQuery<any[]>({
+    queryKey: ["/api/references/freelancer", userId],
+    queryFn: async () => {
+      const res = await fetch(`/api/references/freelancer/${userId}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!userId,
+  });
+
+  const summary = referenceData?.summary || { total: 0, completed: 0, pending: 0 };
+  const requests = referenceData?.requests || [];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold">My References</h2>
+        <p className="text-muted-foreground">Request and track professional references from past employers</p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold">{summary.total}</div>
+            <div className="text-sm text-muted-foreground">Requests Sent</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">{summary.completed}</div>
+            <div className="text-sm text-muted-foreground">Completed</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-amber-600">{summary.pending}</div>
+            <div className="text-sm text-muted-foreground">Pending</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Send className="h-5 w-5" />
+            Send Reference Request
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-sm">Referee's email <span className="text-red-500">*</span></Label>
+              <Input
+                type="email"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+                placeholder="e.g. manager@company.com"
+              />
+            </div>
+            <div>
+              <Label className="text-sm">Referee's name <span className="text-gray-400 text-xs">(Optional)</span></Label>
+              <Input
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                placeholder="e.g. Sarah Johnson"
+              />
+            </div>
+            <Button
+              onClick={() => createRequestMutation.mutate()}
+              disabled={!newEmail.trim() || createRequestMutation.isPending}
+              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
+            >
+              {createRequestMutation.isPending ? "Sending..." : "Send Reference Request"}
+            </Button>
+          </div>
+
+          {tokenData?.url && (
+            <div className="mt-4 pt-4 border-t">
+              <p className="text-xs text-muted-foreground mb-2">Or share your reference link directly:</p>
+              <div className="flex gap-2">
+                <Input readOnly value={tokenData.url} className="text-xs" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(tokenData.url);
+                    toast({ title: "Copied!", description: "Reference link copied to clipboard." });
+                  }}
+                >
+                  Copy
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {isLoading ? (
+        <div className="text-center text-muted-foreground p-4">Loading requests...</div>
+      ) : requests.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <Mail className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+            <h3 className="mb-2 text-lg font-medium">No Reference Requests Yet</h3>
+            <p className="text-muted-foreground">
+              Send reference requests to previous employers to build your professional reputation.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {requests.map((req: any) => (
+            <Card key={req.id}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm">{req.referee_name || req.referee_email}</p>
+                      {req.status === "completed" && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-300">
+                          <CheckCircle className="h-3 w-3" /> Completed
+                        </span>
+                      )}
+                      {req.status === "pending" && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300">
+                          <Clock className="h-3 w-3" /> Pending
+                        </span>
+                      )}
+                      {req.status === "cancelled" && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-300">
+                          <X className="h-3 w-3" /> Cancelled
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{req.referee_email}</p>
+                    {req.reminder_sent && (
+                      <p className="text-xs text-muted-foreground mt-0.5">Reminder sent</p>
+                    )}
+                  </div>
+                  {req.status === "pending" && (
+                    <div className="flex gap-2">
+                      {!req.reminder_sent && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => reminderMutation.mutate(req.id)}
+                          disabled={reminderMutation.isPending}
+                        >
+                          Remind
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => cancelMutation.mutate(req.id)}
+                        disabled={cancelMutation.isPending}
+                        className="text-red-500 hover:text-red-600"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <div className="pt-4 border-t">
+        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-green-600" />
+          Received References
+        </h3>
+        {receivedRefs.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-muted-foreground text-sm">No references received yet. Send requests above to start building your reputation.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {receivedRefs.map((ref: any) => {
+              const badge = BADGE_CONFIG[ref.badge_result];
+              const rating = RATING_LABELS[ref.q2_rating];
+              return (
+                <Card key={ref.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {ref.referee_organisation && (
+                            <span className="font-medium text-sm flex items-center gap-1">
+                              <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                              {ref.referee_organisation}
+                            </span>
+                          )}
+                          {ref.referee_name && (
+                            <span className="text-xs text-muted-foreground">— {ref.referee_name}</span>
+                          )}
+                        </div>
+                        {ref.comment && (
+                          <p className="text-sm text-muted-foreground mt-1 italic line-clamp-2">"{ref.comment}"</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          {badge && (
+                            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${badge.colour}`}>
+                              {badge.icon} {badge.label}
+                            </span>
+                          )}
+                          <VerificationBadge reference={ref} />
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        {rating && (
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: rating.stars }).map((_, i) => (
+                              <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                            ))}
+                            {Array.from({ length: 5 - rating.stars }).map((_, i) => (
+                              <Star key={i} className="h-3.5 w-3.5 text-gray-200" />
+                            ))}
+                          </div>
+                        )}
+                        {ref.created_at && (
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            {new Date(ref.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

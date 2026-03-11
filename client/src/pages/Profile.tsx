@@ -2,6 +2,12 @@ import { DocumentUploader } from "@/components/DocumentUploader";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
 import { MessageModal } from "@/components/MessageModal";
+import {
+  BADGE_CONFIG,
+  VerificationBadge,
+  DomainTrustIndicator,
+  ReferenceBadges,
+} from "@/components/ReferenceBadges";
 import { StandaloneRatingDialog } from "@/components/StandaloneRatingDialog";
 import { RatingDisplay, StarRating } from "@/components/StarRating";
 import { Badge } from "@/components/ui/badge";
@@ -52,12 +58,14 @@ import {
   Flag,
   Globe,
   Linkedin,
+  Mail,
   MapPin,
   MessageCircle,
   Quote,
   ShieldCheck,
   Star,
   User,
+  AlertTriangle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
@@ -316,51 +324,35 @@ function ReviewsSection({ freelancerId }: { freelancerId: number }) {
   );
 }
 
-const BADGE_CONFIG: Record<string, { label: string; colour: string; icon: string }> = {
-  highly_recommended: { label: "Highly Recommended", colour: "bg-green-100 text-green-800 border-green-300", icon: "⭐" },
-  recommended: { label: "Recommended", colour: "bg-emerald-100 text-emerald-800 border-emerald-300", icon: "✅" },
-  work_history_confirmed: { label: "Work History Confirmed", colour: "bg-blue-100 text-blue-800 border-blue-300", icon: "🔵" },
-};
 
-function ReferenceBadges({ freelancerId }: { freelancerId: number }) {
-  const { data: references = [] } = useQuery<any[]>({
-    queryKey: [`/api/references/freelancer/${freelancerId}`],
-    enabled: !!freelancerId,
-  });
-
-  if (!references.length) return null;
-
-  const counts: Record<string, number> = {};
-  for (const ref of references) {
-    if (BADGE_CONFIG[ref.badge_result]) {
-      counts[ref.badge_result] = (counts[ref.badge_result] || 0) + 1;
-    }
-  }
-
-  const topBadge = ["highly_recommended", "recommended", "work_history_confirmed"].find(b => counts[b]);
-  if (!topBadge) return null;
-
-  const cfg = BADGE_CONFIG[topBadge];
-  const total = references.length;
-
-  return (
-    <div className="flex items-center gap-2 mt-1">
-      <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${cfg.colour}`}>
-        <ShieldCheck className="h-3.5 w-3.5" />
-        {cfg.icon} {cfg.label}
-      </span>
-      <span className="text-xs text-muted-foreground">{total} reference{total !== 1 ? "s" : ""}</span>
-    </div>
-  );
-}
-
-function ReferencesSection({ freelancerId }: { freelancerId: number }) {
+function ReferencesSection({ freelancerId, currentUser }: { freelancerId: number; currentUser?: any }) {
   const { data: references = [], isLoading } = useQuery<any[]>({
     queryKey: [`/api/references/freelancer/${freelancerId}`],
     enabled: !!freelancerId,
   });
+  const { toast } = useToast();
+  const [reportingRefId, setReportingRefId] = useState<number | null>(null);
+  const [reportReason, setReportReason] = useState("");
+
+  const reportMutation = useMutation({
+    mutationFn: async (refId: number) => {
+      return apiRequest(`/api/references/report/${refId}`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reportReason.trim() || null }),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Report submitted", description: "Thank you. This reference has been flagged for review." });
+      setReportingRefId(null);
+      setReportReason("");
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to submit report. Please try again.", variant: "destructive" });
+    },
+  });
 
   const withComments = references.filter((r: any) => r.comment);
+  const isEmployer = currentUser?.role === "recruiter" || currentUser?.role === "admin";
 
   if (isLoading || references.length === 0) return null;
 
@@ -394,14 +386,29 @@ function ReferencesSection({ freelancerId }: { freelancerId: number }) {
                   <Quote className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm italic text-muted-foreground">"{ref.comment}"</p>
-                    {(ref.referee_name || ref.referee_organisation) && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        — {ref.referee_name || ""}{ref.referee_organisation ? `, ${ref.referee_organisation}` : ""}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {(ref.referee_name || ref.referee_organisation) && (
+                        <p className="text-xs text-muted-foreground">
+                          — {ref.referee_name || ""}{ref.referee_role ? `, ${ref.referee_role}` : ""}{ref.referee_organisation ? ` at ${ref.referee_organisation}` : ""}
+                        </p>
+                      )}
+                      <VerificationBadge reference={ref} />
+                      <DomainTrustIndicator level={ref.domain_trust_level} />
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(ref.created_at), "MMM yyyy")}
                       </p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {format(new Date(ref.created_at), "MMM yyyy")}
-                    </p>
+                      {isEmployer && (
+                        <button
+                          onClick={() => setReportingRefId(ref.id)}
+                          className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-0.5 transition-colors"
+                          title="Report suspicious reference"
+                        >
+                          <Flag className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 {i < withComments.length - 1 && <Separator className="mt-4" />}
@@ -410,6 +417,46 @@ function ReferencesSection({ freelancerId }: { freelancerId: number }) {
           </div>
         )}
       </CardContent>
+
+      <Dialog open={reportingRefId !== null} onOpenChange={(open) => { if (!open) { setReportingRefId(null); setReportReason(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Report Suspicious Reference
+            </DialogTitle>
+            <DialogDescription>
+              Flag this reference privately for the platform moderation team to review.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-sm text-gray-600 mb-1 block">
+                Reason <span className="text-gray-400 text-xs">(Optional)</span>
+              </Label>
+              <Textarea
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                placeholder="Why do you believe this reference is suspicious?"
+                className="resize-none"
+                maxLength={500}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => { setReportingRefId(null); setReportReason(""); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => reportingRefId && reportMutation.mutate(reportingRefId)}
+              disabled={reportMutation.isPending}
+            >
+              {reportMutation.isPending ? "Submitting..." : "Submit Report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -1150,7 +1197,7 @@ export default function Profile() {
             (profile?.role === 'admin' &&
               freelancerProfile &&
               !recruiterProfile)) && (
-            <ReferencesSection freelancerId={freelancerProfile?.user_id || 0} />
+            <ReferencesSection freelancerId={freelancerProfile?.user_id || 0} currentUser={user} />
           )}
 
           {/* Links Section */}
