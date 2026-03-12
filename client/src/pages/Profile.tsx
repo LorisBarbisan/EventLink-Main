@@ -329,6 +329,8 @@ function ReferencesSection({ freelancerId, currentUser }: { freelancerId: number
   const { data: references = [], isLoading } = useQuery<any[]>({
     queryKey: [`/api/references/freelancer/${freelancerId}`],
     enabled: !!freelancerId,
+    throwOnError: false,
+    retry: 1,
   });
   const { toast } = useToast();
   const [reportingRefId, setReportingRefId] = useState<number | null>(null);
