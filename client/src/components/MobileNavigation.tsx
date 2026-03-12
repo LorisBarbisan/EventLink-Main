@@ -86,7 +86,7 @@ export const MobileNavigation = ({ onFeedbackClick, onInviteClick }: MobileNavig
             data-testid="mobile-button-invite-clients"
           >
             <Star className="h-4 w-4 flex-shrink-0 fill-white" />
-            Invite Clients to Rate You
+            Build My Reputation
           </button>
         )}
 
