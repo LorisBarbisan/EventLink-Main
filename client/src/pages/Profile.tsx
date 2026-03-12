@@ -47,6 +47,7 @@ import {
   useReportRating,
 } from "@/hooks/useRatings";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
