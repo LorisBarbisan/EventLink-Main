@@ -180,7 +180,7 @@ export default function SimplifiedFreelancerDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
             My Applications

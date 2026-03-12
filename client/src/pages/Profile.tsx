@@ -480,10 +480,11 @@ export default function Profile() {
   const isRecruiter = user?.role === "recruiter" || user?.role === "admin";
   const profileUserId = userId ? parseInt(userId, 10) : 0;
 
-  const { data: savedIds = [] } = useQuery<number[]>({
+  const { data: rawSavedIds } = useQuery<number[]>({
     queryKey: ["/api/saved-freelancers"],
     enabled: isRecruiter && !isOwnProfile,
   });
+  const savedIds = Array.isArray(rawSavedIds) ? rawSavedIds : [];
   const isSaved = savedIds.includes(profileUserId);
 
   const saveMutation = useMutation({
@@ -786,6 +787,7 @@ export default function Profile() {
       console.error("Error fetching other user profile:", error);
     } finally {
       setLoading(false);
+      setProfileDataLoaded(true);
     }
   };
 
