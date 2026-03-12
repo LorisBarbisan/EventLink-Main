@@ -6,6 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -53,6 +63,7 @@ import {
   Mail,
   MessageSquare,
   Shield,
+  Trash2,
   TrendingUp,
   UserCheck,
   Users,
@@ -182,6 +193,8 @@ function AdminDashboardContent() {
   const [jobCurrentPage, setJobCurrentPage] = useState(1);
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
 
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ userId, status }: { userId: number; status: string }) => {
       await apiRequest(`/api/admin/users/${userId}/status`, {
@@ -202,6 +215,20 @@ function AdminDashboardContent() {
         description: "Failed to update user status.",
         variant: "destructive",
       });
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      await apiRequest(`/api/admin/users/${userId}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setUserToDelete(null);
+      toast({ title: "Account removed", description: "The account has been permanently deleted." });
+    },
+    onError: () => {
+      toast({ title: "Deletion failed", description: "Failed to remove the account.", variant: "destructive" });
     },
   });
 
@@ -1612,44 +1639,57 @@ function AdminDashboardContent() {
                                   : "Never"}
                               </TableCell>
                               <TableCell className="text-right py-2">
-                                {rowUser.status === "active" ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 px-2 bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-auto"
-                                    onClick={() =>
-                                      updateStatusMutation.mutate({
-                                        userId: rowUser.id,
-                                        status: "deactivated",
-                                      })
-                                    }
-                                    disabled={
-                                      updateStatusMutation.isPending || rowUser.id === user?.id
-                                    }
-                                    title={
-                                      rowUser.id === user?.id
-                                        ? "You cannot deactivate your own account"
-                                        : "Deactivate user"
-                                    }
-                                  >
-                                    Deactivate
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 px-2 bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-800"
-                                    onClick={() =>
-                                      updateStatusMutation.mutate({
-                                        userId: rowUser.id,
-                                        status: "active",
-                                      })
-                                    }
-                                    disabled={updateStatusMutation.isPending}
-                                  >
-                                    Activate
-                                  </Button>
-                                )}
+                                <div className="flex items-center justify-end gap-1">
+                                  {rowUser.status === "active" ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 px-2 bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-auto"
+                                      onClick={() =>
+                                        updateStatusMutation.mutate({
+                                          userId: rowUser.id,
+                                          status: "deactivated",
+                                        })
+                                      }
+                                      disabled={
+                                        updateStatusMutation.isPending || rowUser.id === user?.id
+                                      }
+                                      title={
+                                        rowUser.id === user?.id
+                                          ? "You cannot deactivate your own account"
+                                          : "Deactivate user"
+                                      }
+                                    >
+                                      Deactivate
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 px-2 bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-800"
+                                      onClick={() =>
+                                        updateStatusMutation.mutate({
+                                          userId: rowUser.id,
+                                          status: "active",
+                                        })
+                                      }
+                                      disabled={updateStatusMutation.isPending}
+                                    >
+                                      Activate
+                                    </Button>
+                                  )}
+                                  {rowUser.status !== "active" && rowUser.id !== user?.id && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-red-500 hover:bg-red-50 hover:text-red-700"
+                                      onClick={() => setUserToDelete(rowUser)}
+                                      title="Permanently remove account"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))
@@ -1821,6 +1861,30 @@ function AdminDashboardContent() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Confirm permanent account deletion */}
+      <AlertDialog open={!!userToDelete} onOpenChange={(open) => { if (!open) setUserToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently remove account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will completely delete the account for{" "}
+              <strong>{userToDelete?.first_name} {userToDelete?.last_name || userToDelete?.email}</strong>.
+              All their data will be removed and cannot be recovered.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => userToDelete && deleteUserMutation.mutate(userToDelete.id)}
+              disabled={deleteUserMutation.isPending}
+            >
+              {deleteUserMutation.isPending ? "Removing…" : "Remove permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

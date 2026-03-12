@@ -100,6 +100,7 @@ export interface IStorage {
     accountData: { first_name?: string; last_name?: string }
   ): Promise<void>;
   deleteUserAccount(userId: number): Promise<void>;
+  adminHardDeleteUser(userId: number): Promise<void>;
   isUserDeleted(userId: number): Promise<boolean>;
   canSendMessageToUser(
     senderId: number,
@@ -2852,6 +2853,19 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error during account deletion:", error);
       throw new Error("Failed to delete user account. Please try again.");
+    }
+  }
+
+  async adminHardDeleteUser(userId: number): Promise<void> {
+    try {
+      const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!userRows.length) throw new Error("User not found");
+      // Hard delete — all related rows cascade via FK constraints
+      await db.delete(users).where(eq(users.id, userId));
+      console.log(`Admin hard-deleted user ID: ${userId}`);
+    } catch (error) {
+      console.error("Admin hard delete error:", error);
+      throw new Error("Failed to permanently delete account.");
     }
   }
 

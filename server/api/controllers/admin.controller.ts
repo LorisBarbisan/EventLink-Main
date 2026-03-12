@@ -281,6 +281,25 @@ export async function getAdminUsers(req: Request, res: Response) {
   }
 }
 
+// Hard delete a user account (admin only — for inactive/pending/no-profile accounts)
+export async function adminDeleteUser(req: Request, res: Response) {
+  try {
+    const userId = parseInt(req.params.id);
+    if (isNaN(userId)) return res.status(400).json({ error: "Invalid user ID" });
+
+    const requestingAdmin = (req as any).user;
+    if (requestingAdmin?.id === userId) {
+      return res.status(400).json({ error: "You cannot delete your own account" });
+    }
+
+    await storage.adminHardDeleteUser(userId);
+    res.json({ message: "Account permanently removed." });
+  } catch (error) {
+    console.error("Admin delete user error:", error);
+    res.status(500).json({ error: "Failed to delete account" });
+  }
+}
+
 // Update user status (admin only)
 export async function updateUserStatus(req: Request, res: Response) {
   try {

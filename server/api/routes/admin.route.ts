@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import {
   addFeedbackResponse,
+  adminDeleteUser,
   bootstrapCreateFirstAdmin,
   bootstrapGrantAdminAccess,
   getAdminJobDetail,
@@ -62,6 +63,9 @@ export function registerAdminRoutes(app: Express) {
 
   // Update user status (admin only)
   app.patch("/api/admin/users/:id/status", requireAdminAuth, updateUserStatus);
+
+  // Hard delete a user account (admin only)
+  app.delete("/api/admin/users/:id", requireAdminAuth, adminDeleteUser);
 
   // Revoke admin access from user (admin only)
   app.post("/api/admin/users/revoke-admin", requireAdminAuth, revokeAdminAccess);
