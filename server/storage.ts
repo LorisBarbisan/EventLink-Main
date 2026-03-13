@@ -1168,7 +1168,19 @@ export class DatabaseStorage implements IStorage {
 
       const totalPages = Math.ceil(total / limit);
 
+      // Subquery: count non-flagged references per freelancer
+      const refCountsSq = db
+        .select({
+          freelancer_id: freelancer_references.freelancer_id,
+          ref_count: sql<number>`COUNT(*)::int`.as("ref_count"),
+        })
+        .from(freelancer_references)
+        .where(eq(freelancer_references.is_flagged, false))
+        .groupBy(freelancer_references.freelancer_id)
+        .as("ref_counts");
+
       // Fetch other results (excluding EventLink)
+      // Order: profiles with references first (most → fewest), then by join date (newest first)
       const otherResults = await db
         .select({
           id: freelancer_profiles.id,
@@ -1196,8 +1208,12 @@ export class DatabaseStorage implements IStorage {
         })
         .from(freelancer_profiles)
         .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
+        .leftJoin(refCountsSq, eq(freelancer_profiles.user_id, refCountsSq.freelancer_id))
         .where(and(...excludeEventlinkConditions))
-        .orderBy(desc(freelancer_profiles.created_at))
+        .orderBy(
+          sql`COALESCE(${refCountsSq.ref_count}, 0) DESC`,
+          desc(freelancer_profiles.created_at)
+        )
         .limit(effectiveLimit)
         .offset(effectiveOffset);
 
