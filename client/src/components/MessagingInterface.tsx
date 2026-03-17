@@ -17,7 +17,7 @@ import {
   Message,
 } from "@/lib/utils/user";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, MessageCircle, Send, User as UserIcon } from "lucide-react";
+import { ArrowLeft, Clock, MessageCircle, Send, User as UserIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface Props {
@@ -165,13 +165,14 @@ export function MessagingInterface({ initialConversationId }: Props) {
   // --- JSX RENDERING ---
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-2 ${selectedConversation ? "hidden lg:flex" : "flex"}`}>
         <MessageCircle className="h-5 w-5" />
         <h1 className="text-2xl font-bold">Messages</h1>
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* --- Conversations List --- */}
-        <Card>
+        <Card className={`${selectedConversation ? "hidden lg:block" : "block"}`}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserIcon className="h-5 w-5" />
@@ -222,21 +223,29 @@ export function MessagingInterface({ initialConversationId }: Props) {
         </Card>
 
         {/* --- Chat Area --- */}
-        <Card className="lg:col-span-2">
+        <Card className={`lg:col-span-2 ${!selectedConversation ? "hidden lg:block" : "block"}`}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {selectedConversation ? (
-                <>
+                <div className="flex items-center gap-2 w-full">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="lg:hidden"
+                    onClick={() => setSelectedConversation(null)}
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
                   <UserIcon className="h-5 w-5" />
-                  <span>
+                  <span className="truncate">
                     {conversations.find(c => c.id === selectedConversation)?.otherUser.email ||
                       "Chat"}
                   </span>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="flex items-center gap-2">
                   <MessageCircle className="h-5 w-5" /> Select a conversation
-                </>
+                </div>
               )}
             </CardTitle>
           </CardHeader>
@@ -289,8 +298,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
                     onKeyPress={handleKeyPress}
                   />
                   <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
-                    {" "}
-                    <Send className="h-4 w-4 mr-2" /> Send{" "}
+                    <Send className="h-4 w-4 mr-2" /> Send
                   </Button>
                 </div>
               </>
