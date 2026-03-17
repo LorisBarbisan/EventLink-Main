@@ -4,6 +4,7 @@ import {
   adminDeleteUser,
   bootstrapCreateFirstAdmin,
   bootstrapGrantAdminAccess,
+  exportAdminCSV,
   getAdminJobDetail,
   getAdminJobs,
   getAdminUsers,
@@ -69,6 +70,9 @@ export function registerAdminRoutes(app: Express) {
 
   // Revoke admin access from user (admin only)
   app.post("/api/admin/users/revoke-admin", requireAdminAuth, revokeAdminAccess);
+
+  // Export all dashboard data as CSV (admin only)
+  app.get("/api/admin/export/csv", requireAdminAuth, exportAdminCSV);
 
   // Bootstrap endpoint for initial admin setup (no auth required)
   // Special override endpoint for admin@eventlink.one production access

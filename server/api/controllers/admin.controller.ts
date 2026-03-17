@@ -564,3 +564,218 @@ export async function retriggerJobAlerts(req: Request, res: Response) {
     res.status(500).json({ error: "Internal server error" });
   }
 }
+
+// CSV helpers
+function csvEscape(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const str = String(value).replace(/\r?\n/g, " ");
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function csvRow(values: unknown[]): string {
+  return values.map(csvEscape).join(",");
+}
+
+function csvSection(title: string, headers: string[], rows: unknown[][]): string {
+  const lines: string[] = [];
+  lines.push(`"=== ${title} ==="`);
+  lines.push(csvRow(headers));
+  for (const row of rows) {
+    lines.push(csvRow(row));
+  }
+  lines.push(""); // blank line separator
+  return lines.join("\n");
+}
+
+function fmtDate(d: unknown): string {
+  if (!d) return "";
+  try {
+    return new Date(d as string).toISOString().slice(0, 10);
+  } catch {
+    return String(d);
+  }
+}
+
+// Export all admin dashboard data as a single multi-section CSV
+export async function exportAdminCSV(req: Request, res: Response) {
+  try {
+    // Fetch all data concurrently
+    const [analytics, usersResult, jobsResult, feedbackList, contactList, adminUsers, ratingsAll] =
+      await Promise.all([
+        storage.getAdminAnalytics(),
+        storage.getAllUsers(1, 100000),
+        storage.getAdminJobs(1, 100000),
+        storage.getAllFeedback(),
+        storage.getAllContactMessages(),
+        storage.getAdminUsers(),
+        storage.getAllRatings(),
+      ]);
+
+    const sections: string[] = [];
+
+    // 1. Overview
+    const overviewRows: unknown[][] = [
+      ["Total Users", analytics.users.total],
+      ["Active Users", analytics.users.active],
+      ["New Users This Month", analytics.users.thisMonth],
+      ["Total Jobs", analytics.jobs.total],
+      ["Active Jobs", analytics.jobs.active],
+      ["New Jobs This Month", analytics.jobs.thisMonth],
+      ["Pending Feedback", analytics.feedback.pending],
+      ["Total Applications", analytics.applications.total],
+      ["Hired Applications", analytics.applications.hired],
+      ["Applications This Month", analytics.applications.thisMonth],
+    ];
+    sections.push(csvSection("OVERVIEW", ["Metric", "Value"], overviewRows));
+
+    // 2. Users
+    const userRows = (usersResult.users || []).map((u: any) => [
+      u.id,
+      `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim(),
+      u.email,
+      u.role ?? "",
+      u.status ?? "",
+      u.email_verified ? "Yes" : "No",
+      fmtDate(u.created_at),
+      u.profile_status ?? "",
+    ]);
+    sections.push(
+      csvSection(
+        "USERS",
+        ["ID", "Full Name", "Email", "Role", "Status", "Email Verified", "Join Date", "Profile Status"],
+        userRows
+      )
+    );
+
+    // 3. Jobs
+    const jobRows = (jobsResult.jobs || []).map((j: any) => [
+      j.id,
+      j.title ?? "",
+      j.company_name ?? "",
+      j.location ?? "",
+      j.status ?? "",
+      j.is_published ? "Published" : "Private",
+      j.application_count ?? 0,
+      j.hired_count ?? 0,
+      j.recruiter_name ?? "",
+      j.recruiter_email ?? "",
+      fmtDate(j.created_at),
+    ]);
+    sections.push(
+      csvSection(
+        "JOBS",
+        [
+          "ID",
+          "Title",
+          "Company",
+          "Location",
+          "Status",
+          "Type",
+          "Applications",
+          "Hired",
+          "Posted By",
+          "Poster Email",
+          "Created Date",
+        ],
+        jobRows
+      )
+    );
+
+    // 4. Feedback
+    const feedbackRows = (feedbackList || []).map((f: any) => [
+      f.id,
+      f.type ?? "",
+      f.status ?? "",
+      f.user?.email ?? "",
+      f.description ?? "",
+      f.admin_response ?? "",
+      fmtDate(f.created_at),
+    ]);
+    sections.push(
+      csvSection(
+        "FEEDBACK",
+        ["ID", "Type", "Status", "User Email", "Description", "Admin Response", "Created Date"],
+        feedbackRows
+      )
+    );
+
+    // 5. Contact Messages
+    const contactRows = (contactList || []).map((m: any) => [
+      m.id,
+      m.name ?? "",
+      m.email ?? "",
+      m.subject ?? "",
+      m.message ?? "",
+      m.status ?? "",
+      m.replied_at ? "Yes" : "No",
+      fmtDate(m.created_at),
+    ]);
+    sections.push(
+      csvSection(
+        "CONTACT MESSAGES",
+        ["ID", "Name", "Email", "Subject", "Message", "Status", "Replied", "Created Date"],
+        contactRows
+      )
+    );
+
+    // 6. Moderation (Ratings)
+    const moderationRows = (ratingsAll || []).map((r: any) => [
+      r.id,
+      r.overall_rating ?? "",
+      r.comment ?? "",
+      r.status ?? "",
+      r.is_flagged ? "Yes" : "No",
+      r.recruiter?.email ?? "",
+      r.job_title ?? "",
+      r.admin_notes ?? "",
+      fmtDate(r.created_at),
+    ]);
+    sections.push(
+      csvSection(
+        "MODERATION — RATINGS",
+        [
+          "ID",
+          "Rating",
+          "Comment",
+          "Status",
+          "Flagged",
+          "Recruiter Email",
+          "Job Title",
+          "Admin Notes",
+          "Created Date",
+        ],
+        moderationRows
+      )
+    );
+
+    // 7. Admin Management
+    const adminRows = (adminUsers || []).map((a: any) => [
+      a.id,
+      `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim(),
+      a.email,
+      a.role ?? "",
+      a.status ?? "",
+      fmtDate(a.created_at),
+    ]);
+    sections.push(
+      csvSection(
+        "ADMIN MANAGEMENT",
+        ["ID", "Full Name", "Email", "Role", "Status", "Join Date"],
+        adminRows
+      )
+    );
+
+    const csv = sections.join("\n");
+    const filename = `eventlink_admin_export_${new Date().toISOString().slice(0, 10)}.csv`;
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send("\uFEFF" + csv); // UTF-8 BOM for Excel compatibility
+  } catch (error) {
+    console.error("Admin CSV export error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}

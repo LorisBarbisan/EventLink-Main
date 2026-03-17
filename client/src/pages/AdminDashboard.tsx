@@ -59,6 +59,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
   Briefcase,
+  Download,
   FileText,
   Mail,
   MessageSquare,
@@ -157,6 +158,32 @@ function AdminDashboardContent() {
   // const { subscribe } = useWebSocket();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
+  const [csvDownloading, setCsvDownloading] = useState(false);
+
+  const handleDownloadCSV = async () => {
+    setCsvDownloading(true);
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch("/api/admin/export/csv", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Export failed");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const today = new Date().toISOString().slice(0, 10);
+      a.download = `eventlink_admin_export_${today}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Export failed", description: "Could not download CSV. Please try again.", variant: "destructive" });
+    } finally {
+      setCsvDownloading(false);
+    }
+  };
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
   const [adminResponse, setAdminResponse] = useState("");
   const [feedbackFilters, setFeedbackFilters] = useState({
@@ -628,11 +655,23 @@ function AdminDashboardContent() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-        <p className="text-muted-foreground">
-          Manage feedback, users, and monitor platform analytics
-        </p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
+          <p className="text-muted-foreground">
+            Manage feedback, users, and monitor platform analytics
+          </p>
+        </div>
+        <Button
+          onClick={handleDownloadCSV}
+          disabled={csvDownloading}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2 shrink-0 mt-1"
+        >
+          <Download className="w-4 h-4" />
+          {csvDownloading ? "Exporting…" : "Download CSV"}
+        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
