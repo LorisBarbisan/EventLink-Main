@@ -293,16 +293,16 @@ export default function Freelancers() {
                       <CardTitle className="text-xl">{freelancer.name}</CardTitle>
                       <p className="text-muted-foreground font-medium">{freelancer.title}</p>
                       {freelancer.superpower && (
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex flex-col items-start sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
                           <span className="text-sm font-medium text-muted-foreground">
                             Superpower:
                           </span>
-                          <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 border-0">
+                          <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 border-0 max-w-full truncate whitespace-normal h-auto py-1 px-3">
                             ⚡ {freelancer.superpower}
                           </Badge>
                         </div>
                       )}
-                      <div className="flex items-center gap-4 mt-2 text-sm">
+                      <div className="flex flex-wrap items-center gap-2 mt-2 text-sm">
                         {freelancer.rating > 0 && (
                           <div className="flex items-center gap-1">
                             <Star className="h-4 w-4 text-yellow-500 fill-current" />
@@ -394,21 +394,32 @@ export default function Freelancers() {
           {!isLoading && !error && totalPages > 1 && (
             <Card className="mt-8">
               <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-sm text-muted-foreground text-center sm:text-left">
                     Showing {(currentPage - 1) * 20 + 1} -{" "}
                     {Math.min(currentPage * 20, totalResults)} of {totalResults} results
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center justify-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setCurrentPage(p => p - 1)}
                       disabled={!hasPrevPage}
                       data-testid="button-prev-page"
+                      className="hidden sm:flex"
                     >
                       <ChevronLeft className="h-4 w-4 mr-1" />
                       Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p - 1)}
+                      disabled={!hasPrevPage}
+                      data-testid="button-prev-page-mobile"
+                      className="sm:hidden w-10 px-0"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <div className="flex items-center gap-1">
                       {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -429,7 +440,7 @@ export default function Freelancers() {
                             variant={currentPage === pageNum ? "default" : "outline"}
                             size="sm"
                             onClick={() => setCurrentPage(pageNum)}
-                            className="w-10"
+                            className="w-10 px-0 sm:w-10"
                             data-testid={`button-page-${pageNum}`}
                           >
                             {pageNum}
@@ -443,9 +454,20 @@ export default function Freelancers() {
                       onClick={() => setCurrentPage(p => p + 1)}
                       disabled={!hasNextPage}
                       data-testid="button-next-page"
+                      className="hidden sm:flex"
                     >
                       Next
                       <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p + 1)}
+                      disabled={!hasNextPage}
+                      data-testid="button-next-page-mobile"
+                      className="sm:hidden w-10 px-0"
+                    >
+                      <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
