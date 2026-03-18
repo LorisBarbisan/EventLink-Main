@@ -56,6 +56,7 @@ import { trackAdminAnalytics } from "@/lib/analytics";
 import { apiRequest } from "@/lib/queryClient";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
+import { cn } from "@/lib/utils";
 import {
   AlertCircle,
   Briefcase,
@@ -675,34 +676,34 @@ function AdminDashboardContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
+        <TabsList className="flex items-center justify-start overflow-x-auto whitespace-nowrap p-1 scrollbar-hide">
+          <TabsTrigger value="overview" className="flex items-center gap-2 px-4">
             <TrendingUp className="w-4 h-4" />
             Overview
           </TabsTrigger>
-          <TabsTrigger value="feedback" className="flex items-center gap-2">
+          <TabsTrigger value="feedback" className="flex items-center gap-2 px-4">
             <MessageSquare className="w-4 h-4" />
             Feedback
             <TabBadge count={counts.feedback} />
           </TabsTrigger>
-          <TabsTrigger value="moderation" className="flex items-center gap-2">
+          <TabsTrigger value="moderation" className="flex items-center gap-2 px-4">
             <Shield className="w-4 h-4" />
             Moderation
           </TabsTrigger>
-          <TabsTrigger value="contact" className="flex items-center gap-2">
+          <TabsTrigger value="contact" className="flex items-center gap-2 px-4">
             <Mail className="w-4 h-4" />
             Contact
             <TabBadge count={counts.contact_messages} />
           </TabsTrigger>
-          <TabsTrigger value="jobs" className="flex items-center gap-2">
+          <TabsTrigger value="jobs" className="flex items-center gap-2 px-4">
             <Briefcase className="w-4 h-4" />
             Jobs
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-2">
+          <TabsTrigger value="users" className="flex items-center gap-2 px-4">
             <Users className="w-4 h-4" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="admin-management" className="flex items-center gap-2">
+          <TabsTrigger value="admin-management" className="flex items-center gap-2 px-4">
             <UserCheck className="w-4 h-4" />
             Admin Management
           </TabsTrigger>
@@ -710,54 +711,54 @@ function AdminDashboardContent() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 min-[600px]:grid-cols-4 gap-3 sm:gap-6">
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-3 sm:p-6 pb-0 sm:pb-2">
+                <Users className="h-4 w-4 text-muted-foreground block" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Total Users</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{analytics?.users?.total || 0}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 sm:p-6 pt-1 sm:pt-0">
+                <div className="text-xl sm:text-2xl font-bold">{analytics?.users?.total || 0}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
                   +{analytics?.users?.thisMonth || 0} this month
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Jobs</CardTitle>
-                <Briefcase className="h-4 w-4 text-muted-foreground" />
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-3 sm:p-6 pb-0 sm:pb-2">
+                <Briefcase className="h-4 w-4 text-muted-foreground block" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Active Jobs</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{analytics?.jobs?.active || 0}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 sm:p-6 pt-1 sm:pt-0">
+                <div className="text-xl sm:text-2xl font-bold">{analytics?.jobs?.active || 0}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
                   of {analytics?.jobs?.total || 0} total
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Feedback</CardTitle>
-                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-3 sm:p-6 pb-0 sm:pb-2">
+                <AlertCircle className="h-4 w-4 text-muted-foreground block" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Feedback</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{feedbackStats?.pending || 0}</div>
-                <p className="text-xs text-muted-foreground">
-                  of {feedbackStats?.total || 0} total
+              <CardContent className="p-3 sm:p-6 pt-1 sm:pt-0">
+                <div className="text-xl sm:text-2xl font-bold">{feedbackStats?.pending || 0}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
+                  {feedbackStats?.total || 0} total
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Applications</CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
+            <Card className="overflow-hidden">
+              <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-3 sm:p-6 pb-0 sm:pb-2">
+                <FileText className="h-4 w-4 text-muted-foreground block" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Applications</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{analytics?.applications?.total || 0}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 sm:p-6 pt-1 sm:pt-0">
+                <div className="text-xl sm:text-2xl font-bold">{analytics?.applications?.total || 0}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
                   {analytics?.applications?.hired || 0} hired
                 </p>
               </CardContent>
@@ -856,16 +857,18 @@ function AdminDashboardContent() {
                     </div>
                   ) : (
                     feedbackData?.feedback?.map((item: FeedbackItem) => (
-                      <div key={item.id} className="border border-border rounded-lg p-4 space-y-3">
-                        <div className="flex items-start justify-between">
+                      <div key={item.id} className="border border-border rounded-lg p-3 sm:p-4 space-y-3 sm:space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                           <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline">
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                              <Badge variant="outline" className="text-[10px] sm:text-xs">
                                 {getFeedbackTypeLabel(item.feedback_type)}
                               </Badge>
-                              <Badge className={getStatusColor(item.status)}>{item.status}</Badge>
+                              <Badge className={cn("text-[10px] sm:text-xs", getStatusColor(item.status))}>
+                                {item.status}
+                              </Badge>
                               {item.priority === "high" && (
-                                <Badge variant="destructive">High Priority</Badge>
+                                <Badge variant="destructive" className="text-[10px] sm:text-xs">High Priority</Badge>
                               )}
                             </div>
                             <p className="text-sm text-muted-foreground">
@@ -877,10 +880,10 @@ function AdminDashboardContent() {
                               •{new Date(item.created_at).toLocaleDateString()}
                             </p>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex flex-row sm:flex-row gap-2 w-full sm:w-auto">
                             <Select onValueChange={value => updateFeedbackStatus(item.id, value)}>
-                              <SelectTrigger className="w-32">
-                                <SelectValue placeholder="Update Status" />
+                              <SelectTrigger className="flex-1 sm:w-32 h-8 sm:h-9 text-xs sm:text-sm">
+                                <SelectValue placeholder="Status" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="pending">Pending</SelectItem>
@@ -895,6 +898,7 @@ function AdminDashboardContent() {
                                 <Button
                                   variant="outline"
                                   size="sm"
+                                  className="flex-1 sm:w-auto h-8 sm:h-9 text-xs sm:text-sm"
                                   onClick={() => setSelectedFeedback(item)}
                                 >
                                   Respond
@@ -1515,74 +1519,77 @@ function AdminDashboardContent() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex gap-4">
-                    <div className="flex-1">
+                  <div className="flex flex-col gap-4">
+                    <div className="w-full md:max-w-sm">
                       <Input
                         placeholder="Search by name or email..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="max-w-sm"
+                        className="w-full"
                       />
                     </div>
-                    <Select value={roleFilter} onValueChange={setRoleFilter}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Filter by role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Roles</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="freelancer">Freelancer</SelectItem>
-                        <SelectItem value="recruiter">Employer</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    
+                    <div className="grid grid-cols-1 min-[450px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
+                      <Select value={roleFilter} onValueChange={setRoleFilter}>
+                        <SelectTrigger className="w-full h-9 text-xs sm:text-sm">
+                          <SelectValue placeholder="Filter by role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Roles</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="freelancer">Freelancer</SelectItem>
+                          <SelectItem value="recruiter">Employer</SelectItem>
+                        </SelectContent>
+                      </Select>
 
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Filter by status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="deactivated">Deactivated</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-full h-9 text-xs sm:text-sm">
+                          <SelectValue placeholder="Filter by status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Statuses</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="deactivated">Deactivated</SelectItem>
+                        </SelectContent>
+                      </Select>
 
-                    <Select value={profileStatusFilter} onValueChange={setProfileStatusFilter}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Profile status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Profiles</SelectItem>
-                        <SelectItem value="no_profile">No Profile</SelectItem>
-                        <SelectItem value="incomplete">Incomplete</SelectItem>
-                        <SelectItem value="complete">Complete</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <Select value={profileStatusFilter} onValueChange={setProfileStatusFilter}>
+                        <SelectTrigger className="w-full h-9 text-xs sm:text-sm">
+                          <SelectValue placeholder="Profile status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Profiles</SelectItem>
+                          <SelectItem value="no_profile">No Profile</SelectItem>
+                          <SelectItem value="incomplete">Incomplete</SelectItem>
+                          <SelectItem value="complete">Complete</SelectItem>
+                        </SelectContent>
+                      </Select>
 
-                    <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Sort by" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="created_at">Joined Date</SelectItem>
-                        <SelectItem value="email">Email</SelectItem>
-                        <SelectItem value="first_name">First Name</SelectItem>
-                        <SelectItem value="last_name">Last Name</SelectItem>
-                        <SelectItem value="role">Role</SelectItem>
-                        <SelectItem value="status">Status</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <Select value={sortBy} onValueChange={setSortBy}>
+                        <SelectTrigger className="w-full h-9 text-xs sm:text-sm">
+                          <SelectValue placeholder="Sort by" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="created_at">Joined Date</SelectItem>
+                          <SelectItem value="email">Email</SelectItem>
+                          <SelectItem value="first_name">First Name</SelectItem>
+                          <SelectItem value="last_name">Last Name</SelectItem>
+                          <SelectItem value="role">Role</SelectItem>
+                          <SelectItem value="status">Status</SelectItem>
+                        </SelectContent>
+                      </Select>
 
-                    <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as "asc" | "desc")}>
-                      <SelectTrigger className="w-[120px]">
-                        <SelectValue placeholder="Order" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="desc">Newest</SelectItem>
-                        <SelectItem value="asc">Oldest</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <Select value={sortOrder} onValueChange={v => setSortOrder(v as "asc" | "desc")}>
+                        <SelectTrigger className="w-full h-9 text-xs sm:text-sm">
+                          <SelectValue placeholder="Order" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="desc">Newest</SelectItem>
+                          <SelectItem value="asc">Oldest</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   <div className="rounded-md border">
@@ -1792,8 +1799,8 @@ function AdminDashboardContent() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                First Admin Setup
+                <Shield className="w-5 h-5 shrink-0" />
+                <span>First Admin Setup</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1848,7 +1855,7 @@ function AdminDashboardContent() {
                   Current Admin Users
                 </span>
                 {adminUsers && (
-                  <Badge variant="secondary" data-testid="text-admin-count">
+                  <Badge variant="secondary" data-testid="text-admin-count" className="whitespace-nowrap shrink-0">
                     {adminUsers.length} {adminUsers.length === 1 ? "Admin" : "Admins"}
                   </Badge>
                 )}
@@ -1866,26 +1873,26 @@ function AdminDashboardContent() {
                     <div
                       key={admin.id}
                       data-testid={`card-admin-${admin.id}`}
-                      className="flex items-center justify-between p-3 border rounded-lg"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-lg gap-3"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 bg-primary/10 rounded-full flex-shrink-0 flex items-center justify-center">
                           <UserCheck className="w-4 h-4 text-primary" />
                         </div>
-                        <div>
-                          <p className="font-medium" data-testid={`text-admin-email-${admin.id}`}>
+                        <div className="min-w-0">
+                          <p className="font-medium truncate" data-testid={`text-admin-email-${admin.id}`} title={admin.email}>
                             {admin.email}
                           </p>
                           {(admin.first_name || admin.last_name) && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground truncate">
                               {admin.first_name} {admin.last_name}
                             </p>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="default">Admin</Badge>
-                        <Badge variant="outline">{admin.auth_provider || "Email"}</Badge>
+                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        <Badge variant="default" className="text-[10px] sm:text-xs">Admin</Badge>
+                        <Badge variant="outline" className="text-[10px] sm:text-xs">{admin.auth_provider || "Email"}</Badge>
                       </div>
                     </div>
                   ))}
