@@ -6,8 +6,8 @@ import { Link } from "wouter";
 export const HeroSection = () => {
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-background via-secondary/20 to-background">
-      <div className="container mx-auto px-4 py-20 lg:py-32">
-        <div className="mx-auto max-w-3xl space-y-8 text-center">
+      <div className="container mx-auto px-4 py-10 lg:py-14">
+        <div className="mx-auto max-w-3xl space-y-6 text-center">
           {/* Logo + wordmark */}
           <div className="flex items-center justify-center gap-3">
             <img
