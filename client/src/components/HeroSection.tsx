@@ -3,30 +3,38 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import eventlinkLogo from "@assets/E8-Logo-Orange-New.png";
-import heroImg1 from "@assets/Landing_Page_optimized.jpg";
-import heroImg2 from "@assets/2s_1773236252421.jpg";
-import heroImg3 from "@assets/3s_1773236252421.jpg";
-import heroImg4 from "@assets/4s_1773236252422.jpg";
-import heroImg5 from "@assets/5s_1773236252422.jpg";
-import heroImg6 from "@assets/6s_1773236252422.jpg";
 import { ArrowRight, Briefcase, MapPin, Star } from "lucide-react";
 import { Link } from "wouter";
 
+// Images live in /public/images/ with stable URLs so the <link rel="preload"> in
+// index.html can reference the exact same path the browser will request.
 const heroImages = [
-  { src: heroImg1, alt: "Professional event production setup with video monitors, cameras, mixing console and stage lighting" },
-  { src: heroImg2, alt: "Audio technicians patching cables into rack equipment at an outdoor festival stage" },
-  { src: heroImg3, alt: "Event crew setting up staging, lighting rigs and AV equipment in a conference venue" },
-  { src: heroImg4, alt: "Stage lighting rig with LED wash fixtures and spotlights on truss structure" },
-  { src: heroImg5, alt: "Camera operator filming a live broadcast production with stage lighting" },
-  { src: heroImg6, alt: "Aerial view of an outdoor festival stage and site infrastructure" },
+  { src: "/images/hero-main.webp", alt: "Professional event production setup with video monitors, cameras, mixing console and stage lighting", width: 1200, height: 800 },
+  { src: "/images/hero-2.webp", alt: "Audio technicians patching cables into rack equipment at an outdoor festival stage", width: 1200, height: 800 },
+  { src: "/images/hero-3.webp", alt: "Event crew setting up staging, lighting rigs and AV equipment in a conference venue", width: 1200, height: 800 },
+  { src: "/images/hero-4.webp", alt: "Stage lighting rig with LED wash fixtures and spotlights on truss structure", width: 1200, height: 800 },
+  { src: "/images/hero-5.webp", alt: "Camera operator filming a live broadcast production with stage lighting", width: 1200, height: 800 },
+  { src: "/images/hero-6.webp", alt: "Aerial view of an outdoor festival stage and site infrastructure", width: 1200, height: 800 },
 ];
 
 export const HeroSection = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  // Progressive loading: only activate (set src) on images as they're needed.
+  // Start with image 0 loaded. Each interval tick activates the next image
+  // before switching to it, ensuring a smooth transition without pre-downloading all 6.
+  const [activatedImages, setActivatedImages] = useState<Set<number>>(new Set([0]));
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % heroImages.length);
+      setCurrentIndex((prev) => {
+        const next = (prev + 1) % heroImages.length;
+        setActivatedImages((activated) => {
+          const updated = new Set(activated);
+          updated.add(next);
+          return updated;
+        });
+        return next;
+      });
     }, 4000);
     return () => clearInterval(timer);
   }, []);
@@ -46,7 +54,9 @@ export const HeroSection = () => {
                     src={eventlinkLogo}
                     alt="EventLink Logo"
                     className="w-16 drop-shadow-lg"
-                    style={{ aspectRatio: "1/1", objectFit: "contain" }}
+                    width={64}
+                    height={64}
+                    style={{ objectFit: "contain" }}
                     loading="lazy"
                     decoding="async"
                   />
@@ -99,24 +109,27 @@ export const HeroSection = () => {
             </div>
           </div>
 
-          {/* Right Column - Rotating Images & Cards */}
+          {/* Right Column - Rotating Images */}
           <div className="animate-scale-in relative">
             <div className="relative overflow-hidden rounded-2xl shadow-lg h-[500px]">
               {heroImages.map((img, index) => (
                 <img
                   key={index}
-                  src={img.src}
+                  src={activatedImages.has(index) ? img.src : undefined}
                   alt={img.alt}
+                  width={img.width}
+                  height={img.height}
                   className="absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out"
                   style={{ opacity: index === currentIndex ? 1 : 0 }}
                   loading={index === 0 ? "eager" : "lazy"}
-                  decoding="async"
+                  decoding={index === 0 ? "sync" : "async"}
+                  fetchPriority={index === 0 ? "high" : undefined}
                 />
               ))}
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
             </div>
 
-            {/* Floating Job Cards - matching E8 design */}
+            {/* Floating Job Cards */}
             <Card className="animate-fade-in absolute -left-4 -top-4 hidden border-l-4 border-l-primary bg-card/95 p-3 shadow-lg backdrop-blur-sm">
               <div className="flex items-center space-x-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
