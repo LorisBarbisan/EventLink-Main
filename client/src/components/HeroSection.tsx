@@ -19,7 +19,6 @@ export const HeroSection = () => {
               style={{ objectFit: "contain" }}
               loading="eager"
               decoding="sync"
-              fetchPriority="high"
             />
             <span className="text-3xl font-bold text-gray-800 dark:text-gray-200">EventLink</span>
           </div>
