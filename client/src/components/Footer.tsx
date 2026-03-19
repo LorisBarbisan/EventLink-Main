@@ -117,7 +117,7 @@ export const Footer = () => {
         </div>
 
         <div className="mt-4 border-t pt-3 text-center text-xs text-muted-foreground">
-          <p>&copy; 2024 Kite. All rights reserved.</p>
+          <p>&copy; 2026 Kite. All rights reserved.</p>
         </div>
       </div>
     </footer>
