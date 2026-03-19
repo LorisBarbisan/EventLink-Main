@@ -811,7 +811,9 @@ export default function Profile() {
         <div className="container mx-auto px-4 py-8">
           <div className="mx-auto max-w-4xl text-center">
             <h1 className="mb-4 text-2xl font-bold">Profile Not Found</h1>
-            <Button onClick={() => setLocation("/dashboard")}>Go to Dashboard</Button>
+            <Button onClick={() => setLocation(user ? "/dashboard" : "/")}>
+              {user ? "Go to Dashboard" : "Go to EventLink"}
+            </Button>
           </div>
         </div>
       </Layout>
@@ -820,6 +822,29 @@ export default function Profile() {
 
   if (profile?.role === "freelancer" && !freelancerProfile && !loading && profileDataLoaded) {
     console.log("No freelancer profile found, showing create profile message");
+    if (!user || (user && userId && userId === user.id.toString())) {
+      return (
+        <Layout>
+          <div className="container mx-auto px-4 py-8">
+            <div className="mx-auto max-w-4xl space-y-4 text-center">
+              <div className="bg-gradient-primary mx-auto flex h-24 w-24 items-center justify-center rounded-full">
+                <User className="h-12 w-12 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold">Complete Your Profile</h1>
+              <p className="text-muted-foreground">
+                Create your freelancer profile to start connecting with event organizers.
+              </p>
+              <Button
+                onClick={() => setLocation("/dashboard")}
+                className="bg-gradient-primary hover:bg-primary-hover"
+              >
+                Create Profile
+              </Button>
+            </div>
+          </div>
+        </Layout>
+      );
+    }
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
@@ -827,15 +852,12 @@ export default function Profile() {
             <div className="bg-gradient-primary mx-auto flex h-24 w-24 items-center justify-center rounded-full">
               <User className="h-12 w-12 text-white" />
             </div>
-            <h1 className="text-2xl font-bold">Complete Your Profile</h1>
+            <h1 className="text-2xl font-bold">Profile Not Yet Set Up</h1>
             <p className="text-muted-foreground">
-              Create your freelancer profile to start connecting with event organizers.
+              This freelancer hasn't completed their profile yet. Check back later.
             </p>
-            <Button
-              onClick={() => setLocation("/dashboard")}
-              className="bg-gradient-primary hover:bg-primary-hover"
-            >
-              Create Profile
+            <Button onClick={() => setLocation("/")} variant="outline">
+              Browse EventLink
             </Button>
           </div>
         </div>
@@ -849,9 +871,30 @@ export default function Profile() {
     !recruiterProfile &&
     !loading
   ) {
-    console.log("No recruiter profile found, showing create profile message");
-    console.log("Current recruiterProfile state:", recruiterProfile);
-    console.log("Profile role:", profile?.role);
+    const isOwnRecruiterProfile = user && userId && userId === user.id.toString();
+    if (!user || isOwnRecruiterProfile) {
+      return (
+        <Layout>
+          <div className="container mx-auto px-4 py-8">
+            <div className="mx-auto max-w-4xl space-y-4 text-center">
+              <div className="bg-gradient-primary mx-auto flex h-24 w-24 items-center justify-center rounded-full">
+                <User className="h-12 w-12 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold">Complete Your Company Profile</h1>
+              <p className="text-muted-foreground">
+                Create your company profile to start posting jobs and finding talent.
+              </p>
+              <Button
+                onClick={() => setLocation("/dashboard")}
+                className="bg-gradient-primary hover:bg-primary-hover"
+              >
+                Create Profile
+              </Button>
+            </div>
+          </div>
+        </Layout>
+      );
+    }
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
@@ -859,15 +902,12 @@ export default function Profile() {
             <div className="bg-gradient-primary mx-auto flex h-24 w-24 items-center justify-center rounded-full">
               <User className="h-12 w-12 text-white" />
             </div>
-            <h1 className="text-2xl font-bold">Complete Your Company Profile</h1>
+            <h1 className="text-2xl font-bold">Profile Not Yet Set Up</h1>
             <p className="text-muted-foreground">
-              Create your company profile to start posting jobs and finding talent.
+              This company hasn't completed their profile yet. Check back later.
             </p>
-            <Button
-              onClick={() => setLocation("/dashboard")}
-              className="bg-gradient-primary hover:bg-primary-hover"
-            >
-              Create Profile
+            <Button onClick={() => setLocation("/")} variant="outline">
+              Browse EventLink
             </Button>
           </div>
         </div>

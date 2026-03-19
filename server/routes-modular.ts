@@ -348,6 +348,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dynamic sitemap.xml — lists all freelancer profiles and active jobs
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const BASE_URL = "https://eventlink.one";
+
+      const [profiles, allJobs] = await Promise.all([
+        storage.getAllFreelancerProfiles(),
+        storage.getAllJobsSortedByDate(),
+      ]);
+
+      const activeJobs = allJobs.filter((j: any) => j.status === "active");
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      const staticUrls = [
+        `  <url>\n    <loc>${BASE_URL}/</loc>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n    <lastmod>${today}</lastmod>\n  </url>`,
+      ];
+
+      const profileUrls = profiles.map(
+        (p: any) =>
+          `  <url>\n    <loc>${BASE_URL}/profile/${p.user_id}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>`
+      );
+
+      const jobUrls = activeJobs.map(
+        (j: any) =>
+          `  <url>\n    <loc>${BASE_URL}/jobs/${j.id}</loc>\n    <changefreq>daily</changefreq>\n    <priority>0.7</priority>\n  </url>`
+      );
+
+      const xml = [
+        `<?xml version="1.0" encoding="UTF-8"?>`,
+        `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
+        ...staticUrls,
+        ...profileUrls,
+        ...jobUrls,
+        `</urlset>`,
+      ].join("\n");
+
+      res.set("Content-Type", "application/xml; charset=utf-8");
+      res.set("Cache-Control", "public, max-age=3600");
+      res.send(xml);
+    } catch (error) {
+      console.error("Sitemap generation error:", error);
+      res.status(500).send("Error generating sitemap");
+    }
+  });
+
   // Feedback submission endpoint (public)
   app.post("/api/feedback", async (req, res) => {
     try {
