@@ -1,14 +1,17 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
 Allow: /
+Allow: /freelancers/
+Allow: /jobs/
+Allow: /employers/
+Allow: /roles/
+Allow: /locations/
+
+# Block private/authenticated routes
+Disallow: /dashboard/
+Disallow: /settings/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+
+# Sitemap location
+Sitemap: https://eventlink.one/sitemap.xml

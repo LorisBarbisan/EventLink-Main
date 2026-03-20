@@ -151,54 +151,44 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
   }
 
   const jobIdMatch = req.path.match(/^\/jobs\/(\d+)$/);
+  const jobSlugMatch = req.path.match(/^\/jobs\/([a-z][a-z0-9-]+)$/);
   const profileIdMatch = req.path.match(/^\/profile\/(\d+)$/);
+  const freelancerSlugMatch = req.path.match(/^\/freelancers\/([a-z][a-z0-9-]+)$/);
+  const employerSlugMatch = req.path.match(/^\/employers\/([a-z][a-z0-9-]+)$/);
 
-  if (jobIdMatch) {
-    const jobId = parseInt(jobIdMatch[1]);
-    if (isNaN(jobId)) return next();
-
-    storage
-      .getJobById(jobId)
+  const handleJob = (jobFn: () => Promise<any>) => {
+    jobFn()
       .then(job => {
         if (!job || (job.status !== "active" && job.status !== "private")) {
           return res.status(200).set({ "Content-Type": "text/html" }).end(buildFallbackHtml());
         }
         const baseUrl = getBaseUrl(req);
-        const jobUrl = `${baseUrl}/jobs/${job.id}`;
-        const ogImageUrl = `${baseUrl}/og-image.png`;
+        const jobUrl = job.slug ? `${baseUrl}/jobs/${job.slug}` : `${baseUrl}/jobs/${job.id}`;
         const html = buildOgHtml({
           url: jobUrl,
           title: escapeHtml(`${job.title} | EventLink`),
           description: escapeHtml(buildJobDescription(job)),
-          imageUrl: ogImageUrl,
+          imageUrl: `${baseUrl}/og-image.png`,
           linkText: "View &amp; apply on EventLink",
         });
         res.status(200).set({ "Content-Type": "text/html" }).end(html);
       })
-      .catch(error => {
-        console.error("OG tag middleware error (job):", error);
-        next();
-      });
-    return;
-  }
+      .catch(err => { console.error("OG job error:", err); next(); });
+  };
 
-  if (profileIdMatch) {
-    const userId = parseInt(profileIdMatch[1]);
-    if (isNaN(userId)) return next();
-
-    storage
-      .getFreelancerProfile(userId)
+  const handleProfile = (profileFn: () => Promise<any>, userId?: number) => {
+    profileFn()
       .then(profile => {
         if (!profile) {
           return res.status(200).set({ "Content-Type": "text/html" }).end(buildFallbackHtml());
         }
+        const uid = userId ?? profile.user_id;
         const baseUrl = getBaseUrl(req);
-        const profileUrl = `${baseUrl}/profile/${userId}`;
-        // Use the freelancer's own photo if available, otherwise fall back to the EventLink logo
+        const profileUrl = profile.slug
+          ? `${baseUrl}/freelancers/${profile.slug}`
+          : `${baseUrl}/profile/${uid}`;
         const hasPhoto = !!(profile.profile_photo_url && profile.profile_photo_url.trim());
-        const ogImageUrl = hasPhoto
-          ? `${baseUrl}/api/profile-photo/${userId}`
-          : `${baseUrl}/og-image.png`;
+        const ogImageUrl = hasPhoto ? `${baseUrl}/api/profile-photo/${uid}` : `${baseUrl}/og-image.png`;
         const fullName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Freelancer";
         const html = buildOgHtml({
           url: profileUrl,
@@ -209,10 +199,51 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
         });
         res.status(200).set({ "Content-Type": "text/html" }).end(html);
       })
-      .catch(error => {
-        console.error("OG tag middleware error (profile):", error);
-        next();
-      });
+      .catch(err => { console.error("OG profile error:", err); next(); });
+  };
+
+  if (jobIdMatch) {
+    const jobId = parseInt(jobIdMatch[1]);
+    if (isNaN(jobId)) return next();
+    handleJob(() => storage.getJobById(jobId));
+    return;
+  }
+
+  if (jobSlugMatch) {
+    handleJob(() => storage.getJobBySlug(jobSlugMatch[1]));
+    return;
+  }
+
+  if (profileIdMatch) {
+    const userId = parseInt(profileIdMatch[1]);
+    if (isNaN(userId)) return next();
+    handleProfile(() => storage.getFreelancerProfile(userId), userId);
+    return;
+  }
+
+  if (freelancerSlugMatch) {
+    handleProfile(() => storage.getFreelancerProfileBySlug(freelancerSlugMatch[1]));
+    return;
+  }
+
+  if (employerSlugMatch) {
+    const slug = employerSlugMatch[1];
+    storage
+      .getRecruiterProfileBySlug(slug)
+      .then(profile => {
+        if (!profile) return res.status(200).set({ "Content-Type": "text/html" }).end(buildFallbackHtml());
+        const baseUrl = getBaseUrl(req);
+        const companyName = profile.company_name || "Event Company";
+        const html = buildOgHtml({
+          url: `${baseUrl}/employers/${slug}`,
+          title: escapeHtml(`${companyName} | EventLink`),
+          description: escapeHtml(profile.description?.slice(0, 200) || `View ${companyName}'s event jobs on EventLink`),
+          imageUrl: profile.company_logo_url || `${baseUrl}/og-image.png`,
+          linkText: "View employer on EventLink",
+        });
+        res.status(200).set({ "Content-Type": "text/html" }).end(html);
+      })
+      .catch(err => { console.error("OG employer error:", err); next(); });
     return;
   }
 

@@ -26,6 +26,7 @@ import { registerMessagingRoutes } from "./api/routes/message.route.js";
 import { registerNotificationRoutes } from "./api/routes/notification.route.js";
 import { registerProfileRoutes } from "./api/routes/profile.route.js";
 import { registerRatingsRoutes } from "./api/routes/rating.route.js";
+import { registerSeoRoutes } from "./api/routes/seo.route.js";
 import { registerSavedFreelancerRoutes } from "./api/routes/saved-freelancers.route.js";
 import referenceRouter from "./api/routes/reference.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
@@ -237,6 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerFileRoutes(app);
   registerCVParserRoutes(app);
   registerRatingsRoutes(app);
+  registerSeoRoutes(app);
   registerSavedFreelancerRoutes(app);
   app.use("/api/references", referenceRouter);
   registerContactRoutes(app);

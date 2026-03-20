@@ -29,20 +29,13 @@ import { Link, useLocation, useParams } from "wouter";
 export default function JobDetail() {
   const params = useParams<{ id: string }>();
   const jobId = params.id;
+  const isSlug = jobId ? isNaN(Number(jobId)) : false;
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [coverLetter, setCoverLetter] = useState("");
   const [showApplyForm, setShowApplyForm] = useState(false);
-
-  useEffect(() => {
-    fetch(`/api/jobs/${jobId}/link-view`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source: "direct" }),
-    }).catch(() => {});
-  }, [jobId]);
 
   const { data: job, isLoading, error } = useQuery<Job>({
     queryKey: ["/api/jobs", jobId],
@@ -52,14 +45,37 @@ export default function JobDetail() {
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      const res = await fetch(`/api/jobs/${jobId}`, { headers });
+      let res: Response;
+      if (isSlug) {
+        res = await fetch(`/api/jobs/by-slug/${jobId}`, { headers });
+      } else {
+        res = await fetch(`/api/jobs/${jobId}`, { headers });
+      }
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to load job");
       }
-      return res.json();
+      const jobData = await res.json();
+      if (isSlug) {
+        fetch(`/api/jobs/${jobData.id}/link-view`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source: "direct" }),
+        }).catch(() => {});
+      }
+      return jobData;
     },
   });
+
+  useEffect(() => {
+    if (!isSlug && jobId) {
+      fetch(`/api/jobs/${jobId}/link-view`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: "direct" }),
+      }).catch(() => {});
+    }
+  }, [jobId, isSlug]);
 
   const { data: existingApplication } = useQuery({
     queryKey: ["/api/applications/check", jobId],
