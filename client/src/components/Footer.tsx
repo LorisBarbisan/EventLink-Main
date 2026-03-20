@@ -10,7 +10,7 @@ export const Footer = () => {
 
   return (
     <footer className="mt-auto border-t">
-      <div style={{ backgroundColor: "#D1A5FD" }}>
+      <div style={{ backgroundColor: "#F4F2EE" }}>
         <div className="container mx-auto px-4 py-4">
           <div className="grid grid-cols-1 gap-4 text-center md:grid-cols-4 md:text-left">
             <div className="flex flex-col items-center md:items-start">

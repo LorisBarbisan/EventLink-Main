@@ -22,7 +22,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
   const [showInviteDialog, setShowInviteDialog] = useState(false);
 
   return (
-    <header className="border-b bg-card shadow-sm">
+    <header className="border-b shadow-sm" style={{ backgroundColor: "#F4F2EE" }}>
       <div className="container mx-auto px-4 py-3 md:py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
