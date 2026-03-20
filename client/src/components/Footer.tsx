@@ -9,7 +9,7 @@ export const Footer = () => {
   const { toast } = useToast();
 
   return (
-    <footer className="mt-auto border-t bg-card">
+    <footer className="mt-auto border-t" style={{ backgroundColor: "#D1A5FD" }}>
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 gap-8 text-center md:grid-cols-4 md:text-left">
           <div className="flex flex-col items-center md:items-start">
