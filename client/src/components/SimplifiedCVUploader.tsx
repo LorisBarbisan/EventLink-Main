@@ -253,8 +253,8 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
 
   return (
     <Card className="min-w-0 max-w-full overflow-hidden">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+      <CardHeader className="space-y-1.5 px-4 pb-4 pt-6 sm:px-6">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
           <FileText className="w-5 h-5" />
           CV/Resume
         </CardTitle>
@@ -262,28 +262,35 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
           Upload your CV to showcase your experience to potential employers
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4 sm:px-6">
         {currentCV?.fileName ? (
           <div className="space-y-4">
-            <div className="flex min-w-0 flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <div className="shrink-0 rounded bg-green-100 p-2 dark:bg-green-900/20">
-                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+            <div className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+              <div className="flex min-w-0 flex-1 items-start gap-2.5 sm:items-center sm:gap-3">
+                <div className="mt-0.5 shrink-0 rounded bg-green-100 p-1.5 dark:bg-green-900/20 sm:mt-0 sm:p-2">
+                  <CheckCircle className="h-4 w-4 text-green-600 sm:h-5 sm:w-5 dark:text-green-400" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="break-words font-medium">{currentCV.fileName}</p>
+                  <p
+                    className="truncate text-sm font-medium sm:text-base"
+                    title={currentCV.fileName}
+                    aria-label={currentCV.fileName}
+                  >
+                    {currentCV.fileName}
+                  </p>
                   {currentCV.fileSize && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground sm:text-sm">
                       {formatFileSize(currentCV.fileSize)}
                     </p>
                   )}
                 </div>
               </div>
-              <div className="flex min-w-0 shrink-0 flex-wrap gap-2 sm:justify-end">
+              <div className="flex min-w-0 w-full flex-row gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
                 {currentCV.fileUrl && (
                   <Button
                     variant="outline"
                     size="sm"
+                    className="min-w-0 flex-1 sm:flex-initial"
                     onClick={async () => {
                       try {
                         const token = localStorage.getItem("auth_token");
@@ -320,6 +327,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
                 <Button
                   variant="outline"
                   size="sm"
+                  className="min-w-0 flex-1 sm:flex-initial"
                   onClick={handleDelete}
                   disabled={isDeleting}
                   data-testid="button-delete-cv"
