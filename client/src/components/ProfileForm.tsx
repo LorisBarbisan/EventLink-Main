@@ -512,7 +512,7 @@
     return (
       <>
         {/* CV Upload Section - Moved to top with clear messaging */}
-        <Card className="border-primary/20 bg-primary/5">
+        <Card className="min-w-0 max-w-full border-primary/20 bg-primary/5">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <FileText className="h-5 w-5 text-primary" />
@@ -759,7 +759,7 @@
         : undefined;
 
     return (
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
         <SimplifiedCVUploader
           userId={user.id}
           currentCV={currentCV}

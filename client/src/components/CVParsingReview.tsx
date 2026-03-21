@@ -195,7 +195,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="min-w-0 max-w-full overflow-hidden">
         <CardContent className="py-6 flex items-center justify-center">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </CardContent>
@@ -209,7 +209,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
 
   if (parsingStatus.status === "parsing" || parsingStatus.status === "pending") {
     return (
-      <Card className="border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20">
+      <Card className="min-w-0 max-w-full overflow-hidden border-orange-200 bg-orange-50/50 dark:border-orange-800 dark:bg-orange-950/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
@@ -225,7 +225,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
 
   if (parsingStatus.status === "failed") {
     return (
-      <Card className="border-red-200 dark:border-red-800">
+      <Card className="min-w-0 max-w-full overflow-hidden border-red-200 dark:border-red-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <AlertCircle className="w-5 h-5 text-red-600" />
@@ -263,7 +263,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     }
 
     return (
-      <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
+      <Card className="min-w-0 max-w-full overflow-hidden border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="w-5 h-5 text-green-600" />
@@ -275,119 +275,154 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
         </CardHeader>
         <CardContent className="space-y-4">
           {data.fullName && (
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="field-fullName"
-                checked={selectedFields.fullName}
-                onCheckedChange={() => toggleField("fullName")}
-              />
-              <div className="flex-1">
-                <Label htmlFor="field-fullName" className="font-medium cursor-pointer">
-                  Name
-                </Label>
-                <p className="text-sm text-muted-foreground">{data.fullName}</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <Checkbox
+                  id="field-fullName"
+                  className="mt-0.5 shrink-0"
+                  checked={selectedFields.fullName}
+                  onCheckedChange={() => toggleField("fullName")}
+                />
+                <div className="min-w-0 flex-1">
+                  <Label htmlFor="field-fullName" className="cursor-pointer font-medium">
+                    Name
+                  </Label>
+                  <p className="break-words text-sm text-muted-foreground">{data.fullName}</p>
+                </div>
               </div>
-              <Badge variant="secondary" className="text-xs">Suggested from CV</Badge>
+              <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
+                Suggested from CV
+              </Badge>
             </div>
           )}
 
           {data.title && (
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="field-title"
-                checked={selectedFields.title}
-                onCheckedChange={() => toggleField("title")}
-              />
-              <div className="flex-1">
-                <Label htmlFor="field-title" className="font-medium cursor-pointer">
-                  Professional Title
-                </Label>
-                <p className="text-sm text-muted-foreground">{data.title}</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <Checkbox
+                  id="field-title"
+                  className="mt-0.5 shrink-0"
+                  checked={selectedFields.title}
+                  onCheckedChange={() => toggleField("title")}
+                />
+                <div className="min-w-0 flex-1">
+                  <Label htmlFor="field-title" className="cursor-pointer font-medium">
+                    Professional Title
+                  </Label>
+                  <p className="break-words text-sm text-muted-foreground">{data.title}</p>
+                </div>
               </div>
-              <Badge variant="secondary" className="text-xs">Suggested from CV</Badge>
+              <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
+                Suggested from CV
+              </Badge>
             </div>
           )}
 
           {data.skills && data.skills.length > 0 && (
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="field-skills"
-                checked={selectedFields.skills}
-                onCheckedChange={() => toggleField("skills")}
-              />
-              <div className="flex-1">
-                <Label htmlFor="field-skills" className="font-medium cursor-pointer">
-                  Skills
-                </Label>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {data.skills.slice(0, 10).map((skill, i) => (
-                    <Badge key={i} variant="outline" className="text-xs">{skill}</Badge>
-                  ))}
-                  {data.skills.length > 10 && (
-                    <Badge variant="outline" className="text-xs">+{data.skills.length - 10} more</Badge>
-                  )}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <Checkbox
+                  id="field-skills"
+                  className="mt-0.5 shrink-0"
+                  checked={selectedFields.skills}
+                  onCheckedChange={() => toggleField("skills")}
+                />
+                <div className="min-w-0 flex-1">
+                  <Label htmlFor="field-skills" className="cursor-pointer font-medium">
+                    Skills
+                  </Label>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {data.skills.slice(0, 10).map((skill, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        {skill}
+                      </Badge>
+                    ))}
+                    {data.skills.length > 10 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{data.skills.length - 10} more
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
-              <Badge variant="secondary" className="text-xs">Suggested from CV</Badge>
+              <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
+                Suggested from CV
+              </Badge>
             </div>
           )}
 
           {data.bio && (
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="field-bio"
-                checked={selectedFields.bio}
-                onCheckedChange={() => toggleField("bio")}
-              />
-              <div className="flex-1">
-                <Label htmlFor="field-bio" className="font-medium cursor-pointer">
-                  Bio / Summary
-                </Label>
-                <p className="text-sm text-muted-foreground line-clamp-3">{data.bio}</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <Checkbox
+                  id="field-bio"
+                  className="mt-0.5 shrink-0"
+                  checked={selectedFields.bio}
+                  onCheckedChange={() => toggleField("bio")}
+                />
+                <div className="min-w-0 flex-1">
+                  <Label htmlFor="field-bio" className="cursor-pointer font-medium">
+                    Bio / Summary
+                  </Label>
+                  <p className="line-clamp-3 text-sm text-muted-foreground">{data.bio}</p>
+                </div>
               </div>
-              <Badge variant="secondary" className="text-xs">Suggested from CV</Badge>
+              <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
+                Suggested from CV
+              </Badge>
             </div>
           )}
 
           {data.location && (
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="field-location"
-                checked={selectedFields.location}
-                onCheckedChange={() => toggleField("location")}
-              />
-              <div className="flex-1">
-                <Label htmlFor="field-location" className="font-medium cursor-pointer">
-                  Location
-                </Label>
-                <p className="text-sm text-muted-foreground">{data.location}</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <Checkbox
+                  id="field-location"
+                  className="mt-0.5 shrink-0"
+                  checked={selectedFields.location}
+                  onCheckedChange={() => toggleField("location")}
+                />
+                <div className="min-w-0 flex-1">
+                  <Label htmlFor="field-location" className="cursor-pointer font-medium">
+                    Location
+                  </Label>
+                  <p className="break-words text-sm text-muted-foreground">{data.location}</p>
+                </div>
               </div>
-              <Badge variant="secondary" className="text-xs">Suggested from CV</Badge>
+              <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
+                Suggested from CV
+              </Badge>
             </div>
           )}
 
           {data.experienceYears && (
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="field-experienceYears"
-                checked={selectedFields.experienceYears}
-                onCheckedChange={() => toggleField("experienceYears")}
-              />
-              <div className="flex-1">
-                <Label htmlFor="field-experienceYears" className="font-medium cursor-pointer">
-                  Years of Experience
-                </Label>
-                <p className="text-sm text-muted-foreground">{data.experienceYears} years</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <Checkbox
+                  id="field-experienceYears"
+                  className="mt-0.5 shrink-0"
+                  checked={selectedFields.experienceYears}
+                  onCheckedChange={() => toggleField("experienceYears")}
+                />
+                <div className="min-w-0 flex-1">
+                  <Label htmlFor="field-experienceYears" className="cursor-pointer font-medium">
+                    Years of Experience
+                  </Label>
+                  <p className="text-sm text-muted-foreground">{data.experienceYears} years</p>
+                </div>
               </div>
-              <Badge variant="secondary" className="text-xs">Suggested from CV</Badge>
+              <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
+                Suggested from CV
+              </Badge>
             </div>
           )}
         </CardContent>
         <Separator />
-        <CardFooter className="flex justify-between pt-4">
+        <CardFooter className="flex flex-col gap-2 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <Button
             variant="ghost"
             size="sm"
+            className="w-full sm:w-auto"
             onClick={() => rejectMutation.mutate()}
             disabled={rejectMutation.isPending || confirmMutation.isPending}
           >
@@ -400,6 +435,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
           </Button>
           <Button
             size="sm"
+            className="w-full sm:w-auto"
             onClick={() => confirmMutation.mutate(selectedFields)}
             disabled={confirmMutation.isPending || rejectMutation.isPending || !Object.values(selectedFields).some(v => v)}
           >

@@ -252,7 +252,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
   };
 
   return (
-    <Card>
+    <Card className="min-w-0 max-w-full overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="w-5 h-5" />
@@ -265,13 +265,13 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
       <CardContent>
         {currentCV?.fileName ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded">
-                  <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+            <div className="flex min-w-0 flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="shrink-0 rounded bg-green-100 p-2 dark:bg-green-900/20">
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                 </div>
-                <div>
-                  <p className="font-medium">{currentCV.fileName}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words font-medium">{currentCV.fileName}</p>
                   {currentCV.fileSize && (
                     <p className="text-sm text-muted-foreground">
                       {formatFileSize(currentCV.fileSize)}
@@ -279,7 +279,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
                   )}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex min-w-0 shrink-0 flex-wrap gap-2 sm:justify-end">
                 {currentCV.fileUrl && (
                   <Button
                     variant="outline"
@@ -333,12 +333,14 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
             {showExtractButton && (
               <Button
                 variant="default"
-                className="w-full"
+                className="h-auto min-h-10 w-full min-w-0 whitespace-normal px-3 py-2.5 text-balance"
                 onClick={() => extractMutation.mutate()}
                 disabled={extractMutation.isPending}
               >
-                <Sparkles className="w-4 h-4 mr-2" />
-                {extractMutation.isPending ? "Extracting..." : "Extract profile data from CV"}
+                <Sparkles className="mr-2 h-4 w-4 shrink-0" />
+                <span className="text-left leading-snug">
+                  {extractMutation.isPending ? "Extracting..." : "Extract profile data from CV"}
+                </span>
               </Button>
             )}
 

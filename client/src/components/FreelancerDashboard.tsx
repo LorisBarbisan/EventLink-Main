@@ -171,8 +171,8 @@ export default function SimplifiedFreelancerDashboard() {
   const hasNewJobUpdates = false;
 
   return (
-    <div className="[dden container mx-auto px-1 py-4 sm:px-6 sm:py-6">
-      <div className="sm mb-4 px-3 sm:px-0">
+    <div className="container mx-auto max-w-full min-w-0 px-1 py-4 sm:px-6 sm:py-6">
+      <div className="mb-4 px-3 sm:px-0">
         <h1 className="text-2xl font-bold sm:text-3xl">Freelancer Dashboard</h1>
         <p className="text-sm text-muted-foreground sm:text-base">
           Manage your profile, applications, and messages
