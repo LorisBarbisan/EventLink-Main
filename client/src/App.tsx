@@ -31,10 +31,6 @@ import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
 import ReferencePage from "./pages/ReferencePage";
 import ReferenceVerified from "./pages/ReferenceVerified";
-import RolePage from "./pages/RolePage";
-import LocationPage from "./pages/LocationPage";
-import EmployerPage from "./pages/EmployerPage";
-import FreelancerPublicPage from "./pages/FreelancerPublicPage";
 
 import { ScrollToTop } from "@/components/ScrollToTop";
 
@@ -59,11 +55,7 @@ function AppRouter() {
         <Route path="/notification-settings" component={NotificationSettings} />
         <Route path="/jobs/:id" component={JobDetail} />
         <Route path="/jobs" component={Jobs} />
-        <Route path="/freelancers/:slug" component={FreelancerPublicPage} />
         <Route path="/freelancers" component={Freelancers} />
-        <Route path="/roles/:role" component={RolePage} />
-        <Route path="/locations/:city" component={LocationPage} />
-        <Route path="/employers/:slug" component={EmployerPage} />
         <Route path="/ratings" component={RatingDashboard} />
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/how-it-works" component={HowItWorks} />
