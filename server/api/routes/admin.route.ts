@@ -16,6 +16,7 @@ import {
   grantAdminAccess,
   retriggerJobAlerts,
   revokeAdminAccess,
+  sendBulkMessages,
   sendContactReply,
   updateFeedbackStatus,
   updateUserStatus,
@@ -70,6 +71,9 @@ export function registerAdminRoutes(app: Express) {
 
   // Revoke admin access from user (admin only)
   app.post("/api/admin/users/revoke-admin", requireAdminAuth, revokeAdminAccess);
+
+  // Send bulk in-app messages to filtered users (admin only)
+  app.post("/api/admin/bulk-message", requireAdminAuth, sendBulkMessages);
 
   // Export all dashboard data as CSV (admin only)
   app.get("/api/admin/export/csv", requireAdminAuth, exportAdminCSV);
