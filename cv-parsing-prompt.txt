@@ -1,0 +1,115 @@
+====================================================
+EVENTLINK CV PARSER — AI PROMPT
+====================================================
+
+MODEL: gpt-4o-mini
+Temperature: 0.1
+Response format: JSON object
+Max tokens: 2048
+
+----------------------------------------------------
+SYSTEM MESSAGE
+----------------------------------------------------
+You extract structured data from CV documents. You return ONLY information explicitly present in the text. You never guess or fabricate. For the title field, return only a short job title (1-6 words), never a sentence. For location, return only a real place name. Omit any field you are not confident about.
+
+----------------------------------------------------
+USER PROMPT (sent with CV text appended)
+----------------------------------------------------
+Extract structured data from this CV. Return a JSON object.
+
+STRICT RULES — violating any of these makes the output useless:
+
+1. "fullName": The person's full name. Usually the first line or largest text in the CV. Must be 1-4 words, just a name (e.g. "John Smith", "Fabrizio Barbisan"). If unclear, omit.
+
+2. "title": Their professional job title — a SHORT label like "AV Technician", "Sound Engineer", "Event Manager", "FOH Engineer", "Stage Manager". This is NOT a sentence or description. Maximum 6 words. Look near the top of the CV or in the first line of their profile summary. BAD examples to avoid: "in the planning and execution of high-profile events" (this is a sentence, not a title). GOOD examples: "AV Technician & FOH Engineer", "Senior Event Producer", "Lighting Designer".
+
+3. "skills": Array of individual skills, tools, software, and equipment mentioned. Each skill should be 1-3 words. Include brand names (DiGiCo, Yamaha, vMix, etc.). Extract ALL skills from the entire CV — be comprehensive.
+
+4. "bio": The person's profile summary or about section, copied exactly as written. If no such section exists, omit entirely. Do NOT write your own summary.
+
+5. "location": A real city, region, or country name explicitly mentioned as where they are based. Must be a proper place name like "Glasgow", "Manchester", "London, UK". NOT descriptions like "a single region" or "UK and Europe". Omit if no specific base location is stated.
+
+6. "experienceYears": A number, ONLY if the CV explicitly says something like "5+ years experience" or "10 years in the industry". Do NOT count or calculate from work history dates. Omit if not explicitly stated.
+
+7. "education": Education details copied from the CV. Omit if none found.
+
+8. "workHistory": Work experience entries. Include job titles, companies, and dates. Copy from the CV text.
+
+9. "certifications": Array of certifications and qualifications (e.g. "Dante Certification", "IPAF", "First Aid", "BS7909"). Omit if none found.
+
+IMPORTANT: If you cannot find clear data for a field, DO NOT include it. Never make up content. Return only fields you are confident about.
+
+CV TEXT:
+[CV text is appended here — first 12,000 characters of the extracted PDF text]
+
+----------------------------------------------------
+EXPECTED JSON OUTPUT FORMAT
+----------------------------------------------------
+{
+  "fullName": "string | omit if unclear",
+  "title": "string (max 6 words) | omit if unclear",
+  "skills": ["skill1", "skill2", ...] | omit if none,
+  "bio": "exact profile summary text | omit if none",
+  "location": "City, Country | omit if unclear",
+  "experienceYears": number | omit if not explicitly stated,
+  "education": "education section text | omit if none",
+  "workHistory": "work experience text | omit if none",
+  "certifications": ["cert1", "cert2", ...] | omit if none
+}
+
+----------------------------------------------------
+POST-PROCESSING VALIDATION RULES (applied in code)
+----------------------------------------------------
+
+Title validation:
+- Rejected if more than 8 words
+- Rejected if starts with: "in ", "for ", "the ", "a ", "an ", "this ", "with ", "and ", "to ", "of "
+- Rejected if contains more than 3 commas
+
+Location validation:
+- Rejected if matches: "a single region", "single region", "multiple locations", "various locations",
+  "uk and europe", "across the uk", "nationwide", "remote", "freelance"
+- Rejected if more than 5 words
+
+Experience years:
+- Must be between 1 and 50 (inclusive)
+
+General string cleaning:
+- Junk values rejected: "n/a", "not specified", "unknown", "not found", "none",
+  "not available", "not provided", "not mentioned", "omitted"
+
+====================================================
+FALLBACK: RULE-BASED PARSING (when AI unavailable)
+====================================================
+
+If the AI call fails, the system falls back to keyword matching.
+
+Skills keyword list:
+javascript, typescript, python, java, react, node, nodejs, sql, html, css, vue, angular,
+aws, azure, docker, kubernetes, git, agile, scrum, project management, communication,
+leadership, video production, audio, lighting, stage management, event management,
+camera operator, vmix, obs, streaming, broadcast, technical director, av technician,
+sound engineer, lighting designer, stage hand, rigger, production assistant, runner,
+coordinator, live events, festival, conference, exhibition, weddings, concerts,
+powerpoint, excel, word, photoshop, premiere, after effects, final cut, davinci resolve,
+ableton, pro tools, logic pro, first aid, driving license, forklift, scissor lift,
+cherry picker, health and safety, risk assessment, crowd management, security
+
+Certifications keyword list:
+ipaf, pasma, iosh, nebosh, cscs, sia, first aid, bs7909, pli, public liability,
+professional indemnity, btec, nvq, hnd, degree, masters, mba, phd, diploma,
+certificate, certified, licensed, qualified, accredited, training, course
+
+Education keywords:
+university, college, school, degree, bachelor, master, phd, diploma, certificate,
+btec, nvq, a-level, gcse, education, studied, graduated, qualification
+
+Location patterns (regex):
+- /(?:based in|located in|location[:\s]+|lives? in|from)\s*([A-Za-z\s,]+)/gi
+- /([A-Za-z]+(?:\s+[A-Za-z]+)?),?\s*(?:UK|United Kingdom|England|Scotland|Wales)/gi
+
+UK city fallback list:
+london, manchester, birmingham, leeds, glasgow, edinburgh, liverpool, bristol,
+sheffield, newcastle, brighton, cardiff, belfast, nottingham, leicester
+
+====================================================

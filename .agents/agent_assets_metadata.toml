@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "M2-cvPNr0qHts4vDLKBo5"
+uri = "file://cv-parsing-prompt.txt"
+type = "text"
+title = "EventLink CV Parsing Prompt"
