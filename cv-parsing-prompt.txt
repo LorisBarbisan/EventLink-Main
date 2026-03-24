@@ -1,0 +1,265 @@
+EVENTLINK CV PARSER — AI PROMPT (v2)
+====================================================
+
+MODEL: gpt-4o-mini
+Temperature: 0.1
+Response format: JSON object
+Max tokens: 2048
+
+----------------------------------------------------
+SYSTEM MESSAGE
+----------------------------------------------------
+You are a structured data extractor specialising in event industry CVs. Your only job is
+to read a CV and return a JSON object containing specific fields. You follow rules exactly.
+
+Core behaviour rules — read these before anything else:
+- Return ONLY data that is explicitly written in the CV. Never infer, guess, or fabricate.
+- If a field's data is absent, ambiguous, or you are not fully confident: OMIT the field entirely.
+  An omitted field is always better than a wrong one.
+- Do not paraphrase, reword, or improve any text you copy from the CV.
+- Return valid JSON only. No markdown, no code fences, no explanation text.
+
+----------------------------------------------------
+USER PROMPT (sent with CV text appended)
+----------------------------------------------------
+Extract structured data from this CV. Return a JSON object using only the fields defined below.
+
+Read the ENTIRE CV before extracting. Skills and certifications may appear anywhere in the document.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIELD DEFINITIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. "fullName"
+   The person's full name as written on the CV.
+   - Usually the first prominent line or heading
+   - Return as written — do not reorder or alter
+   - 1 to 4 words only
+   - OMIT if you cannot identify a clear personal name
+
+2. "title"
+   Their primary professional job title — a SHORT label only.
+   - Maximum 6 words
+   - Must read like a job title, not a sentence or description
+   - Look for it: near the top of the CV, below the name, or at the start of a profile summary
+   - If multiple titles are present, pick the most senior or most recent one
+   - Capitalise each main word (title case)
+
+   GOOD examples (use these as the standard):
+     "AV Technician"
+     "Freelance Sound Engineer"
+     "Senior Event Producer"
+     "FOH Engineer & Lighting Designer"
+     "Technical Director"
+     "Stage Manager"
+
+   BAD examples (never return these):
+     "in the planning and execution of high-profile events"  ← sentence fragment
+     "Experienced professional with 10 years"               ← description
+     "Audio, Visual, and Technical Event Production"        ← list masquerading as title
+     "Freelance"                                            ← too vague, not a title
+     "Events"                                               ← too vague, not a title
+
+   OMIT if no clear title exists.
+
+3. "skills"
+   A flat array of individual skills, tools, equipment, and software mentioned anywhere in the CV.
+   - Each item: 1 to 4 words maximum
+   - Use consistent title case (e.g. "Pro Tools", "DiGiCo SD7", "Stage Management")
+   - Include brand names and model numbers where they add useful context (e.g. "Allen & Heath dLive", "Barco E2")
+   - Include soft skills only if explicitly listed in a skills section (e.g. "Team Leadership") — do not infer them from job descriptions
+   - Remove duplicates — do not list the same skill twice with different capitalisation
+   - Do NOT include certifications here — those go in "certifications"
+   - OMIT the field if no skills are found
+
+4. "bio"
+   The person's own written profile summary, personal statement, or about section.
+   - Copy the text EXACTLY as written — do not edit, summarise, or clean it up
+   - This section is usually labelled: "Profile", "About", "Summary", "Personal Statement", "About Me"
+   - If no clearly labelled or clearly distinct profile summary exists: OMIT entirely
+   - Do NOT construct a bio from other sections of the CV
+   - Do NOT copy job descriptions, skills lists, or education as the bio
+
+5. "location"
+   Where the person is based, as stated in the CV.
+   - Must be a real, specific place name: city, town, or region
+   - Acceptable formats: "Glasgow", "Manchester", "London, UK", "West Yorkshire"
+   - Maximum 5 words
+
+   OMIT if any of the following apply:
+   - No specific place name is mentioned
+   - The text describes availability rather than location (e.g. "available UK-wide", "happy to travel")
+   - The value is vague (e.g. "UK and Europe", "nationwide", "various locations", "remote")
+
+6. "experienceYears"
+   Total years of experience — as a number only.
+   - Include ONLY if the CV explicitly states a figure, e.g. "8 years experience", "over 10 years in the industry"
+   - Do NOT calculate or estimate from work history dates
+   - Do NOT include if phrased as a range without a clear minimum (e.g. "several years")
+   - OMIT if not explicitly stated
+
+7. "education"
+   Education history as it appears in the CV.
+   - Copy from the CV as structured text: qualification, institution, dates (where given)
+   - If multiple entries: separate with a line break or list them in order
+   - OMIT if no education section or entries are present
+
+8. "workHistory"
+   Work experience entries as they appear in the CV.
+   Return as an array of objects, each with:
+     - "title": job title at that role
+     - "company": employer or client name
+     - "dates": date range as written (e.g. "Jan 2021 – Mar 2023", "2019 – Present")
+     - "description": brief description or responsibilities if present (copy from CV, do not summarise)
+   Omit any sub-field (title, company, dates, description) if not present for that entry.
+   OMIT the entire field if no work history is found.
+
+9. "certifications"
+   Array of formal certifications, licences, and qualifications found anywhere in the CV.
+   - Include: IPAF, PASMA, SIA, DBS, BS7909, First Aid, IOSH, NEBOSH, Dante Level 1/2/3,
+     EAL, City & Guilds, BTEC, NVQ, HND, driving licences (specify class if stated), and similar
+   - Do NOT include general skills or tools here — only formal qualifications
+   - Do NOT duplicate entries already in "education"
+   - Each item: copy the certification name as written, keeping abbreviations (e.g. "IPAF Licence", "DBS Enhanced")
+   - OMIT if none found
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT FORMAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Return a single valid JSON object. No wrapping text, no markdown, no code fences.
+Include only fields you are confident about. Omit the rest.
+
+{
+  "fullName": "Sarah Okonkwo",
+  "title": "Freelance Lighting Technician",
+  "skills": ["ETC Eos", "MA2", "Strand 500", "Rigging", "Cable Management", "Team Leadership"],
+  "bio": "Freelance lighting technician with extensive experience across live music, corporate events, and theatre. Comfortable in both touring and one-off event environments.",
+  "location": "Bristol",
+  "experienceYears": 7,
+  "education": "BTEC Level 3 Diploma in Performing Arts — City of Bristol College, 2015",
+  "workHistory": [
+    {
+      "title": "Lighting Technician",
+      "company": "XYZ Productions",
+      "dates": "2019 – Present",
+      "description": "Programmed and operated ETC Eos for touring and festival shows. Responsible for rig inspection and safety checks."
+    },
+    {
+      "title": "Lighting Operator",
+      "company": "The Fleece, Bristol",
+      "dates": "2016 – 2019",
+      "description": "House lighting operator for all live events at 400-capacity venue."
+    }
+  ],
+  "certifications": ["IPAF Licence", "First Aid at Work", "EAL Level 2 Rigging"]
+}
+
+CV TEXT:
+[CV text is appended here — first 12,000 characters of the extracted PDF text]
+
+----------------------------------------------------
+POST-PROCESSING VALIDATION RULES (applied in code)
+----------------------------------------------------
+
+Title validation:
+- Rejected if more than 8 words
+- Rejected if starts with: "in ", "for ", "the ", "a ", "an ", "this ", "with ", "and ",
+  "to ", "of ", "experienced", "passionate", "dedicated", "skilled", "qualified"
+- Rejected if contains more than 2 commas
+- Rejected if longer than 60 characters
+
+Location validation:
+- Rejected if matches (case-insensitive): "a single region", "single region",
+  "multiple locations", "various locations", "uk and europe", "across the uk",
+  "nationwide", "remote", "freelance", "available", "willing to travel",
+  "uk wide", "uk-wide", "flexible"
+- Rejected if more than 5 words
+- Rejected if no recognisable place name detected
+
+Experience years:
+- Must be a whole number between 1 and 50 inclusive
+- Reject floats and strings
+
+Skills array:
+- Remove any item longer than 40 characters
+- Remove duplicates (case-insensitive)
+- Remove items that match the certifications list (prevent cross-contamination)
+
+General string cleaning (all fields):
+- Reject if value matches (case-insensitive): "n/a", "not specified", "unknown",
+  "not found", "none", "not available", "not provided", "not mentioned", "omitted",
+  "no information", "no data", "not stated", "not given", "not applicable"
+
+====================================================
+FALLBACK: RULE-BASED PARSING (when AI unavailable)
+====================================================
+
+If the AI call fails, the system falls back to keyword matching against the following
+event-industry-specific lists. Generic software (JavaScript, React, etc.) has been
+removed as it will not appear in event industry CVs.
+
+Skills keyword list (event industry):
+audio, lighting, video, staging, rigging, av, audio visual, sound, broadcast,
+streaming, live events, festival, conference, exhibition, concert, touring,
+production, technical, stage, crew, runner, coordinator,
+vmix, obs, resolume, watchout, disguise, notch, d3, catalyst, pandoras box,
+barco, christie, nec, panasonic, epson, jvc, sony, blackmagic, atem,
+digico, yamaha, midas, allen & heath, soundcraft, avid, venue,
+ssl, neve, pro tools, reaper, ableton, logic pro, qlab,
+grandma, ma2, ma3, etc eos, chamsys, hog, pearl, strand,
+focus, genelec, meyer sound, d&b, l-acoustics, turbosound, nexo,
+dante, milan, ava, audinate,
+comms, clearcom, riedel, bolero, telex,
+rigging, chain hoist, manual hoist, truss, prolyte, tomcat,
+led wall, led screen, pixel pitch, led processor, nova star, brompton,
+camera, ptz, jib, steadicam, drone, evs, replay, graphics,
+powerpoint, keynote, google slides,
+event management, project management, production management,
+health and safety, risk assessment, method statement,
+driving licence, forklift, scissor lift, cherry picker, ipaf, pasma,
+autocad, vectorworks, sketchup, wysiwyg, capture, depence
+
+Certifications keyword list (event industry):
+ipaf, pasma, iosh, nebosh, cscs, sia, sia licence, dbs, dbs basic, dbs enhanced,
+first aid, first aid at work, emergency first aid, efaw, faw,
+bs7909, pli, public liability, professional indemnity,
+dante certification, dante level 1, dante level 2, dante level 3,
+eal, city & guilds, btec, nvq, hnd, degree, masters, phd, diploma,
+certificate, certified, licensed, qualified, accredited,
+driving licence, full uk driving licence, category b, category c,
+scissor lift licence, forklift licence, cherry picker licence
+
+Education keywords:
+university, college, school, degree, bachelor, master, phd, diploma, certificate,
+btec, nvq, a-level, gcse, education, studied, graduated, qualification,
+conservatoire, academy, institute, foundation, higher national
+
+Location patterns (regex — applied in order, first match wins):
+1. /(?:based in|located in|location[:\s]+|lives? in|from|residing in)\s*([A-Za-z][A-Za-z\s,]{2,30})/gi
+2. /([A-Za-z]+(?:[\s-][A-Za-z]+)?),?\s*(?:UK|United Kingdom|England|Scotland|Wales|Northern Ireland)/gi
+3. Match against UK city list (see below)
+
+UK city and region list (extended):
+london, manchester, birmingham, leeds, glasgow, edinburgh, liverpool, bristol,
+sheffield, newcastle, brighton, cardiff, belfast, nottingham, leicester,
+coventry, hull, bradford, stoke, derby, southampton, portsmouth, oxford,
+cambridge, exeter, york, bath, reading, milton keynes, norwich, ipswich,
+peterborough, worcester, gloucester, swindon, middlesbrough, sunderland,
+bolton, wigan, blackpool, preston, blackburn, wolverhampton, swansea,
+dundee, aberdeen, inverness, stirling, perth, east midlands, west midlands,
+west yorkshire, south yorkshire, north yorkshire, east yorkshire,
+greater manchester, merseyside, tyne and wear, kent, surrey, essex,
+hertfordshire, buckinghamshire, oxfordshire, berkshire, hampshire, dorset,
+somerset, cornwall, devon, suffolk, norfolk, lincolnshire, cheshire
+
+====================================================
+CHANGELOG
+====================================================
+v1 — Original
+v2 — Improved field definitions, structured workHistory output,
+     tightened title and bio rules, removed non-events-industry fallback
+     keywords, extended location and certification lists, added
+     workHistory as structured array, clarified skills vs certifications
+     separation, added output example with realistic events industry data.
+====================================================

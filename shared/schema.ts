@@ -79,6 +79,7 @@ export const freelancer_profiles = pgTable(
     cv_file_type: text("cv_file_type"),
     cv_file_size: integer("cv_file_size"),
     reference_token: text("reference_token"), // UUID for public reference request link
+    slug: text("slug"), // SEO-friendly URL slug e.g. james-harris-sound-engineer
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -102,6 +103,7 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
   website_url: text("website_url"),
   linkedin_url: text("linkedin_url"),
   company_logo_url: text("company_logo_url"), // No character limit for base64 image data
+  slug: text("slug"), // SEO-friendly URL slug e.g. live-nation
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -131,6 +133,7 @@ export const jobs = pgTable("jobs", {
   external_source: text("external_source").$type<"reed" | "adzuna" | null>(), // Source of external job
   external_url: text("external_url"), // URL to original job posting
   posted_date: text("posted_date"), // Original posting date from external source
+  slug: text("slug"), // SEO-friendly URL slug e.g. sound-engineer-london-4821
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

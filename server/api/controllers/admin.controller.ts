@@ -779,3 +779,61 @@ export async function exportAdminCSV(req: Request, res: Response) {
     res.status(500).json({ error: "Internal server error" });
   }
 }
+
+// Send bulk in-app messages to filtered users (admin only)
+export async function sendBulkMessages(req: Request, res: Response) {
+  try {
+    const adminUser = (req as any).user;
+    if (!adminUser) return res.status(401).json({ error: "Not authenticated" });
+
+    const { message, filters } = req.body;
+    if (!message || typeof message !== "string" || message.trim().length === 0) {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
+    const search = filters?.search || undefined;
+    const role = filters?.role && filters.role !== "all" ? filters.role : undefined;
+    const status = filters?.status && filters.status !== "all" ? filters.status : undefined;
+    const profileStatus = filters?.profileStatus && filters.profileStatus !== "all" ? filters.profileStatus : undefined;
+
+    // Fetch all matching users (no pagination cap)
+    const { users } = await storage.getAllUsers(1, 100000, search, role, status, "created_at", "desc", profileStatus);
+
+    // Never message admins or the sender
+    const recipients = users.filter(u => u.id !== adminUser.id && u.role !== "admin");
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const recipient of recipients) {
+      try {
+        const conversation = await storage.getOrCreateConversation(adminUser.id, recipient.id);
+        await storage.sendMessage({
+          conversation_id: conversation.id,
+          sender_id: adminUser.id,
+          content: message.trim(),
+          is_system: false,
+        });
+
+        await storage.createNotification({
+          user_id: recipient.id,
+          type: "new_message",
+          title: "New Message",
+          message: `You have a new message from EventLink`,
+          data: JSON.stringify({ conversation_id: conversation.id }),
+        });
+
+        sent++;
+      } catch (err) {
+        console.error(`Bulk message: failed for user ${recipient.id}:`, err);
+        failed++;
+      }
+    }
+
+    console.log(`📨 Bulk message sent by admin ${adminUser.id}: ${sent} sent, ${failed} failed`);
+    res.json({ sent, failed, total: recipients.length });
+  } catch (error) {
+    console.error("Bulk message error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
