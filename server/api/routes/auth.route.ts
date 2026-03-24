@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import passport from "passport";
 import {
@@ -22,6 +22,8 @@ import {
 } from "../controllers/auth.controller";
 import { authenticateJWT, getOAuthConfig, handleOAuthError } from "../middleware/auth.middleware";
 import { sanitizeAuthInput } from "../middleware/sanitize-auth.middleware";
+import { storage } from "../../storage";
+import { generateJWTToken } from "../utils/auth.util";
 
 export function registerAuthRoutes(app: Express) {
   // Reasonable rate limiting for password operations
@@ -132,4 +134,19 @@ export function registerAuthRoutes(app: Express) {
 
   // Admin diagnostics endpoint
   app.get("/api/admin/diagnostics", getAdminDiagnostics);
+
+  // Dev-only: auto-login as admin (never active in production)
+  if (process.env.NODE_ENV === "development") {
+    app.get("/api/auth/dev-admin-login", async (_req: Request, res: Response) => {
+      try {
+        const admins = await storage.getAdminUsers();
+        const admin = admins.find(u => u.role === "admin");
+        if (!admin) return res.status(404).json({ error: "No admin user found" });
+        const token = generateJWTToken(admin);
+        res.json({ token, user: { id: admin.id, email: admin.email, role: admin.role, first_name: admin.first_name, last_name: admin.last_name } });
+      } catch (err) {
+        res.status(500).json({ error: "Dev login failed" });
+      }
+    });
+  }
 }

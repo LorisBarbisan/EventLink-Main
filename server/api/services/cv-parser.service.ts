@@ -3,6 +3,13 @@ import OpenAI from "openai";
 import { storage } from "../../storage";
 import { ObjectStorageService } from "../utils/object-storage";
 
+export interface WorkHistoryEntry {
+  title?: string;
+  company?: string;
+  dates?: string;
+  description?: string;
+}
+
 export interface ParsedCVData {
   fullName?: string;
   title?: string;
@@ -11,7 +18,7 @@ export interface ParsedCVData {
   location?: string;
   experienceYears?: number;
   education?: string;
-  workHistory?: string;
+  workHistory?: WorkHistoryEntry[];
   certifications?: string[];
 }
 
@@ -27,38 +34,71 @@ function getOpenAIClient(): OpenAI {
   return openaiClient;
 }
 
+// ── Fallback rule-based keyword lists (event industry only) ──────────────────
+
 const SKILL_KEYWORDS = [
-  "javascript", "typescript", "python", "java", "react", "node", "nodejs", "sql",
-  "html", "css", "vue", "angular", "aws", "azure", "docker", "kubernetes",
-  "git", "agile", "scrum", "project management", "communication", "leadership",
-  "video production", "audio", "lighting", "stage management", "event management",
-  "camera operator", "vmix", "obs", "streaming", "broadcast", "technical director",
-  "av technician", "sound engineer", "lighting designer", "stage hand", "rigger",
-  "production assistant", "runner", "coordinator", "live events", "festival",
-  "conference", "exhibition", "weddings", "concerts",
-  "powerpoint", "excel", "word", "photoshop", "premiere", "after effects",
-  "final cut", "davinci resolve", "ableton", "pro tools", "logic pro",
-  "first aid", "driving license", "forklift", "scissor lift", "cherry picker",
-  "health and safety", "risk assessment", "crowd management", "security",
+  "audio", "lighting", "video", "staging", "rigging", "av", "audio visual", "sound", "broadcast",
+  "streaming", "live events", "festival", "conference", "exhibition", "concert", "touring",
+  "production", "technical", "stage", "crew", "runner", "coordinator",
+  "vmix", "obs", "resolume", "watchout", "disguise", "notch", "d3", "catalyst", "pandoras box",
+  "barco", "christie", "nec", "panasonic", "epson", "jvc", "sony", "blackmagic", "atem",
+  "digico", "yamaha", "midas", "allen & heath", "soundcraft", "avid", "venue",
+  "ssl", "neve", "pro tools", "reaper", "ableton", "logic pro", "qlab",
+  "grandma", "ma2", "ma3", "etc eos", "chamsys", "hog", "pearl", "strand",
+  "genelec", "meyer sound", "d&b", "l-acoustics", "turbosound", "nexo",
+  "dante", "milan", "ava", "audinate",
+  "comms", "clearcom", "riedel", "bolero", "telex",
+  "chain hoist", "manual hoist", "truss", "prolyte", "tomcat",
+  "led wall", "led screen", "pixel pitch", "led processor", "nova star", "brompton",
+  "camera", "ptz", "jib", "steadicam", "drone", "evs", "replay", "graphics",
+  "powerpoint", "keynote", "google slides",
+  "event management", "project management", "production management",
+  "health and safety", "risk assessment", "method statement",
+  "driving licence", "forklift", "scissor lift", "cherry picker",
+  "autocad", "vectorworks", "sketchup", "wysiwyg", "capture", "depence",
+  "stage management", "technical director", "av technician", "sound engineer",
+  "lighting designer", "video technician", "camera operator",
 ];
 
 const CERTIFICATION_KEYWORDS = [
-  "ipaf", "pasma", "iosh", "nebosh", "cscs", "sia", "first aid", "bs7909",
-  "pli", "public liability", "professional indemnity", "btec", "nvq", "hnd",
-  "degree", "masters", "mba", "phd", "diploma", "certificate", "certified",
-  "licensed", "qualified", "accredited", "training", "course",
+  "ipaf", "pasma", "iosh", "nebosh", "cscs", "sia", "sia licence", "dbs", "dbs basic", "dbs enhanced",
+  "first aid", "first aid at work", "emergency first aid", "efaw", "faw",
+  "bs7909", "pli", "public liability", "professional indemnity",
+  "dante certification", "dante level 1", "dante level 2", "dante level 3",
+  "eal", "city & guilds", "btec", "nvq", "hnd", "degree", "masters", "phd", "diploma",
+  "certificate", "certified", "licensed", "qualified", "accredited",
+  "full uk driving licence", "category b", "category c",
+  "scissor lift licence", "forklift licence", "cherry picker licence",
 ];
 
 const EDUCATION_KEYWORDS = [
   "university", "college", "school", "degree", "bachelor", "master", "phd",
   "diploma", "certificate", "btec", "nvq", "a-level", "gcse", "education",
-  "studied", "graduated", "qualification",
+  "studied", "graduated", "qualification", "conservatoire", "academy",
+  "institute", "foundation", "higher national",
 ];
 
 const LOCATION_PATTERNS = [
-  /(?:based in|located in|location[:\s]+|lives? in|from)\s*([A-Za-z\s,]+)/gi,
-  /([A-Za-z]+(?:\s+[A-Za-z]+)?),?\s*(?:UK|United Kingdom|England|Scotland|Wales)/gi,
+  /(?:based in|located in|location[:\s]+|lives? in|from|residing in)\s*([A-Za-z][A-Za-z\s,]{2,30})/gi,
+  /([A-Za-z]+(?:[\s-][A-Za-z]+)?),?\s*(?:UK|United Kingdom|England|Scotland|Wales|Northern Ireland)/gi,
 ];
+
+const UK_CITIES = [
+  "london", "manchester", "birmingham", "leeds", "glasgow", "edinburgh", "liverpool", "bristol",
+  "sheffield", "newcastle", "brighton", "cardiff", "belfast", "nottingham", "leicester",
+  "coventry", "hull", "bradford", "stoke", "derby", "southampton", "portsmouth", "oxford",
+  "cambridge", "exeter", "york", "bath", "reading", "milton keynes", "norwich", "ipswich",
+  "peterborough", "worcester", "gloucester", "swindon", "middlesbrough", "sunderland",
+  "bolton", "wigan", "blackpool", "preston", "blackburn", "wolverhampton", "swansea",
+  "dundee", "aberdeen", "inverness", "stirling", "perth",
+  "east midlands", "west midlands", "west yorkshire", "south yorkshire", "north yorkshire",
+  "east yorkshire", "greater manchester", "merseyside", "tyne and wear",
+  "kent", "surrey", "essex", "hertfordshire", "buckinghamshire", "oxfordshire",
+  "berkshire", "hampshire", "dorset", "somerset", "cornwall", "devon",
+  "suffolk", "norfolk", "lincolnshire", "cheshire",
+];
+
+// ── CVParserService ───────────────────────────────────────────────────────────
 
 export class CVParserService {
   async initParsingStatus(userId: number, cvFileUrl: string): Promise<void> {
@@ -70,7 +110,6 @@ export class CVParserService {
     console.log(`🔍 Starting CV parsing for user ${userId}, file: ${cvFileUrl}`);
 
     try {
-
       const text = await this.extractTextFromCV(cvFileUrl);
       console.log(`📄 Extracted ${text.length} characters from CV`);
       console.log(`📄 CV text preview (first 500 chars): ${text.substring(0, 500)}`);
@@ -124,34 +163,152 @@ export class CVParserService {
     }
   }
 
+  // ── AI extraction ───────────────────────────────────────────────────────────
+
   private async extractWithAI(text: string): Promise<ParsedCVData> {
     if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY || !process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
       throw new Error("OpenAI integration not configured");
     }
 
-    const prompt = `Extract structured data from this CV. Return a JSON object.
+    const systemMessage = `You are a structured data extractor specialising in event industry CVs. Your only job is to read a CV and return a JSON object containing specific fields. You follow rules exactly.
 
-STRICT RULES — violating any of these makes the output useless:
+Core behaviour rules — read these before anything else:
+- Return ONLY data that is explicitly written in the CV. Never infer, guess, or fabricate.
+- If a field's data is absent, ambiguous, or you are not fully confident: OMIT the field entirely. An omitted field is always better than a wrong one.
+- Do not paraphrase, reword, or improve any text you copy from the CV.
+- Return valid JSON only. No markdown, no code fences, no explanation text.`;
 
-1. "fullName": The person's full name. Usually the first line or largest text in the CV. Must be 1-4 words, just a name (e.g. "John Smith", "Fabrizio Barbisan"). If unclear, omit.
+    const prompt = `Extract structured data from this CV. Return a JSON object using only the fields defined below.
 
-2. "title": Their professional job title — a SHORT label like "AV Technician", "Sound Engineer", "Event Manager", "FOH Engineer", "Stage Manager". This is NOT a sentence or description. Maximum 6 words. Look near the top of the CV or in the first line of their profile summary. BAD examples to avoid: "in the planning and execution of high-profile events" (this is a sentence, not a title). GOOD examples: "AV Technician & FOH Engineer", "Senior Event Producer", "Lighting Designer".
+Read the ENTIRE CV before extracting. Skills and certifications may appear anywhere in the document.
 
-3. "skills": Array of individual skills, tools, software, and equipment mentioned. Each skill should be 1-3 words. Include brand names (DiGiCo, Yamaha, vMix, etc.). Extract ALL skills from the entire CV — be comprehensive.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIELD DEFINITIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-4. "bio": The person's profile summary or about section, copied exactly as written. If no such section exists, omit entirely. Do NOT write your own summary.
+1. "fullName"
+   The person's full name as written on the CV.
+   - Usually the first prominent line or heading
+   - Return as written — do not reorder or alter
+   - 1 to 4 words only
+   - OMIT if you cannot identify a clear personal name
 
-5. "location": A real city, region, or country name explicitly mentioned as where they are based. Must be a proper place name like "Glasgow", "Manchester", "London, UK". NOT descriptions like "a single region" or "UK and Europe". Omit if no specific base location is stated.
+2. "title"
+   Their primary professional job title — a SHORT label only.
+   - Maximum 6 words
+   - Must read like a job title, not a sentence or description
+   - Look for it: near the top of the CV, below the name, or at the start of a profile summary
+   - If multiple titles are present, pick the most senior or most recent one
+   - Capitalise each main word (title case)
 
-6. "experienceYears": A number, ONLY if the CV explicitly says something like "5+ years experience" or "10 years in the industry". Do NOT count or calculate from work history dates. Omit if not explicitly stated.
+   GOOD examples (use these as the standard):
+     "AV Technician"
+     "Freelance Sound Engineer"
+     "Senior Event Producer"
+     "FOH Engineer & Lighting Designer"
+     "Technical Director"
+     "Stage Manager"
 
-7. "education": Education details copied from the CV. Omit if none found.
+   BAD examples (never return these):
+     "in the planning and execution of high-profile events"  ← sentence fragment
+     "Experienced professional with 10 years"               ← description
+     "Audio, Visual, and Technical Event Production"        ← list masquerading as title
+     "Freelance"                                            ← too vague, not a title
+     "Events"                                               ← too vague, not a title
 
-8. "workHistory": Work experience entries. Include job titles, companies, and dates. Copy from the CV text.
+   OMIT if no clear title exists.
 
-9. "certifications": Array of certifications and qualifications (e.g. "Dante Certification", "IPAF", "First Aid", "BS7909"). Omit if none found.
+3. "skills"
+   A flat array of individual skills, tools, equipment, and software mentioned anywhere in the CV.
+   - Each item: 1 to 4 words maximum
+   - Use consistent title case (e.g. "Pro Tools", "DiGiCo SD7", "Stage Management")
+   - Include brand names and model numbers where they add useful context (e.g. "Allen & Heath dLive", "Barco E2")
+   - Include soft skills only if explicitly listed in a skills section (e.g. "Team Leadership") — do not infer them from job descriptions
+   - Remove duplicates — do not list the same skill twice with different capitalisation
+   - Do NOT include certifications here — those go in "certifications"
+   - OMIT the field if no skills are found
 
-IMPORTANT: If you cannot find clear data for a field, DO NOT include it. Never make up content. Return only fields you are confident about.
+4. "bio"
+   The person's own written profile summary, personal statement, or about section.
+   - Copy the text EXACTLY as written — do not edit, summarise, or clean it up
+   - This section is usually labelled: "Profile", "About", "Summary", "Personal Statement", "About Me"
+   - If no clearly labelled or clearly distinct profile summary exists: OMIT entirely
+   - Do NOT construct a bio from other sections of the CV
+   - Do NOT copy job descriptions, skills lists, or education as the bio
+
+5. "location"
+   Where the person is based, as stated in the CV.
+   - Must be a real, specific place name: city, town, or region
+   - Acceptable formats: "Glasgow", "Manchester", "London, UK", "West Yorkshire"
+   - Maximum 5 words
+
+   OMIT if any of the following apply:
+   - No specific place name is mentioned
+   - The text describes availability rather than location (e.g. "available UK-wide", "happy to travel")
+   - The value is vague (e.g. "UK and Europe", "nationwide", "various locations", "remote")
+
+6. "experienceYears"
+   Total years of experience — as a number only.
+   - Include ONLY if the CV explicitly states a figure, e.g. "8 years experience", "over 10 years in the industry"
+   - Do NOT calculate or estimate from work history dates
+   - Do NOT include if phrased as a range without a clear minimum (e.g. "several years")
+   - OMIT if not explicitly stated
+
+7. "education"
+   Education history as it appears in the CV.
+   - Copy from the CV as structured text: qualification, institution, dates (where given)
+   - If multiple entries: separate with a line break or list them in order
+   - OMIT if no education section or entries are present
+
+8. "workHistory"
+   Work experience entries as they appear in the CV.
+   Return as an array of objects, each with:
+     - "title": job title at that role
+     - "company": employer or client name
+     - "dates": date range as written (e.g. "Jan 2021 – Mar 2023", "2019 – Present")
+     - "description": brief description or responsibilities if present (copy from CV, do not summarise)
+   Omit any sub-field (title, company, dates, description) if not present for that entry.
+   OMIT the entire field if no work history is found.
+
+9. "certifications"
+   Array of formal certifications, licences, and qualifications found anywhere in the CV.
+   - Include: IPAF, PASMA, SIA, DBS, BS7909, First Aid, IOSH, NEBOSH, Dante Level 1/2/3, EAL, City & Guilds, BTEC, NVQ, HND, driving licences (specify class if stated), and similar
+   - Do NOT include general skills or tools here — only formal qualifications
+   - Do NOT duplicate entries already in "education"
+   - Each item: copy the certification name as written, keeping abbreviations (e.g. "IPAF Licence", "DBS Enhanced")
+   - OMIT if none found
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT FORMAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Return a single valid JSON object. No wrapping text, no markdown, no code fences.
+Include only fields you are confident about. Omit the rest.
+
+{
+  "fullName": "Sarah Okonkwo",
+  "title": "Freelance Lighting Technician",
+  "skills": ["ETC Eos", "MA2", "Strand 500", "Rigging", "Cable Management", "Team Leadership"],
+  "bio": "Freelance lighting technician with extensive experience across live music, corporate events, and theatre. Comfortable in both touring and one-off event environments.",
+  "location": "Bristol",
+  "experienceYears": 7,
+  "education": "BTEC Level 3 Diploma in Performing Arts — City of Bristol College, 2015",
+  "workHistory": [
+    {
+      "title": "Lighting Technician",
+      "company": "XYZ Productions",
+      "dates": "2019 – Present",
+      "description": "Programmed and operated ETC Eos for touring and festival shows. Responsible for rig inspection and safety checks."
+    },
+    {
+      "title": "Lighting Operator",
+      "company": "The Fleece, Bristol",
+      "dates": "2016 – 2019",
+      "description": "House lighting operator for all live events at 400-capacity venue."
+    }
+  ],
+  "certifications": ["IPAF Licence", "First Aid at Work", "EAL Level 2 Rigging"]
+}
 
 CV TEXT:
 ${text.substring(0, 12000)}`;
@@ -159,11 +316,8 @@ ${text.substring(0, 12000)}`;
     const response = await getOpenAIClient().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        {
-          role: "system",
-          content: "You extract structured data from CV documents. You return ONLY information explicitly present in the text. You never guess or fabricate. For the title field, return only a short job title (1-6 words), never a sentence. For location, return only a real place name. Omit any field you are not confident about."
-        },
-        { role: "user", content: prompt }
+        { role: "system", content: systemMessage },
+        { role: "user", content: prompt },
       ],
       response_format: { type: "json_object" },
       max_completion_tokens: 2048,
@@ -179,28 +333,41 @@ ${text.substring(0, 12000)}`;
 
     const parsed = JSON.parse(content);
 
+    // ── Post-processing validation ───────────────────────────────────────────
+
+    const JUNK_VALUES = new Set([
+      "n/a", "not specified", "unknown", "not found", "none", "not available",
+      "not provided", "not mentioned", "omitted", "no information", "no data",
+      "not stated", "not given", "not applicable",
+    ]);
+
     const cleanString = (val: any): string | undefined => {
       if (!val || typeof val !== "string") return undefined;
       const trimmed = val.trim();
       if (trimmed.length === 0) return undefined;
-      const junkValues = ["n/a", "not specified", "unknown", "not found", "none", "not available", "not provided", "not mentioned", "omitted"];
-      if (junkValues.includes(trimmed.toLowerCase())) return undefined;
+      if (JUNK_VALUES.has(trimmed.toLowerCase())) return undefined;
       return trimmed;
     };
 
     const cleanTitle = (val: any): string | undefined => {
       const title = cleanString(val);
       if (!title) return undefined;
+      if (title.length > 60) {
+        console.log(`🤖 Title rejected (too long): "${title}"`);
+        return undefined;
+      }
       if (title.split(/\s+/).length > 8) {
-        console.log(`🤖 Title rejected (too long, likely a sentence): "${title}"`);
+        console.log(`🤖 Title rejected (too many words): "${title}"`);
         return undefined;
       }
-      if (/^(in |for |the |a |an |this |with |and |to |of )/i.test(title)) {
-        console.log(`🤖 Title rejected (starts like a sentence fragment): "${title}"`);
+      const badPrefixes = ["in ", "for ", "the ", "a ", "an ", "this ", "with ", "and ", "to ", "of ",
+        "experienced", "passionate", "dedicated", "skilled", "qualified"];
+      if (badPrefixes.some(p => title.toLowerCase().startsWith(p))) {
+        console.log(`🤖 Title rejected (bad prefix): "${title}"`);
         return undefined;
       }
-      if (title.includes(",") && title.split(",").length > 3) {
-        console.log(`🤖 Title rejected (too many commas, likely a list): "${title}"`);
+      if ((title.match(/,/g) || []).length > 2) {
+        console.log(`🤖 Title rejected (too many commas): "${title}"`);
         return undefined;
       }
       return title;
@@ -209,8 +376,12 @@ ${text.substring(0, 12000)}`;
     const cleanLocation = (val: any): string | undefined => {
       const loc = cleanString(val);
       if (!loc) return undefined;
-      const fakeLocations = ["a single region", "single region", "multiple locations", "various locations", "uk and europe", "across the uk", "nationwide", "remote", "freelance"];
-      if (fakeLocations.includes(loc.toLowerCase())) {
+      const fakeLocations = new Set([
+        "a single region", "single region", "multiple locations", "various locations",
+        "uk and europe", "across the uk", "nationwide", "remote", "freelance",
+        "available", "willing to travel", "uk wide", "uk-wide", "flexible",
+      ]);
+      if (fakeLocations.has(loc.toLowerCase())) {
         console.log(`🤖 Location rejected (not a real place): "${loc}"`);
         return undefined;
       }
@@ -221,39 +392,81 @@ ${text.substring(0, 12000)}`;
       return loc;
     };
 
+    const cleanSkills = (val: any): string[] | undefined => {
+      if (!Array.isArray(val) || val.length === 0) return undefined;
+      const seen = new Set<string>();
+      const result: string[] = [];
+      for (const s of val) {
+        if (typeof s !== "string") continue;
+        const trimmed = s.trim();
+        if (trimmed.length === 0 || trimmed.length > 40) continue;
+        const key = trimmed.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        result.push(trimmed);
+      }
+      return result.length > 0 ? result : undefined;
+    };
+
+    const cleanWorkHistory = (val: any): WorkHistoryEntry[] | undefined => {
+      if (!Array.isArray(val) || val.length === 0) return undefined;
+      const result: WorkHistoryEntry[] = [];
+      for (const entry of val) {
+        if (typeof entry !== "object" || entry === null) continue;
+        const item: WorkHistoryEntry = {};
+        if (entry.title && typeof entry.title === "string") item.title = entry.title.trim();
+        if (entry.company && typeof entry.company === "string") item.company = entry.company.trim();
+        if (entry.dates && typeof entry.dates === "string") item.dates = entry.dates.trim();
+        if (entry.description && typeof entry.description === "string") item.description = entry.description.trim();
+        if (Object.keys(item).length > 0) result.push(item);
+      }
+      return result.length > 0 ? result : undefined;
+    };
+
     const result: ParsedCVData = {
       fullName: cleanString(parsed.fullName),
       title: cleanTitle(parsed.title),
-      skills: Array.isArray(parsed.skills) && parsed.skills.length > 0 ? parsed.skills.filter((s: any) => typeof s === "string" && s.trim().length > 0).map((s: string) => s.trim()) : undefined,
+      skills: cleanSkills(parsed.skills),
       bio: cleanString(parsed.bio),
       location: cleanLocation(parsed.location),
-      experienceYears: typeof parsed.experienceYears === "number" && parsed.experienceYears >= 1 && parsed.experienceYears <= 50 ? parsed.experienceYears : undefined,
+      experienceYears:
+        typeof parsed.experienceYears === "number" &&
+        Number.isInteger(parsed.experienceYears) &&
+        parsed.experienceYears >= 1 &&
+        parsed.experienceYears <= 50
+          ? parsed.experienceYears
+          : undefined,
       education: cleanString(parsed.education),
-      workHistory: cleanString(parsed.workHistory),
-      certifications: Array.isArray(parsed.certifications) && parsed.certifications.length > 0 ? parsed.certifications.filter((c: any) => typeof c === "string" && c.trim().length > 0).map((c: string) => c.trim()) : undefined,
+      workHistory: cleanWorkHistory(parsed.workHistory),
+      certifications: Array.isArray(parsed.certifications)
+        ? parsed.certifications
+            .filter((c: any) => typeof c === "string" && c.trim().length > 0)
+            .map((c: string) => c.trim())
+        : undefined,
     };
 
     console.log(`🤖 Parsed fields: ${Object.keys(result).filter(k => (result as any)[k] !== undefined).join(", ")}`);
     return result;
   }
 
+  // ── Text extraction from PDF ────────────────────────────────────────────────
+
   private async extractTextFromCV(cvFileUrl: string): Promise<string> {
     const objectStorageService = new ObjectStorageService();
-    
-    // Use ObjectStorageService.getCVFile for production-safe file access
+
     const file = await objectStorageService.getCVFile(cvFileUrl);
     const [buffer] = await file.download();
     console.log(`📥 Downloaded CV file: ${buffer.length} bytes`);
 
-    // PDFParse constructor takes options including data as Uint8Array
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
     await (parser as any).load();
     const result = await parser.getText();
-    // getText() returns an object with .text property containing all page text
     const text = typeof result === "string" ? result : (result?.text || JSON.stringify(result));
     console.log(`📄 PDF text extracted: ${text.length} characters`);
     return text;
   }
+
+  // ── Rule-based fallback ─────────────────────────────────────────────────────
 
   private extractStructuredData(text: string): ParsedCVData {
     const normalizedText = text.toLowerCase();
@@ -276,13 +489,11 @@ ${text.substring(0, 12000)}`;
     for (let i = 0; i < Math.min(5, lines.length); i++) {
       const line = lines[i].trim();
       if (line.length < 3 || line.length > 50) continue;
-      if (/^[a-z]/i.test(line) && !line.includes("@") && !line.includes("http")) {
+      if (!line.includes("@") && !line.includes("http")) {
         const words = line.split(/\s+/);
         if (words.length >= 2 && words.length <= 4) {
           const allCapitalized = words.every(w => /^[A-Z]/.test(w));
-          if (allCapitalized) {
-            return line;
-          }
+          if (allCapitalized) return line;
         }
       }
     }
@@ -297,18 +508,17 @@ ${text.substring(0, 12000)}`;
 
     for (const pattern of titlePatterns) {
       const match = normalizedText.match(pattern);
-      if (match && match[1]) {
-        return match[1].trim().slice(0, 100);
-      }
+      if (match && match[1]) return match[1].trim().slice(0, 60);
     }
 
+    const jobTitleWords = [
+      "manager", "engineer", "developer", "coordinator", "technician", "operator",
+      "designer", "producer", "director", "assistant", "specialist",
+    ];
     for (let i = 1; i < Math.min(8, lines.length); i++) {
       const line = lines[i].trim();
       if (line.length >= 5 && line.length <= 60 && !line.includes("@")) {
-        const jobTitleWords = ["manager", "engineer", "developer", "coordinator", "technician", "operator", "designer", "producer", "director", "assistant", "specialist"];
-        if (jobTitleWords.some(w => line.toLowerCase().includes(w))) {
-          return line;
-        }
+        if (jobTitleWords.some(w => line.toLowerCase().includes(w))) return line;
       }
     }
 
@@ -317,35 +527,31 @@ ${text.substring(0, 12000)}`;
 
   private extractSkills(normalizedText: string): string[] {
     const foundSkills: string[] = [];
+    const seen = new Set<string>();
 
     for (const skill of SKILL_KEYWORDS) {
       const regex = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
       if (regex.test(normalizedText)) {
-        const formattedSkill = skill.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-        if (!foundSkills.includes(formattedSkill)) {
-          foundSkills.push(formattedSkill);
+        const formatted = skill.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        const key = formatted.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          foundSkills.push(formatted);
         }
       }
     }
 
-    return foundSkills.slice(0, 20);
+    return foundSkills.slice(0, 25);
   }
 
   private extractBio(text: string): string | undefined {
-    const bioPatterns = [
-      /(?:profile|summary|about me|personal statement|objective)[:\s]*\n?([^]*?)(?=\n\s*(?:experience|education|skills|employment|work history|qualifications|certifications)|$)/i,
-    ];
-
-    for (const pattern of bioPatterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        const bio = match[1].trim().replace(/\s+/g, " ");
-        if (bio.length >= 20 && bio.length <= 1000) {
-          return bio.slice(0, 500);
-        }
-      }
+    const bioPattern =
+      /(?:profile|summary|about me|personal statement|objective)[:\s]*\n?([^]*?)(?=\n\s*(?:experience|education|skills|employment|work history|qualifications|certifications)|$)/i;
+    const match = text.match(bioPattern);
+    if (match && match[1]) {
+      const bio = match[1].trim().replace(/\s+/g, " ");
+      if (bio.length >= 20 && bio.length <= 1000) return bio.slice(0, 500);
     }
-
     return undefined;
   }
 
@@ -355,17 +561,14 @@ ${text.substring(0, 12000)}`;
       const match = pattern.exec(text);
       if (match && match[1]) {
         const location = match[1].trim();
-        if (location.length >= 2 && location.length <= 100) {
-          return location;
-        }
+        if (location.length >= 2 && location.length <= 50) return location;
       }
     }
 
-    const ukCities = ["london", "manchester", "birmingham", "leeds", "glasgow", "edinburgh", "liverpool", "bristol", "sheffield", "newcastle", "brighton", "cardiff", "belfast", "nottingham", "leicester"];
     const normalizedText = text.toLowerCase();
-    for (const city of ukCities) {
+    for (const city of UK_CITIES) {
       if (normalizedText.includes(city)) {
-        return city.charAt(0).toUpperCase() + city.slice(1);
+        return city.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
       }
     }
 
@@ -383,9 +586,7 @@ ${text.substring(0, 12000)}`;
       const match = normalizedText.match(pattern);
       if (match && match[1]) {
         const years = parseInt(match[1], 10);
-        if (years >= 1 && years <= 50) {
-          return years;
-        }
+        if (years >= 1 && years <= 50) return years;
       }
     }
 
@@ -399,23 +600,21 @@ ${text.substring(0, 12000)}`;
 
     if (educationSection && educationSection[1]) {
       const education = educationSection[1].trim().slice(0, 500);
-      if (education.length >= 10) {
-        return education;
-      }
+      if (education.length >= 10) return education;
     }
 
     return undefined;
   }
 
-  private extractWorkHistory(text: string): string | undefined {
+  private extractWorkHistory(text: string): WorkHistoryEntry[] | undefined {
     const workSection = text.match(
       /(?:experience|employment|work history|career history)[:\s]*\n?([^]*?)(?=\n\s*(?:education|skills|qualifications|certifications|references)|$)/i
     );
 
     if (workSection && workSection[1]) {
-      const work = workSection[1].trim().slice(0, 1000);
-      if (work.length >= 20) {
-        return work;
+      const raw = workSection[1].trim();
+      if (raw.length >= 20) {
+        return [{ description: raw.slice(0, 1000) }];
       }
     }
 
@@ -424,19 +623,27 @@ ${text.substring(0, 12000)}`;
 
   private extractCertifications(normalizedText: string): string[] {
     const foundCerts: string[] = [];
+    const seen = new Set<string>();
 
     for (const cert of CERTIFICATION_KEYWORDS) {
       const regex = new RegExp(`\\b${cert.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
       if (regex.test(normalizedText)) {
-        const formattedCert = cert.toUpperCase() === cert ? cert.toUpperCase() : cert.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-        if (!foundCerts.includes(formattedCert)) {
-          foundCerts.push(formattedCert);
+        const formatted =
+          cert.toUpperCase() === cert
+            ? cert.toUpperCase()
+            : cert.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        const key = formatted.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          foundCerts.push(formatted);
         }
       }
     }
 
-    return foundCerts.slice(0, 10);
+    return foundCerts.slice(0, 15);
   }
+
+  // ── Storage helpers ─────────────────────────────────────────────────────────
 
   private async updateParsingStatus(
     userId: number,
@@ -473,7 +680,8 @@ ${text.substring(0, 12000)}`;
       extracted_location: data.location || null,
       extracted_experience_years: data.experienceYears || null,
       extracted_education: data.education || null,
-      extracted_work_history: data.workHistory || null,
+      // workHistory is stored as a JSON string in the DB
+      extracted_work_history: data.workHistory ? JSON.stringify(data.workHistory) : null,
       extracted_certifications: data.certifications || null,
     });
   }

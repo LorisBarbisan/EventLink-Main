@@ -79,7 +79,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(null);
         }
       } else {
-        // No cached user or token - ensure clean state
+        // No cached user or token
+        // In development, auto-login as admin for convenience
+        if (import.meta.env.DEV) {
+          fetch("/api/auth/dev-admin-login")
+            .then(r => r.json())
+            .then(data => {
+              if (data.token && data.user) {
+                localStorage.setItem("auth_token", data.token);
+                localStorage.setItem("user", JSON.stringify(data.user));
+                setUser(data.user);
+                console.log("🔧 [DEV] Auto-logged in as admin:", data.user.email);
+              }
+            })
+            .catch(() => {})
+            .finally(() => setLoading(false));
+          return;
+        }
         setUser(null);
       }
       setLoading(false);

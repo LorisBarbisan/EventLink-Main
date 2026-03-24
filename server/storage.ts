@@ -134,6 +134,7 @@ export interface IStorage {
 
   // Freelancer profile management
   getFreelancerProfile(userId: number): Promise<FreelancerProfile | undefined>;
+  getFreelancerProfileBySlug(slug: string): Promise<FreelancerProfile | undefined>;
   createFreelancerProfile(profile: InsertFreelancerProfile): Promise<FreelancerProfile>;
   updateFreelancerProfile(
     userId: number,
@@ -142,11 +143,20 @@ export interface IStorage {
 
   // Recruiter profile management
   getRecruiterProfile(userId: number): Promise<RecruiterProfile | undefined>;
+  getRecruiterProfileBySlug(slug: string): Promise<RecruiterProfile | undefined>;
+  getAllRecruiterProfilesWithUser(): Promise<Array<{ profile: RecruiterProfile; user: User }>>;
   createRecruiterProfile(profile: InsertRecruiterProfile): Promise<RecruiterProfile>;
   updateRecruiterProfile(
     userId: number,
     profile: Partial<InsertRecruiterProfile>
   ): Promise<RecruiterProfile | undefined>;
+
+  // SEO slug lookups
+  getJobBySlug(slug: string): Promise<Job | undefined>;
+  getFreelancersByRole(role: string, limit?: number): Promise<FreelancerProfile[]>;
+  getFreelancersByLocation(city: string, limit?: number): Promise<FreelancerProfile[]>;
+  getJobsByRole(role: string, limit?: number): Promise<Job[]>;
+  getJobsByLocation(city: string, limit?: number): Promise<Job[]>;
 
   // Job management
   getAllJobs(): Promise<Job[]>;
@@ -846,7 +856,25 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async getFreelancerProfileBySlug(slug: string): Promise<FreelancerProfile | undefined> {
+    const result = await db
+      .select()
+      .from(freelancer_profiles)
+      .where(eq(freelancer_profiles.slug, slug))
+      .limit(1);
+    return result[0];
+  }
+
   async createFreelancerProfile(profile: InsertFreelancerProfile): Promise<FreelancerProfile> {
+    const { generateFreelancerSlug, makeFreelancerSlugUnique } = await import("./api/utils/slugify.js");
+    const baseSlug = generateFreelancerSlug(profile.first_name, profile.last_name, profile.title);
+    const slug = baseSlug
+      ? await makeFreelancerSlugUnique(baseSlug, async (s) => {
+          const existing = await db.select().from(freelancer_profiles).where(eq(freelancer_profiles.slug, s)).limit(1);
+          return existing.length > 0;
+        })
+      : null;
+
     const profileData = {
       user_id: profile.user_id,
       first_name: profile.first_name,
@@ -862,6 +890,7 @@ export class DatabaseStorage implements IStorage {
       website_url: profile.website_url,
       availability_status: profile.availability_status as "available" | "busy" | "unavailable",
       profile_photo_url: profile.profile_photo_url,
+      slug,
     };
     const result = await db.insert(freelancer_profiles).values([profileData]).returning();
     return result[0];
@@ -954,8 +983,36 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async getRecruiterProfileBySlug(slug: string): Promise<RecruiterProfile | undefined> {
+    const result = await db
+      .select()
+      .from(recruiter_profiles)
+      .where(eq(recruiter_profiles.slug, slug))
+      .limit(1);
+    return result[0];
+  }
+
+  async getAllRecruiterProfilesWithUser(): Promise<Array<{ profile: RecruiterProfile; user: User }>> {
+    const result = await db
+      .select({ profile: recruiter_profiles, user: users })
+      .from(recruiter_profiles)
+      .innerJoin(users, eq(recruiter_profiles.user_id, users.id))
+      .where(isNull(users.deleted_at));
+    return result;
+  }
+
   async createRecruiterProfile(profile: InsertRecruiterProfile): Promise<RecruiterProfile> {
-    const result = await db.insert(recruiter_profiles).values(profile).returning();
+    const { generateEmployerSlug } = await import("./api/utils/slugify.js");
+    const baseSlug = profile.company_name ? generateEmployerSlug(profile.company_name) : null;
+    let slug: string | null = null;
+    if (baseSlug) {
+      let counter = 2;
+      slug = baseSlug;
+      while ((await db.select().from(recruiter_profiles).where(eq(recruiter_profiles.slug, slug)).limit(1)).length > 0) {
+        slug = `${baseSlug}-${counter++}`;
+      }
+    }
+    const result = await db.insert(recruiter_profiles).values({ ...profile, slug } as any).returning();
     return result[0];
   }
 
@@ -1544,12 +1601,58 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async createJob(job: InsertJob): Promise<Job> {
-    const result = await db
-      .insert(jobs)
-      .values([job as any])
-      .returning();
+  async getJobBySlug(slug: string): Promise<Job | undefined> {
+    const result = await db.select().from(jobs).where(eq(jobs.slug, slug)).limit(1);
     return result[0];
+  }
+
+  async getFreelancersByRole(role: string, limit = 20): Promise<FreelancerProfile[]> {
+    const result = await db
+      .select({ fp: freelancer_profiles })
+      .from(freelancer_profiles)
+      .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
+      .where(and(ilike(freelancer_profiles.title, `%${role}%`), isNull(users.deleted_at)))
+      .limit(limit);
+    return result.map(r => r.fp);
+  }
+
+  async getFreelancersByLocation(city: string, limit = 20): Promise<FreelancerProfile[]> {
+    const result = await db
+      .select({ fp: freelancer_profiles })
+      .from(freelancer_profiles)
+      .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
+      .where(and(ilike(freelancer_profiles.location, `%${city}%`), isNull(users.deleted_at)))
+      .limit(limit);
+    return result.map(r => r.fp);
+  }
+
+  async getJobsByRole(role: string, limit = 20): Promise<Job[]> {
+    const result = await db
+      .select()
+      .from(jobs)
+      .where(and(ilike(jobs.title, `%${role}%`), eq(jobs.status, "active")))
+      .orderBy(desc(jobs.created_at))
+      .limit(limit);
+    return result;
+  }
+
+  async getJobsByLocation(city: string, limit = 20): Promise<Job[]> {
+    const result = await db
+      .select()
+      .from(jobs)
+      .where(and(ilike(jobs.location, `%${city}%`), eq(jobs.status, "active")))
+      .orderBy(desc(jobs.created_at))
+      .limit(limit);
+    return result;
+  }
+
+  async createJob(job: InsertJob): Promise<Job> {
+    const { generateJobSlug } = await import("./api/utils/slugify.js");
+    const inserted = await db.insert(jobs).values([job as any]).returning();
+    const newJob = inserted[0];
+    const slug = generateJobSlug(newJob.title, newJob.location, newJob.id);
+    const updated = await db.update(jobs).set({ slug }).where(eq(jobs.id, newJob.id)).returning();
+    return updated[0];
   }
 
   async updateJob(jobId: number, job: Partial<InsertJob>): Promise<Job | undefined> {

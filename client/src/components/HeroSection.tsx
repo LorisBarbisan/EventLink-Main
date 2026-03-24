@@ -8,7 +8,6 @@ export const HeroSection = () => {
     <section className="relative overflow-hidden bg-gradient-to-br from-background via-secondary/20 to-background">
       <div className="container mx-auto px-4 py-10 lg:py-14">
         <div className="mx-auto max-w-3xl space-y-6 text-center">
-          {/* Logo + wordmark */}
           <div className="flex items-center justify-center gap-3">
             <img
               src={eventlinkLogo}
@@ -23,21 +22,18 @@ export const HeroSection = () => {
             <span className="text-3xl font-bold text-gray-800 dark:text-gray-200">EventLink</span>
           </div>
 
-          {/* Heading */}
           <h1 className="text-4xl font-bold leading-tight lg:text-6xl">
             Connect with
             <span className="text-primary"> Technical</span>
             <span className="text-accent"> Crew</span> for Events
           </h1>
 
-          {/* Subtext */}
           <p className="text-xl leading-relaxed text-muted-foreground">
             EventLink connects top event industry professionals with companies across the UK.
-            Whether you're seeking skilled technical crew or looking for your next opportunity,
-            we make professional connections that drive successful events.
+            Whether you're seeking skilled technical crew or looking for your next opportunity, we
+            ke professional connections that drive successful events.
           </p>
 
-          {/* CTA Buttons */}
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button
               size="lg"
@@ -65,7 +61,6 @@ export const HeroSection = () => {
         </div>
       </div>
 
-      {/* Background Pattern */}
       <div className="absolute inset-0 -z-10 overflow-hidden">
         <div className="bg-gradient-accent absolute -right-1/2 -top-1/2 h-full w-full rounded-full opacity-5 blur-3xl" />
         <div className="bg-gradient-primary absolute -bottom-1/2 -left-1/2 h-full w-full rounded-full opacity-5 blur-3xl" />

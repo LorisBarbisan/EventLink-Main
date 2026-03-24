@@ -212,6 +212,10 @@ function AdminDashboardContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
+  // Bulk message state
+  const [bulkMsgOpen, setBulkMsgOpen] = useState(false);
+  const [bulkMsgText, setBulkMsgText] = useState("");
+
   // Jobs Tab State
   const [jobSearch, setJobSearch] = useState("");
   const [jobStatusFilter, setJobStatusFilter] = useState("all");
@@ -257,6 +261,25 @@ function AdminDashboardContent() {
     },
     onError: () => {
       toast({ title: "Deletion failed", description: "Failed to remove the account.", variant: "destructive" });
+    },
+  });
+
+  const bulkMessageMutation = useMutation({
+    mutationFn: async ({ message, filters }: { message: string; filters: object }) =>
+      apiRequest("/api/admin/bulk-message", {
+        method: "POST",
+        body: JSON.stringify({ message, filters }),
+      }),
+    onSuccess: (data: { sent: number; failed: number; total: number }) => {
+      setBulkMsgOpen(false);
+      setBulkMsgText("");
+      toast({
+        title: "Messages sent",
+        description: `Sent to ${data.sent} user${data.sent !== 1 ? "s" : ""}${data.failed > 0 ? ` (${data.failed} failed)` : ""}.`,
+      });
+    },
+    onError: () => {
+      toast({ title: "Failed to send", description: "Could not send bulk messages. Please try again.", variant: "destructive" });
     },
   });
 
@@ -1508,9 +1531,76 @@ function AdminDashboardContent() {
         <TabsContent value="users" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>
-                User Management {usersData?.total ? `(${usersData.total})` : ""}
-              </CardTitle>
+              <div className="flex items-center justify-between gap-4">
+                <CardTitle>
+                  User Management {usersData?.total ? `(${usersData.total})` : ""}
+                </CardTitle>
+                <Dialog open={bulkMsgOpen} onOpenChange={setBulkMsgOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="flex items-center gap-2 shrink-0">
+                      <MessageSquare className="w-4 h-4" />
+                      Send Bulk Message
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Send Bulk Message</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                      <div className="rounded-md border bg-muted/40 p-3 space-y-1 text-sm">
+                        <p className="font-medium text-muted-foreground">Recipients based on current filters:</p>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {roleFilter !== "all" && (
+                            <Badge variant="secondary">Role: {roleFilter}</Badge>
+                          )}
+                          {statusFilter !== "all" && (
+                            <Badge variant="secondary">Status: {statusFilter}</Badge>
+                          )}
+                          {profileStatusFilter !== "all" && (
+                            <Badge variant="secondary">Profile: {profileStatusFilter.replace("_", " ")}</Badge>
+                          )}
+                          {searchTerm && (
+                            <Badge variant="secondary">Search: "{searchTerm}"</Badge>
+                          )}
+                          {roleFilter === "all" && statusFilter === "all" && profileStatusFilter === "all" && !searchTerm && (
+                            <span className="text-muted-foreground">All non-admin users</span>
+                          )}
+                        </div>
+                        <p className="text-muted-foreground pt-1">
+                          Approx. <span className="font-semibold text-foreground">{usersData?.total ?? "..."}</span> user{(usersData?.total ?? 0) !== 1 ? "s" : ""} will receive this message. Admin accounts are excluded.
+                        </p>
+                      </div>
+                      <Textarea
+                        placeholder="Write your message here..."
+                        className="min-h-[140px] resize-none"
+                        value={bulkMsgText}
+                        onChange={e => setBulkMsgText(e.target.value)}
+                      />
+                      <div className="flex justify-end gap-2 pt-1">
+                        <Button variant="outline" onClick={() => { setBulkMsgOpen(false); setBulkMsgText(""); }}>
+                          Cancel
+                        </Button>
+                        <Button
+                          disabled={bulkMsgText.trim().length === 0 || bulkMessageMutation.isPending}
+                          onClick={() =>
+                            bulkMessageMutation.mutate({
+                              message: bulkMsgText,
+                              filters: {
+                                search: searchTerm || undefined,
+                                role: roleFilter,
+                                status: statusFilter,
+                                profileStatus: profileStatusFilter,
+                              },
+                            })
+                          }
+                        >
+                          {bulkMessageMutation.isPending ? "Sending..." : "Send Message"}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
             <CardContent>
               {usersLoading ? (
