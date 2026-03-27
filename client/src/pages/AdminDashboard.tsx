@@ -699,34 +699,34 @@ function AdminDashboardContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="flex items-center justify-start overflow-x-auto whitespace-nowrap p-1 scrollbar-hide">
-          <TabsTrigger value="overview" className="flex items-center gap-2 px-4">
+        <TabsList className="w-full grid grid-cols-7 p-1">
+          <TabsTrigger value="overview" className="flex items-center justify-center gap-2">
             <TrendingUp className="w-4 h-4" />
             Overview
           </TabsTrigger>
-          <TabsTrigger value="feedback" className="flex items-center gap-2 px-4">
+          <TabsTrigger value="feedback" className="flex items-center justify-center gap-2">
             <MessageSquare className="w-4 h-4" />
             Feedback
             <TabBadge count={counts.feedback} />
           </TabsTrigger>
-          <TabsTrigger value="moderation" className="flex items-center gap-2 px-4">
+          <TabsTrigger value="moderation" className="flex items-center justify-center gap-2">
             <Shield className="w-4 h-4" />
             Moderation
           </TabsTrigger>
-          <TabsTrigger value="contact" className="flex items-center gap-2 px-4">
+          <TabsTrigger value="contact" className="flex items-center justify-center gap-2">
             <Mail className="w-4 h-4" />
             Contact
             <TabBadge count={counts.contact_messages} />
           </TabsTrigger>
-          <TabsTrigger value="jobs" className="flex items-center gap-2 px-4">
+          <TabsTrigger value="jobs" className="flex items-center justify-center gap-2">
             <Briefcase className="w-4 h-4" />
             Jobs
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-2 px-4">
+          <TabsTrigger value="users" className="flex items-center justify-center gap-2">
             <Users className="w-4 h-4" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="admin-management" className="flex items-center gap-2 px-4">
+          <TabsTrigger value="admin-management" className="flex items-center justify-center gap-2">
             <UserCheck className="w-4 h-4" />
             Admin Management
           </TabsTrigger>
