@@ -1,0 +1,376 @@
+Replit Agent Prompt — Build EventLink CV Parsing Pipeline
+
+You are a senior backend architect, AI extraction engineer, and product-focused implementation lead working on EventLink.
+
+Your task is to replace the current one-shot CV parsing approach with a full multi-stage CV parsing pipeline that extracts data from uploaded freelancer CVs and populates the correct EventLink profile fields much more accurately.
+
+Goal
+
+Build a production-grade CV parsing pipeline that:
+
+extracts CV text reliably from PDF and DOC/DOCX
+detects CV sections before extracting fields
+extracts profile fields with higher accuracy
+normalises and validates extracted values
+stores suggested values separately from confirmed profile data
+presents extracted data to the freelancer for confirmation before saving
+never silently overwrites existing profile fields
+is modular, testable, and easy to improve later
+Functional Requirements
+1. Trigger
+
+When a freelancer uploads or replaces a CV:
+
+create a parsing job
+process the CV asynchronously
+do not block the rest of the profile editing flow
+2. Pipeline stages
+
+Implement the parser as a pipeline with these stages:
+
+Stage A — Document ingestion
+support PDF, DOC, DOCX
+store the uploaded CV securely
+create a parsing record with status:
+queued
+processing
+complete
+failed
+Stage B — Text extraction and cleanup
+extract raw text from PDF / DOCX
+normalise whitespace, bullet characters, line breaks
+preserve section headings and top-of-document structure where possible
+store:
+rawText
+cleanText
+lines
+Stage C — Section detection
+
+Detect and isolate likely sections:
+
+header / contact block
+profile summary / about
+skills
+work experience
+education
+certifications / qualifications
+additional information
+
+Return structured section blocks.
+
+Stage D — Field extraction
+
+Extract these fields from the most relevant sections only:
+
+fullName
+title
+location
+bio
+experienceYears
+skills[]
+certifications[]
+workHistory[]
+education[]
+Stage E — Normalisation and validation
+
+Validate and clean extracted values:
+
+deduplicate skills and certifications
+canonicalise known terms such as:
+vmix -> vMix
+foh engineer -> FOH Engineer
+reject vague or bad values
+omit low-confidence fields entirely
+Stage F — Confirmation UX data
+
+Store extracted values as suggestions, not as final profile values.
+Freelancer must review them before they are saved into the public profile.
+
+EventLink-Specific Extraction Rules
+fullName
+must be 1–4 words
+must be a person name only
+reject values containing email, phone number, address, or labels like “Curriculum Vitae”
+title
+must be a short professional title, 1–6 words
+not a sentence fragment
+should prefer event-industry roles where available
+examples:
+AV Technician
+Sound Engineer
+Event Producer
+FOH Engineer
+Lighting Technician
+vMix Operator
+location
+only if explicitly stated
+must be a real UK place name
+reject:
+UK-wide
+nationwide
+willing to travel
+UK and Europe
+experienceYears
+only if explicitly stated, such as:
+5 years
+8+ years
+over 10 years
+do not calculate from employment dates
+bio
+use exact summary text if clearly present
+do not rewrite or invent
+skills
+
+Extract all explicit tools, software, equipment, and technical methods.
+Be comprehensive but only include short items.
+
+Use EventLink domain awareness for examples such as:
+
+vMix
+QLab
+DiGiCo
+Dante
+Yamaha
+Avolites
+grandMA
+RF
+LED Walls
+Projection Mapping
+
+Reject vague traits such as:
+
+hard-working
+motivated
+team player
+experienced
+certifications
+
+Extract concise certification names only, such as:
+
+IPAF
+PASMA
+BS7909
+First Aid
+NRC
+ECS
+Working at Height
+PLI
+workHistory
+
+Return structured entries like:
+
+[
+  {
+    "jobTitle": "AV Technician",
+    "company": "Freelance",
+    "dates": "2021 - Present",
+    "details": "Delivered technical support for conferences, live events and hybrid productions."
+  }
+]
+
+Do not dump all work history into one text blob.
+
+education
+
+Return structured entries if possible:
+
+[
+  {
+    "qualification": "BA (Hons) Music Technology",
+    "institution": "University of X",
+    "dates": "2018 - 2021"
+  }
+]
+
+If structure is too unreliable, store as suggestion blocks, but prefer structured output.
+
+Architecture Requirements
+Split into services/modules
+
+Create or refactor into clear services such as:
+
+cv-upload.service
+cv-text-extraction.service
+cv-section-detection.service
+cv-field-extraction.service
+cv-normalization.service
+cv-validation.service
+cv-confirmation.service
+Database / storage design
+
+Add or adapt persistence for:
+
+cv_uploads
+cv_parse_runs
+cv_parsed_sections
+cv_parsed_fields
+cv_field_confirmations
+
+Each extracted field should support:
+
+field name
+extracted value
+confidence score
+source section
+status:
+suggested
+accepted
+rejected
+edited
+Confidence model
+
+Internally assign confidence scores per field.
+Only surface fields above sensible thresholds.
+Do not autofill weak values.
+
+Example internal structure:
+
+{
+  "title": {
+    "value": "AV Technician",
+    "confidence": 0.92,
+    "source": "headerBlock"
+  }
+}
+Prompting Strategy
+
+Do NOT use one giant prompt for everything.
+
+Instead create multiple focused AI calls:
+
+Prompt 1 — Section detection
+
+Input: cleaned CV text
+Output:
+
+headerBlock
+summaryBlock
+skillsBlock
+experienceBlock
+educationBlock
+certificationsBlock
+Prompt 2 — Identity extraction
+
+Input: headerBlock + summaryBlock
+Output:
+
+fullName
+title
+location
+bio
+experienceYears
+Prompt 3 — Skills and certifications extraction
+
+Input: skillsBlock + certificationsBlock + full CV text
+Output:
+
+skills[]
+certifications[]
+Prompt 4 — Work history extraction
+
+Input: experienceBlock
+Output:
+
+workHistory[]
+Prompt 5 — Education extraction
+
+Input: educationBlock
+Output:
+
+education[]
+
+Each prompt must:
+
+return valid JSON only
+never guess
+omit fields if unclear
+UX / Product Requirements
+Review before save
+
+After parsing completes, the freelancer must see a review screen or review section in profile editing.
+
+Group suggestions under:
+
+Basic info
+Skills
+Certifications
+Work history
+Education
+
+For each field:
+
+show extracted suggestion
+label it as “Suggested from CV”
+allow:
+accept
+edit
+reject
+No silent overwrite
+
+If the profile already has values:
+
+show current value and suggested replacement side by side
+freelancer must explicitly choose
+Re-parse on CV replacement
+
+If a new CV is uploaded:
+
+run a fresh parsing job
+do not overwrite existing confirmed profile data
+offer new suggestions for review
+Technical Constraints
+Keep the pipeline asynchronous
+Make each stage individually testable
+Log parser failures and malformed extraction
+Keep prompts and parsing logic separate from profile save logic
+Make the system easy to tune later with better prompts or external parsers
+Deliverables
+
+Implement the full pipeline and provide:
+
+Refactored service structure
+New or updated database schema
+Prompt files / prompt builders for each stage
+Background job / async processing flow
+API endpoints or service methods for:
+CV upload
+parsing status
+fetching parsed suggestions
+confirming parsed fields
+User confirmation flow in profile editing
+Tests for:
+section detection
+field extraction
+title validation
+location validation
+suggestion acceptance flow
+Non-Negotiable Quality Rules
+Never write directly from parsed output into public freelancer profile fields without confirmation
+Never guess missing data
+Never create sentence fragments as title
+Never return vague locations
+Never mix parsing logic and presentation logic in one function
+Prefer omission over bad autofill
+Implementation Order
+
+Build in this order:
+
+text extraction + cleanup
+section detection
+identity extraction
+skills/certifications extraction
+work history extraction
+normalization/validation layer
+suggestion storage
+confirmation UX
+tests and tuning
+First Step
+
+Start by:
+
+inspecting the existing server/api/services/cv-parser.service.ts
+identifying current upload flow and profile field mapping
+proposing the refactor plan
+then implementing Stage A through Stage C first before continuing
+
+Do not try to build everything in one pass. Build the pipeline incrementally and safely.

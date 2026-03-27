@@ -10,6 +10,9 @@ const selectedFieldsSchema = z.object({
   bio: z.boolean().optional().default(false),
   location: z.boolean().optional().default(false),
   experienceYears: z.boolean().optional().default(false),
+  workHistory: z.boolean().optional().default(false),
+  education: z.boolean().optional().default(false),
+  certifications: z.boolean().optional().default(false),
 });
 
 export async function triggerCVParsing(req: Request, res: Response) {
@@ -19,7 +22,6 @@ export async function triggerCVParsing(req: Request, res: Response) {
     }
 
     const userId = (req as any).user.id;
-
     const profile = await storage.getFreelancerProfile(userId);
     if (!profile || !profile.cv_file_url) {
       return res.status(404).json({ error: "No CV found to parse. Please upload a CV first." });
@@ -30,14 +32,13 @@ export async function triggerCVParsing(req: Request, res: Response) {
       return res.status(409).json({ error: "CV parsing is already in progress" });
     }
 
-    cvParserService.parseCV(userId, profile.cv_file_url).catch(err => {
+    const contentType = profile.cv_file_type || undefined;
+
+    cvParserService.parseCV(userId, profile.cv_file_url, contentType).catch(err => {
       console.error(`Background CV parsing failed for user ${userId}:`, err);
     });
 
-    res.json({
-      message: "CV parsing started",
-      status: "parsing",
-    });
+    res.json({ message: "CV parsing started", status: "parsing" });
   } catch (error) {
     console.error("Trigger CV parsing error:", error);
     res.status(500).json({ error: "Failed to start CV parsing" });
@@ -54,10 +55,22 @@ export async function getCVParsingStatus(req: Request, res: Response) {
     const parsedData = await storage.getCvParsedData(userId);
 
     if (!parsedData) {
-      return res.json({
-        status: "none",
-        message: "No CV has been parsed yet",
-      });
+      return res.json({ status: "none", message: "No CV has been parsed yet" });
+    }
+
+    let workHistory = null;
+    if (parsedData.extracted_work_history) {
+      try { workHistory = JSON.parse(parsedData.extracted_work_history); } catch {}
+    }
+
+    let education = null;
+    if (parsedData.extracted_education) {
+      try { education = JSON.parse(parsedData.extracted_education); } catch {}
+    }
+
+    let confidenceData = null;
+    if ((parsedData as any).confidence_data) {
+      try { confidenceData = JSON.parse((parsedData as any).confidence_data); } catch {}
     }
 
     res.json({
@@ -70,9 +83,10 @@ export async function getCVParsingStatus(req: Request, res: Response) {
         bio: parsedData.extracted_bio,
         location: parsedData.extracted_location,
         experienceYears: parsedData.extracted_experience_years,
-        education: parsedData.extracted_education,
-        workHistory: parsedData.extracted_work_history,
+        workHistory,
+        education,
         certifications: parsedData.extracted_certifications,
+        confidenceData,
       } : null,
       parsedAt: parsedData.parsed_at,
       confirmedAt: parsedData.confirmed_at,
@@ -98,7 +112,7 @@ export async function confirmCVData(req: Request, res: Response) {
 
     const parseResult = selectedFieldsSchema.safeParse(req.body.selectedFields);
     if (!parseResult.success) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Invalid selectedFields format",
         details: parseResult.error.errors,
       });
@@ -133,13 +147,23 @@ export async function confirmCVData(req: Request, res: Response) {
       profileUpdates.experience_years = parsedData.extracted_experience_years;
     }
 
+    if (selectedFields.workHistory && parsedData.extracted_work_history) {
+      profileUpdates.work_history = parsedData.extracted_work_history;
+    }
+
+    if (selectedFields.education && parsedData.extracted_education) {
+      profileUpdates.education_history = parsedData.extracted_education;
+    }
+
+    if (selectedFields.certifications && parsedData.extracted_certifications?.length) {
+      profileUpdates.certifications = parsedData.extracted_certifications;
+    }
+
     if (Object.keys(profileUpdates).length > 0) {
       await storage.updateFreelancerProfile(userId, profileUpdates);
     }
 
-    await storage.updateCvParsedData(userId, {
-      status: "confirmed",
-    });
+    await storage.updateCvParsedData(userId, { status: "confirmed" });
 
     const updatedProfile = await storage.getFreelancerProfile(userId);
 
@@ -167,13 +191,8 @@ export async function rejectCVData(req: Request, res: Response) {
       return res.status(400).json({ error: "No completed CV parsing to reject" });
     }
 
-    await storage.updateCvParsedData(userId, {
-      status: "rejected",
-    });
-
-    res.json({
-      message: "CV data rejected",
-    });
+    await storage.updateCvParsedData(userId, { status: "rejected" });
+    res.json({ message: "CV data rejected" });
   } catch (error) {
     console.error("Reject CV data error:", error);
     res.status(500).json({ error: "Failed to reject CV data" });
@@ -187,7 +206,6 @@ export async function reparseCV(req: Request, res: Response) {
     }
 
     const userId = (req as any).user.id;
-
     const profile = await storage.getFreelancerProfile(userId);
     if (!profile || !profile.cv_file_url) {
       return res.status(404).json({ error: "No CV found to parse. Please upload a CV first." });
@@ -200,14 +218,12 @@ export async function reparseCV(req: Request, res: Response) {
 
     await cvParserService.initParsingStatus(userId, profile.cv_file_url);
 
-    cvParserService.parseCV(userId, profile.cv_file_url).catch(err => {
+    const contentType = profile.cv_file_type || undefined;
+    cvParserService.parseCV(userId, profile.cv_file_url, contentType).catch(err => {
       console.error(`Background CV parsing failed for user ${userId}:`, err);
     });
 
-    res.json({
-      message: "CV reparsing started",
-      status: "parsing",
-    });
+    res.json({ message: "CV reparsing started", status: "parsing" });
   } catch (error) {
     console.error("Reparse CV error:", error);
     res.status(500).json({ error: "Failed to reparse CV" });

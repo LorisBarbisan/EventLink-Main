@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useWebSocket } from "@/contexts/WebSocketContext";
-import { Loader2, Sparkles, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react";
+import { Loader2, Sparkles, CheckCircle, XCircle, AlertCircle, RefreshCw, Briefcase, GraduationCap, Award } from "lucide-react";
 
 interface ConfirmedFormFields {
   first_name?: string;
@@ -26,6 +26,19 @@ interface CVParsingReviewProps {
   onFieldsConfirmed?: (fields: ConfirmedFormFields) => void;
 }
 
+interface WorkHistoryEntry {
+  jobTitle: string;
+  company?: string;
+  dates?: string;
+  details?: string;
+}
+
+interface EducationEntry {
+  qualification: string;
+  institution?: string;
+  dates?: string;
+}
+
 interface ExtractedData {
   fullName?: string;
   title?: string;
@@ -33,9 +46,10 @@ interface ExtractedData {
   bio?: string;
   location?: string;
   experienceYears?: number;
-  education?: string;
-  workHistory?: string;
+  workHistory?: WorkHistoryEntry[];
+  education?: EducationEntry[];
   certifications?: string[];
+  confidenceData?: Record<string, { confidence: number; source: string }>;
 }
 
 interface ParsingStatus {
@@ -44,6 +58,13 @@ interface ParsingStatus {
   extractedData?: ExtractedData;
   parsedAt?: string;
   confirmedAt?: string;
+}
+
+function ConfidenceBadge({ confidence }: { confidence?: number }) {
+  if (confidence == null) return null;
+  const pct = Math.round(confidence * 100);
+  const color = pct >= 85 ? "text-green-600" : pct >= 70 ? "text-yellow-600" : "text-orange-500";
+  return <span className={`text-xs font-medium ${color}`}>{pct}% match</span>;
 }
 
 export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsingReviewProps) {
@@ -57,21 +78,26 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     bio: true,
     location: true,
     experienceYears: true,
+    workHistory: true,
+    education: true,
+    certifications: true,
   });
 
   const { data: parsingStatus, isLoading, refetch } = useQuery<ParsingStatus>({
     queryKey: ["/api/cv/parse/status"],
     refetchInterval: (query) => {
       const data = query.state.data as ParsingStatus | undefined;
-      if (data?.status === "parsing" || data?.status === "pending") {
-        return 3000;
-      }
+      if (data?.status === "parsing" || data?.status === "pending") return 3000;
       return false;
     },
   });
 
   useEffect(() => {
-    if (parsingStatus?.status === "parsing" || parsingStatus?.status === "pending" || parsingStatus?.status === "completed") {
+    if (
+      parsingStatus?.status === "parsing" ||
+      parsingStatus?.status === "pending" ||
+      parsingStatus?.status === "completed"
+    ) {
       setDismissed(false);
     }
   }, [parsingStatus?.status]);
@@ -145,17 +171,10 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   });
 
   const rejectMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("/api/cv/parse/reject", {
-        method: "POST",
-      });
-    },
+    mutationFn: async () => apiRequest("/api/cv/parse/reject", { method: "POST" }),
     onSuccess: () => {
       setDismissed(true);
-      toast({
-        title: "Suggestions dismissed",
-        description: "You can always edit your profile manually.",
-      });
+      toast({ title: "Suggestions dismissed", description: "You can always edit your profile manually." });
       queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
     },
     onError: (error) => {
@@ -168,16 +187,9 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   });
 
   const reparseMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("/api/cv/reparse", {
-        method: "POST",
-      });
-    },
+    mutationFn: async () => apiRequest("/api/cv/reparse", { method: "POST" }),
     onSuccess: () => {
-      toast({
-        title: "Re-analysing CV",
-        description: "We're extracting information from your CV again.",
-      });
+      toast({ title: "Re-analysing CV", description: "We're extracting information from your CV again." });
       queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
     },
     onError: (error) => {
@@ -203,7 +215,13 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     );
   }
 
-  if (dismissed || !parsingStatus || parsingStatus.status === "none" || parsingStatus.status === "confirmed" || parsingStatus.status === "rejected") {
+  if (
+    dismissed ||
+    !parsingStatus ||
+    parsingStatus.status === "none" ||
+    parsingStatus.status === "confirmed" ||
+    parsingStatus.status === "rejected"
+  ) {
     return null;
   }
 
@@ -216,7 +234,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             Analysing your CV...
           </CardTitle>
           <CardDescription>
-            We're extracting information from your CV to help populate your profile.
+            We're running a multi-stage analysis to extract your skills, experience, and qualifications.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -242,11 +260,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             onClick={() => reparseMutation.mutate()}
             disabled={reparseMutation.isPending}
           >
-            {reparseMutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4 mr-2" />
-            )}
+            {reparseMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
             Try Again
           </Button>
         </CardFooter>
@@ -256,11 +270,19 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
 
   if (parsingStatus.status === "completed" && parsingStatus.extractedData) {
     const data = parsingStatus.extractedData;
-    const hasAnyData = data.fullName || data.title || data.skills?.length || data.bio || data.location || data.experienceYears;
+    const conf = data.confidenceData || {};
 
-    if (!hasAnyData) {
+    const hasBasicInfo = data.fullName || data.title || data.bio || data.location || data.experienceYears;
+    const hasSkills = data.skills?.length;
+    const hasCertifications = data.certifications?.length;
+    const hasWorkHistory = data.workHistory?.length;
+    const hasEducation = data.education?.length;
+
+    if (!hasBasicInfo && !hasSkills && !hasCertifications && !hasWorkHistory && !hasEducation) {
       return null;
     }
+
+    const anySelected = Object.values(selectedFields).some(v => v);
 
     return (
       <Card className="min-w-0 max-w-full overflow-hidden border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20">
@@ -270,153 +292,250 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             CV Analysis Complete
           </CardTitle>
           <CardDescription>
-            We found some information in your CV. Select what you'd like to add to your profile.
+            We found the following in your CV. Select what you'd like to apply to your profile.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {data.fullName && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-              <div className="flex min-w-0 flex-1 items-start gap-3">
-                <Checkbox
-                  id="field-fullName"
-                  className="mt-0.5 shrink-0"
+
+        <CardContent className="space-y-6">
+
+          {/* ── Basic Info ── */}
+          {hasBasicInfo && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Basic Info</h4>
+
+              {data.fullName && (
+                <FieldRow
+                  id="fullName"
+                  label="Name"
+                  value={data.fullName}
                   checked={selectedFields.fullName}
-                  onCheckedChange={() => toggleField("fullName")}
+                  onToggle={() => toggleField("fullName")}
+                  confidence={conf.fullName?.confidence}
                 />
-                <div className="min-w-0 flex-1">
-                  <Label htmlFor="field-fullName" className="cursor-pointer font-medium">
-                    Name
-                  </Label>
-                  <p className="break-words text-sm text-muted-foreground">{data.fullName}</p>
-                </div>
-              </div>
-              <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                Suggested from CV
-              </Badge>
-            </div>
-          )}
+              )}
 
-          {data.title && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-              <div className="flex min-w-0 flex-1 items-start gap-3">
-                <Checkbox
-                  id="field-title"
-                  className="mt-0.5 shrink-0"
+              {data.title && (
+                <FieldRow
+                  id="title"
+                  label="Professional Title"
+                  value={data.title}
                   checked={selectedFields.title}
-                  onCheckedChange={() => toggleField("title")}
+                  onToggle={() => toggleField("title")}
+                  confidence={conf.title?.confidence}
                 />
-                <div className="min-w-0 flex-1">
-                  <Label htmlFor="field-title" className="cursor-pointer font-medium">
-                    Professional Title
-                  </Label>
-                  <p className="break-words text-sm text-muted-foreground">{data.title}</p>
-                </div>
-              </div>
-              <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                Suggested from CV
-              </Badge>
-            </div>
-          )}
+              )}
 
-          {data.skills && data.skills.length > 0 && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-              <div className="flex min-w-0 flex-1 items-start gap-3">
-                <Checkbox
-                  id="field-skills"
-                  className="mt-0.5 shrink-0"
-                  checked={selectedFields.skills}
-                  onCheckedChange={() => toggleField("skills")}
-                />
-                <div className="min-w-0 flex-1">
-                  <Label htmlFor="field-skills" className="cursor-pointer font-medium">
-                    Skills
-                  </Label>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {data.skills.slice(0, 10).map((skill, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">
-                        {skill}
-                      </Badge>
-                    ))}
-                    {data.skills.length > 10 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{data.skills.length - 10} more
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                Suggested from CV
-              </Badge>
-            </div>
-          )}
-
-          {data.bio && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-              <div className="flex min-w-0 flex-1 items-start gap-3">
-                <Checkbox
-                  id="field-bio"
-                  className="mt-0.5 shrink-0"
-                  checked={selectedFields.bio}
-                  onCheckedChange={() => toggleField("bio")}
-                />
-                <div className="min-w-0 flex-1">
-                  <Label htmlFor="field-bio" className="cursor-pointer font-medium">
-                    Bio / Summary
-                  </Label>
-                  <p className="line-clamp-3 text-sm text-muted-foreground">{data.bio}</p>
-                </div>
-              </div>
-              <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                Suggested from CV
-              </Badge>
-            </div>
-          )}
-
-          {data.location && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-              <div className="flex min-w-0 flex-1 items-start gap-3">
-                <Checkbox
-                  id="field-location"
-                  className="mt-0.5 shrink-0"
+              {data.location && (
+                <FieldRow
+                  id="location"
+                  label="Location"
+                  value={data.location}
                   checked={selectedFields.location}
-                  onCheckedChange={() => toggleField("location")}
+                  onToggle={() => toggleField("location")}
+                  confidence={conf.location?.confidence}
                 />
-                <div className="min-w-0 flex-1">
-                  <Label htmlFor="field-location" className="cursor-pointer font-medium">
-                    Location
-                  </Label>
-                  <p className="break-words text-sm text-muted-foreground">{data.location}</p>
-                </div>
-              </div>
-              <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                Suggested from CV
-              </Badge>
+              )}
+
+              {data.experienceYears && (
+                <FieldRow
+                  id="experienceYears"
+                  label="Years of Experience"
+                  value={`${data.experienceYears} years`}
+                  checked={selectedFields.experienceYears}
+                  onToggle={() => toggleField("experienceYears")}
+                  confidence={conf.experienceYears?.confidence}
+                />
+              )}
+
+              {data.bio && (
+                <FieldRow
+                  id="bio"
+                  label="Bio / Summary"
+                  value={data.bio}
+                  checked={selectedFields.bio}
+                  onToggle={() => toggleField("bio")}
+                  clamp
+                  confidence={conf.bio?.confidence}
+                />
+              )}
             </div>
           )}
 
-          {data.experienceYears && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-              <div className="flex min-w-0 flex-1 items-start gap-3">
-                <Checkbox
-                  id="field-experienceYears"
-                  className="mt-0.5 shrink-0"
-                  checked={selectedFields.experienceYears}
-                  onCheckedChange={() => toggleField("experienceYears")}
-                />
-                <div className="min-w-0 flex-1">
-                  <Label htmlFor="field-experienceYears" className="cursor-pointer font-medium">
-                    Years of Experience
-                  </Label>
-                  <p className="text-sm text-muted-foreground">{data.experienceYears} years</p>
+          {/* ── Skills ── */}
+          {hasSkills && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Skills</h4>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <Checkbox
+                      id="field-skills"
+                      className="mt-0.5 shrink-0"
+                      checked={selectedFields.skills}
+                      onCheckedChange={() => toggleField("skills")}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Label htmlFor="field-skills" className="cursor-pointer font-medium">
+                          Technical Skills
+                        </Label>
+                        <ConfidenceBadge confidence={conf.skills?.confidence} />
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {data.skills!.slice(0, 15).map((skill, i) => (
+                          <Badge key={i} variant="outline" className="text-xs">{skill}</Badge>
+                        ))}
+                        {data.skills!.length > 15 && (
+                          <Badge variant="outline" className="text-xs">+{data.skills!.length - 15} more</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
+                    Suggested from CV
+                  </Badge>
                 </div>
               </div>
-              <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                Suggested from CV
-              </Badge>
-            </div>
+            </>
+          )}
+
+          {/* ── Certifications ── */}
+          {hasCertifications && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <Award className="w-4 h-4" />
+                  Certifications
+                </h4>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <Checkbox
+                      id="field-certifications"
+                      className="mt-0.5 shrink-0"
+                      checked={selectedFields.certifications}
+                      onCheckedChange={() => toggleField("certifications")}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Label htmlFor="field-certifications" className="cursor-pointer font-medium">
+                          Licences & Certifications
+                        </Label>
+                        <ConfidenceBadge confidence={conf.certifications?.confidence} />
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {data.certifications!.map((cert, i) => (
+                          <Badge key={i} variant="outline" className="text-xs">{cert}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
+                    Suggested from CV
+                  </Badge>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── Work History ── */}
+          {hasWorkHistory && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <Briefcase className="w-4 h-4" />
+                  Work History
+                </h4>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <Checkbox
+                      id="field-workHistory"
+                      className="mt-0.5 shrink-0"
+                      checked={selectedFields.workHistory}
+                      onCheckedChange={() => toggleField("workHistory")}
+                    />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="field-workHistory" className="cursor-pointer font-medium">
+                          Work Experience ({data.workHistory!.length} {data.workHistory!.length === 1 ? "role" : "roles"})
+                        </Label>
+                        <ConfidenceBadge confidence={conf.workHistory?.confidence} />
+                      </div>
+                      {data.workHistory!.slice(0, 4).map((entry, i) => (
+                        <div key={i} className="rounded-md border bg-background/60 px-3 py-2 text-sm">
+                          <p className="font-medium">{entry.jobTitle}</p>
+                          {(entry.company || entry.dates) && (
+                            <p className="text-muted-foreground text-xs">
+                              {[entry.company, entry.dates].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
+                          {entry.details && (
+                            <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{entry.details}</p>
+                          )}
+                        </div>
+                      ))}
+                      {data.workHistory!.length > 4 && (
+                        <p className="text-xs text-muted-foreground">
+                          + {data.workHistory!.length - 4} more roles
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
+                    Suggested from CV
+                  </Badge>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── Education ── */}
+          {hasEducation && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <GraduationCap className="w-4 h-4" />
+                  Education
+                </h4>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <Checkbox
+                      id="field-education"
+                      className="mt-0.5 shrink-0"
+                      checked={selectedFields.education}
+                      onCheckedChange={() => toggleField("education")}
+                    />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="field-education" className="cursor-pointer font-medium">
+                          Education History ({data.education!.length} {data.education!.length === 1 ? "entry" : "entries"})
+                        </Label>
+                        <ConfidenceBadge confidence={conf.education?.confidence} />
+                      </div>
+                      {data.education!.map((entry, i) => (
+                        <div key={i} className="rounded-md border bg-background/60 px-3 py-2 text-sm">
+                          <p className="font-medium">{entry.qualification}</p>
+                          {(entry.institution || entry.dates) && (
+                            <p className="text-muted-foreground text-xs">
+                              {[entry.institution, entry.dates].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
+                    Suggested from CV
+                  </Badge>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
+
         <Separator />
         <CardFooter className="flex flex-col gap-2 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <Button
@@ -437,7 +556,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             size="sm"
             className="w-full sm:w-auto"
             onClick={() => confirmMutation.mutate(selectedFields)}
-            disabled={confirmMutation.isPending || rejectMutation.isPending || !Object.values(selectedFields).some(v => v)}
+            disabled={confirmMutation.isPending || rejectMutation.isPending || !anySelected}
           >
             {confirmMutation.isPending ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -452,4 +571,45 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   }
 
   return null;
+}
+
+// ── Helper component ─────────────────────────────────────────────────────────
+
+interface FieldRowProps {
+  id: string;
+  label: string;
+  value: string;
+  checked: boolean;
+  onToggle: () => void;
+  clamp?: boolean;
+  confidence?: number;
+}
+
+function FieldRow({ id, label, value, checked, onToggle, clamp, confidence }: FieldRowProps) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        <Checkbox
+          id={`field-${id}`}
+          className="mt-0.5 shrink-0"
+          checked={checked}
+          onCheckedChange={onToggle}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <Label htmlFor={`field-${id}`} className="cursor-pointer font-medium">
+              {label}
+            </Label>
+            <ConfidenceBadge confidence={confidence} />
+          </div>
+          <p className={`text-sm text-muted-foreground break-words ${clamp ? "line-clamp-3" : ""}`}>
+            {value}
+          </p>
+        </div>
+      </div>
+      <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
+        Suggested from CV
+      </Badge>
+    </div>
+  );
 }

@@ -938,6 +938,11 @@ export class DatabaseStorage implements IStorage {
     if (profile.cv_file_type !== undefined) updateData.cv_file_type = profile.cv_file_type;
     if (profile.cv_file_size !== undefined) updateData.cv_file_size = profile.cv_file_size;
 
+    // CV-derived structured fields
+    if ((profile as any).work_history !== undefined) updateData.work_history = (profile as any).work_history;
+    if ((profile as any).education_history !== undefined) updateData.education_history = (profile as any).education_history;
+    if ((profile as any).certifications !== undefined) updateData.certifications = (profile as any).certifications;
+
     const result = await db
       .update(freelancer_profiles)
       .set(updateData)

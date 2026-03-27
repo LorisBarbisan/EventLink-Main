@@ -80,6 +80,10 @@ export const freelancer_profiles = pgTable(
     cv_file_size: integer("cv_file_size"),
     reference_token: text("reference_token"), // UUID for public reference request link
     slug: text("slug"), // SEO-friendly URL slug e.g. james-harris-sound-engineer
+    // Structured CV-derived fields (confirmed by freelancer from CV parsing)
+    work_history: text("work_history"), // JSON array of {jobTitle, company, dates, details}
+    education_history: text("education_history"), // JSON array of {qualification, institution, dates}
+    certifications: text("certifications").array(), // Array of certification names
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -589,6 +593,9 @@ export const cv_parsed_data = pgTable("cv_parsed_data", {
   extracted_education: text("extracted_education"), // JSON string for education history
   extracted_work_history: text("extracted_work_history"), // JSON string for work experience
   extracted_certifications: text("extracted_certifications").array(), // Array of certifications
+  // Pipeline stage data
+  section_data: text("section_data"), // JSON: detected sections (headerBlock, summaryBlock, etc.)
+  confidence_data: text("confidence_data"), // JSON: per-field confidence scores
   // Tracking
   cv_file_url: text("cv_file_url"), // Reference to the CV that was parsed
   parsed_at: timestamp("parsed_at", { withTimezone: true }),
