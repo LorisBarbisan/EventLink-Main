@@ -39,7 +39,7 @@ function computeBadge(
     return { badge_result: "work_history_confirmed", is_flagged: false };
   }
   if (q2 === "mixed" || q3 === "unlikely") {
-    return { badge_result: "verified_private", is_flagged: true };
+    return { badge_result: "verified_private", is_flagged: false };
   }
   if (q2 === "excellent" && q3 === "absolutely") {
     return { badge_result: "highly_recommended", is_flagged: false };
@@ -58,12 +58,6 @@ async function runFraudChecks(
 
   if (refereeEmail.toLowerCase() === freelancerEmail.toLowerCase()) {
     flags.push("self_reference");
-  }
-
-  const refDomain = refereeEmail.split("@")[1]?.toLowerCase() || "";
-  const freeDomain = freelancerEmail.split("@")[1]?.toLowerCase() || "";
-  if (refDomain === freeDomain && LOW_TRUST_DOMAINS.includes(refDomain)) {
-    flags.push("same_free_email_domain");
   }
 
   const recentRefs = await storage.getRecentReferencesByEmail(refereeEmail, 48);

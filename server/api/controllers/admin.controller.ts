@@ -805,6 +805,11 @@ export async function sendBulkMessages(req: Request, res: Response) {
     let sent = 0;
     let failed = 0;
 
+    const adminName =
+      adminUser.first_name && adminUser.last_name
+        ? `${adminUser.first_name} ${adminUser.last_name}`
+        : "EventLink";
+
     for (const recipient of recipients) {
       try {
         const conversation = await storage.getOrCreateConversation(adminUser.id, recipient.id);
@@ -815,13 +820,37 @@ export async function sendBulkMessages(req: Request, res: Response) {
           is_system: false,
         });
 
+        const conversationUrl = `/dashboard?tab=messages&conversationId=${conversation.id}`;
+
         await storage.createNotification({
           user_id: recipient.id,
           type: "new_message",
-          title: "New Message",
-          message: `You have a new message from EventLink`,
+          title: "New Message from EventLink",
+          message: `You have a new message from ${adminName}`,
           data: JSON.stringify({ conversation_id: conversation.id }),
+          action_url: conversationUrl,
         });
+
+        // Send email notification (non-blocking — failures don't abort the loop)
+        const recipientName =
+          recipient.first_name && recipient.last_name
+            ? `${recipient.first_name} ${recipient.last_name}`
+            : recipient.email;
+        const messagePreview =
+          message.trim().length > 150 ? `${message.trim().substring(0, 150)}...` : message.trim();
+
+        emailService
+          .sendMessageNotification({
+            recipientId: recipient.id,
+            recipientEmail: recipient.email,
+            recipientName,
+            senderName: adminName,
+            messagePreview,
+            conversationId: conversation.id,
+          })
+          .catch((err: any) =>
+            console.error(`Bulk message email failed for user ${recipient.id}:`, err)
+          );
 
         sent++;
       } catch (err) {

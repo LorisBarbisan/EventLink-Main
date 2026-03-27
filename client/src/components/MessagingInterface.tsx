@@ -276,7 +276,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
                             <div
                               className={`max-w-[70%] p-3 rounded-lg ${isSystemMessage ? "bg-muted text-muted-foreground text-center text-sm" : isMyMessage ? "bg-blue-500 text-white rounded-br-none" : "bg-gray-200 dark:bg-gray-700 text-foreground rounded-bl-none"}`}
                             >
-                              <p className="break-words">{msg.content}</p>
+                              <p className="break-words whitespace-pre-wrap">{msg.content}</p>
                               <p
                                 className={`text-xs mt-1 ${isSystemMessage ? "text-muted-foreground" : isMyMessage ? "text-white/70" : "text-muted-foreground"}`}
                               >

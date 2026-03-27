@@ -120,22 +120,32 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
 
     setIsOpen(false);
 
-    // Navigate to action URL if provided
-    if (notification.action_url) {
-      // Use client-side routing for internal URLs to preserve app state
-      if (notification.action_url.startsWith("/")) {
-        const [path, hash] = notification.action_url.split("#");
-        const currentPath = window.location.pathname;
+    // Navigate to action URL if provided, or derive from notification data for new_message type
+    let targetUrl = notification.action_url;
 
-        // If we're already on the path and there's a hash, update hash directly to trigger reactivity
+    if (!targetUrl && notification.type === "new_message" && notification.data) {
+      try {
+        const parsed = JSON.parse(notification.data);
+        if (parsed.conversation_id) {
+          targetUrl = `/dashboard?tab=messages&conversationId=${parsed.conversation_id}`;
+        }
+      } catch {
+        // malformed data — fall back to messages tab
+        targetUrl = "/dashboard?tab=messages";
+      }
+    }
+
+    if (targetUrl) {
+      if (targetUrl.startsWith("/")) {
+        const [path, hash] = targetUrl.split("#");
+        const currentPath = window.location.pathname;
         if (path === currentPath && hash) {
           window.location.hash = hash;
         } else {
-          setLocation(notification.action_url);
+          setLocation(targetUrl);
         }
       } else {
-        // External URLs open in new tab
-        window.open(notification.action_url, "_blank");
+        window.open(targetUrl, "_blank");
       }
     }
   };
