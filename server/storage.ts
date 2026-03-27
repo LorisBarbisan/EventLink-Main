@@ -4396,7 +4396,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(freelancer_references.freelancer_id, freelancerId),
         eq(freelancer_references.is_flagged, false),
-        sql`${freelancer_references.badge_result} NOT IN ('verified_private', 'flagged')`
+        sql`${freelancer_references.badge_result} != 'flagged'`
       ))
       .orderBy(desc(freelancer_references.created_at));
   }
