@@ -2,7 +2,7 @@ import { insertMessageAttachmentSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { cvParserService } from "../services/cv-parser.service";
 import { storage } from "../../storage";
-import { ObjectNotFoundError, ObjectStorageService, objectStorageClient } from "../utils/object-storage";
+import { ObjectNotFoundError, ObjectStorageService } from "../utils/object-storage";
 
 // Upload CV - combined endpoint that receives base64 file data and uploads to storage
 export async function uploadCV(req: Request, res: Response) {
@@ -21,54 +21,35 @@ export async function uploadCV(req: Request, res: Response) {
     const { randomUUID } = await import("crypto");
     const objectKey = `cvs/${(req as any).user.id}/${randomUUID()}`;
 
-    // Upload file to storage using presigned URL approach
     const privateDir = process.env.PRIVATE_OBJECT_DIR;
     if (!privateDir) {
       throw new Error("PRIVATE_OBJECT_DIR not set");
     }
 
-    const fullPath = `${privateDir}/${objectKey}`;
-
-    // Parse the path to get bucket name and object name
-    const pathParts = fullPath.startsWith("/") ? fullPath.split("/") : `/${fullPath}`.split("/");
-    if (pathParts.length < 3) {
-      throw new Error("Invalid storage path");
-    }
-    const bucketName = pathParts[1];
-    const objectName = pathParts.slice(2).join("/");
-
     // Convert base64 to buffer
     const buffer = Buffer.from(fileData, "base64");
-    console.log(
-      `📤 Uploading CV to storage: bucket=${bucketName}, object=${objectName}, size=${buffer.length} bytes`
-    );
+    console.log(`📤 Uploading CV via signed URL: objectKey=${objectKey}, size=${buffer.length} bytes`);
 
+    // Use signed URL approach (avoids GCS SDK token-based auth which fails in dev)
     try {
-      const bucket = objectStorageClient.bucket(bucketName);
-      const file = bucket.file(objectName);
+      const signedPutUrl = await ObjectStorageService.getUploadUrl(objectKey, contentType);
+      console.log(`📝 Got signed PUT URL for CV upload`);
 
-      await file.save(buffer, {
-        contentType,
-        metadata: {
-          contentType,
-        },
+      const uploadResponse = await fetch(signedPutUrl, {
+        method: "PUT",
+        body: buffer,
+        headers: { "Content-Type": contentType },
       });
 
-      console.log(`✅ CV uploaded to storage successfully: ${objectKey}`);
+      if (!uploadResponse.ok) {
+        const errText = await uploadResponse.text().catch(() => "");
+        throw new Error(`Signed URL upload failed: ${uploadResponse.status} ${errText}`);
+      }
+
+      console.log(`✅ CV uploaded to storage successfully via signed URL: ${objectKey}`);
     } catch (uploadError: any) {
       console.error("❌ Object storage upload error:", uploadError);
-      const errorDetails = {
-        message: uploadError?.message || String(uploadError),
-        code: uploadError?.code,
-        statusCode: uploadError?.statusCode,
-        name: uploadError?.name,
-        bucket: bucketName,
-        object: objectName,
-        privateDir: privateDir,
-        stack: uploadError?.stack?.split('\n').slice(0, 3).join(' '),
-      };
-      console.error("❌ Error details:", JSON.stringify(errorDetails, null, 2));
-      throw new Error(`Failed to upload CV to storage: ${errorDetails.message}`);
+      throw new Error(`Failed to upload CV to storage: ${uploadError?.message || String(uploadError)}`);
     }
 
     // Update freelancer profile with CV information directly (no need to fetch first)
@@ -179,13 +160,19 @@ export async function downloadCV(req: Request, res: Response) {
     console.log(`📥 Download request for CV: ${profile.cv_file_url}`);
 
     try {
-      // Get the CV file object and stream it directly through the server.
-      // This avoids exposing expiring pre-signed GCS URLs to the browser.
-      const objectStorageService = new ObjectStorageService();
-      const cvFile = await objectStorageService.getCVFile(profile.cv_file_url);
-
+      // Use signed GET URL (avoids GCS SDK token auth which can fail in dev)
       const fileName = profile.cv_file_name || "CV.pdf";
       const contentType = profile.cv_file_type || "application/pdf";
+
+      const signedGetUrl = await ObjectStorageService.getDownloadUrl(profile.cv_file_url);
+      const storageRes = await fetch(signedGetUrl);
+
+      if (!storageRes.ok) {
+        if (storageRes.status === 404) {
+          return res.status(404).json({ error: "CV file not found in storage" });
+        }
+        throw new Error(`Storage fetch failed: ${storageRes.status}`);
+      }
 
       res.set({
         "Content-Type": contentType,
@@ -193,21 +180,19 @@ export async function downloadCV(req: Request, res: Response) {
         "Cache-Control": "private, no-store",
       });
 
-      const stream = cvFile.createReadStream();
-      stream.on("error", (err: Error) => {
+      const { Readable } = await import("stream");
+      const nodeStream = Readable.fromWeb(storageRes.body as any);
+      nodeStream.on("error", (err: Error) => {
         console.error(`❌ Stream error for CV ${profile.cv_file_url}:`, err);
         if (!res.headersSent) {
           res.status(500).json({ error: "Error streaming CV file" });
         }
       });
-      stream.pipe(res);
+      nodeStream.pipe(res);
 
       console.log(`✅ Streaming CV for freelancer ${freelancerId}: ${fileName}`);
     } catch (objectError) {
       console.error(`❌ Failed to stream CV for ${profile.cv_file_url}:`, objectError);
-      if (objectError instanceof ObjectNotFoundError) {
-        return res.status(404).json({ error: "CV file not found in storage" });
-      }
       throw objectError;
     }
   } catch (error) {

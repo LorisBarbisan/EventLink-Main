@@ -8,9 +8,14 @@ export interface ExtractedText {
 
 export class CvTextExtractionService {
   async extractFromUrl(cvFileUrl: string, contentType?: string): Promise<ExtractedText> {
-    const objectStorageService = new ObjectStorageService();
-    const file = await objectStorageService.getCVFile(cvFileUrl);
-    const [buffer] = await file.download();
+    // Use signed GET URL (avoids GCS SDK token auth which fails in dev)
+    const signedGetUrl = await ObjectStorageService.getDownloadUrl(cvFileUrl);
+    const dlResponse = await fetch(signedGetUrl);
+    if (!dlResponse.ok) {
+      throw new Error(`Failed to download CV from storage: ${dlResponse.status} ${await dlResponse.text().catch(() => "")}`);
+    }
+    const arrayBuffer = await dlResponse.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     console.log(`📥 Downloaded CV file: ${buffer.length} bytes, contentType: ${contentType}`);
 
     const isPdf =
