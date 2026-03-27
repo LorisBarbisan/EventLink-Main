@@ -148,11 +148,25 @@ export async function confirmCVData(req: Request, res: Response) {
     }
 
     if (selectedFields.workHistory && parsedData.extracted_work_history) {
-      profileUpdates.work_history = parsedData.extracted_work_history;
+      try {
+        profileUpdates.work_history =
+          typeof parsedData.extracted_work_history === "string"
+            ? JSON.parse(parsedData.extracted_work_history)
+            : parsedData.extracted_work_history;
+      } catch {
+        profileUpdates.work_history = parsedData.extracted_work_history;
+      }
     }
 
     if (selectedFields.education && parsedData.extracted_education) {
-      profileUpdates.education_history = parsedData.extracted_education;
+      try {
+        profileUpdates.education_history =
+          typeof parsedData.extracted_education === "string"
+            ? JSON.parse(parsedData.extracted_education)
+            : parsedData.extracted_education;
+      } catch {
+        profileUpdates.education_history = parsedData.extracted_education;
+      }
     }
 
     if (selectedFields.certifications && parsedData.extracted_certifications?.length) {

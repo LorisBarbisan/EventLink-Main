@@ -4,6 +4,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgTable,
   serial,
   text,
@@ -81,8 +82,8 @@ export const freelancer_profiles = pgTable(
     reference_token: text("reference_token"), // UUID for public reference request link
     slug: text("slug"), // SEO-friendly URL slug e.g. james-harris-sound-engineer
     // Structured CV-derived fields (confirmed by freelancer from CV parsing)
-    work_history: text("work_history"), // JSON array of {jobTitle, company, dates, details}
-    education_history: text("education_history"), // JSON array of {qualification, institution, dates}
+    work_history: jsonb("work_history"), // JSON array of {jobTitle, company, dates, details}
+    education_history: jsonb("education_history"), // JSON array of {qualification, institution, dates}
     certifications: text("certifications").array(), // Array of certification names
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
