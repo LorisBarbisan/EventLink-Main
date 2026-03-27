@@ -13,9 +13,10 @@ export interface SectionBlocks {
 let openaiClient: OpenAI | null = null;
 function getOpenAIClient(): OpenAI {
   if (!openaiClient) {
+    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
     openaiClient = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      apiKey,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined,
     });
   }
   return openaiClient;
@@ -23,7 +24,8 @@ function getOpenAIClient(): OpenAI {
 
 export class CvSectionDetectionService {
   async detectSections(cleanText: string): Promise<SectionBlocks> {
-    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    const openAiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    if (!openAiKey) {
       return this.ruleBased(cleanText);
     }
 

@@ -58,10 +58,11 @@ export class CVParserService {
       // ── Stage D: Field extraction (4 parallel AI prompts) ──────────────────
       console.log("🤖 Stage D: Multi-prompt field extraction");
       let rawFields;
-      if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+      const openAiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+      if (openAiKey) {
         rawFields = await cvFieldExtractionService.extractAllFields(sections, extracted.cleanText);
       } else {
-        console.warn("⚠️ OpenAI not configured, using empty raw fields");
+        console.warn("⚠️ OpenAI not configured (set OPENAI_API_KEY secret), using empty raw fields");
         rawFields = {};
       }
 
