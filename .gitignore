@@ -6,3 +6,5 @@ vite.config.ts.*
 *.tar.gz
 .env
 .env.*
+# Local CV upload fallback (dev only)
+uploads/

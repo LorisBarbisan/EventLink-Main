@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { cvParserService } from "../services/cv-parser.service";
 import { storage } from "../../storage";
 import { ObjectNotFoundError, ObjectStorageService } from "../utils/object-storage";
+import { isLocalPath, saveLocally, deleteLocally, readLocally } from "../utils/local-storage-fallback";
 
 // Upload CV - combined endpoint that receives base64 file data and uploads to storage
 export async function uploadCV(req: Request, res: Response) {
@@ -21,20 +22,17 @@ export async function uploadCV(req: Request, res: Response) {
     const { randomUUID } = await import("crypto");
     const objectKey = `cvs/${(req as any).user.id}/${randomUUID()}`;
 
-    const privateDir = process.env.PRIVATE_OBJECT_DIR;
-    if (!privateDir) {
-      throw new Error("PRIVATE_OBJECT_DIR not set");
-    }
-
     // Convert base64 to buffer
     const buffer = Buffer.from(fileData, "base64");
-    console.log(`📤 Uploading CV via signed URL: objectKey=${objectKey}, size=${buffer.length} bytes`);
+    console.log(`📤 Uploading CV: objectKey=${objectKey}, size=${buffer.length} bytes`);
 
-    // Use signed URL approach (avoids GCS SDK token-based auth which fails in dev)
+    // Try object storage first; fall back to local disk if unavailable
+    let storedPath: string = objectKey;
     try {
-      const signedPutUrl = await ObjectStorageService.getUploadUrl(objectKey, contentType);
-      console.log(`📝 Got signed PUT URL for CV upload`);
+      const privateDir = process.env.PRIVATE_OBJECT_DIR;
+      if (!privateDir) throw new Error("PRIVATE_OBJECT_DIR not set");
 
+      const signedPutUrl = await ObjectStorageService.getUploadUrl(objectKey, contentType);
       const uploadResponse = await fetch(signedPutUrl, {
         method: "PUT",
         body: buffer,
@@ -46,15 +44,16 @@ export async function uploadCV(req: Request, res: Response) {
         throw new Error(`Signed URL upload failed: ${uploadResponse.status} ${errText}`);
       }
 
-      console.log(`✅ CV uploaded to storage successfully via signed URL: ${objectKey}`);
+      console.log(`✅ CV uploaded to object storage: ${objectKey}`);
     } catch (uploadError: any) {
-      console.error("❌ Object storage upload error:", uploadError);
-      throw new Error(`Failed to upload CV to storage: ${uploadError?.message || String(uploadError)}`);
+      console.warn(`⚠️  Object storage unavailable (${uploadError?.message}), falling back to local disk`);
+      storedPath = await saveLocally(objectKey, buffer);
+      console.log(`✅ CV saved locally: ${storedPath}`);
     }
 
     // Update freelancer profile with CV information directly (no need to fetch first)
     const updatedProfile = await storage.updateFreelancerProfile((req as any).user.id, {
-      cv_file_url: objectKey,
+      cv_file_url: storedPath,
       cv_file_name: filename,
       cv_file_size: fileSize || null,
       cv_file_type: contentType || null,
@@ -64,7 +63,7 @@ export async function uploadCV(req: Request, res: Response) {
 
     // Set parsing status to "parsing" BEFORE sending response so frontend polling finds it immediately
     const userId = (req as any).user.id;
-    await cvParserService.initParsingStatus(userId, objectKey);
+    await cvParserService.initParsingStatus(userId, storedPath);
 
     // Send response immediately, then start parsing in background
     res.json({
@@ -74,7 +73,7 @@ export async function uploadCV(req: Request, res: Response) {
     });
 
     // Trigger CV parsing in the background (async, non-blocking)
-    cvParserService.parseCV(userId, objectKey).catch(err => {
+    cvParserService.parseCV(userId, storedPath, contentType).catch(err => {
       console.error(`Background CV parsing failed for user ${userId}:`, err);
     });
   } catch (error) {
@@ -96,12 +95,16 @@ export async function deleteCV(req: Request, res: Response) {
       return res.status(404).json({ error: "No CV found to delete" });
     }
 
-    // Delete from object storage
+    // Delete file — handle both local disk and object storage paths
     try {
-      await ObjectStorageService.deleteObject(profile.cv_file_url);
+      if (isLocalPath(profile.cv_file_url)) {
+        await deleteLocally(profile.cv_file_url);
+      } else {
+        await ObjectStorageService.deleteObject(profile.cv_file_url);
+      }
     } catch (deleteError) {
-      console.error("Object storage delete error:", deleteError);
-      // Continue with metadata cleanup even if object deletion fails
+      console.error("CV file delete error:", deleteError);
+      // Continue with metadata cleanup even if file deletion fails
     }
 
     // Update profile to remove CV metadata
@@ -160,19 +163,8 @@ export async function downloadCV(req: Request, res: Response) {
     console.log(`📥 Download request for CV: ${profile.cv_file_url}`);
 
     try {
-      // Use signed GET URL (avoids GCS SDK token auth which can fail in dev)
       const fileName = profile.cv_file_name || "CV.pdf";
       const contentType = profile.cv_file_type || "application/pdf";
-
-      const signedGetUrl = await ObjectStorageService.getDownloadUrl(profile.cv_file_url);
-      const storageRes = await fetch(signedGetUrl);
-
-      if (!storageRes.ok) {
-        if (storageRes.status === 404) {
-          return res.status(404).json({ error: "CV file not found in storage" });
-        }
-        throw new Error(`Storage fetch failed: ${storageRes.status}`);
-      }
 
       res.set({
         "Content-Type": contentType,
@@ -180,19 +172,34 @@ export async function downloadCV(req: Request, res: Response) {
         "Cache-Control": "private, no-store",
       });
 
-      const { Readable } = await import("stream");
-      const nodeStream = Readable.fromWeb(storageRes.body as any);
-      nodeStream.on("error", (err: Error) => {
-        console.error(`❌ Stream error for CV ${profile.cv_file_url}:`, err);
-        if (!res.headersSent) {
-          res.status(500).json({ error: "Error streaming CV file" });
-        }
-      });
-      nodeStream.pipe(res);
+      if (isLocalPath(profile.cv_file_url)) {
+        // Local disk fallback (development)
+        const buffer = await readLocally(profile.cv_file_url);
+        res.send(buffer);
+        console.log(`✅ Served CV from local disk for freelancer ${freelancerId}: ${fileName}`);
+      } else {
+        // Object storage via signed GET URL
+        const signedGetUrl = await ObjectStorageService.getDownloadUrl(profile.cv_file_url);
+        const storageRes = await fetch(signedGetUrl);
 
-      console.log(`✅ Streaming CV for freelancer ${freelancerId}: ${fileName}`);
+        if (!storageRes.ok) {
+          if (storageRes.status === 404) {
+            return res.status(404).json({ error: "CV file not found in storage" });
+          }
+          throw new Error(`Storage fetch failed: ${storageRes.status}`);
+        }
+
+        const { Readable } = await import("stream");
+        const nodeStream = Readable.fromWeb(storageRes.body as any);
+        nodeStream.on("error", (err: Error) => {
+          console.error(`❌ Stream error for CV ${profile.cv_file_url}:`, err);
+          if (!res.headersSent) res.status(500).json({ error: "Error streaming CV file" });
+        });
+        nodeStream.pipe(res);
+        console.log(`✅ Streaming CV from object storage for freelancer ${freelancerId}: ${fileName}`);
+      }
     } catch (objectError) {
-      console.error(`❌ Failed to stream CV for ${profile.cv_file_url}:`, objectError);
+      console.error(`❌ Failed to serve CV for ${profile.cv_file_url}:`, objectError);
       throw objectError;
     }
   } catch (error) {

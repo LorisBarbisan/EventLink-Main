@@ -1,4 +1,5 @@
 import { ObjectStorageService } from "../utils/object-storage";
+import { isLocalPath, readLocally } from "../utils/local-storage-fallback";
 
 export interface ExtractedText {
   rawText: string;
@@ -8,15 +9,23 @@ export interface ExtractedText {
 
 export class CvTextExtractionService {
   async extractFromUrl(cvFileUrl: string, contentType?: string): Promise<ExtractedText> {
-    // Use signed GET URL (avoids GCS SDK token auth which fails in dev)
-    const signedGetUrl = await ObjectStorageService.getDownloadUrl(cvFileUrl);
-    const dlResponse = await fetch(signedGetUrl);
-    if (!dlResponse.ok) {
-      throw new Error(`Failed to download CV from storage: ${dlResponse.status} ${await dlResponse.text().catch(() => "")}`);
+    let buffer: Buffer;
+
+    if (isLocalPath(cvFileUrl)) {
+      // Local disk fallback (development)
+      buffer = await readLocally(cvFileUrl);
+      console.log(`📥 Read CV from local disk: ${buffer.length} bytes`);
+    } else {
+      // Object storage via signed GET URL
+      const signedGetUrl = await ObjectStorageService.getDownloadUrl(cvFileUrl);
+      const dlResponse = await fetch(signedGetUrl);
+      if (!dlResponse.ok) {
+        throw new Error(`Failed to download CV from storage: ${dlResponse.status} ${await dlResponse.text().catch(() => "")}`);
+      }
+      const arrayBuffer = await dlResponse.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
+      console.log(`📥 Downloaded CV file: ${buffer.length} bytes, contentType: ${contentType}`);
     }
-    const arrayBuffer = await dlResponse.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    console.log(`📥 Downloaded CV file: ${buffer.length} bytes, contentType: ${contentType}`);
 
     const isPdf =
       contentType?.includes("pdf") ||
