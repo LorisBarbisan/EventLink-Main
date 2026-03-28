@@ -58,7 +58,7 @@ export class CVParserService {
       // ── Stage D: Field extraction (4 parallel AI prompts) ──────────────────
       console.log("🤖 Stage D: Multi-prompt field extraction");
       let rawFields;
-      const openAiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+      const openAiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
       if (openAiKey) {
         rawFields = await cvFieldExtractionService.extractAllFields(sections, extracted.cleanText);
       } else {

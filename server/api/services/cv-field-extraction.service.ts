@@ -17,7 +17,7 @@ export interface RawFieldResult {
 let openaiClient: OpenAI | null = null;
 function getOpenAIClient(): OpenAI {
   if (!openaiClient) {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
     openaiClient = new OpenAI({
       apiKey,
       // baseURL only needed for Replit's AI proxy in dev; undefined = standard OpenAI endpoint

@@ -13,7 +13,7 @@ export interface SectionBlocks {
 let openaiClient: OpenAI | null = null;
 function getOpenAIClient(): OpenAI {
   if (!openaiClient) {
-    const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
     openaiClient = new OpenAI({
       apiKey,
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || undefined,
@@ -24,7 +24,7 @@ function getOpenAIClient(): OpenAI {
 
 export class CvSectionDetectionService {
   async detectSections(cleanText: string): Promise<SectionBlocks> {
-    const openAiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    const openAiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
     if (!openAiKey) {
       return this.ruleBased(cleanText);
     }
