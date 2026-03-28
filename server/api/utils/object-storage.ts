@@ -180,6 +180,28 @@ export class ObjectStorageService {
     });
   }
 
+  /**
+   * Download object bytes from GCS (same path as getDownloadUrl).
+   * Prefer this for server-side CV parsing: works when ADC can read the bucket
+   * even if the Replit signed-URL sidecar (127.0.0.1:1106) is unavailable.
+   */
+  static async downloadObjectBuffer(objectKey: string): Promise<Buffer> {
+    const privateDir = process.env.PRIVATE_OBJECT_DIR || "";
+    if (!privateDir) {
+      throw new Error("PRIVATE_OBJECT_DIR not set");
+    }
+
+    const fullPath = objectKey.startsWith("/")
+      ? `${privateDir}${objectKey}`
+      : `${privateDir}/${objectKey}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    const [buffer] = await file.download();
+    return buffer;
+  }
+
   // Static method: Delete a file
   static async deleteObject(objectKey: string): Promise<void> {
     const privateDir = process.env.PRIVATE_OBJECT_DIR || "";
