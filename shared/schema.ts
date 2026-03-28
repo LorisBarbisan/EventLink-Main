@@ -4,11 +4,14 @@ import {
   check,
   index,
   integer,
+  json,
   jsonb,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
+  varchar,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -50,6 +53,20 @@ export const users = pgTable(
       "users_status_check",
       sql`${table.status} IN ('pending', 'active', 'deactivated')`
     ),
+  })
+);
+
+/** Express session store (`connect-pg-simple`, `tableName: user_sessions`). Rows are written by the session middleware, not app code. */
+export const user_sessions = pgTable(
+  "user_sessions",
+  {
+    sid: varchar("sid").notNull(),
+    sess: json("sess").notNull(),
+    expire: timestamp("expire", { precision: 6, withTimezone: false }).notNull(),
+  },
+  table => ({
+    pk: primaryKey({ name: "session_pkey", columns: [table.sid] }),
+    expireIdx: index("IDX_session_expire").on(table.expire),
   })
 );
 

@@ -16,15 +16,21 @@ export class CvTextExtractionService {
       buffer = await readLocally(cvFileUrl);
       console.log(`📥 Read CV from local disk: ${buffer.length} bytes`);
     } else {
-      // Object storage via signed GET URL
-      const signedGetUrl = await ObjectStorageService.getDownloadUrl(cvFileUrl);
-      const dlResponse = await fetch(signedGetUrl);
-      if (!dlResponse.ok) {
-        throw new Error(`Failed to download CV from storage: ${dlResponse.status} ${await dlResponse.text().catch(() => "")}`);
+      // Prefer direct GCS download (no Replit signed-URL sidecar). Fall back to signed GET URL.
+      try {
+        buffer = await ObjectStorageService.downloadObjectBuffer(cvFileUrl);
+        console.log(`📥 Downloaded CV via GCS (${buffer.length} bytes), contentType: ${contentType}`);
+      } catch (directErr) {
+        console.warn("📥 GCS direct download failed, trying signed URL:", directErr);
+        const signedGetUrl = await ObjectStorageService.getDownloadUrl(cvFileUrl);
+        const dlResponse = await fetch(signedGetUrl);
+        if (!dlResponse.ok) {
+          throw new Error(`Failed to download CV from storage: ${dlResponse.status} ${await dlResponse.text().catch(() => "")}`);
+        }
+        const arrayBuffer = await dlResponse.arrayBuffer();
+        buffer = Buffer.from(arrayBuffer);
+        console.log(`📥 Downloaded CV via signed URL: ${buffer.length} bytes, contentType: ${contentType}`);
       }
-      const arrayBuffer = await dlResponse.arrayBuffer();
-      buffer = Buffer.from(arrayBuffer);
-      console.log(`📥 Downloaded CV file: ${buffer.length} bytes, contentType: ${contentType}`);
     }
 
     const isPdf =
@@ -66,31 +72,15 @@ export class CvTextExtractionService {
   }
 
   private async extractPdf(buffer: Buffer): Promise<string> {
-    const pdfModule = await import("pdf-parse");
-
-    // Try standard function API (pdf-parse v1 style)
-    const fn = (pdfModule as any).default || pdfModule;
-    if (typeof fn === "function") {
-      try {
-        const data = await fn(buffer);
-        if (data?.text) return data.text;
-      } catch (err) {
-        console.warn("pdf-parse function API failed:", err);
-      }
-    }
-
-    // Try class-based API (pdf-parse v2 style)
-    const PDFParse = (pdfModule as any).PDFParse || (pdfModule as any).default?.PDFParse;
-    if (PDFParse) {
-      try {
-        const parser = new PDFParse({ data: new Uint8Array(buffer) });
-        await (parser as any).load();
-        const result = await parser.getText();
-        const text = typeof result === "string" ? result : result?.text || "";
-        if (text) return text;
-      } catch (err) {
-        console.warn("pdf-parse class API failed:", err);
-      }
+    // pdf-parse v2+ exports PDFParse class only (no default callback). Package is external in the server bundle.
+    const { PDFParse } = await import("pdf-parse");
+    const parser = new PDFParse({ data: buffer });
+    try {
+      const result = await parser.getText();
+      const text = typeof result === "string" ? result : (result?.text ?? "");
+      if (text.trim()) return text;
+    } finally {
+      await parser.destroy().catch(() => {});
     }
 
     throw new Error("Failed to extract text from PDF with any available method");

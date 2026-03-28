@@ -93,7 +93,7 @@ export class CVParserService {
 
       console.log(`📊 Final fields: ${Object.keys(parsedData).filter(k => k !== "confidenceData" && k !== "sectionData" && (parsedData as any)[k] !== undefined).join(", ")}`);
 
-      await this.saveParsedData(userId, parsedData, cvFileUrl, sections);
+      await this.saveParsedData(userId, parsedData, cvFileUrl, sections as Record<string, string>);
 
       // Notify frontend via WebSocket
       try {
