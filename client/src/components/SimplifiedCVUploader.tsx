@@ -44,6 +44,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
         title: "Extracting CV data",
         description: "We're analysing your CV to extract your profile information.",
       });
+      queryClient.setQueryData(["/api/cv/parse/status"], { status: "parsing" });
       queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
 
       pollAbortedRef.current = false;
