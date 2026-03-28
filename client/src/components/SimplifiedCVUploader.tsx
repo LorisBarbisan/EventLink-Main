@@ -62,10 +62,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
             const statusData = await statusRes.json();
             if (pollAbortedRef.current) return;
             if (statusData.status === "completed" || statusData.status === "failed") {
-              const current = queryClient.getQueryData(["/api/cv/parse/status"]) as any;
-              if (current?.status !== "confirmed" && current?.status !== "rejected") {
-                queryClient.setQueryData(["/api/cv/parse/status"], statusData);
-              }
+              queryClient.setQueryData(["/api/cv/parse/status"], statusData);
               return;
             }
           }
@@ -173,10 +170,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
             const statusData = await statusRes.json();
             if (pollAbortedRef.current) return;
             if (statusData.status === "completed" || statusData.status === "failed") {
-              const current = queryClient.getQueryData(["/api/cv/parse/status"]) as any;
-              if (current?.status !== "confirmed" && current?.status !== "rejected") {
-                queryClient.setQueryData(["/api/cv/parse/status"], statusData);
-              }
+              queryClient.setQueryData(["/api/cv/parse/status"], statusData);
               return;
             }
           }
