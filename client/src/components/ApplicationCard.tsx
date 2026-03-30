@@ -948,7 +948,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         data-testid={`button-message-recruiter-${application.id}`}
                       >
                         <MessageCircle className="mr-1 h-4 w-4" />
-                        Message Recruiter
+                        Message Employer
                       </Button>
                     )}
 
@@ -1144,7 +1144,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
           isOpen={showMessageModal}
           onClose={() => setShowMessageModal(false)}
           recipientId={application.recruiter_id!}
-          recipientName={application.job_company || "Recruiter"}
+          recipientName={application.job_company || "Employer"}
           senderId={currentUserId}
         />
       )}

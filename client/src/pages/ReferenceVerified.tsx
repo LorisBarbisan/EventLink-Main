@@ -55,7 +55,7 @@ export default function ReferenceVerified() {
                 onClick={() => setLocation("/auth")}
                 className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
               >
-                Sign Up as a Recruiter
+                Sign Up as an Employer
               </Button>
             </div>
           </div>
