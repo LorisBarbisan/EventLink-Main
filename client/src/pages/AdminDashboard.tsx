@@ -1551,7 +1551,7 @@ function AdminDashboardContent() {
                         <p className="font-medium text-muted-foreground">Recipients based on current filters:</p>
                         <div className="flex flex-wrap gap-2 pt-1">
                           {roleFilter !== "all" && (
-                            <Badge variant="secondary">Role: {roleFilter}</Badge>
+                            <Badge variant="secondary">Role: {roleFilter === "recruiter" ? "employer" : roleFilter}</Badge>
                           )}
                           {statusFilter !== "all" && (
                             <Badge variant="secondary">Status: {statusFilter}</Badge>
@@ -1721,7 +1721,7 @@ function AdminDashboardContent() {
                               </TableCell>
                               <TableCell className="py-2">
                                 <Badge variant={rowUser.role === "admin" ? "default" : "outline"}>
-                                  {rowUser.role}
+                                  {rowUser.role === "recruiter" ? "employer" : rowUser.role}
                                 </Badge>
                               </TableCell>
                               <TableCell className="py-2">
