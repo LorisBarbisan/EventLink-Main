@@ -128,9 +128,9 @@ export default function HowItWorks() {
                     <div className="flex flex-col">
                       <h3 className="text-xl font-semibold mb-2">Build Trust</h3>
                       <p className="text-muted-foreground text-sm leading-relaxed">
-                        Show new clients they can rely on you by inviting previous clients to
-                        recommend you on EventLink. Build credibility through visible references
-                        and strengthen your profile for future opportunities.
+                        Invite previous clients to recommend you on EventLink and build
+                        credibility through visible references. Strengthen your profile
+                        and show new clients they can rely on you.
                       </p>
                     </div>
                   </div>
@@ -146,9 +146,9 @@ export default function HowItWorks() {
                     <div className="flex flex-col">
                       <h3 className="text-xl font-semibold mb-2">Get Notified</h3>
                       <p className="text-muted-foreground text-sm leading-relaxed">
-                        Set your preferences and receive alerts when roles matching your skills,
-                        location, and availability go live. Stay informed and ready to apply
-                        when the right opportunity appears.
+                        Set your preferences and receive alerts when roles matching your skills
+                        and location go live. Stay ready to apply when the right opportunity
+                        appears.
                       </p>
                     </div>
                   </div>
