@@ -101,7 +101,7 @@ export default function HowItWorks() {
             </div>
 
             <div className="space-y-6">
-              <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow min-h-[140px]">
+              <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow h-[164px] overflow-hidden">
                 <CardContent className="p-6 h-full">
                   <div className="flex items-start space-x-4 h-full">
                     <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -119,7 +119,7 @@ export default function HowItWorks() {
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow min-h-[140px]">
+              <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow h-[164px] overflow-hidden">
                 <CardContent className="p-6 h-full">
                   <div className="flex items-start space-x-4 h-full">
                     <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -137,7 +137,7 @@ export default function HowItWorks() {
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow min-h-[140px]">
+              <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow h-[164px] overflow-hidden">
                 <CardContent className="p-6 h-full">
                   <div className="flex items-start space-x-4 h-full">
                     <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -155,7 +155,7 @@ export default function HowItWorks() {
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow min-h-[140px]">
+              <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow h-[164px] overflow-hidden">
                 <CardContent className="p-6 h-full">
                   <div className="flex items-start space-x-4 h-full">
                     <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -196,7 +196,7 @@ export default function HowItWorks() {
             </div>
 
             <div className="space-y-6">
-              <Card className="border-l-4 border-l-orange-500 shadow-md hover:shadow-lg transition-shadow min-h-[140px]">
+              <Card className="border-l-4 border-l-orange-500 shadow-md hover:shadow-lg transition-shadow h-[164px] overflow-hidden">
                 <CardContent className="p-6 h-full">
                   <div className="flex items-start space-x-4 h-full">
                     <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -213,7 +213,7 @@ export default function HowItWorks() {
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-orange-500 shadow-md hover:shadow-lg transition-shadow min-h-[140px]">
+              <Card className="border-l-4 border-l-orange-500 shadow-md hover:shadow-lg transition-shadow h-[164px] overflow-hidden">
                 <CardContent className="p-6 h-full">
                   <div className="flex items-start space-x-4 h-full">
                     <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -230,7 +230,7 @@ export default function HowItWorks() {
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-orange-500 shadow-md hover:shadow-lg transition-shadow min-h-[140px]">
+              <Card className="border-l-4 border-l-orange-500 shadow-md hover:shadow-lg transition-shadow h-[164px] overflow-hidden">
                 <CardContent className="p-6 h-full">
                   <div className="flex items-start space-x-4 h-full">
                     <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -247,7 +247,7 @@ export default function HowItWorks() {
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-orange-500 shadow-md hover:shadow-lg transition-shadow min-h-[140px]">
+              <Card className="border-l-4 border-l-orange-500 shadow-md hover:shadow-lg transition-shadow h-[164px] overflow-hidden">
                 <CardContent className="p-6 h-full">
                   <div className="flex items-start space-x-4 h-full">
                     <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
