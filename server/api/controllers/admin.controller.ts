@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import ExcelJS from "exceljs";
 import { storage } from "../../storage";
 import { generateJWTToken } from "../utils/auth.util";
 import { sendContactReplyEmail } from "../utils/emailService";
@@ -565,30 +566,7 @@ export async function retriggerJobAlerts(req: Request, res: Response) {
   }
 }
 
-// CSV helpers
-function csvEscape(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  const str = String(value).replace(/\r?\n/g, " ");
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
-
-function csvRow(values: unknown[]): string {
-  return values.map(csvEscape).join(",");
-}
-
-function csvSection(title: string, headers: string[], rows: unknown[][]): string {
-  const lines: string[] = [];
-  lines.push(`"=== ${title} ==="`);
-  lines.push(csvRow(headers));
-  for (const row of rows) {
-    lines.push(csvRow(row));
-  }
-  lines.push(""); // blank line separator
-  return lines.join("\n");
-}
+// --- XLSX Export Helpers ---
 
 function fmtDate(d: unknown): string {
   if (!d) return "";
@@ -599,10 +577,51 @@ function fmtDate(d: unknown): string {
   }
 }
 
-// Export all admin dashboard data as a single multi-section CSV
-export async function exportAdminCSV(req: Request, res: Response) {
+function str(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  return String(v);
+}
+
+/** Apply bold header style and auto-fit column widths to a worksheet. */
+function styleSheet(ws: ExcelJS.Worksheet, headers: string[]) {
+  const headerRow = ws.getRow(1);
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD8690E" } };
+    cell.alignment = { vertical: "middle" };
+    cell.border = {
+      bottom: { style: "thin", color: { argb: "FFB85C0A" } },
+    };
+  });
+  headerRow.height = 20;
+
+  // Auto-fit column widths based on header label length (with generous min/max)
+  headers.forEach((h, i) => {
+    ws.getColumn(i + 1).width = Math.min(Math.max(h.length + 4, 12), 40);
+  });
+
+  ws.views = [{ state: "frozen", ySplit: 1 }];
+}
+
+/** Add a sheet with headers + data rows, returning the worksheet. */
+function addSheet(
+  wb: ExcelJS.Workbook,
+  name: string,
+  headers: string[],
+  rows: unknown[][]
+): ExcelJS.Worksheet {
+  const ws = wb.addWorksheet(name);
+  ws.addRow(headers);
+  for (const row of rows) {
+    ws.addRow(row.map(str));
+  }
+  styleSheet(ws, headers);
+  return ws;
+}
+
+// Export all admin dashboard data as a multi-sheet XLSX workbook
+export async function exportAdminXLSX(req: Request, res: Response) {
   try {
-    // Fetch all data concurrently
     const [analytics, usersResult, jobsResult, feedbackList, contactList, adminUsers, ratingsAll] =
       await Promise.all([
         storage.getAdminAnalytics(),
@@ -614,10 +633,12 @@ export async function exportAdminCSV(req: Request, res: Response) {
         storage.getAllRatings(),
       ]);
 
-    const sections: string[] = [];
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "EventLink Admin";
+    wb.created = new Date();
 
-    // 1. Overview
-    const overviewRows: unknown[][] = [
+    // Sheet 1 — Overview
+    addSheet(wb, "Overview", ["Metric", "Value"], [
       ["Total Users", analytics.users.total],
       ["Active Users", analytics.users.active],
       ["New Users This Month", analytics.users.thisMonth],
@@ -628,154 +649,118 @@ export async function exportAdminCSV(req: Request, res: Response) {
       ["Total Applications", analytics.applications.total],
       ["Hired Applications", analytics.applications.hired],
       ["Applications This Month", analytics.applications.thisMonth],
-    ];
-    sections.push(csvSection("OVERVIEW", ["Metric", "Value"], overviewRows));
-
-    // 2. Users
-    const userRows = (usersResult.users || []).map((u: any) => [
-      u.id,
-      `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim(),
-      u.email,
-      u.role ?? "",
-      u.status ?? "",
-      u.email_verified ? "Yes" : "No",
-      fmtDate(u.created_at),
-      u.profile_status ?? "",
     ]);
-    sections.push(
-      csvSection(
-        "USERS",
-        ["ID", "Full Name", "Email", "Role", "Status", "Email Verified", "Join Date", "Profile Status"],
-        userRows
-      )
+
+    // Sheet 2 — Users
+    addSheet(
+      wb,
+      "Users",
+      ["ID", "Full Name", "Email", "Role", "Status", "Email Verified", "Join Date", "Profile Status"],
+      (usersResult.users || []).map((u: any) => [
+        u.id,
+        `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim(),
+        u.email,
+        u.role === "recruiter" ? "employer" : (u.role ?? ""),
+        u.status ?? "",
+        u.email_verified ? "Yes" : "No",
+        fmtDate(u.created_at),
+        u.profile_status ?? "",
+      ])
     );
 
-    // 3. Jobs
-    const jobRows = (jobsResult.jobs || []).map((j: any) => [
-      j.id,
-      j.title ?? "",
-      j.company_name ?? "",
-      j.location ?? "",
-      j.status ?? "",
-      j.is_published ? "Published" : "Private",
-      j.application_count ?? 0,
-      j.hired_count ?? 0,
-      j.recruiter_name ?? "",
-      j.recruiter_email ?? "",
-      fmtDate(j.created_at),
-    ]);
-    sections.push(
-      csvSection(
-        "JOBS",
-        [
-          "ID",
-          "Title",
-          "Company",
-          "Location",
-          "Status",
-          "Type",
-          "Applications",
-          "Hired",
-          "Posted By",
-          "Poster Email",
-          "Created Date",
-        ],
-        jobRows
-      )
+    // Sheet 3 — Jobs
+    addSheet(
+      wb,
+      "Jobs",
+      ["ID", "Title", "Company", "Location", "Status", "Type", "Applications", "Hired", "Posted By", "Poster Email", "Created Date"],
+      (jobsResult.jobs || []).map((j: any) => [
+        j.id,
+        j.title ?? "",
+        j.company_name ?? "",
+        j.location ?? "",
+        j.status ?? "",
+        j.is_published ? "Published" : "Private",
+        j.application_count ?? 0,
+        j.hired_count ?? 0,
+        j.recruiter_name ?? "",
+        j.recruiter_email ?? "",
+        fmtDate(j.created_at),
+      ])
     );
 
-    // 4. Feedback
-    const feedbackRows = (feedbackList || []).map((f: any) => [
-      f.id,
-      f.type ?? "",
-      f.status ?? "",
-      f.user?.email ?? "",
-      f.description ?? "",
-      f.admin_response ?? "",
-      fmtDate(f.created_at),
-    ]);
-    sections.push(
-      csvSection(
-        "FEEDBACK",
-        ["ID", "Type", "Status", "User Email", "Description", "Admin Response", "Created Date"],
-        feedbackRows
-      )
+    // Sheet 4 — Feedback
+    addSheet(
+      wb,
+      "Feedback",
+      ["ID", "Type", "Status", "User Email", "Description", "Admin Response", "Created Date"],
+      (feedbackList || []).map((f: any) => [
+        f.id,
+        f.type ?? "",
+        f.status ?? "",
+        f.user?.email ?? "",
+        f.description ?? "",
+        f.admin_response ?? "",
+        fmtDate(f.created_at),
+      ])
     );
 
-    // 5. Contact Messages
-    const contactRows = (contactList || []).map((m: any) => [
-      m.id,
-      m.name ?? "",
-      m.email ?? "",
-      m.subject ?? "",
-      m.message ?? "",
-      m.status ?? "",
-      m.replied_at ? "Yes" : "No",
-      fmtDate(m.created_at),
-    ]);
-    sections.push(
-      csvSection(
-        "CONTACT MESSAGES",
-        ["ID", "Name", "Email", "Subject", "Message", "Status", "Replied", "Created Date"],
-        contactRows
-      )
+    // Sheet 5 — Contact Messages
+    addSheet(
+      wb,
+      "Contact Messages",
+      ["ID", "Name", "Email", "Subject", "Message", "Status", "Replied", "Created Date"],
+      (contactList || []).map((m: any) => [
+        m.id,
+        m.name ?? "",
+        m.email ?? "",
+        m.subject ?? "",
+        m.message ?? "",
+        m.status ?? "",
+        m.replied_at ? "Yes" : "No",
+        fmtDate(m.created_at),
+      ])
     );
 
-    // 6. Moderation (Ratings)
-    const moderationRows = (ratingsAll || []).map((r: any) => [
-      r.id,
-      r.overall_rating ?? "",
-      r.comment ?? "",
-      r.status ?? "",
-      r.is_flagged ? "Yes" : "No",
-      r.recruiter?.email ?? "",
-      r.job_title ?? "",
-      r.admin_notes ?? "",
-      fmtDate(r.created_at),
-    ]);
-    sections.push(
-      csvSection(
-        "MODERATION — RATINGS",
-        [
-          "ID",
-          "Rating",
-          "Comment",
-          "Status",
-          "Flagged",
-          "Recruiter Email",
-          "Job Title",
-          "Admin Notes",
-          "Created Date",
-        ],
-        moderationRows
-      )
+    // Sheet 6 — Ratings (Moderation)
+    addSheet(
+      wb,
+      "Ratings",
+      ["ID", "Rating", "Comment", "Status", "Flagged", "Employer Email", "Job Title", "Admin Notes", "Created Date"],
+      (ratingsAll || []).map((r: any) => [
+        r.id,
+        r.overall_rating ?? "",
+        r.comment ?? "",
+        r.status ?? "",
+        r.is_flagged ? "Yes" : "No",
+        r.recruiter?.email ?? "",
+        r.job_title ?? "",
+        r.admin_notes ?? "",
+        fmtDate(r.created_at),
+      ])
     );
 
-    // 7. Admin Management
-    const adminRows = (adminUsers || []).map((a: any) => [
-      a.id,
-      `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim(),
-      a.email,
-      a.role ?? "",
-      a.status ?? "",
-      fmtDate(a.created_at),
-    ]);
-    sections.push(
-      csvSection(
-        "ADMIN MANAGEMENT",
-        ["ID", "Full Name", "Email", "Role", "Status", "Join Date"],
-        adminRows
-      )
+    // Sheet 7 — Admin Management
+    addSheet(
+      wb,
+      "Admin Management",
+      ["ID", "Full Name", "Email", "Role", "Status", "Join Date"],
+      (adminUsers || []).map((a: any) => [
+        a.id,
+        `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim(),
+        a.email,
+        a.role ?? "",
+        a.status ?? "",
+        fmtDate(a.created_at),
+      ])
     );
 
-    const csv = sections.join("\n");
-    const filename = `eventlink_admin_export_${new Date().toISOString().slice(0, 10)}.csv`;
-
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    const filename = `eventlink_admin_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send("\uFEFF" + csv); // UTF-8 BOM for Excel compatibility
+    await wb.xlsx.write(res);
+    res.end();
   } catch (error) {
-    console.error("Admin CSV export error:", error);
+    console.error("Admin XLSX export error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }

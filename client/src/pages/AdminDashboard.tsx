@@ -165,7 +165,7 @@ function AdminDashboardContent() {
     setCsvDownloading(true);
     try {
       const token = localStorage.getItem("auth_token");
-      const response = await fetch("/api/admin/export/csv", {
+      const response = await fetch("/api/admin/export/xlsx", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error("Export failed");
@@ -174,13 +174,13 @@ function AdminDashboardContent() {
       const a = document.createElement("a");
       a.href = url;
       const today = new Date().toISOString().slice(0, 10);
-      a.download = `eventlink_admin_export_${today}.csv`;
+      a.download = `eventlink_admin_export_${today}.xlsx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      toast({ title: "Export failed", description: "Could not download CSV. Please try again.", variant: "destructive" });
+      toast({ title: "Export failed", description: "Could not download export. Please try again.", variant: "destructive" });
     } finally {
       setCsvDownloading(false);
     }
@@ -694,7 +694,7 @@ function AdminDashboardContent() {
           className="flex items-center gap-2 shrink-0 mt-1"
         >
           <Download className="w-4 h-4" />
-          {csvDownloading ? "Exporting…" : "Download CSV"}
+          {csvDownloading ? "Exporting…" : "Download Excel"}
         </Button>
       </div>
 

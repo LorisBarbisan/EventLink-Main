@@ -4,7 +4,7 @@ import {
   adminDeleteUser,
   bootstrapCreateFirstAdmin,
   bootstrapGrantAdminAccess,
-  exportAdminCSV,
+  exportAdminXLSX,
   getAdminJobDetail,
   getAdminJobs,
   getAdminUsers,
@@ -75,8 +75,8 @@ export function registerAdminRoutes(app: Express) {
   // Send bulk in-app messages to filtered users (admin only)
   app.post("/api/admin/bulk-message", requireAdminAuth, sendBulkMessages);
 
-  // Export all dashboard data as CSV (admin only)
-  app.get("/api/admin/export/csv", requireAdminAuth, exportAdminCSV);
+  // Export all dashboard data as XLSX workbook (admin only)
+  app.get("/api/admin/export/xlsx", requireAdminAuth, exportAdminXLSX);
 
   // Bootstrap endpoint for initial admin setup (no auth required)
   // Special override endpoint for admin@eventlink.one production access
