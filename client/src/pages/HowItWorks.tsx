@@ -4,10 +4,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Award,
+  Bell,
   BriefcaseIcon,
   FileText,
   MessageCircle,
   Phone,
+  Shield,
   Star,
   UserPlus,
   Users,
@@ -121,14 +123,32 @@ export default function HowItWorks() {
                 <CardContent className="p-6 h-full">
                   <div className="flex items-start space-x-4 h-full">
                     <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <BriefcaseIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                      <Shield className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex flex-col">
-                      <h3 className="text-xl font-semibold mb-2">Get Matched with Jobs</h3>
+                      <h3 className="text-xl font-semibold mb-2">Build Trust</h3>
                       <p className="text-muted-foreground text-sm leading-relaxed">
-                        Employers post opportunities and you can apply directly. Browse events,
-                        conferences, exhibitions, and other exciting projects that match
-                        your skills.
+                        Show new clients they can rely on you by inviting previous clients to
+                        recommend you on EventLink. Build credibility through visible references
+                        and strengthen your profile for future opportunities.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow min-h-[140px]">
+                <CardContent className="p-6 h-full">
+                  <div className="flex items-start space-x-4 h-full">
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Bell className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex flex-col">
+                      <h3 className="text-xl font-semibold mb-2">Get Notified</h3>
+                      <p className="text-muted-foreground text-sm leading-relaxed">
+                        Set your preferences and receive alerts when roles matching your skills,
+                        location, and availability go live. Stay informed and ready to apply
+                        when the right opportunity appears.
                       </p>
                     </div>
                   </div>
@@ -146,23 +166,6 @@ export default function HowItWorks() {
                       <p className="text-muted-foreground text-sm leading-relaxed">
                         Use our internal messaging system to stay connected with employers. Discuss
                         project details, negotiate terms, and confirm bookings all in one place.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow min-h-[140px]">
-                <CardContent className="p-6 h-full">
-                  <div className="flex items-start space-x-4 h-full">
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Star className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="flex flex-col">
-                      <h3 className="text-xl font-semibold mb-2">Grow Your Reputation</h3>
-                      <p className="text-muted-foreground text-sm leading-relaxed">
-                        Get rated by employers and showcase your reliability and expertise. Build a
-                        strong professional reputation that opens doors to better opportunities.
                       </p>
                     </div>
                   </div>

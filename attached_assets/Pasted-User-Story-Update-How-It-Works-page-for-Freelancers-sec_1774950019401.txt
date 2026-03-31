@@ -1,0 +1,80 @@
+User Story: Update “How It Works” page for Freelancers section
+
+Title
+Update Freelancer cards on the “How It Works” page
+
+User Story
+As a freelance EventLink user,
+I want the “How It Works” page to better reflect the main benefits of the platform,
+so that I immediately understand how to build trust, receive relevant opportunities, and manage communication through EventLink.
+
+Background
+
+On the current “How It Works” page, the For Freelancers section has four cards:
+
+Create Your Profile
+Get Matched with Jobs
+Communicate Easily
+Grow Your Reputation
+
+We want to keep Create Your Profile as it is, but update the other cards and reorder them so the flow is more meaningful for freelancers.
+
+The new order should be:
+
+Create Your Profile
+Build Trust
+Get Notified
+Communicate Easily
+Updated Card Content
+1. Create Your Profile
+
+Keep exactly as it is.
+
+2. Build Trust
+
+Card title:
+Build Trust
+
+Card description:
+Show new clients they can rely on you by inviting previous clients to recommend you on EventLink. Build credibility through visible references and strengthen your profile for future opportunities.
+
+3. Get Notified
+
+Card title:
+Get Notified
+
+Card description:
+Set your preferences and receive alerts when roles matching your skills, location, and availability go live. Stay informed and ready to apply when the right opportunity appears.
+
+4. Communicate Easily
+
+Card title:
+Communicate Easily
+
+Card description:
+Use our internal messaging system to stay connected with employers. Discuss project details, negotiate terms, and confirm bookings all in one place.
+
+Move this card to 4th position.
+Text can remain unchanged unless layout requires consistency in line length.
+
+Acceptance Criteria
+The For Freelancers section displays the cards in this exact order:
+Create Your Profile
+Build Trust
+Get Notified
+Communicate Easily
+The Create Your Profile card remains unchanged.
+The Get Matched with Jobs card is removed and replaced with Build Trust using the new title and description provided.
+A new Get Notified card is added in 3rd position using the new title and description provided.
+The Communicate Easily card is moved to 4th position.
+Card styling, spacing, icon alignment, typography, colours, and responsiveness remain consistent with the existing design.
+The page should remain fully responsive on desktop and mobile.
+If icons are used for the updated cards:
+Build Trust should use an icon appropriate for trust, references, or reputation
+Get Notified should use an icon appropriate for alerts or notifications
+Icons should match the existing style of the page
+Notes for Implementation
+Keep the existing overall layout and CTA button unchanged unless otherwise requested.
+Maintain the same design language already used on the page.
+If card heights become uneven due to new copy length, adjust padding or description spacing so the cards remain visually balanced.
+Do not change the For Employers section.
