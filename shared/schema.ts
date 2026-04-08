@@ -411,6 +411,7 @@ export const insertJobSchema = createInsertSchema(jobs)
     title: z.string().min(1, "Job title is required"),
     location: z.string().min(1, "Location is required"),
     description: z.string().optional().default(""),
+    type: z.string().optional().default("freelance"),
   });
 
 export const insertJobApplicationSchema = createInsertSchema(job_applications)
