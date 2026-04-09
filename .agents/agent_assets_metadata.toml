@@ -6,3 +6,9 @@ id = "M2-cvPNr0qHts4vDLKBo5"
 uri = "file://cv-parsing-prompt.txt"
 type = "text"
 title = "EventLink CV Parsing Prompt v2"
+
+[[outputs]]
+id = "EQoY9mHTg-1AYMbHi1-IW"
+uri = "file://sitemap_download.xml"
+type = "unspecified"
+title = "EventLink Sitemap (sitemap.xml)"
