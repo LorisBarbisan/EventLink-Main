@@ -124,7 +124,7 @@ export function JobForm({
               id="job-rate"
               value={formData.rate}
               onChange={(e) => handleInputChange("rate", e.target.value)}
-              placeholder="450"
+              placeholder="300"
               data-testid="input-job-rate"
             />
           </div>
