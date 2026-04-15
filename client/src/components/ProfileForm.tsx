@@ -172,7 +172,30 @@
       }
     };
 
+    const { toast } = useToast();
+
+    const freelancerRequiredValid = userType !== "freelancer" || (() => {
+      const fd = formData as FreelancerFormData;
+      return !!(fd.first_name?.trim() && fd.last_name?.trim() && fd.title?.trim() && fd.location?.trim());
+    })();
+
     const handleSave = async () => {
+      if (userType === "freelancer") {
+        const fd = formData as FreelancerFormData;
+        const missing: string[] = [];
+        if (!fd.first_name?.trim()) missing.push("First Name");
+        if (!fd.last_name?.trim()) missing.push("Last Name");
+        if (!fd.title?.trim()) missing.push("Professional Title");
+        if (!fd.location?.trim()) missing.push("Location");
+        if (missing.length > 0) {
+          toast({
+            title: "Required fields missing",
+            description: `Please fill in: ${missing.join(", ")}`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
       try {
         await onSave(formData);
         try {
@@ -292,7 +315,7 @@
           )}
 
           <div className="flex gap-2">
-            <Button onClick={handleSave} disabled={isSaving} data-testid="button-save-profile">
+            <Button onClick={handleSave} disabled={isSaving || !freelancerRequiredValid} data-testid="button-save-profile">
               {isSaving ? "Saving..." : "Save Profile"}
             </Button>
             {profile && (
@@ -536,7 +559,7 @@
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <Label htmlFor="first_name">First Name (Optional)</Label>
+            <Label htmlFor="first_name">First Name *</Label>
             <Input
               id="first_name"
               value={formData.first_name}
@@ -545,7 +568,7 @@
             />
           </div>
           <div>
-            <Label htmlFor="last_name">Last Name (Optional)</Label>
+            <Label htmlFor="last_name">Last Name *</Label>
             <Input
               id="last_name"
               value={formData.last_name}
@@ -556,7 +579,7 @@
         </div>
 
         <div>
-          <Label htmlFor="title">Professional Title (Optional)</Label>
+          <Label htmlFor="title">Professional Title *</Label>
           <Input
             id="title"
             value={formData.title}
@@ -601,7 +624,7 @@
         <div>
           <UKLocationInput
             id="location"
-            label="Location (Optional)"
+            label="Location *"
             value={formData.location}
             onChange={onLocationChange}
             placeholder="Start typing a UK location..."
