@@ -55,10 +55,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "ws://localhost:*",
           "wss://localhost:*",
           "wss://*.replit.dev", // Replit dev domains
-          "ws://*.replit.dev", // Replit dev domains (non-SSL)
           "wss://*.replit.app", // Replit production domains
           "wss://eventlink.one", // Custom production domain
-          "ws://eventlink.one",
         ];
 
         // Allow no origin (for mobile apps, curl, etc.)
