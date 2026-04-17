@@ -56,13 +56,10 @@ if (process.env.NODE_ENV === "production") {
             "https://api.eventlink.com",
             "https://api.linkedin.com",
             "https://storage.googleapis.com",
-            "ws://localhost:*",
             "wss://localhost:*",
             "wss://*.replit.dev", // Replit dev domains
-            "ws://*.replit.dev", // Replit dev domains (non-SSL)
             "wss://*.replit.app", // Replit production domains
             "wss://eventlink.one", // Custom production domain
-            "ws://eventlink.one",
           ],
           frameSrc: [
             "https://accounts.google.com",
