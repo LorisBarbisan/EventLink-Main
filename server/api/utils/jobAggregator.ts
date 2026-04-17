@@ -266,7 +266,6 @@ export class JobAggregator {
     this.adzunaAppId = process.env.ADZUNA_APP_ID;
 
     console.log("🚀 JobAggregator initialized:");
-    console.log(`Adzuna API key: ${this.adzunaApiKey ? "CONFIGURED" : "MISSING"}`);
     console.log(`Adzuna App ID: ${this.adzunaAppId ? "CONFIGURED" : "MISSING"}`);
 
     // Start background sync
