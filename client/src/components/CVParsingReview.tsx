@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -71,6 +71,8 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   const { toast } = useToast();
   const { subscribe } = useWebSocket();
   const [dismissed, setDismissed] = useState(false);
+  const [isStabilizing, setIsStabilizing] = useState(false);
+  const stabilizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedFields, setSelectedFields] = useState<Record<string, boolean>>({
     fullName: true,
     title: true,
@@ -100,6 +102,29 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     ) {
       setDismissed(false);
     }
+  }, [parsingStatus?.status]);
+
+  const prevStatusRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    const curr = parsingStatus?.status;
+    prevStatusRef.current = curr;
+
+    const wasActivelyParsing = prev === "parsing" || prev === "pending";
+    if (curr === "completed" && wasActivelyParsing) {
+      setIsStabilizing(true);
+      if (stabilizeTimerRef.current) clearTimeout(stabilizeTimerRef.current);
+      stabilizeTimerRef.current = setTimeout(() => {
+        setIsStabilizing(false);
+      }, 2000);
+    } else if (curr !== "completed") {
+      if (stabilizeTimerRef.current) clearTimeout(stabilizeTimerRef.current);
+      setIsStabilizing(false);
+    }
+    return () => {
+      if (stabilizeTimerRef.current) clearTimeout(stabilizeTimerRef.current);
+    };
   }, [parsingStatus?.status]);
 
   const handleWebSocketEvent = useCallback((data: any) => {
@@ -225,7 +250,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     return null;
   }
 
-  if (parsingStatus.status === "parsing" || parsingStatus.status === "pending") {
+  if (parsingStatus.status === "parsing" || parsingStatus.status === "pending" || isStabilizing) {
     return (
       <Card className="min-w-0 max-w-full overflow-hidden border-orange-200 bg-orange-50/50 dark:border-orange-800 dark:bg-orange-950/20">
         <CardHeader>
