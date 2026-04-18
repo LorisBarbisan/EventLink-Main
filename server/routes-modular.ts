@@ -99,6 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               "'self'",
               "https://www.google-analytics.com",
               "https://analytics.google.com",
+              "https://region1.google-analytics.com",
               "https://px.ads.linkedin.com",
               "wss://*.replit.dev",
               "wss://*.replit.app",

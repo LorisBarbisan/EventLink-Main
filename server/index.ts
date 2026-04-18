@@ -61,6 +61,7 @@ if (process.env.NODE_ENV === "production") {
             "https://storage.googleapis.com",
             "https://www.google-analytics.com",
             "https://analytics.google.com",
+            "https://region1.google-analytics.com",
             "https://px.ads.linkedin.com",
             "wss://localhost:*",
             "wss://*.replit.dev",
