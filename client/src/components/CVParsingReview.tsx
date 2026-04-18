@@ -115,9 +115,26 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     if (curr === "completed" && wasActivelyParsing) {
       setIsStabilizing(true);
       if (stabilizeTimerRef.current) clearTimeout(stabilizeTimerRef.current);
-      stabilizeTimerRef.current = setTimeout(() => {
-        setIsStabilizing(false);
-      }, 2000);
+      // Fetch fresh data from the API to get the definitive result, then show it
+      stabilizeTimerRef.current = setTimeout(async () => {
+        try {
+          const token = localStorage.getItem("auth_token");
+          const res = await fetch("/api/cv/parse/status", {
+            headers: {
+              "Content-Type": "application/json",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          });
+          if (res.ok) {
+            const freshData = await res.json();
+            queryClient.setQueryData(["/api/cv/parse/status"], freshData);
+          }
+        } catch {
+          // silently ignore — stale data will still display
+        } finally {
+          setIsStabilizing(false);
+        }
+      }, 1500);
     } else if (curr !== "completed") {
       if (stabilizeTimerRef.current) clearTimeout(stabilizeTimerRef.current);
       setIsStabilizing(false);
