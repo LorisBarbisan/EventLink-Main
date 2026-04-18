@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -71,8 +71,6 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   const { toast } = useToast();
   const { subscribe } = useWebSocket();
   const [dismissed, setDismissed] = useState(false);
-  const [isStabilizing, setIsStabilizing] = useState(false);
-  const stabilizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedFields, setSelectedFields] = useState<Record<string, boolean>>({
     fullName: true,
     title: true,
@@ -104,54 +102,12 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     }
   }, [parsingStatus?.status]);
 
-  const prevStatusRef = useRef<string | undefined>(undefined);
-
-  useEffect(() => {
-    const prev = prevStatusRef.current;
-    const curr = parsingStatus?.status;
-    prevStatusRef.current = curr;
-
-    const wasActivelyParsing = prev === "parsing" || prev === "pending";
-    if (curr === "completed" && wasActivelyParsing) {
-      setIsStabilizing(true);
-      if (stabilizeTimerRef.current) clearTimeout(stabilizeTimerRef.current);
-      // Fetch fresh data from the API to get the definitive result, then show it
-      stabilizeTimerRef.current = setTimeout(async () => {
-        try {
-          const token = localStorage.getItem("auth_token");
-          const res = await fetch("/api/cv/parse/status", {
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          });
-          if (res.ok) {
-            const freshData = await res.json();
-            queryClient.setQueryData(["/api/cv/parse/status"], freshData);
-          }
-        } catch {
-          // silently ignore — stale data will still display
-        } finally {
-          setIsStabilizing(false);
-        }
-      }, 1500);
-    } else if (curr !== "completed") {
-      if (stabilizeTimerRef.current) clearTimeout(stabilizeTimerRef.current);
-      setIsStabilizing(false);
-    }
-    return () => {
-      if (stabilizeTimerRef.current) clearTimeout(stabilizeTimerRef.current);
-    };
-  }, [parsingStatus?.status]);
-
   const handleWebSocketEvent = useCallback((data: any) => {
     if (data.type === "cv_parsing_update") {
-      console.log("📡 WebSocket: CV parsing update received:", data.status);
-      if (data.status === "completed" && data.extractedData) {
-        queryClient.setQueryData(["/api/cv/parse/status"], {
-          status: "completed",
-          extractedData: data.extractedData,
-        });
+      if (data.status === "completed") {
+        // Always invalidate to force a fresh fetch from the DB — never use WebSocket payload
+        // directly, as it may be an intermediate result before the final DB write settles.
+        queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
       } else if (data.status === "failed") {
         queryClient.setQueryData(["/api/cv/parse/status"], {
           status: "failed",
@@ -267,7 +223,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     return null;
   }
 
-  if (parsingStatus.status === "parsing" || parsingStatus.status === "pending" || isStabilizing) {
+  if (parsingStatus.status === "parsing" || parsingStatus.status === "pending") {
     return (
       <Card className="min-w-0 max-w-full overflow-hidden border-orange-200 bg-orange-50/50 dark:border-orange-800 dark:bg-orange-950/20">
         <CardHeader>
