@@ -61,16 +61,11 @@ ${cleanText.substring(0, 10000)}`;
           { role: "user", content: prompt },
         ],
         response_format: { type: "json_object" },
-        max_completion_tokens: 8000,
+        max_completion_tokens: 3000,
         temperature: 0.0,
       });
 
-      const choice = response.choices[0];
-      if (choice?.finish_reason === "length") {
-        console.warn("⚠️ Section detection response was TRUNCATED (finish_reason=length). Input was too long for max_completion_tokens. Falling back to rule-based.");
-        return this.ruleBased(cleanText);
-      }
-      const content = choice?.message?.content;
+      const content = response.choices[0]?.message?.content;
       if (!content) throw new Error("No response from section detection");
 
       const parsed = JSON.parse(content);
