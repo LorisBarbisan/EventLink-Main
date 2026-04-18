@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { usePersistentState } from "@/hooks/usePersistentState";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -764,8 +764,9 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                         : undefined
                     }
                     onUploadComplete={() => {
-                      // Refresh the profile data after CV upload
-                      window.location.reload();
+                      // Refresh profile and CV parse status without destroying the page
+                      fetchFreelancerProfile();
+                      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
                     }}
                   />
                 </div>

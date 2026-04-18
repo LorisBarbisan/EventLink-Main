@@ -152,17 +152,34 @@ ${inputText}`;
     sections: SectionBlocks,
     fullText: string
   ): Promise<Partial<RawFieldResult>> {
-    const inputText = [sections.skillsBlock, sections.certificationsBlock, sections.additionalBlock]
+    const dedicatedSections = [sections.skillsBlock, sections.certificationsBlock, sections.additionalBlock]
       .filter(Boolean)
       .join("\n\n---\n\n")
-      .substring(0, 4000);
+      .substring(0, 2500);
 
-    const combinedInput = inputText || fullText.substring(0, 4000);
+    // Always include experience block — technical skills are often embedded in job descriptions
+    const experienceContext = sections.experienceBlock
+      ? sections.experienceBlock.substring(0, 1500)
+      : "";
+
+    const combinedInput = dedicatedSections
+      ? [
+          dedicatedSections,
+          experienceContext
+            ? `\n\n---WORK EXPERIENCE (also extract technical tools/equipment mentioned here)---\n${experienceContext}`
+            : "",
+        ].join("").substring(0, 4500)
+      : fullText.substring(0, 4500);
+
     if (!combinedInput.trim()) return {};
+
+    console.log(`🔍 [Skills/Certs] input preview (first 300 chars): ${combinedInput.substring(0, 300)}`);
 
     const system = `You are a technical CV parser specialising in the live events industry. Extract skills and certifications accurately. Return ONLY valid JSON. Never invent data.`;
 
     const prompt = `Extract skills and certifications from this CV text. This is a live events / AV industry CV.
+
+IMPORTANT: Look for technical skills not just in a dedicated skills section but also in job descriptions, where equipment and software are often mentioned in context (e.g. "operated vMix for live streams", "used DiGiCo SD7 for FOH mixing").
 
 Return a JSON object:
 {
@@ -180,9 +197,11 @@ Return a JSON object:
 
 Skills rules:
 - Include equipment brands/models, software, technical methods (e.g. "vMix", "DiGiCo SD7", "QLab", "Dante", "LED Walls", "Projection Mapping", "RF Systems", "Allen & Heath dLive")
+- Extract technical terms even when embedded in sentences, e.g. "operated vMix" → "vMix"
 - Each skill: 1-5 words maximum
 - EXCLUDE vague traits: "hard-working", "motivated", "team player", "experienced", "good communicator"
 - EXCLUDE certifications (those go in certifications field)
+- If truly no technical skills found anywhere, return an empty array with confidence 0.5
 
 Certifications rules:
 - Only formal qualifications, licences: IPAF, PASMA, SIA, DBS, BS7909, First Aid, IOSH, NEBOSH, NVQ, BTEC, ECS, PLI, driving licences, Dante levels
