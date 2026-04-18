@@ -40,6 +40,9 @@ if (process.env.NODE_ENV === "production") {
             "https://accounts.google.com",
             "https://connect.facebook.net",
             "https://platform.linkedin.com",
+            "https://snap.licdn.com",
+            "https://www.googletagmanager.com",
+            "https://www.google-analytics.com",
           ],
           styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
           fontSrc: ["'self'", "https://fonts.gstatic.com"],
@@ -56,10 +59,13 @@ if (process.env.NODE_ENV === "production") {
             "https://api.eventlink.com",
             "https://api.linkedin.com",
             "https://storage.googleapis.com",
+            "https://www.google-analytics.com",
+            "https://analytics.google.com",
+            "https://px.ads.linkedin.com",
             "wss://localhost:*",
-            "wss://*.replit.dev", // Replit dev domains
-            "wss://*.replit.app", // Replit production domains
-            "wss://eventlink.one", // Custom production domain
+            "wss://*.replit.dev",
+            "wss://*.replit.app",
+            "wss://eventlink.one",
           ],
           frameSrc: [
             "https://accounts.google.com",

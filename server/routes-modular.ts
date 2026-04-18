@@ -87,8 +87,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           directives: {
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: ["'self'"],
+            scriptSrc: [
+              "'self'",
+              "'unsafe-inline'",
+              "https://snap.licdn.com",
+              "https://www.googletagmanager.com",
+              "https://www.google-analytics.com",
+            ],
             imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: [
+              "'self'",
+              "https://www.google-analytics.com",
+              "https://analytics.google.com",
+              "https://px.ads.linkedin.com",
+              "wss://*.replit.dev",
+              "wss://*.replit.app",
+              "wss://eventlink.one",
+            ],
           },
         },
       })
