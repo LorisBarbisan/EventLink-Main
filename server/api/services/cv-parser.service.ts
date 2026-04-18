@@ -54,6 +54,7 @@ export class CVParserService {
         .filter(([, v]) => v.trim().length > 0)
         .map(([k]) => k);
       console.log(`🗂️ Detected sections: ${sectionsWithContent.join(", ")}`);
+      console.log(`🗂️ Section sizes: ${Object.entries(sections).map(([k, v]) => `${k}=${v.length}chars`).join(", ")}`);
 
       // ── Stage D: Field extraction (4 parallel AI prompts) ──────────────────
       console.log("🤖 Stage D: Multi-prompt field extraction");
