@@ -35,7 +35,8 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
         title: "Extracting CV data",
         description: "We're analysing your CV to extract your profile information.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
+      // Optimistically show spinner immediately — server will broadcast completion via WebSocket
+      queryClient.setQueryData(["/api/cv/parse/status"], { status: "parsing" });
     },
     onError: (error) => {
       toast({
@@ -109,8 +110,8 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
         description: "Your CV has been uploaded and is being analysed.",
       });
 
-      // Invalidate so CVParsingReview picks up the new "parsing" status
-      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
+      // Optimistically show spinner immediately — server will broadcast completion via WebSocket
+      queryClient.setQueryData(["/api/cv/parse/status"], { status: "parsing" });
 
       // Wait for the callback to complete with the response profile
       if (onUploadComplete) {
