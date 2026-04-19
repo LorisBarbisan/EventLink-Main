@@ -96,12 +96,20 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   const refetchRef = useRef(refetch);
   useEffect(() => { refetchRef.current = refetch; }, [refetch]);
 
-  // Explicit polling backup: plain setInterval that fires when status is "parsing"
-  // or "pending". TanStack Query's refetchInterval can silently fail to restart
-  // after a setQueryData call, so this guarantees we always poll.
+  // Explicit polling: directly call apiRequest every 3s when parsing is active.
+  // Bypasses TanStack Query's refetch machinery entirely (which can be silently
+  // suppressed by deduplication or stale-check logic), then manually pushes the
+  // result into the cache so all subscribers see the update immediately.
   useEffect(() => {
     if (parsingStatus?.status !== "parsing" && parsingStatus?.status !== "pending") return;
-    const id = setInterval(() => { refetchRef.current(); }, 3000);
+    const id = setInterval(async () => {
+      try {
+        const data = await apiRequest("/api/cv/parse/status");
+        queryClient.setQueryData(["/api/cv/parse/status"], data);
+      } catch {
+        // ignore transient polling errors
+      }
+    }, 3000);
     return () => clearInterval(id);
   }, [parsingStatus?.status]);
 
@@ -192,7 +200,18 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     mutationFn: async () => apiRequest("/api/cv/reparse", { method: "POST" }),
     onSuccess: () => {
       toast({ title: "Re-analysing CV", description: "We're extracting information from your CV again." });
-      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
+      queryClient.setQueryData(["/api/cv/parse/status"], { status: "parsing" });
+      (async () => {
+        let active = true;
+        while (active) {
+          await new Promise(r => setTimeout(r, 3000));
+          try {
+            const statusData = await apiRequest("/api/cv/parse/status");
+            queryClient.setQueryData(["/api/cv/parse/status"], statusData);
+            if (statusData.status !== "parsing" && statusData.status !== "pending") active = false;
+          } catch { active = false; }
+        }
+      })();
     },
     onError: (error) => {
       toast({
