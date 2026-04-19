@@ -10,6 +10,16 @@ export interface SectionBlocks {
   additionalBlock: string;
 }
 
+const SECTION_KEYS: (keyof SectionBlocks)[] = [
+  "headerBlock",
+  "summaryBlock",
+  "skillsBlock",
+  "experienceBlock",
+  "educationBlock",
+  "certificationsBlock",
+  "additionalBlock",
+];
+
 let openaiClient: OpenAI | null = null;
 function getOpenAIClient(): OpenAI {
   if (!openaiClient) {
@@ -29,30 +39,45 @@ export class CvSectionDetectionService {
       return this.ruleBased(cleanText);
     }
 
-    const prompt = `You are a CV document analyser. Your ONLY job is to split the CV text below into named sections.
+    const lines = cleanText.split("\n");
+    const numberedLines = lines
+      .slice(0, 200)
+      .map((line, i) => `${i}: ${line}`)
+      .join("\n");
 
-Return a JSON object with these keys. For each key, copy the relevant portion of the CV text verbatim. If a section is absent, return an empty string for that key.
+    const prompt = `You are a CV document analyser. Given the numbered CV lines below, identify the START line number (0-indexed) of each section.
 
-Keys:
-- headerBlock: name, contact details, location, and job title at the top of the CV
-- summaryBlock: profile summary, personal statement, or "about me" section
-- skillsBlock: skills, tools, software, technical abilities section
-- experienceBlock: work experience, employment history, career history section
-- educationBlock: education, qualifications, academic history section
-- certificationsBlock: certifications, licences, training section
-- additionalBlock: anything else not captured above (languages, interests, references, etc.)
+Return ONLY a JSON object with these exact keys and integer values (the line number where each section starts, or -1 if absent):
+{
+  "headerBlock": 0,
+  "summaryBlock": 5,
+  "skillsBlock": 12,
+  "experienceBlock": 20,
+  "educationBlock": 50,
+  "certificationsBlock": -1,
+  "additionalBlock": -1
+}
+
+Section definitions:
+- headerBlock: name, contact info, location, job title (almost always starts at line 0)
+- summaryBlock: profile summary, personal statement, "about me"
+- skillsBlock: skills, tools, software, technical abilities
+- experienceBlock: work experience, employment history, career history
+- educationBlock: education, qualifications, academic history
+- certificationsBlock: certifications, licences, formal training
+- additionalBlock: anything else (languages, interests, references)
 
 Rules:
-- Copy the text exactly as it appears — do not edit or summarise
-- If two sections appear merged (e.g., skills listed within experience), copy the full merged text into the most appropriate key
-- Return valid JSON only — no markdown, no code fences
+- Return ONLY the JSON object, no other text
+- If a section is not present, return -1
+- Each value must be an integer
 
-CV TEXT:
-${cleanText.substring(0, 10000)}`;
+CV LINES:
+${numberedLines}`;
 
     try {
       const abortController = new AbortController();
-      const abortTimer = setTimeout(() => abortController.abort(), 60000);
+      const abortTimer = setTimeout(() => abortController.abort(), 30000);
       let response;
       try {
         response = await getOpenAIClient().chat.completions.create({
@@ -60,12 +85,12 @@ ${cleanText.substring(0, 10000)}`;
           messages: [
             {
               role: "system",
-              content: "You are a precise document parser. Return only valid JSON. Never invent content.",
+              content: "You are a precise document parser. Return only valid JSON with integer values.",
             },
             { role: "user", content: prompt },
           ],
           response_format: { type: "json_object" },
-          max_completion_tokens: 3000,
+          max_completion_tokens: 100,
           temperature: 0.0,
         }, { signal: abortController.signal });
       } finally {
@@ -76,19 +101,45 @@ ${cleanText.substring(0, 10000)}`;
       if (!content) throw new Error("No response from section detection");
 
       const parsed = JSON.parse(content);
-      return {
-        headerBlock: parsed.headerBlock || "",
-        summaryBlock: parsed.summaryBlock || "",
-        skillsBlock: parsed.skillsBlock || "",
-        experienceBlock: parsed.experienceBlock || "",
-        educationBlock: parsed.educationBlock || "",
-        certificationsBlock: parsed.certificationsBlock || "",
-        additionalBlock: parsed.additionalBlock || "",
-      };
+
+      return this.splitByLineNumbers(lines, parsed);
     } catch (err) {
       console.warn("⚠️ Section detection AI failed, using rule-based fallback:", err);
       return this.ruleBased(cleanText);
     }
+  }
+
+  private splitByLineNumbers(
+    lines: string[],
+    boundaries: Record<string, number>
+  ): SectionBlocks {
+    const blocks: SectionBlocks = {
+      headerBlock: "",
+      summaryBlock: "",
+      skillsBlock: "",
+      experienceBlock: "",
+      educationBlock: "",
+      certificationsBlock: "",
+      additionalBlock: "",
+    };
+
+    const validSections = SECTION_KEYS
+      .map(key => ({ key, start: typeof boundaries[key] === "number" ? boundaries[key] : -1 }))
+      .filter(s => s.start >= 0)
+      .sort((a, b) => a.start - b.start);
+
+    for (let i = 0; i < validSections.length; i++) {
+      const { key, start } = validSections[i];
+      const end = i + 1 < validSections.length ? validSections[i + 1].start : lines.length;
+      blocks[key] = lines.slice(start, end).join("\n").trim();
+    }
+
+    if (!blocks.headerBlock && lines.length > 0) {
+      const firstSection = validSections[0]?.start ?? lines.length;
+      blocks.headerBlock = lines.slice(0, Math.min(firstSection, 10)).join("\n").trim();
+    }
+
+    return blocks;
   }
 
   private ruleBased(text: string): SectionBlocks {
