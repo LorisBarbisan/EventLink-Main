@@ -35,9 +35,9 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
         title: "Extracting CV data",
         description: "We're analysing your CV to extract your profile information.",
       });
-      // Optimistically show spinner, then invalidate so polling activates
+      // Optimistically show spinner, then force fetch so setInterval polling activates
       queryClient.setQueryData(["/api/cv/parse/status"], { status: "parsing" });
-      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
+      queryClient.refetchQueries({ queryKey: ["/api/cv/parse/status"] });
     },
     onError: (error) => {
       toast({
@@ -113,9 +113,10 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
 
       // Optimistically show spinner immediately
       queryClient.setQueryData(["/api/cv/parse/status"], { status: "parsing" });
-      // Trigger a real fetch so TanStack Query re-evaluates refetchInterval and
-      // starts the 3-second polling while the background parse is running.
-      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
+      // Force an immediate server fetch so the explicit setInterval in CVParsingReview
+      // kicks off. refetchQueries is used (not invalidateQueries) to guarantee the
+      // network request fires right now regardless of stale state.
+      queryClient.refetchQueries({ queryKey: ["/api/cv/parse/status"] });
 
       // Wait for the callback to complete with the response profile
       if (onUploadComplete) {

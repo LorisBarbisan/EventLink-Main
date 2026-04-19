@@ -96,6 +96,15 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   const refetchRef = useRef(refetch);
   useEffect(() => { refetchRef.current = refetch; }, [refetch]);
 
+  // Explicit polling backup: plain setInterval that fires when status is "parsing"
+  // or "pending". TanStack Query's refetchInterval can silently fail to restart
+  // after a setQueryData call, so this guarantees we always poll.
+  useEffect(() => {
+    if (parsingStatus?.status !== "parsing" && parsingStatus?.status !== "pending") return;
+    const id = setInterval(() => { refetchRef.current(); }, 3000);
+    return () => clearInterval(id);
+  }, [parsingStatus?.status]);
+
   useEffect(() => {
     if (
       parsingStatus?.status === "parsing" ||
