@@ -101,38 +101,43 @@ export class CVParserService {
 
       console.log(`📊 Final fields: ${Object.keys(parsedData).filter(k => k !== "confidenceData" && k !== "sectionData" && (parsedData as any)[k] !== undefined).join(", ")}`);
 
-      await this.saveParsedData(userId, parsedData, cvFileUrl, sections as Record<string, string>);
+      const saved = await this.saveParsedData(userId, parsedData, cvFileUrl, sections as Record<string, string>);
 
-      // Notify frontend via WebSocket
-      try {
-        const { wsService } = await import("../websocket/websocketService.js");
-        wsService.broadcastCVParsingUpdate(userId, "completed", {
-          fullName: parsedData.fullName,
-          title: parsedData.title,
-          skills: parsedData.skills,
-          bio: parsedData.bio,
-          location: parsedData.location,
-          experienceYears: parsedData.experienceYears,
-          workHistory: parsedData.workHistory,
-          education: parsedData.education,
-          certifications: parsedData.certifications,
-          confidenceData,
-        });
-      } catch (wsError) {
-        console.error("WebSocket broadcast error (non-critical):", wsError);
+      // Only broadcast if we actually persisted results (not a stale/superseded parse)
+      if (saved) {
+        try {
+          const { wsService } = await import("../websocket/websocketService.js");
+          wsService.broadcastCVParsingUpdate(userId, "completed", {
+            fullName: parsedData.fullName,
+            title: parsedData.title,
+            skills: parsedData.skills,
+            bio: parsedData.bio,
+            location: parsedData.location,
+            experienceYears: parsedData.experienceYears,
+            workHistory: parsedData.workHistory,
+            education: parsedData.education,
+            certifications: parsedData.certifications,
+            confidenceData,
+          });
+        } catch (wsError) {
+          console.error("WebSocket broadcast error (non-critical):", wsError);
+        }
       }
 
       return parsedData;
     } catch (error) {
       console.error(`❌ CV parsing pipeline error for user ${userId}:`, error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error during CV parsing";
-      await this.updateParsingStatus(userId, "failed", cvFileUrl, errorMessage);
+      const failedUpdated = await this.updateParsingStatus(userId, "failed", cvFileUrl, errorMessage);
 
-      try {
-        const { wsService } = await import("../websocket/websocketService.js");
-        wsService.broadcastCVParsingUpdate(userId, "failed");
-      } catch (wsError) {
-        console.error("WebSocket broadcast error (non-critical):", wsError);
+      // Only broadcast "failed" if this parse is still the active one (not superseded)
+      if (failedUpdated) {
+        try {
+          const { wsService } = await import("../websocket/websocketService.js");
+          wsService.broadcastCVParsingUpdate(userId, "failed");
+        } catch (wsError) {
+          console.error("WebSocket broadcast error (non-critical):", wsError);
+        }
       }
 
       throw error;
@@ -146,9 +151,17 @@ export class CVParserService {
     status: "pending" | "parsing" | "completed" | "failed",
     cvFileUrl: string,
     errorMessage?: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     const existing = await storage.getCvParsedData(userId);
     if (existing) {
+      // Guard against stale parses (for a superseded CV file) from overwriting terminal states
+      if (
+        existing.cv_file_url !== cvFileUrl &&
+        (status === "completed" || status === "failed")
+      ) {
+        console.log(`⚠️ Stale ${status} update for user ${userId} (old CV file), ignoring`);
+        return false;
+      }
       await storage.updateCvParsedData(userId, {
         status,
         cv_file_url: cvFileUrl,
@@ -162,6 +175,7 @@ export class CVParserService {
         error_message: errorMessage || null,
       });
     }
+    return true;
   }
 
   private async saveParsedData(
@@ -169,7 +183,13 @@ export class CVParserService {
     data: ParsedCVData,
     cvFileUrl: string,
     sections: Record<string, string>
-  ): Promise<void> {
+  ): Promise<boolean> {
+    // Guard against a stale parse (old CV file) overwriting a newer parse's results
+    const current = await storage.getCvParsedData(userId);
+    if (current && current.cv_file_url !== cvFileUrl) {
+      console.log(`⚠️ Stale parse result for user ${userId} (old CV file superseded), discarding`);
+      return false;
+    }
     await storage.updateCvParsedData(userId, {
       status: "completed",
       cv_file_url: cvFileUrl,
@@ -185,6 +205,7 @@ export class CVParserService {
       section_data: JSON.stringify(sections),
       confidence_data: data.confidenceData ? JSON.stringify(data.confidenceData) : null,
     });
+    return true;
   }
 }
 
