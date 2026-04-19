@@ -29,7 +29,11 @@ export async function triggerCVParsing(req: Request, res: Response) {
 
     const existing = await storage.getCvParsedData(userId);
     if (existing && existing.status === "parsing") {
-      return res.status(409).json({ error: "CV parsing is already in progress" });
+      const staleMs = Date.now() - new Date(existing.updated_at).getTime();
+      if (staleMs < 5 * 60 * 1000) {
+        return res.status(409).json({ error: "CV parsing is already in progress" });
+      }
+      console.warn(`⚠️ Stale parsing for user ${userId} (${Math.floor(staleMs / 1000)}s old), force-resetting`);
     }
 
     const contentType = profile.cv_file_type || undefined;
@@ -227,7 +231,11 @@ export async function reparseCV(req: Request, res: Response) {
 
     const existing = await storage.getCvParsedData(userId);
     if (existing && existing.status === "parsing") {
-      return res.status(409).json({ error: "CV parsing is already in progress" });
+      const staleMs = Date.now() - new Date(existing.updated_at).getTime();
+      if (staleMs < 5 * 60 * 1000) {
+        return res.status(409).json({ error: "CV parsing is already in progress" });
+      }
+      console.warn(`⚠️ Stale parsing for user ${userId} (${Math.floor(staleMs / 1000)}s old), force-resetting`);
     }
 
     await cvParserService.initParsingStatus(userId, profile.cv_file_url);

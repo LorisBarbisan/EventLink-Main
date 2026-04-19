@@ -38,6 +38,14 @@ export class CVParserService {
   }
 
   async parseCV(userId: number, cvFileUrl: string, contentType?: string): Promise<ParsedCVData> {
+    const PARSE_TIMEOUT_MS = 3 * 60 * 1000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`CV parsing timed out after 3 minutes for user ${userId}`)), PARSE_TIMEOUT_MS)
+    );
+    return Promise.race([this._parseCV(userId, cvFileUrl, contentType), timeoutPromise]);
+  }
+
+  private async _parseCV(userId: number, cvFileUrl: string, contentType?: string): Promise<ParsedCVData> {
     console.log(`🔍 Starting multi-stage CV pipeline for user ${userId}, file: ${cvFileUrl}`);
     await this.updateParsingStatus(userId, "parsing", cvFileUrl);
 

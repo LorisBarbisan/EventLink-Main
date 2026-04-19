@@ -28,16 +28,23 @@ function getOpenAIClient(): OpenAI {
 }
 
 async function callAI(systemPrompt: string, userPrompt: string, label: string): Promise<any> {
-  const response = await getOpenAIClient().chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    response_format: { type: "json_object" },
-    max_completion_tokens: 2000,
-    temperature: 0.0,
-  });
+  const abortController = new AbortController();
+  const abortTimer = setTimeout(() => abortController.abort(), 60000);
+  let response;
+  try {
+    response = await getOpenAIClient().chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 2000,
+      temperature: 0.0,
+    }, { signal: abortController.signal });
+  } finally {
+    clearTimeout(abortTimer);
+  }
   const content = response.choices[0]?.message?.content;
   if (!content) throw new Error(`No response from AI for ${label}`);
   console.log(`🤖 [${label}] raw: ${content.substring(0, 300)}`);

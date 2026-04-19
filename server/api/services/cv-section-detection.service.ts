@@ -51,19 +51,26 @@ CV TEXT:
 ${cleanText.substring(0, 10000)}`;
 
     try {
-      const response = await getOpenAIClient().chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are a precise document parser. Return only valid JSON. Never invent content.",
-          },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 3000,
-        temperature: 0.0,
-      });
+      const abortController = new AbortController();
+      const abortTimer = setTimeout(() => abortController.abort(), 60000);
+      let response;
+      try {
+        response = await getOpenAIClient().chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a precise document parser. Return only valid JSON. Never invent content.",
+            },
+            { role: "user", content: prompt },
+          ],
+          response_format: { type: "json_object" },
+          max_completion_tokens: 3000,
+          temperature: 0.0,
+        }, { signal: abortController.signal });
+      } finally {
+        clearTimeout(abortTimer);
+      }
 
       const content = response.choices[0]?.message?.content;
       if (!content) throw new Error("No response from section detection");
