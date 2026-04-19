@@ -306,10 +306,10 @@ export default function Jobs() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-4">
+          <h1 className="text-3xl font-bold mb-4 sm:text-4xl">
             <span className="text-primary">Find</span> <span className="text-accent">Jobs</span>
           </h1>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-muted-foreground text-base sm:text-lg">
             Discover exciting opportunities in the events industry. Connect with top companies
             looking for technical crew.
           </p>
@@ -439,11 +439,11 @@ export default function Jobs() {
 
         {/* Jobs List */}
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-xl font-semibold sm:text-2xl">
               {filteredJobs.length} Job{filteredJobs.length !== 1 ? "s" : ""} Found
             </h2>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               <Button
                 onClick={() => syncExternalJobsMutation.mutate()}
                 disabled={syncExternalJobsMutation.isPending}
@@ -507,9 +507,9 @@ export default function Jobs() {
                       className={`hover:shadow-lg transition-shadow border-l-4 ${!job.external_source ? "border-l-primary" : "border-l-muted"}`}
                     >
                       <CardHeader>
-                        <div className="flex items-start justify-between">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div className="space-y-2">
-                            <CardTitle className="text-xl">{job.title}</CardTitle>
+                            <CardTitle className="text-lg sm:text-xl">{job.title}</CardTitle>
                             {job.recruiter_id && !job.external_source ? (
                               <button
                                 onClick={() =>
@@ -541,7 +541,7 @@ export default function Jobs() {
                         <div className="space-y-4">
                           <p className="text-muted-foreground">{job.description}</p>
 
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div className="flex items-center gap-2">
                               <MapPin className="h-4 w-4 text-muted-foreground" />
                               <span>{job.location}</span>
@@ -675,7 +675,7 @@ export default function Jobs() {
 
                   {/* Pagination Controls */}
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-between pt-6">
+                    <div className="flex flex-col items-center gap-4 pt-6 sm:flex-row sm:justify-between">
                       <div className="text-sm text-muted-foreground">
                         Showing {startIndex + 1}-{Math.min(endIndex, filteredJobs.length)} of{" "}
                         {filteredJobs.length} jobs
