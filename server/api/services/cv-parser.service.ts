@@ -47,7 +47,9 @@ export class CVParserService {
 
   private async _parseCV(userId: number, cvFileUrl: string, contentType?: string): Promise<ParsedCVData> {
     console.log(`🔍 Starting multi-stage CV pipeline for user ${userId}, file: ${cvFileUrl}`);
-    await this.updateParsingStatus(userId, "parsing", cvFileUrl);
+    // NOTE: initParsingStatus is always called before _parseCV by all callers,
+    // so no need to call updateParsingStatus("parsing") again here — that would
+    // risk overwriting cv_file_url back to an old URL if two parses race.
 
     try {
       // ── Stage B: Text extraction ────────────────────────────────────────────
@@ -154,7 +156,8 @@ export class CVParserService {
   ): Promise<boolean> {
     const existing = await storage.getCvParsedData(userId);
     if (existing) {
-      // Guard against stale parses (for a superseded CV file) from overwriting terminal states
+      // Guard against stale parses (for a superseded CV file) from writing terminal states.
+      // "parsing" updates are allowed (initParsingStatus legitimately changes the active URL).
       if (
         existing.cv_file_url !== cvFileUrl &&
         (status === "completed" || status === "failed")

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -92,6 +92,10 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     },
   });
 
+  // Keep a stable ref to refetch so the WebSocket callback never goes stale
+  const refetchRef = useRef(refetch);
+  useEffect(() => { refetchRef.current = refetch; }, [refetch]);
+
   useEffect(() => {
     if (
       parsingStatus?.status === "parsing" ||
@@ -104,18 +108,9 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
 
   const handleWebSocketEvent = useCallback((data: any) => {
     if (data.type === "cv_parsing_update") {
-      if (data.status === "completed") {
-        // Always invalidate to force a fresh fetch from the DB — never use WebSocket payload
-        // directly, as it may be an intermediate result before the final DB write settles.
-        queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
-      } else if (data.status === "failed") {
-        queryClient.setQueryData(["/api/cv/parse/status"], {
-          status: "failed",
-          errorMessage: "CV analysis failed. You can try again.",
-        });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
-      }
+      // Call refetch() directly — more reliable than invalidateQueries, always
+      // forces a fresh fetch regardless of whether the query is considered "active".
+      refetchRef.current();
     }
   }, []);
 
