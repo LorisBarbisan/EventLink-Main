@@ -35,8 +35,9 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
         title: "Extracting CV data",
         description: "We're analysing your CV to extract your profile information.",
       });
-      // Optimistically show spinner immediately — server will broadcast completion via WebSocket
+      // Optimistically show spinner, then invalidate so polling activates
       queryClient.setQueryData(["/api/cv/parse/status"], { status: "parsing" });
+      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
     },
     onError: (error) => {
       toast({
@@ -110,8 +111,11 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
         description: "Your CV has been uploaded and is being analysed.",
       });
 
-      // Optimistically show spinner immediately — server will broadcast completion via WebSocket
+      // Optimistically show spinner immediately
       queryClient.setQueryData(["/api/cv/parse/status"], { status: "parsing" });
+      // Trigger a real fetch so TanStack Query re-evaluates refetchInterval and
+      // starts the 3-second polling while the background parse is running.
+      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
 
       // Wait for the callback to complete with the response profile
       if (onUploadComplete) {
