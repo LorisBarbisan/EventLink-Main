@@ -106,6 +106,16 @@ export class CVParserService {
         }
       }
 
+      // Calculate experience years from work history date ranges if not directly extracted
+      if (!parsedData.experienceYears && parsedData.workHistory?.length) {
+        const years = this.calculateExperienceYears(parsedData.workHistory);
+        if (years > 0) {
+          parsedData.experienceYears = years;
+          confidenceData.experienceYears = { confidence: 0.75, source: "calculated_from_work_history" };
+          console.log(`🔄 Calculated ${years} years experience from work history dates`);
+        }
+      }
+
       parsedData.confidenceData = confidenceData;
       parsedData.sectionData = Object.fromEntries(
         Object.entries(sections).filter(([, v]) => v.trim().length > 0)
@@ -117,32 +127,6 @@ export class CVParserService {
 
       // Only broadcast if we actually persisted results (not a stale/superseded parse)
       if (saved) {
-        // Auto-apply extracted fields to the freelancer profile (only for empty fields)
-        try {
-          const currentProfile = await storage.getFreelancerProfile(userId);
-          const profileUpdates: Record<string, any> = {};
-
-          if (parsedData.fullName) {
-            const parts = parsedData.fullName.trim().split(/\s+/);
-            if (!currentProfile?.first_name) profileUpdates.first_name = parts[0] || "";
-            if (!currentProfile?.last_name) profileUpdates.last_name = parts.slice(1).join(" ") || "";
-          }
-          if (parsedData.title && !currentProfile?.title) profileUpdates.title = parsedData.title;
-          if (parsedData.bio && !currentProfile?.bio) profileUpdates.bio = parsedData.bio;
-          if (parsedData.location && !currentProfile?.location) profileUpdates.location = parsedData.location;
-          if (parsedData.experienceYears && !currentProfile?.experience_years) profileUpdates.experience_years = parsedData.experienceYears;
-          if (parsedData.skills?.length && (!currentProfile?.skills || currentProfile.skills.length === 0)) {
-            profileUpdates.skills = parsedData.skills;
-          }
-
-          if (Object.keys(profileUpdates).length > 0) {
-            await storage.updateFreelancerProfile(userId, profileUpdates);
-            console.log(`✅ Auto-applied CV fields to user ${userId}'s profile: ${Object.keys(profileUpdates).join(", ")}`);
-          }
-        } catch (autoApplyErr) {
-          console.error(`⚠️ Auto-apply CV fields failed for user ${userId} (non-critical):`, autoApplyErr);
-        }
-
         try {
           const { wsService } = await import("../websocket/websocketService.js");
           wsService.broadcastCVParsingUpdate(userId, "completed", {
@@ -180,6 +164,42 @@ export class CVParserService {
 
       throw error;
     }
+  }
+
+  // ── Inference helpers ────────────────────────────────────────────────────────
+
+  private calculateExperienceYears(workHistory: WorkHistoryEntry[]): number {
+    const now = new Date();
+    let earliestStart: Date | null = null;
+
+    for (const entry of workHistory) {
+      if (!entry.dates) continue;
+
+      // Extract years from date strings like "Jan 2019 - Present", "2020 - 2023", "June 2019 - April 2020"
+      const yearMatches = entry.dates.match(/\b(19|20)\d{2}\b/g);
+      if (!yearMatches?.length) continue;
+
+      const startYear = parseInt(yearMatches[0], 10);
+      // Try to extract month for better accuracy
+      const monthMatch = entry.dates.match(
+        /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*(19|20)\d{2}/i
+      );
+      const startMonth = monthMatch
+        ? new Date(`${monthMatch[1]} 1, ${startYear}`).getMonth()
+        : 0;
+      const startDate = new Date(startYear, startMonth);
+
+      if (!earliestStart || startDate < earliestStart) {
+        earliestStart = startDate;
+      }
+    }
+
+    if (!earliestStart) return 0;
+
+    const totalYears = Math.round(
+      (now.getTime() - earliestStart.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+    );
+    return Math.min(Math.max(totalYears, 1), 50);
   }
 
   // ── Storage helpers ──────────────────────────────────────────────────────────
