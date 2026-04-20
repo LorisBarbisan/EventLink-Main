@@ -80,7 +80,7 @@ export async function getCVParsingStatus(req: Request, res: Response) {
     res.json({
       status: parsedData.status,
       errorMessage: parsedData.error_message,
-      extractedData: parsedData.status === "completed" ? {
+      extractedData: (parsedData.status === "completed" || parsedData.status === "confirmed") ? {
         fullName: parsedData.extracted_full_name,
         title: parsedData.extracted_title,
         skills: parsedData.extracted_skills,
