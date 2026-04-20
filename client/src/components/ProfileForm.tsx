@@ -45,7 +45,6 @@ interface ProfileFormProps {
 
 export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileFormProps) {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const hasProfileContent = (() => {
     if (!profile) return false;
     if (userType === "recruiter") return !!(profile as RecruiterProfile).company_name;
@@ -219,60 +218,39 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
 
   if (!isEditing && profile) {
     return (
-      <div className="space-y-4">
-        {userType === "freelancer" && (
-          <CVParsingReview
-            onProfileUpdated={() => {
-              queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
-            }}
-            onFieldsConfirmed={(confirmedFields) => {
-              setFormData((prev) => {
-                const updated = { ...prev };
-                for (const [key, value] of Object.entries(confirmedFields)) {
-                  if (value !== undefined && value !== null) {
-                    (updated as any)[key] = value;
-                  }
-                }
-                return updated;
-              });
-              setIsEditing(true);
-            }}
-          />
-        )}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex-1">
-                <CardTitle>
-                  {userType === "freelancer" ? "Freelancer Profile" : "Company Profile"}
-                </CardTitle>
-                <CardDescription>
-                  {userType === "freelancer"
-                    ? "Your professional information and skills"
-                    : "Your company information and details"}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                {userType === "freelancer" && user?.id && <ShareProfileButton userId={user.id} />}
-                <Button
-                  onClick={() => setIsEditing(true)}
-                  data-testid="button-edit-profile"
-                  className="shrink-0"
-                >
-                  Edit Profile
-                </Button>
-              </div>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex-1">
+              <CardTitle>
+                {userType === "freelancer" ? "Freelancer Profile" : "Company Profile"}
+              </CardTitle>
+              <CardDescription>
+                {userType === "freelancer"
+                  ? "Your professional information and skills"
+                  : "Your company information and details"}
+              </CardDescription>
             </div>
-          </CardHeader>
-          <CardContent>
-            {userType === "freelancer" ? (
-              <FreelancerProfileView profile={profile as FreelancerProfile} />
-            ) : (
-              <RecruiterProfileView profile={profile as RecruiterProfile} />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            <div className="flex items-center gap-2">
+              {userType === "freelancer" && user?.id && <ShareProfileButton userId={user.id} />}
+              <Button
+                onClick={() => setIsEditing(true)}
+                data-testid="button-edit-profile"
+                className="shrink-0"
+              >
+                Edit Profile
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {userType === "freelancer" ? (
+            <FreelancerProfileView profile={profile as FreelancerProfile} />
+          ) : (
+            <RecruiterProfileView profile={profile as RecruiterProfile} />
+          )}
+        </CardContent>
+      </Card>
     );
   }
 
