@@ -165,29 +165,22 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     }
   }, [location]);
 
-  const fetchFreelancerProfile = async () => {
+  const fetchFreelancerProfile = async (force = false) => {
     try {
-      console.log("🔍 Fetching profile for user ID:", profile.id);
+      console.log("🔍 Fetching profile for user ID:", profile.id, force ? "(forced)" : "");
       const data = await apiRequest(`/api/freelancer/${profile.id}`);
       console.log("✅ Profile data received:", data);
 
       if (data) {
-        // Check if we have a draft in storage. If we do, we prefer the draft (conceptually),
-        // but usePersistentState has ALREADY initialized with it if it existed.
-        // So we just rely on checking if `sessionStorage` has the key.
-        const hasDraft = sessionStorage.getItem(persistenceKey);
+        // Only skip applying server data if there is an unsaved draft AND we are not forcing.
+        // After CV parsing we force=true so the auto-applied fields always appear in the form.
+        const hasDraft = !force && sessionStorage.getItem(persistenceKey);
 
         if (!hasDraft) {
           console.log(
             "Profile loaded, photo URL length:",
             data.profile_photo_url ? data.profile_photo_url.length : 0
           );
-          console.log("CV data:", {
-            fileName: data.cv_file_name,
-            fileUrl: data.cv_file_url,
-            fileSize: data.cv_file_size,
-            fileType: data.cv_file_type,
-          });
           setFreelancerProfile({
             id: data.id,
             first_name: data.first_name || "",
@@ -223,8 +216,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
   // Force-refetch the profile from the server, bypassing any sessionStorage draft.
   // Used after CV parsing so the auto-applied fields are always shown.
   const forceRefetchProfile = async () => {
-    sessionStorage.removeItem(persistenceKey);
-    await fetchFreelancerProfile();
+    await fetchFreelancerProfile(true);
   };
 
   const saveProfile = async () => {
