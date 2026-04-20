@@ -50,10 +50,11 @@ export async function apiRequest(
 
   const response = await fetch(url, {
     ...options,
-    credentials: "include", // Keep for backward compatibility
+    cache: "no-store",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }), // Add JWT token to headers
+      ...(token && { Authorization: `Bearer ${token}` }),
       ...options?.headers,
     },
   });
