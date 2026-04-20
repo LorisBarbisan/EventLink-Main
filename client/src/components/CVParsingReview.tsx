@@ -169,7 +169,6 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
         });
       }
 
-      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
       onProfileUpdated?.();
     },
