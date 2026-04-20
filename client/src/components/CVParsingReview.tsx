@@ -1,15 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useWebSocket } from "@/contexts/WebSocketContext";
-import { Loader2, Sparkles, CheckCircle, XCircle, AlertCircle, RefreshCw, Briefcase, GraduationCap, Award } from "lucide-react";
+import { Loader2, Sparkles, X, AlertCircle, RefreshCw, Briefcase, GraduationCap, Award } from "lucide-react";
 
 interface ConfirmedFormFields {
   first_name?: string;
@@ -71,17 +69,8 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   const { toast } = useToast();
   const { subscribe } = useWebSocket();
   const [dismissed, setDismissed] = useState(false);
-  const [selectedFields, setSelectedFields] = useState<Record<string, boolean>>({
-    fullName: true,
-    title: true,
-    skills: true,
-    bio: true,
-    location: true,
-    experienceYears: true,
-    workHistory: true,
-    education: true,
-    certifications: true,
-  });
+  // Tracks whether we've already auto-applied this parse result (avoid double-apply)
+  const autoAppliedRef = useRef(false);
 
   const { data: parsingStatus, isLoading, refetch } = useQuery<ParsingStatus>({
     queryKey: ["/api/cv/parse/status"],
@@ -97,9 +86,6 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   useEffect(() => { refetchRef.current = refetch; }, [refetch]);
 
   // Explicit polling: directly call apiRequest every 3s when parsing is active.
-  // Bypasses TanStack Query's refetch machinery entirely (which can be silently
-  // suppressed by deduplication or stale-check logic), then manually pushes the
-  // result into the cache so all subscribers see the update immediately.
   useEffect(() => {
     if (parsingStatus?.status !== "parsing" && parsingStatus?.status !== "pending") return;
     const id = setInterval(async () => {
@@ -113,20 +99,49 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     return () => clearInterval(id);
   }, [parsingStatus?.status]);
 
+  // Reset dismissed + auto-apply tracking when a new parse starts
   useEffect(() => {
-    if (
-      parsingStatus?.status === "parsing" ||
-      parsingStatus?.status === "pending" ||
-      parsingStatus?.status === "completed"
-    ) {
+    if (parsingStatus?.status === "parsing" || parsingStatus?.status === "pending") {
       setDismissed(false);
+      autoAppliedRef.current = false;
     }
   }, [parsingStatus?.status]);
 
+  // Auto-apply all parsed fields to the form the moment parsing completes
+  useEffect(() => {
+    if (
+      parsingStatus?.status === "completed" &&
+      parsingStatus.extractedData &&
+      !autoAppliedRef.current
+    ) {
+      autoAppliedRef.current = true;
+      setDismissed(false);
+
+      if (onFieldsConfirmed) {
+        const d = parsingStatus.extractedData;
+        const formFields: ConfirmedFormFields = {};
+        if (d.fullName) {
+          const parts = d.fullName.trim().split(/\s+/);
+          formFields.first_name = parts[0] || "";
+          formFields.last_name = parts.slice(1).join(" ") || "";
+        }
+        if (d.title) formFields.title = d.title;
+        if (d.skills?.length) formFields.skills = d.skills;
+        if (d.bio) formFields.bio = d.bio;
+        if (d.location) formFields.location = d.location;
+        if (d.experienceYears) formFields.experience_years = String(d.experienceYears);
+        onFieldsConfirmed(formFields);
+      }
+
+      toast({
+        title: "Profile pre-filled from CV",
+        description: "Review the fields below and click Save when ready.",
+      });
+    }
+  }, [parsingStatus?.status, parsingStatus?.extractedData]);
+
   const handleWebSocketEvent = useCallback((data: any) => {
     if (data.type === "cv_parsing_update") {
-      // Call refetch() directly — more reliable than invalidateQueries, always
-      // forces a fresh fetch regardless of whether the query is considered "active".
       refetchRef.current();
     }
   }, []);
@@ -136,65 +151,11 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     return unsubscribe;
   }, [subscribe, handleWebSocketEvent]);
 
-  const confirmMutation = useMutation({
-    mutationFn: async (fields: Record<string, boolean>) => {
-      return apiRequest("/api/cv/parse/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selectedFields: fields }),
-      });
-    },
-    onSuccess: (data) => {
-      setDismissed(true);
-      toast({
-        title: "Profile updated",
-        description: `${data.fieldsUpdated?.length || 0} fields updated from your CV.`,
-      });
-
-      if (onFieldsConfirmed && data.profile) {
-        const p = data.profile;
-        const formFields: ConfirmedFormFields = {};
-        const updatedKeys = data.fieldsUpdated || [];
-        if (updatedKeys.includes("first_name")) formFields.first_name = p.first_name || "";
-        if (updatedKeys.includes("last_name")) formFields.last_name = p.last_name || "";
-        if (updatedKeys.includes("title")) formFields.title = p.title || "";
-        if (updatedKeys.includes("skills")) formFields.skills = p.skills || [];
-        if (updatedKeys.includes("bio")) formFields.bio = p.bio || "";
-        if (updatedKeys.includes("location")) formFields.location = p.location || "";
-        if (updatedKeys.includes("experience_years")) {
-          formFields.experience_years = p.experience_years != null ? String(p.experience_years) : "";
-        }
-        onFieldsConfirmed(formFields);
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
-      onProfileUpdated?.();
-    },
-    onError: (error) => {
-      toast({
-        title: "Update failed",
-        description: error instanceof Error ? error.message : "Failed to update profile",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const rejectMutation = useMutation({
-    mutationFn: async () => apiRequest("/api/cv/parse/reject", { method: "POST" }),
-    onSuccess: () => {
-      setDismissed(true);
-      toast({ title: "Suggestions dismissed", description: "You can always edit your profile manually." });
-      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to dismiss",
-        description: error instanceof Error ? error.message : "An error occurred",
-        variant: "destructive",
-      });
-    },
-  });
+  // Dismissing the card silently marks it as rejected in DB so it won't reappear on reload
+  const handleDismiss = () => {
+    setDismissed(true);
+    apiRequest("/api/cv/parse/reject", { method: "POST" }).catch(() => {});
+  };
 
   const reparseMutation = useMutation({
     mutationFn: async () => apiRequest("/api/cv/reparse", { method: "POST" }),
@@ -221,10 +182,6 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       });
     },
   });
-
-  const toggleField = (field: string) => {
-    setSelectedFields(prev => ({ ...prev, [field]: !prev[field] }));
-  };
 
   if (isLoading) {
     return (
@@ -266,25 +223,31 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     return (
       <Card className="min-w-0 max-w-full overflow-hidden border-red-200 dark:border-red-800">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            CV Analysis Failed
-          </CardTitle>
-          <CardDescription>
-            {parsingStatus.errorMessage || "We couldn't extract information from your CV. You can still fill in your profile manually."}
-          </CardDescription>
-        </CardHeader>
-        <CardFooter>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                CV Analysis Failed
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {parsingStatus.errorMessage || "We couldn't extract information from your CV. You can still fill in your profile manually."}
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="icon" className="shrink-0" onClick={handleDismiss}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
           <Button
             variant="outline"
             size="sm"
+            className="mt-2 w-fit"
             onClick={() => reparseMutation.mutate()}
             disabled={reparseMutation.isPending}
           >
             {reparseMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
             Try Again
           </Button>
-        </CardFooter>
+        </CardHeader>
       </Card>
     );
   }
@@ -303,18 +266,23 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       return null;
     }
 
-    const anySelected = Object.values(selectedFields).some(v => v);
-
     return (
       <Card className="min-w-0 max-w-full overflow-hidden border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Sparkles className="w-5 h-5 text-green-600" />
-            CV Analysis Complete
-          </CardTitle>
-          <CardDescription>
-            We found the following in your CV. Select what you'd like to apply to your profile.
-          </CardDescription>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Sparkles className="w-5 h-5 text-green-600" />
+                CV Analysis Complete
+              </CardTitle>
+              <CardDescription className="mt-1">
+                Your profile has been pre-filled with the data below. Review and click Save when ready.
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="icon" className="shrink-0" onClick={handleDismiss}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-6">
@@ -325,59 +293,19 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
               <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Basic Info</h4>
 
               {data.fullName && (
-                <FieldRow
-                  id="fullName"
-                  label="Name"
-                  value={data.fullName}
-                  checked={selectedFields.fullName}
-                  onToggle={() => toggleField("fullName")}
-                  confidence={conf.fullName?.confidence}
-                />
+                <FieldRow label="Name" value={data.fullName} confidence={conf.fullName?.confidence} />
               )}
-
               {data.title && (
-                <FieldRow
-                  id="title"
-                  label="Professional Title"
-                  value={data.title}
-                  checked={selectedFields.title}
-                  onToggle={() => toggleField("title")}
-                  confidence={conf.title?.confidence}
-                />
+                <FieldRow label="Professional Title" value={data.title} confidence={conf.title?.confidence} />
               )}
-
               {data.location && (
-                <FieldRow
-                  id="location"
-                  label="Location"
-                  value={data.location}
-                  checked={selectedFields.location}
-                  onToggle={() => toggleField("location")}
-                  confidence={conf.location?.confidence}
-                />
+                <FieldRow label="Location" value={data.location} confidence={conf.location?.confidence} />
               )}
-
               {data.experienceYears && (
-                <FieldRow
-                  id="experienceYears"
-                  label="Years of Experience"
-                  value={`${data.experienceYears} years`}
-                  checked={selectedFields.experienceYears}
-                  onToggle={() => toggleField("experienceYears")}
-                  confidence={conf.experienceYears?.confidence}
-                />
+                <FieldRow label="Years of Experience" value={`${data.experienceYears} years`} confidence={conf.experienceYears?.confidence} />
               )}
-
               {data.bio && (
-                <FieldRow
-                  id="bio"
-                  label="Bio / Summary"
-                  value={data.bio}
-                  checked={selectedFields.bio}
-                  onToggle={() => toggleField("bio")}
-                  clamp
-                  confidence={conf.bio?.confidence}
-                />
+                <FieldRow label="Bio / Summary" value={data.bio} clamp confidence={conf.bio?.confidence} />
               )}
             </div>
           )}
@@ -389,33 +317,21 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Skills</h4>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <Checkbox
-                      id="field-skills"
-                      className="mt-0.5 shrink-0"
-                      checked={selectedFields.skills}
-                      onCheckedChange={() => toggleField("skills")}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Label htmlFor="field-skills" className="cursor-pointer font-medium">
-                          Technical Skills
-                        </Label>
-                        <ConfidenceBadge confidence={conf.skills?.confidence} />
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {data.skills!.slice(0, 15).map((skill, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">{skill}</Badge>
-                        ))}
-                        {data.skills!.length > 15 && (
-                          <Badge variant="outline" className="text-xs">+{data.skills!.length - 15} more</Badge>
-                        )}
-                      </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-sm">Technical Skills</span>
+                      <ConfidenceBadge confidence={conf.skills?.confidence} />
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {data.skills!.slice(0, 15).map((skill, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">{skill}</Badge>
+                      ))}
+                      {data.skills!.length > 15 && (
+                        <Badge variant="outline" className="text-xs">+{data.skills!.length - 15} more</Badge>
+                      )}
                     </div>
                   </div>
-                  <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                    Suggested from CV
-                  </Badge>
+                  <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">Applied</Badge>
                 </div>
               </div>
             </>
@@ -431,30 +347,18 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                   Certifications
                 </h4>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <Checkbox
-                      id="field-certifications"
-                      className="mt-0.5 shrink-0"
-                      checked={selectedFields.certifications}
-                      onCheckedChange={() => toggleField("certifications")}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Label htmlFor="field-certifications" className="cursor-pointer font-medium">
-                          Licences & Certifications
-                        </Label>
-                        <ConfidenceBadge confidence={conf.certifications?.confidence} />
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {data.certifications!.map((cert, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">{cert}</Badge>
-                        ))}
-                      </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-sm">Licences & Certifications</span>
+                      <ConfidenceBadge confidence={conf.certifications?.confidence} />
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {data.certifications!.map((cert, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">{cert}</Badge>
+                      ))}
                     </div>
                   </div>
-                  <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                    Suggested from CV
-                  </Badge>
+                  <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">Applied</Badge>
                 </div>
               </div>
             </>
@@ -470,43 +374,31 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                   Work History
                 </h4>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <Checkbox
-                      id="field-workHistory"
-                      className="mt-0.5 shrink-0"
-                      checked={selectedFields.workHistory}
-                      onCheckedChange={() => toggleField("workHistory")}
-                    />
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="field-workHistory" className="cursor-pointer font-medium">
-                          Work Experience ({data.workHistory!.length} {data.workHistory!.length === 1 ? "role" : "roles"})
-                        </Label>
-                        <ConfidenceBadge confidence={conf.workHistory?.confidence} />
-                      </div>
-                      {data.workHistory!.slice(0, 4).map((entry, i) => (
-                        <div key={i} className="rounded-md border bg-background/60 px-3 py-2 text-sm">
-                          <p className="font-medium">{entry.jobTitle}</p>
-                          {(entry.company || entry.dates) && (
-                            <p className="text-muted-foreground text-xs">
-                              {[entry.company, entry.dates].filter(Boolean).join(" · ")}
-                            </p>
-                          )}
-                          {entry.details && (
-                            <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{entry.details}</p>
-                          )}
-                        </div>
-                      ))}
-                      {data.workHistory!.length > 4 && (
-                        <p className="text-xs text-muted-foreground">
-                          + {data.workHistory!.length - 4} more roles
-                        </p>
-                      )}
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">
+                        Work Experience ({data.workHistory!.length} {data.workHistory!.length === 1 ? "role" : "roles"})
+                      </span>
+                      <ConfidenceBadge confidence={conf.workHistory?.confidence} />
                     </div>
+                    {data.workHistory!.slice(0, 4).map((entry, i) => (
+                      <div key={i} className="rounded-md border bg-background/60 px-3 py-2 text-sm">
+                        <p className="font-medium">{entry.jobTitle}</p>
+                        {(entry.company || entry.dates) && (
+                          <p className="text-muted-foreground text-xs">
+                            {[entry.company, entry.dates].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
+                        {entry.details && (
+                          <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{entry.details}</p>
+                        )}
+                      </div>
+                    ))}
+                    {data.workHistory!.length > 4 && (
+                      <p className="text-xs text-muted-foreground">+ {data.workHistory!.length - 4} more roles</p>
+                    )}
                   </div>
-                  <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                    Suggested from CV
-                  </Badge>
+                  <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">Applied</Badge>
                 </div>
               </div>
             </>
@@ -522,71 +414,30 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                   Education
                 </h4>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <Checkbox
-                      id="field-education"
-                      className="mt-0.5 shrink-0"
-                      checked={selectedFields.education}
-                      onCheckedChange={() => toggleField("education")}
-                    />
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="field-education" className="cursor-pointer font-medium">
-                          Education History ({data.education!.length} {data.education!.length === 1 ? "entry" : "entries"})
-                        </Label>
-                        <ConfidenceBadge confidence={conf.education?.confidence} />
-                      </div>
-                      {data.education!.map((entry, i) => (
-                        <div key={i} className="rounded-md border bg-background/60 px-3 py-2 text-sm">
-                          <p className="font-medium">{entry.qualification}</p>
-                          {(entry.institution || entry.dates) && (
-                            <p className="text-muted-foreground text-xs">
-                              {[entry.institution, entry.dates].filter(Boolean).join(" · ")}
-                            </p>
-                          )}
-                        </div>
-                      ))}
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">
+                        Education History ({data.education!.length} {data.education!.length === 1 ? "entry" : "entries"})
+                      </span>
+                      <ConfidenceBadge confidence={conf.education?.confidence} />
                     </div>
+                    {data.education!.map((entry, i) => (
+                      <div key={i} className="rounded-md border bg-background/60 px-3 py-2 text-sm">
+                        <p className="font-medium">{entry.qualification}</p>
+                        {(entry.institution || entry.dates) && (
+                          <p className="text-muted-foreground text-xs">
+                            {[entry.institution, entry.dates].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                  <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                    Suggested from CV
-                  </Badge>
+                  <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">Applied</Badge>
                 </div>
               </div>
             </>
           )}
         </CardContent>
-
-        <Separator />
-        <CardFooter className="flex flex-col gap-2 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full sm:w-auto"
-            onClick={() => rejectMutation.mutate()}
-            disabled={rejectMutation.isPending || confirmMutation.isPending}
-          >
-            {rejectMutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <XCircle className="w-4 h-4 mr-2" />
-            )}
-            Dismiss
-          </Button>
-          <Button
-            size="sm"
-            className="w-full sm:w-auto"
-            onClick={() => confirmMutation.mutate(selectedFields)}
-            disabled={confirmMutation.isPending || rejectMutation.isPending || !anySelected}
-          >
-            {confirmMutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <CheckCircle className="w-4 h-4 mr-2" />
-            )}
-            Apply Selected
-          </Button>
-        </CardFooter>
       </Card>
     );
   }
@@ -597,40 +448,25 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
 // ── Helper component ─────────────────────────────────────────────────────────
 
 interface FieldRowProps {
-  id: string;
   label: string;
   value: string;
-  checked: boolean;
-  onToggle: () => void;
   clamp?: boolean;
   confidence?: number;
 }
 
-function FieldRow({ id, label, value, checked, onToggle, clamp, confidence }: FieldRowProps) {
+function FieldRow({ label, value, clamp, confidence }: FieldRowProps) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-      <div className="flex min-w-0 flex-1 items-start gap-3">
-        <Checkbox
-          id={`field-${id}`}
-          className="mt-0.5 shrink-0"
-          checked={checked}
-          onCheckedChange={onToggle}
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <Label htmlFor={`field-${id}`} className="cursor-pointer font-medium">
-              {label}
-            </Label>
-            <ConfidenceBadge confidence={confidence} />
-          </div>
-          <p className={`text-sm text-muted-foreground break-words ${clamp ? "line-clamp-3" : ""}`}>
-            {value}
-          </p>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm">{label}</span>
+          <ConfidenceBadge confidence={confidence} />
         </div>
+        <p className={`text-sm text-muted-foreground break-words ${clamp ? "line-clamp-3" : ""}`}>
+          {value}
+        </p>
       </div>
-      <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-        Suggested from CV
-      </Badge>
+      <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">Applied</Badge>
     </div>
   );
 }
