@@ -1,7 +1,6 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CVParsingReview } from "@/components/CVParsingReview";
 import { ImageUpload } from "@/components/ImageUpload";
-import { ShareProfileButton } from "@/components/ShareProfileButton";
 import { SimplifiedCVUploader } from "@/components/SimplifiedCVUploader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,8 +28,9 @@ import type {
   RecruiterFormData,
   RecruiterProfile,
 } from "@shared/types";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Building2, FileText, Globe, MapPin, Plus, X } from "lucide-react";
+import { ShareProfileButton } from "@/components/ShareProfileButton";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RatingDisplay } from "./StarRating";
 
@@ -45,6 +45,7 @@ interface ProfileFormProps {
 
 export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileFormProps) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const hasProfileContent = (() => {
     if (!profile) return false;
     if (userType === "recruiter") return !!(profile as RecruiterProfile).company_name;
@@ -54,22 +55,6 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
   const [isEditing, setIsEditing] = useState(!hasProfileContent);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const hasInitializedEditing = useRef(false);
-
-  const { data: parseStatusData } = useQuery<{ status: string; extractedData?: any }>({
-    queryKey: ["/api/cv/parse/status"],
-    enabled: userType === "freelancer",
-    refetchInterval: (query) => {
-      const s = (query.state.data as any)?.status;
-      return s === "parsing" || s === "pending" ? 3000 : false;
-    },
-  });
-  const showParsingBanner =
-    userType === "freelancer" &&
-    !isEditing &&
-    profile &&
-    (parseStatusData?.status === "completed" ||
-      parseStatusData?.status === "parsing" ||
-      parseStatusData?.status === "pending");
 
   useEffect(() => {
     if (!hasInitializedEditing.current && profile) {
@@ -235,42 +220,24 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
   if (!isEditing && profile) {
     return (
       <div className="space-y-4">
-        {showParsingBanner && (
-          <div
-            className={`flex items-center justify-between gap-4 rounded-lg border p-4 ${parseStatusData?.status === "completed" ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30" : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"}`}
-          >
-            <div>
-              {parseStatusData?.status === "completed" ? (
-                <>
-                  <p className="text-sm font-semibold text-green-800 dark:text-green-300">
-                    CV analysis complete
-                  </p>
-                  <p className="text-sm text-green-700 dark:text-green-400">
-                    Your CV has been analysed. Click below to review and apply the extracted details
-                    to your profile.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
-                    Analysing your CV…
-                  </p>
-                  <p className="text-sm text-blue-700 dark:text-blue-400">
-                    Please wait while we extract your details. This usually takes around 10 seconds.
-                  </p>
-                </>
-              )}
-            </div>
-            {parseStatusData?.status === "completed" && (
-              <Button
-                size="sm"
-                className="shrink-0 bg-green-700 text-white hover:bg-green-800"
-                onClick={() => setIsEditing(true)}
-              >
-                Apply to Profile
-              </Button>
-            )}
-          </div>
+        {userType === "freelancer" && (
+          <CVParsingReview
+            onProfileUpdated={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
+            }}
+            onFieldsConfirmed={(confirmedFields) => {
+              setFormData((prev) => {
+                const updated = { ...prev };
+                for (const [key, value] of Object.entries(confirmedFields)) {
+                  if (value !== undefined && value !== null) {
+                    (updated as any)[key] = value;
+                  }
+                }
+                return updated;
+              });
+              setIsEditing(true);
+            }}
+          />
         )}
         <Card>
           <CardHeader>
@@ -799,23 +766,8 @@ function CVUploadSection({
   onFieldsConfirmed?: (fields: Record<string, any>) => void;
 }) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const profileToCV = (p?: FreelancerProfile | null) =>
-    p?.cv_file_url
-      ? {
-          fileName: p.cv_file_name,
-          fileType: p.cv_file_type,
-          fileSize: p.cv_file_size,
-          fileUrl: p.cv_file_url,
-        }
-      : undefined;
-
-  const [localCV, setLocalCV] = useState(() => profileToCV(profile));
-
-  useEffect(() => {
-    setLocalCV(profileToCV(profile));
-  }, [profile?.cv_file_url]);
 
   // Only show if user is a freelancer
   if (!user || user.role !== "freelancer") {
@@ -825,15 +777,20 @@ function CVUploadSection({
   const handleUploadComplete = async (updatedProfile?: any) => {
     console.log("🔄 CV upload/delete complete for user:", user.id);
 
+    // Use the profile from the response (already fresh from DB)
     if (updatedProfile) {
-      setLocalCV(profileToCV(updatedProfile));
       queryClient.setQueryData(["/api/freelancer/profile", user.id], updatedProfile);
       console.log("✅ Profile updated in cache from response:", updatedProfile);
+
+      toast({
+        title: "Success",
+        description: "Your CV has been updated successfully!",
+      });
     } else {
       console.warn("No profile in response, falling back to refetch");
+      // Fallback: refetch if no profile provided
       try {
         const freshProfile = await apiRequest(`/api/freelancer/${user.id}`);
-        setLocalCV(profileToCV(freshProfile));
         queryClient.setQueryData(["/api/freelancer/profile", user.id], freshProfile);
         console.log("✅ Profile fetched and updated in cache:", freshProfile);
       } catch (error) {
@@ -842,15 +799,27 @@ function CVUploadSection({
     }
   };
 
+  // Prepare current CV data for CVUploader
+  const currentCV =
+    profile && profile.cv_file_url
+      ? {
+          fileName: profile.cv_file_name,
+          fileType: profile.cv_file_type,
+          fileSize: profile.cv_file_size,
+          fileUrl: profile.cv_file_url,
+        }
+      : undefined;
+
   return (
     <div className="min-w-0 space-y-4">
       <SimplifiedCVUploader
         userId={user.id}
-        currentCV={localCV}
+        currentCV={currentCV}
         onUploadComplete={handleUploadComplete}
       />
       <CVParsingReview
         onProfileUpdated={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/freelancer", user.id] });
           queryClient.invalidateQueries({ queryKey: ["/api/freelancer/profile", user.id] });
         }}
         onFieldsConfirmed={onFieldsConfirmed}
@@ -966,6 +935,13 @@ function RecruiterFormFields({
         <ImageUpload
           label="Company Logo"
           value={formData.company_logo_url}
+          onChange={(url: string) => onInputChange("company_logo_url", url)}
+          shape="circle"
+        />
+      </div>
+    </>
+  );
+        value={formData.company_logo_url}
           onChange={(url: string) => onInputChange("company_logo_url", url)}
           shape="circle"
         />

@@ -79,11 +79,10 @@ export async function getCVParsingStatus(req: Request, res: Response) {
       try { confidenceData = JSON.parse((parsedData as any).confidence_data); } catch {}
     }
 
-    const hasExtractedData = parsedData.status === "completed" || parsedData.status === "confirmed";
     res.json({
       status: parsedData.status,
       errorMessage: parsedData.error_message,
-      extractedData: hasExtractedData ? {
+      extractedData: parsedData.status === "completed" ? {
         fullName: parsedData.extracted_full_name,
         title: parsedData.extracted_title,
         skills: parsedData.extracted_skills,
@@ -208,7 +207,7 @@ export async function rejectCVData(req: Request, res: Response) {
     const userId = (req as any).user.id;
     const parsedData = await storage.getCvParsedData(userId);
 
-    if (!parsedData || (parsedData.status !== "completed" && parsedData.status !== "confirmed")) {
+    if (!parsedData || parsedData.status !== "completed") {
       return res.status(400).json({ error: "No completed CV parsing to reject" });
     }
 

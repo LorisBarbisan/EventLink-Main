@@ -55,23 +55,15 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
       })();
     },
     onError: (error) => {
-      const msg = error instanceof Error ? error.message : "";
-      if (msg.toLowerCase().includes("already in progress")) {
-        toast({
-          title: "Analysis already running",
-          description: "Your CV is being analysed — results will appear shortly.",
-        });
-      } else {
-        toast({
-          title: "Extraction failed",
-          description: msg || "Failed to extract CV data",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Extraction failed",
+        description: error instanceof Error ? error.message : "Failed to extract CV data",
+        variant: "destructive",
+      });
     },
   });
 
-  const showExtractButton = currentCV?.fileName && 
+  const showExtractButton = currentCV?.fileName &&
     (!parsingStatus || parsingStatus.status !== "parsing" && parsingStatus.status !== "pending");
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
