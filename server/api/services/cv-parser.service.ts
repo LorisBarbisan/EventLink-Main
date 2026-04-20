@@ -106,6 +106,16 @@ export class CVParserService {
         }
       }
 
+      // Calculate experience years from work history date ranges if not directly extracted
+      if (!parsedData.experienceYears && parsedData.workHistory?.length) {
+        const years = this.calculateExperienceYears(parsedData.workHistory);
+        if (years > 0) {
+          parsedData.experienceYears = years;
+          confidenceData.experienceYears = { confidence: 0.75, source: "calculated_from_work_history" };
+          console.log(`🔄 Calculated ${years} years experience from work history dates`);
+        }
+      }
+
       parsedData.confidenceData = confidenceData;
       parsedData.sectionData = Object.fromEntries(
         Object.entries(sections).filter(([, v]) => v.trim().length > 0)
@@ -180,6 +190,42 @@ export class CVParserService {
 
       throw error;
     }
+  }
+
+  // ── Inference helpers ────────────────────────────────────────────────────────
+
+  private calculateExperienceYears(workHistory: WorkHistoryEntry[]): number {
+    const now = new Date();
+    let earliestStart: Date | null = null;
+
+    for (const entry of workHistory) {
+      if (!entry.dates) continue;
+
+      // Extract years from date strings like "Jan 2019 - Present", "2020 - 2023", "June 2019 - April 2020"
+      const yearMatches = entry.dates.match(/\b(19|20)\d{2}\b/g);
+      if (!yearMatches?.length) continue;
+
+      const startYear = parseInt(yearMatches[0], 10);
+      // Try to extract month for better accuracy
+      const monthMatch = entry.dates.match(
+        /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*(19|20)\d{2}/i
+      );
+      const startMonth = monthMatch
+        ? new Date(`${monthMatch[1]} 1, ${startYear}`).getMonth()
+        : 0;
+      const startDate = new Date(startYear, startMonth);
+
+      if (!earliestStart || startDate < earliestStart) {
+        earliestStart = startDate;
+      }
+    }
+
+    if (!earliestStart) return 0;
+
+    const totalYears = Math.round(
+      (now.getTime() - earliestStart.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+    );
+    return Math.min(Math.max(totalYears, 1), 50);
   }
 
   // ── Storage helpers ──────────────────────────────────────────────────────────
