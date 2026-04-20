@@ -154,15 +154,14 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       if (onFieldsConfirmed && data.profile) {
         const p = data.profile;
         const formFields: ConfirmedFormFields = {};
-        const updatedKeys = data.fieldsUpdated || [];
-        if (updatedKeys.includes("first_name")) formFields.first_name = p.first_name || "";
-        if (updatedKeys.includes("last_name")) formFields.last_name = p.last_name || "";
-        if (updatedKeys.includes("title")) formFields.title = p.title || "";
-        if (updatedKeys.includes("skills")) formFields.skills = p.skills || [];
-        if (updatedKeys.includes("bio")) formFields.bio = p.bio || "";
-        if (updatedKeys.includes("location")) formFields.location = p.location || "";
-        if (updatedKeys.includes("experience_years")) {
-          formFields.experience_years = p.experience_years != null ? String(p.experience_years) : "";
+        if (p.first_name) formFields.first_name = p.first_name;
+        if (p.last_name) formFields.last_name = p.last_name;
+        if (p.title) formFields.title = p.title;
+        if (p.skills?.length) formFields.skills = p.skills;
+        if (p.bio) formFields.bio = p.bio;
+        if (p.location) formFields.location = p.location;
+        if (p.experience_years != null) {
+          formFields.experience_years = String(p.experience_years);
         }
         onFieldsConfirmed(formFields);
       }
