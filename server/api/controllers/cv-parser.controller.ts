@@ -38,6 +38,8 @@ export async function triggerCVParsing(req: Request, res: Response) {
 
     const contentType = profile.cv_file_type || undefined;
 
+    await cvParserService.initParsingStatus(userId, profile.cv_file_url);
+
     cvParserService.parseCV(userId, profile.cv_file_url, contentType).catch(err => {
       console.error(`Background CV parsing failed for user ${userId}:`, err);
     });

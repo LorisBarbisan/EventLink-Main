@@ -22,8 +22,12 @@ export function setCacheByEndpoint(res: Response, endpoint: string) {
   else if (endpoint.includes("/api/locations")) {
     CacheHeaders.noCache(res);
   }
-  // File downloads - cache for 1 year
-  else if (endpoint.includes("/download") || endpoint.includes("/cv/")) {
+  // CV API - never cache (status changes rapidly during parsing)
+  else if (endpoint.includes("/api/cv/")) {
+    CacheHeaders.noCache(res);
+  }
+  // File downloads (attachments, documents) - cache for 1 year
+  else if (endpoint.includes("/download")) {
     CacheHeaders.staticAssets(res);
   }
   // Default for other endpoints
