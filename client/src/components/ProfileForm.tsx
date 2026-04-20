@@ -737,8 +737,18 @@
     onFieldsConfirmed?: (fields: Record<string, any>) => void;
   }) {
     const { user } = useAuth();
-    const { toast } = useToast();
     const queryClient = useQueryClient();
+
+    const profileToCV = (p?: FreelancerProfile | null) =>
+      p?.cv_file_url
+        ? { fileName: p.cv_file_name, fileType: p.cv_file_type, fileSize: p.cv_file_size, fileUrl: p.cv_file_url }
+        : undefined;
+
+    const [localCV, setLocalCV] = useState(() => profileToCV(profile));
+
+    useEffect(() => {
+      setLocalCV(profileToCV(profile));
+    }, [profile?.cv_file_url]);
 
     // Only show if user is a freelancer
     if (!user || user.role !== "freelancer") {
@@ -748,20 +758,15 @@
     const handleUploadComplete = async (updatedProfile?: any) => {
       console.log("🔄 CV upload/delete complete for user:", user.id);
 
-      // Use the profile from the response (already fresh from DB)
       if (updatedProfile) {
+        setLocalCV(profileToCV(updatedProfile));
         queryClient.setQueryData(["/api/freelancer/profile", user.id], updatedProfile);
         console.log("✅ Profile updated in cache from response:", updatedProfile);
-
-        toast({
-          title: "Success",
-          description: "Your CV has been updated successfully!",
-        });
       } else {
         console.warn("No profile in response, falling back to refetch");
-        // Fallback: refetch if no profile provided
         try {
           const freshProfile = await apiRequest(`/api/freelancer/${user.id}`);
+          setLocalCV(profileToCV(freshProfile));
           queryClient.setQueryData(["/api/freelancer/profile", user.id], freshProfile);
           console.log("✅ Profile fetched and updated in cache:", freshProfile);
         } catch (error) {
@@ -770,22 +775,11 @@
       }
     };
 
-    // Prepare current CV data for CVUploader
-    const currentCV =
-      profile && profile.cv_file_url
-        ? {
-            fileName: profile.cv_file_name,
-            fileType: profile.cv_file_type,
-            fileSize: profile.cv_file_size,
-            fileUrl: profile.cv_file_url,
-          }
-        : undefined;
-
     return (
       <div className="min-w-0 space-y-4">
         <SimplifiedCVUploader
           userId={user.id}
-          currentCV={currentCV}
+          currentCV={localCV}
           onUploadComplete={handleUploadComplete}
         />
         <CVParsingReview

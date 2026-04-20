@@ -54,11 +54,19 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
       })();
     },
     onError: (error) => {
-      toast({
-        title: "Extraction failed",
-        description: error instanceof Error ? error.message : "Failed to extract CV data",
-        variant: "destructive",
-      });
+      const msg = error instanceof Error ? error.message : "";
+      if (msg.toLowerCase().includes("already in progress")) {
+        toast({
+          title: "Analysis already running",
+          description: "Your CV is being analysed — results will appear shortly.",
+        });
+      } else {
+        toast({
+          title: "Extraction failed",
+          description: msg || "Failed to extract CV data",
+          variant: "destructive",
+        });
+      }
     },
   });
 
