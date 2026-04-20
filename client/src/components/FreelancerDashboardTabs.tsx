@@ -44,7 +44,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { CVUploader } from "./CVUploader";
+import { SimplifiedCVUploader } from "./SimplifiedCVUploader";
+import { CVParsingReview } from "./CVParsingReview";
 import { MessagingInterface } from "./MessagingInterface";
 import { ShareProfileButton } from "./ShareProfileButton";
 
@@ -751,7 +752,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                 {/* CV Upload Section */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">CV/Resume</Label>
-                  <CVUploader
+                  <SimplifiedCVUploader
                     userId={parseInt(profile.id)}
                     currentCV={
                       freelancerProfile.cv_file_name
@@ -763,10 +764,28 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                           }
                         : undefined
                     }
-                    onUploadComplete={() => {
-                      // Refresh profile and CV parse status without destroying the page
+                    onUploadComplete={(updatedProfile) => {
+                      if (updatedProfile) {
+                        setFreelancerProfile((prev) => ({ ...prev, ...updatedProfile }));
+                      }
                       fetchFreelancerProfile();
-                      queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
+                    }}
+                  />
+                  <CVParsingReview
+                    onProfileUpdated={fetchFreelancerProfile}
+                    onFieldsConfirmed={(fields) => {
+                      setFreelancerProfile((prev) => ({
+                        ...prev,
+                        ...(fields.first_name !== undefined && { first_name: fields.first_name }),
+                        ...(fields.last_name !== undefined && { last_name: fields.last_name }),
+                        ...(fields.title !== undefined && { title: fields.title }),
+                        ...(fields.bio !== undefined && { bio: fields.bio }),
+                        ...(fields.location !== undefined && { location: fields.location }),
+                        ...(fields.skills !== undefined && { skills: fields.skills }),
+                        ...(fields.experience_years !== undefined && {
+                          experience_years: parseInt(fields.experience_years) || prev.experience_years,
+                        }),
+                      }));
                     }}
                   />
                 </div>

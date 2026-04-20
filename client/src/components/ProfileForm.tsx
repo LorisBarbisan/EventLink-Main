@@ -28,7 +28,7 @@
     RecruiterFormData,
     RecruiterProfile,
   } from "@shared/types";
-  import { useQueryClient } from "@tanstack/react-query";
+  import { useQuery, useQueryClient } from "@tanstack/react-query";
   import { Building2, FileText, Globe, MapPin, Plus, X } from "lucide-react";
   import { ShareProfileButton } from "@/components/ShareProfileButton";
   import { useCallback, useEffect, useRef, useState } from "react";
@@ -54,6 +54,20 @@
     const [isEditing, setIsEditing] = useState(!hasProfileContent);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const hasInitializedEditing = useRef(false);
+
+    const { data: parseStatusData } = useQuery<{ status: string; extractedData?: any }>({
+      queryKey: ["/api/cv/parse/status"],
+      enabled: userType === "freelancer",
+      refetchInterval: (query) => {
+        const s = (query.state.data as any)?.status;
+        return s === "parsing" || s === "pending" ? 3000 : false;
+      },
+    });
+    const showParsingBanner =
+      userType === "freelancer" &&
+      !isEditing &&
+      profile &&
+      (parseStatusData?.status === "completed" || parseStatusData?.status === "parsing" || parseStatusData?.status === "pending");
 
     useEffect(() => {
       if (!hasInitializedEditing.current && profile) {
@@ -211,43 +225,71 @@
 
     if (!isEditing && profile) {
       return (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex-1">
-                <CardTitle>
-                  {userType === 'freelancer'
-                    ? 'Freelancer Profile'
-                    : 'Company Profile'}
-                </CardTitle>
-                <CardDescription>
-                  {userType === 'freelancer'
-                    ? 'Your professional information and skills'
-                    : 'Your company information and details'}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                {userType === 'freelancer' && user?.id && (
-                  <ShareProfileButton userId={user.id} />
+        <div className="space-y-4">
+          {showParsingBanner && (
+            <div className={`rounded-lg border p-4 flex items-center justify-between gap-4 ${parseStatusData?.status === "completed" ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800"}`}>
+              <div>
+                {parseStatusData?.status === "completed" ? (
+                  <>
+                    <p className="font-semibold text-green-800 dark:text-green-300 text-sm">CV analysis complete</p>
+                    <p className="text-green-700 dark:text-green-400 text-sm">Your CV has been analysed. Click below to review and apply the extracted details to your profile.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-blue-800 dark:text-blue-300 text-sm">Analysing your CV…</p>
+                    <p className="text-blue-700 dark:text-blue-400 text-sm">Please wait while we extract your details. This usually takes around 10 seconds.</p>
+                  </>
                 )}
-                <Button
-                  onClick={() => setIsEditing(true)}
-                  data-testid="button-edit-profile"
-                  className="shrink-0"
-                >
-                  Edit Profile
-                </Button>
               </div>
+              {parseStatusData?.status === "completed" && (
+                <Button
+                  size="sm"
+                  className="shrink-0 bg-green-700 hover:bg-green-800 text-white"
+                  onClick={() => setIsEditing(true)}
+                >
+                  Apply to Profile
+                </Button>
+              )}
             </div>
-          </CardHeader>
-          <CardContent>
-            {userType === 'freelancer' ? (
-              <FreelancerProfileView profile={profile as FreelancerProfile} />
-            ) : (
-              <RecruiterProfileView profile={profile as RecruiterProfile} />
-            )}
-          </CardContent>
-        </Card>
+          )}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex-1">
+                  <CardTitle>
+                    {userType === 'freelancer'
+                      ? 'Freelancer Profile'
+                      : 'Company Profile'}
+                  </CardTitle>
+                  <CardDescription>
+                    {userType === 'freelancer'
+                      ? 'Your professional information and skills'
+                      : 'Your company information and details'}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  {userType === 'freelancer' && user?.id && (
+                    <ShareProfileButton userId={user.id} />
+                  )}
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    data-testid="button-edit-profile"
+                    className="shrink-0"
+                  >
+                    Edit Profile
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {userType === 'freelancer' ? (
+                <FreelancerProfileView profile={profile as FreelancerProfile} />
+              ) : (
+                <RecruiterProfileView profile={profile as RecruiterProfile} />
+              )}
+            </CardContent>
+          </Card>
+        </div>
       );
     }
 
