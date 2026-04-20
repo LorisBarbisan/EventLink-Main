@@ -107,7 +107,8 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     }
   }, [parsingStatus?.status]);
 
-  // Auto-apply all parsed fields to the form the moment parsing completes
+  // Auto-apply all parsed fields to the form the moment parsing completes.
+  // Skip "confirmed" — those fields were already applied via the old UI.
   useEffect(() => {
     if (
       parsingStatus?.status === "completed" &&
@@ -197,7 +198,6 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     dismissed ||
     !parsingStatus ||
     parsingStatus.status === "none" ||
-    parsingStatus.status === "confirmed" ||
     parsingStatus.status === "rejected"
   ) {
     return null;
@@ -252,7 +252,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     );
   }
 
-  if (parsingStatus.status === "completed" && parsingStatus.extractedData) {
+  if ((parsingStatus.status === "completed" || parsingStatus.status === "confirmed") && parsingStatus.extractedData) {
     const data = parsingStatus.extractedData;
     const conf = data.confidenceData || {};
 
@@ -276,7 +276,9 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                 CV Analysis Complete
               </CardTitle>
               <CardDescription className="mt-1">
-                Your profile has been pre-filled with the data below. Review and click Save when ready.
+                {parsingStatus.status === "confirmed"
+                  ? "Previously extracted from your CV. Use Extract Data to run a fresh analysis."
+                  : "Your profile has been pre-filled with the data below. Review and click Save when ready."}
               </CardDescription>
             </div>
             <Button variant="ghost" size="icon" className="shrink-0" onClick={handleDismiss}>

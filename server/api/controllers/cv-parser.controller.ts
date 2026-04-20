@@ -77,10 +77,11 @@ export async function getCVParsingStatus(req: Request, res: Response) {
       try { confidenceData = JSON.parse((parsedData as any).confidence_data); } catch {}
     }
 
+    const hasExtractedData = parsedData.status === "completed" || parsedData.status === "confirmed";
     res.json({
       status: parsedData.status,
       errorMessage: parsedData.error_message,
-      extractedData: parsedData.status === "completed" ? {
+      extractedData: hasExtractedData ? {
         fullName: parsedData.extracted_full_name,
         title: parsedData.extracted_title,
         skills: parsedData.extracted_skills,
