@@ -108,7 +108,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   }, [parsingStatus?.status]);
 
   // Auto-apply all parsed fields to the form the moment parsing completes.
-  // Skip "confirmed" — those fields were already applied via the old UI.
+  // Server has already written the fields to the DB at this point.
   useEffect(() => {
     if (
       parsingStatus?.status === "completed" &&
@@ -118,6 +118,13 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       autoAppliedRef.current = true;
       setDismissed(false);
 
+      // Refresh the profile from the server — server already auto-applied
+      // the extracted fields to the DB before broadcasting.
+      if (onProfileUpdated) {
+        onProfileUpdated();
+      }
+
+      // Also update local form state immediately so fields appear without waiting for the fetch
       if (onFieldsConfirmed) {
         const d = parsingStatus.extractedData;
         const formFields: ConfirmedFormFields = {};
@@ -136,7 +143,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
 
       toast({
         title: "Profile pre-filled from CV",
-        description: "Review the fields below and click Save when ready.",
+        description: "Your profile has been updated. Review the fields below and click Save.",
       });
     }
   }, [parsingStatus?.status, parsingStatus?.extractedData]);
@@ -144,8 +151,13 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   const handleWebSocketEvent = useCallback((data: any) => {
     if (data.type === "cv_parsing_update") {
       refetchRef.current();
+      // If parsing just completed, also refresh the freelancer profile so
+      // the dashboard form shows the server-auto-applied fields.
+      if (data.status === "completed" && onProfileUpdated) {
+        onProfileUpdated();
+      }
     }
-  }, []);
+  }, [onProfileUpdated]);
 
   useEffect(() => {
     const unsubscribe = subscribe(handleWebSocketEvent);

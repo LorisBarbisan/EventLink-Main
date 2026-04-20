@@ -220,6 +220,13 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     }
   };
 
+  // Force-refetch the profile from the server, bypassing any sessionStorage draft.
+  // Used after CV parsing so the auto-applied fields are always shown.
+  const forceRefetchProfile = async () => {
+    sessionStorage.removeItem(persistenceKey);
+    await fetchFreelancerProfile();
+  };
+
   const saveProfile = async () => {
     setSaving(true);
     try {
@@ -772,7 +779,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                     }}
                   />
                   <CVParsingReview
-                    onProfileUpdated={fetchFreelancerProfile}
+                    onProfileUpdated={forceRefetchProfile}
                     onFieldsConfirmed={(fields) => {
                       setFreelancerProfile((prev) => ({
                         ...prev,

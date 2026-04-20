@@ -107,6 +107,32 @@ export class CVParserService {
 
       // Only broadcast if we actually persisted results (not a stale/superseded parse)
       if (saved) {
+        // Auto-apply extracted fields to the freelancer profile (only for empty fields)
+        try {
+          const currentProfile = await storage.getFreelancerProfile(userId);
+          const profileUpdates: Record<string, any> = {};
+
+          if (parsedData.fullName) {
+            const parts = parsedData.fullName.trim().split(/\s+/);
+            if (!currentProfile?.first_name) profileUpdates.first_name = parts[0] || "";
+            if (!currentProfile?.last_name) profileUpdates.last_name = parts.slice(1).join(" ") || "";
+          }
+          if (parsedData.title && !currentProfile?.title) profileUpdates.title = parsedData.title;
+          if (parsedData.bio && !currentProfile?.bio) profileUpdates.bio = parsedData.bio;
+          if (parsedData.location && !currentProfile?.location) profileUpdates.location = parsedData.location;
+          if (parsedData.experienceYears && !currentProfile?.experience_years) profileUpdates.experience_years = parsedData.experienceYears;
+          if (parsedData.skills?.length && (!currentProfile?.skills || currentProfile.skills.length === 0)) {
+            profileUpdates.skills = parsedData.skills;
+          }
+
+          if (Object.keys(profileUpdates).length > 0) {
+            await storage.updateFreelancerProfile(userId, profileUpdates);
+            console.log(`✅ Auto-applied CV fields to user ${userId}'s profile: ${Object.keys(profileUpdates).join(", ")}`);
+          }
+        } catch (autoApplyErr) {
+          console.error(`⚠️ Auto-apply CV fields failed for user ${userId} (non-critical):`, autoApplyErr);
+        }
+
         try {
           const { wsService } = await import("../websocket/websocketService.js");
           wsService.broadcastCVParsingUpdate(userId, "completed", {
