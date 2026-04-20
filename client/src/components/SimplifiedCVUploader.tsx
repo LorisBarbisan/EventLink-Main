@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, AuthError, queryClient } from "@/lib/queryClient";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Upload, FileText, Download, Trash2, CheckCircle, Sparkles } from "lucide-react";
 
@@ -47,7 +47,8 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
             if (statusData.status !== "parsing" && statusData.status !== "pending") {
               active = false;
             }
-          } catch {
+          } catch (err) {
+            if (err instanceof AuthError) return;
             active = false;
           }
         }
@@ -141,7 +142,8 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
             if (statusData.status !== "parsing" && statusData.status !== "pending") {
               active = false;
             }
-          } catch {
+          } catch (err) {
+            if (err instanceof AuthError) return;
             active = false;
           }
         }
