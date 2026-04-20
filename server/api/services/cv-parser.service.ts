@@ -207,7 +207,7 @@ export class CVParserService {
       extracted_certifications: data.certifications || null,
       section_data: JSON.stringify(sections),
       confidence_data: data.confidenceData ? JSON.stringify(data.confidenceData) : null,
-    }, new Date());
+    });
     return true;
   }
 }

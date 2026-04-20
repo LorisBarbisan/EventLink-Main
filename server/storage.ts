@@ -416,8 +416,7 @@ export interface IStorage {
   createCvParsedData(data: InsertCvParsedData): Promise<CvParsedData>;
   updateCvParsedData(
     userId: number,
-    data: Partial<InsertCvParsedData>,
-    parsedAt?: Date
+    data: Partial<InsertCvParsedData>
   ): Promise<CvParsedData | undefined>;
   deleteCvParsedData(userId: number): Promise<void>;
 
@@ -4239,16 +4238,11 @@ export class DatabaseStorage implements IStorage {
 
   async updateCvParsedData(
     userId: number,
-    data: Partial<InsertCvParsedData>,
-    parsedAt?: Date
+    data: Partial<InsertCvParsedData>
   ): Promise<CvParsedData | undefined> {
     const result = await db
       .update(cv_parsed_data)
-      .set({
-        ...data,
-        updated_at: new Date(),
-        ...(parsedAt ? { parsed_at: parsedAt } : {}),
-      })
+      .set({ ...data, updated_at: new Date() })
       .where(eq(cv_parsed_data.user_id, userId))
       .returning();
     return result[0];

@@ -65,27 +65,12 @@ function ConfidenceBadge({ confidence }: { confidence?: number }) {
   return <span className={`text-xs font-medium ${color}`}>{pct}% match</span>;
 }
 
-// Compute a stable sessionStorage key for a given parse result.
-// Prefers parsedAt (set server-side after the service fix).
-// Falls back to a content hash when parsedAt is absent (older records).
-function getAppliedKey(extractedData?: ExtractedData, parsedAt?: string | null): string | null {
-  if (parsedAt) return `cv-auto-applied-${parsedAt}`;
-  if (!extractedData) return null;
-  const fingerprint = [extractedData.title, extractedData.location, extractedData.fullName]
-    .map((s) => (s ?? "").slice(0, 30))
-    .join("|");
-  if (!fingerprint.replace(/\|/g, "").trim()) return null;
-  try {
-    return `cv-auto-applied-hash-${btoa(encodeURIComponent(fingerprint)).slice(0, 24)}`;
-  } catch {
-    return null;
-  }
-}
-
 export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsingReviewProps) {
   const { toast } = useToast();
   const { subscribe } = useWebSocket();
   const [dismissed, setDismissed] = useState(false);
+  // Tracks whether we've already auto-applied this parse result (avoid double-apply)
+  const autoAppliedRef = useRef(false);
 
   const { data: parsingStatus, isLoading, refetch } = useQuery<ParsingStatus>({
     queryKey: ["/api/cv/parse/status"],
@@ -114,26 +99,22 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     return () => clearInterval(id);
   }, [parsingStatus?.status]);
 
-  // Reset dismissed state when a new parse starts
+  // Reset dismissed + auto-apply tracking when a new parse starts
   useEffect(() => {
     if (parsingStatus?.status === "parsing" || parsingStatus?.status === "pending") {
       setDismissed(false);
+      autoAppliedRef.current = false;
     }
   }, [parsingStatus?.status]);
 
-  // Auto-apply all parsed fields to the form the moment parsing completes.
-  // Uses sessionStorage keyed on parsedAt (or a content hash for older records)
-  // so re-applying is skipped if this exact parse result was already applied —
-  // even across component remounts triggered by parent state changes.
+  // Auto-apply all parsed fields to the form the moment parsing completes
   useEffect(() => {
     if (
       parsingStatus?.status === "completed" &&
-      parsingStatus.extractedData
+      parsingStatus.extractedData &&
+      !autoAppliedRef.current
     ) {
-      const key = getAppliedKey(parsingStatus.extractedData, parsingStatus.parsedAt);
-      if (!key || sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, "1");
-
+      autoAppliedRef.current = true;
       setDismissed(false);
 
       if (onFieldsConfirmed) {
@@ -157,7 +138,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
         description: "Review the fields below and click Save when ready.",
       });
     }
-  }, [parsingStatus?.status, parsingStatus?.parsedAt]);
+  }, [parsingStatus?.status, parsingStatus?.extractedData]);
 
   const handleWebSocketEvent = useCallback((data: any) => {
     if (data.type === "cv_parsing_update") {
@@ -216,6 +197,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     dismissed ||
     !parsingStatus ||
     parsingStatus.status === "none" ||
+    parsingStatus.status === "confirmed" ||
     parsingStatus.status === "rejected"
   ) {
     return null;
@@ -270,10 +252,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     );
   }
 
-  if (
-    (parsingStatus.status === "completed" || parsingStatus.status === "confirmed") &&
-    parsingStatus.extractedData
-  ) {
+  if (parsingStatus.status === "completed" && parsingStatus.extractedData) {
     const data = parsingStatus.extractedData;
     const conf = data.confidenceData || {};
 
@@ -284,26 +263,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     const hasEducation = data.education?.length;
 
     if (!hasBasicInfo && !hasSkills && !hasCertifications && !hasWorkHistory && !hasEducation) {
-      return (
-        <Card className="min-w-0 max-w-full overflow-hidden border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
-          <CardHeader>
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Sparkles className="w-5 h-5 text-blue-600" />
-                  CV Analysed
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  Your CV was analysed but we couldn't extract specific fields. You can fill in your profile manually below.
-                </CardDescription>
-              </div>
-              <Button variant="ghost" size="icon" className="shrink-0" onClick={handleDismiss}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-          </CardHeader>
-        </Card>
-      );
+      return null;
     }
 
     return (
