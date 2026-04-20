@@ -2939,7 +2939,10 @@ export class DatabaseStorage implements IStorage {
         // 7. Delete notifications for this user (hard delete as they're no longer needed)
         await tx.delete(notifications).where(eq(notifications.user_id, userId));
 
-        // 8. Soft delete the user record (mark as deleted instead of removing)
+        // 8. Delete CV parsed data (not covered by FK cascade on soft delete)
+        await tx.delete(cv_parsed_data).where(eq(cv_parsed_data.user_id, userId));
+
+        // 9. Soft delete the user record (mark as deleted instead of removing)
         await tx
           .update(users)
           .set({
@@ -2951,7 +2954,7 @@ export class DatabaseStorage implements IStorage {
           })
           .where(eq(users.id, userId));
 
-        // 9. Create system messages in all conversations where this user was a participant
+        // 10. Create system messages in all conversations where this user was a participant
         const allUserConversations = await tx
           .select()
           .from(conversations)
@@ -2984,7 +2987,9 @@ export class DatabaseStorage implements IStorage {
     try {
       const userRows = await db.select().from(users).where(eq(users.id, userId)).limit(1);
       if (!userRows.length) throw new Error("User not found");
-      // Hard delete — all related rows cascade via FK constraints
+      // Explicitly delete cv_parsed_data first (defensive — don't rely solely on FK cascade)
+      await db.delete(cv_parsed_data).where(eq(cv_parsed_data.user_id, userId));
+      // Hard delete — remaining related rows cascade via FK constraints
       await db.delete(users).where(eq(users.id, userId));
       console.log(`Admin hard-deleted user ID: ${userId}`);
     } catch (error) {

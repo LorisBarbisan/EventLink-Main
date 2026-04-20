@@ -206,7 +206,7 @@ export async function rejectCVData(req: Request, res: Response) {
     const userId = (req as any).user.id;
     const parsedData = await storage.getCvParsedData(userId);
 
-    if (!parsedData || parsedData.status !== "completed") {
+    if (!parsedData || (parsedData.status !== "completed" && parsedData.status !== "confirmed")) {
       return res.status(400).json({ error: "No completed CV parsing to reject" });
     }
 
