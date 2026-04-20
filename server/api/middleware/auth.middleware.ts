@@ -34,6 +34,17 @@
       req.user = computeUserRole(user);
       next();
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Authentication failed";
+      const isTokenError =
+        message.includes("jwt expired") ||
+        message.includes("jwt malformed") ||
+        message.includes("invalid signature") ||
+        message.includes("invalid token");
+
+      if (isTokenError) {
+        return res.status(401).json({ error: message });
+      }
+
       console.error("JWT authentication error:", error);
       res.status(500).json({ error: "Authentication failed" });
     }
@@ -75,9 +86,18 @@
       req.user = computeUserRole(user);
       next();
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Authentication check failed";
+      const isTokenError =
+        message.includes("jwt expired") ||
+        message.includes("jwt malformed") ||
+        message.includes("invalid signature") ||
+        message.includes("invalid token");
+
+      if (isTokenError) {
+        return res.status(401).json({ error: message });
+      }
+
       console.error("Optional JWT authentication error:", error);
-      // In optional auth, if technical error occurs during auth check,
-      // we can either fail or proceed as guest. Failing is safer to detect issues.
       res.status(500).json({ error: "Authentication check failed" });
     }
   };

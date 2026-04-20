@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, AuthError, queryClient } from "@/lib/queryClient";
 import { useWebSocket } from "@/contexts/WebSocketContext";
 import { Loader2, Sparkles, X, AlertCircle, RefreshCw, Briefcase, GraduationCap, Award } from "lucide-react";
 
@@ -95,8 +95,8 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       try {
         const data = await apiRequest("/api/cv/parse/status");
         queryClient.setQueryData(["/api/cv/parse/status"], data);
-      } catch {
-        // ignore transient polling errors
+      } catch (err) {
+        if (err instanceof AuthError) clearInterval(id);
       }
     }, 3000);
     return () => clearInterval(id);
@@ -189,7 +189,10 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             const statusData = await apiRequest("/api/cv/parse/status");
             queryClient.setQueryData(["/api/cv/parse/status"], statusData);
             if (statusData.status !== "parsing" && statusData.status !== "pending") active = false;
-          } catch { active = false; }
+          } catch (err) {
+            if (err instanceof AuthError) return;
+            active = false;
+          }
         }
       })();
     },
