@@ -96,6 +96,16 @@ export class CVParserService {
         confidenceData[field] = { confidence: scored.confidence, source: scored.source };
       }
 
+      // Infer title from most recent work history entry if not directly extracted
+      if (!parsedData.title && parsedData.workHistory?.length) {
+        const mostRecent = parsedData.workHistory[0];
+        if (mostRecent.jobTitle) {
+          parsedData.title = mostRecent.jobTitle;
+          confidenceData.title = { confidence: 0.7, source: "inferred_from_work_history" };
+          console.log(`🔄 Inferred title "${parsedData.title}" from most recent work history`);
+        }
+      }
+
       parsedData.confidenceData = confidenceData;
       parsedData.sectionData = Object.fromEntries(
         Object.entries(sections).filter(([, v]) => v.trim().length > 0)
