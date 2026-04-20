@@ -69,8 +69,11 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   const { toast } = useToast();
   const { subscribe } = useWebSocket();
   const [dismissed, setDismissed] = useState(false);
-  // Tracks whether we've already auto-applied this parse result (avoid double-apply)
-  const autoAppliedRef = useRef(false);
+  // Track whether we've auto-applied this specific parse result.
+  // Uses sessionStorage (survives remounts caused by parent re-renders) keyed on
+  // parsedAt so a new parse always triggers a fresh apply.
+  const getAppliedKey = (parsedAt?: string) =>
+    parsedAt ? `cv-auto-applied-${parsedAt}` : null;
 
   const { data: parsingStatus, isLoading, refetch } = useQuery<ParsingStatus>({
     queryKey: ["/api/cv/parse/status"],
@@ -99,22 +102,27 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     return () => clearInterval(id);
   }, [parsingStatus?.status]);
 
-  // Reset dismissed + auto-apply tracking when a new parse starts
+  // Reset dismissed state when a new parse starts
   useEffect(() => {
     if (parsingStatus?.status === "parsing" || parsingStatus?.status === "pending") {
       setDismissed(false);
-      autoAppliedRef.current = false;
     }
   }, [parsingStatus?.status]);
 
-  // Auto-apply all parsed fields to the form the moment parsing completes
+  // Auto-apply all parsed fields to the form the moment parsing completes.
+  // Key insight: uses sessionStorage (not a ref) so the "already applied" flag
+  // survives component remounts caused by parent re-renders — preventing the
+  // infinite loop where applying fields → parent re-render → remount → re-apply.
   useEffect(() => {
     if (
       parsingStatus?.status === "completed" &&
       parsingStatus.extractedData &&
-      !autoAppliedRef.current
+      parsingStatus.parsedAt
     ) {
-      autoAppliedRef.current = true;
+      const key = getAppliedKey(parsingStatus.parsedAt);
+      if (!key || sessionStorage.getItem(key)) return; // already applied this parse result
+      sessionStorage.setItem(key, "1");
+
       setDismissed(false);
 
       if (onFieldsConfirmed) {
@@ -138,7 +146,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
         description: "Review the fields below and click Save when ready.",
       });
     }
-  }, [parsingStatus?.status, parsingStatus?.extractedData]);
+  }, [parsingStatus?.status, parsingStatus?.parsedAt]);
 
   const handleWebSocketEvent = useCallback((data: any) => {
     if (data.type === "cv_parsing_update") {
