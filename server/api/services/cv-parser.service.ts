@@ -196,6 +196,7 @@ export class CVParserService {
     await storage.updateCvParsedData(userId, {
       status: "completed",
       cv_file_url: cvFileUrl,
+      parsed_at: new Date(),
       extracted_full_name: data.fullName || null,
       extracted_title: data.title || null,
       extracted_skills: data.skills || null,
