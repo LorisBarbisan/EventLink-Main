@@ -71,6 +71,9 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   const [dismissed, setDismissed] = useState(false);
   // Tracks whether we've already auto-applied this parse result (avoid double-apply)
   const autoAppliedRef = useRef(false);
+  // Tracks whether we've seen active parsing during THIS session.
+  // Auto-apply only fires for fresh parses (not stale "completed" from a previous session).
+  const hasSeenActiveParsing = useRef(false);
 
   const { data: parsingStatus, isLoading, refetch } = useQuery<ParsingStatus>({
     queryKey: ["/api/cv/parse/status"],
@@ -99,21 +102,26 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     return () => clearInterval(id);
   }, [parsingStatus?.status]);
 
-  // Reset dismissed + auto-apply tracking when a new parse starts
+  // Reset dismissed + auto-apply tracking when a new parse starts.
+  // Also mark that we've seen active parsing so the completion auto-apply can fire.
   useEffect(() => {
     if (parsingStatus?.status === "parsing" || parsingStatus?.status === "pending") {
       setDismissed(false);
       autoAppliedRef.current = false;
+      hasSeenActiveParsing.current = true;
     }
   }, [parsingStatus?.status]);
 
   // Auto-apply all parsed fields to the form the moment parsing completes.
+  // Only fires for parses that were actively running during this session —
+  // prevents stale "completed" results from a previous login re-applying.
   // Server has already written the fields to the DB at this point.
   useEffect(() => {
     if (
       parsingStatus?.status === "completed" &&
       parsingStatus.extractedData &&
-      !autoAppliedRef.current
+      !autoAppliedRef.current &&
+      hasSeenActiveParsing.current
     ) {
       autoAppliedRef.current = true;
       setDismissed(false);
