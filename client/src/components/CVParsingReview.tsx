@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, AuthError, queryClient } from "@/lib/queryClient";
 import { useWebSocket } from "@/contexts/WebSocketContext";
-import { Loader2, Sparkles, CheckCircle, XCircle, AlertCircle, RefreshCw, Briefcase, GraduationCap, Award } from "lucide-react";
+import { Loader2, Sparkles, XCircle, AlertCircle, RefreshCw, Briefcase, GraduationCap, Award } from "lucide-react";
 
 interface ConfirmedFormFields {
   first_name?: string;
@@ -71,6 +71,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   const { toast } = useToast();
   const { subscribe } = useWebSocket();
   const [dismissed, setDismissed] = useState(false);
+  const autoAppliedRef = useRef(false);
   const [selectedFields, setSelectedFields] = useState<Record<string, boolean>>({
     fullName: true,
     title: true,
@@ -92,14 +93,9 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     },
   });
 
-  // Keep a stable ref to refetch so the WebSocket callback never goes stale
   const refetchRef = useRef(refetch);
   useEffect(() => { refetchRef.current = refetch; }, [refetch]);
 
-  // Explicit polling: directly call apiRequest every 3s when parsing is active.
-  // Bypasses TanStack Query's refetch machinery entirely (which can be silently
-  // suppressed by deduplication or stale-check logic), then manually pushes the
-  // result into the cache so all subscribers see the update immediately.
   useEffect(() => {
     if (parsingStatus?.status !== "parsing" && parsingStatus?.status !== "pending") return;
     const id = setInterval(async () => {
@@ -123,10 +119,15 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     }
   }, [parsingStatus?.status]);
 
-  const handleWebSocketEvent = useCallback((data: any) => {
+  // Reset auto-apply flag when a new parse begins
+  useEffect(() => {
+    if (parsingStatus?.status === "parsing" || parsingStatus?.status === "pending") {
+      autoAppliedRef.current = false;
+    }
+  }, [parsingStatus?.status]);
+
+  const handleWebSocketEvent = useCallback((data: { type: string }) => {
     if (data.type === "cv_parsing_update") {
-      // Call refetch() directly — more reliable than invalidateQueries, always
-      // forces a fresh fetch regardless of whether the query is considered "active".
       refetchRef.current();
     }
   }, []);
@@ -145,12 +146,6 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       });
     },
     onSuccess: (data) => {
-      setDismissed(true);
-      toast({
-        title: "Profile updated",
-        description: `${data.fieldsUpdated?.length || 0} fields updated from your CV.`,
-      });
-
       if (onFieldsConfirmed && data.profile) {
         const p = data.profile;
         const formFields: ConfirmedFormFields = {};
@@ -166,6 +161,14 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
         onFieldsConfirmed(formFields);
       }
 
+      const count = data.fieldsUpdated?.length || 0;
+      if (count > 0) {
+        toast({
+          title: "CV data applied",
+          description: `${count} fields pre-filled from your CV. Review and save when ready.`,
+        });
+      }
+
       queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
       onProfileUpdated?.();
@@ -178,6 +181,19 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       });
     },
   });
+
+  // Auto-apply all fields the moment parsing completes
+  useEffect(() => {
+    if (
+      parsingStatus?.status === "completed" &&
+      parsingStatus.extractedData &&
+      !autoAppliedRef.current &&
+      !confirmMutation.isPending
+    ) {
+      autoAppliedRef.current = true;
+      confirmMutation.mutate(selectedFields);
+    }
+  }, [parsingStatus?.status, parsingStatus?.extractedData, confirmMutation, selectedFields]);
 
   const rejectMutation = useMutation({
     mutationFn: async () => apiRequest("/api/cv/parse/reject", { method: "POST" }),
@@ -305,8 +321,6 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       return null;
     }
 
-    const anySelected = Object.values(selectedFields).some(v => v);
-
     return (
       <Card className="min-w-0 max-w-full overflow-hidden border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20">
         <CardHeader>
@@ -315,7 +329,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             CV Analysis Complete
           </CardTitle>
           <CardDescription>
-            We found the following in your CV. Select what you'd like to apply to your profile.
+            Your profile has been pre-filled with the data below. Review the fields and save when ready.
           </CardDescription>
         </CardHeader>
 
@@ -416,7 +430,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                     </div>
                   </div>
                   <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                    Suggested from CV
+                    Applied
                   </Badge>
                 </div>
               </div>
@@ -455,7 +469,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                     </div>
                   </div>
                   <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                    Suggested from CV
+                    Applied
                   </Badge>
                 </div>
               </div>
@@ -507,7 +521,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                     </div>
                   </div>
                   <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                    Suggested from CV
+                    Applied
                   </Badge>
                 </div>
               </div>
@@ -551,7 +565,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                     </div>
                   </div>
                   <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                    Suggested from CV
+                    Applied
                   </Badge>
                 </div>
               </div>
@@ -560,13 +574,12 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
         </CardContent>
 
         <Separator />
-        <CardFooter className="flex flex-col gap-2 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <CardFooter className="flex items-center justify-start pt-4">
           <Button
             variant="ghost"
             size="sm"
-            className="w-full sm:w-auto"
             onClick={() => rejectMutation.mutate()}
-            disabled={rejectMutation.isPending || confirmMutation.isPending}
+            disabled={rejectMutation.isPending}
           >
             {rejectMutation.isPending ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -574,19 +587,6 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
               <XCircle className="w-4 h-4 mr-2" />
             )}
             Dismiss
-          </Button>
-          <Button
-            size="sm"
-            className="w-full sm:w-auto"
-            onClick={() => confirmMutation.mutate(selectedFields)}
-            disabled={confirmMutation.isPending || rejectMutation.isPending || !anySelected}
-          >
-            {confirmMutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <CheckCircle className="w-4 h-4 mr-2" />
-            )}
-            Apply Selected
           </Button>
         </CardFooter>
       </Card>
@@ -631,7 +631,7 @@ function FieldRow({ id, label, value, checked, onToggle, clamp, confidence }: Fi
         </div>
       </div>
       <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-        Suggested from CV
+        Applied
       </Badge>
     </div>
   );
