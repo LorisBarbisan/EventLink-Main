@@ -151,13 +151,11 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   const handleWebSocketEvent = useCallback((data: any) => {
     if (data.type === "cv_parsing_update") {
       refetchRef.current();
-      // If parsing just completed, also refresh the freelancer profile so
-      // the dashboard form shows the server-auto-applied fields.
-      if (data.status === "completed" && onProfileUpdated) {
-        onProfileUpdated();
-      }
+      // onProfileUpdated is handled by the auto-apply effect when parsingStatus
+      // transitions to "completed". Calling it here too would cause a double
+      // invalidation which triggers the profile-loading loop for new users.
     }
-  }, [onProfileUpdated]);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribe(handleWebSocketEvent);

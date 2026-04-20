@@ -12,7 +12,7 @@ import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import type { FreelancerFormData, JobApplication } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, BookOpen, Briefcase, Building2, CheckCircle, Clock, Mail, Send, ShieldCheck, Star, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
 import { DocumentUploader } from "./DocumentUploader";
@@ -108,7 +108,11 @@ export default function SimplifiedFreelancerDashboard() {
   });
 
   // Fetch freelancer profile data
-  const { data: profile, isLoading: profileLoading } = useQuery({
+  // profileHasEverLoaded prevents "Loading profile..." from re-appearing during
+  // re-fetches after invalidation, which would cause ProfileForm/CVParsingReview
+  // to unmount/remount and trigger an infinite toast/request loop for new users.
+  const profileHasEverLoaded = useRef(false);
+  const { data: profile, isLoading: profileQueryLoading } = useQuery({
     queryKey: ["/api/freelancer/profile", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -118,6 +122,8 @@ export default function SimplifiedFreelancerDashboard() {
     retry: false,
     enabled: !!user?.id,
   });
+  if (!profileQueryLoading) profileHasEverLoaded.current = true;
+  const profileLoading = profileQueryLoading && !profileHasEverLoaded.current;
 
   // Get user's job applications
   const { data: jobApplications = [], isLoading: applicationsLoading } = useQuery({

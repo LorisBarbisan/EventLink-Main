@@ -826,7 +826,6 @@
         />
         <CVParsingReview
           onProfileUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/freelancer", user.id] });
             queryClient.invalidateQueries({ queryKey: ["/api/freelancer/profile", user.id] });
           }}
           onFieldsConfirmed={onFieldsConfirmed}
