@@ -1,0 +1,38 @@
+What to build:
+In the Admin Dashboard, on the Active Jobs table, add a "Notify Freelancers" button to each job row. When clicked, it sends a single email to all relevant freelancers who match that job's role and location.
+Detailed requirements:
+Add a button labelled Notify Freelancers to each row in the Active Jobs table in the admin dashboard. The button should only appear for jobs with status Active.
+When the button is clicked, show a confirmation modal before sending. The modal should display:
+•	The job title and employer name
+•	The number of freelancers who will be notified
+•	A Confirm & Send button and a Cancel button
+On confirmation, the backend should:
+1.	Query all freelancer profiles where the primary role matches the job's required role, OR where the job's location falls within the freelancer's listed location or travel radius
+2.	Send one email per matching freelancer using the email template below
+3.	Record that the notification was sent — add a last_notified_at timestamp to the job record and a log entry so the same job cannot spam freelancers. If the button is clicked again within 24 hours for the same job, show a warning: "Freelancers were already notified about this job [X hours ago]. Send again?"
+4.	Show a success toast in the admin dashboard: "Notification sent to [N] freelancers"
+Email template — Single Job:
+Subject: New job on EventLink — [Job Title] in [Location]
+
+Hi [First Name],
+
+A new job matching your profile has just been posted on EventLink.
+
+[Job Title]
+[Employer Name] · [Location] · [Pay Rate]
+[Event Date / Date Range]
+[Brief description — first 150 characters of job description]
+
+View the full job and apply here:
+[Link to job listing on eventlink.one]
+
+Your EventLink profile is live and visible to employers. 
+Make sure you request credentials from your current and past clients using Built My Reputation in the header of your dashboard.
+
+The EventLink Team
+eventlink.one
+
+---
+You're receiving this because you have a verified profile on EventLink.
+Unsubscribe from job alerts: [unsubscribe link]
+

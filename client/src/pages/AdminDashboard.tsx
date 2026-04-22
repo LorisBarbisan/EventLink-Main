@@ -225,6 +225,40 @@ function AdminDashboardContent() {
   const [jobCurrentPage, setJobCurrentPage] = useState(1);
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
 
+  // "Notify Freelancers" modal state
+  const [notifyJobId, setNotifyJobId] = useState<number | null>(null);
+  const [notifyForce, setNotifyForce] = useState(false);
+
+  const { data: notifyPreview, isLoading: notifyPreviewLoading } = useQuery<{
+    count: number;
+    jobTitle: string;
+    employerName: string;
+    lastNotifiedAt: string | null;
+    hoursAgo: number | null;
+  }>({
+    queryKey: ["/api/admin/jobs", notifyJobId, "notify-preview"],
+    queryFn: () => apiRequest(`/api/admin/jobs/${notifyJobId}/notify-preview`),
+    enabled: notifyJobId !== null,
+    retry: 1,
+  });
+
+  const notifyMutation = useMutation({
+    mutationFn: ({ jobId, force }: { jobId: number; force: boolean }) =>
+      apiRequest(`/api/admin/jobs/${jobId}/notify-freelancers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force }),
+      }),
+    onSuccess: (data: any) => {
+      toast({ title: "Notifications sent", description: data.message });
+      setNotifyJobId(null);
+      setNotifyForce(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to send notifications", variant: "destructive" });
+    },
+  });
+
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const updateStatusMutation = useMutation({
@@ -1274,7 +1308,18 @@ function AdminDashboardContent() {
                               </TableCell>
                               <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                                 {job.status === "active" && (
-                                  <ShareJobButton job={job as any} size="sm" variant="ghost" />
+                                  <div className="flex items-center gap-1">
+                                    <ShareJobButton job={job as any} size="sm" variant="ghost" />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-xs border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950/30"
+                                      onClick={() => { setNotifyJobId(job.id); setNotifyForce(false); }}
+                                    >
+                                      <Mail className="h-3 w-3 mr-1" />
+                                      Notify
+                                    </Button>
+                                  </div>
                                 )}
                               </TableCell>
                             </TableRow>
@@ -1997,6 +2042,62 @@ function AdminDashboardContent() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Notify Freelancers confirmation modal */}
+      <AlertDialog open={notifyJobId !== null} onOpenChange={(open) => { if (!open) { setNotifyJobId(null); setNotifyForce(false); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Notify Freelancers</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                {notifyPreviewLoading ? (
+                  <p>Loading matching freelancers…</p>
+                ) : notifyPreview ? (
+                  <>
+                    <p>
+                      You are about to email all freelancers whose profile matches this job.
+                    </p>
+                    <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
+                      <p><span className="font-medium">Job:</span> {notifyPreview.jobTitle}</p>
+                      <p><span className="font-medium">Employer:</span> {notifyPreview.employerName}</p>
+                      <p>
+                        <span className="font-medium">Freelancers who will be notified:</span>{" "}
+                        <span className="text-orange-700 dark:text-orange-400 font-semibold">{notifyPreview.count}</span>
+                      </p>
+                    </div>
+                    {notifyPreview.hoursAgo !== null && notifyPreview.hoursAgo < 24 && (
+                      <div className="rounded-md border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/20 p-3 text-sm text-amber-800 dark:text-amber-300">
+                        ⚠️ Freelancers were already notified about this job{" "}
+                        <strong>{notifyPreview.hoursAgo} hour{notifyPreview.hoursAgo === 1 ? "" : "s"} ago</strong>.
+                        Clicking &ldquo;Send again&rdquo; will re-send to all matching freelancers.
+                      </div>
+                    )}
+                  </>
+                ) : null}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={notifyMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-gradient-primary text-white hover:bg-primary-hover"
+              disabled={notifyMutation.isPending || notifyPreviewLoading || (notifyPreview?.count ?? 0) === 0}
+              onClick={() => {
+                if (notifyJobId !== null) {
+                  const isRecent = notifyPreview?.hoursAgo !== null && (notifyPreview?.hoursAgo ?? 25) < 24;
+                  notifyMutation.mutate({ jobId: notifyJobId, force: isRecent || notifyForce });
+                }
+              }}
+            >
+              {notifyMutation.isPending
+                ? "Sending…"
+                : notifyPreview?.hoursAgo !== null && (notifyPreview?.hoursAgo ?? 25) < 24
+                  ? "Send again"
+                  : `Confirm & Send to ${notifyPreview?.count ?? "…"}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirm permanent account deletion */}
       <AlertDialog open={!!userToDelete} onOpenChange={(open) => { if (!open) setUserToDelete(null); }}>

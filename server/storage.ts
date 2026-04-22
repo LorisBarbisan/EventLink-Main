@@ -172,6 +172,10 @@ export interface IStorage {
     endDate?: string;
   }): Promise<Job[]>;
 
+  // Job notification
+  getFreelancersMatchingJob(job: Job): Promise<{ userId: number; email: string; firstName: string | null; location: string | null; title: string | null }[]>;
+  updateJobLastNotifiedAt(jobId: number): Promise<void>;
+
   // External job management
   getJobByExternalId(externalId: string): Promise<Job | undefined>;
   createExternalJob(job: any): Promise<Job>;
@@ -1689,6 +1693,58 @@ export class DatabaseStorage implements IStorage {
 
     // Clear cached job and application lists
     cache.clear();
+  }
+
+  async getFreelancersMatchingJob(job: Job): Promise<{ userId: number; email: string; firstName: string | null; location: string | null; title: string | null }[]> {
+    // Get all active, email-verified freelancers with a profile
+    const rows = await db
+      .select({
+        userId: users.id,
+        email: users.email,
+        firstName: freelancer_profiles.first_name,
+        location: freelancer_profiles.location,
+        title: freelancer_profiles.title,
+      })
+      .from(users)
+      .innerJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
+      .where(
+        and(
+          eq(users.role, "freelancer"),
+          eq(users.email_verified, true),
+          eq(users.status, "active")
+        )
+      );
+
+    // Extract meaningful keywords from job title and location
+    const stopWords = new Set(["and", "or", "the", "a", "an", "in", "at", "of", "for", "to", "with"]);
+    const jobTitleWords = job.title
+      .toLowerCase()
+      .split(/[\s\-\/,]+/)
+      .filter(w => w.length > 2 && !stopWords.has(w));
+    const jobLocationNorm = (job.location || "").toLowerCase();
+
+    return rows.filter(row => {
+      const freelancerTitleNorm = (row.title || "").toLowerCase();
+      const freelancerLocationNorm = (row.location || "").toLowerCase();
+
+      // Role match: any job title keyword appears in freelancer's title
+      const roleMatch = jobTitleWords.some(w => freelancerTitleNorm.includes(w));
+
+      // Location match: job location contains freelancer's location city, or vice versa
+      const locationMatch =
+        freelancerLocationNorm.length > 0 &&
+        (jobLocationNorm.includes(freelancerLocationNorm.split(/[,\s]/)[0]) ||
+          freelancerLocationNorm.includes(jobLocationNorm.split(/[,\s]/)[0]));
+
+      return roleMatch || locationMatch;
+    });
+  }
+
+  async updateJobLastNotifiedAt(jobId: number): Promise<void> {
+    await db
+      .update(jobs)
+      .set({ last_notified_at: new Date(), updated_at: new Date() })
+      .where(eq(jobs.id, jobId));
   }
 
   async searchJobs(filters: {

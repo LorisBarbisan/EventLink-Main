@@ -397,3 +397,43 @@ export function invitationEmail(data: {
     html: masterTemplate(content),
   };
 }
+
+/**
+ * Admin "Notify Freelancers" — single job notification template
+ */
+export function singleJobNotifyEmail(data: {
+  recipientFirstName: string;
+  jobTitle: string;
+  employerName: string;
+  location: string;
+  payRate: string;
+  eventDate: string;
+  descriptionPreview: string;
+  jobUrl: string;
+  unsubscribeUrl: string;
+}): { subject: string; html: string } {
+  const content = `
+    <p>Hi ${data.recipientFirstName},</p>
+    <p>A new job matching your profile has just been posted on EventLink.</p>
+    <div style="background-color: #f9f9f9; border: 1px solid #e5e5e5; padding: 20px; margin: 20px 0; border-radius: 8px;">
+      <h3 style="margin: 0 0 12px 0; color: #D8690E;">${data.jobTitle}</h3>
+      <p style="margin: 6px 0;">${data.employerName} &middot; ${data.location} &middot; ${data.payRate}</p>
+      <p style="margin: 6px 0; color: #666;">${data.eventDate}</p>
+      ${data.descriptionPreview ? `<p style="margin: 12px 0 0 0; font-size: 14px; color: #444;">${data.descriptionPreview}</p>` : ""}
+    </div>
+    <p>
+      <a href="${data.jobUrl}" class="button">View full job and apply</a>
+    </p>
+    <p>Your EventLink profile is live and visible to employers.</p>
+    <p>Make sure you request credentials from your current and past clients using <strong>Built My Reputation</strong> in the header of your dashboard.</p>
+    <p style="color: #666; font-size: 13px;">
+      You're receiving this because you have a verified profile on EventLink.<br/>
+      <a href="${data.unsubscribeUrl}" style="color: #D8690E;">Unsubscribe from job alerts</a>
+    </p>
+  `;
+
+  return {
+    subject: `New job on EventLink — ${data.jobTitle} in ${data.location}`,
+    html: masterTemplate(content),
+  };
+}

@@ -13,7 +13,9 @@ import {
   getAllUsers,
   getAnalyticsOverview,
   getFeedbackStats,
+  getNotifyFreelancersPreview,
   grantAdminAccess,
+  notifyFreelancersForJob,
   retriggerJobAlerts,
   revokeAdminAccess,
   sendBulkMessages,
@@ -50,6 +52,12 @@ export function registerAdminRoutes(app: Express) {
 
   // Manually retrigger job alert emails for a specific job (admin only)
   app.post("/api/admin/jobs/:id/send-alerts", requireAdminAuth, retriggerJobAlerts);
+
+  // Get count of freelancers who would be notified for a job (admin only)
+  app.get("/api/admin/jobs/:id/notify-preview", requireAdminAuth, getNotifyFreelancersPreview);
+
+  // Send "Notify Freelancers" emails for a specific job (admin only)
+  app.post("/api/admin/jobs/:id/notify-freelancers", requireAdminAuth, notifyFreelancersForJob);
 
   // Get all users (admin only)
   app.get("/api/admin/users", requireAdminAuth, getAllUsers);

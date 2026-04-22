@@ -566,6 +566,110 @@ export async function retriggerJobAlerts(req: Request, res: Response) {
   }
 }
 
+// Preview how many freelancers will be notified for a job (admin only)
+export async function getNotifyFreelancersPreview(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.id);
+    if (isNaN(jobId)) return res.status(400).json({ error: "Invalid job ID" });
+
+    const job = await storage.getJobById(jobId);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+    if (job.status !== "active") return res.status(400).json({ error: "Job must be active to notify freelancers" });
+
+    const matching = await storage.getFreelancersMatchingJob(job);
+
+    const lastNotifiedAt = (job as any).last_notified_at;
+    const hoursAgo = lastNotifiedAt
+      ? Math.floor((Date.now() - new Date(lastNotifiedAt).getTime()) / 3_600_000)
+      : null;
+
+    res.json({
+      count: matching.length,
+      jobTitle: job.title,
+      employerName: job.company,
+      lastNotifiedAt: lastNotifiedAt ?? null,
+      hoursAgo,
+    });
+  } catch (error) {
+    console.error("Notify freelancers preview error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Send "Notify Freelancers" emails for a specific job (admin only)
+export async function notifyFreelancersForJob(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.id);
+    if (isNaN(jobId)) return res.status(400).json({ error: "Invalid job ID" });
+
+    const job = await storage.getJobById(jobId);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+    if (job.status !== "active") return res.status(400).json({ error: "Job must be active to notify freelancers" });
+
+    const lastNotifiedAt = (job as any).last_notified_at;
+    const force = req.body?.force === true;
+    if (lastNotifiedAt && !force) {
+      const hoursAgo = Math.floor((Date.now() - new Date(lastNotifiedAt).getTime()) / 3_600_000);
+      if (hoursAgo < 24) {
+        return res.status(409).json({
+          error: "recently_notified",
+          hoursAgo,
+          message: `Freelancers were already notified about this job ${hoursAgo} hour${hoursAgo === 1 ? "" : "s"} ago. Send again?`,
+        });
+      }
+    }
+
+    const matching = await storage.getFreelancersMatchingJob(job);
+    if (matching.length === 0) {
+      return res.json({ success: true, count: 0, message: "No matching freelancers found." });
+    }
+
+    const eventDate = job.event_date
+      ? new Date(job.event_date).toLocaleDateString("en-GB", {
+          weekday: "short", year: "numeric", month: "short", day: "numeric",
+        })
+      : "Date TBC";
+
+    const descriptionPreview = job.description
+      ? job.description.slice(0, 150).replace(/\s+\S*$/, "") + (job.description.length > 150 ? "…" : "")
+      : "";
+
+    // Update timestamp immediately so double-clicks don't send twice
+    await storage.updateJobLastNotifiedAt(jobId);
+
+    // Fire and forget — send emails in background
+    (async () => {
+      let sent = 0;
+      for (const freelancer of matching) {
+        try {
+          const ok = await emailService.sendSingleJobNotification({
+            recipientId: freelancer.userId,
+            recipientEmail: freelancer.email,
+            recipientFirstName: freelancer.firstName || "there",
+            jobTitle: job.title,
+            employerName: job.company,
+            location: job.location,
+            payRate: job.rate,
+            eventDate,
+            descriptionPreview,
+            jobId: job.id,
+            jobSlug: (job as any).slug ?? null,
+          });
+          if (ok) sent++;
+        } catch (err) {
+          console.error(`Failed to notify freelancer ${freelancer.userId}:`, err);
+        }
+      }
+      console.log(`✅ Notify Freelancers: sent ${sent}/${matching.length} emails for job ${jobId} "${job.title}"`);
+    })();
+
+    res.json({ success: true, count: matching.length, message: `Notification sent to ${matching.length} freelancer${matching.length === 1 ? "" : "s"}` });
+  } catch (error) {
+    console.error("Notify freelancers error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // --- XLSX Export Helpers ---
 
 function fmtDate(d: unknown): string {

@@ -524,6 +524,55 @@ export class EmailNotificationService {
       relatedEntityId: params.jobId,
     });
   }
+
+  /**
+   * Send admin "Notify Freelancers" single-job notification
+   */
+  async sendSingleJobNotification(params: {
+    recipientId: number;
+    recipientEmail: string;
+    recipientFirstName: string;
+    jobTitle: string;
+    employerName: string;
+    location: string;
+    payRate: string;
+    eventDate: string;
+    descriptionPreview: string;
+    jobId: number;
+    jobSlug?: string | null;
+  }): Promise<boolean> {
+    if (!(await this.canSendEmail(params.recipientId, "job_alert"))) {
+      return false;
+    }
+
+    const base = process.env.FRONTEND_URL || "https://eventlink.one";
+    const jobUrl = params.jobSlug
+      ? `${base}/jobs/${params.jobSlug}`
+      : `${base}/jobs?jobId=${params.jobId}`;
+    const unsubscribeUrl = `${base}/notification-settings`;
+
+    const { subject, html } = emailTemplates.singleJobNotifyEmail({
+      recipientFirstName: params.recipientFirstName,
+      jobTitle: params.jobTitle,
+      employerName: params.employerName,
+      location: params.location,
+      payRate: params.payRate,
+      eventDate: params.eventDate,
+      descriptionPreview: params.descriptionPreview,
+      jobUrl,
+      unsubscribeUrl,
+    });
+
+    return this.sendEmailWithLogging({
+      to: params.recipientEmail,
+      subject,
+      html,
+      userId: params.recipientId,
+      notificationType: "job_alert",
+      relatedEntityType: "job",
+      relatedEntityId: params.jobId,
+    });
+  }
 }
 
 // Export singleton instance

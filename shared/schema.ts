@@ -156,6 +156,7 @@ export const jobs = pgTable("jobs", {
   external_url: text("external_url"), // URL to original job posting
   posted_date: text("posted_date"), // Original posting date from external source
   slug: text("slug"), // SEO-friendly URL slug e.g. sound-engineer-london-4821
+  last_notified_at: timestamp("last_notified_at", { withTimezone: true }), // When admin last sent "Notify Freelancers" for this job
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
