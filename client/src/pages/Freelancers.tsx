@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Bookmark, ChevronLeft, ChevronRight, Loader2, MapPin, Search, Star, User } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 
 const EVENTLINK_PROMOTIONAL_EMAIL = "eventlink@eventlink.one";
@@ -25,6 +25,12 @@ export default function Freelancers() {
   const { user: currentUser } = useAuth();
   const [highlightedFreelancer, setHighlightedFreelancer] = useState<string | null>(null);
   const isRecruiter = currentUser?.role === "recruiter" || currentUser?.role === "admin";
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const { data: savedIds = [] } = useQuery<number[]>({
     queryKey: ["/api/saved-freelancers"],
@@ -172,7 +178,7 @@ export default function Freelancers() {
         </Card>
 
         {/* Results Header */}
-        <div className="space-y-6">
+        <div className="space-y-6" ref={resultsRef}>
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold">
               {isLoading ? (
@@ -247,6 +253,85 @@ export default function Freelancers() {
                     </Button>
                     <Button variant="outline" onClick={() => setLocation("/jobs")}>
                       Browse Jobs Instead
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Top Pagination Controls */}
+          {!isLoading && !error && totalPages > 1 && (
+            <Card className="mb-4">
+              <CardContent className="py-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-sm text-muted-foreground text-center sm:text-left">
+                    Showing {(currentPage - 1) * 20 + 1} –{" "}
+                    {Math.min(currentPage * 20, totalResults)} of {totalResults} results
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p - 1)}
+                      disabled={!hasPrevPage}
+                      className="hidden sm:flex"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p - 1)}
+                      disabled={!hasPrevPage}
+                      className="sm:hidden w-10 px-0"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(pageNum)}
+                            className="w-10 px-0 sm:w-10"
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p + 1)}
+                      disabled={!hasNextPage}
+                      className="hidden sm:flex"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p + 1)}
+                      disabled={!hasNextPage}
+                      className="sm:hidden w-10 px-0"
+                    >
+                      <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -403,7 +488,7 @@ export default function Freelancers() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(p => p - 1)}
+                      onClick={() => goToPage(currentPage - 1)}
                       disabled={!hasPrevPage}
                       data-testid="button-prev-page"
                       className="hidden sm:flex"
@@ -414,7 +499,7 @@ export default function Freelancers() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(p => p - 1)}
+                      onClick={() => goToPage(currentPage - 1)}
                       disabled={!hasPrevPage}
                       data-testid="button-prev-page-mobile"
                       className="sm:hidden w-10 px-0"
@@ -439,7 +524,7 @@ export default function Freelancers() {
                             key={pageNum}
                             variant={currentPage === pageNum ? "default" : "outline"}
                             size="sm"
-                            onClick={() => setCurrentPage(pageNum)}
+                            onClick={() => goToPage(pageNum)}
                             className="w-10 px-0 sm:w-10"
                             data-testid={`button-page-${pageNum}`}
                           >
@@ -451,7 +536,7 @@ export default function Freelancers() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(p => p + 1)}
+                      onClick={() => goToPage(currentPage + 1)}
                       disabled={!hasNextPage}
                       data-testid="button-next-page"
                       className="hidden sm:flex"
@@ -462,7 +547,7 @@ export default function Freelancers() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(p => p + 1)}
+                      onClick={() => goToPage(currentPage + 1)}
                       disabled={!hasNextPage}
                       data-testid="button-next-page-mobile"
                       className="sm:hidden w-10 px-0"
