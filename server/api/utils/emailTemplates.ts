@@ -413,7 +413,13 @@ export function freelancerWelcomeEmail(data: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 24px;">
+<body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 0;">
+
+  <div style="background: linear-gradient(135deg, #D8690E 0%, #ff8c42 100%); padding: 28px 24px; text-align: center; border-radius: 8px 8px 0 0;">
+    <p style="margin: 0; font-size: 28px; font-weight: bold; color: #ffffff; letter-spacing: 0.5px;">EventLink</p>
+  </div>
+
+  <div style="padding: 28px 24px;">
 
   <p>Hi ${data.firstName},</p>
 
@@ -470,6 +476,8 @@ export function freelancerWelcomeEmail(data: {
     <a href="${data.unsubscribeUrl}" style="color:#9CA3AF;">Unsubscribe</a>
   </p>
 
+  </div>
+
 </body>
 </html>`,
   };
@@ -490,7 +498,13 @@ export function employerWelcomeEmail(data: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 24px;">
+<body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 0;">
+
+  <div style="background: linear-gradient(135deg, #D8690E 0%, #ff8c42 100%); padding: 28px 24px; text-align: center; border-radius: 8px 8px 0 0;">
+    <p style="margin: 0; font-size: 28px; font-weight: bold; color: #ffffff; letter-spacing: 0.5px;">EventLink</p>
+  </div>
+
+  <div style="padding: 28px 24px;">
 
   <p>Hi ${data.firstName},</p>
 
@@ -545,6 +559,8 @@ export function employerWelcomeEmail(data: {
     You're receiving this because you created an account on EventLink.<br>
     <a href="${data.unsubscribeUrl}" style="color:#9CA3AF;">Unsubscribe</a>
   </p>
+
+  </div>
 
 </body>
 </html>`,
