@@ -36,6 +36,7 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Settings = lazy(() => import("./pages/Settings"));
 const ReferencePage = lazy(() => import("./pages/ReferencePage"));
 const ReferenceVerified = lazy(() => import("./pages/ReferenceVerified"));
+const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
 
 function PageLoader() {
   return (
@@ -73,6 +74,7 @@ function AppRouter() {
           <Route path="/about" component={About} />
           <Route path="/reference/:token" component={ReferencePage} />
           <Route path="/reference-verified" component={ReferenceVerified} />
+          <Route path="/unsubscribe" component={Unsubscribe} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>

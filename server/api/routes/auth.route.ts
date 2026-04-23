@@ -135,6 +135,26 @@ export function registerAuthRoutes(app: Express) {
   // Admin diagnostics endpoint
   app.get("/api/admin/diagnostics", getAdminDiagnostics);
 
+  // Unsubscribe from marketing emails via token link (PECR compliance)
+  app.get("/api/auth/unsubscribe", async (req: Request, res: Response) => {
+    const { token } = req.query as { token?: string };
+    if (!token) return res.status(400).json({ error: "Missing unsubscribe token" });
+
+    try {
+      const user = await storage.getUserByUnsubscribeToken(token);
+      if (!user) return res.status(404).json({ error: "Invalid or expired unsubscribe token" });
+
+      if (!user.marketing_emails_opt_out) {
+        await storage.setMarketingOptOut(user.id);
+      }
+
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("Unsubscribe error:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Dev-only: auto-login as admin (never active in production)
   if (process.env.NODE_ENV === "development") {
     app.get("/api/auth/dev-admin-login", async (_req: Request, res: Response) => {

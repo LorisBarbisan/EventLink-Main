@@ -13,7 +13,7 @@ import {
   isTokenBlacklisted,
   verifyJWTToken,
 } from "../utils/auth.util";
-import { sendPasswordResetEmail, sendVerificationEmail } from "../utils/emailService";
+import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from "../utils/emailService";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "eventlink-secret-key";
 const OAUTH_PENDING_SECRET = JWT_SECRET + "-oauth-pending";
@@ -538,6 +538,17 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
 
     await storage.updateUserLastLogin(newUser.id, auth_provider as any);
 
+    // Send welcome email (fire-and-forget)
+    sendWelcomeEmail({
+      userId: newUser.id,
+      email: newUser.email,
+      firstName: newUser.first_name || "",
+      role: newUser.role as "freelancer" | "recruiter" | "admin",
+      unsubscribeToken: newUser.unsubscribe_token ?? null,
+      welcomeEmailSent: newUser.welcome_email_sent ?? false,
+      marketingOptOut: newUser.marketing_emails_opt_out ?? false,
+    }).catch(err => console.error("Welcome email error (OAuth):", err));
+
     const userWithRole = computeUserRole(newUser);
     const jwtToken = generateJWTToken(userWithRole);
 
@@ -662,6 +673,17 @@ export async function signup(req: Request, res: Response) {
       console.error("Failed to send verification email:", emailError);
       // Don't fail signup if email fails
     }
+
+    // Send welcome email (fire-and-forget — never block signup)
+    sendWelcomeEmail({
+      userId: user.id,
+      email: user.email,
+      firstName: user.first_name || first_name || "",
+      role: user.role as "freelancer" | "recruiter" | "admin",
+      unsubscribeToken: user.unsubscribe_token ?? null,
+      welcomeEmailSent: user.welcome_email_sent ?? false,
+      marketingOptOut: user.marketing_emails_opt_out ?? false,
+    }).catch(err => console.error("Welcome email error:", err));
 
     // Apply role computation
     const userWithRole = computeUserRole(user);

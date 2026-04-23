@@ -84,6 +84,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
+import { randomBytes } from "crypto";
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
 
@@ -102,6 +103,9 @@ export interface IStorage {
   deleteUserAccount(userId: number): Promise<void>;
   adminHardDeleteUser(userId: number): Promise<void>;
   isUserDeleted(userId: number): Promise<boolean>;
+  markWelcomeEmailSent(userId: number): Promise<void>;
+  getUserByUnsubscribeToken(token: string): Promise<User | undefined>;
+  setMarketingOptOut(userId: number): Promise<void>;
   canSendMessageToUser(
     senderId: number,
     recipientId: number
@@ -520,10 +524,13 @@ export class DatabaseStorage implements IStorage {
     const userData = {
       email: user.email,
       password: user.password,
+      first_name: user.first_name,
+      last_name: user.last_name,
       role: user.role as "freelancer" | "recruiter",
       email_verified: false,
       email_verification_token: user.email_verification_token,
       email_verification_expires: user.email_verification_expires,
+      unsubscribe_token: randomBytes(32).toString("hex"),
     };
     const result = await db.insert(users).values(userData).returning();
     return result[0];
@@ -687,6 +694,7 @@ export class DatabaseStorage implements IStorage {
       email_verified: userData.email_verified,
       last_login_method: userData.auth_provider,
       last_login_at: new Date(),
+      unsubscribe_token: randomBytes(32).toString("hex"),
     };
 
     const result = await db.insert(users).values(user).returning();
@@ -695,6 +703,27 @@ export class DatabaseStorage implements IStorage {
     cache.clearPattern("user:");
 
     return result[0];
+  }
+
+  async markWelcomeEmailSent(userId: number): Promise<void> {
+    await db.update(users).set({ welcome_email_sent: true }).where(eq(users.id, userId));
+  }
+
+  async getUserByUnsubscribeToken(token: string): Promise<User | undefined> {
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.unsubscribe_token, token))
+      .limit(1);
+    return result[0];
+  }
+
+  async setMarketingOptOut(userId: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ marketing_emails_opt_out: true, updated_at: new Date() })
+      .where(eq(users.id, userId));
+    cache.delete(`user:${userId}`);
   }
 
   async linkSocialProvider(

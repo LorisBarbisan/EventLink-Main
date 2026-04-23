@@ -1,0 +1,208 @@
+Instruction for Replit Agent 4 — Automatic Welcome Emails on Sign-Up
+________________________________________
+Overview
+When a new user completes registration on EventLink, the system must automatically send a welcome email tailored to their account type. Freelancers receive the freelancer welcome email. Employers receive the employer welcome email. These emails must send immediately on successful account creation — not on email verification, not on first login, but at the moment the account is created.
+________________________________________
+Trigger
+Find the function or endpoint that handles successful user registration — this is wherever a new user record is written to the database. Immediately after the user record is created and before returning the success response, call the welcome email function with the new user's details and role.
+The trigger must fire once and once only per user. Add a welcome_email_sent boolean field to the users table defaulting to false. Set it to true after the email sends successfully. Before sending, check this field — if it is already true, skip the send. This prevents duplicate welcome emails if the registration endpoint is called more than once.
+________________________________________
+Email 1 — Freelancer Welcome Email
+Trigger condition: user.role === 'freelancer'
+From: Loris at EventLink <admin@eventlink.one>
+Reply-to: admin@eventlink.one
+Subject: Welcome to EventLink — here's how to get found by employers
+Body (HTML email):
+html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; 
+             line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 24px;">
+
+  <p>Hi {{first_name}},</p>
+
+  <p>Welcome to EventLink — the UK's verified event crew platform.</p>
+
+  <p>You've signed up. Now one step makes all the difference: 
+  <strong>completing your profile.</strong></p>
+
+  <p>Until your profile is live, you're invisible to the production companies, 
+  AV suppliers, and venues searching for crew on EventLink right now. 
+  A completed profile changes that — and it takes less than three minutes 
+  if you upload your CV and let the AI parser do the work.</p>
+
+  <p>Watch this short tutorial to see exactly how it's done:</p>
+
+  <!-- VIDEO THUMBNAIL — replace YOUR_VIDEO_ID with actual YouTube video ID -->
+  <a href="https://www.youtube.com/watch?v=-V_xTPkC8UA" 
+     target="_blank" 
+     style="display:block; margin: 24px 0;">
+    <img 
+      src="https://img.youtube.com/vi/-V_xTPkC8UA/maxresdefault.jpg"
+      alt="Watch: How to Create Your Freelancer Profile on EventLink"
+      width="560"
+      style="width:100%; max-width:560px; border-radius:8px; 
+             border:3px solid #4F46E5; display:block;"
+    />
+  </a>
+
+  <p style="margin: 24px 0;">
+    <a href="https://eventlink.one/dashboard" 
+       style="background-color:#4F46E5; color:#ffffff; padding:12px 24px; 
+              text-decoration:none; border-radius:6px; font-weight:bold; 
+              display:inline-block;">
+      Complete My Profile Now →
+    </a>
+  </p>
+
+  <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
+
+  <p style="font-size:14px; color:#374151;"><strong>What your profile gives you:</strong></p>
+  <ul style="font-size:14px; color:#374151; padding-left:20px; line-height:1.8;">
+    <li>Visibility in employer searches by role and location</li>
+    <li>A verified badge for credentials — SIA, DBS, First Aid and more</li>
+    <li>A reliability score built from real employer ratings</li>
+    <li>LinkedIn-verified references that travel with you</li>
+    <li>A shareable profile link you can send instead of a CV</li>
+  </ul>
+
+  <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
+
+  <p>The events industry is busy. Employers are posting jobs. 
+  Make sure you're there when they search.</p>
+
+  <p>Loris<br>
+  Founder, EventLink<br>
+  <a href="https://eventlink.one" style="color:#4F46E5;">eventlink.one</a></p>
+
+  <p style="font-size:13px; color:#6B7280;">
+    P.S. Once your profile is live, use the 
+    <strong>Build My Reputation</strong> tool to collect verified references 
+    from past clients. It takes them 45 seconds to complete and it's the 
+    single most powerful thing on your profile.
+  </p>
+
+  <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
+
+  <p style="font-size:11px; color:#9CA3AF; text-align:center;">
+    You're receiving this because you created an account on EventLink.<br>
+    <a href="https://eventlink.one/unsubscribe?token={{unsubscribe_token}}" 
+       style="color:#9CA3AF;">Unsubscribe</a>
+  </p>
+
+</body>
+</html>
+________________________________________
+Email 2 — Employer Welcome Email
+Trigger condition: user.role === 'employer'
+From: Loris at EventLink <admin@eventlink.one>
+Reply-to: admin@eventlink.one
+Subject: Welcome to EventLink — post your first job and reach verified crew
+Body (HTML email):
+html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; 
+             line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 24px;">
+
+  <p>Hi {{first_name}},</p>
+
+  <p>Welcome to EventLink — the UK's verified event crew platform.</p>
+
+  <p>You can now post jobs and search profiles across our growing network 
+  of verified freelance technicians — sound engineers, lighting technicians, 
+  AV technicians, riggers, stage managers, production managers and more.</p>
+
+  <p>Every profile on EventLink includes confirmed credentials, a reliability 
+  score from past employers, and LinkedIn-verified references. 
+  <strong>You're not hiring on hope — you're hiring on evidence.</strong></p>
+
+  <p>Watch this short tutorial to see how to post your first job:</p>
+
+  <!-- VIDEO THUMBNAIL — replace YOUR_VIDEO_ID with actual YouTube video ID -->
+  <a href="https://www.youtube.com/watch?v=2JxKSwMq5hE" 
+     target="_blank" 
+     style="display:block; margin: 24px 0;">
+    <img 
+      src="https://img.youtube.com/vi/2JxKSwMq5hE/maxresdefault.jpg"
+      alt="Watch: How to Post a Job on EventLink"
+      width="560"
+      style="width:100%; max-width:560px; border-radius:8px; 
+             border:3px solid #4F46E5; display:block;"
+    />
+  </a>
+
+  <p style="margin: 24px 0;">
+    <a href="https://eventlink.one/post-job" 
+       style="background-color:#4F46E5; color:#ffffff; padding:12px 24px; 
+              text-decoration:none; border-radius:6px; font-weight:bold; 
+              display:inline-block;">
+      Post My First Job Now →
+    </a>
+  </p>
+
+  <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
+
+  <p style="font-size:14px; color:#374151;"><strong>What you can do on EventLink:</strong></p>
+  <ul style="font-size:14px; color:#374151; padding-left:20px; line-height:1.8;">
+    <li>Post a job and reach matching freelancers instantly</li>
+    <li>Search verified profiles directly from the Crew Board</li>
+    <li>Save trusted crew to your pool for fast re-hiring</li>
+    <li>Rate freelancers after the job to help the community</li>
+    <li>Your first job post is completely free</li>
+  </ul>
+
+  <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
+
+  <p>If you have any questions or would like a quick walkthrough, 
+  reply to this email and I'll get back to you personally.</p>
+
+  <p>Loris<br>
+  Founder, EventLink<br>
+  <a href="https://eventlink.one" style="color:#4F46E5;">eventlink.one</a></p>
+
+  <p style="font-size:13px; color:#6B7280;">
+    P.S. If you have a crew call coming up and want us to match you with 
+    the right freelancers directly, just reply with the details — happy to 
+    help personally while the platform is in its early stages.
+  </p>
+
+  <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
+
+  <p style="font-size:11px; color:#9CA3AF; text-align:center;">
+    You're receiving this because you created an account on EventLink.<br>
+    <a href="https://eventlink.one/unsubscribe?token={{unsubscribe_token}}" 
+       style="color:#9CA3AF;">Unsubscribe</a>
+  </p>
+
+</body>
+</html>
+________________________________________
+Technical Requirements
+Template variables to replace dynamically:
+{{first_name}} — the user's first name from the registration form
+{{unsubscribe_token}} — a unique token generated per user and stored in the database, used to process unsubscribe requests without requiring login
+-V_xTPkC8UA— replace with the actual YouTube video ID for the freelancer tutorial once it is uploaded
+2JxKSwMq5hE— replace with the actual YouTube video ID for the employer tutorial once it is uploaded
+________________________________________
+Unsubscribe handling:
+Create a /unsubscribe route that accepts the token parameter, looks up the corresponding user, and sets marketing_emails_opt_out = true on their record. Show a simple confirmation page: "You've been unsubscribed from EventLink emails." This is a legal requirement under UK PECR — do not skip it.
+________________________________________
+Sending infrastructure:
+Use the existing transactional email provider already configured on the platform. If the current setup is GoDaddy SMTP, request that Replit switch to Postmark or SendGrid for these welcome emails — dedicated transactional email providers have significantly higher deliverability than GoDaddy SMTP, particularly for Outlook and Hotmail addresses which make up a large portion of your user base.
+________________________________________
+Testing:
+Before deploying, send a test of each email to:
+•	A Gmail address
+•	A Hotmail or Outlook address
+•	An Apple Mail address if available
+Confirm each arrives in the primary inbox, the video thumbnail displays correctly and is clickable, the CTA button renders and links to the correct URL, and the unsubscribe link works and sets the opt-out flag.
+

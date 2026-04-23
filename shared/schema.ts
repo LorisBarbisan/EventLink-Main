@@ -47,6 +47,9 @@ export const users = pgTable(
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     status: text("status").default("pending").notNull(),
+    welcome_email_sent: boolean("welcome_email_sent").default(false).notNull(),
+    marketing_emails_opt_out: boolean("marketing_emails_opt_out").default(false).notNull(),
+    unsubscribe_token: text("unsubscribe_token").unique(),
   },
   table => ({
     statusCheck: check(

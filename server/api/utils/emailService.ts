@@ -81,6 +81,8 @@ async function getUncachableSendGridClient() {
 interface EmailParams {
   to: string;
   from?: string; // Optional - will use connector's verified email if not provided
+  fromName?: string; // Optional display name (default: "EventLink Team")
+  replyTo?: string; // Optional reply-to address
   subject: string;
   text?: string;
   html?: string;
@@ -110,8 +112,9 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
       to: params.to,
       from: {
         email: senderEmail,
-        name: "EventLink Team",
+        name: params.fromName || "EventLink Team",
       },
+      ...(params.replyTo ? { reply_to: { email: params.replyTo } } : {}),
       subject: params.subject,
       tracking_settings: {
         click_tracking: {
@@ -673,6 +676,55 @@ The EventLink Team
     html: htmlContent,
     text: textContent,
   });
+}
+
+/**
+ * Send a welcome email to a newly registered user.
+ * Checks welcome_email_sent and marketing_emails_opt_out before sending.
+ */
+export async function sendWelcomeEmail(params: {
+  userId: number;
+  email: string;
+  firstName: string;
+  role: "freelancer" | "recruiter" | "admin";
+  unsubscribeToken: string | null;
+  welcomeEmailSent: boolean;
+  marketingOptOut: boolean;
+}): Promise<void> {
+  if (params.welcomeEmailSent || params.marketingOptOut) return;
+  if (params.role === "admin") return;
+
+  const { freelancerWelcomeEmail, employerWelcomeEmail } = await import("./emailTemplates");
+
+  const baseUrl = "https://eventlink.one";
+  const unsubscribeUrl = params.unsubscribeToken
+    ? `${baseUrl}/unsubscribe?token=${params.unsubscribeToken}`
+    : `${baseUrl}/unsubscribe`;
+
+  const firstName = params.firstName || "there";
+
+  const template =
+    params.role === "freelancer"
+      ? freelancerWelcomeEmail({ firstName, unsubscribeUrl })
+      : employerWelcomeEmail({ firstName, unsubscribeUrl });
+
+  try {
+    await sendEmail({
+      to: params.email,
+      subject: template.subject,
+      html: template.html,
+      fromName: "Loris at EventLink",
+      replyTo: "admin@eventlink.one",
+    });
+
+    // Mark as sent in DB (import storage lazily to avoid circular deps)
+    const { storage } = await import("../../storage");
+    await storage.markWelcomeEmailSent(params.userId);
+
+    console.log(`✅ Welcome email sent to ${params.email} (role: ${params.role})`);
+  } catch (err) {
+    console.error(`❌ Failed to send welcome email to ${params.email}:`, err);
+  }
 }
 
 // Export the EmailNotificationService from the template module
