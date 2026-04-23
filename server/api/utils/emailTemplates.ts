@@ -525,7 +525,6 @@ export function employerWelcomeEmail(data: {
     <li>Search verified profiles directly from the Crew Board</li>
     <li>Save trusted crew to your pool for fast re-hiring</li>
     <li>Rate freelancers after the job to help the community</li>
-    <li>Your first job post is completely free</li>
   </ul>
 
   <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
