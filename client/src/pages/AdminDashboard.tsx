@@ -60,15 +60,18 @@ import { cn } from "@/lib/utils";
 import {
   AlertCircle,
   Briefcase,
+  Check,
   Download,
   FileText,
   Mail,
   MessageSquare,
+  Search,
   Shield,
   Trash2,
   TrendingUp,
   UserCheck,
   Users,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -215,6 +218,9 @@ function AdminDashboardContent() {
   // Bulk message state
   const [bulkMsgOpen, setBulkMsgOpen] = useState(false);
   const [bulkMsgText, setBulkMsgText] = useState("");
+  const [bulkMsgMode, setBulkMsgMode] = useState<"filtered" | "specific">("filtered");
+  const [bulkMsgPickerSearch, setBulkMsgPickerSearch] = useState("");
+  const [bulkMsgSelectedUsers, setBulkMsgSelectedUsers] = useState<User[]>([]);
 
   // Jobs Tab State
   const [jobSearch, setJobSearch] = useState("");
@@ -265,14 +271,17 @@ function AdminDashboardContent() {
   });
 
   const bulkMessageMutation = useMutation({
-    mutationFn: async ({ message, filters }: { message: string; filters: object }) =>
+    mutationFn: async ({ message, filters, userIds }: { message: string; filters?: object; userIds?: number[] }) =>
       apiRequest("/api/admin/bulk-message", {
         method: "POST",
-        body: JSON.stringify({ message, filters }),
+        body: JSON.stringify({ message, filters, userIds }),
       }),
     onSuccess: (data: { sent: number; failed: number; total: number }) => {
       setBulkMsgOpen(false);
       setBulkMsgText("");
+      setBulkMsgSelectedUsers([]);
+      setBulkMsgPickerSearch("");
+      setBulkMsgMode("filtered");
       toast({
         title: "Messages sent",
         description: `Sent to ${data.sent} user${data.sent !== 1 ? "s" : ""}${data.failed > 0 ? ` (${data.failed} failed)` : ""}.`,
@@ -378,6 +387,22 @@ function AdminDashboardContent() {
     staleTime: 0,
     gcTime: 0,
     placeholderData: keepPreviousData,
+  });
+
+  // User picker query for bulk message "specific users" mode
+  const { data: bulkMsgPickerData, isLoading: bulkMsgPickerLoading } = useQuery<UsersResponse>({
+    queryKey: ["/api/admin/users", "bulkpicker", bulkMsgPickerSearch],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.append("page", "1");
+      params.append("limit", "30");
+      if (bulkMsgPickerSearch.trim()) params.append("search", bulkMsgPickerSearch.trim());
+      params.append("sortBy", "created_at");
+      params.append("sortOrder", "desc");
+      return apiRequest(`/api/admin/users?${params.toString()}`);
+    },
+    enabled: bulkMsgOpen && bulkMsgMode === "specific",
+    staleTime: 10000,
   });
 
   // Jobs query
@@ -1535,7 +1560,18 @@ function AdminDashboardContent() {
                 <CardTitle>
                   User Management {usersData?.total ? `(${usersData.total})` : ""}
                 </CardTitle>
-                <Dialog open={bulkMsgOpen} onOpenChange={setBulkMsgOpen}>
+                <Dialog
+                  open={bulkMsgOpen}
+                  onOpenChange={open => {
+                    setBulkMsgOpen(open);
+                    if (!open) {
+                      setBulkMsgText("");
+                      setBulkMsgMode("filtered");
+                      setBulkMsgPickerSearch("");
+                      setBulkMsgSelectedUsers([]);
+                    }
+                  }}
+                >
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" className="flex items-center gap-2 shrink-0">
                       <MessageSquare className="w-4 h-4" />
@@ -1547,52 +1583,197 @@ function AdminDashboardContent() {
                       <DialogTitle>Send Bulk Message</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 pt-2">
-                      <div className="rounded-md border bg-muted/40 p-3 space-y-1 text-sm">
-                        <p className="font-medium text-muted-foreground">Recipients based on current filters:</p>
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {roleFilter !== "all" && (
-                            <Badge variant="secondary">Role: {roleFilter === "recruiter" ? "employer" : roleFilter}</Badge>
+                      {/* Mode toggle */}
+                      <div className="flex rounded-md border overflow-hidden text-sm">
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex-1 px-3 py-2 transition-colors",
+                            bulkMsgMode === "filtered"
+                              ? "bg-primary text-primary-foreground font-medium"
+                              : "bg-background hover:bg-muted text-muted-foreground"
                           )}
-                          {statusFilter !== "all" && (
-                            <Badge variant="secondary">Status: {statusFilter}</Badge>
+                          onClick={() => setBulkMsgMode("filtered")}
+                        >
+                          All Filtered Users
+                        </button>
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex-1 px-3 py-2 transition-colors border-l",
+                            bulkMsgMode === "specific"
+                              ? "bg-primary text-primary-foreground font-medium"
+                              : "bg-background hover:bg-muted text-muted-foreground"
                           )}
-                          {profileStatusFilter !== "all" && (
-                            <Badge variant="secondary">Profile: {profileStatusFilter.replace("_", " ")}</Badge>
+                          onClick={() => setBulkMsgMode("specific")}
+                        >
+                          Select Specific Users
+                        </button>
+                      </div>
+
+                      {bulkMsgMode === "filtered" ? (
+                        <div className="rounded-md border bg-muted/40 p-3 space-y-1 text-sm">
+                          <p className="font-medium text-muted-foreground">Recipients based on current filters:</p>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {roleFilter !== "all" && (
+                              <Badge variant="secondary">Role: {roleFilter === "recruiter" ? "employer" : roleFilter}</Badge>
+                            )}
+                            {statusFilter !== "all" && (
+                              <Badge variant="secondary">Status: {statusFilter}</Badge>
+                            )}
+                            {profileStatusFilter !== "all" && (
+                              <Badge variant="secondary">Profile: {profileStatusFilter.replace("_", " ")}</Badge>
+                            )}
+                            {searchTerm && (
+                              <Badge variant="secondary">Search: "{searchTerm}"</Badge>
+                            )}
+                            {roleFilter === "all" && statusFilter === "all" && profileStatusFilter === "all" && !searchTerm && (
+                              <span className="text-muted-foreground">All non-admin users</span>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground pt-1">
+                            Approx. <span className="font-semibold text-foreground">{usersData?.total ?? "..."}</span> user{(usersData?.total ?? 0) !== 1 ? "s" : ""} will receive this message. Admin accounts are excluded.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {/* Selected users chips */}
+                          {bulkMsgSelectedUsers.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 rounded-md border bg-muted/40 p-2">
+                              {bulkMsgSelectedUsers.map(u => {
+                                const name = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
+                                return (
+                                  <span
+                                    key={u.id}
+                                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-1 font-medium"
+                                  >
+                                    {name}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setBulkMsgSelectedUsers(prev => prev.filter(s => s.id !== u.id))
+                                      }
+                                      className="rounded-full hover:bg-primary/20 p-0.5"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </span>
+                                );
+                              })}
+                            </div>
                           )}
-                          {searchTerm && (
-                            <Badge variant="secondary">Search: "{searchTerm}"</Badge>
+
+                          {/* Search input */}
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                            <Input
+                              placeholder="Search users by name or email..."
+                              value={bulkMsgPickerSearch}
+                              onChange={e => setBulkMsgPickerSearch(e.target.value)}
+                              className="pl-8 h-8 text-sm"
+                            />
+                          </div>
+
+                          {/* User list */}
+                          <div className="border rounded-md overflow-y-auto max-h-44">
+                            {bulkMsgPickerLoading ? (
+                              <div className="flex justify-center py-4">
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
+                              </div>
+                            ) : (bulkMsgPickerData?.users ?? []).filter(u => u.role !== "admin").length === 0 ? (
+                              <p className="text-sm text-muted-foreground text-center py-4">No users found</p>
+                            ) : (
+                              (bulkMsgPickerData?.users ?? [])
+                                .filter(u => u.role !== "admin")
+                                .map(u => {
+                                  const name = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
+                                  const isSelected = bulkMsgSelectedUsers.some(s => s.id === u.id);
+                                  return (
+                                    <button
+                                      key={u.id}
+                                      type="button"
+                                      onClick={() =>
+                                        setBulkMsgSelectedUsers(prev =>
+                                          isSelected ? prev.filter(s => s.id !== u.id) : [...prev, u]
+                                        )
+                                      }
+                                      className={cn(
+                                        "w-full flex items-center justify-between px-3 py-2 text-sm text-left hover:bg-muted transition-colors border-b last:border-b-0",
+                                        isSelected && "bg-primary/5"
+                                      )}
+                                    >
+                                      <div className="min-w-0">
+                                        <p className="font-medium truncate">{name}</p>
+                                        <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                                        <Badge variant="outline" className="text-xs capitalize">
+                                          {u.role === "recruiter" ? "employer" : u.role}
+                                        </Badge>
+                                        {isSelected && <Check className="w-4 h-4 text-primary" />}
+                                      </div>
+                                    </button>
+                                  );
+                                })
+                            )}
+                          </div>
+
+                          {bulkMsgSelectedUsers.length === 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Select at least one user from the list above.
+                            </p>
                           )}
-                          {roleFilter === "all" && statusFilter === "all" && profileStatusFilter === "all" && !searchTerm && (
-                            <span className="text-muted-foreground">All non-admin users</span>
+                          {bulkMsgSelectedUsers.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-semibold text-foreground">{bulkMsgSelectedUsers.length}</span> user{bulkMsgSelectedUsers.length !== 1 ? "s" : ""} selected.
+                            </p>
                           )}
                         </div>
-                        <p className="text-muted-foreground pt-1">
-                          Approx. <span className="font-semibold text-foreground">{usersData?.total ?? "..."}</span> user{(usersData?.total ?? 0) !== 1 ? "s" : ""} will receive this message. Admin accounts are excluded.
-                        </p>
-                      </div>
+                      )}
+
                       <Textarea
                         placeholder="Write your message here..."
-                        className="min-h-[140px] resize-none"
+                        className="min-h-[120px] resize-none"
                         value={bulkMsgText}
                         onChange={e => setBulkMsgText(e.target.value)}
                       />
                       <div className="flex justify-end gap-2 pt-1">
-                        <Button variant="outline" onClick={() => { setBulkMsgOpen(false); setBulkMsgText(""); }}>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setBulkMsgOpen(false);
+                            setBulkMsgText("");
+                            setBulkMsgMode("filtered");
+                            setBulkMsgPickerSearch("");
+                            setBulkMsgSelectedUsers([]);
+                          }}
+                        >
                           Cancel
                         </Button>
                         <Button
-                          disabled={bulkMsgText.trim().length === 0 || bulkMessageMutation.isPending}
-                          onClick={() =>
-                            bulkMessageMutation.mutate({
-                              message: bulkMsgText,
-                              filters: {
-                                search: searchTerm || undefined,
-                                role: roleFilter,
-                                status: statusFilter,
-                                profileStatus: profileStatusFilter,
-                              },
-                            })
+                          disabled={
+                            bulkMsgText.trim().length === 0 ||
+                            bulkMessageMutation.isPending ||
+                            (bulkMsgMode === "specific" && bulkMsgSelectedUsers.length === 0)
                           }
+                          onClick={() => {
+                            if (bulkMsgMode === "specific") {
+                              bulkMessageMutation.mutate({
+                                message: bulkMsgText,
+                                userIds: bulkMsgSelectedUsers.map(u => u.id),
+                              });
+                            } else {
+                              bulkMessageMutation.mutate({
+                                message: bulkMsgText,
+                                filters: {
+                                  search: searchTerm || undefined,
+                                  role: roleFilter,
+                                  status: statusFilter,
+                                  profileStatus: profileStatusFilter,
+                                },
+                              });
+                            }
+                          }}
                         >
                           {bulkMessageMutation.isPending ? "Sending..." : "Send Message"}
                         </Button>

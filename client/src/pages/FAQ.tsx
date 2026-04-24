@@ -64,8 +64,20 @@ export default function FAQ() {
         {
           id: "jobs-1",
           question: "How do I post a job?",
-          answer:
-            "Employers can post jobs by clicking 'Post a New Job' in their dashboard or header menu.",
+          answer: (
+            <span>
+              Employers can post jobs by clicking 'Post a New Job' in their dashboard or header menu.{" "}
+              <a
+                href="https://youtu.be/2JxKSwMq5hE"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#D8690E] underline hover:text-[#E97B24]"
+              >
+                Watch the tutorial
+              </a>{" "}
+              for a step-by-step walkthrough.
+            </span>
+          ),
         },
         {
           id: "jobs-2",
