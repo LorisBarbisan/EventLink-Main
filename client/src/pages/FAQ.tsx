@@ -152,18 +152,21 @@ export default function FAQ() {
   ];
 
   // Generate JSON-LD structured data for FAQ rich snippets
+  // Only include questions with plain-string answers — JSX elements cannot be serialised
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     mainEntity: faqData.flatMap(category =>
-      category.questions.map(q => ({
-        "@type": "Question",
-        name: q.question,
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: q.answer,
-        },
-      }))
+      category.questions
+        .filter(q => typeof q.answer === "string")
+        .map(q => ({
+          "@type": "Question",
+          name: q.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: q.answer as string,
+          },
+        }))
     ),
   };
 
