@@ -630,17 +630,17 @@ export default function SimplifiedRecruiterDashboard() {
                 <Users className="mb-4 h-12 w-12 text-muted-foreground" />
                 <h3 className="mb-2 text-lg font-semibold">
                   {crewTab === "saved"
-                    ? "No saved freelancers"
+                    ? "No one saved to My Crew yet"
                     : crewTab === "worked"
                       ? "No freelancers worked with yet"
                       : "No crew members yet"}
                 </h3>
                 <p className="max-w-md text-muted-foreground">
                   {crewTab === "saved"
-                    ? "Save freelancers from the Find Crew page to build your crew list."
+                    ? "Save freelancers from the Find Crew page to add them to My Crew."
                     : crewTab === "worked"
                       ? "Hire freelancers through job postings to see them here."
-                      : "Save or hire freelancers to build your crew."}
+                      : "Save or hire freelancers to start building My Crew."}
                 </p>
                 <Button
                   variant="outline"
