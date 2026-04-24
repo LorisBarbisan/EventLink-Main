@@ -185,8 +185,8 @@ export default function SimplifiedRecruiterDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/my-crew"] });
       queryClient.invalidateQueries({ queryKey: ["/api/saved-freelancers"] });
       toast({
-        title: "Removed from saved",
-        description: "Freelancer removed from your saved list.",
+        title: "Removed from My Crew",
+        description: "Freelancer removed from your My Crew list.",
       });
     },
   });
@@ -693,7 +693,7 @@ export default function SimplifiedRecruiterDashboard() {
                               e.stopPropagation();
                               unsaveCrewMutation.mutate(freelancer.user_id);
                             }}
-                            title="Remove from saved"
+                            title="Remove from My Crew"
                           >
                             <Bookmark className="h-4 w-4 fill-current" />
                           </Button>
