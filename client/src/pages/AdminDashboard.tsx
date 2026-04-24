@@ -1301,7 +1301,19 @@ function AdminDashboardContent() {
                               </TableCell>
                               <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                                 {job.status === "active" && (
-                                  <ShareJobButton job={job as any} size="sm" variant="ghost" />
+                                  <div className="flex items-center gap-1">
+                                    <ShareJobButton job={job as any} size="sm" variant="ghost" />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-xs border-orange-300 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
+                                      disabled={sendAlertsMutation.isPending && sendAlertsMutation.variables === job.id}
+                                      onClick={() => sendAlertsMutation.mutate(job.id)}
+                                    >
+                                      <Mail className="w-3 h-3 mr-1" />
+                                      {sendAlertsMutation.isPending && sendAlertsMutation.variables === job.id ? "Sending..." : "Notify"}
+                                    </Button>
+                                  </div>
                                 )}
                               </TableCell>
                             </TableRow>
