@@ -218,6 +218,7 @@ function AdminDashboardContent() {
   // Bulk message state
   const [bulkMsgOpen, setBulkMsgOpen] = useState(false);
   const [bulkMsgText, setBulkMsgText] = useState("");
+  const [bulkMsgSubject, setBulkMsgSubject] = useState("");
   const [bulkMsgMode, setBulkMsgMode] = useState<"filtered" | "specific">("filtered");
   const [bulkMsgPickerSearch, setBulkMsgPickerSearch] = useState("");
   const [bulkMsgSelectedUsers, setBulkMsgSelectedUsers] = useState<User[]>([]);
@@ -271,14 +272,15 @@ function AdminDashboardContent() {
   });
 
   const bulkMessageMutation = useMutation({
-    mutationFn: async ({ message, filters, userIds }: { message: string; filters?: object; userIds?: number[] }) =>
+    mutationFn: async ({ message, filters, userIds, emailSubject }: { message: string; filters?: object; userIds?: number[]; emailSubject?: string }) =>
       apiRequest("/api/admin/bulk-message", {
         method: "POST",
-        body: JSON.stringify({ message, filters, userIds }),
+        body: JSON.stringify({ message, filters, userIds, emailSubject }),
       }),
     onSuccess: (data: { sent: number; failed: number; total: number }) => {
       setBulkMsgOpen(false);
       setBulkMsgText("");
+      setBulkMsgSubject("");
       setBulkMsgSelectedUsers([]);
       setBulkMsgPickerSearch("");
       setBulkMsgMode("filtered");
@@ -1566,6 +1568,7 @@ function AdminDashboardContent() {
                     setBulkMsgOpen(open);
                     if (!open) {
                       setBulkMsgText("");
+                      setBulkMsgSubject("");
                       setBulkMsgMode("filtered");
                       setBulkMsgPickerSearch("");
                       setBulkMsgSelectedUsers([]);
@@ -1731,6 +1734,19 @@ function AdminDashboardContent() {
                         </div>
                       )}
 
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium text-foreground">
+                          Email subject <span className="text-muted-foreground font-normal">(optional)</span>
+                        </label>
+                        <Input
+                          placeholder={`New message from EventLink`}
+                          value={bulkMsgSubject}
+                          onChange={e => setBulkMsgSubject(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Leave blank to use the default subject line.
+                        </p>
+                      </div>
                       <Textarea
                         placeholder="Write your message here..."
                         className="min-h-[120px] resize-none"
@@ -1743,6 +1759,7 @@ function AdminDashboardContent() {
                           onClick={() => {
                             setBulkMsgOpen(false);
                             setBulkMsgText("");
+                            setBulkMsgSubject("");
                             setBulkMsgMode("filtered");
                             setBulkMsgPickerSearch("");
                             setBulkMsgSelectedUsers([]);
@@ -1757,14 +1774,17 @@ function AdminDashboardContent() {
                             (bulkMsgMode === "specific" && bulkMsgSelectedUsers.length === 0)
                           }
                           onClick={() => {
+                            const emailSubject = bulkMsgSubject.trim() || undefined;
                             if (bulkMsgMode === "specific") {
                               bulkMessageMutation.mutate({
                                 message: bulkMsgText,
                                 userIds: bulkMsgSelectedUsers.map(u => u.id),
+                                emailSubject,
                               });
                             } else {
                               bulkMessageMutation.mutate({
                                 message: bulkMsgText,
+                                emailSubject,
                                 filters: {
                                   search: searchTerm || undefined,
                                   role: roleFilter,

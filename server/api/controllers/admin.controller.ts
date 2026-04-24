@@ -771,7 +771,7 @@ export async function sendBulkMessages(req: Request, res: Response) {
     const adminUser = (req as any).user;
     if (!adminUser) return res.status(401).json({ error: "Not authenticated" });
 
-    const { message, filters, userIds } = req.body;
+    const { message, filters, userIds, emailSubject } = req.body;
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return res.status(400).json({ error: "Message is required" });
     }
@@ -840,6 +840,7 @@ export async function sendBulkMessages(req: Request, res: Response) {
             senderName: adminName,
             messagePreview,
             conversationId: conversation.id,
+            emailSubject: typeof emailSubject === "string" && emailSubject.trim() ? emailSubject.trim() : undefined,
           })
           .catch((err: any) =>
             console.error(`Bulk message email failed for user ${recipient.id}:`, err)

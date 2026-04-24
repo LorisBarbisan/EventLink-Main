@@ -109,6 +109,7 @@ export class EmailNotificationService {
     senderName: string;
     messagePreview: string;
     conversationId: number;
+    emailSubject?: string;
   }): Promise<boolean> {
     // Check if user wants message notifications
     if (!(await this.canSendEmail(params.recipientId, "message"))) {
@@ -122,6 +123,7 @@ export class EmailNotificationService {
       senderName: params.senderName,
       messagePreview: params.messagePreview,
       conversationUrl,
+      emailSubject: params.emailSubject,
     });
 
     return this.sendEmailWithLogging({
