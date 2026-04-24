@@ -221,6 +221,11 @@ function AdminDashboardContent() {
   const [notifyMode, setNotifyMode] = useState<"all" | "specific">("all");
   const [notifyPickerSearch, setNotifyPickerSearch] = useState("");
   const [notifySelectedUsers, setNotifySelectedUsers] = useState<User[]>([]);
+  const [notifyRoleFilter, setNotifyRoleFilter] = useState("freelancer");
+  const [notifyStatusFilter, setNotifyStatusFilter] = useState("all");
+  const [notifyProfileStatusFilter, setNotifyProfileStatusFilter] = useState("all");
+  const [notifySortBy, setNotifySortBy] = useState("created_at");
+  const [notifySortOrder, setNotifySortOrder] = useState<"asc" | "desc">("desc");
 
   // Bulk message state
   const [bulkMsgOpen, setBulkMsgOpen] = useState(false);
@@ -416,19 +421,21 @@ function AdminDashboardContent() {
 
   // User picker query for notify dialog "specific users" mode
   const { data: notifyPickerData, isLoading: notifyPickerLoading } = useQuery<UsersResponse>({
-    queryKey: ["/api/admin/users", "notifypicker", notifyPickerSearch],
+    queryKey: ["/api/admin/users", "notifypicker", notifyPickerSearch, notifyRoleFilter, notifyStatusFilter, notifyProfileStatusFilter, notifySortBy, notifySortOrder],
     queryFn: () => {
       const params = new URLSearchParams();
       params.append("page", "1");
-      params.append("limit", "30");
-      params.append("role", "freelancer");
+      params.append("limit", "50");
       if (notifyPickerSearch.trim()) params.append("search", notifyPickerSearch.trim());
-      params.append("sortBy", "created_at");
-      params.append("sortOrder", "desc");
+      if (notifyRoleFilter !== "all") params.append("role", notifyRoleFilter);
+      if (notifyStatusFilter !== "all") params.append("status", notifyStatusFilter);
+      if (notifyProfileStatusFilter !== "all") params.append("profileStatus", notifyProfileStatusFilter);
+      params.append("sortBy", notifySortBy);
+      params.append("sortOrder", notifySortOrder);
       return apiRequest(`/api/admin/users?${params.toString()}`);
     },
     enabled: notifyDialogOpen && notifyMode === "specific",
-    staleTime: 10000,
+    staleTime: 5000,
   });
 
   // Jobs query
@@ -541,6 +548,11 @@ function AdminDashboardContent() {
     setNotifyMode("all");
     setNotifySelectedUsers([]);
     setNotifyPickerSearch("");
+    setNotifyRoleFilter("freelancer");
+    setNotifyStatusFilter("all");
+    setNotifyProfileStatusFilter("all");
+    setNotifySortBy("created_at");
+    setNotifySortOrder("desc");
     setNotifyDialogOpen(true);
   };
 
@@ -2284,6 +2296,11 @@ function AdminDashboardContent() {
             setNotifyPickerSearch("");
             setNotifyMode("all");
             setNotifyDialogJob(null);
+            setNotifyRoleFilter("freelancer");
+            setNotifyStatusFilter("all");
+            setNotifyProfileStatusFilter("all");
+            setNotifySortBy("created_at");
+            setNotifySortOrder("desc");
           }
         }}
       >
@@ -2330,7 +2347,70 @@ function AdminDashboardContent() {
                 The alert will be sent to all active freelancers whose job alert preferences match this posting. Freelancers with no preferences set will also receive it.
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
+                {/* Filters row */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Select value={notifyRoleFilter} onValueChange={setNotifyRoleFilter}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="freelancer">Freelancer</SelectItem>
+                      <SelectItem value="recruiter">Employer</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={notifyStatusFilter} onValueChange={setNotifyStatusFilter}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="deactivated">Deactivated</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={notifyProfileStatusFilter} onValueChange={setNotifyProfileStatusFilter}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Profiles</SelectItem>
+                      <SelectItem value="no_profile">No Profile</SelectItem>
+                      <SelectItem value="incomplete">Incomplete</SelectItem>
+                      <SelectItem value="complete">Complete</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={notifySortBy} onValueChange={setNotifySortBy}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="created_at">Joined Date</SelectItem>
+                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="first_name">First Name</SelectItem>
+                      <SelectItem value="last_name">Last Name</SelectItem>
+                      <SelectItem value="role">Role</SelectItem>
+                      <SelectItem value="status">Status</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={notifySortOrder} onValueChange={v => setNotifySortOrder(v as "asc" | "desc")}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Order" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="desc">Newest first</SelectItem>
+                      <SelectItem value="asc">Oldest first</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Selected chips */}
                 {notifySelectedUsers.length > 0 && (
                   <div className="flex flex-wrap gap-1">
@@ -2348,49 +2428,53 @@ function AdminDashboardContent() {
                     ))}
                   </div>
                 )}
+
                 <Input
-                  placeholder="Search freelancers by name or email..."
+                  placeholder="Search by name or email..."
                   value={notifyPickerSearch}
                   onChange={e => setNotifyPickerSearch(e.target.value)}
                 />
+
                 <div className="border rounded-md max-h-48 overflow-y-auto">
                   {notifyPickerLoading ? (
                     <p className="text-sm text-muted-foreground p-3">Loading...</p>
                   ) : (notifyPickerData?.users ?? []).length === 0 ? (
-                    <p className="text-sm text-muted-foreground p-3">No freelancers found.</p>
+                    <p className="text-sm text-muted-foreground p-3">No users found.</p>
                   ) : (
-                    (notifyPickerData?.users ?? [])
-                      .filter(u => u.role !== "admin")
-                      .map(u => {
-                        const isSelected = notifySelectedUsers.some(s => s.id === u.id);
-                        return (
-                          <div
-                            key={u.id}
-                            className={cn(
-                              "flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted text-sm border-b last:border-0",
-                              isSelected && "bg-muted"
-                            )}
-                            onClick={() =>
-                              setNotifySelectedUsers(prev =>
-                                isSelected ? prev.filter(s => s.id !== u.id) : [...prev, u as any]
-                              )
-                            }
-                          >
+                    (notifyPickerData?.users ?? []).map(u => {
+                      const isSelected = notifySelectedUsers.some(s => s.id === u.id);
+                      return (
+                        <div
+                          key={u.id}
+                          className={cn(
+                            "flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted text-sm border-b last:border-0",
+                            isSelected && "bg-muted/70"
+                          )}
+                          onClick={() =>
+                            setNotifySelectedUsers(prev =>
+                              isSelected ? prev.filter(s => s.id !== u.id) : [...prev, u as any]
+                            )
+                          }
+                        >
+                          <div>
                             <span>{u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email}</span>
-                            {isSelected && <Check className="w-4 h-4 text-primary" />}
+                            {(u.first_name || u.last_name) && (
+                              <span className="text-xs text-muted-foreground ml-2">{u.email}</span>
+                            )}
                           </div>
-                        );
-                      })
+                          {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
+                        </div>
+                      );
+                    })
                   )}
                 </div>
-                {notifySelectedUsers.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-semibold text-foreground">{notifySelectedUsers.length}</span> user{notifySelectedUsers.length !== 1 ? "s" : ""} selected.
-                  </p>
-                )}
-                {notifySelectedUsers.length === 0 && (
-                  <p className="text-xs text-muted-foreground">Select at least one freelancer to send to.</p>
-                )}
+
+                <p className="text-xs text-muted-foreground">
+                  {notifySelectedUsers.length > 0
+                    ? <><span className="font-semibold text-foreground">{notifySelectedUsers.length}</span> user{notifySelectedUsers.length !== 1 ? "s" : ""} selected.</>
+                    : "Select at least one user to send to."
+                  }
+                </p>
               </div>
             )}
 
@@ -2403,6 +2487,11 @@ function AdminDashboardContent() {
                   setNotifyPickerSearch("");
                   setNotifyMode("all");
                   setNotifyDialogJob(null);
+                  setNotifyRoleFilter("freelancer");
+                  setNotifyStatusFilter("all");
+                  setNotifyProfileStatusFilter("all");
+                  setNotifySortBy("created_at");
+                  setNotifySortOrder("desc");
                 }}
               >
                 Cancel
