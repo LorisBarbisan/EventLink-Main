@@ -37,6 +37,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const ReferencePage = lazy(() => import("./pages/ReferencePage"));
 const ReferenceVerified = lazy(() => import("./pages/ReferenceVerified"));
 const PostApplication = lazy(() => import("./pages/PostApplication"));
+const BuildReputation = lazy(() => import("./pages/BuildReputation"));
 
 function PageLoader() {
   return (
@@ -75,6 +76,7 @@ function AppRouter() {
           <Route path="/reference/:token" component={ReferencePage} />
           <Route path="/reference-verified" component={ReferenceVerified} />
           <Route path="/application-success/:jobId" component={PostApplication} />
+          <Route path="/build-reputation" component={BuildReputation} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>
