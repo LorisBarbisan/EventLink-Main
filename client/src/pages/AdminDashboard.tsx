@@ -215,6 +215,13 @@ function AdminDashboardContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
+  // Notify dialog state
+  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
+  const [notifyDialogJob, setNotifyDialogJob] = useState<any>(null);
+  const [notifyMode, setNotifyMode] = useState<"all" | "specific">("all");
+  const [notifyPickerSearch, setNotifyPickerSearch] = useState("");
+  const [notifySelectedUsers, setNotifySelectedUsers] = useState<User[]>([]);
+
   // Bulk message state
   const [bulkMsgOpen, setBulkMsgOpen] = useState(false);
   const [bulkMsgText, setBulkMsgText] = useState("");
@@ -407,6 +414,23 @@ function AdminDashboardContent() {
     staleTime: 10000,
   });
 
+  // User picker query for notify dialog "specific users" mode
+  const { data: notifyPickerData, isLoading: notifyPickerLoading } = useQuery<UsersResponse>({
+    queryKey: ["/api/admin/users", "notifypicker", notifyPickerSearch],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.append("page", "1");
+      params.append("limit", "30");
+      params.append("role", "freelancer");
+      if (notifyPickerSearch.trim()) params.append("search", notifyPickerSearch.trim());
+      params.append("sortBy", "created_at");
+      params.append("sortOrder", "desc");
+      return apiRequest(`/api/admin/users?${params.toString()}`);
+    },
+    enabled: notifyDialogOpen && notifyMode === "specific",
+    staleTime: 10000,
+  });
+
   // Jobs query
   const { data: jobsData, isLoading: jobsLoading } = useQuery<{
     jobs: Array<{
@@ -494,15 +518,31 @@ function AdminDashboardContent() {
 
   // Send job alert emails mutation
   const sendAlertsMutation = useMutation({
-    mutationFn: (jobId: number) =>
-      apiRequest(`/api/admin/jobs/${jobId}/send-alerts`, { method: "POST" }),
+    mutationFn: ({ jobId, userIds }: { jobId: number; userIds?: number[] }) =>
+      apiRequest(`/api/admin/jobs/${jobId}/send-alerts`, {
+        method: "POST",
+        body: JSON.stringify({ userIds }),
+      }),
     onSuccess: (data: any) => {
       toast({ title: "Alerts sent", description: data.message });
+      setNotifyDialogOpen(false);
+      setNotifySelectedUsers([]);
+      setNotifyPickerSearch("");
+      setNotifyMode("all");
+      setNotifyDialogJob(null);
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to send alerts", variant: "destructive" });
     },
   });
+
+  const openNotifyDialog = (job: any) => {
+    setNotifyDialogJob(job);
+    setNotifyMode("all");
+    setNotifySelectedUsers([]);
+    setNotifyPickerSearch("");
+    setNotifyDialogOpen(true);
+  };
 
   // Admin users query
   const {
@@ -1307,11 +1347,10 @@ function AdminDashboardContent() {
                                       size="sm"
                                       variant="outline"
                                       className="h-7 px-2 text-xs border-orange-300 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
-                                      disabled={sendAlertsMutation.isPending && sendAlertsMutation.variables === job.id}
-                                      onClick={() => sendAlertsMutation.mutate(job.id)}
+                                      onClick={() => openNotifyDialog(job)}
                                     >
                                       <Mail className="w-3 h-3 mr-1" />
-                                      {sendAlertsMutation.isPending && sendAlertsMutation.variables === job.id ? "Sending..." : "Notify"}
+                                      Notify
                                     </Button>
                                   </div>
                                 )}
@@ -1480,11 +1519,11 @@ function AdminDashboardContent() {
                               </div>
                               <Button
                                 size="sm"
-                                onClick={() => sendAlertsMutation.mutate(jobDetailData.job.id)}
+                                onClick={() => openNotifyDialog(jobDetailData.job)}
                                 disabled={sendAlertsMutation.isPending}
                                 className="bg-gradient-primary text-white hover:bg-primary-hover shrink-0"
                               >
-                                {sendAlertsMutation.isPending ? "Sending..." : "Send Alerts"}
+                                Send Alerts
                               </Button>
                             </div>
                           )}
@@ -2234,6 +2273,159 @@ function AdminDashboardContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Notify dialog */}
+      <Dialog
+        open={notifyDialogOpen}
+        onOpenChange={open => {
+          setNotifyDialogOpen(open);
+          if (!open) {
+            setNotifySelectedUsers([]);
+            setNotifyPickerSearch("");
+            setNotifyMode("all");
+            setNotifyDialogJob(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Send Job Alert</DialogTitle>
+            {notifyDialogJob && (
+              <p className="text-sm text-muted-foreground pt-1">
+                <span className="font-medium text-foreground">{notifyDialogJob.title}</span> — {notifyDialogJob.company}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {/* Mode toggle */}
+            <div className="flex rounded-md border overflow-hidden text-sm">
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 px-3 py-2 transition-colors",
+                  notifyMode === "all"
+                    ? "bg-primary text-primary-foreground font-medium"
+                    : "bg-background hover:bg-muted text-muted-foreground"
+                )}
+                onClick={() => setNotifyMode("all")}
+              >
+                All matching freelancers
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 px-3 py-2 transition-colors border-l",
+                  notifyMode === "specific"
+                    ? "bg-primary text-primary-foreground font-medium"
+                    : "bg-background hover:bg-muted text-muted-foreground"
+                )}
+                onClick={() => setNotifyMode("specific")}
+              >
+                Specific users
+              </button>
+            </div>
+
+            {notifyMode === "all" ? (
+              <p className="text-sm text-muted-foreground rounded-md bg-muted/50 p-3">
+                The alert will be sent to all active freelancers whose job alert preferences match this posting. Freelancers with no preferences set will also receive it.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {/* Selected chips */}
+                {notifySelectedUsers.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {notifySelectedUsers.map(u => (
+                      <span key={u.id} className="flex items-center gap-1 bg-muted text-xs rounded-full px-2 py-1">
+                        {u.first_name || u.email}
+                        <button
+                          type="button"
+                          className="hover:text-destructive"
+                          onClick={() => setNotifySelectedUsers(prev => prev.filter(s => s.id !== u.id))}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <Input
+                  placeholder="Search freelancers by name or email..."
+                  value={notifyPickerSearch}
+                  onChange={e => setNotifyPickerSearch(e.target.value)}
+                />
+                <div className="border rounded-md max-h-48 overflow-y-auto">
+                  {notifyPickerLoading ? (
+                    <p className="text-sm text-muted-foreground p-3">Loading...</p>
+                  ) : (notifyPickerData?.users ?? []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-3">No freelancers found.</p>
+                  ) : (
+                    (notifyPickerData?.users ?? [])
+                      .filter(u => u.role !== "admin")
+                      .map(u => {
+                        const isSelected = notifySelectedUsers.some(s => s.id === u.id);
+                        return (
+                          <div
+                            key={u.id}
+                            className={cn(
+                              "flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted text-sm border-b last:border-0",
+                              isSelected && "bg-muted"
+                            )}
+                            onClick={() =>
+                              setNotifySelectedUsers(prev =>
+                                isSelected ? prev.filter(s => s.id !== u.id) : [...prev, u as any]
+                              )
+                            }
+                          >
+                            <span>{u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email}</span>
+                            {isSelected && <Check className="w-4 h-4 text-primary" />}
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
+                {notifySelectedUsers.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">{notifySelectedUsers.length}</span> user{notifySelectedUsers.length !== 1 ? "s" : ""} selected.
+                  </p>
+                )}
+                {notifySelectedUsers.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Select at least one freelancer to send to.</p>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setNotifyDialogOpen(false);
+                  setNotifySelectedUsers([]);
+                  setNotifyPickerSearch("");
+                  setNotifyMode("all");
+                  setNotifyDialogJob(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={
+                  sendAlertsMutation.isPending ||
+                  (notifyMode === "specific" && notifySelectedUsers.length === 0)
+                }
+                onClick={() => {
+                  if (!notifyDialogJob) return;
+                  sendAlertsMutation.mutate({
+                    jobId: notifyDialogJob.id,
+                    userIds: notifyMode === "specific" ? notifySelectedUsers.map(u => u.id) : undefined,
+                  });
+                }}
+              >
+                {sendAlertsMutation.isPending ? "Sending..." : "Send Alert"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

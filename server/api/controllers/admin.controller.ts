@@ -549,16 +549,31 @@ export async function retriggerJobAlerts(req: Request, res: Response) {
       return res.status(400).json({ error: "Cannot send alerts for external jobs" });
     }
 
-    console.log(`🔔 Admin triggered job alerts for job ${jobId}: "${job.title}"`);
+    const { userIds } = req.body || {};
+    const isSpecific = Array.isArray(userIds) && userIds.length > 0;
 
-    // Run async without blocking response
-    emailService.sendJobAlertToMatchingFreelancers(job).catch((error) => {
-      console.error(`Failed to send job alerts for job ${jobId}:`, error);
-    });
+    console.log(
+      `🔔 Admin triggered job alerts for job ${jobId}: "${job.title}"` +
+        (isSpecific ? ` → specific users: [${userIds.join(", ")}]` : " → all matching freelancers")
+    );
+
+    if (isSpecific) {
+      // Send only to the explicitly selected users, bypassing their alert-filter preferences
+      emailService.sendJobAlertToSpecificUsers(job, userIds).catch((error) => {
+        console.error(`Failed to send job alerts for job ${jobId}:`, error);
+      });
+    } else {
+      // Default: send to all freelancers whose alert preferences match
+      emailService.sendJobAlertToMatchingFreelancers(job).catch((error) => {
+        console.error(`Failed to send job alerts for job ${jobId}:`, error);
+      });
+    }
 
     res.json({
       success: true,
-      message: `Job alert emails are being sent for "${job.title}". Check the email notification logs for results.`,
+      message: isSpecific
+        ? `Job alert emails are being sent to ${userIds.length} selected user${userIds.length !== 1 ? "s" : ""}.`
+        : `Job alert emails are being sent for "${job.title}". Check the email notification logs for results.`,
     });
   } catch (error) {
     console.error("Retrigger job alerts error:", error);

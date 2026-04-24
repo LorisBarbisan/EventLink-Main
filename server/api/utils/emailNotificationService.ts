@@ -373,6 +373,49 @@ export class EmailNotificationService {
   }
 
   /**
+   * Send job alert to a specific list of user IDs, ignoring their alert-filter preferences
+   */
+  async sendJobAlertToSpecificUsers(job: any, userIds: number[]): Promise<void> {
+    try {
+      for (const userId of userIds) {
+        try {
+          const user = await storage.getUser(userId);
+          if (!user || !user.email_verified) continue;
+
+          const firstName = user.first_name || "";
+          const lastName = user.last_name || "";
+          const displayName = `${firstName} ${lastName}`.trim() || user.email;
+
+          const eventDate = job.event_date
+            ? new Date(job.event_date).toLocaleDateString("en-GB", {
+                weekday: "short",
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })
+            : "Date TBC";
+
+          await this.sendJobAlertNotification({
+            recipientId: userId,
+            recipientEmail: user.email,
+            recipientName: displayName,
+            jobTitle: job.title,
+            companyName: job.company,
+            location: job.location || "Location TBC",
+            rate: job.rate || "Competitive",
+            eventDate,
+            jobId: job.id,
+          });
+        } catch (error) {
+          console.error(`Error sending job alert to user ${userId}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error in sendJobAlertToSpecificUsers:", error);
+    }
+  }
+
+  /**
    * Send job alert notification email (for freelancers)
    */
   async sendJobAlertNotification(params: {
