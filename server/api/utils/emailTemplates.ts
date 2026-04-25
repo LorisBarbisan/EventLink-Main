@@ -103,6 +103,7 @@ export function messageNotificationEmail(data: {
   senderName: string;
   messagePreview: string;
   conversationUrl: string;
+  emailSubject?: string;
 }): { subject: string; html: string } {
   const content = `
     <h2>📩 New message from ${data.senderName}</h2>
@@ -120,7 +121,7 @@ export function messageNotificationEmail(data: {
   `;
 
   return {
-    subject: `📩 New message from ${data.senderName} on EventLink`,
+    subject: data.emailSubject?.trim() || `📩 New message from ${data.senderName} on EventLink`,
     html: masterTemplate(content),
   };
 }

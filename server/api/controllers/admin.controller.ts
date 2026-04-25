@@ -549,16 +549,31 @@ export async function retriggerJobAlerts(req: Request, res: Response) {
       return res.status(400).json({ error: "Cannot send alerts for external jobs" });
     }
 
-    console.log(`🔔 Admin triggered job alerts for job ${jobId}: "${job.title}"`);
+    const { userIds } = req.body || {};
+    const isSpecific = Array.isArray(userIds) && userIds.length > 0;
 
-    // Run async without blocking response
-    emailService.sendJobAlertToMatchingFreelancers(job).catch((error) => {
-      console.error(`Failed to send job alerts for job ${jobId}:`, error);
-    });
+    console.log(
+      `🔔 Admin triggered job alerts for job ${jobId}: "${job.title}"` +
+        (isSpecific ? ` → specific users: [${userIds.join(", ")}]` : " → all matching freelancers")
+    );
+
+    if (isSpecific) {
+      // Send only to the explicitly selected users, bypassing their alert-filter preferences
+      emailService.sendJobAlertToSpecificUsers(job, userIds).catch((error) => {
+        console.error(`Failed to send job alerts for job ${jobId}:`, error);
+      });
+    } else {
+      // Default: send to all freelancers whose alert preferences match
+      emailService.sendJobAlertToMatchingFreelancers(job).catch((error) => {
+        console.error(`Failed to send job alerts for job ${jobId}:`, error);
+      });
+    }
 
     res.json({
       success: true,
-      message: `Job alert emails are being sent for "${job.title}". Check the email notification logs for results.`,
+      message: isSpecific
+        ? `Job alert emails are being sent to ${userIds.length} selected user${userIds.length !== 1 ? "s" : ""}.`
+        : `Job alert emails are being sent for "${job.title}". Check the email notification logs for results.`,
     });
   } catch (error) {
     console.error("Retrigger job alerts error:", error);
@@ -771,21 +786,29 @@ export async function sendBulkMessages(req: Request, res: Response) {
     const adminUser = (req as any).user;
     if (!adminUser) return res.status(401).json({ error: "Not authenticated" });
 
-    const { message, filters } = req.body;
+    const { message, filters, userIds, emailSubject } = req.body;
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    const search = filters?.search || undefined;
-    const role = filters?.role && filters.role !== "all" ? filters.role : undefined;
-    const status = filters?.status && filters.status !== "all" ? filters.status : undefined;
-    const profileStatus = filters?.profileStatus && filters.profileStatus !== "all" ? filters.profileStatus : undefined;
+    let recipients: Awaited<ReturnType<typeof storage.getAllUsers>>["users"];
 
-    // Fetch all matching users (no pagination cap)
-    const { users } = await storage.getAllUsers(1, 100000, search, role, status, "created_at", "desc", profileStatus);
+    if (Array.isArray(userIds) && userIds.length > 0) {
+      // Specific user IDs were provided — fetch only those users
+      const { users } = await storage.getAllUsers(1, 100000, undefined, undefined, undefined, "created_at", "desc", undefined);
+      recipients = users.filter(u => userIds.includes(u.id) && u.id !== adminUser.id && u.role !== "admin");
+    } else {
+      const search = filters?.search || undefined;
+      const role = filters?.role && filters.role !== "all" ? filters.role : undefined;
+      const status = filters?.status && filters.status !== "all" ? filters.status : undefined;
+      const profileStatus = filters?.profileStatus && filters.profileStatus !== "all" ? filters.profileStatus : undefined;
 
-    // Never message admins or the sender
-    const recipients = users.filter(u => u.id !== adminUser.id && u.role !== "admin");
+      // Fetch all matching users (no pagination cap)
+      const { users } = await storage.getAllUsers(1, 100000, search, role, status, "created_at", "desc", profileStatus);
+
+      // Never message admins or the sender
+      recipients = users.filter(u => u.id !== adminUser.id && u.role !== "admin");
+    }
 
     let sent = 0;
     let failed = 0;
@@ -832,6 +855,7 @@ export async function sendBulkMessages(req: Request, res: Response) {
             senderName: adminName,
             messagePreview,
             conversationId: conversation.id,
+            emailSubject: typeof emailSubject === "string" && emailSubject.trim() ? emailSubject.trim() : undefined,
           })
           .catch((err: any) =>
             console.error(`Bulk message email failed for user ${recipient.id}:`, err)

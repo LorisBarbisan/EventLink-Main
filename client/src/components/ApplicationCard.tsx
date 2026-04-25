@@ -233,7 +233,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
       toast({
         title: "Applicant hired!",
         description:
-          "The applicant has been notified of their successful application. The job has been closed.",
+          "The applicant has been notified of their successful application.",
       });
     },
     onError: () => {
