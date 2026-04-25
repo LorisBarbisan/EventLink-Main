@@ -36,7 +36,12 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Settings = lazy(() => import("./pages/Settings"));
 const ReferencePage = lazy(() => import("./pages/ReferencePage"));
 const ReferenceVerified = lazy(() => import("./pages/ReferenceVerified"));
+<<<<<<< HEAD
 const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
+=======
+const PostApplication = lazy(() => import("./pages/PostApplication"));
+const BuildReputation = lazy(() => import("./pages/BuildReputation"));
+>>>>>>> 4c5610854b50384eac06575d5fc65c93715f6826
 
 function PageLoader() {
   return (
@@ -74,7 +79,12 @@ function AppRouter() {
           <Route path="/about" component={About} />
           <Route path="/reference/:token" component={ReferencePage} />
           <Route path="/reference-verified" component={ReferenceVerified} />
+<<<<<<< HEAD
           <Route path="/unsubscribe" component={Unsubscribe} />
+=======
+          <Route path="/application-success/:jobId" component={PostApplication} />
+          <Route path="/build-reputation" component={BuildReputation} />
+>>>>>>> 4c5610854b50384eac06575d5fc65c93715f6826
           <Route component={NotFound} />
         </Switch>
       </Suspense>

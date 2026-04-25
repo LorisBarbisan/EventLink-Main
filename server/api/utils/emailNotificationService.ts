@@ -109,6 +109,7 @@ export class EmailNotificationService {
     senderName: string;
     messagePreview: string;
     conversationId: number;
+    emailSubject?: string;
   }): Promise<boolean> {
     // Check if user wants message notifications
     if (!(await this.canSendEmail(params.recipientId, "message"))) {
@@ -122,6 +123,7 @@ export class EmailNotificationService {
       senderName: params.senderName,
       messagePreview: params.messagePreview,
       conversationUrl,
+      emailSubject: params.emailSubject,
     });
 
     return this.sendEmailWithLogging({
@@ -305,37 +307,39 @@ export class EmailNotificationService {
    */
   async sendJobAlertToMatchingFreelancers(job: any): Promise<void> {
     try {
-      // Get all freelancer users
-      const freelancers = await storage.getAllFreelancerProfiles();
+      // Get ALL freelancer users — including those without a profile
+      const { users: freelancerUsers } = await storage.getAllUsers(
+        1,
+        100000,
+        undefined,
+        "freelancer",
+        "active",
+        "created_at",
+        "desc",
+        undefined
+      );
 
-      for (const freelancerProfile of freelancers) {
+      for (const user of freelancerUsers) {
         try {
+          // Skip unverified users
+          if (!user.email_verified) continue;
+
           // Get their job alert filters
-          const filters = await storage.getJobAlertFilters(freelancerProfile.user_id);
+          const filters = await storage.getJobAlertFilters(user.id);
 
-          // Check if job matches any of their filters
-          const matchesFilter = filters.some(filter => this.jobMatchesFilters(job, filter));
-
-          if (!matchesFilter) {
-            continue; // Skip if no filter matches
+          if (filters.length > 0) {
+            // Filters exist — only notify if the job matches at least one
+            const matchesFilter = filters.some(filter => this.jobMatchesFilters(job, filter));
+            if (!matchesFilter) continue;
           }
+          // filters.length === 0 → no preferences set → notify for every job
 
-          // Get user details
-          const user = await storage.getUser(freelancerProfile.user_id);
-          if (!user || !user.email_verified) {
-            continue; // Skip unverified users
-          }
-
-          // Prepare freelancer display name
-          let freelancerDisplayName = user.email;
-          if (freelancerProfile.first_name || freelancerProfile.last_name) {
-            const firstName = freelancerProfile.first_name || "";
-            const lastName = freelancerProfile.last_name || "";
-            freelancerDisplayName = `${firstName} ${lastName}`.trim() || user.email;
-          }
+          // Build display name: user record fields first, then fall back to email
+          const firstName = user.first_name || "";
+          const lastName = user.last_name || "";
+          const displayName = `${firstName} ${lastName}`.trim() || user.email;
 
           // Format job details for email
-          // Uses event_date and rate (actual DB field names)
           const eventDate = job.event_date
             ? new Date(job.event_date).toLocaleDateString("en-GB", {
                 weekday: "short",
@@ -347,27 +351,67 @@ export class EmailNotificationService {
 
           const rate = job.rate || "Competitive";
 
-          // Send job alert email (awaited so it completes before moving to next freelancer)
+          // Send job alert email (awaited so it completes before moving to next user)
           await this.sendJobAlertNotification({
-            recipientId: freelancerProfile.user_id,
+            recipientId: user.id,
             recipientEmail: user.email,
-            recipientName: freelancerDisplayName,
+            recipientName: displayName,
             jobTitle: job.title,
             companyName: job.company,
             location: job.location || "Location TBC",
-            rate: rate,
-            eventDate: eventDate,
+            rate,
+            eventDate,
             jobId: job.id,
           });
         } catch (error) {
-          console.error(
-            `Error processing job alerts for freelancer ${freelancerProfile.user_id}:`,
-            error
-          );
+          console.error(`Error processing job alerts for user ${user.id}:`, error);
         }
       }
     } catch (error) {
       console.error("Error sending job alerts to matching freelancers:", error);
+    }
+  }
+
+  /**
+   * Send job alert to a specific list of user IDs, ignoring their alert-filter preferences
+   */
+  async sendJobAlertToSpecificUsers(job: any, userIds: number[]): Promise<void> {
+    try {
+      for (const userId of userIds) {
+        try {
+          const user = await storage.getUser(userId);
+          if (!user || !user.email_verified) continue;
+
+          const firstName = user.first_name || "";
+          const lastName = user.last_name || "";
+          const displayName = `${firstName} ${lastName}`.trim() || user.email;
+
+          const eventDate = job.event_date
+            ? new Date(job.event_date).toLocaleDateString("en-GB", {
+                weekday: "short",
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })
+            : "Date TBC";
+
+          await this.sendJobAlertNotification({
+            recipientId: userId,
+            recipientEmail: user.email,
+            recipientName: displayName,
+            jobTitle: job.title,
+            companyName: job.company,
+            location: job.location || "Location TBC",
+            rate: job.rate || "Competitive",
+            eventDate,
+            jobId: job.id,
+          });
+        } catch (error) {
+          console.error(`Error sending job alert to user ${userId}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error in sendJobAlertToSpecificUsers:", error);
     }
   }
 

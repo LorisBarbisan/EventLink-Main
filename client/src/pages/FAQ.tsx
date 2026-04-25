@@ -64,8 +64,20 @@ export default function FAQ() {
         {
           id: "jobs-1",
           question: "How do I post a job?",
-          answer:
-            "Employers can post jobs by clicking 'Post a New Job' in their dashboard or header menu.",
+          answer: (
+            <span>
+              Employers can post jobs by clicking 'Post a New Job' in their dashboard or header menu.{" "}
+              <a
+                href="https://youtu.be/2JxKSwMq5hE"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#D8690E] underline hover:text-[#E97B24]"
+              >
+                Watch the tutorial
+              </a>{" "}
+              for a step-by-step walkthrough.
+            </span>
+          ),
         },
         {
           id: "jobs-2",
@@ -140,18 +152,21 @@ export default function FAQ() {
   ];
 
   // Generate JSON-LD structured data for FAQ rich snippets
+  // Only include questions with plain-string answers — JSX elements cannot be serialised
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     mainEntity: faqData.flatMap(category =>
-      category.questions.map(q => ({
-        "@type": "Question",
-        name: q.question,
-        acceptedAnswer: {
-          "@type": "Answer",
-          text: q.answer,
-        },
-      }))
+      category.questions
+        .filter(q => typeof q.answer === "string")
+        .map(q => ({
+          "@type": "Question",
+          name: q.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: q.answer as string,
+          },
+        }))
     ),
   };
 
