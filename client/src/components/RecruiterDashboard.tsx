@@ -185,8 +185,8 @@ export default function SimplifiedRecruiterDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/my-crew"] });
       queryClient.invalidateQueries({ queryKey: ["/api/saved-freelancers"] });
       toast({
-        title: "Removed from My Crew",
-        description: "Freelancer removed from your My Crew list.",
+        title: "Removed from saved",
+        description: "Freelancer removed from your saved list.",
       });
     },
   });
@@ -630,17 +630,17 @@ export default function SimplifiedRecruiterDashboard() {
                 <Users className="mb-4 h-12 w-12 text-muted-foreground" />
                 <h3 className="mb-2 text-lg font-semibold">
                   {crewTab === "saved"
-                    ? "No one saved to My Crew yet"
+                    ? "No saved freelancers"
                     : crewTab === "worked"
                       ? "No freelancers worked with yet"
                       : "No crew members yet"}
                 </h3>
                 <p className="max-w-md text-muted-foreground">
                   {crewTab === "saved"
-                    ? "Save freelancers from the Find Crew page to add them to My Crew."
+                    ? "Save freelancers from the Find Crew page to build your crew list."
                     : crewTab === "worked"
                       ? "Hire freelancers through job postings to see them here."
-                      : "Save or hire freelancers to start building My Crew."}
+                      : "Save or hire freelancers to build your crew."}
                 </p>
                 <Button
                   variant="outline"
@@ -693,7 +693,7 @@ export default function SimplifiedRecruiterDashboard() {
                               e.stopPropagation();
                               unsaveCrewMutation.mutate(freelancer.user_id);
                             }}
-                            title="Remove from My Crew"
+                            title="Remove from saved"
                           >
                             <Bookmark className="h-4 w-4 fill-current" />
                           </Button>

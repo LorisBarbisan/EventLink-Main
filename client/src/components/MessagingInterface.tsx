@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,28 +18,7 @@ import {
 } from "@/lib/utils/user";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Clock, MessageCircle, Send, User as UserIcon } from "lucide-react";
-
-const URL_REGEX = /https?:\/\/[^\s<>"']+/g;
-
-function renderWithLinks(content: string, isMyMessage: boolean) {
-  const parts = content.split(URL_REGEX);
-  const urls = content.match(URL_REGEX) || [];
-  return parts.map((part, i) => (
-    <span key={i}>
-      {part}
-      {urls[i] && (
-        <a
-          href={urls[i]}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`underline break-all ${isMyMessage ? "text-white/90 hover:text-white" : "text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"}`}
-        >
-          {urls[i]}
-        </a>
-      )}
-    </span>
-  ));
-}
+import { useEffect, useRef, useState } from "react";
 
 interface Props {
   initialConversationId?: number | null;
@@ -298,7 +276,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
                             <div
                               className={`max-w-[70%] p-3 rounded-lg ${isSystemMessage ? "bg-muted text-muted-foreground text-center text-sm" : isMyMessage ? "bg-blue-500 text-white rounded-br-none" : "bg-gray-200 dark:bg-gray-700 text-foreground rounded-bl-none"}`}
                             >
-                              <p className="break-words whitespace-pre-wrap">{renderWithLinks(msg.content, isMyMessage)}</p>
+                              <p className="break-words whitespace-pre-wrap">{msg.content}</p>
                               <p
                                 className={`text-xs mt-1 ${isSystemMessage ? "text-muted-foreground" : isMyMessage ? "text-white/70" : "text-muted-foreground"}`}
                               >

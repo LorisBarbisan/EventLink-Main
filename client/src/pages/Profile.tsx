@@ -512,7 +512,7 @@ export default function Profile() {
       queryClient.invalidateQueries({ queryKey: ["/api/my-crew"] });
       toast({
         title: "Removed from My Crew",
-        description: "Freelancer removed from your My Crew list.",
+        description: "Freelancer removed from your saved list.",
       });
     },
   });

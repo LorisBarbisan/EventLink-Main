@@ -488,9 +488,7 @@ export async function getMyReferenceToken(req: Request, res: Response) {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ error: "Not authenticated" });
     const token = await storage.getOrCreateReferenceToken(userId);
-    const protocol = ((req.headers["x-forwarded-proto"] as string) || req.protocol || "https").split(",")[0].trim();
-    const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "eventlink.one";
-    const baseUrl = `${protocol}://${host}`;
+    const baseUrl = "https://eventlink.one";
     res.json({ token, url: `${baseUrl}/reference/${token}` });
   } catch (err) {
     console.error("getMyReferenceToken error:", err);

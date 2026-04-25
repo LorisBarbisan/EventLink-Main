@@ -216,11 +216,21 @@ export default function Jobs() {
         },
       });
     },
-    onSuccess: (_, jobId) => {
+    onSuccess: () => {
+      // Invalidate all application-related caches so both freelancer and recruiter see updates
       queryClient.invalidateQueries({ queryKey: ["/api/freelancer/applications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/recruiter"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/recruiter"] }); // Invalidate all recruiter queries including applications
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
-      setLocation(`/application-success/${jobId}`);
+
+      toast({
+        title: "Application submitted",
+        description:
+          "Your job application has been submitted successfully. Redirecting to dashboard...",
+      });
+      // Redirect to dashboard Jobs tab after 1 second
+      setTimeout(() => {
+        setLocation("/dashboard?tab=jobs");
+      }, 1000);
     },
     onError: (error: any) => {
       if (error.message.includes("log in")) {

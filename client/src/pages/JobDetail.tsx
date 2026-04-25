@@ -103,8 +103,10 @@ export default function JobDetail() {
       });
     },
     onSuccess: () => {
+      toast({ title: "Application submitted", description: "Your application has been sent to the employer." });
+      setShowApplyForm(false);
+      setCoverLetter("");
       queryClient.invalidateQueries({ queryKey: ["/api/applications/check", jobId] });
-      setLocation(`/application-success/${jobId}`);
     },
     onError: (err: Error) => {
       toast({ title: "Application failed", description: err.message, variant: "destructive" });
