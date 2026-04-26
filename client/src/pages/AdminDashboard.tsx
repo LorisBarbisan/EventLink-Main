@@ -1,10 +1,7 @@
 import { AdminGuard } from "@/components/AdminGuard";
-import { ShareJobButton } from "@/components/ShareJobButton";
 import { Layout } from "@/components/Layout";
 import { ModerationTable } from "@/components/ModerationTable";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ShareJobButton } from "@/components/ShareJobButton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +12,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -54,24 +54,21 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { trackAdminAnalytics } from "@/lib/analytics";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { cn } from "@/lib/utils";
 import {
   AlertCircle,
   Briefcase,
-  Check,
   Download,
   FileText,
   Mail,
   MessageSquare,
-  Search,
   Shield,
   Trash2,
   TrendingUp,
   UserCheck,
   Users,
-  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -183,7 +180,11 @@ function AdminDashboardContent() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      toast({ title: "Export failed", description: "Could not download export. Please try again.", variant: "destructive" });
+      toast({
+        title: "Export failed",
+        description: "Could not download export. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setCsvDownloading(false);
     }
@@ -215,25 +216,9 @@ function AdminDashboardContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  // Notify dialog state
-  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
-  const [notifyDialogJob, setNotifyDialogJob] = useState<any>(null);
-  const [notifyMode, setNotifyMode] = useState<"all" | "specific">("all");
-  const [notifyPickerSearch, setNotifyPickerSearch] = useState("");
-  const [notifySelectedUsers, setNotifySelectedUsers] = useState<User[]>([]);
-  const [notifyRoleFilter, setNotifyRoleFilter] = useState("freelancer");
-  const [notifyStatusFilter, setNotifyStatusFilter] = useState("all");
-  const [notifyProfileStatusFilter, setNotifyProfileStatusFilter] = useState("all");
-  const [notifySortBy, setNotifySortBy] = useState("created_at");
-  const [notifySortOrder, setNotifySortOrder] = useState<"asc" | "desc">("desc");
-
   // Bulk message state
   const [bulkMsgOpen, setBulkMsgOpen] = useState(false);
   const [bulkMsgText, setBulkMsgText] = useState("");
-  const [bulkMsgSubject, setBulkMsgSubject] = useState("");
-  const [bulkMsgMode, setBulkMsgMode] = useState<"filtered" | "specific">("filtered");
-  const [bulkMsgPickerSearch, setBulkMsgPickerSearch] = useState("");
-  const [bulkMsgSelectedUsers, setBulkMsgSelectedUsers] = useState<User[]>([]);
 
   // Jobs Tab State
   const [jobSearch, setJobSearch] = useState("");
@@ -243,40 +228,6 @@ function AdminDashboardContent() {
   const [jobSortOrder, setJobSortOrder] = useState<"asc" | "desc">("desc");
   const [jobCurrentPage, setJobCurrentPage] = useState(1);
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
-
-  // "Notify Freelancers" modal state
-  const [notifyJobId, setNotifyJobId] = useState<number | null>(null);
-  const [notifyForce, setNotifyForce] = useState(false);
-
-  const { data: notifyPreview, isLoading: notifyPreviewLoading } = useQuery<{
-    count: number;
-    jobTitle: string;
-    employerName: string;
-    lastNotifiedAt: string | null;
-    hoursAgo: number | null;
-  }>({
-    queryKey: ["/api/admin/jobs", notifyJobId, "notify-preview"],
-    queryFn: () => apiRequest(`/api/admin/jobs/${notifyJobId}/notify-preview`),
-    enabled: notifyJobId !== null,
-    retry: 1,
-  });
-
-  const notifyMutation = useMutation({
-    mutationFn: ({ jobId, force }: { jobId: number; force: boolean }) =>
-      apiRequest(`/api/admin/jobs/${jobId}/notify-freelancers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force }),
-      }),
-    onSuccess: (data: any) => {
-      toast({ title: "Notifications sent", description: data.message });
-      setNotifyJobId(null);
-      setNotifyForce(false);
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to send notifications", variant: "destructive" });
-    },
-  });
 
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
@@ -313,30 +264,34 @@ function AdminDashboardContent() {
       toast({ title: "Account removed", description: "The account has been permanently deleted." });
     },
     onError: () => {
-      toast({ title: "Deletion failed", description: "Failed to remove the account.", variant: "destructive" });
+      toast({
+        title: "Deletion failed",
+        description: "Failed to remove the account.",
+        variant: "destructive",
+      });
     },
   });
 
   const bulkMessageMutation = useMutation({
-    mutationFn: async ({ message, filters, userIds, emailSubject }: { message: string; filters?: object; userIds?: number[]; emailSubject?: string }) =>
+    mutationFn: async ({ message, filters }: { message: string; filters: object }) =>
       apiRequest("/api/admin/bulk-message", {
         method: "POST",
-        body: JSON.stringify({ message, filters, userIds, emailSubject }),
+        body: JSON.stringify({ message, filters }),
       }),
     onSuccess: (data: { sent: number; failed: number; total: number }) => {
       setBulkMsgOpen(false);
       setBulkMsgText("");
-      setBulkMsgSubject("");
-      setBulkMsgSelectedUsers([]);
-      setBulkMsgPickerSearch("");
-      setBulkMsgMode("filtered");
       toast({
         title: "Messages sent",
         description: `Sent to ${data.sent} user${data.sent !== 1 ? "s" : ""}${data.failed > 0 ? ` (${data.failed} failed)` : ""}.`,
       });
     },
     onError: () => {
-      toast({ title: "Failed to send", description: "Could not send bulk messages. Please try again.", variant: "destructive" });
+      toast({
+        title: "Failed to send",
+        description: "Could not send bulk messages. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -350,7 +305,7 @@ function AdminDashboardContent() {
       const hash = window.location.hash.replace("#", "");
       const validTabs = ["overview", "users", "jobs", "feedback", "contact", "admin-management"];
       if (hash && validTabs.includes(hash)) {
-        setActiveTab(prev => (prev !== hash ? hash : prev));
+        setActiveTab((prev) => (prev !== hash ? hash : prev));
       }
     };
 
@@ -418,7 +373,16 @@ function AdminDashboardContent() {
 
   // Users query
   const { data: usersData, isLoading: usersLoading } = useQuery<UsersResponse>({
-    queryKey: ["/api/admin/users", currentPage, searchTerm, roleFilter, statusFilter, profileStatusFilter, sortBy, sortOrder],
+    queryKey: [
+      "/api/admin/users",
+      currentPage,
+      searchTerm,
+      roleFilter,
+      statusFilter,
+      profileStatusFilter,
+      sortBy,
+      sortOrder,
+    ],
     queryFn: () => {
       const params = new URLSearchParams();
       params.append("page", currentPage.toString());
@@ -435,41 +399,6 @@ function AdminDashboardContent() {
     staleTime: 0,
     gcTime: 0,
     placeholderData: keepPreviousData,
-  });
-
-  // User picker query for bulk message "specific users" mode
-  const { data: bulkMsgPickerData, isLoading: bulkMsgPickerLoading } = useQuery<UsersResponse>({
-    queryKey: ["/api/admin/users", "bulkpicker", bulkMsgPickerSearch],
-    queryFn: () => {
-      const params = new URLSearchParams();
-      params.append("page", "1");
-      params.append("limit", "30");
-      if (bulkMsgPickerSearch.trim()) params.append("search", bulkMsgPickerSearch.trim());
-      params.append("sortBy", "created_at");
-      params.append("sortOrder", "desc");
-      return apiRequest(`/api/admin/users?${params.toString()}`);
-    },
-    enabled: bulkMsgOpen && bulkMsgMode === "specific",
-    staleTime: 10000,
-  });
-
-  // User picker query for notify dialog "specific users" mode
-  const { data: notifyPickerData, isLoading: notifyPickerLoading } = useQuery<UsersResponse>({
-    queryKey: ["/api/admin/users", "notifypicker", notifyPickerSearch, notifyRoleFilter, notifyStatusFilter, notifyProfileStatusFilter, notifySortBy, notifySortOrder],
-    queryFn: () => {
-      const params = new URLSearchParams();
-      params.append("page", "1");
-      params.append("limit", "50");
-      if (notifyPickerSearch.trim()) params.append("search", notifyPickerSearch.trim());
-      if (notifyRoleFilter !== "all") params.append("role", notifyRoleFilter);
-      if (notifyStatusFilter !== "all") params.append("status", notifyStatusFilter);
-      if (notifyProfileStatusFilter !== "all") params.append("profileStatus", notifyProfileStatusFilter);
-      params.append("sortBy", notifySortBy);
-      params.append("sortOrder", notifySortOrder);
-      return apiRequest(`/api/admin/users?${params.toString()}`);
-    },
-    enabled: notifyDialogOpen && notifyMode === "specific",
-    staleTime: 5000,
   });
 
   // Jobs query
@@ -496,7 +425,15 @@ function AdminDashboardContent() {
     page: number;
     limit: number;
   }>({
-    queryKey: ["/api/admin/jobs", jobCurrentPage, jobSearch, jobStatusFilter, jobTypeFilter, jobSortBy, jobSortOrder],
+    queryKey: [
+      "/api/admin/jobs",
+      jobCurrentPage,
+      jobSearch,
+      jobStatusFilter,
+      jobTypeFilter,
+      jobSortBy,
+      jobSortOrder,
+    ],
     queryFn: () => {
       const params = new URLSearchParams();
       params.append("page", jobCurrentPage.toString());
@@ -559,36 +496,19 @@ function AdminDashboardContent() {
 
   // Send job alert emails mutation
   const sendAlertsMutation = useMutation({
-    mutationFn: ({ jobId, userIds }: { jobId: number; userIds?: number[] }) =>
-      apiRequest(`/api/admin/jobs/${jobId}/send-alerts`, {
-        method: "POST",
-        body: JSON.stringify({ userIds }),
-      }),
+    mutationFn: (jobId: number) =>
+      apiRequest(`/api/admin/jobs/${jobId}/send-alerts`, { method: "POST" }),
     onSuccess: (data: any) => {
       toast({ title: "Alerts sent", description: data.message });
-      setNotifyDialogOpen(false);
-      setNotifySelectedUsers([]);
-      setNotifyPickerSearch("");
-      setNotifyMode("all");
-      setNotifyDialogJob(null);
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to send alerts", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send alerts",
+        variant: "destructive",
+      });
     },
   });
-
-  const openNotifyDialog = (job: any) => {
-    setNotifyDialogJob(job);
-    setNotifyMode("all");
-    setNotifySelectedUsers([]);
-    setNotifyPickerSearch("");
-    setNotifyRoleFilter("freelancer");
-    setNotifyStatusFilter("all");
-    setNotifyProfileStatusFilter("all");
-    setNotifySortBy("created_at");
-    setNotifySortOrder("desc");
-    setNotifyDialogOpen(true);
-  };
 
   // Admin users query
   const {
@@ -794,7 +714,7 @@ function AdminDashboardContent() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
+          <h1 className="mb-2 text-3xl font-bold text-foreground">Admin Dashboard</h1>
           <p className="text-muted-foreground">
             Manage feedback, users, and monitor platform analytics
           </p>
@@ -804,97 +724,99 @@ function AdminDashboardContent() {
           disabled={csvDownloading}
           variant="outline"
           size="sm"
-          className="flex items-center gap-2 shrink-0 mt-1"
+          className="mt-1 flex shrink-0 items-center gap-2"
         >
-          <Download className="w-4 h-4" />
+          <Download className="h-4 w-4" />
           {csvDownloading ? "Exporting…" : "Download Excel"}
         </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="w-full grid grid-cols-7 p-1">
+        <TabsList className="grid w-full grid-cols-7 p-1">
           <TabsTrigger value="overview" className="flex items-center justify-center gap-2">
-            <TrendingUp className="w-4 h-4" />
+            <TrendingUp className="h-4 w-4" />
             Overview
           </TabsTrigger>
           <TabsTrigger value="feedback" className="flex items-center justify-center gap-2">
-            <MessageSquare className="w-4 h-4" />
+            <MessageSquare className="h-4 w-4" />
             Feedback
             <TabBadge count={counts.feedback} />
           </TabsTrigger>
           <TabsTrigger value="moderation" className="flex items-center justify-center gap-2">
-            <Shield className="w-4 h-4" />
+            <Shield className="h-4 w-4" />
             Moderation
           </TabsTrigger>
           <TabsTrigger value="contact" className="flex items-center justify-center gap-2">
-            <Mail className="w-4 h-4" />
+            <Mail className="h-4 w-4" />
             Contact
             <TabBadge count={counts.contact_messages} />
           </TabsTrigger>
           <TabsTrigger value="jobs" className="flex items-center justify-center gap-2">
-            <Briefcase className="w-4 h-4" />
+            <Briefcase className="h-4 w-4" />
             Jobs
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center justify-center gap-2">
-            <Users className="w-4 h-4" />
+            <Users className="h-4 w-4" />
             Users
           </TabsTrigger>
           <TabsTrigger value="admin-management" className="flex items-center justify-center gap-2">
-            <UserCheck className="w-4 h-4" />
+            <UserCheck className="h-4 w-4" />
             Admin Management
           </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 min-[600px]:grid-cols-4 gap-3 sm:gap-6">
+          <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 min-[600px]:grid-cols-4 sm:gap-6">
             <Card className="overflow-hidden">
-              <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-3 sm:p-6 pb-0 sm:pb-2">
-                <Users className="h-4 w-4 text-muted-foreground block" />
-                <CardTitle className="text-xs sm:text-sm font-medium">Total Users</CardTitle>
+              <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-3 pb-0 sm:p-6 sm:pb-2">
+                <Users className="block h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs font-medium sm:text-sm">Total Users</CardTitle>
               </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-1 sm:pt-0">
-                <div className="text-xl sm:text-2xl font-bold">{analytics?.users?.total || 0}</div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
+              <CardContent className="p-3 pt-1 sm:p-6 sm:pt-0">
+                <div className="text-xl font-bold sm:text-2xl">{analytics?.users?.total || 0}</div>
+                <p className="line-clamp-1 text-[10px] text-muted-foreground sm:text-xs">
                   +{analytics?.users?.thisMonth || 0} this month
                 </p>
               </CardContent>
             </Card>
 
             <Card className="overflow-hidden">
-              <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-3 sm:p-6 pb-0 sm:pb-2">
-                <Briefcase className="h-4 w-4 text-muted-foreground block" />
-                <CardTitle className="text-xs sm:text-sm font-medium">Active Jobs</CardTitle>
+              <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-3 pb-0 sm:p-6 sm:pb-2">
+                <Briefcase className="block h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs font-medium sm:text-sm">Active Jobs</CardTitle>
               </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-1 sm:pt-0">
-                <div className="text-xl sm:text-2xl font-bold">{analytics?.jobs?.active || 0}</div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
+              <CardContent className="p-3 pt-1 sm:p-6 sm:pt-0">
+                <div className="text-xl font-bold sm:text-2xl">{analytics?.jobs?.active || 0}</div>
+                <p className="line-clamp-1 text-[10px] text-muted-foreground sm:text-xs">
                   of {analytics?.jobs?.total || 0} total
                 </p>
               </CardContent>
             </Card>
 
             <Card className="overflow-hidden">
-              <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-3 sm:p-6 pb-0 sm:pb-2">
-                <AlertCircle className="h-4 w-4 text-muted-foreground block" />
-                <CardTitle className="text-xs sm:text-sm font-medium">Feedback</CardTitle>
+              <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-3 pb-0 sm:p-6 sm:pb-2">
+                <AlertCircle className="block h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs font-medium sm:text-sm">Feedback</CardTitle>
               </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-1 sm:pt-0">
-                <div className="text-xl sm:text-2xl font-bold">{feedbackStats?.pending || 0}</div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
+              <CardContent className="p-3 pt-1 sm:p-6 sm:pt-0">
+                <div className="text-xl font-bold sm:text-2xl">{feedbackStats?.pending || 0}</div>
+                <p className="line-clamp-1 text-[10px] text-muted-foreground sm:text-xs">
                   {feedbackStats?.total || 0} total
                 </p>
               </CardContent>
             </Card>
 
             <Card className="overflow-hidden">
-              <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-3 sm:p-6 pb-0 sm:pb-2">
-                <FileText className="h-4 w-4 text-muted-foreground block" />
-                <CardTitle className="text-xs sm:text-sm font-medium">Applications</CardTitle>
+              <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-3 pb-0 sm:p-6 sm:pb-2">
+                <FileText className="block h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-xs font-medium sm:text-sm">Applications</CardTitle>
               </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-1 sm:pt-0">
-                <div className="text-xl sm:text-2xl font-bold">{analytics?.applications?.total || 0}</div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">
+              <CardContent className="p-3 pt-1 sm:p-6 sm:pt-0">
+                <div className="text-xl font-bold sm:text-2xl">
+                  {analytics?.applications?.total || 0}
+                </div>
+                <p className="line-clamp-1 text-[10px] text-muted-foreground sm:text-xs">
                   {analytics?.applications?.hired || 0} hired
                 </p>
               </CardContent>
@@ -912,7 +834,7 @@ function AdminDashboardContent() {
                   <div key={i} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-2 h-2 rounded-full ${
+                        className={`h-2 w-2 rounded-full ${
                           activity.type === "feedback"
                             ? "bg-blue-500"
                             : activity.type === "user"
@@ -928,7 +850,7 @@ function AdminDashboardContent() {
                   </div>
                 ))}
                 {(!analytics?.recentActivity || analytics.recentActivity.length === 0) && (
-                  <p className="text-sm text-muted-foreground text-center py-4">
+                  <p className="py-4 text-center text-sm text-muted-foreground">
                     No recent activity
                   </p>
                 )}
@@ -941,13 +863,13 @@ function AdminDashboardContent() {
         <TabsContent value="feedback" className="space-y-6">
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+              <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
                 <CardTitle>Feedback Management</CardTitle>
                 <div className="flex gap-2">
                   <Select
                     value={feedbackFilters.status}
-                    onValueChange={value =>
-                      setFeedbackFilters(prev => ({ ...prev, status: value }))
+                    onValueChange={(value) =>
+                      setFeedbackFilters((prev) => ({ ...prev, status: value }))
                     }
                   >
                     <SelectTrigger className="w-[140px]">
@@ -964,7 +886,9 @@ function AdminDashboardContent() {
 
                   <Select
                     value={feedbackFilters.type}
-                    onValueChange={value => setFeedbackFilters(prev => ({ ...prev, type: value }))}
+                    onValueChange={(value) =>
+                      setFeedbackFilters((prev) => ({ ...prev, type: value }))
+                    }
                   >
                     <SelectTrigger className="w-[140px]">
                       <SelectValue placeholder="Filter by type" />
@@ -982,29 +906,39 @@ function AdminDashboardContent() {
             </CardHeader>
             <CardContent>
               {feedbackLoading && !feedbackData ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {feedbackData?.feedback?.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
+                    <div className="py-8 text-center text-muted-foreground">
                       No feedback found matching your filters.
                     </div>
                   ) : (
                     feedbackData?.feedback?.map((item: FeedbackItem) => (
-                      <div key={item.id} className="border border-border rounded-lg p-3 sm:p-4 space-y-3 sm:space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                      <div
+                        key={item.id}
+                        className="space-y-3 rounded-lg border border-border p-3 sm:space-y-4 sm:p-4"
+                      >
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                           <div className="space-y-1">
                             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                               <Badge variant="outline" className="text-[10px] sm:text-xs">
                                 {getFeedbackTypeLabel(item.feedback_type)}
                               </Badge>
-                              <Badge className={cn("text-[10px] sm:text-xs", getStatusColor(item.status))}>
+                              <Badge
+                                className={cn(
+                                  "text-[10px] sm:text-xs",
+                                  getStatusColor(item.status)
+                                )}
+                              >
                                 {item.status}
                               </Badge>
                               {item.priority === "high" && (
-                                <Badge variant="destructive" className="text-[10px] sm:text-xs">High Priority</Badge>
+                                <Badge variant="destructive" className="text-[10px] sm:text-xs">
+                                  High Priority
+                                </Badge>
                               )}
                             </div>
                             <p className="text-sm text-muted-foreground">
@@ -1016,9 +950,9 @@ function AdminDashboardContent() {
                               •{new Date(item.created_at).toLocaleDateString()}
                             </p>
                           </div>
-                          <div className="flex flex-row sm:flex-row gap-2 w-full sm:w-auto">
-                            <Select onValueChange={value => updateFeedbackStatus(item.id, value)}>
-                              <SelectTrigger className="flex-1 sm:w-32 h-8 sm:h-9 text-xs sm:text-sm">
+                          <div className="flex w-full flex-row gap-2 sm:w-auto sm:flex-row">
+                            <Select onValueChange={(value) => updateFeedbackStatus(item.id, value)}>
+                              <SelectTrigger className="h-8 flex-1 text-xs sm:h-9 sm:w-32 sm:text-sm">
                                 <SelectValue placeholder="Status" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1034,7 +968,7 @@ function AdminDashboardContent() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="flex-1 sm:w-auto h-8 sm:h-9 text-xs sm:text-sm"
+                                  className="h-8 flex-1 text-xs sm:h-9 sm:w-auto sm:text-sm"
                                   onClick={() => setSelectedFeedback(item)}
                                 >
                                   Respond
@@ -1045,14 +979,14 @@ function AdminDashboardContent() {
                                   <DialogTitle>Respond to Feedback</DialogTitle>
                                 </DialogHeader>
                                 <div className="space-y-4">
-                                  <div className="p-4 bg-muted rounded-lg">
-                                    <p className="text-sm font-medium mb-2">Original Message:</p>
+                                  <div className="rounded-lg bg-muted p-4">
+                                    <p className="mb-2 text-sm font-medium">Original Message:</p>
                                     <p className="text-sm">{item.message}</p>
                                   </div>
 
                                   {item.admin_response && (
-                                    <div className="p-4 bg-blue-50 rounded-lg">
-                                      <p className="text-sm font-medium mb-2">Previous Response:</p>
+                                    <div className="rounded-lg bg-blue-50 p-4">
+                                      <p className="mb-2 text-sm font-medium">Previous Response:</p>
                                       <p className="text-sm">{item.admin_response}</p>
                                     </div>
                                   )}
@@ -1061,7 +995,7 @@ function AdminDashboardContent() {
                                     <label className="text-sm font-medium">Your Response:</label>
                                     <Textarea
                                       value={adminResponse}
-                                      onChange={e => setAdminResponse(e.target.value)}
+                                      onChange={(e) => setAdminResponse(e.target.value)}
                                       placeholder="Enter your response to this feedback..."
                                       rows={4}
                                     />
@@ -1118,20 +1052,20 @@ function AdminDashboardContent() {
             </CardHeader>
             <CardContent>
               {contactMessagesLoading && !contactMessages ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {!contactMessages || contactMessages.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
+                    <div className="py-8 text-center text-muted-foreground">
                       No contact messages yet.
                     </div>
                   ) : (
                     contactMessages.map((message: ContactMessage) => (
                       <div
                         key={message.id}
-                        className="border border-border rounded-lg p-4 space-y-3"
+                        className="space-y-3 rounded-lg border border-border p-4"
                         data-testid={`contact-message-${message.id}`}
                       >
                         <div className="flex items-start justify-between">
@@ -1158,8 +1092,8 @@ function AdminDashboardContent() {
                           </div>
                         </div>
 
-                        <div className="bg-muted p-3 rounded-md">
-                          <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+                        <div className="rounded-md bg-muted p-3">
+                          <p className="whitespace-pre-wrap text-sm">{message.message}</p>
                         </div>
 
                         {message.ip_address && (
@@ -1175,7 +1109,7 @@ function AdminDashboardContent() {
                                 onClick={() => setSelectedContactMessage(message)}
                                 data-testid={`button-reply-${message.id}`}
                               >
-                                <Mail className="w-4 h-4 mr-2" />
+                                <Mail className="mr-2 h-4 w-4" />
                                 Reply
                               </Button>
                             </DialogTrigger>
@@ -1184,20 +1118,20 @@ function AdminDashboardContent() {
                                 <DialogTitle>Reply to Contact Message</DialogTitle>
                               </DialogHeader>
                               <div className="space-y-4">
-                                <div className="p-4 bg-muted rounded-lg">
-                                  <p className="text-sm font-medium mb-2">Original Message:</p>
-                                  <p className="text-xs text-muted-foreground mb-2">
+                                <div className="rounded-lg bg-muted p-4">
+                                  <p className="mb-2 text-sm font-medium">Original Message:</p>
+                                  <p className="mb-2 text-xs text-muted-foreground">
                                     From: {message.name} ({message.email})
                                   </p>
-                                  <p className="text-sm font-semibold mb-1">{message.subject}</p>
-                                  <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+                                  <p className="mb-1 text-sm font-semibold">{message.subject}</p>
+                                  <p className="whitespace-pre-wrap text-sm">{message.message}</p>
                                 </div>
 
                                 <div className="space-y-2">
                                   <label className="text-sm font-medium">Your Reply:</label>
                                   <Textarea
                                     value={contactReply}
-                                    onChange={e => setContactReply(e.target.value)}
+                                    onChange={(e) => setContactReply(e.target.value)}
                                     placeholder="Enter your reply message here... This will be sent via email to the user."
                                     rows={6}
                                     data-testid="textarea-contact-reply"
@@ -1207,7 +1141,7 @@ function AdminDashboardContent() {
                                   </p>
                                 </div>
 
-                                <div className="flex gap-2 justify-end">
+                                <div className="flex justify-end gap-2">
                                   <Button
                                     variant="outline"
                                     onClick={() => {
@@ -1245,7 +1179,7 @@ function AdminDashboardContent() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Briefcase className="w-5 h-5" />
+                <Briefcase className="h-5 w-5" />
                 All Jobs
                 {jobsData && (
                   <Badge variant="secondary" className="ml-2">
@@ -1256,17 +1190,17 @@ function AdminDashboardContent() {
             </CardHeader>
             <CardContent>
               {jobsLoading ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex gap-4 flex-wrap">
-                    <div className="flex-1 min-w-[200px]">
+                  <div className="flex flex-wrap gap-4">
+                    <div className="min-w-[200px] flex-1">
                       <Input
                         placeholder="Search by title, company, or location..."
                         value={jobSearch}
-                        onChange={e => setJobSearch(e.target.value)}
+                        onChange={(e) => setJobSearch(e.target.value)}
                         className="max-w-sm"
                       />
                     </div>
@@ -1303,7 +1237,10 @@ function AdminDashboardContent() {
                       </SelectContent>
                     </Select>
 
-                    <Select value={jobSortOrder} onValueChange={(v) => setJobSortOrder(v as "asc" | "desc")}>
+                    <Select
+                      value={jobSortOrder}
+                      onValueChange={(v) => setJobSortOrder(v as "asc" | "desc")}
+                    >
                       <SelectTrigger className="w-[120px]">
                         <SelectValue placeholder="Order" />
                       </SelectTrigger>
@@ -1333,14 +1270,27 @@ function AdminDashboardContent() {
                       <TableBody>
                         {(jobsData?.jobs || []).length > 0 ? (
                           (jobsData?.jobs || []).map((job) => (
-                            <TableRow key={job.id} className="h-10 cursor-pointer hover:bg-muted/50" onClick={() => setSelectedJobId(job.id)}>
-                              <TableCell className="py-2 font-medium max-w-[200px] truncate" title={job.title}>
+                            <TableRow
+                              key={job.id}
+                              className="h-10 cursor-pointer hover:bg-muted/50"
+                              onClick={() => setSelectedJobId(job.id)}
+                            >
+                              <TableCell
+                                className="max-w-[200px] truncate py-2 font-medium"
+                                title={job.title}
+                              >
                                 {job.title}
                               </TableCell>
-                              <TableCell className="py-2 max-w-[150px] truncate" title={job.company}>
+                              <TableCell
+                                className="max-w-[150px] truncate py-2"
+                                title={job.company}
+                              >
                                 {job.company}
                               </TableCell>
-                              <TableCell className="py-2 max-w-[120px] truncate" title={job.location}>
+                              <TableCell
+                                className="max-w-[120px] truncate py-2"
+                                title={job.location}
+                              >
                                 {job.location}
                               </TableCell>
                               <TableCell className="py-2">
@@ -1355,9 +1305,7 @@ function AdminDashboardContent() {
                                           : "outline"
                                   }
                                   className={
-                                    job.status === "active"
-                                      ? "bg-green-600 hover:bg-green-700"
-                                      : ""
+                                    job.status === "active" ? "bg-green-600 hover:bg-green-700" : ""
                                   }
                                 >
                                   {job.status}
@@ -1368,7 +1316,10 @@ function AdminDashboardContent() {
                               </TableCell>
                               <TableCell className="py-2 text-center">
                                 {job.hired_count > 0 ? (
-                                  <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                                  <Badge
+                                    variant="default"
+                                    className="bg-green-600 hover:bg-green-700"
+                                  >
                                     {job.hired_count}
                                   </Badge>
                                 ) : (
@@ -1379,7 +1330,10 @@ function AdminDashboardContent() {
                                 {job.event_date || "-"}
                                 {job.end_date ? ` - ${job.end_date}` : ""}
                               </TableCell>
-                              <TableCell className="py-2 text-xs max-w-[150px] truncate" title={job.recruiter_name || job.recruiter_email || "External"}>
+                              <TableCell
+                                className="max-w-[150px] truncate py-2 text-xs"
+                                title={job.recruiter_name || job.recruiter_email || "External"}
+                              >
                                 {job.recruiter_name || job.recruiter_email || "External"}
                               </TableCell>
                               <TableCell className="py-2 text-xs">
@@ -1387,25 +1341,7 @@ function AdminDashboardContent() {
                               </TableCell>
                               <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                                 {job.status === "active" && (
-                                  <div className="flex items-center gap-1">
-                                    <ShareJobButton job={job as any} size="sm" variant="ghost" />
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-<<<<<<< HEAD
-                                      className="h-7 px-2 text-xs border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950/30"
-                                      onClick={() => { setNotifyJobId(job.id); setNotifyForce(false); }}
-                                    >
-                                      <Mail className="h-3 w-3 mr-1" />
-=======
-                                      className="h-7 px-2 text-xs border-orange-300 text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
-                                      onClick={() => openNotifyDialog(job)}
-                                    >
-                                      <Mail className="w-3 h-3 mr-1" />
->>>>>>> 4c5610854b50384eac06575d5fc65c93715f6826
-                                      Notify
-                                    </Button>
-                                  </div>
+                                  <ShareJobButton job={job as any} size="sm" variant="ghost" />
                                 )}
                               </TableCell>
                             </TableRow>
@@ -1426,7 +1362,7 @@ function AdminDashboardContent() {
                       <PaginationContent>
                         <PaginationItem>
                           <PaginationPrevious
-                            onClick={() => setJobCurrentPage(prev => Math.max(prev - 1, 1))}
+                            onClick={() => setJobCurrentPage((prev) => Math.max(prev - 1, 1))}
                             className={
                               jobCurrentPage === 1
                                 ? "pointer-events-none opacity-50"
@@ -1434,20 +1370,26 @@ function AdminDashboardContent() {
                             }
                           />
                         </PaginationItem>
-                        {Array.from({ length: jobsData?.totalPages || 1 }, (_, i) => i + 1).map(page => (
-                          <PaginationItem key={page}>
-                            <PaginationLink
-                              onClick={() => setJobCurrentPage(page)}
-                              isActive={jobCurrentPage === page}
-                              className="cursor-pointer"
-                            >
-                              {page}
-                            </PaginationLink>
-                          </PaginationItem>
-                        ))}
+                        {Array.from({ length: jobsData?.totalPages || 1 }, (_, i) => i + 1).map(
+                          (page) => (
+                            <PaginationItem key={page}>
+                              <PaginationLink
+                                onClick={() => setJobCurrentPage(page)}
+                                isActive={jobCurrentPage === page}
+                                className="cursor-pointer"
+                              >
+                                {page}
+                              </PaginationLink>
+                            </PaginationItem>
+                          )
+                        )}
                         <PaginationItem>
                           <PaginationNext
-                            onClick={() => setJobCurrentPage(prev => Math.min(prev + 1, jobsData?.totalPages || 1))}
+                            onClick={() =>
+                              setJobCurrentPage((prev) =>
+                                Math.min(prev + 1, jobsData?.totalPages || 1)
+                              )
+                            }
                             className={
                               jobCurrentPage === (jobsData?.totalPages || 1)
                                 ? "pointer-events-none opacity-50"
@@ -1459,16 +1401,23 @@ function AdminDashboardContent() {
                     </Pagination>
                   )}
 
-                  <Dialog open={selectedJobId !== null} onOpenChange={(open) => { if (!open) setSelectedJobId(null); }}>
-                    <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                  <Dialog
+                    open={selectedJobId !== null}
+                    onOpenChange={(open) => {
+                      if (!open) setSelectedJobId(null);
+                    }}
+                  >
+                    <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle className="text-xl">
-                          {jobDetailLoading ? "Loading..." : jobDetailData?.job?.title || "Job Details"}
+                          {jobDetailLoading
+                            ? "Loading..."
+                            : jobDetailData?.job?.title || "Job Details"}
                         </DialogTitle>
                       </DialogHeader>
                       {jobDetailLoading ? (
                         <div className="flex items-center justify-center py-8">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
                         </div>
                       ) : jobDetailData ? (
                         <div className="space-y-6">
@@ -1488,8 +1437,20 @@ function AdminDashboardContent() {
                             <div>
                               <p className="text-sm text-muted-foreground">Status</p>
                               <Badge
-                                variant={jobDetailData.job.status === "active" ? "default" : jobDetailData.job.status === "paused" ? "secondary" : jobDetailData.job.status === "closed" ? "destructive" : "outline"}
-                                className={jobDetailData.job.status === "active" ? "bg-green-600 hover:bg-green-700" : ""}
+                                variant={
+                                  jobDetailData.job.status === "active"
+                                    ? "default"
+                                    : jobDetailData.job.status === "paused"
+                                      ? "secondary"
+                                      : jobDetailData.job.status === "closed"
+                                        ? "destructive"
+                                        : "outline"
+                                }
+                                className={
+                                  jobDetailData.job.status === "active"
+                                    ? "bg-green-600 hover:bg-green-700"
+                                    : ""
+                                }
                               >
                                 {jobDetailData.job.status}
                               </Badge>
@@ -1498,7 +1459,9 @@ function AdminDashboardContent() {
                               <p className="text-sm text-muted-foreground">Event Date</p>
                               <p className="font-medium">
                                 {jobDetailData.job.event_date || "Not set"}
-                                {jobDetailData.job.end_date ? ` - ${jobDetailData.job.end_date}` : ""}
+                                {jobDetailData.job.end_date
+                                  ? ` - ${jobDetailData.job.end_date}`
+                                  : ""}
                               </p>
                             </div>
                             {jobDetailData.job.start_time && (
@@ -1506,25 +1469,31 @@ function AdminDashboardContent() {
                                 <p className="text-sm text-muted-foreground">Time</p>
                                 <p className="font-medium">
                                   {jobDetailData.job.start_time}
-                                  {jobDetailData.job.end_time ? ` - ${jobDetailData.job.end_time}` : ""}
+                                  {jobDetailData.job.end_time
+                                    ? ` - ${jobDetailData.job.end_time}`
+                                    : ""}
                                 </p>
                               </div>
                             )}
-                            {jobDetailData.job.duration_type === "days" && jobDetailData.job.days && (
-                              <div>
-                                <p className="text-sm text-muted-foreground">Duration</p>
-                                <p className="font-medium">{jobDetailData.job.days} days</p>
-                              </div>
-                            )}
-                            {jobDetailData.job.duration_type === "hours" && jobDetailData.job.hours && (
-                              <div>
-                                <p className="text-sm text-muted-foreground">Duration</p>
-                                <p className="font-medium">{jobDetailData.job.hours} hours</p>
-                              </div>
-                            )}
+                            {jobDetailData.job.duration_type === "days" &&
+                              jobDetailData.job.days && (
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Duration</p>
+                                  <p className="font-medium">{jobDetailData.job.days} days</p>
+                                </div>
+                              )}
+                            {jobDetailData.job.duration_type === "hours" &&
+                              jobDetailData.job.hours && (
+                                <div>
+                                  <p className="text-sm text-muted-foreground">Duration</p>
+                                  <p className="font-medium">{jobDetailData.job.hours} hours</p>
+                                </div>
+                              )}
                             <div>
                               <p className="text-sm text-muted-foreground">Posted By</p>
-                              <p className="font-medium">{jobDetailData.job.recruiter_name || "External"}</p>
+                              <p className="font-medium">
+                                {jobDetailData.job.recruiter_name || "External"}
+                              </p>
                               {jobDetailData.job.recruiter_email && (
                                 <p className="text-xs text-muted-foreground">
                                   {jobDetailData.job.recruiter_id ? (
@@ -1544,14 +1513,23 @@ function AdminDashboardContent() {
                             </div>
                             <div>
                               <p className="text-sm text-muted-foreground">Created</p>
-                              <p className="font-medium">{new Date(jobDetailData.job.created_at).toLocaleDateString()}</p>
+                              <p className="font-medium">
+                                {new Date(jobDetailData.job.created_at).toLocaleDateString()}
+                              </p>
                             </div>
                             {jobDetailData.job.external_source && (
                               <div>
                                 <p className="text-sm text-muted-foreground">Source</p>
-                                <p className="font-medium capitalize">{jobDetailData.job.external_source}</p>
+                                <p className="font-medium capitalize">
+                                  {jobDetailData.job.external_source}
+                                </p>
                                 {jobDetailData.job.external_url && (
-                                  <a href={jobDetailData.job.external_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
+                                  <a
+                                    href={jobDetailData.job.external_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 hover:underline"
+                                  >
                                     View original listing
                                   </a>
                                 )}
@@ -1560,33 +1538,43 @@ function AdminDashboardContent() {
                           </div>
 
                           <div>
-                            <p className="text-sm text-muted-foreground mb-1">Description</p>
-                            <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded-md p-3">{jobDetailData.job.description}</p>
+                            <p className="mb-1 text-sm text-muted-foreground">Description</p>
+                            <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm">
+                              {jobDetailData.job.description}
+                            </p>
                           </div>
 
-                          {jobDetailData.job.status === "active" && !jobDetailData.job.external_source && (
-                            <div className="flex items-center gap-3 rounded-md border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800 p-3">
-                              <div className="flex-1">
-                                <p className="text-sm font-medium">Job Alert Emails</p>
-                                <p className="text-xs text-muted-foreground">Send this job to all freelancers whose alert preferences match it.</p>
+                          {jobDetailData.job.status === "active" &&
+                            !jobDetailData.job.external_source && (
+                              <div className="flex items-center gap-3 rounded-md border border-orange-200 bg-orange-50 p-3 dark:border-orange-800 dark:bg-orange-950/20">
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium">Job Alert Emails</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Send this job to all freelancers whose alert preferences match
+                                    it.
+                                  </p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => sendAlertsMutation.mutate(jobDetailData.job.id)}
+                                  disabled={sendAlertsMutation.isPending}
+                                  className="bg-gradient-primary hover:bg-primary-hover shrink-0 text-white"
+                                >
+                                  {sendAlertsMutation.isPending ? "Sending..." : "Send Alerts"}
+                                </Button>
                               </div>
-                              <Button
-                                size="sm"
-                                onClick={() => openNotifyDialog(jobDetailData.job)}
-                                disabled={sendAlertsMutation.isPending}
-                                className="bg-gradient-primary text-white hover:bg-primary-hover shrink-0"
-                              >
-                                Send Alerts
-                              </Button>
-                            </div>
-                          )}
+                            )}
 
                           <div>
-                            <div className="flex items-center gap-3 mb-3">
+                            <div className="mb-3 flex items-center gap-3">
                               <h3 className="font-semibold">Applications</h3>
-                              <Badge variant="secondary">{jobDetailData.job.application_count} total</Badge>
+                              <Badge variant="secondary">
+                                {jobDetailData.job.application_count} total
+                              </Badge>
                               {jobDetailData.job.hired_count > 0 && (
-                                <Badge className="bg-green-600 hover:bg-green-700">{jobDetailData.job.hired_count} hired</Badge>
+                                <Badge className="bg-green-600 hover:bg-green-700">
+                                  {jobDetailData.job.hired_count} hired
+                                </Badge>
                               )}
                             </div>
                             {jobDetailData.applications.length > 0 ? (
@@ -1603,9 +1591,18 @@ function AdminDashboardContent() {
                                   </TableHeader>
                                   <TableBody>
                                     {jobDetailData.applications.map((app) => (
-                                      <TableRow key={app.id} className={app.status === "hired" ? "bg-green-50 dark:bg-green-950/20" : ""}>
+                                      <TableRow
+                                        key={app.id}
+                                        className={
+                                          app.status === "hired"
+                                            ? "bg-green-50 dark:bg-green-950/20"
+                                            : ""
+                                        }
+                                      >
                                         <TableCell className="py-2">
-                                          <p className="font-medium text-sm">{app.freelancer_name}</p>
+                                          <p className="text-sm font-medium">
+                                            {app.freelancer_name}
+                                          </p>
                                           <a
                                             href={`/profile/${app.freelancer_id}`}
                                             target="_blank"
@@ -1616,11 +1613,23 @@ function AdminDashboardContent() {
                                             {app.freelancer_email}
                                           </a>
                                         </TableCell>
-                                        <TableCell className="py-2 text-sm">{app.freelancer_title || "-"}</TableCell>
+                                        <TableCell className="py-2 text-sm">
+                                          {app.freelancer_title || "-"}
+                                        </TableCell>
                                         <TableCell className="py-2">
                                           <Badge
-                                            variant={app.status === "hired" ? "default" : app.status === "rejected" ? "destructive" : "secondary"}
-                                            className={app.status === "hired" ? "bg-green-600 hover:bg-green-700" : ""}
+                                            variant={
+                                              app.status === "hired"
+                                                ? "default"
+                                                : app.status === "rejected"
+                                                  ? "destructive"
+                                                  : "secondary"
+                                            }
+                                            className={
+                                              app.status === "hired"
+                                                ? "bg-green-600 hover:bg-green-700"
+                                                : ""
+                                            }
                                           >
                                             {app.status}
                                           </Badge>
@@ -1633,7 +1642,7 @@ function AdminDashboardContent() {
                                             href={`/profile/${app.freelancer_id}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-blue-600 hover:underline text-xs"
+                                            className="text-xs text-blue-600 hover:underline"
                                             onClick={(e) => e.stopPropagation()}
                                           >
                                             View Profile
@@ -1666,22 +1675,14 @@ function AdminDashboardContent() {
                 <CardTitle>
                   User Management {usersData?.total ? `(${usersData.total})` : ""}
                 </CardTitle>
-                <Dialog
-                  open={bulkMsgOpen}
-                  onOpenChange={open => {
-                    setBulkMsgOpen(open);
-                    if (!open) {
-                      setBulkMsgText("");
-                      setBulkMsgSubject("");
-                      setBulkMsgMode("filtered");
-                      setBulkMsgPickerSearch("");
-                      setBulkMsgSelectedUsers([]);
-                    }
-                  }}
-                >
+                <Dialog open={bulkMsgOpen} onOpenChange={setBulkMsgOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="flex items-center gap-2 shrink-0">
-                      <MessageSquare className="w-4 h-4" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex shrink-0 items-center gap-2"
+                    >
+                      <MessageSquare className="h-4 w-4" />
                       Send Bulk Message
                     </Button>
                   </DialogTrigger>
@@ -1690,172 +1691,46 @@ function AdminDashboardContent() {
                       <DialogTitle>Send Bulk Message</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 pt-2">
-                      {/* Mode toggle */}
-                      <div className="flex rounded-md border overflow-hidden text-sm">
-                        <button
-                          type="button"
-                          className={cn(
-                            "flex-1 px-3 py-2 transition-colors",
-                            bulkMsgMode === "filtered"
-                              ? "bg-primary text-primary-foreground font-medium"
-                              : "bg-background hover:bg-muted text-muted-foreground"
+                      <div className="space-y-1 rounded-md border bg-muted/40 p-3 text-sm">
+                        <p className="font-medium text-muted-foreground">
+                          Recipients based on current filters:
+                        </p>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {roleFilter !== "all" && (
+                            <Badge variant="secondary">
+                              Role: {roleFilter === "recruiter" ? "employer" : roleFilter}
+                            </Badge>
                           )}
-                          onClick={() => setBulkMsgMode("filtered")}
-                        >
-                          All Filtered Users
-                        </button>
-                        <button
-                          type="button"
-                          className={cn(
-                            "flex-1 px-3 py-2 transition-colors border-l",
-                            bulkMsgMode === "specific"
-                              ? "bg-primary text-primary-foreground font-medium"
-                              : "bg-background hover:bg-muted text-muted-foreground"
+                          {statusFilter !== "all" && (
+                            <Badge variant="secondary">Status: {statusFilter}</Badge>
                           )}
-                          onClick={() => setBulkMsgMode("specific")}
-                        >
-                          Select Specific Users
-                        </button>
-                      </div>
-
-                      {bulkMsgMode === "filtered" ? (
-                        <div className="rounded-md border bg-muted/40 p-3 space-y-1 text-sm">
-                          <p className="font-medium text-muted-foreground">Recipients based on current filters:</p>
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            {roleFilter !== "all" && (
-                              <Badge variant="secondary">Role: {roleFilter === "recruiter" ? "employer" : roleFilter}</Badge>
-                            )}
-                            {statusFilter !== "all" && (
-                              <Badge variant="secondary">Status: {statusFilter}</Badge>
-                            )}
-                            {profileStatusFilter !== "all" && (
-                              <Badge variant="secondary">Profile: {profileStatusFilter.replace("_", " ")}</Badge>
-                            )}
-                            {searchTerm && (
-                              <Badge variant="secondary">Search: "{searchTerm}"</Badge>
-                            )}
-                            {roleFilter === "all" && statusFilter === "all" && profileStatusFilter === "all" && !searchTerm && (
+                          {profileStatusFilter !== "all" && (
+                            <Badge variant="secondary">
+                              Profile: {profileStatusFilter.replace("_", " ")}
+                            </Badge>
+                          )}
+                          {searchTerm && <Badge variant="secondary">Search: "{searchTerm}"</Badge>}
+                          {roleFilter === "all" &&
+                            statusFilter === "all" &&
+                            profileStatusFilter === "all" &&
+                            !searchTerm && (
                               <span className="text-muted-foreground">All non-admin users</span>
                             )}
-                          </div>
-                          <p className="text-muted-foreground pt-1">
-                            Approx. <span className="font-semibold text-foreground">{usersData?.total ?? "..."}</span> user{(usersData?.total ?? 0) !== 1 ? "s" : ""} will receive this message. Admin accounts are excluded.
-                          </p>
                         </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {/* Selected users chips */}
-                          {bulkMsgSelectedUsers.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 rounded-md border bg-muted/40 p-2">
-                              {bulkMsgSelectedUsers.map(u => {
-                                const name = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
-                                return (
-                                  <span
-                                    key={u.id}
-                                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-1 font-medium"
-                                  >
-                                    {name}
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setBulkMsgSelectedUsers(prev => prev.filter(s => s.id !== u.id))
-                                      }
-                                      className="rounded-full hover:bg-primary/20 p-0.5"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {/* Search input */}
-                          <div className="relative">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                            <Input
-                              placeholder="Search users by name or email..."
-                              value={bulkMsgPickerSearch}
-                              onChange={e => setBulkMsgPickerSearch(e.target.value)}
-                              className="pl-8 h-8 text-sm"
-                            />
-                          </div>
-
-                          {/* User list */}
-                          <div className="border rounded-md overflow-y-auto max-h-44">
-                            {bulkMsgPickerLoading ? (
-                              <div className="flex justify-center py-4">
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
-                              </div>
-                            ) : (bulkMsgPickerData?.users ?? []).filter(u => u.role !== "admin").length === 0 ? (
-                              <p className="text-sm text-muted-foreground text-center py-4">No users found</p>
-                            ) : (
-                              (bulkMsgPickerData?.users ?? [])
-                                .filter(u => u.role !== "admin")
-                                .map(u => {
-                                  const name = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
-                                  const isSelected = bulkMsgSelectedUsers.some(s => s.id === u.id);
-                                  return (
-                                    <button
-                                      key={u.id}
-                                      type="button"
-                                      onClick={() =>
-                                        setBulkMsgSelectedUsers(prev =>
-                                          isSelected ? prev.filter(s => s.id !== u.id) : [...prev, u]
-                                        )
-                                      }
-                                      className={cn(
-                                        "w-full flex items-center justify-between px-3 py-2 text-sm text-left hover:bg-muted transition-colors border-b last:border-b-0",
-                                        isSelected && "bg-primary/5"
-                                      )}
-                                    >
-                                      <div className="min-w-0">
-                                        <p className="font-medium truncate">{name}</p>
-                                        <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                                      </div>
-                                      <div className="flex items-center gap-2 shrink-0 ml-2">
-                                        <Badge variant="outline" className="text-xs capitalize">
-                                          {u.role === "recruiter" ? "employer" : u.role}
-                                        </Badge>
-                                        {isSelected && <Check className="w-4 h-4 text-primary" />}
-                                      </div>
-                                    </button>
-                                  );
-                                })
-                            )}
-                          </div>
-
-                          {bulkMsgSelectedUsers.length === 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              Select at least one user from the list above.
-                            </p>
-                          )}
-                          {bulkMsgSelectedUsers.length > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              <span className="font-semibold text-foreground">{bulkMsgSelectedUsers.length}</span> user{bulkMsgSelectedUsers.length !== 1 ? "s" : ""} selected.
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium text-foreground">
-                          Email subject <span className="text-muted-foreground font-normal">(optional)</span>
-                        </label>
-                        <Input
-                          placeholder={`New message from EventLink`}
-                          value={bulkMsgSubject}
-                          onChange={e => setBulkMsgSubject(e.target.value)}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Leave blank to use the default subject line.
+                        <p className="pt-1 text-muted-foreground">
+                          Approx.{" "}
+                          <span className="font-semibold text-foreground">
+                            {usersData?.total ?? "..."}
+                          </span>{" "}
+                          user{(usersData?.total ?? 0) !== 1 ? "s" : ""} will receive this message.
+                          Admin accounts are excluded.
                         </p>
                       </div>
                       <Textarea
                         placeholder="Write your message here..."
-                        className="min-h-[120px] resize-none"
+                        className="min-h-[140px] resize-none"
                         value={bulkMsgText}
-                        onChange={e => setBulkMsgText(e.target.value)}
+                        onChange={(e) => setBulkMsgText(e.target.value)}
                       />
                       <div className="flex justify-end gap-2 pt-1">
                         <Button
@@ -1863,41 +1738,25 @@ function AdminDashboardContent() {
                           onClick={() => {
                             setBulkMsgOpen(false);
                             setBulkMsgText("");
-                            setBulkMsgSubject("");
-                            setBulkMsgMode("filtered");
-                            setBulkMsgPickerSearch("");
-                            setBulkMsgSelectedUsers([]);
                           }}
                         >
                           Cancel
                         </Button>
                         <Button
                           disabled={
-                            bulkMsgText.trim().length === 0 ||
-                            bulkMessageMutation.isPending ||
-                            (bulkMsgMode === "specific" && bulkMsgSelectedUsers.length === 0)
+                            bulkMsgText.trim().length === 0 || bulkMessageMutation.isPending
                           }
-                          onClick={() => {
-                            const emailSubject = bulkMsgSubject.trim() || undefined;
-                            if (bulkMsgMode === "specific") {
-                              bulkMessageMutation.mutate({
-                                message: bulkMsgText,
-                                userIds: bulkMsgSelectedUsers.map(u => u.id),
-                                emailSubject,
-                              });
-                            } else {
-                              bulkMessageMutation.mutate({
-                                message: bulkMsgText,
-                                emailSubject,
-                                filters: {
-                                  search: searchTerm || undefined,
-                                  role: roleFilter,
-                                  status: statusFilter,
-                                  profileStatus: profileStatusFilter,
-                                },
-                              });
-                            }
-                          }}
+                          onClick={() =>
+                            bulkMessageMutation.mutate({
+                              message: bulkMsgText,
+                              filters: {
+                                search: searchTerm || undefined,
+                                role: roleFilter,
+                                status: statusFilter,
+                                profileStatus: profileStatusFilter,
+                              },
+                            })
+                          }
                         >
                           {bulkMessageMutation.isPending ? "Sending..." : "Send Message"}
                         </Button>
@@ -1909,8 +1768,8 @@ function AdminDashboardContent() {
             </CardHeader>
             <CardContent>
               {usersLoading ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1919,14 +1778,14 @@ function AdminDashboardContent() {
                       <Input
                         placeholder="Search by name or email..."
                         value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
+                        onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full"
                       />
                     </div>
-                    
-                    <div className="grid grid-cols-1 min-[450px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
+
+                    <div className="grid grid-cols-1 gap-2 min-[450px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                       <Select value={roleFilter} onValueChange={setRoleFilter}>
-                        <SelectTrigger className="w-full h-9 text-xs sm:text-sm">
+                        <SelectTrigger className="h-9 w-full text-xs sm:text-sm">
                           <SelectValue placeholder="Filter by role" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1938,7 +1797,7 @@ function AdminDashboardContent() {
                       </Select>
 
                       <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-full h-9 text-xs sm:text-sm">
+                        <SelectTrigger className="h-9 w-full text-xs sm:text-sm">
                           <SelectValue placeholder="Filter by status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1950,7 +1809,7 @@ function AdminDashboardContent() {
                       </Select>
 
                       <Select value={profileStatusFilter} onValueChange={setProfileStatusFilter}>
-                        <SelectTrigger className="w-full h-9 text-xs sm:text-sm">
+                        <SelectTrigger className="h-9 w-full text-xs sm:text-sm">
                           <SelectValue placeholder="Profile status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1962,7 +1821,7 @@ function AdminDashboardContent() {
                       </Select>
 
                       <Select value={sortBy} onValueChange={setSortBy}>
-                        <SelectTrigger className="w-full h-9 text-xs sm:text-sm">
+                        <SelectTrigger className="h-9 w-full text-xs sm:text-sm">
                           <SelectValue placeholder="Sort by" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1975,8 +1834,11 @@ function AdminDashboardContent() {
                         </SelectContent>
                       </Select>
 
-                      <Select value={sortOrder} onValueChange={v => setSortOrder(v as "asc" | "desc")}>
-                        <SelectTrigger className="w-full h-9 text-xs sm:text-sm">
+                      <Select
+                        value={sortOrder}
+                        onValueChange={(v) => setSortOrder(v as "asc" | "desc")}
+                      >
+                        <SelectTrigger className="h-9 w-full text-xs sm:text-sm">
                           <SelectValue placeholder="Order" />
                         </SelectTrigger>
                         <SelectContent>
@@ -2032,17 +1894,21 @@ function AdminDashboardContent() {
                               <TableCell className="py-2">
                                 {rowUser.role === "freelancer" ? (
                                   rowUser.profile_status === "complete" ? (
-                                    <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                                    <Badge
+                                      variant="default"
+                                      className="bg-green-600 hover:bg-green-700"
+                                    >
                                       Complete
                                     </Badge>
                                   ) : rowUser.profile_status === "incomplete" ? (
-                                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                                    >
                                       Incomplete
                                     </Badge>
                                   ) : (
-                                    <Badge variant="destructive">
-                                      No Profile
-                                    </Badge>
+                                    <Badge variant="destructive">No Profile</Badge>
                                   )
                                 ) : (
                                   <span className="text-xs text-muted-foreground">-</span>
@@ -2051,16 +1917,16 @@ function AdminDashboardContent() {
                               <TableCell className="py-2">
                                 {rowUser.status === "active" ? (
                                   <div className="flex items-center gap-1 text-green-600">
-                                    <UserCheck className="w-4 h-4" />
+                                    <UserCheck className="h-4 w-4" />
                                     <span className="text-xs capitalize">{rowUser.status}</span>
                                   </div>
                                 ) : rowUser.status === "pending" ? (
                                   <div className="flex items-center gap-1 text-yellow-600">
-                                    <AlertCircle className="w-4 h-4" />
+                                    <AlertCircle className="h-4 w-4" />
                                     <span className="text-xs capitalize">{rowUser.status}</span>
                                   </div>
                                 ) : (
-                                  <span className="text-xs text-muted-foreground capitalize">
+                                  <span className="text-xs capitalize text-muted-foreground">
                                     {rowUser.status}
                                   </span>
                                 )}
@@ -2079,13 +1945,13 @@ function AdminDashboardContent() {
                                     })
                                   : "Never"}
                               </TableCell>
-                              <TableCell className="text-right py-2">
+                              <TableCell className="py-2 text-right">
                                 <div className="flex items-center justify-end gap-1">
                                   {rowUser.status === "active" ? (
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 px-2 bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-auto"
+                                      className="h-8 bg-red-100 px-2 text-red-700 hover:bg-red-200 hover:text-red-800 disabled:pointer-events-auto disabled:cursor-not-allowed disabled:opacity-50"
                                       onClick={() =>
                                         updateStatusMutation.mutate({
                                           userId: rowUser.id,
@@ -2107,7 +1973,7 @@ function AdminDashboardContent() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="h-8 px-2 bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-800"
+                                      className="h-8 bg-green-100 px-2 text-green-700 hover:bg-green-200 hover:text-green-800"
                                       onClick={() =>
                                         updateStatusMutation.mutate({
                                           userId: rowUser.id,
@@ -2127,7 +1993,7 @@ function AdminDashboardContent() {
                                       onClick={() => setUserToDelete(rowUser)}
                                       title="Permanently remove account"
                                     >
-                                      <Trash2 className="w-4 h-4" />
+                                      <Trash2 className="h-4 w-4" />
                                     </Button>
                                   )}
                                 </div>
@@ -2150,7 +2016,7 @@ function AdminDashboardContent() {
                       <PaginationContent>
                         <PaginationItem>
                           <PaginationPrevious
-                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                             className={
                               currentPage === 1
                                 ? "pointer-events-none opacity-50"
@@ -2158,7 +2024,7 @@ function AdminDashboardContent() {
                             }
                           />
                         </PaginationItem>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                           <PaginationItem key={page}>
                             <PaginationLink
                               onClick={() => setCurrentPage(page)}
@@ -2171,7 +2037,7 @@ function AdminDashboardContent() {
                         ))}
                         <PaginationItem>
                           <PaginationNext
-                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                             className={
                               currentPage === totalPages
                                 ? "pointer-events-none opacity-50"
@@ -2194,15 +2060,15 @@ function AdminDashboardContent() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5 shrink-0" />
+                <Shield className="h-5 w-5 shrink-0" />
                 <span>First Admin Setup</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
                   <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
                         Need to create the first admin user?
@@ -2227,12 +2093,12 @@ function AdminDashboardContent() {
                 >
                   {isBootstrapping ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-current"></div>
                       Creating First Admin...
                     </>
                   ) : (
                     <>
-                      <Shield className="w-4 h-4 mr-2" />
+                      <Shield className="mr-2 h-4 w-4" />
                       Create First Admin ({user?.email || "No user"})
                     </>
                   )}
@@ -2246,11 +2112,15 @@ function AdminDashboardContent() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
+                  <Users className="h-5 w-5" />
                   Current Admin Users
                 </span>
                 {adminUsers && (
-                  <Badge variant="secondary" data-testid="text-admin-count" className="whitespace-nowrap shrink-0">
+                  <Badge
+                    variant="secondary"
+                    data-testid="text-admin-count"
+                    className="shrink-0 whitespace-nowrap"
+                  >
                     {adminUsers.length} {adminUsers.length === 1 ? "Admin" : "Admins"}
                   </Badge>
                 )}
@@ -2259,7 +2129,7 @@ function AdminDashboardContent() {
             <CardContent>
               {adminUsersLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-primary"></div>
                   <span className="ml-2 text-muted-foreground">Loading admin users...</span>
                 </div>
               ) : adminUsers && adminUsers.length > 0 ? (
@@ -2268,33 +2138,41 @@ function AdminDashboardContent() {
                     <div
                       key={admin.id}
                       data-testid={`card-admin-${admin.id}`}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-lg gap-3"
+                      className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 bg-primary/10 rounded-full flex-shrink-0 flex items-center justify-center">
-                          <UserCheck className="w-4 h-4 text-primary" />
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+                          <UserCheck className="h-4 w-4 text-primary" />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium truncate" data-testid={`text-admin-email-${admin.id}`} title={admin.email}>
+                          <p
+                            className="truncate font-medium"
+                            data-testid={`text-admin-email-${admin.id}`}
+                            title={admin.email}
+                          >
                             {admin.email}
                           </p>
                           {(admin.first_name || admin.last_name) && (
-                            <p className="text-sm text-muted-foreground truncate">
+                            <p className="truncate text-sm text-muted-foreground">
                               {admin.first_name} {admin.last_name}
                             </p>
                           )}
                         </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                        <Badge variant="default" className="text-[10px] sm:text-xs">Admin</Badge>
-                        <Badge variant="outline" className="text-[10px] sm:text-xs">{admin.auth_provider || "Email"}</Badge>
+                        <Badge variant="default" className="text-[10px] sm:text-xs">
+                          Admin
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] sm:text-xs">
+                          {admin.auth_provider || "Email"}
+                        </Badge>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <div className="py-8 text-center text-muted-foreground">
+                  <Users className="mx-auto mb-2 h-8 w-8 opacity-50" />
                   <p>No admin users found</p>
                 </div>
               )}
@@ -2303,77 +2181,28 @@ function AdminDashboardContent() {
         </TabsContent>
       </Tabs>
 
-      {/* Notify Freelancers confirmation modal */}
-      <AlertDialog open={notifyJobId !== null} onOpenChange={(open) => { if (!open) { setNotifyJobId(null); setNotifyForce(false); } }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Notify Freelancers</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3">
-                {notifyPreviewLoading ? (
-                  <p>Loading matching freelancers…</p>
-                ) : notifyPreview ? (
-                  <>
-                    <p>
-                      You are about to email all freelancers whose profile matches this job.
-                    </p>
-                    <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
-                      <p><span className="font-medium">Job:</span> {notifyPreview.jobTitle}</p>
-                      <p><span className="font-medium">Employer:</span> {notifyPreview.employerName}</p>
-                      <p>
-                        <span className="font-medium">Freelancers who will be notified:</span>{" "}
-                        <span className="text-orange-700 dark:text-orange-400 font-semibold">{notifyPreview.count}</span>
-                      </p>
-                    </div>
-                    {notifyPreview.hoursAgo !== null && notifyPreview.hoursAgo < 24 && (
-                      <div className="rounded-md border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/20 p-3 text-sm text-amber-800 dark:text-amber-300">
-                        ⚠️ Freelancers were already notified about this job{" "}
-                        <strong>{notifyPreview.hoursAgo} hour{notifyPreview.hoursAgo === 1 ? "" : "s"} ago</strong>.
-                        Clicking &ldquo;Send again&rdquo; will re-send to all matching freelancers.
-                      </div>
-                    )}
-                  </>
-                ) : null}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={notifyMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-gradient-primary text-white hover:bg-primary-hover"
-              disabled={notifyMutation.isPending || notifyPreviewLoading || (notifyPreview?.count ?? 0) === 0}
-              onClick={() => {
-                if (notifyJobId !== null) {
-                  const isRecent = notifyPreview?.hoursAgo !== null && (notifyPreview?.hoursAgo ?? 25) < 24;
-                  notifyMutation.mutate({ jobId: notifyJobId, force: isRecent || notifyForce });
-                }
-              }}
-            >
-              {notifyMutation.isPending
-                ? "Sending…"
-                : notifyPreview?.hoursAgo !== null && (notifyPreview?.hoursAgo ?? 25) < 24
-                  ? "Send again"
-                  : `Confirm & Send to ${notifyPreview?.count ?? "…"}`}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* Confirm permanent account deletion */}
-      <AlertDialog open={!!userToDelete} onOpenChange={(open) => { if (!open) setUserToDelete(null); }}>
+      <AlertDialog
+        open={!!userToDelete}
+        onOpenChange={(open) => {
+          if (!open) setUserToDelete(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Permanently remove account?</AlertDialogTitle>
             <AlertDialogDescription>
               This will completely delete the account for{" "}
-              <strong>{userToDelete?.first_name} {userToDelete?.last_name || userToDelete?.email}</strong>.
-              All their data will be removed and cannot be recovered.
+              <strong>
+                {userToDelete?.first_name} {userToDelete?.last_name || userToDelete?.email}
+              </strong>
+              . All their data will be removed and cannot be recovered.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-red-600 text-white hover:bg-red-700"
               onClick={() => userToDelete && deleteUserMutation.mutate(userToDelete.id)}
               disabled={deleteUserMutation.isPending}
             >
@@ -2382,236 +2211,6 @@ function AdminDashboardContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Notify dialog */}
-      <Dialog
-        open={notifyDialogOpen}
-        onOpenChange={open => {
-          setNotifyDialogOpen(open);
-          if (!open) {
-            setNotifySelectedUsers([]);
-            setNotifyPickerSearch("");
-            setNotifyMode("all");
-            setNotifyDialogJob(null);
-            setNotifyRoleFilter("freelancer");
-            setNotifyStatusFilter("all");
-            setNotifyProfileStatusFilter("all");
-            setNotifySortBy("created_at");
-            setNotifySortOrder("desc");
-          }
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Send Job Alert</DialogTitle>
-            {notifyDialogJob && (
-              <p className="text-sm text-muted-foreground pt-1">
-                <span className="font-medium text-foreground">{notifyDialogJob.title}</span> — {notifyDialogJob.company}
-              </p>
-            )}
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            {/* Mode toggle */}
-            <div className="flex rounded-md border overflow-hidden text-sm">
-              <button
-                type="button"
-                className={cn(
-                  "flex-1 px-3 py-2 transition-colors",
-                  notifyMode === "all"
-                    ? "bg-primary text-primary-foreground font-medium"
-                    : "bg-background hover:bg-muted text-muted-foreground"
-                )}
-                onClick={() => setNotifyMode("all")}
-              >
-                All matching freelancers
-              </button>
-              <button
-                type="button"
-                className={cn(
-                  "flex-1 px-3 py-2 transition-colors border-l",
-                  notifyMode === "specific"
-                    ? "bg-primary text-primary-foreground font-medium"
-                    : "bg-background hover:bg-muted text-muted-foreground"
-                )}
-                onClick={() => setNotifyMode("specific")}
-              >
-                Specific users
-              </button>
-            </div>
-
-            {notifyMode === "all" ? (
-              <p className="text-sm text-muted-foreground rounded-md bg-muted/50 p-3">
-                The alert will be sent to all active freelancers whose job alert preferences match this posting. Freelancers with no preferences set will also receive it.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {/* Filters row */}
-                <div className="grid grid-cols-2 gap-2">
-                  <Select value={notifyRoleFilter} onValueChange={setNotifyRoleFilter}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Roles</SelectItem>
-                      <SelectItem value="freelancer">Freelancer</SelectItem>
-                      <SelectItem value="recruiter">Employer</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={notifyStatusFilter} onValueChange={setNotifyStatusFilter}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="deactivated">Deactivated</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={notifyProfileStatusFilter} onValueChange={setNotifyProfileStatusFilter}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Profile" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Profiles</SelectItem>
-                      <SelectItem value="no_profile">No Profile</SelectItem>
-                      <SelectItem value="incomplete">Incomplete</SelectItem>
-                      <SelectItem value="complete">Complete</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={notifySortBy} onValueChange={setNotifySortBy}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="created_at">Joined Date</SelectItem>
-                      <SelectItem value="email">Email</SelectItem>
-                      <SelectItem value="first_name">First Name</SelectItem>
-                      <SelectItem value="last_name">Last Name</SelectItem>
-                      <SelectItem value="role">Role</SelectItem>
-                      <SelectItem value="status">Status</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={notifySortOrder} onValueChange={v => setNotifySortOrder(v as "asc" | "desc")}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Order" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="desc">Newest first</SelectItem>
-                      <SelectItem value="asc">Oldest first</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Selected chips */}
-                {notifySelectedUsers.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {notifySelectedUsers.map(u => (
-                      <span key={u.id} className="flex items-center gap-1 bg-muted text-xs rounded-full px-2 py-1">
-                        {u.first_name || u.email}
-                        <button
-                          type="button"
-                          className="hover:text-destructive"
-                          onClick={() => setNotifySelectedUsers(prev => prev.filter(s => s.id !== u.id))}
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <Input
-                  placeholder="Search by name or email..."
-                  value={notifyPickerSearch}
-                  onChange={e => setNotifyPickerSearch(e.target.value)}
-                />
-
-                <div className="border rounded-md max-h-48 overflow-y-auto">
-                  {notifyPickerLoading ? (
-                    <p className="text-sm text-muted-foreground p-3">Loading...</p>
-                  ) : (notifyPickerData?.users ?? []).length === 0 ? (
-                    <p className="text-sm text-muted-foreground p-3">No users found.</p>
-                  ) : (
-                    (notifyPickerData?.users ?? []).map(u => {
-                      const isSelected = notifySelectedUsers.some(s => s.id === u.id);
-                      return (
-                        <div
-                          key={u.id}
-                          className={cn(
-                            "flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted text-sm border-b last:border-0",
-                            isSelected && "bg-muted/70"
-                          )}
-                          onClick={() =>
-                            setNotifySelectedUsers(prev =>
-                              isSelected ? prev.filter(s => s.id !== u.id) : [...prev, u as any]
-                            )
-                          }
-                        >
-                          <div>
-                            <span>{u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.email}</span>
-                            {(u.first_name || u.last_name) && (
-                              <span className="text-xs text-muted-foreground ml-2">{u.email}</span>
-                            )}
-                          </div>
-                          {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  {notifySelectedUsers.length > 0
-                    ? <><span className="font-semibold text-foreground">{notifySelectedUsers.length}</span> user{notifySelectedUsers.length !== 1 ? "s" : ""} selected.</>
-                    : "Select at least one user to send to."
-                  }
-                </p>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-1">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setNotifyDialogOpen(false);
-                  setNotifySelectedUsers([]);
-                  setNotifyPickerSearch("");
-                  setNotifyMode("all");
-                  setNotifyDialogJob(null);
-                  setNotifyRoleFilter("freelancer");
-                  setNotifyStatusFilter("all");
-                  setNotifyProfileStatusFilter("all");
-                  setNotifySortBy("created_at");
-                  setNotifySortOrder("desc");
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                disabled={
-                  sendAlertsMutation.isPending ||
-                  (notifyMode === "specific" && notifySelectedUsers.length === 0)
-                }
-                onClick={() => {
-                  if (!notifyDialogJob) return;
-                  sendAlertsMutation.mutate({
-                    jobId: notifyDialogJob.id,
-                    userIds: notifyMode === "specific" ? notifySelectedUsers.map(u => u.id) : undefined,
-                  });
-                }}
-              >
-                {sendAlertsMutation.isPending ? "Sending..." : "Send Alert"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
