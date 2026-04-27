@@ -60,15 +60,18 @@ import { formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
   Briefcase,
+  Check,
   Download,
   FileText,
   Mail,
   MessageSquare,
+  Search,
   Shield,
   Trash2,
   TrendingUp,
   UserCheck,
   Users,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -216,9 +219,25 @@ function AdminDashboardContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
+  // Notify dialog state
+  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
+  const [notifyDialogJob, setNotifyDialogJob] = useState<any>(null);
+  const [notifyMode, setNotifyMode] = useState<"all" | "specific">("all");
+  const [notifyPickerSearch, setNotifyPickerSearch] = useState("");
+  const [notifySelectedUsers, setNotifySelectedUsers] = useState<User[]>([]);
+  const [notifyRoleFilter, setNotifyRoleFilter] = useState("freelancer");
+  const [notifyStatusFilter, setNotifyStatusFilter] = useState("all");
+  const [notifyProfileStatusFilter, setNotifyProfileStatusFilter] = useState("all");
+  const [notifySortBy, setNotifySortBy] = useState("created_at");
+  const [notifySortOrder, setNotifySortOrder] = useState<"asc" | "desc">("desc");
+
   // Bulk message state
   const [bulkMsgOpen, setBulkMsgOpen] = useState(false);
   const [bulkMsgText, setBulkMsgText] = useState("");
+  const [bulkMsgSubject, setBulkMsgSubject] = useState("");
+  const [bulkMsgMode, setBulkMsgMode] = useState<"filtered" | "specific">("filtered");
+  const [bulkMsgPickerSearch, setBulkMsgPickerSearch] = useState("");
+  const [bulkMsgSelectedUsers, setBulkMsgSelectedUsers] = useState<User[]>([]);
 
   // Jobs Tab State
   const [jobSearch, setJobSearch] = useState("");
@@ -273,14 +292,28 @@ function AdminDashboardContent() {
   });
 
   const bulkMessageMutation = useMutation({
-    mutationFn: async ({ message, filters }: { message: string; filters: object }) =>
+    mutationFn: async ({
+      message,
+      filters,
+      userIds,
+      emailSubject,
+    }: {
+      message: string;
+      filters?: object;
+      userIds?: number[];
+      emailSubject?: string;
+    }) =>
       apiRequest("/api/admin/bulk-message", {
         method: "POST",
-        body: JSON.stringify({ message, filters }),
+        body: JSON.stringify({ message, filters, userIds, emailSubject }),
       }),
     onSuccess: (data: { sent: number; failed: number; total: number }) => {
       setBulkMsgOpen(false);
       setBulkMsgText("");
+      setBulkMsgSubject("");
+      setBulkMsgSelectedUsers([]);
+      setBulkMsgPickerSearch("");
+      setBulkMsgMode("filtered");
       toast({
         title: "Messages sent",
         description: `Sent to ${data.sent} user${data.sent !== 1 ? "s" : ""}${data.failed > 0 ? ` (${data.failed} failed)` : ""}.`,
@@ -401,6 +434,51 @@ function AdminDashboardContent() {
     placeholderData: keepPreviousData,
   });
 
+  // User picker query for bulk message "specific users" mode
+  const { data: bulkMsgPickerData, isLoading: bulkMsgPickerLoading } = useQuery<UsersResponse>({
+    queryKey: ["/api/admin/users", "bulkpicker", bulkMsgPickerSearch],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.append("page", "1");
+      params.append("limit", "30");
+      if (bulkMsgPickerSearch.trim()) params.append("search", bulkMsgPickerSearch.trim());
+      params.append("sortBy", "created_at");
+      params.append("sortOrder", "desc");
+      return apiRequest(`/api/admin/users?${params.toString()}`);
+    },
+    enabled: bulkMsgOpen && bulkMsgMode === "specific",
+    staleTime: 10000,
+  });
+
+  // User picker query for notify dialog "specific users" mode
+  const { data: notifyPickerData, isLoading: notifyPickerLoading } = useQuery<UsersResponse>({
+    queryKey: [
+      "/api/admin/users",
+      "notifypicker",
+      notifyPickerSearch,
+      notifyRoleFilter,
+      notifyStatusFilter,
+      notifyProfileStatusFilter,
+      notifySortBy,
+      notifySortOrder,
+    ],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.append("page", "1");
+      params.append("limit", "50");
+      if (notifyPickerSearch.trim()) params.append("search", notifyPickerSearch.trim());
+      if (notifyRoleFilter !== "all") params.append("role", notifyRoleFilter);
+      if (notifyStatusFilter !== "all") params.append("status", notifyStatusFilter);
+      if (notifyProfileStatusFilter !== "all")
+        params.append("profileStatus", notifyProfileStatusFilter);
+      params.append("sortBy", notifySortBy);
+      params.append("sortOrder", notifySortOrder);
+      return apiRequest(`/api/admin/users?${params.toString()}`);
+    },
+    enabled: notifyDialogOpen && notifyMode === "specific",
+    staleTime: 5000,
+  });
+
   // Jobs query
   const { data: jobsData, isLoading: jobsLoading } = useQuery<{
     jobs: Array<{
@@ -496,10 +574,18 @@ function AdminDashboardContent() {
 
   // Send job alert emails mutation
   const sendAlertsMutation = useMutation({
-    mutationFn: (jobId: number) =>
-      apiRequest(`/api/admin/jobs/${jobId}/send-alerts`, { method: "POST" }),
+    mutationFn: ({ jobId, userIds }: { jobId: number; userIds?: number[] }) =>
+      apiRequest(`/api/admin/jobs/${jobId}/send-alerts`, {
+        method: "POST",
+        body: JSON.stringify({ userIds }),
+      }),
     onSuccess: (data: any) => {
       toast({ title: "Alerts sent", description: data.message });
+      setNotifyDialogOpen(false);
+      setNotifySelectedUsers([]);
+      setNotifyPickerSearch("");
+      setNotifyMode("all");
+      setNotifyDialogJob(null);
     },
     onError: (error: any) => {
       toast({
@@ -509,6 +595,19 @@ function AdminDashboardContent() {
       });
     },
   });
+
+  const openNotifyDialog = (job: any) => {
+    setNotifyDialogJob(job);
+    setNotifyMode("all");
+    setNotifySelectedUsers([]);
+    setNotifyPickerSearch("");
+    setNotifyRoleFilter("freelancer");
+    setNotifyStatusFilter("all");
+    setNotifyProfileStatusFilter("all");
+    setNotifySortBy("created_at");
+    setNotifySortOrder("desc");
+    setNotifyDialogOpen(true);
+  };
 
   // Admin users query
   const {
@@ -1341,7 +1440,18 @@ function AdminDashboardContent() {
                               </TableCell>
                               <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                                 {job.status === "active" && (
-                                  <ShareJobButton job={job as any} size="sm" variant="ghost" />
+                                  <div className="flex items-center gap-1">
+                                    <ShareJobButton job={job as any} size="sm" variant="ghost" />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 border-orange-300 px-2 text-xs text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
+                                      onClick={() => openNotifyDialog(job)}
+                                    >
+                                      <Mail className="mr-1 h-3 w-3" />
+                                      Notify
+                                    </Button>
+                                  </div>
                                 )}
                               </TableCell>
                             </TableRow>
@@ -1556,11 +1666,11 @@ function AdminDashboardContent() {
                                 </div>
                                 <Button
                                   size="sm"
-                                  onClick={() => sendAlertsMutation.mutate(jobDetailData.job.id)}
+                                  onClick={() => openNotifyDialog(jobDetailData.job)}
                                   disabled={sendAlertsMutation.isPending}
                                   className="bg-gradient-primary hover:bg-primary-hover shrink-0 text-white"
                                 >
-                                  {sendAlertsMutation.isPending ? "Sending..." : "Send Alerts"}
+                                  Send Alerts
                                 </Button>
                               </div>
                             )}
@@ -1675,7 +1785,19 @@ function AdminDashboardContent() {
                 <CardTitle>
                   User Management {usersData?.total ? `(${usersData.total})` : ""}
                 </CardTitle>
-                <Dialog open={bulkMsgOpen} onOpenChange={setBulkMsgOpen}>
+                <Dialog
+                  open={bulkMsgOpen}
+                  onOpenChange={(open) => {
+                    setBulkMsgOpen(open);
+                    if (!open) {
+                      setBulkMsgText("");
+                      setBulkMsgSubject("");
+                      setBulkMsgMode("filtered");
+                      setBulkMsgPickerSearch("");
+                      setBulkMsgSelectedUsers([]);
+                    }
+                  }}
+                >
                   <DialogTrigger asChild>
                     <Button
                       variant="outline"
@@ -1691,44 +1813,202 @@ function AdminDashboardContent() {
                       <DialogTitle>Send Bulk Message</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 pt-2">
-                      <div className="space-y-1 rounded-md border bg-muted/40 p-3 text-sm">
-                        <p className="font-medium text-muted-foreground">
-                          Recipients based on current filters:
-                        </p>
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {roleFilter !== "all" && (
-                            <Badge variant="secondary">
-                              Role: {roleFilter === "recruiter" ? "employer" : roleFilter}
-                            </Badge>
+                      {/* Mode toggle */}
+                      <div className="flex overflow-hidden rounded-md border text-sm">
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex-1 px-3 py-2 transition-colors",
+                            bulkMsgMode === "filtered"
+                              ? "bg-primary font-medium text-primary-foreground"
+                              : "bg-background text-muted-foreground hover:bg-muted"
                           )}
-                          {statusFilter !== "all" && (
-                            <Badge variant="secondary">Status: {statusFilter}</Badge>
+                          onClick={() => setBulkMsgMode("filtered")}
+                        >
+                          All Filtered Users
+                        </button>
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex-1 border-l px-3 py-2 transition-colors",
+                            bulkMsgMode === "specific"
+                              ? "bg-primary font-medium text-primary-foreground"
+                              : "bg-background text-muted-foreground hover:bg-muted"
                           )}
-                          {profileStatusFilter !== "all" && (
-                            <Badge variant="secondary">
-                              Profile: {profileStatusFilter.replace("_", " ")}
-                            </Badge>
-                          )}
-                          {searchTerm && <Badge variant="secondary">Search: "{searchTerm}"</Badge>}
-                          {roleFilter === "all" &&
-                            statusFilter === "all" &&
-                            profileStatusFilter === "all" &&
-                            !searchTerm && (
-                              <span className="text-muted-foreground">All non-admin users</span>
+                          onClick={() => setBulkMsgMode("specific")}
+                        >
+                          Select Specific Users
+                        </button>
+                      </div>
+
+                      {bulkMsgMode === "filtered" ? (
+                        <div className="space-y-1 rounded-md border bg-muted/40 p-3 text-sm">
+                          <p className="font-medium text-muted-foreground">
+                            Recipients based on current filters:
+                          </p>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {roleFilter !== "all" && (
+                              <Badge variant="secondary">
+                                Role: {roleFilter === "recruiter" ? "employer" : roleFilter}
+                              </Badge>
                             )}
+                            {statusFilter !== "all" && (
+                              <Badge variant="secondary">Status: {statusFilter}</Badge>
+                            )}
+                            {profileStatusFilter !== "all" && (
+                              <Badge variant="secondary">
+                                Profile: {profileStatusFilter.replace("_", " ")}
+                              </Badge>
+                            )}
+                            {searchTerm && (
+                              <Badge variant="secondary">Search: "{searchTerm}"</Badge>
+                            )}
+                            {roleFilter === "all" &&
+                              statusFilter === "all" &&
+                              profileStatusFilter === "all" &&
+                              !searchTerm && (
+                                <span className="text-muted-foreground">All non-admin users</span>
+                              )}
+                          </div>
+                          <p className="pt-1 text-muted-foreground">
+                            Approx.{" "}
+                            <span className="font-semibold text-foreground">
+                              {usersData?.total ?? "..."}
+                            </span>{" "}
+                            user{(usersData?.total ?? 0) !== 1 ? "s" : ""} will receive this
+                            message. Admin accounts are excluded.
+                          </p>
                         </div>
-                        <p className="pt-1 text-muted-foreground">
-                          Approx.{" "}
-                          <span className="font-semibold text-foreground">
-                            {usersData?.total ?? "..."}
-                          </span>{" "}
-                          user{(usersData?.total ?? 0) !== 1 ? "s" : ""} will receive this message.
-                          Admin accounts are excluded.
+                      ) : (
+                        <div className="space-y-3">
+                          {/* Selected users chips */}
+                          {bulkMsgSelectedUsers.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 rounded-md border bg-muted/40 p-2">
+                              {bulkMsgSelectedUsers.map((u) => {
+                                const name =
+                                  [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
+                                return (
+                                  <span
+                                    key={u.id}
+                                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
+                                  >
+                                    {name}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setBulkMsgSelectedUsers((prev) =>
+                                          prev.filter((s) => s.id !== u.id)
+                                        )
+                                      }
+                                      className="rounded-full p-0.5 hover:bg-primary/20"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Search input */}
+                          <div className="relative">
+                            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              placeholder="Search users by name or email..."
+                              value={bulkMsgPickerSearch}
+                              onChange={(e) => setBulkMsgPickerSearch(e.target.value)}
+                              className="h-8 pl-8 text-sm"
+                            />
+                          </div>
+
+                          {/* User list */}
+                          <div className="max-h-44 overflow-y-auto rounded-md border">
+                            {bulkMsgPickerLoading ? (
+                              <div className="flex justify-center py-4">
+                                <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-primary" />
+                              </div>
+                            ) : (bulkMsgPickerData?.users ?? []).filter((u) => u.role !== "admin")
+                                .length === 0 ? (
+                              <p className="py-4 text-center text-sm text-muted-foreground">
+                                No users found
+                              </p>
+                            ) : (
+                              (bulkMsgPickerData?.users ?? [])
+                                .filter((u) => u.role !== "admin")
+                                .map((u) => {
+                                  const name =
+                                    [u.first_name, u.last_name].filter(Boolean).join(" ") ||
+                                    u.email;
+                                  const isSelected = bulkMsgSelectedUsers.some(
+                                    (s) => s.id === u.id
+                                  );
+                                  return (
+                                    <button
+                                      key={u.id}
+                                      type="button"
+                                      onClick={() =>
+                                        setBulkMsgSelectedUsers((prev) =>
+                                          isSelected
+                                            ? prev.filter((s) => s.id !== u.id)
+                                            : [...prev, u]
+                                        )
+                                      }
+                                      className={cn(
+                                        "flex w-full items-center justify-between border-b px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-muted",
+                                        isSelected && "bg-primary/5"
+                                      )}
+                                    >
+                                      <div className="min-w-0">
+                                        <p className="truncate font-medium">{name}</p>
+                                        <p className="truncate text-xs text-muted-foreground">
+                                          {u.email}
+                                        </p>
+                                      </div>
+                                      <div className="ml-2 flex shrink-0 items-center gap-2">
+                                        <Badge variant="outline" className="text-xs capitalize">
+                                          {u.role === "recruiter" ? "employer" : u.role}
+                                        </Badge>
+                                        {isSelected && <Check className="h-4 w-4 text-primary" />}
+                                      </div>
+                                    </button>
+                                  );
+                                })
+                            )}
+                          </div>
+
+                          {bulkMsgSelectedUsers.length === 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Select at least one user from the list above.
+                            </p>
+                          )}
+                          {bulkMsgSelectedUsers.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-semibold text-foreground">
+                                {bulkMsgSelectedUsers.length}
+                              </span>{" "}
+                              user{bulkMsgSelectedUsers.length !== 1 ? "s" : ""} selected.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium text-foreground">
+                          Email subject{" "}
+                          <span className="font-normal text-muted-foreground">(optional)</span>
+                        </label>
+                        <Input
+                          placeholder={`New message from EventLink`}
+                          value={bulkMsgSubject}
+                          onChange={(e) => setBulkMsgSubject(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Leave blank to use the default subject line.
                         </p>
                       </div>
                       <Textarea
                         placeholder="Write your message here..."
-                        className="min-h-[140px] resize-none"
+                        className="min-h-[120px] resize-none"
                         value={bulkMsgText}
                         onChange={(e) => setBulkMsgText(e.target.value)}
                       />
@@ -1738,25 +2018,41 @@ function AdminDashboardContent() {
                           onClick={() => {
                             setBulkMsgOpen(false);
                             setBulkMsgText("");
+                            setBulkMsgSubject("");
+                            setBulkMsgMode("filtered");
+                            setBulkMsgPickerSearch("");
+                            setBulkMsgSelectedUsers([]);
                           }}
                         >
                           Cancel
                         </Button>
                         <Button
                           disabled={
-                            bulkMsgText.trim().length === 0 || bulkMessageMutation.isPending
+                            bulkMsgText.trim().length === 0 ||
+                            bulkMessageMutation.isPending ||
+                            (bulkMsgMode === "specific" && bulkMsgSelectedUsers.length === 0)
                           }
-                          onClick={() =>
-                            bulkMessageMutation.mutate({
-                              message: bulkMsgText,
-                              filters: {
-                                search: searchTerm || undefined,
-                                role: roleFilter,
-                                status: statusFilter,
-                                profileStatus: profileStatusFilter,
-                              },
-                            })
-                          }
+                          onClick={() => {
+                            const emailSubject = bulkMsgSubject.trim() || undefined;
+                            if (bulkMsgMode === "specific") {
+                              bulkMessageMutation.mutate({
+                                message: bulkMsgText,
+                                userIds: bulkMsgSelectedUsers.map((u) => u.id),
+                                emailSubject,
+                              });
+                            } else {
+                              bulkMessageMutation.mutate({
+                                message: bulkMsgText,
+                                emailSubject,
+                                filters: {
+                                  search: searchTerm || undefined,
+                                  role: roleFilter,
+                                  status: statusFilter,
+                                  profileStatus: profileStatusFilter,
+                                },
+                              });
+                            }
+                          }}
                         >
                           {bulkMessageMutation.isPending ? "Sending..." : "Send Message"}
                         </Button>
@@ -2211,6 +2507,260 @@ function AdminDashboardContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Notify dialog */}
+      <Dialog
+        open={notifyDialogOpen}
+        onOpenChange={(open) => {
+          setNotifyDialogOpen(open);
+          if (!open) {
+            setNotifySelectedUsers([]);
+            setNotifyPickerSearch("");
+            setNotifyMode("all");
+            setNotifyDialogJob(null);
+            setNotifyRoleFilter("freelancer");
+            setNotifyStatusFilter("all");
+            setNotifyProfileStatusFilter("all");
+            setNotifySortBy("created_at");
+            setNotifySortOrder("desc");
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Send Job Alert</DialogTitle>
+            {notifyDialogJob && (
+              <p className="pt-1 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{notifyDialogJob.title}</span> —{" "}
+                {notifyDialogJob.company}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {/* Mode toggle */}
+            <div className="flex overflow-hidden rounded-md border text-sm">
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 px-3 py-2 transition-colors",
+                  notifyMode === "all"
+                    ? "bg-primary font-medium text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                )}
+                onClick={() => setNotifyMode("all")}
+              >
+                All matching freelancers
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 border-l px-3 py-2 transition-colors",
+                  notifyMode === "specific"
+                    ? "bg-primary font-medium text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                )}
+                onClick={() => setNotifyMode("specific")}
+              >
+                Specific users
+              </button>
+            </div>
+
+            {notifyMode === "all" ? (
+              <p className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                The alert will be sent to all active freelancers whose job alert preferences match
+                this posting. Freelancers with no preferences set will also receive it.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {/* Filters row */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Select value={notifyRoleFilter} onValueChange={setNotifyRoleFilter}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="freelancer">Freelancer</SelectItem>
+                      <SelectItem value="recruiter">Employer</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={notifyStatusFilter} onValueChange={setNotifyStatusFilter}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="deactivated">Deactivated</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={notifyProfileStatusFilter}
+                    onValueChange={setNotifyProfileStatusFilter}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Profiles</SelectItem>
+                      <SelectItem value="no_profile">No Profile</SelectItem>
+                      <SelectItem value="incomplete">Incomplete</SelectItem>
+                      <SelectItem value="complete">Complete</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={notifySortBy} onValueChange={setNotifySortBy}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="created_at">Joined Date</SelectItem>
+                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="first_name">First Name</SelectItem>
+                      <SelectItem value="last_name">Last Name</SelectItem>
+                      <SelectItem value="role">Role</SelectItem>
+                      <SelectItem value="status">Status</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={notifySortOrder}
+                    onValueChange={(v) => setNotifySortOrder(v as "asc" | "desc")}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Order" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="desc">Newest first</SelectItem>
+                      <SelectItem value="asc">Oldest first</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Selected chips */}
+                {notifySelectedUsers.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {notifySelectedUsers.map((u) => (
+                      <span
+                        key={u.id}
+                        className="flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs"
+                      >
+                        {u.first_name || u.email}
+                        <button
+                          type="button"
+                          className="hover:text-destructive"
+                          onClick={() =>
+                            setNotifySelectedUsers((prev) => prev.filter((s) => s.id !== u.id))
+                          }
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <Input
+                  placeholder="Search by name or email..."
+                  value={notifyPickerSearch}
+                  onChange={(e) => setNotifyPickerSearch(e.target.value)}
+                />
+
+                <div className="max-h-48 overflow-y-auto rounded-md border">
+                  {notifyPickerLoading ? (
+                    <p className="p-3 text-sm text-muted-foreground">Loading...</p>
+                  ) : (notifyPickerData?.users ?? []).length === 0 ? (
+                    <p className="p-3 text-sm text-muted-foreground">No users found.</p>
+                  ) : (
+                    (notifyPickerData?.users ?? []).map((u) => {
+                      const isSelected = notifySelectedUsers.some((s) => s.id === u.id);
+                      return (
+                        <div
+                          key={u.id}
+                          className={cn(
+                            "flex cursor-pointer items-center justify-between border-b px-3 py-2 text-sm last:border-0 hover:bg-muted",
+                            isSelected && "bg-muted/70"
+                          )}
+                          onClick={() =>
+                            setNotifySelectedUsers((prev) =>
+                              isSelected ? prev.filter((s) => s.id !== u.id) : [...prev, u as any]
+                            )
+                          }
+                        >
+                          <div>
+                            <span>
+                              {u.first_name && u.last_name
+                                ? `${u.first_name} ${u.last_name}`
+                                : u.email}
+                            </span>
+                            {(u.first_name || u.last_name) && (
+                              <span className="ml-2 text-xs text-muted-foreground">{u.email}</span>
+                            )}
+                          </div>
+                          {isSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  {notifySelectedUsers.length > 0 ? (
+                    <>
+                      <span className="font-semibold text-foreground">
+                        {notifySelectedUsers.length}
+                      </span>{" "}
+                      user{notifySelectedUsers.length !== 1 ? "s" : ""} selected.
+                    </>
+                  ) : (
+                    "Select at least one user to send to."
+                  )}
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setNotifyDialogOpen(false);
+                  setNotifySelectedUsers([]);
+                  setNotifyPickerSearch("");
+                  setNotifyMode("all");
+                  setNotifyDialogJob(null);
+                  setNotifyRoleFilter("freelancer");
+                  setNotifyStatusFilter("all");
+                  setNotifyProfileStatusFilter("all");
+                  setNotifySortBy("created_at");
+                  setNotifySortOrder("desc");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={
+                  sendAlertsMutation.isPending ||
+                  (notifyMode === "specific" && notifySelectedUsers.length === 0)
+                }
+                onClick={() => {
+                  if (!notifyDialogJob) return;
+                  sendAlertsMutation.mutate({
+                    jobId: notifyDialogJob.id,
+                    userIds:
+                      notifyMode === "specific" ? notifySelectedUsers.map((u) => u.id) : undefined,
+                  });
+                }}
+              >
+                {sendAlertsMutation.isPending ? "Sending..." : "Send Alert"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
