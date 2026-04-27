@@ -28,6 +28,7 @@ import {
   Lock,
   MapPin,
   MessageCircle,
+  RotateCcw,
   Send,
   Star,
   Trash2,
@@ -53,6 +54,7 @@ interface JobCardProps {
   onInvite?: (jobId: number) => void;
   onViewInvited?: (jobId: number) => void;
   onClose?: (jobId: number) => void;
+  onReopen?: (jobId: number) => void;
   invitedCount?: number;
 }
 
@@ -71,6 +73,7 @@ export function JobCard({
   onInvite,
   onViewInvited,
   onClose,
+  onReopen,
   invitedCount = 0,
 }: JobCardProps) {
   const [messageModalOpen, setMessageModalOpen] = useState(false);
@@ -339,6 +342,34 @@ export function JobCard({
                       onClick={() => onClose(job.id)}
                     >
                       Close Job
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            {isClosed && onReopen && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-green-700 border-green-200 hover:bg-green-50 hover:text-green-800"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Reopen
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Reopen Job</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      &quot;{job.title}&quot; will be reopened as an unposted draft. It won't be visible to freelancers until you post it manually. You can edit it before posting.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onReopen(job.id)}>
+                      Reopen Job
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>

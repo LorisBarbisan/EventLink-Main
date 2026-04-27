@@ -297,6 +297,42 @@ export async function closeJob(req: Request, res: Response) {
   }
 }
 
+// Reopen a closed job (sets status back to 'private' — not posted until recruiter manually publishes)
+export async function reopenJob(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.jobId);
+
+    if (Number.isNaN(jobId)) {
+      return res.status(400).json({ error: "Invalid job ID" });
+    }
+
+    if (!(req as any).user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const job = await storage.getJobById(jobId);
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    if ((req as any).user.role !== "admin" && job.recruiter_id !== (req as any).user.id) {
+      return res.status(403).json({ error: "Not authorized to reopen this job" });
+    }
+
+    if (job.status !== "closed") {
+      return res.status(400).json({ error: "Only closed jobs can be reopened" });
+    }
+
+    const updatedJob = await storage.updateJob(jobId, { status: "private" });
+
+    res.set("Cache-Control", "no-store");
+    res.json(updatedJob);
+  } catch (error) {
+    console.error("Reopen job error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Delete job
 export async function deleteJob(req: Request, res: Response) {
   try {

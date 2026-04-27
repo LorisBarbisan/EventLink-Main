@@ -7,6 +7,7 @@ import {
   getJobLinkViewCount,
   getJobPresets,
   getJobsByRecruiter,
+  reopenJob,
   trackJobLinkView,
   updateJob,
 } from "../controllers/job.controller";
@@ -36,6 +37,9 @@ export function registerJobRoutes(app: Express) {
 
   // Close job manually
   app.put("/api/jobs/:jobId/close", authenticateJWT, closeJob);
+
+  // Reopen a closed job (resets to private/unposted)
+  app.put("/api/jobs/:jobId/reopen", authenticateJWT, reopenJob);
 
   // Delete job
   app.delete("/api/jobs/:jobId", authenticateJWT, deleteJob);

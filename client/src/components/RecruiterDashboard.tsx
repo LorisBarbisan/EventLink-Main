@@ -382,6 +382,29 @@ export default function SimplifiedRecruiterDashboard() {
     },
   });
 
+  // Reopen closed job mutation
+  const reopenJobMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      return await apiRequest(`/api/jobs/${jobId}/reopen`, { method: "PUT" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({
+        title: "Job Reopened",
+        description: "The job has been reopened as an unposted draft. Post it when you're ready.",
+      });
+    },
+    onError: (error: any) => {
+      console.error("❌ Job reopen error:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to reopen job. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Close job mutation
   const closeJobMutation = useMutation({
     mutationFn: async (jobId: number) => {
@@ -497,6 +520,10 @@ export default function SimplifiedRecruiterDashboard() {
 
   const handleJobClose = (jobId: number) => {
     closeJobMutation.mutate(jobId);
+  };
+
+  const handleJobReopen = (jobId: number) => {
+    reopenJobMutation.mutate(jobId);
   };
 
   const handleJobInvite = (jobId: number) => {
@@ -836,6 +863,7 @@ export default function SimplifiedRecruiterDashboard() {
                       onUnpublish={handleJobUnpublish}
                       onInvite={handleJobInvite}
                       onClose={handleJobClose}
+                      onReopen={handleJobReopen}
                       onViewInvited={handleViewInvited}
                       onExpandToggle={toggleJobExpansion}
                       isExpanded={expandedJobs.has(job.id)}
