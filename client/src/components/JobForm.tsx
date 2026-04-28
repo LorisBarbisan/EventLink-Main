@@ -26,7 +26,11 @@ export function JobForm({
   isSubmitting,
   isEditing = false,
 }: JobFormProps) {
-  const persistenceKey = isEditing && initialData?.id ? `job_edit_${initialData.id}` : "job_new";
+  const persistenceKey = isEditing && initialData?.id
+    ? `job_edit_${initialData.id}`
+    : !isEditing && initialData?.id
+      ? `job_duplicate_${initialData.id}`
+      : "job_new";
 
   const [formData, setFormData, clearFormData, isDirty] = usePersistentState<JobFormData>(
     persistenceKey,
@@ -86,11 +90,15 @@ export function JobForm({
         description="You have unsaved changes. Are you sure you want to discard them and leave?"
       />
       <CardHeader>
-        <CardTitle>{isEditing ? "Edit Job" : "Post New Job"}</CardTitle>
+        <CardTitle>
+          {isEditing ? "Edit Job" : initialData?.id ? "Create Similar Job" : "Post New Job"}
+        </CardTitle>
         <CardDescription>
           {isEditing
             ? "Update your job listing details"
-            : "Create a new gig listing to find the perfect crew member"}
+            : initialData?.id
+              ? "Pre-filled from an existing job — edit as needed then post"
+              : "Create a new gig listing to find the perfect crew member"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
