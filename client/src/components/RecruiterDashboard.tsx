@@ -41,6 +41,7 @@ export default function SimplifiedRecruiterDashboard() {
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [duplicatingFromJob, setDuplicatingFromJob] = useState<Job | null>(null);
   const [expandedJobs, setExpandedJobs] = useState<Set<number>>(new Set());
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedJobForInvite, setSelectedJobForInvite] = useState<{
@@ -555,7 +556,18 @@ export default function SimplifiedRecruiterDashboard() {
 
   const handleCancelEdit = () => {
     setEditingJob(null);
+    setDuplicatingFromJob(null);
     setShowJobForm(false);
+  };
+
+  const handleJobDuplicate = (job: Job) => {
+    setEditingJob(null);
+    setDuplicatingFromJob(job);
+    setShowJobForm(true);
+    // Scroll to the form
+    setTimeout(() => {
+      document.getElementById("job-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   };
 
   if (!user) {
@@ -824,15 +836,18 @@ export default function SimplifiedRecruiterDashboard() {
             </div>
           </div>
 
-          {(showJobForm || editingJob) && (
-            <JobForm
-              initialData={editingJob}
-              onSubmit={handleJobSubmit}
-              onCancel={handleCancelEdit}
-              isSubmitting={createJobMutation.isPending || updateJobMutation.isPending}
-              isEditing={!!editingJob}
-            />
-          )}
+          <div id="job-form-section">
+            {(showJobForm || editingJob) && (
+              <JobForm
+                key={editingJob ? `edit-${editingJob.id}` : duplicatingFromJob ? `duplicate-${duplicatingFromJob.id}` : "new"}
+                initialData={editingJob ?? duplicatingFromJob ?? undefined}
+                onSubmit={handleJobSubmit}
+                onCancel={handleCancelEdit}
+                isSubmitting={createJobMutation.isPending || updateJobMutation.isPending}
+                isEditing={!!editingJob}
+              />
+            )}
+          </div>
 
           <div className="space-y-4">
             {jobsLoading ? (
@@ -864,6 +879,7 @@ export default function SimplifiedRecruiterDashboard() {
                       onInvite={handleJobInvite}
                       onClose={handleJobClose}
                       onReopen={handleJobReopen}
+                      onDuplicate={handleJobDuplicate}
                       onViewInvited={handleViewInvited}
                       onExpandToggle={toggleJobExpansion}
                       isExpanded={expandedJobs.has(job.id)}

@@ -28,6 +28,7 @@ import {
   Lock,
   MapPin,
   MessageCircle,
+  Copy,
   RotateCcw,
   Send,
   Star,
@@ -55,6 +56,7 @@ interface JobCardProps {
   onViewInvited?: (jobId: number) => void;
   onClose?: (jobId: number) => void;
   onReopen?: (jobId: number) => void;
+  onDuplicate?: (job: Job) => void;
   invitedCount?: number;
 }
 
@@ -74,6 +76,7 @@ export function JobCard({
   onViewInvited,
   onClose,
   onReopen,
+  onDuplicate,
   invitedCount = 0,
 }: JobCardProps) {
   const [messageModalOpen, setMessageModalOpen] = useState(false);
@@ -383,6 +386,29 @@ export function JobCard({
                 data-testid={`button-edit-job-${job.id}`}
               >
                 <Edit className="w-4 h-4" />
+              </Button>
+            )}
+            {onDuplicate && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onDuplicate(job)}
+                title="Create a new job pre-filled with this job's details"
+                className="hidden sm:flex"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Create similar
+              </Button>
+            )}
+            {onDuplicate && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onDuplicate(job)}
+                title="Create similar job"
+                className="sm:hidden"
+              >
+                <Copy className="w-4 h-4" />
               </Button>
             )}
             {onDelete && (
