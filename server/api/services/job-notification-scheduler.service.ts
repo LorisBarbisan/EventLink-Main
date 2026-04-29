@@ -194,7 +194,7 @@ export async function processBatchWindow(window: "morning" | "afternoon"): Promi
   }
 
   let notifiedCount = 0;
-  for (const [userId, matchedJobs] of freelancerJobMap.entries()) {
+  for (const [userId, matchedJobs] of Array.from(freelancerJobMap.entries())) {
     const user = freelancerUsers.find(u => u.id === userId);
     if (!user) continue;
 
