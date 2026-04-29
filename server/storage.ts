@@ -460,6 +460,15 @@ export interface IStorage {
 
   // Cache management
   clearCache(): void;
+
+  // Batch notification methods
+  getJobsForBatchWindow(window: "morning" | "afternoon"): Promise<Job[]>;
+  updateJobBatchNotification(jobId: number, batchWindow: string | null, sentAt: Date | null): Promise<void>;
+  updateJobUrgencyAndBatch(jobId: number, isUrgent: boolean, batchWindow: string | null): Promise<void>;
+  updateFreelancerLastJobAlertSent(userId: number): Promise<void>;
+  getFreelancerJobAlertPrefs(userId: number): Promise<{ jobAlertsOptOut: boolean; lastJobAlertSentAt: Date | null; jobAlertFrequencyPreference: string }>;
+  setJobNotificationSentAt(jobId: number): Promise<void>;
+  setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4559,6 +4568,85 @@ export class DatabaseStorage implements IStorage {
       .from(reference_reports)
       .where(eq(reference_reports.reference_id, referenceId))
       .orderBy(desc(reference_reports.created_at));
+  }
+
+  async getJobsForBatchWindow(window: "morning" | "afternoon"): Promise<Job[]> {
+    return db.select()
+      .from(jobs)
+      .where(
+        and(
+          eq(jobs.status, "active"),
+          eq(jobs.notification_batch_window as any, window),
+          isNull(jobs.notification_sent_at as any),
+          eq(jobs.is_urgent as any, false)
+        )
+      );
+  }
+
+  async updateJobBatchNotification(jobId: number, batchWindow: string | null, sentAt: Date | null): Promise<void> {
+    await db.update(jobs)
+      .set({
+        notification_batch_window: batchWindow as any,
+        notification_sent_at: sentAt as any,
+        updated_at: new Date(),
+      })
+      .where(eq(jobs.id, jobId));
+  }
+
+  async updateJobUrgencyAndBatch(jobId: number, isUrgent: boolean, batchWindow: string | null): Promise<void> {
+    await db.update(jobs)
+      .set({
+        is_urgent: isUrgent as any,
+        notification_batch_window: batchWindow as any,
+        updated_at: new Date(),
+      })
+      .where(eq(jobs.id, jobId));
+  }
+
+  async updateFreelancerLastJobAlertSent(userId: number): Promise<void> {
+    await db.update(users)
+      .set({ last_job_alert_sent_at: new Date() as any, updated_at: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  async getFreelancerJobAlertPrefs(userId: number): Promise<{ jobAlertsOptOut: boolean; lastJobAlertSentAt: Date | null; jobAlertFrequencyPreference: string }> {
+    const result = await db.select({
+      jobAlertsOptOut: users.job_alerts_opt_out,
+      lastJobAlertSentAt: users.last_job_alert_sent_at,
+      jobAlertFrequencyPreference: users.job_alert_frequency_preference,
+    }).from(users).where(eq(users.id, userId)).limit(1);
+
+    if (!result[0]) {
+      return { jobAlertsOptOut: false, lastJobAlertSentAt: null, jobAlertFrequencyPreference: "instant" };
+    }
+    return {
+      jobAlertsOptOut: result[0].jobAlertsOptOut ?? false,
+      lastJobAlertSentAt: result[0].lastJobAlertSentAt ?? null,
+      jobAlertFrequencyPreference: result[0].jobAlertFrequencyPreference ?? "instant",
+    };
+  }
+
+  async setJobNotificationSentAt(jobId: number): Promise<void> {
+    await db.update(jobs)
+      .set({
+        notification_sent_at: new Date() as any,
+        notification_batch_window: null as any,
+        updated_at: new Date(),
+      })
+      .where(eq(jobs.id, jobId));
+  }
+
+  async setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void> {
+    const now = new Date();
+    await db.update(jobs)
+      .set({ notification_sent_at: now as any, last_notified_at: now, updated_at: now })
+      .where(eq(jobs.id, jobId));
+
+    if (freelancerUserIds.length > 0) {
+      await db.update(users)
+        .set({ last_job_alert_sent_at: now as any, updated_at: now })
+        .where(inArray(users.id, freelancerUserIds));
+    }
   }
 }
 
