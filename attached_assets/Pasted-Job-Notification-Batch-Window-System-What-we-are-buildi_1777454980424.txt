@@ -1,0 +1,137 @@
+Job Notification Batch Window System
+What we are building
+Currently, job notifications are sent manually via the admin dashboard. We need to add an automated batch window system that collects newly published jobs and sends matched freelancers a single bundled email — instead of one email per job. The manual admin button should remain and continue to work exactly as it does now. This new system sits alongside it as an automated layer.
+
+Part 1 — Database changes
+Add the following columns to the jobs table via a new Drizzle migration:
+typescriptnotificationBatchWindow: text('notification_batch_window'), 
+// values: 'morning' | 'afternoon' | null
+// set when job is published, cleared after batch is sent
+
+notificationSentAt: timestamp('notification_sent_at'),
+// when the automated batch notification was sent for this job
+
+isUrgent: boolean('is_urgent').default(false),
+// true when event date is within 48 hours of job publication
+Add the following columns to the users table (freelancers only):
+typescriptjobAlertsOptOut: boolean('job_alerts_opt_out').default(false),
+// freelancer has unsubscribed from job alert emails
+
+lastJobAlertSentAt: timestamp('last_job_alert_sent_at'),
+// timestamp of the last job alert email sent to this freelancer
+
+jobAlertFrequencyPreference: text('job_alert_frequency_preference').default('instant'),
+// values: 'instant' | 'weekly' | 'none'
+// 'instant' = include in batch windows
+// 'weekly' = only include in weekly digest (future feature, not built now)
+// 'none' = no automated emails
+
+Part 2 — Batch window assignment on job publication
+In the job creation/publication handler (in job.route.ts or the jobs controller, wherever a job status changes to active/published), add logic to:
+
+Calculate which batch window the job belongs to based on the current UK time (GMT+1):
+
+If published between 00:00 and 08:59 → assign morning window (sends at 09:00)
+If published between 09:00 and 12:59 → assign afternoon window (sends at 13:00)
+If published at 13:00 or later → assign morning window for the next day
+
+
+Check if the job's event date is within 48 hours of the publication timestamp. If yes, set isUrgent = true and bypass the batch window entirely (see Part 4).
+Save these values to the job record.
+
+
+Part 3 — The batch window scheduler
+Create a new file: server/api/services/job-notification-scheduler.service.ts
+This service runs two scheduled jobs using node-cron (install if not already present: npm install node-cron @types/node-cron):
+Schedule 1 — Morning batch at 09:00 UK time daily:
+cron: '0 9 * * *' with timezone 'Europe/London'
+Schedule 2 — Afternoon batch at 13:00 UK time daily:
+cron: '0 13 * * *' with timezone 'Europe/London'
+When each schedule fires, call processBatchWindow(window: 'morning' | 'afternoon').
+processBatchWindow function logic:
+typescriptasync function processBatchWindow(window: 'morning' | 'afternoon') {
+  // 1. Find all active jobs where:
+  //    - notificationBatchWindow = this window
+  //    - notificationSentAt IS NULL (not yet notified)
+  //    - isUrgent = false
+  
+  // 2. If no jobs found, exit early — do not send any email
+  
+  // 3. For each job, find matching freelancers using the existing 
+  //    matching logic from notifyFreelancersForJob in admin.controller.ts
+  //    (reuse or extract that matching logic into a shared utility)
+  
+  // 4. Build a map: freelancerId -> array of matched jobs
+  //    Each freelancer appears ONCE regardless of how many jobs they match
+  
+  // 5. Apply frequency cap: exclude any freelancer where 
+  //    lastJobAlertSentAt is within the last 24 hours
+  
+  // 6. Exclude any freelancer where jobAlertsOptOut = true
+  //    or jobAlertFrequencyPreference = 'none'
+  
+  // 7. For each remaining freelancer, send ONE email containing 
+  //    all their matched jobs (use the batch email template below)
+  
+  // 8. After sending, update:
+  //    - jobs: set notificationSentAt = now, clear notificationBatchWindow
+  //    - users: set lastJobAlertSentAt = now for each notified freelancer
+  
+  // 9. Log the send: how many freelancers notified, how many jobs included
+}
+Register both schedules in server/index.ts when the server starts.
+
+Part 4 — Urgency override (jobs within 48 hours)
+When a job is published and isUrgent = true:
+Do NOT add it to a batch window. Instead, immediately call the matching and sending logic with a maximum delay of 15 minutes. Implement this as a simple setTimeout of 15 minutes from publication time. This gives a correction window if the job was posted with errors.
+Urgent job emails use the same template as the batch email but with the subject line: Urgent — [Role] needed in [Location] [Date]
+
+Part 5 — Email template for batch sends
+Create a new SendGrid template (or HTML template in the existing email system) for batch job notifications:
+Subject line (single job match): New job on EventLink — [Role] in [Location]
+Subject line (multiple job matches): [N] new jobs on EventLink matching your profile
+Body:
+htmlHi [First Name],
+
+Here are the latest jobs on EventLink that match your skills and location.
+
+────────────────────────
+[Job Title]
+[Employer Name] · [Location] · £[Pay Rate] · [Date]
+[First 120 characters of description]
+→ View & Apply: https://eventlink.one/jobs/[id]
+
+[Repeat for each matched job]
+────────────────────────
+
+Keep your profile and availability up to date so employers can find you.
+
+→ View your profile: https://eventlink.one/dashboard
+
+The EventLink Team
+eventlink.one
+
+────────────────────────
+You're receiving this because you have a verified profile on EventLink.
+Unsubscribe: https://eventlink.one/unsubscribe?token=[unsubscribe_token]
+
+Part 6 — Freelancer preference settings (admin dashboard addition)
+In the admin user management view, add a column showing each freelancer's jobAlertFrequencyPreference and jobAlertsOptOut status so you can see at a glance who is opted out.
+No changes needed to the freelancer-facing UI yet — preference controls for freelancers are a future phase.
+
+Part 7 — The existing manual admin button must still work
+Do not change notifyFreelancersForJob or retriggerJobAlerts. These continue to work exactly as before. The new batch system is additive — it runs automatically but the manual button remains for cases where you want to notify freelancers immediately regardless of the batch schedule.
+The one addition to the manual button: after a manual send, set notificationSentAt on the job and lastJobAlertSentAt on each notified freelancer, so the frequency cap is respected across both manual and automated sends.
+
+Summary of files to create or modify
+FileActionmigrations/[timestamp]_add_notification_batch_fields.tsNew — adds DB columnsserver/api/services/job-notification-scheduler.service.tsNew — batch window schedulerserver/index.tsModify — register scheduler on startupserver/api/controllers/admin.controller.tsModify — update manual send to set lastJobAlertSentAtserver/api/routes/job.route.ts or jobs controllerModify — assign batch window on job publication
+
+Testing checklist before deploying
+
+ Publish a test job in the morning window and confirm it appears in the batch queue
+ Confirm the 09:00 scheduler fires and sends a single email to matched freelancers
+ Publish two jobs within the same window and confirm matched freelancers receive ONE email with both jobs
+ Publish a job with an event date tomorrow and confirm it sends within 15 minutes via urgency override
+ Confirm a freelancer with jobAlertsOptOut = true receives no email
+ Confirm a freelancer who received an email in the last 24 hours is excluded from the next batch
+ Confirm the manual admin notify button still works independently
