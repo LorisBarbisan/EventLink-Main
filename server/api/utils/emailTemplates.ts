@@ -569,6 +569,57 @@ export function employerWelcomeEmail(data: {
 }
 
 /**
+ * Batch job notification email template (automated batch window sends)
+ */
+export function batchJobNotifyEmail(data: {
+  recipientFirstName: string;
+  jobs: Array<{
+    title: string;
+    employerName: string;
+    location: string;
+    payRate: string;
+    eventDate: string;
+    descriptionPreview: string;
+    jobUrl: string;
+  }>;
+  dashboardUrl: string;
+  unsubscribeUrl: string;
+  isUrgent?: boolean;
+}): { subject: string; html: string } {
+  const jobCount = data.jobs.length;
+
+  const subject = data.isUrgent && jobCount === 1
+    ? `Urgent — ${data.jobs[0].title} needed in ${data.jobs[0].location} ${data.jobs[0].eventDate}`
+    : jobCount === 1
+    ? `New job on EventLink — ${data.jobs[0].title} in ${data.jobs[0].location}`
+    : `${jobCount} new jobs on EventLink matching your profile`;
+
+  const jobCards = data.jobs.map(job => `
+    <div style="border:1px solid #e5e5e5; border-radius:8px; padding:16px 20px; margin:16px 0; background:#fafafa;">
+      <p style="margin:0 0 6px 0; font-size:16px; font-weight:600; color:#D8690E;">${job.title}</p>
+      <p style="margin:0 0 4px 0; color:#444;">${job.employerName} &middot; ${job.location} &middot; ${job.payRate}</p>
+      <p style="margin:0 0 8px 0; color:#666; font-size:14px;">${job.eventDate}</p>
+      ${job.descriptionPreview ? `<p style="margin:0 0 10px 0; font-size:14px; color:#444;">${job.descriptionPreview}</p>` : ""}
+      <a href="${job.jobUrl}" style="display:inline-block; padding:8px 20px; background:linear-gradient(135deg,#D8690E 0%,#ff8c42 100%); color:#fff; text-decoration:none; border-radius:6px; font-weight:600; font-size:14px;">View &amp; Apply &rarr;</a>
+    </div>
+  `).join("");
+
+  const content = `
+    <p>Hi ${data.recipientFirstName},</p>
+    <p>Here are the latest jobs on EventLink that match your skills and location.</p>
+    ${jobCards}
+    <p style="margin-top:24px;">Keep your profile and availability up to date so employers can find you.</p>
+    <p><a href="${data.dashboardUrl}" class="button">View your profile</a></p>
+    <p style="color:#666; font-size:13px;">
+      You're receiving this because you have a verified profile on EventLink.<br/>
+      <a href="${data.unsubscribeUrl}" style="color:#D8690E;">Unsubscribe from job alerts</a>
+    </p>
+  `;
+
+  return { subject, html: masterTemplate(content) };
+}
+
+/**
  * Admin "Notify Freelancers" — single job notification template
  */
 export function singleJobNotifyEmail(data: {

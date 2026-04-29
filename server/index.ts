@@ -7,6 +7,7 @@ import { ogTagMiddleware } from "./api/middleware/ogTags";
 import { reconcileAdminUsers } from "./api/utils/reconcile-admin-users";
 import { seedProductionJobs } from "./api/utils/seed-production-jobs";
 import { backfillSlugs } from "./api/utils/backfill-slugs";
+import { registerJobNotificationScheduler } from "./api/services/job-notification-scheduler.service";
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
 import { storage } from "./storage";
@@ -204,6 +205,7 @@ app.use((req, res, next) => {
   await reconcileAdminUsers();
   await seedProductionJobs();
   backfillSlugs().catch(err => console.error("Slug backfill failed:", err));
+  registerJobNotificationScheduler();
 
   // OG tag middleware for social media crawlers (must be before Vite catch-all)
   app.use(ogTagMiddleware);

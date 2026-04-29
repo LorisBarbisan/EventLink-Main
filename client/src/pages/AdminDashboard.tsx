@@ -120,6 +120,8 @@ interface User {
   created_at: string;
   last_login_at?: string;
   profile_status?: "no_profile" | "incomplete" | "complete";
+  job_alerts_opt_out?: boolean;
+  job_alert_frequency_preference?: "instant" | "weekly" | "none";
 }
 
 interface UsersResponse {
@@ -2156,6 +2158,7 @@ function AdminDashboardContent() {
                           <TableHead>Status</TableHead>
                           <TableHead>Joined</TableHead>
                           <TableHead>Last Login</TableHead>
+                          <TableHead>Job Alerts</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2240,6 +2243,21 @@ function AdminDashboardContent() {
                                       minute: "2-digit",
                                     })
                                   : "Never"}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                {rowUser.role === "freelancer" ? (
+                                  rowUser.job_alerts_opt_out ? (
+                                    <Badge variant="destructive" className="text-xs">Opted Out</Badge>
+                                  ) : rowUser.job_alert_frequency_preference === "none" ? (
+                                    <Badge variant="secondary" className="text-xs">None</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-xs border-green-500 text-green-700">
+                                      {rowUser.job_alert_frequency_preference || "instant"}
+                                    </Badge>
+                                  )
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
                               </TableCell>
                               <TableCell className="py-2 text-right">
                                 <div className="flex items-center justify-end gap-1">

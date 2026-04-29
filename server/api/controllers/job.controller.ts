@@ -1,6 +1,37 @@
 import { insertJobSchema, insertJobLinkViewSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
+import { sendUrgentJobNotification } from "../services/job-notification-scheduler.service";
+
+/**
+ * Determine which batch window a job belongs to based on current UK time,
+ * and whether the job is urgent (event within 48h of now).
+ */
+function assignBatchWindow(job: any): { window: "morning" | "afternoon" | null; isUrgent: boolean } {
+  const nowUK = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/London" }));
+  const hour = nowUK.getHours();
+
+  let window: "morning" | "afternoon" | null;
+  if (hour >= 0 && hour < 9) {
+    window = "morning";
+  } else if (hour >= 9 && hour < 13) {
+    window = "afternoon";
+  } else {
+    window = "morning"; // next day morning
+  }
+
+  let isUrgent = false;
+  if (job.event_date) {
+    const eventMs = new Date(job.event_date).getTime();
+    const hoursUntilEvent = (eventMs - Date.now()) / 3_600_000;
+    if (hoursUntilEvent >= 0 && hoursUntilEvent <= 48) {
+      isUrgent = true;
+      window = null;
+    }
+  }
+
+  return { window, isUrgent };
+}
 
 // Get job by ID
 export async function getJobById(req: Request, res: Response) {
@@ -103,13 +134,21 @@ export async function createJob(req: Request, res: Response) {
       status: result.data.status || "private", // Default to private if not specified
     });
 
-    // Send job alert emails to matching freelancers (non-blocking)
-    // Only for EventLink jobs (not external jobs) AND only if active (published)
     if (job.type !== "external" && job.status === "active") {
-      const { emailService } = await import("../utils/emailNotificationService");
-      emailService.sendJobAlertToMatchingFreelancers(job).catch((error) => {
-        console.error("Failed to send job alert emails:", error);
-      });
+      const { window, isUrgent } = assignBatchWindow(job);
+      storage.updateJobUrgencyAndBatch(job.id, isUrgent, window).catch(err =>
+        console.error("Failed to assign batch window:", err)
+      );
+      if (isUrgent) {
+        setTimeout(() => {
+          sendUrgentJobNotification(job).catch(err =>
+            console.error("Failed to send urgent notification:", err)
+          );
+        }, 15 * 60 * 1000);
+        console.log(`🚨 Job ${job.id} is urgent — notification scheduled in 15 minutes.`);
+      } else {
+        console.log(`📋 Job ${job.id} assigned to ${window} batch window.`);
+      }
     }
 
     res.status(201).json(job);
@@ -176,13 +215,23 @@ export async function updateJob(req: Request, res: Response) {
       )
     );
 
-    // If job is being published (status changing to active), send alerts if not sent before
+    // If job is being published (status changing to active), assign batch window
     if (job.status === "private" && updatedJob.status === "active") {
       if (updatedJob.type !== "external") {
-        const { emailService } = await import("../utils/emailNotificationService");
-        emailService.sendJobAlertToMatchingFreelancers(updatedJob).catch((error) => {
-          console.error("Failed to send job alert emails:", error);
-        });
+        const { window, isUrgent } = assignBatchWindow(updatedJob);
+        storage.updateJobUrgencyAndBatch(updatedJob.id, isUrgent, window).catch(err =>
+          console.error("Failed to assign batch window:", err)
+        );
+        if (isUrgent) {
+          setTimeout(() => {
+            sendUrgentJobNotification(updatedJob).catch(err =>
+              console.error("Failed to send urgent notification:", err)
+            );
+          }, 15 * 60 * 1000);
+          console.log(`🚨 Job ${updatedJob.id} is urgent — notification scheduled in 15 minutes.`);
+        } else {
+          console.log(`📋 Job ${updatedJob.id} assigned to ${window} batch window.`);
+        }
       }
     }
 

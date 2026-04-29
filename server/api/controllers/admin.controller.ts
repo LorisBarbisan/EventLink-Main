@@ -655,6 +655,7 @@ export async function notifyFreelancersForJob(req: Request, res: Response) {
     // Fire and forget — send emails in background
     (async () => {
       let sent = 0;
+      const notifiedUserIds: number[] = [];
       for (const freelancer of matching) {
         try {
           const ok = await emailService.sendSingleJobNotification({
@@ -670,11 +671,18 @@ export async function notifyFreelancersForJob(req: Request, res: Response) {
             jobId: job.id,
             jobSlug: (job as any).slug ?? null,
           });
-          if (ok) sent++;
+          if (ok) {
+            sent++;
+            notifiedUserIds.push(freelancer.userId);
+          }
         } catch (err) {
           console.error(`Failed to notify freelancer ${freelancer.userId}:`, err);
         }
       }
+      // Set notification timestamps so frequency cap works across manual + automated sends
+      await storage.setManualNotificationTimestamps(jobId, notifiedUserIds).catch(err =>
+        console.error("Failed to set manual notification timestamps:", err)
+      );
       console.log(`✅ Notify Freelancers: sent ${sent}/${matching.length} emails for job ${jobId} "${job.title}"`);
     })();
 

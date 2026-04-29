@@ -50,6 +50,9 @@ export const users = pgTable(
     welcome_email_sent: boolean("welcome_email_sent").default(false).notNull(),
     marketing_emails_opt_out: boolean("marketing_emails_opt_out").default(false).notNull(),
     unsubscribe_token: text("unsubscribe_token").unique(),
+    job_alerts_opt_out: boolean("job_alerts_opt_out").default(false), // Freelancer has unsubscribed from job alert emails
+    last_job_alert_sent_at: timestamp("last_job_alert_sent_at", { withTimezone: true }), // Timestamp of last job alert email sent
+    job_alert_frequency_preference: text("job_alert_frequency_preference").default("instant").$type<"instant" | "weekly" | "none">(), // 'instant' = include in batch, 'none' = no automated emails
   },
   table => ({
     statusCheck: check(
@@ -160,6 +163,9 @@ export const jobs = pgTable("jobs", {
   posted_date: text("posted_date"), // Original posting date from external source
   slug: text("slug"), // SEO-friendly URL slug e.g. sound-engineer-london-4821
   last_notified_at: timestamp("last_notified_at", { withTimezone: true }), // When admin last sent "Notify Freelancers" for this job
+  notification_batch_window: text("notification_batch_window").$type<"morning" | "afternoon" | null>(), // Batch window assignment; cleared after send
+  notification_sent_at: timestamp("notification_sent_at", { withTimezone: true }), // When automated batch notification was sent
+  is_urgent: boolean("is_urgent").default(false), // true when event date is within 48h of publication
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
