@@ -38,7 +38,7 @@ export default function SimplifiedRecruiterDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [location, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState("jobs");
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
@@ -592,21 +592,21 @@ export default function SimplifiedRecruiterDashboard() {
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
-          <TabsTrigger value="profile">Company Profile</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
             My Jobs
             <TabBadge count={roleSpecificCounts.jobs || 0} />
-          </TabsTrigger>
-          <TabsTrigger value="crew">My Crew</TabsTrigger>
-          <TabsTrigger value="messages" className="gap-2">
-            Messages
-            <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
           <TabsTrigger value="applications" className="gap-2">
             Applications
             <TabBadge count={roleSpecificCounts.applications || 0} />
           </TabsTrigger>
+          <TabsTrigger value="messages" className="gap-2">
+            Messages
+            <TabBadge count={roleSpecificCounts.messages || 0} />
+          </TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="crew">My Crew</TabsTrigger>
+          <TabsTrigger value="profile">Company Profile</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
