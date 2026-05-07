@@ -1,5 +1,5 @@
-import { conversations, insertMessageSchema } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { conversations, insertMessageSchema, bookings, bookingStatusHistory } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { storage } from "../../storage.js";
 import { db } from "../config/db.js";
@@ -166,7 +166,7 @@ export async function startConversation(req: Request, res: Response) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const { userTwoId, initialMessage } = req.body;
+    const { userTwoId, initialMessage, jobId } = req.body;
 
     if (!userTwoId || !initialMessage) {
       return res.status(400).json({ error: "User ID and initial message are required" });
@@ -279,6 +279,46 @@ export async function startConversation(req: Request, res: Response) {
       } catch (error) {
         console.error("Error preparing message notification email:", error);
         // Don't fail the request if email preparation fails
+      }
+    }
+
+    // Step 9 — Auto-create booking when recruiter/employer contacts a freelancer about a job
+    if (jobId && (req as any).user.role === "recruiter" && recipient.role === "freelancer") {
+      try {
+        const [existingBooking] = await db
+          .select()
+          .from(bookings)
+          .where(
+            and(
+              eq(bookings.jobId, jobId),
+              eq(bookings.freelancerId, userTwoId)
+            )
+          );
+
+        if (!existingBooking) {
+          const [newBooking] = await db
+            .insert(bookings)
+            .values({
+              jobId,
+              employerId: (req as any).user.id,
+              freelancerId: userTwoId,
+              status: "enquired",
+            })
+            .returning();
+
+          await db.insert(bookingStatusHistory).values({
+            bookingId: newBooking.id,
+            fromStatus: null,
+            toStatus: "enquired",
+            changedById: (req as any).user.id,
+            note: "Booking created automatically on first message",
+          });
+
+          console.log(`📋 Auto-created booking #${newBooking.id} for job ${jobId} with freelancer ${userTwoId}`);
+        }
+      } catch (bookingError) {
+        console.error("Auto-booking creation failed (non-fatal):", bookingError);
+        // Non-fatal — don't fail the conversation creation
       }
     }
 

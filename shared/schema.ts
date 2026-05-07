@@ -963,3 +963,67 @@ export const insertReferenceReportSchema = createInsertSchema(reference_reports)
 
 export type ReferenceReport = typeof reference_reports.$inferSelect;
 export type InsertReferenceReport = z.infer<typeof insertReferenceReportSchema>;
+
+// ============================================================
+// FMS Phase 1 — Bookings
+// ============================================================
+
+export const bookings = pgTable("bookings", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  employerId: integer("employer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  freelancerId: integer("freelancer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("enquired"),
+  agreedRate: text("agreed_rate"),
+  callTime: text("call_time"),
+  venueAddress: text("venue_address"),
+  employerNotes: text("employer_notes"),
+  cancellationReason: text("cancellation_reason"),
+  cancelledBy: text("cancelled_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const bookingStatusHistory = pgTable("booking_status_history", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id")
+    .notNull()
+    .references(() => bookings.id, { onDelete: "cascade" }),
+  fromStatus: text("from_status"),
+  toStatus: text("to_status").notNull(),
+  changedById: integer("changed_by_id")
+    .notNull()
+    .references(() => users.id),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const insertBookingSchema = createInsertSchema(bookings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateBookingSchema = createInsertSchema(bookings)
+  .omit({ id: true, jobId: true, employerId: true, freelancerId: true, createdAt: true })
+  .partial();
+
+export const bookingStatusValues = [
+  "enquired",
+  "confirmed",
+  "briefed",
+  "completed",
+  "cancelled",
+] as const;
+
+export type BookingStatus = (typeof bookingStatusValues)[number];
+
+export type Booking = typeof bookings.$inferSelect;
+export type InsertBooking = typeof bookings.$inferInsert;
+export type BookingStatusHistory = typeof bookingStatusHistory.$inferSelect;
