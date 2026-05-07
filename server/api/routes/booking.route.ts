@@ -4,7 +4,7 @@
 // ============================================================
 
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth.middleware";
+import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import {
   createBooking,
@@ -19,7 +19,7 @@ import {
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(authenticateJWT);
 
 // ── Employer routes ───────────────────────────────────────
 router.get("/employer", requireRole("employer"), getEmployerBookings);
