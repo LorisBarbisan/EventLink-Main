@@ -4,7 +4,7 @@
 // ============================================================
 
 import { Request, Response } from "express";
-import { db } from "../../storage";
+import { db } from "../config/db";
 import {
   bookings,
   bookingStatusHistory,
