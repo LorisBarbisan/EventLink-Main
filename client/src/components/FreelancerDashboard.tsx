@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import MyJobs from "@/pages/freelancer/MyJobs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
@@ -396,38 +397,7 @@ export default function SimplifiedFreelancerDashboard() {
 
         {/* Bookings Tab */}
         <TabsContent value="bookings" className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold">My Bookings</h2>
-            <p className="text-muted-foreground">Manage your confirmed job bookings and schedule</p>
-          </div>
-
-          {applicationsLoading ? (
-            <div className="flex justify-center p-8">Loading bookings...</div>
-          ) : jobApplications.filter((app: JobApplication) => app.status === "hired").length ===
-            0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <BookOpen className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                <h3 className="mb-2 text-lg font-medium">No Bookings Yet</h3>
-                <p className="text-muted-foreground">
-                  When you get hired for jobs, they will appear here.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {jobApplications
-                .filter((application: JobApplication) => application.status === "hired")
-                .map((application: JobApplication) => (
-                  <ApplicationCard
-                    key={application.id}
-                    application={application}
-                    userType="freelancer"
-                    currentUserId={user.id}
-                  />
-                ))}
-            </div>
-          )}
+          <MyJobs />
         </TabsContent>
 
         {/* References Tab */}

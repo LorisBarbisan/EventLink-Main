@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import MyBookings from "@/pages/employer/MyBookings";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
@@ -81,7 +82,7 @@ export default function SimplifiedRecruiterDashboard() {
       const actionParam = urlParams.get("action");
 
       // Switch to tab specified in URL (e.g., from notifications)
-      if (tabParam && ["profile", "jobs", "applications", "messages", "crew"].includes(tabParam)) {
+      if (tabParam && ["profile", "jobs", "applications", "messages", "crew", "bookings"].includes(tabParam)) {
         if (tabParam !== activeTab) {
           setActiveTab(tabParam);
         }
@@ -590,7 +591,7 @@ export default function SimplifiedRecruiterDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="profile">Company Profile</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
             My Jobs
@@ -605,6 +606,7 @@ export default function SimplifiedRecruiterDashboard() {
             Applications
             <TabBadge count={roleSpecificCounts.applications || 0} />
           </TabsTrigger>
+          <TabsTrigger value="bookings">Bookings</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -1012,6 +1014,11 @@ export default function SimplifiedRecruiterDashboard() {
               );
             })()
           )}
+        </TabsContent>
+
+        {/* Bookings Tab */}
+        <TabsContent value="bookings" className="space-y-6">
+          <MyBookings />
         </TabsContent>
       </Tabs>
 
