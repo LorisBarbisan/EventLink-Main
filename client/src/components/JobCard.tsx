@@ -57,6 +57,7 @@ interface JobCardProps {
   onClose?: (jobId: number) => void;
   onReopen?: (jobId: number) => void;
   onDuplicate?: (job: Job) => void;
+  onViewDetail?: (jobId: number) => void;
   invitedCount?: number;
 }
 
@@ -77,6 +78,7 @@ export function JobCard({
   onClose,
   onReopen,
   onDuplicate,
+  onViewDetail,
   invitedCount = 0,
 }: JobCardProps) {
   const [messageModalOpen, setMessageModalOpen] = useState(false);
@@ -142,7 +144,12 @@ export function JobCard({
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <h3 className="text-lg font-semibold">{job.title}</h3>
+              <h3
+                className={`text-lg font-semibold ${onViewDetail ? "cursor-pointer hover:text-primary hover:underline" : ""}`}
+                onClick={() => onViewDetail?.(job.id)}
+              >
+                {job.title}
+              </h3>
               {isPosted && (
                 <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-green-200">
                   <Eye className="w-3 h-3 mr-1" />

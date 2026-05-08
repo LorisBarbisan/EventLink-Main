@@ -441,3 +441,23 @@ export async function deleteJob(req: Request, res: Response) {
     res.status(500).json({ error: "Internal server error" });
   }
 }
+
+export async function getRecruiterJobDetail(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user?.id;
+    const jobId = parseInt(req.params.jobId);
+    if (isNaN(jobId)) return res.status(400).json({ error: "Invalid job ID" });
+
+    const result = await storage.getAdminJobDetail(jobId);
+    if (!result) return res.status(404).json({ error: "Job not found" });
+
+    if (result.job.recruiter_id !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Get recruiter job detail error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
