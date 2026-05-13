@@ -1,0 +1,535 @@
+Replit Agent 4 Instruction — Automatic Job Closure Email to Unsuccessful Applicants
+Read this entire instruction before starting. Implement each sprint in order. Do not move to the next sprint until the current one is tested and working.
+
+Context
+When a job is closed on EventLink — either because the employer manually closes it, or because the event date has passed — all applicants who were not hired should automatically receive a polite notification email. The email thanks them for applying, explains the role has been filled, and nudges them to strengthen their EventLink profile using the Build My Reputation tool.
+This is an automated trigger, not a manual send. It fires once per job, when the job status changes to closed or completed.
+
+Sprint 1 — Database: Add email tracking to applications
+We need to track whether the closure email has been sent to each applicant, so we never send it twice.
+In the applications table, add the following column via a new Drizzle migration:
+sql-- File: migrations/0007_job_closure_email.sql
+
+ALTER TABLE "applications"
+ADD COLUMN IF NOT EXISTS "closure_email_sent" boolean NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS "closure_email_sent_at" timestamp with time zone;
+Also add these fields to the applications schema in shared/schema.ts:
+typescriptclosureEmailSent: boolean("closure_email_sent").notNull().default(false),
+closureEmailSentAt: timestamp("closure_email_sent_at", { withTimezone: true }),
+Run the migration before proceeding.
+
+Sprint 2 — Email template: Write the closure email HTML
+Create a new file: server/api/services/job-closure-email.service.ts
+This file exports one function: sendJobClosureEmails(jobId: number).
+The function must:
+Step 1 — Fetch the job record including title, location, eventDate, and the employer's company name (join to users table on employerId, get companyName or firstName + lastName as fallback).
+Step 2 — Fetch all applications for this job where:
+
+status is NOT hired (or whatever the hired status value is in your schema — check the applications table status enum)
+closureEmailSent is false
+
+Step 3 — For each application, fetch the applicant's firstName, email, and their unique Build My Reputation link. The reputation link format is: https://eventlink.one/reputation/[userId] — check if there is already a field for this on the users table or a separate reputationToken field; if so use that. If not, use the user's ID.
+Step 4 — Send each applicant a single email via SendGrid using the HTML template below.
+Step 5 — After each successful send, update that application record: set closureEmailSent = true and closureEmailSentAt = now().
+Step 6 — Log the total number of emails sent for this job to the console: Job [jobId] closure: [n] emails sent.
+
+The email HTML template (use your existing SendGrid transactional email helper — look at how other emails are sent in the codebase and follow the same pattern):
+Subject: Your application to [Job Title] — [Company Name]
+
+Hi [First Name],
+
+Thank you for applying for the [Job Title] role at [Company Name] on EventLink.
+
+After careful consideration, they have decided to move forward with another candidate for this particular event. This is not a reflection of your skills — competition for roles on EventLink is growing and we are seeing more applications on every job.
+
+The best way to stand out for the next role is to make your profile impossible to overlook. Employers on EventLink prioritise candidates with verified references — the Build My Reputation tool lets you collect them in under 60 seconds from anyone you have worked with.
+
+→ Strengthen your profile: [Build My Reputation link]
+
+Send your unique link to a past production manager, venue contact, or project manager. Every verified reference strengthens your position on the platform.
+
+More opportunities are posted regularly. Keep your profile up to date and you will be first in line.
+
+Best of luck,
+The EventLink Team
+eventlink.one
+
+────────────────────────────────
+You're receiving this because you applied for a job on EventLink.
+Unsubscribe: https://eventlink.one/unsubscribe?token=[unsubscribe_token]
+Use the applicant's actual unsubscribe token if one exists in the users table. If not, use the user's ID as the token parameter for now and note it needs to be replaced with a proper token later.
+
+Sprint 3 — Trigger: Fire on job close
+There are two places this function must be called. Find both in the codebase:
+Trigger A — Employer manually closes a job
+Find the route or controller function that handles PATCH /api/jobs/:id or equivalent where the job status is set to closed, filled, completed, or inactive. Look in job.controller.ts or job.route.ts.
+After the job status is successfully updated to closed/filled, call:
+typescriptimport { sendJobClosureEmails } from "../services/job-closure-email.service";
+
+// After successful status update:
+sendJobClosureEmails(jobId).catch(err =>
+  console.error(`Job closure email error for job ${jobId}:`, err)
+);
+Use .catch() so that an email failure never crashes the job close response. The employer should not see an error even if the emails fail.
+Trigger B — Scheduled job for expired events (event date has passed)
+Look for the existing scheduler in server/api/services/job-notification-scheduler.service.ts (built in a previous sprint). Add a new cron job that runs daily at 10:00am UK time:
+typescript// Daily at 10:00am UK time — close expired jobs and send closure emails
+cron.schedule('0 10 * * *', async () => {
+  const now = new Date();
+
+  // Find all active jobs where eventDate < now (event has passed)
+  const expiredJobs = await db
+    .select()
+    .from(jobs)
+    .where(
+      and(
+        // Status is still active/open — not already closed
+        not(eq(jobs.status, 'closed')),
+        not(eq(jobs.status, 'filled')),
+        not(eq(jobs.status, 'completed')),
+        // Event date has passed
+        lt(jobs.eventDate, now)
+      )
+    );
+
+  for (const job of expiredJobs) {
+    // Mark job as closed
+    await db
+      .update(jobs)
+      .set({ status: 'closed', updatedAt: now })
+      .where(eq(jobs.id, job.id));
+
+    // Send closure emails to unsuccessful applicants
+    await sendJobClosureEmails(job.id).catch(err =>
+      console.error(`Scheduled closure email error for job ${job.id}:`, err)
+    );
+  }
+
+  if (expiredJobs.length > 0) {
+    console.log(`Daily scheduler: closed ${expiredJobs.length} expired jobs and sent closure emails`);
+  }
+}, { timezone: 'Europe/London' });
+Important: Check what the actual status field values are in the jobs table before writing these conditions. Use the exact string values from the schema, not assumptions.
+
+Sprint 4 — Guard: Prevent duplicate sends
+The closureEmailSent flag on each application handles per-applicant deduplication. But also add a check at the top of sendJobClosureEmails to prevent the function being called twice for the same job in rapid succession (e.g. if a webhook fires twice):
+typescript// At the top of sendJobClosureEmails, before any DB queries:
+const alreadySentCount = await db
+  .select({ count: sql`count(*)` })
+  .from(applications)
+  .where(
+    and(
+      eq(applications.jobId, jobId),
+      eq(applications.closureEmailSent, true)
+    )
+  );
+
+// If any closure emails have already gone for this job, skip entirely
+if (Number(alreadySentCount[0].count) > 0) {
+  console.log(`Job ${jobId} closure emails already sent — skipping`);
+  return;
+}
+
+Sprint 5 — Admin visibility
+In the admin dashboard (wherever jobs are listed in the admin view), add a small indicator showing how many closure emails were sent for each job. This can be a simple count query:
+typescript// Count of closure emails sent for a job:
+SELECT COUNT(*) FROM applications
+WHERE job_id = $1 AND closure_email_sent = true
+Display this as a badge next to the job in the admin job list — e.g. "✉ 12 notified". This lets Loris confirm at a glance that closure emails went out correctly for each job.
+
+Testing checklist before deploying
+
+ Create a test job, submit two test applications with test email addresses
+ Close the job manually via the employer dashboard
+ Confirm both test applicants received the closure email
+ Confirm the email contains the correct job title, company name, and a working Build My Reputation link
+ Confirm closure_email_sent = true in the database for both applications
+ Close the same job again (or call sendJobClosureEmails again) — confirm no duplicate emails are sent
+ Check the admin dashboard shows the "✉ 2 notified" badge for the test job
+ Set a test job's eventDate to yesterday and run the scheduled job manually — confirm it auto-closes and sends emails
+
+
+Files to create or modify
+FileActionmigrations/0007_job_closure_email.sqlNew — adds closure_email_sent columns to applicationsshared/schema.tsModify — add closureEmailSent and closureEmailSentAt fieldsserver/api/services/job-closure-email.service.tsNew — the email sending functionserver/api/controllers/job.controller.tsModify — call sendJobClosureEmails after manual job closeserver/api/services/job-notification-scheduler.service.tsModify — add daily 10am auto-close and email triggerAdmin dashboard job list componentModify — add closure email count badge
+
+One important note for Agent 4
+Before implementing, check the exact field names and status values used in the jobs and applications tables by reading shared/schema.ts and the most recent migrations. Do not assume status values — use the exact strings already in the codebase. If hired is stored as accepted or confirmed in the applications table, use that value instead.You said: can you please add the actual email content and subject pleasecan you please add the actual email content and subject please4:29 PMClaude responded: Here is the full updated instruction with the complete email content embedded directly into the code — ready to paste into Replit Agent 4.Here is the full updated instruction with the complete email content embedded directly into the code — ready to paste into Replit Agent 4.
+
+Replit Agent 4 Instruction — Automatic Job Closure Email to Unsuccessful Applicants
+Read this entire instruction before starting. Implement each sprint in order. Do not move to the next sprint until the current one is tested and working.
+
+Context
+When a job is closed on EventLink — either because the employer manually closes it, or because the event date has passed — all applicants who were not hired should automatically receive a polite notification email. The email thanks them for applying, explains the role has been filled, and nudges them to strengthen their EventLink profile using the Build My Reputation tool.
+This is an automated trigger, not a manual send. It fires once per job, when the job status changes to closed or completed.
+
+Sprint 1 — Database: Add email tracking to applications
+Add the following column via a new Drizzle migration:
+sql-- File: migrations/0007_job_closure_email.sql
+
+ALTER TABLE "applications"
+ADD COLUMN IF NOT EXISTS "closure_email_sent" boolean NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS "closure_email_sent_at" timestamp with time zone;
+Add these fields to the applications schema in shared/schema.ts:
+typescriptclosureEmailSent: boolean("closure_email_sent").notNull().default(false),
+closureEmailSentAt: timestamp("closure_email_sent_at", { withTimezone: true }),
+Run the migration before proceeding.
+
+Sprint 2 — Email service: Create the closure email function
+Create a new file: server/api/services/job-closure-email.service.ts
+The complete file content is below. Read shared/schema.ts before implementing to confirm the exact field names for jobs, applications, and users — adjust any field names if they differ.
+typescriptimport { db } from "../../storage";
+import { jobs, applications, users } from "../../../shared/schema";
+import { eq, and, ne } from "drizzle-orm";
+import sgMail from "@sendgrid/mail";
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+
+export async function sendJobClosureEmails(jobId: number): Promise<void> {
+
+  // ── Guard: skip if closure emails already sent for this job ──────────────
+  const alreadySent = await db
+    .select()
+    .from(applications)
+    .where(
+      and(
+        eq(applications.jobId, jobId),
+        eq(applications.closureEmailSent, true)
+      )
+    )
+    .limit(1);
+
+  if (alreadySent.length > 0) {
+    console.log(`Job ${jobId} closure emails already sent — skipping`);
+    return;
+  }
+
+  // ── Fetch the job with employer name ─────────────────────────────────────
+  const jobResult = await db
+    .select({
+      id: jobs.id,
+      title: jobs.title,
+      location: jobs.location,
+      eventDate: jobs.eventDate,
+      employerId: jobs.employerId,
+    })
+    .from(jobs)
+    .where(eq(jobs.id, jobId))
+    .limit(1);
+
+  if (!jobResult.length) {
+    console.error(`sendJobClosureEmails: job ${jobId} not found`);
+    return;
+  }
+
+  const job = jobResult[0];
+
+  // Fetch employer name
+  const employerResult = await db
+    .select({
+      firstName: users.firstName,
+      lastName: users.lastName,
+      companyName: users.companyName,
+    })
+    .from(users)
+    .where(eq(users.id, job.employerId))
+    .limit(1);
+
+  const employer = employerResult[0];
+  const companyName =
+    employer?.companyName ||
+    `${employer?.firstName ?? ""} ${employer?.lastName ?? ""}`.trim() ||
+    "the employer";
+
+  // ── Fetch unsuccessful applicants ─────────────────────────────────────────
+  // Get all applications for this job that are NOT hired and have not yet
+  // received a closure email. Adjust the hired status value below if needed —
+  // check the applications table status enum in shared/schema.ts.
+  const HIRED_STATUS = "hired"; // <-- update if your schema uses a different value
+
+  const unsuccessfulApplicants = await db
+    .select({
+      applicationId: applications.id,
+      freelancerId: applications.freelancerId,
+    })
+    .from(applications)
+    .where(
+      and(
+        eq(applications.jobId, jobId),
+        ne(applications.status, HIRED_STATUS),
+        eq(applications.closureEmailSent, false)
+      )
+    );
+
+  if (!unsuccessfulApplicants.length) {
+    console.log(`Job ${jobId}: no unsuccessful applicants to notify`);
+    return;
+  }
+
+  // ── Send one email per applicant ──────────────────────────────────────────
+  let sentCount = 0;
+
+  for (const applicant of unsuccessfulApplicants) {
+    const freelancerResult = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        email: users.email,
+        unsubscribeToken: users.unsubscribeToken, // remove if field doesn't exist
+      })
+      .from(users)
+      .where(eq(users.id, applicant.freelancerId))
+      .limit(1);
+
+    const freelancer = freelancerResult[0];
+
+    if (!freelancer?.email) continue;
+
+    const firstName = freelancer.firstName || "there";
+
+    // Build reputation link — use unsubscribeToken if available, otherwise user ID
+    const reputationLink = `https://eventlink.one/reputation/${freelancer.id}`;
+
+    // Build unsubscribe link
+    const unsubscribeLink = `https://eventlink.one/unsubscribe?token=${
+      freelancer.unsubscribeToken ?? freelancer.id
+    }`;
+
+    // ── Email subject ──────────────────────────────────────────────────────
+    const subject = `Your application for ${job.title} — ${companyName}`;
+
+    // ── Email plain text fallback ─────────────────────────────────────────
+    const textContent = `
+Hi ${firstName},
+
+Thank you for applying for the ${job.title} role posted by ${companyName} on EventLink.
+
+After reviewing all applications, they have decided to move forward with another candidate for this particular event. This is not a reflection on your skills — competition for roles on EventLink is growing and every job is receiving more applications.
+
+The best way to stand out next time is to make your profile impossible to overlook. Employers consistently shortlist candidates with verified references. The Build My Reputation tool lets your past clients vouch for you in under 60 seconds.
+
+Strengthen your profile here:
+${reputationLink}
+
+Send that link to a production manager, venue contact, or project manager you have worked with. Every reference they submit strengthens your position on the platform for every future role.
+
+New jobs are posted regularly. Keep your profile up to date and you will be first in line.
+
+Best of luck,
+The EventLink Team
+eventlink.one
+
+You are receiving this because you applied for a job on EventLink.
+Unsubscribe: ${unsubscribeLink}
+`.trim();
+
+    // ── Email HTML ─────────────────────────────────────────────────────────
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F3F4F6;font-family:Arial,sans-serif;">
+
+  <!-- Wrapper -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F3F4F6;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#1B2A4A;padding:28px 36px 20px 36px;border-bottom:4px solid #D8690E;">
+              <p style="margin:0;font-size:22px;font-weight:bold;color:#D8690E;letter-spacing:1px;">EVENTLINK</p>
+              <p style="margin:4px 0 0 0;font-size:12px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.5px;">Event Industry Professional Network</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 36px 24px 36px;">
+
+              <p style="margin:0 0 20px 0;font-size:16px;color:#1F2937;">Hi ${firstName},</p>
+
+              <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">
+                Thank you for applying for the <strong>${job.title}</strong> role posted by <strong>${companyName}</strong> on EventLink.
+              </p>
+
+              <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">
+                After reviewing all applications, they have decided to move forward with another candidate for this particular event. This is not a reflection on your skills — competition for roles on EventLink is growing and every job is receiving more applications.
+              </p>
+
+              <!-- Divider -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0;">
+                <tr><td style="border-top:1px solid #E5E7EB;"></td></tr>
+              </table>
+
+              <p style="margin:0 0 12px 0;font-size:15px;font-weight:bold;color:#1B2A4A;">Make your profile impossible to overlook</p>
+
+              <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">
+                Employers consistently shortlist candidates with verified references. The <strong>Build My Reputation</strong> tool lets your past clients vouch for you in under 60 seconds — and a verified badge appears on your profile the moment they submit.
+              </p>
+
+              <!-- CTA Button -->
+              <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
+                <tr>
+                  <td style="background-color:#D8690E;border-radius:8px;">
+                    <a href="${reputationLink}"
+                       style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:8px;">
+                      → Build My Reputation
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 16px 0;font-size:14px;color:#6B7280;line-height:1.6;">
+                Send your unique link to a production manager, venue contact, or project manager you have worked with. Every reference they submit strengthens your position for every future role on the platform.
+              </p>
+
+              <!-- Divider -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0;">
+                <tr><td style="border-top:1px solid #E5E7EB;"></td></tr>
+              </table>
+
+              <p style="margin:0 0 8px 0;font-size:14px;color:#374151;line-height:1.6;">
+                New jobs are posted regularly. Keep your profile up to date and you will be first in line.
+              </p>
+
+              <p style="margin:24px 0 0 0;font-size:14px;color:#374151;">
+                Best of luck,<br/>
+                <strong>The EventLink Team</strong><br/>
+                <a href="https://eventlink.one" style="color:#D8690E;text-decoration:none;">eventlink.one</a>
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#F9FAFB;padding:20px 36px;border-top:1px solid #E5E7EB;">
+              <p style="margin:0;font-size:12px;color:#9CA3AF;line-height:1.6;">
+                You are receiving this because you applied for a job on EventLink.<br/>
+                <a href="${unsubscribeLink}" style="color:#9CA3AF;">Unsubscribe</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
+`.trim();
+
+    // ── Send via SendGrid ─────────────────────────────────────────────────
+    try {
+      await sgMail.send({
+        to: freelancer.email,
+        from: {
+          email: "loris@eventlink.one",
+          name: "EventLink",
+        },
+        replyTo: "loris@eventlink.one",
+        subject,
+        text: textContent,
+        html: htmlContent,
+      });
+
+      // Mark as sent in the database
+      await db
+        .update(applications)
+        .set({
+          closureEmailSent: true,
+          closureEmailSentAt: new Date(),
+        })
+        .where(eq(applications.id, applicant.applicationId));
+
+      sentCount++;
+
+    } catch (error) {
+      console.error(
+        `Failed to send closure email to freelancer ${freelancer.id} for job ${jobId}:`,
+        error
+      );
+      // Continue to next applicant — don't abort the whole batch on one failure
+    }
+  }
+
+  console.log(`Job ${jobId} closure: ${sentCount} emails sent`);
+}
+
+Sprint 3 — Trigger: Fire on job close
+Trigger A — Employer manually closes a job
+Find the controller function that handles closing a job (look in job.controller.ts — the function that updates job status to closed, filled, completed, or inactive). After the job status is successfully updated, add:
+typescriptimport { sendJobClosureEmails } from "../services/job-closure-email.service";
+
+// After successful status update — non-blocking:
+sendJobClosureEmails(jobId).catch(err =>
+  console.error(`Job closure email error for job ${jobId}:`, err)
+);
+Use .catch() so that an email failure never affects the employer's response.
+Trigger B — Scheduled auto-close for expired events
+In the existing scheduler file server/api/services/job-notification-scheduler.service.ts, add a new cron job that runs daily at 10:00am UK time:
+typescript// Daily at 10:00am UK time — auto-close expired jobs and send closure emails
+cron.schedule('0 10 * * *', async () => {
+  const now = new Date();
+
+  // Check the jobs table status field in schema.ts and use the exact
+  // active/open status values your codebase uses below:
+  const expiredJobs = await db
+    .select()
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.status, 'active'), // adjust to match your active status value
+        lt(jobs.eventDate, now)
+      )
+    );
+
+  for (const job of expiredJobs) {
+    await db
+      .update(jobs)
+      .set({ status: 'closed', updatedAt: now })
+      .where(eq(jobs.id, job.id));
+
+    await sendJobClosureEmails(job.id).catch(err =>
+      console.error(`Scheduled closure email error for job ${job.id}:`, err)
+    );
+  }
+
+  if (expiredJobs.length > 0) {
+    console.log(`Daily scheduler: auto-closed ${expiredJobs.length} expired jobs`);
+  }
+}, { timezone: 'Europe/London' });
+
+Sprint 4 — Admin visibility
+In the admin dashboard job list, add a closure email count badge next to each job. Use this query:
+typescriptconst closureEmailCount = await db
+  .select({ count: sql`count(*)` })
+  .from(applications)
+  .where(
+    and(
+      eq(applications.jobId, jobId),
+      eq(applications.closureEmailSent, true)
+    )
+  );
+Display as a small badge: ✉ 12 notified — so the status of closure emails is visible at a glance for every job.
+
+Testing checklist before deploying
+
+ Create a test job, submit two test applications with real email addresses you can check
+ Close the job manually — confirm both applicants receive the closure email
+ Confirm subject line reads: Your application for [Job Title] — [Company Name]
+ Confirm the orange Build My Reputation button links to eventlink.one/reputation/[userId]
+ Confirm closure_email_sent = true in the database after send
+ Call sendJobClosureEmails on the same job again — confirm no duplicate emails are sent
+ Set a test job's eventDate to yesterday, run the 10am cron manually — confirm auto-close and emails fire
+ Check admin dashboard shows ✉ badge with correct count
+
+
+Files to create or modify
+FileActionmigrations/0007_job_closure_email.sqlNew — adds closure email columns to applicationsshared/schema.tsModify — add closureEmailSent and closureEmailSentAtserver/api/services/job-closure-email.service.tsNew — complete email service (full code above)server/api/controllers/job.controller.tsModify — call sendJobClosureEmails after manual closeserver/api/services/job-notification-scheduler.service.tsModify — add 10am auto-close cronAdmin job list componentModify — add ✉ closure email count badge
