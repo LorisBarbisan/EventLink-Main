@@ -230,6 +230,13 @@ export default function Jobs() {
           variant: "destructive",
         });
         setLocation("/auth");
+      } else if (error.message.includes("create a profile") || error.code === "NO_PROFILE") {
+        toast({
+          title: "Profile required",
+          description: "You need to create your profile before applying for jobs.",
+          variant: "destructive",
+        });
+        setLocation("/dashboard");
       } else {
         toast({
           title: "Application failed",

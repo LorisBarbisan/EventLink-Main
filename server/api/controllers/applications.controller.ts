@@ -44,6 +44,15 @@ export async function applyToJob(req: Request, res: Response) {
       });
     }
 
+    // Check that the freelancer has created a profile
+    const freelancerProfile = await storage.getFreelancerProfile((req as any).user.id);
+    if (!freelancerProfile) {
+      return res.status(403).json({
+        error: "You need to create a profile before applying for jobs.",
+        code: "NO_PROFILE",
+      });
+    }
+
     // Check if job exists
     const job = await storage.getJobById(jobId);
     if (!job) {
