@@ -3,6 +3,10 @@ import { storage } from "../../storage";
 import { sendEmail } from "../utils/emailService";
 import * as emailTemplates from "../utils/emailTemplates";
 import { isWithinRadius } from "../utils/uk-coordinates";
+import { db } from "../config/db";
+import { jobs } from "@shared/schema";
+import { eq, and, sql } from "drizzle-orm";
+import { sendJobClosureEmails } from "./job-closure-email.service";
 
 const BASE_URL = process.env.FRONTEND_URL || "https://eventlink.one";
 
@@ -294,5 +298,37 @@ export function registerJobNotificationScheduler(): void {
     }
   }, { timezone: "Europe/London" });
 
-  console.log("✅ Job notification batch scheduler registered (09:00 & 13:00 UK time).");
+  // Daily at 10:00am UK time — auto-close expired jobs and send closure emails
+  cron.schedule("0 10 * * *", async () => {
+    try {
+      const expiredJobs = await db
+        .select()
+        .from(jobs)
+        .where(
+          and(
+            eq(jobs.status, "active"),
+            sql`${jobs.event_date}::date < CURRENT_DATE`
+          )
+        );
+
+      for (const job of expiredJobs) {
+        await db
+          .update(jobs)
+          .set({ status: "closed", updated_at: new Date() })
+          .where(eq(jobs.id, job.id));
+
+        await sendJobClosureEmails(job.id).catch((err) =>
+          console.error(`Scheduled closure email error for job ${job.id}:`, err)
+        );
+      }
+
+      if (expiredJobs.length > 0) {
+        console.log(`Daily scheduler: auto-closed ${expiredJobs.length} expired jobs and sent closure emails`);
+      }
+    } catch (err) {
+      console.error("❌ Daily auto-close scheduler error:", err);
+    }
+  }, { timezone: "Europe/London" });
+
+  console.log("✅ Job notification batch scheduler registered (09:00 & 13:00 UK time, 10:00 auto-close).");
 }

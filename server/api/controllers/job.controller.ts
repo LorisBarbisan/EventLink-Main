@@ -2,6 +2,7 @@ import { insertJobSchema, insertJobLinkViewSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { sendUrgentJobNotification } from "../services/job-notification-scheduler.service";
+import { sendJobClosureEmails } from "../services/job-closure-email.service";
 
 /**
  * Determine which batch window a job belongs to based on current UK time,
@@ -311,6 +312,11 @@ export async function closeJob(req: Request, res: Response) {
     }
 
     const updatedJob = await storage.updateJob(jobId, { status: "closed" });
+
+    // Fire closure emails to unsuccessful applicants — non-blocking
+    sendJobClosureEmails(jobId).catch((err) =>
+      console.error(`Job closure email error for job ${jobId}:`, err)
+    );
 
     const jobApplications = await storage.getJobApplications(jobId);
     const activeApplications = jobApplications.filter(

@@ -196,7 +196,7 @@ export interface IStorage {
     sortBy?: string,
     sortOrder?: "asc" | "desc"
   ): Promise<{
-    jobs: (Job & { application_count: number; hired_count: number; recruiter_email?: string; recruiter_name?: string })[];
+    jobs: (Job & { application_count: number; hired_count: number; closure_email_count: number; recruiter_email?: string; recruiter_name?: string })[];
     total: number;
   }>;
 
@@ -1407,7 +1407,7 @@ export class DatabaseStorage implements IStorage {
     sortBy?: string,
     sortOrder?: "asc" | "desc"
   ): Promise<{
-    jobs: (Job & { application_count: number; hired_count: number; recruiter_email?: string; recruiter_name?: string })[];
+    jobs: (Job & { application_count: number; hired_count: number; closure_email_count: number; recruiter_email?: string; recruiter_name?: string })[];
     total: number;
   }> {
     const offset = (page - 1) * limit;
@@ -1490,7 +1490,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     const jobIds = jobRows.map((j) => j.id);
-    let appCounts: Map<number, { total: number; hired: number }> = new Map();
+    let appCounts: Map<number, { total: number; hired: number; closureEmailCount: number }> = new Map();
 
     if (jobIds.length > 0) {
       const appStats = await db
@@ -1498,13 +1498,18 @@ export class DatabaseStorage implements IStorage {
           job_id: job_applications.job_id,
           total: count(),
           hired: sql<number>`count(*) filter (where ${job_applications.status} = 'hired')`,
+          closure_email_count: sql<number>`count(*) filter (where ${job_applications.closure_email_sent} = true)`,
         })
         .from(job_applications)
         .where(inArray(job_applications.job_id, jobIds))
         .groupBy(job_applications.job_id);
 
       for (const row of appStats) {
-        appCounts.set(row.job_id, { total: row.total, hired: Number(row.hired) });
+        appCounts.set(row.job_id, {
+          total: row.total,
+          hired: Number(row.hired),
+          closureEmailCount: Number(row.closure_email_count),
+        });
       }
     }
 
@@ -1534,12 +1539,13 @@ export class DatabaseStorage implements IStorage {
     }
 
     const enrichedJobs = jobRows.map((job) => {
-      const counts = appCounts.get(job.id) || { total: 0, hired: 0 };
+      const counts = appCounts.get(job.id) || { total: 0, hired: 0, closureEmailCount: 0 };
       const recruiter = job.recruiter_id ? recruiterMap.get(job.recruiter_id) : undefined;
       return {
         ...job,
         application_count: counts.total,
         hired_count: counts.hired,
+        closure_email_count: counts.closureEmailCount,
         recruiter_email: recruiter?.email,
         recruiter_name: recruiter?.name,
       };

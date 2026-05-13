@@ -497,6 +497,7 @@ function AdminDashboardContent() {
       end_date?: string;
       application_count: number;
       hired_count: number;
+      closure_email_count: number;
       recruiter_email?: string;
       recruiter_name?: string;
     }>;
@@ -1362,6 +1363,7 @@ function AdminDashboardContent() {
                           <TableHead>Status</TableHead>
                           <TableHead>Applications</TableHead>
                           <TableHead>Hired</TableHead>
+                          <TableHead>Notified</TableHead>
                           <TableHead>Event Date</TableHead>
                           <TableHead>Posted By</TableHead>
                           <TableHead>Created</TableHead>
@@ -1425,6 +1427,18 @@ function AdminDashboardContent() {
                                   </Badge>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">0</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2 text-center">
+                                {job.closure_email_count > 0 ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                                  >
+                                    ✉ {job.closure_email_count} notified
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
                                 )}
                               </TableCell>
                               <TableCell className="py-2 text-xs">
