@@ -31,7 +31,7 @@ export const HeroSection = () => {
           <p className="text-xl leading-relaxed text-muted-foreground">
             EventLink connects top event industry professionals with companies across the UK.
             Whether you're seeking skilled technical crew or looking for your next opportunity, we
-            ke professional connections that drive successful events.
+            make professional connections that drive successful events.
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
