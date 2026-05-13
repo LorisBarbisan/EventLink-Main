@@ -81,7 +81,7 @@ export async function sendJobClosureEmails(jobId: number): Promise<void> {
     if (!freelancer?.email) continue;
 
     const firstName = freelancer.first_name || "there";
-    const reputationLink = `https://eventlink.one/reputation/${freelancer.id}`;
+    const reputationLink = `https://eventlink.one/dashboard`;
     const unsubscribeLink = `https://eventlink.one/unsubscribe?token=${
       freelancer.unsubscribe_token ?? freelancer.id
     }`;
