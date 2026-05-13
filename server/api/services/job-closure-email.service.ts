@@ -1,9 +1,7 @@
 import { db } from "../config/db";
 import { jobs, job_applications, users } from "@shared/schema";
 import { eq, and, ne } from "drizzle-orm";
-import sgMail from "@sendgrid/mail";
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+import { sendEmail } from "../utils/emailService";
 
 export async function sendJobClosureEmails(jobId: number): Promise<void> {
 
@@ -216,27 +214,24 @@ Unsubscribe: ${unsubscribeLink}
 `.trim();
 
     try {
-      await sgMail.send({
+      const ok = await sendEmail({
         to: freelancer.email,
-        from: {
-          email: "loris@eventlink.one",
-          name: "EventLink",
-        },
-        replyTo: "loris@eventlink.one",
         subject,
         text: textContent,
         html: htmlContent,
       });
 
-      await db
-        .update(job_applications)
-        .set({
-          closure_email_sent: true,
-          closure_email_sent_at: new Date(),
-        })
-        .where(eq(job_applications.id, applicant.applicationId));
+      if (ok) {
+        await db
+          .update(job_applications)
+          .set({
+            closure_email_sent: true,
+            closure_email_sent_at: new Date(),
+          })
+          .where(eq(job_applications.id, applicant.applicationId));
 
-      sentCount++;
+        sentCount++;
+      }
     } catch (error) {
       console.error(
         `Failed to send closure email to freelancer ${freelancer.id} for job ${jobId}:`,
