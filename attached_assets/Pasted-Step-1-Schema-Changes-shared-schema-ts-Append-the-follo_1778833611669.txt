@@ -1,0 +1,85 @@
+Step 1 — Schema Changes (shared/schema.ts)
+⚠️  Append the following to shared/schema.ts, immediately before the final type export block. Do not modify any existing table definitions.
+
+1.1 — availability_enquiries table
+One row per batch enquiry sent by an employer. An enquiry can target multiple freelancers simultaneously.
+// ============================================================
+// FMS Phase 2 — Availability Enquiry System
+// ============================================================
+
+export const availability_enquiries = pgTable('availability_enquiries', {
+  id: serial('id').primaryKey(),
+  employerId: integer('employer_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  jobId: integer('job_id')
+    .references(() => jobs.id, { onDelete: 'set null' }),
+  eventTitle: text('event_title').notNull(),
+  eventDate: text('event_date').notNull(),       // YYYY-MM-DD
+  eventEndDate: text('event_end_date'),           // Optional
+  callTime: text('call_time'),                    // e.g. '08:00'
+  venueAddress: text('venue_address'),
+  roleRequired: text('role_required'),            // e.g. 'Sound Engineer'
+  agreedRate: text('agreed_rate'),                // e.g. '£350/day'
+  additionalNotes: text('additional_notes'),
+  status: text('status')
+    .notNull()
+    .default('active')
+    .$type<'active' | 'closed'>(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }), // Auto-close after 48h
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+1.2 — availability_responses table
+One row per freelancer per enquiry. The token field enables passwordless one-click response from email.
+export const availability_responses = pgTable('availability_responses', {
+  id: serial('id').primaryKey(),
+  enquiryId: integer('enquiry_id')
+    .notNull()
+    .references(() => availability_enquiries.id, { onDelete: 'cascade' }),
+  freelancerId: integer('freelancer_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(), // UUID for passwordless email response
+  response: text('response')
+    .$type<'yes' | 'no' | 'maybe' | null>()
+    .default(null),
+  responseNote: text('response_note'),     // Optional message from freelancer
+  respondedAt: timestamp('responded_at', { withTimezone: true }),
+  // Booking conversion tracking
+  convertedToBookingId: integer('converted_to_booking_id')
+    .references(() => bookings.id, { onDelete: 'set null' }),
+  convertedAt: timestamp('converted_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+1.3 — Zod schemas and type exports
+Add these immediately after the two table definitions above:
+export const insertAvailabilityEnquirySchema = createInsertSchema(availability_enquiries).omit({
+  id: true, createdAt: true, updatedAt: true, status: true,
+}).extend({
+  employerId: z.number(),
+  eventTitle: z.string().min(1, 'Event title is required'),
+  eventDate: z.string().min(1, 'Event date is required'),
+  freelancerIds: z.array(z.number()).min(1, 'Select at least one freelancer'),
+});
+
+export const insertAvailabilityResponseSchema = createInsertSchema(availability_responses).omit({
+  id: true, createdAt: true, respondedAt: true,
+}).extend({
+  enquiryId: z.number(),
+  freelancerId: z.number(),
+  token: z.string().uuid(),
+});
+
+export type AvailabilityEnquiry = typeof availability_enquiries.$inferSelect;
+export type InsertAvailabilityEnquiry = z.infer<typeof insertAvailabilityEnquirySchema>;
+export type AvailabilityResponse = typeof availability_responses.$inferSelect;
+export type InsertAvailabilityResponse = z.infer<typeof insertAvailabilityResponseSchema>;
+
+1.4 — Run the migration
+✔  After adding the schema, run this in the Replit shell to push the new tables to the database:
+npm run db:push
+ 
+Step 2 — Storage Methods (server/storage.ts)

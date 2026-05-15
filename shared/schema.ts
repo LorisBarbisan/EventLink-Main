@@ -1029,3 +1029,68 @@ export type BookingStatus = (typeof bookingStatusValues)[number];
 export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = typeof bookings.$inferInsert;
 export type BookingStatusHistory = typeof bookingStatusHistory.$inferSelect;
+
+// ============================================================
+// FMS Phase 2 — Availability Enquiry System
+// ============================================================
+
+export const availability_enquiries = pgTable("availability_enquiries", {
+  id: serial("id").primaryKey(),
+  employerId: integer("employer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  jobId: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
+  eventTitle: text("event_title").notNull(),
+  eventDate: text("event_date").notNull(),
+  eventEndDate: text("event_end_date"),
+  callTime: text("call_time"),
+  venueAddress: text("venue_address"),
+  roleRequired: text("role_required"),
+  agreedRate: text("agreed_rate"),
+  additionalNotes: text("additional_notes"),
+  status: text("status").notNull().default("active").$type<"active" | "closed">(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const availability_responses = pgTable("availability_responses", {
+  id: serial("id").primaryKey(),
+  enquiryId: integer("enquiry_id")
+    .notNull()
+    .references(() => availability_enquiries.id, { onDelete: "cascade" }),
+  freelancerId: integer("freelancer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  response: text("response").$type<"yes" | "no" | "maybe" | null>().default(null),
+  responseNote: text("response_note"),
+  respondedAt: timestamp("responded_at", { withTimezone: true }),
+  convertedToBookingId: integer("converted_to_booking_id").references(() => bookings.id, {
+    onDelete: "set null",
+  }),
+  convertedAt: timestamp("converted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const insertAvailabilityEnquirySchema = createInsertSchema(availability_enquiries)
+  .omit({ id: true, createdAt: true, updatedAt: true, status: true })
+  .extend({
+    employerId: z.number(),
+    eventTitle: z.string().min(1, "Event title is required"),
+    eventDate: z.string().min(1, "Event date is required"),
+    freelancerIds: z.array(z.number()).min(1, "Select at least one freelancer"),
+  });
+
+export const insertAvailabilityResponseSchema = createInsertSchema(availability_responses)
+  .omit({ id: true, createdAt: true, respondedAt: true })
+  .extend({
+    enquiryId: z.number(),
+    freelancerId: z.number(),
+    token: z.string().uuid(),
+  });
+
+export type AvailabilityEnquiry = typeof availability_enquiries.$inferSelect;
+export type InsertAvailabilityEnquiry = z.infer<typeof insertAvailabilityEnquirySchema>;
+export type AvailabilityResponse = typeof availability_responses.$inferSelect;
+export type InsertAvailabilityResponse = z.infer<typeof insertAvailabilityResponseSchema>;
