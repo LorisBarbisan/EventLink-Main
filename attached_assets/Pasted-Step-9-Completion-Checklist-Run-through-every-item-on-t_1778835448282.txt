@@ -1,0 +1,41 @@
+Step 9 — Completion Checklist
+✔  Run through every item on this checklist before marking Sprint 2 complete. Test each item in the browser.
+
+Database
+•	npm run db:push completed with no errors
+•	availability_enquiries table visible in database
+•	availability_responses table visible in database
+•	Each response row has a unique UUID token
+
+API Endpoints
+•	POST /api/enquiries — creates enquiry + responses, sends emails, returns 201
+•	GET /api/enquiries — returns list with response summaries for logged-in employer
+•	GET /api/enquiries/:id/responses — returns full response list with freelancer details
+•	GET /api/enquiries/respond/:token — returns event details without auth (200 or 404)
+•	POST /api/enquiries/respond/:token — records response, redirects if query param present
+•	POST /api/enquiries/:id/convert/:responseId — creates booking from yes response
+
+Emails
+•	Availability enquiry email sends to each selected freelancer
+•	Email contains correct event details
+•	Yes / Maybe / No buttons are correct one-click links
+•	Links resolve to /availability/respond/:token?r=yes etc.
+
+Employer UI
+•	SendEnquiryModal opens, shows saved freelancers with checkboxes
+•	Form validates: event title and date required, at least one freelancer required
+•	Submit sends POST request, shows success toast, closes modal
+•	EnquiryList shows all sent enquiries with response summary badges
+•	EnquiryResponsesPanel shows per-freelancer responses with correct colour coding
+•	'Book Now' button converts yes response to confirmed booking
+•	Already-converted responses show 'Booked' chip, Book Now button disappears
+
+Freelancer Response Page
+•	Page loads at /availability/respond/:token without login
+•	Event details display correctly
+•	One-click email link (?r=yes) immediately records response and shows confirmation
+•	Manual form buttons (Yes / Maybe / No) also work
+•	Maybe flow shows note textarea before confirming
+•	Confirmation page shows correct response and employer name
+•	Page works on mobile (375px viewport)
+•	Invalid token shows appropriate error message

@@ -972,9 +972,7 @@ export type InsertReferenceReport = z.infer<typeof insertReferenceReportSchema>;
 
 export const bookings = pgTable("bookings", {
   id: serial("id").primaryKey(),
-  jobId: integer("job_id")
-    .notNull()
-    .references(() => jobs.id, { onDelete: "cascade" }),
+  jobId: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
   employerId: integer("employer_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),

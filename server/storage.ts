@@ -4730,21 +4730,30 @@ export class DatabaseStorage implements IStorage {
         )
       );
     if (!enquiry) return null;
-    const responses = await db
-      .select({
-        response: availability_responses,
-        profile: freelancer_profiles,
-        user: {
-          id: users.id,
-          email: users.email,
-          firstName: users.firstName,
-          lastName: users.lastName,
-        },
-      })
+    // Use sequential simple selects to avoid Drizzle join + custom-column issues
+    const respRows = await db
+      .select()
       .from(availability_responses)
-      .leftJoin(users, eq(availability_responses.freelancerId, users.id))
-      .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
       .where(eq(availability_responses.enquiryId, enquiryId));
+
+    const responses = await Promise.all(
+      respRows.map(async (resp) => {
+        const [user] = await db
+          .select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName })
+          .from(users)
+          .where(eq(users.id, resp.freelancerId));
+        const [profile] = await db
+          .select({
+            first_name: freelancer_profiles.first_name,
+            last_name: freelancer_profiles.last_name,
+            profile_image_url: freelancer_profiles.profile_image_url,
+            title: freelancer_profiles.title,
+          })
+          .from(freelancer_profiles)
+          .where(eq(freelancer_profiles.user_id, resp.freelancerId));
+        return { response: resp, user: user ?? null, profile: profile ?? null };
+      })
+    );
     return { enquiry, responses };
   }
 
@@ -4767,20 +4776,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getResponseByToken(token: string) {
-    const [row] = await db
-      .select({
-        response: availability_responses,
-        enquiry: availability_enquiries,
-        user: { firstName: users.firstName, lastName: users.lastName },
-      })
+    // Use sequential simple selects to avoid Drizzle join + custom-column issues
+    const [resp] = await db
+      .select()
       .from(availability_responses)
-      .innerJoin(
-        availability_enquiries,
-        eq(availability_responses.enquiryId, availability_enquiries.id)
-      )
-      .innerJoin(users, eq(availability_responses.freelancerId, users.id))
       .where(eq(availability_responses.token, token));
-    return row ?? null;
+    if (!resp) return null;
+
+    const [enquiry] = await db
+      .select()
+      .from(availability_enquiries)
+      .where(eq(availability_enquiries.id, resp.enquiryId));
+    if (!enquiry) return null;
+
+    const [user] = await db
+      .select({ firstName: users.firstName, lastName: users.lastName })
+      .from(users)
+      .where(eq(users.id, resp.freelancerId));
+
+    return { response: resp, enquiry, user: user ?? { firstName: "there", lastName: "" } };
   }
 
   async convertResponseToBooking(responseId: number, employerId: number) {
@@ -4807,7 +4821,7 @@ export class DatabaseStorage implements IStorage {
     const [booking] = await db
       .insert(bookings)
       .values({
-        jobId: enquiry.jobId ?? 0,
+        ...(enquiry.jobId ? { jobId: enquiry.jobId } : {}),
         employerId,
         freelancerId: response.freelancerId,
         status: "confirmed",
