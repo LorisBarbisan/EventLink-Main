@@ -191,6 +191,8 @@ export const job_applications = pgTable("job_applications", {
   recruiter_deleted: boolean("recruiter_deleted").default(false).notNull(), // Soft delete flag for recruiter view
   applied_at: timestamp("applied_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  closure_email_sent: boolean("closure_email_sent").notNull().default(false),
+  closure_email_sent_at: timestamp("closure_email_sent_at", { withTimezone: true }),
 });
 
 export const conversations = pgTable("conversations", {

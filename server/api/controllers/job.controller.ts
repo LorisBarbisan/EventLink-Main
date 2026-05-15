@@ -2,6 +2,7 @@ import { insertJobSchema, insertJobLinkViewSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { sendUrgentJobNotification } from "../services/job-notification-scheduler.service";
+import { sendJobClosureEmails } from "../services/job-closure-email.service";
 
 /**
  * Determine which batch window a job belongs to based on current UK time,
@@ -312,6 +313,11 @@ export async function closeJob(req: Request, res: Response) {
 
     const updatedJob = await storage.updateJob(jobId, { status: "closed" });
 
+    // Fire closure emails to unsuccessful applicants — non-blocking
+    sendJobClosureEmails(jobId).catch((err) =>
+      console.error(`Job closure email error for job ${jobId}:`, err)
+    );
+
     const jobApplications = await storage.getJobApplications(jobId);
     const activeApplications = jobApplications.filter(
       (app) => app.status === "applied" || app.status === "reviewed" || app.status === "shortlisted" || app.status === "invited"
@@ -438,6 +444,26 @@ export async function deleteJob(req: Request, res: Response) {
     });
   } catch (error) {
     console.error("Delete job error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+export async function getRecruiterJobDetail(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user?.id;
+    const jobId = parseInt(req.params.jobId);
+    if (isNaN(jobId)) return res.status(400).json({ error: "Invalid job ID" });
+
+    const result = await storage.getAdminJobDetail(jobId);
+    if (!result) return res.status(404).json({ error: "Job not found" });
+
+    if (result.job.recruiter_id !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Get recruiter job detail error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }

@@ -7,6 +7,7 @@ import {
   getJobLinkViewCount,
   getJobPresets,
   getJobsByRecruiter,
+  getRecruiterJobDetail,
   reopenJob,
   trackJobLinkView,
   updateJob,
@@ -43,4 +44,7 @@ export function registerJobRoutes(app: Express) {
 
   // Delete job
   app.delete("/api/jobs/:jobId", authenticateJWT, deleteJob);
+
+  // Get full job detail + applications (recruiter owner only)
+  app.get("/api/jobs/:jobId/detail", authenticateJWT, getRecruiterJobDetail);
 }
