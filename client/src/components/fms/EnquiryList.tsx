@@ -121,7 +121,7 @@ export function EnquiryList() {
                       setSelectedEnquiryId(selectedEnquiryId === enq.id ? null : enq.id)
                     }
                   >
-                    {selectedEnquiryId === enq.id ? "Hide Responses" : "View Responses"}
+                    {selectedEnquiryId === enq.id ? "Hide Details" : "Details"}
                   </Button>
                 </div>
 
