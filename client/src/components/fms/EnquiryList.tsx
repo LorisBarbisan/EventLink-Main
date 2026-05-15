@@ -1,3 +1,4 @@
+import { apiRequest } from "@/lib/queryClient";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -30,7 +31,7 @@ export function EnquiryList() {
 
   const { data: enquiries = [], isLoading } = useQuery<EnquirySummary[]>({
     queryKey: ["/api/enquiries"],
-    queryFn: () => fetch("/api/enquiries", { credentials: "include" }).then((r) => { if (!r.ok) throw new Error("Failed to fetch enquiries"); return r.json(); }),
+    queryFn: () => apiRequest("/api/enquiries"),
   });
 
   if (isLoading) {

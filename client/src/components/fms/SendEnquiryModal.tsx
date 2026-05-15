@@ -65,7 +65,7 @@ export function SendEnquiryModal({ open, onOpenChange, preselectedFreelancerIds 
 
   const { data: crew = [], isLoading: crewLoading } = useQuery<CrewFreelancer[]>({
     queryKey: ["/api/my-crew"],
-    queryFn: () => fetch("/api/my-crew", { credentials: "include" }).then((r) => { if (!r.ok) throw new Error("Failed to fetch crew"); return r.json(); }),
+    queryFn: () => apiRequest("/api/my-crew"),
     enabled: open,
   });
 

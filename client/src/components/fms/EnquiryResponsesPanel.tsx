@@ -78,7 +78,7 @@ export function EnquiryResponsesPanel({ enquiryId, onClose }: Props) {
   const { data, isLoading } = useQuery<EnquiryDetail>({
     queryKey: ["/api/enquiries", enquiryId, "responses"],
     queryFn: () =>
-      fetch(`/api/enquiries/${enquiryId}/responses`, { credentials: "include" }).then((r) => { if (!r.ok) throw new Error("Failed to fetch responses"); return r.json(); }),
+      apiRequest(`/api/enquiries/${enquiryId}/responses`),
   });
 
   const convertMutation = useMutation({
