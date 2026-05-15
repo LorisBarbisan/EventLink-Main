@@ -1,0 +1,118 @@
+Step 2 — New Storage Methods (server/storage.ts)
+Add these four methods to server/storage.ts in the FMS section, after the existing enquiry methods.
+
+2.1 — cancelEnquiry
+Closes the enquiry and returns the list of freelancer user IDs who need to receive cancellation emails. The controller handles sending the emails.
+async cancelEnquiry(enquiryId: number, employerId: number) {
+  // Verify ownership
+  const [enquiry] = await db.select().from(availability_enquiries)
+    .where(and(
+      eq(availability_enquiries.id, enquiryId),
+      eq(availability_enquiries.employerId, employerId)
+    ));
+  if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+  if (enquiry.status === 'closed') throw new Error('Enquiry already closed');
+  // Get all response rows so we can email the freelancers
+  const responses = await db.select().from(availability_responses)
+    .where(eq(availability_responses.enquiryId, enquiryId));
+  // Close the enquiry
+  const [updated] = await db.update(availability_enquiries)
+    .set({ status: 'closed', updatedAt: new Date() })
+    .where(eq(availability_enquiries.id, enquiryId))
+    .returning();
+  return { enquiry: updated, freelancerIds: responses.map(r => r.freelancerId) };
+},
+
+2.2 — updateEnquiryDetails
+Updates editable fields on an active enquiry. Returns the updated enquiry and a flag indicating whether a re-notification email is needed (true only if a significant field changed).
+async updateEnquiryDetails(enquiryId: number, employerId: number, updates: {
+  eventTitle?: string;
+  eventDate?: string;
+  eventEndDate?: string | null;
+  callTime?: string | null;
+  venueAddress?: string | null;
+  roleRequired?: string | null;
+  agreedRate?: string | null;
+  additionalNotes?: string | null;
+}) {
+  const [enquiry] = await db.select().from(availability_enquiries)
+    .where(and(
+      eq(availability_enquiries.id, enquiryId),
+      eq(availability_enquiries.employerId, employerId)
+    ));
+  if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+  if (enquiry.status === 'closed') throw new Error('Cannot edit a closed enquiry');
+  // Detect if any significant field changed
+  const SIGNIFICANT_FIELDS = ['eventDate', 'eventEndDate', 'callTime', 'venueAddress'];
+  const significantChange = SIGNIFICANT_FIELDS.some(
+    field => updates[field as keyof typeof updates] !== undefined &&
+             updates[field as keyof typeof updates] !== (enquiry as any)[field]
+  );
+  const [updated] = await db.update(availability_enquiries)
+    .set({ ...updates, updatedAt: new Date() })
+    .where(eq(availability_enquiries.id, enquiryId))
+    .returning();
+  // Get freelancer IDs for re-notification if needed
+  let freelancerIds: number[] = [];
+  if (significantChange) {
+    const responses = await db.select().from(availability_responses)
+      .where(eq(availability_responses.enquiryId, enquiryId));
+    freelancerIds = responses.map(r => r.freelancerId);
+  }
+  return { enquiry: updated, significantChange, freelancerIds };
+},
+
+2.3 — addFreelancersToEnquiry
+Adds new freelancers to an existing active enquiry. Skips any freelancer already on the enquiry. Returns only the newly created response rows so the controller can email just those freelancers.
+async addFreelancersToEnquiry(enquiryId: number, employerId: number, newFreelancerIds: number[]) {
+  const [enquiry] = await db.select().from(availability_enquiries)
+    .where(and(
+      eq(availability_enquiries.id, enquiryId),
+      eq(availability_enquiries.employerId, employerId)
+    ));
+  if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+  if (enquiry.status === 'closed') throw new Error('Cannot add to a closed enquiry');
+  // Get existing freelancer IDs to avoid duplicates
+  const existing = await db.select({ freelancerId: availability_responses.freelancerId })
+    .from(availability_responses)
+    .where(eq(availability_responses.enquiryId, enquiryId));
+  const existingIds = new Set(existing.map(r => r.freelancerId));
+  const toAdd = newFreelancerIds.filter(id => !existingIds.has(id));
+  if (toAdd.length === 0) return { enquiry, newResponses: [] };
+  const newRows = toAdd.map(fId => ({
+    enquiryId,
+    freelancerId: fId,
+    token: crypto.randomUUID(),
+  }));
+  const newResponses = await db.insert(availability_responses)
+    .values(newRows).returning();
+  return { enquiry, newResponses };
+},
+
+2.4 — removeFreelancerFromEnquiry
+Removes a specific freelancer from an active enquiry. Cannot remove a freelancer who has already been converted to a booking. Returns the removed response row so the controller can send a cancellation email.
+async removeFreelancerFromEnquiry(enquiryId: number, employerId: number, freelancerId: number) {
+  const [enquiry] = await db.select().from(availability_enquiries)
+    .where(and(
+      eq(availability_enquiries.id, enquiryId),
+      eq(availability_enquiries.employerId, employerId)
+    ));
+  if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+  if (enquiry.status === 'closed') throw new Error('Cannot modify a closed enquiry');
+  // Find the response row
+  const [response] = await db.select().from(availability_responses)
+    .where(and(
+      eq(availability_responses.enquiryId, enquiryId),
+      eq(availability_responses.freelancerId, freelancerId)
+    ));
+  if (!response) throw new Error('Freelancer not on this enquiry');
+  if (response.convertedToBookingId) {
+    throw new Error('Cannot remove a freelancer who has been booked');
+  }
+  await db.delete(availability_responses)
+    .where(eq(availability_responses.id, response.id));
+  return { enquiry, removedResponse: response };
+},
+
+⚠️  Add 'import crypto from "crypto";' at the very top of server/storage.ts if it is not already there. The randomUUID() calls require it.
+ 

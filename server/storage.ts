@@ -4842,6 +4842,104 @@ export class DatabaseStorage implements IStorage {
       .where(eq(availability_responses.id, responseId));
     return booking;
   }
+
+  async cancelEnquiry(enquiryId: number, employerId: number) {
+    const [enquiry] = await db.select().from(availability_enquiries)
+      .where(and(
+        eq(availability_enquiries.id, enquiryId),
+        eq(availability_enquiries.employerId, employerId)
+      ));
+    if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+    if (enquiry.status === 'closed') throw new Error('Enquiry already closed');
+    const responses = await db.select().from(availability_responses)
+      .where(eq(availability_responses.enquiryId, enquiryId));
+    const [updated] = await db.update(availability_enquiries)
+      .set({ status: 'closed', updatedAt: new Date() })
+      .where(eq(availability_enquiries.id, enquiryId))
+      .returning();
+    return { enquiry: updated, freelancerIds: responses.map(r => r.freelancerId) };
+  }
+
+  async updateEnquiryDetails(enquiryId: number, employerId: number, updates: {
+    eventTitle?: string;
+    eventDate?: string;
+    eventEndDate?: string | null;
+    callTime?: string | null;
+    venueAddress?: string | null;
+    roleRequired?: string | null;
+    agreedRate?: string | null;
+    additionalNotes?: string | null;
+  }) {
+    const [enquiry] = await db.select().from(availability_enquiries)
+      .where(and(
+        eq(availability_enquiries.id, enquiryId),
+        eq(availability_enquiries.employerId, employerId)
+      ));
+    if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+    if (enquiry.status === 'closed') throw new Error('Cannot edit a closed enquiry');
+    const SIGNIFICANT_FIELDS = ['eventDate', 'eventEndDate', 'callTime', 'venueAddress'];
+    const significantChange = SIGNIFICANT_FIELDS.some(
+      field => updates[field as keyof typeof updates] !== undefined &&
+               updates[field as keyof typeof updates] !== (enquiry as any)[field]
+    );
+    const [updated] = await db.update(availability_enquiries)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(availability_enquiries.id, enquiryId))
+      .returning();
+    let freelancerIds: number[] = [];
+    if (significantChange) {
+      const responses = await db.select().from(availability_responses)
+        .where(eq(availability_responses.enquiryId, enquiryId));
+      freelancerIds = responses.map(r => r.freelancerId);
+    }
+    return { enquiry: updated, significantChange, freelancerIds };
+  }
+
+  async addFreelancersToEnquiry(enquiryId: number, employerId: number, newFreelancerIds: number[]) {
+    const [enquiry] = await db.select().from(availability_enquiries)
+      .where(and(
+        eq(availability_enquiries.id, enquiryId),
+        eq(availability_enquiries.employerId, employerId)
+      ));
+    if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+    if (enquiry.status === 'closed') throw new Error('Cannot add to a closed enquiry');
+    const existing = await db.select({ freelancerId: availability_responses.freelancerId })
+      .from(availability_responses)
+      .where(eq(availability_responses.enquiryId, enquiryId));
+    const existingIds = new Set(existing.map(r => r.freelancerId));
+    const toAdd = newFreelancerIds.filter(id => !existingIds.has(id));
+    if (toAdd.length === 0) return { enquiry, newResponses: [] };
+    const newRows = toAdd.map(fId => ({
+      enquiryId,
+      freelancerId: fId,
+      token: crypto.randomUUID(),
+    }));
+    const newResponses = await db.insert(availability_responses)
+      .values(newRows).returning();
+    return { enquiry, newResponses };
+  }
+
+  async removeFreelancerFromEnquiry(enquiryId: number, employerId: number, freelancerId: number) {
+    const [enquiry] = await db.select().from(availability_enquiries)
+      .where(and(
+        eq(availability_enquiries.id, enquiryId),
+        eq(availability_enquiries.employerId, employerId)
+      ));
+    if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+    if (enquiry.status === 'closed') throw new Error('Cannot modify a closed enquiry');
+    const [response] = await db.select().from(availability_responses)
+      .where(and(
+        eq(availability_responses.enquiryId, enquiryId),
+        eq(availability_responses.freelancerId, freelancerId)
+      ));
+    if (!response) throw new Error('Freelancer not on this enquiry');
+    if (response.convertedToBookingId) {
+      throw new Error('Cannot remove a freelancer who has been booked');
+    }
+    await db.delete(availability_responses)
+      .where(eq(availability_responses.id, response.id));
+    return { enquiry, removedResponse: response };
+  }
 }
 
 export const storage = new DatabaseStorage();
