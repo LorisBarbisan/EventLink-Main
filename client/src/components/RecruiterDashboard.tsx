@@ -7,6 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MyBookings from "@/pages/employer/MyBookings";
+import { EnquiryList } from "./fms/EnquiryList";
+import { SendEnquiryModal } from "./fms/SendEnquiryModal";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
@@ -21,6 +23,7 @@ import {
   MapPin,
   Plus,
   Search,
+  Send,
   Star,
   User,
   Users,
@@ -60,6 +63,8 @@ export default function SimplifiedRecruiterDashboard() {
   const [crewTab, setCrewTab] = useState<"all" | "saved" | "worked">("all");
   const [crewSearch, setCrewSearch] = useState("");
   const [crewLocation, setCrewLocation] = useState("");
+  const [sendEnquiryOpen, setSendEnquiryOpen] = useState(false);
+  const [preselectedCrewIds, setPreselectedCrewIds] = useState<number[]>([]);
 
   const [jobSearch, setJobSearch] = useState("");
   const [jobStatusFilter, setJobStatusFilter] = useState<"all" | "active" | "private" | "closed">(
@@ -612,7 +617,7 @@ export default function SimplifiedRecruiterDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-4 md:grid-cols-7">
           <TabsTrigger value="jobs" className="gap-2">
             My Jobs
             <TabBadge count={roleSpecificCounts.jobs || 0} />
@@ -626,6 +631,7 @@ export default function SimplifiedRecruiterDashboard() {
             <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="crew">My Crew</TabsTrigger>
           <TabsTrigger value="profile">Company Profile</TabsTrigger>
         </TabsList>
@@ -641,9 +647,18 @@ export default function SimplifiedRecruiterDashboard() {
         </TabsContent>
         {/* My Crew Tab */}
         <TabsContent value="crew" className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold">My Crew</h2>
-            <p className="text-muted-foreground">Freelancers you&apos;ve saved or worked with</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">My Crew</h2>
+              <p className="text-muted-foreground">Freelancers you&apos;ve saved or worked with</p>
+            </div>
+            <Button
+              onClick={() => { setPreselectedCrewIds([]); setSendEnquiryOpen(true); }}
+              className="shrink-0 bg-orange-500 hover:bg-orange-600"
+            >
+              <Send className="mr-2 h-4 w-4" />
+              Check Availability
+            </Button>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -1191,6 +1206,19 @@ export default function SimplifiedRecruiterDashboard() {
         <TabsContent value="bookings" className="space-y-6">
           <MyBookings />
         </TabsContent>
+
+        {/* Availability Tab */}
+        <TabsContent value="availability" className="space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">Availability Enquiries</h2>
+              <p className="text-muted-foreground">
+                Check freelancer availability before confirming a booking
+              </p>
+            </div>
+          </div>
+          <EnquiryList />
+        </TabsContent>
       </Tabs>
 
       {/* Invite Modal */}
@@ -1224,6 +1252,16 @@ export default function SimplifiedRecruiterDashboard() {
           invitedApplications={getInvitedApplicationsForJob(viewInvitedJob.id)}
         />
       )}
+
+      {/* Send Availability Enquiry Modal */}
+      <SendEnquiryModal
+        open={sendEnquiryOpen}
+        onOpenChange={(open) => {
+          setSendEnquiryOpen(open);
+          if (!open) setPreselectedCrewIds([]);
+        }}
+        preselectedFreelancerIds={preselectedCrewIds}
+      />
     </div>
   );
 }
