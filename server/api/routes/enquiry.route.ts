@@ -13,6 +13,10 @@ import {
   respondToEnquiry,
   convertResponseToBooking,
   getResponseByTokenHandler,
+  cancelEnquiry,
+  updateEnquiry,
+  addFreelancers,
+  removeFreelancer,
 } from "../controllers/enquiry.controller";
 
 const router = Router();
@@ -26,5 +30,9 @@ router.get("/", authenticateJWT, requireRole("employer"), getEnquiriesForEmploye
 router.post("/", authenticateJWT, requireRole("employer"), createEnquiry);
 router.get("/:id/responses", authenticateJWT, requireRole("employer"), getEnquiryResponses);
 router.post("/:id/convert/:responseId", authenticateJWT, requireRole("employer"), convertResponseToBooking);
+router.patch("/:id/cancel", authenticateJWT, requireRole("recruiter"), cancelEnquiry);
+router.patch("/:id", authenticateJWT, requireRole("recruiter"), updateEnquiry);
+router.post("/:id/freelancers", authenticateJWT, requireRole("recruiter"), addFreelancers);
+router.delete("/:id/freelancers/:freelancerId", authenticateJWT, requireRole("recruiter"), removeFreelancer);
 
 export default router;
