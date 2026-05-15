@@ -4739,20 +4739,21 @@ export class DatabaseStorage implements IStorage {
 
     const responses = await Promise.all(
       respRows.map(async (resp) => {
-        const [user] = await db
-          .select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName })
+        const [userRow] = await db
+          .select()
           .from(users)
           .where(eq(users.id, resp.freelancerId));
-        const [profile] = await db
-          .select({
-            first_name: freelancer_profiles.first_name,
-            last_name: freelancer_profiles.last_name,
-            profile_image_url: freelancer_profiles.profile_image_url,
-            title: freelancer_profiles.title,
-          })
+        const [profileRow] = await db
+          .select()
           .from(freelancer_profiles)
           .where(eq(freelancer_profiles.user_id, resp.freelancerId));
-        return { response: resp, user: user ?? null, profile: profile ?? null };
+        const user = userRow
+          ? { id: userRow.id, email: userRow.email, firstName: userRow.first_name, lastName: userRow.last_name }
+          : null;
+        const profile = profileRow
+          ? { first_name: profileRow.first_name, last_name: profileRow.last_name, profile_image_url: profileRow.profile_image_url, title: profileRow.title }
+          : null;
+        return { response: resp, user, profile };
       })
     );
     return { enquiry, responses };
@@ -4790,12 +4791,15 @@ export class DatabaseStorage implements IStorage {
       .where(eq(availability_enquiries.id, resp.enquiryId));
     if (!enquiry) return null;
 
-    const [user] = await db
-      .select({ firstName: users.firstName, lastName: users.lastName })
+    const [userRow] = await db
+      .select()
       .from(users)
       .where(eq(users.id, resp.freelancerId));
+    const user = userRow
+      ? { firstName: userRow.first_name ?? "there", lastName: userRow.last_name ?? "" }
+      : { firstName: "there", lastName: "" };
 
-    return { response: resp, enquiry, user: user ?? { firstName: "there", lastName: "" } };
+    return { response: resp, enquiry, user };
   }
 
   async convertResponseToBooking(responseId: number, employerId: number) {
