@@ -30,7 +30,7 @@ export function EnquiryList() {
 
   const { data: enquiries = [], isLoading } = useQuery<EnquirySummary[]>({
     queryKey: ["/api/enquiries"],
-    queryFn: () => fetch("/api/enquiries").then((r) => r.json()),
+    queryFn: () => fetch("/api/enquiries", { credentials: "include" }).then((r) => { if (!r.ok) throw new Error("Failed to fetch enquiries"); return r.json(); }),
   });
 
   if (isLoading) {
