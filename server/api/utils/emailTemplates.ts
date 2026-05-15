@@ -743,3 +743,92 @@ export function generateAvailabilityEnquiryEmail(data: {
     html: masterTemplate(content),
   };
 }
+
+export function generateEnquiryCancelledEmail(data: {
+  freelancerFirstName: string;
+  employerName: string;
+  eventTitle: string;
+  eventDate: string;
+}): string {
+  return `
+    <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+      <div style='background:#1E3A5F;padding:24px;text-align:center;'>
+        <h1 style='color:#fff;margin:0;font-size:24px;'>EventLink</h1>
+      </div>
+      <div style='padding:32px;'>
+        <p>Hi ${data.freelancerFirstName},</p>
+        <p>This is to let you know that <strong>${data.employerName}</strong> has
+        cancelled the availability check for <strong>${data.eventTitle}</strong>
+        on <strong>${data.eventDate}</strong>.</p>
+        <p>No action is required from you.</p>
+      </div>
+      <div style='background:#f5f5f5;padding:16px;text-align:center;color:#888;font-size:12px;'>
+        EventLink — The UK Events Industry Network
+      </div>
+    </div>
+  `;
+}
+
+export function generateEnquiryUpdatedEmail(data: {
+  freelancerFirstName: string;
+  employerName: string;
+  eventTitle: string;
+  eventDate: string;
+  eventEndDate?: string | null;
+  callTime?: string | null;
+  venueAddress?: string | null;
+  responseToken: string;
+  baseUrl: string;
+}): string {
+  const detailUrl = `${data.baseUrl}/availability/respond/${data.responseToken}`;
+  return `
+    <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+      <div style='background:#1E3A5F;padding:24px;text-align:center;'>
+        <h1 style='color:#fff;margin:0;font-size:24px;'>EventLink</h1>
+      </div>
+      <div style='padding:32px;'>
+        <p>Hi ${data.freelancerFirstName},</p>
+        <p><strong>${data.employerName}</strong> has updated the details for
+        <strong>${data.eventTitle}</strong>. Please review the updated information:</p>
+        <table style='width:100%;border-collapse:collapse;margin:24px 0;'>
+          <tr style='background:#f5f5f5;'>
+            <td style='padding:12px;font-weight:bold;width:35%;'>Date</td>
+            <td style='padding:12px;'>${data.eventDate}</td>
+          </tr>
+          ${data.callTime ? `<tr><td style='padding:12px;font-weight:bold;'>Call time</td><td style='padding:12px;'>${data.callTime}</td></tr>` : ''}
+          ${data.venueAddress ? `<tr><td style='padding:12px;font-weight:bold;'>Venue</td><td style='padding:12px;'>${data.venueAddress}</td></tr>` : ''}
+        </table>
+        <p>If your availability has changed, please
+        <a href='${detailUrl}'>update your response here</a>.</p>
+      </div>
+      <div style='background:#f5f5f5;padding:16px;text-align:center;color:#888;font-size:12px;'>
+        EventLink — The UK Events Industry Network
+      </div>
+    </div>
+  `;
+}
+
+export function generateEnquiryRemovedEmail(data: {
+  freelancerFirstName: string;
+  employerName: string;
+  eventTitle: string;
+  eventDate: string;
+}): string {
+  return `
+    <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+      <div style='background:#1E3A5F;padding:24px;text-align:center;'>
+        <h1 style='color:#fff;margin:0;font-size:24px;'>EventLink</h1>
+      </div>
+      <div style='padding:32px;'>
+        <p>Hi ${data.freelancerFirstName},</p>
+        <p><strong>${data.employerName}</strong> has withdrawn the availability
+        check for <strong>${data.eventTitle}</strong> on <strong>${data.eventDate}</strong>.
+        You no longer need to respond.</p>
+        <p>No action is required from you.</p>
+      </div>
+      <div style='background:#f5f5f5;padding:16px;text-align:center;color:#888;font-size:12px;'>
+        EventLink — The UK Events Industry Network
+      </div>
+    </div>
+  `;
+}
