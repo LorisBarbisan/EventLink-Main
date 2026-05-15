@@ -177,3 +177,186 @@ export const convertResponseToBooking = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
+// 4.6 — Cancel an entire enquiry
+export const cancelEnquiry = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const enquiryId = parseInt(req.params.id);
+    if (isNaN(enquiryId)) return res.status(400).json({ error: 'Invalid enquiry ID' });
+    const { enquiry, freelancerIds } = await storage.cancelEnquiry(enquiryId, employerId);
+    const employer = await storage.getRecruiterProfile(employerId);
+    const employerName = employer?.company_name ?? 'An employer';
+    const { sendEmail } = await import('../utils/emailService.js');
+    const { generateEnquiryCancelledEmail } = await import('../utils/emailTemplates.js');
+    await Promise.allSettled(freelancerIds.map(async (fId) => {
+      const user = await storage.getUser(fId);
+      if (!user?.email) return;
+      const profile = await storage.getFreelancerProfile(fId);
+      const firstName = (profile as any)?.first_name ?? user.first_name ?? 'there';
+      const html = generateEnquiryCancelledEmail({
+        freelancerFirstName: firstName,
+        employerName,
+        eventTitle: enquiry.eventTitle,
+        eventDate: enquiry.eventDate,
+      });
+      await sendEmail({
+        to: user.email,
+        subject: `Availability check cancelled: ${enquiry.eventTitle}`,
+        html,
+      });
+    }));
+    return res.json({ success: true, enquiry });
+  } catch (error: any) {
+    console.error('cancelEnquiry error:', error.message, error.stack);
+    if (error.message === 'Enquiry already closed') {
+      return res.status(409).json({ error: error.message });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// 4.7 — Update editable fields on an active enquiry
+export const updateEnquiry = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const enquiryId = parseInt(req.params.id);
+    if (isNaN(enquiryId)) return res.status(400).json({ error: 'Invalid enquiry ID' });
+    const { enquiry, significantChange, freelancerIds } =
+      await storage.updateEnquiryDetails(enquiryId, employerId, req.body);
+    if (significantChange && freelancerIds.length > 0) {
+      const employer = await storage.getRecruiterProfile(employerId);
+      const employerName = employer?.company_name ?? 'An employer';
+      const baseUrl = req.protocol + '://' + req.get('host');
+      const { sendEmail } = await import('../utils/emailService.js');
+      const { generateEnquiryUpdatedEmail } = await import('../utils/emailTemplates.js');
+      const responses = await storage.getEnquiryResponses(enquiryId, employerId);
+      await Promise.allSettled(freelancerIds.map(async (fId) => {
+        const user = await storage.getUser(fId);
+        if (!user?.email) return;
+        const profile = await storage.getFreelancerProfile(fId);
+        const firstName = (profile as any)?.first_name ?? user.first_name ?? 'there';
+        const respRow = responses?.responses?.find(
+          (r: any) => r.response.freelancerId === fId
+        );
+        if (!respRow) return;
+        const html = generateEnquiryUpdatedEmail({
+          freelancerFirstName: firstName,
+          employerName,
+          eventTitle: enquiry.eventTitle,
+          eventDate: enquiry.eventDate,
+          eventEndDate: enquiry.eventEndDate,
+          callTime: enquiry.callTime,
+          venueAddress: enquiry.venueAddress,
+          responseToken: respRow.response.token,
+          baseUrl,
+        });
+        await sendEmail({
+          to: user.email,
+          subject: `Updated details: ${enquiry.eventTitle} on ${enquiry.eventDate}`,
+          html,
+        });
+      }));
+    }
+    return res.json({ success: true, enquiry, emailsSent: significantChange });
+  } catch (error: any) {
+    console.error('updateEnquiry error:', error.message, error.stack);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// 4.8 — Add freelancers to an existing active enquiry
+export const addFreelancers = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const enquiryId = parseInt(req.params.id);
+    if (isNaN(enquiryId)) return res.status(400).json({ error: 'Invalid enquiry ID' });
+    const { freelancerIds } = req.body;
+    if (!freelancerIds?.length) {
+      return res.status(400).json({ error: 'No freelancer IDs provided' });
+    }
+    const { enquiry, newResponses } =
+      await storage.addFreelancersToEnquiry(enquiryId, employerId, freelancerIds);
+    if (newResponses.length === 0) {
+      return res.json({ success: true, message: 'All freelancers already on enquiry', newResponses: [] });
+    }
+    const employer = await storage.getRecruiterProfile(employerId);
+    const employerName = employer?.company_name ?? 'An employer';
+    const baseUrl = req.protocol + '://' + req.get('host');
+    const { sendEmail } = await import('../utils/emailService.js');
+    const { generateAvailabilityEnquiryEmail } = await import('../utils/emailTemplates.js');
+    await Promise.allSettled(newResponses.map(async (resp) => {
+      const user = await storage.getUser(resp.freelancerId);
+      if (!user?.email) return;
+      const profile = await storage.getFreelancerProfile(resp.freelancerId);
+      const firstName = (profile as any)?.first_name ?? user.first_name ?? 'there';
+      const { html } = generateAvailabilityEnquiryEmail({
+        freelancerFirstName: firstName,
+        employerName,
+        eventTitle: enquiry.eventTitle,
+        eventDate: enquiry.eventDate,
+        callTime: enquiry.callTime,
+        venueAddress: enquiry.venueAddress,
+        roleRequired: enquiry.roleRequired,
+        agreedRate: enquiry.agreedRate,
+        additionalNotes: enquiry.additionalNotes,
+        responseToken: resp.token,
+        baseUrl,
+      });
+      await sendEmail({
+        to: user.email,
+        subject: `Availability check: ${enquiry.eventTitle} on ${enquiry.eventDate}`,
+        html,
+      });
+    }));
+    return res.status(201).json({ success: true, newResponses });
+  } catch (error: any) {
+    console.error('addFreelancers error:', error.message, error.stack);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// 4.9 — Remove a single freelancer from an active enquiry
+export const removeFreelancer = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const enquiryId = parseInt(req.params.id);
+    const freelancerId = parseInt(req.params.freelancerId);
+    if (isNaN(enquiryId) || isNaN(freelancerId)) {
+      return res.status(400).json({ error: 'Invalid ID' });
+    }
+    const { enquiry, removedResponse } =
+      await storage.removeFreelancerFromEnquiry(enquiryId, employerId, freelancerId);
+    const user = await storage.getUser(freelancerId);
+    if (user?.email) {
+      const employer = await storage.getRecruiterProfile(employerId);
+      const employerName = employer?.company_name ?? 'An employer';
+      const { sendEmail } = await import('../utils/emailService.js');
+      const { generateEnquiryRemovedEmail } = await import('../utils/emailTemplates.js');
+      const profile = await storage.getFreelancerProfile(freelancerId);
+      const firstName = (profile as any)?.first_name ?? user.first_name ?? 'there';
+      const html = generateEnquiryRemovedEmail({
+        freelancerFirstName: firstName,
+        employerName,
+        eventTitle: enquiry.eventTitle,
+        eventDate: enquiry.eventDate,
+      });
+      await sendEmail({
+        to: user.email,
+        subject: `Availability check withdrawn: ${enquiry.eventTitle}`,
+        html,
+      });
+    }
+    return res.json({ success: true });
+  } catch (error: any) {
+    console.error('removeFreelancer error:', error.message, error.stack);
+    if (error.message === 'Cannot remove a freelancer who has been booked') {
+      return res.status(409).json({ error: error.message });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
