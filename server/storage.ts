@@ -1,4 +1,7 @@
 import {
+  availability_enquiries,
+  availability_responses,
+  bookings,
   contact_messages,
   conversations,
   cv_parsed_data,
@@ -4653,6 +4656,172 @@ export class DatabaseStorage implements IStorage {
         .set({ last_job_alert_sent_at: now as any, updated_at: now })
         .where(inArray(users.id, freelancerUserIds));
     }
+  }
+
+  // ── FMS Phase 2 — Availability Enquiry Methods ─────────────────────────────
+
+  async createEnquiryWithResponses(data: {
+    employerId: number;
+    jobId?: number | null;
+    eventTitle: string;
+    eventDate: string;
+    eventEndDate?: string | null;
+    callTime?: string | null;
+    venueAddress?: string | null;
+    roleRequired?: string | null;
+    agreedRate?: string | null;
+    additionalNotes?: string | null;
+    freelancerIds: number[];
+    expiresAt?: Date | null;
+  }) {
+    const { freelancerIds, ...enquiryData } = data;
+    const [enquiry] = await db
+      .insert(availability_enquiries)
+      .values({
+        ...enquiryData,
+        expiresAt: data.expiresAt ?? new Date(Date.now() + 48 * 60 * 60 * 1000),
+      })
+      .returning();
+    const responseRows = freelancerIds.map((fId) => ({
+      enquiryId: enquiry.id,
+      freelancerId: fId,
+      token: crypto.randomUUID(),
+    }));
+    const responses = await db
+      .insert(availability_responses)
+      .values(responseRows)
+      .returning();
+    return { enquiry, responses };
+  }
+
+  async getEnquiriesForEmployer(employerId: number) {
+    const enquiries = await db
+      .select()
+      .from(availability_enquiries)
+      .where(eq(availability_enquiries.employerId, employerId))
+      .orderBy(desc(availability_enquiries.createdAt));
+    const withSummary = await Promise.all(
+      enquiries.map(async (enq) => {
+        const responses = await db
+          .select()
+          .from(availability_responses)
+          .where(eq(availability_responses.enquiryId, enq.id));
+        const summary = {
+          total: responses.length,
+          yes: responses.filter((r) => r.response === "yes").length,
+          no: responses.filter((r) => r.response === "no").length,
+          maybe: responses.filter((r) => r.response === "maybe").length,
+          pending: responses.filter((r) => r.response === null).length,
+        };
+        return { ...enq, summary };
+      })
+    );
+    return withSummary;
+  }
+
+  async getEnquiryResponses(enquiryId: number, employerId: number) {
+    const [enquiry] = await db
+      .select()
+      .from(availability_enquiries)
+      .where(
+        and(
+          eq(availability_enquiries.id, enquiryId),
+          eq(availability_enquiries.employerId, employerId)
+        )
+      );
+    if (!enquiry) return null;
+    const responses = await db
+      .select({
+        response: availability_responses,
+        profile: freelancer_profiles,
+        user: {
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        },
+      })
+      .from(availability_responses)
+      .leftJoin(users, eq(availability_responses.freelancerId, users.id))
+      .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
+      .where(eq(availability_responses.enquiryId, enquiryId));
+    return { enquiry, responses };
+  }
+
+  async recordAvailabilityResponse(
+    token: string,
+    response: "yes" | "no" | "maybe",
+    note?: string
+  ) {
+    const [existing] = await db
+      .select()
+      .from(availability_responses)
+      .where(eq(availability_responses.token, token));
+    if (!existing) return null;
+    const [updated] = await db
+      .update(availability_responses)
+      .set({ response, responseNote: note ?? null, respondedAt: new Date() })
+      .where(eq(availability_responses.token, token))
+      .returning();
+    return updated;
+  }
+
+  async getResponseByToken(token: string) {
+    const [row] = await db
+      .select({
+        response: availability_responses,
+        enquiry: availability_enquiries,
+        user: { firstName: users.firstName, lastName: users.lastName },
+      })
+      .from(availability_responses)
+      .innerJoin(
+        availability_enquiries,
+        eq(availability_responses.enquiryId, availability_enquiries.id)
+      )
+      .innerJoin(users, eq(availability_responses.freelancerId, users.id))
+      .where(eq(availability_responses.token, token));
+    return row ?? null;
+  }
+
+  async convertResponseToBooking(responseId: number, employerId: number) {
+    const [response] = await db
+      .select()
+      .from(availability_responses)
+      .where(eq(availability_responses.id, responseId));
+    if (!response || response.response !== "yes") {
+      throw new Error("Response not found or not a yes response");
+    }
+    const [enquiry] = await db
+      .select()
+      .from(availability_enquiries)
+      .where(
+        and(
+          eq(availability_enquiries.id, response.enquiryId),
+          eq(availability_enquiries.employerId, employerId)
+        )
+      );
+    if (!enquiry) throw new Error("Enquiry not found or not owned by employer");
+    if (response.convertedToBookingId) {
+      throw new Error("Already converted to a booking");
+    }
+    const [booking] = await db
+      .insert(bookings)
+      .values({
+        jobId: enquiry.jobId ?? 0,
+        employerId,
+        freelancerId: response.freelancerId,
+        status: "confirmed",
+        agreedRate: enquiry.agreedRate,
+        callTime: enquiry.callTime,
+        venueAddress: enquiry.venueAddress,
+        employerNotes: `Converted from availability enquiry #${enquiry.id}`,
+      })
+      .returning();
+    await db
+      .update(availability_responses)
+      .set({ convertedToBookingId: booking.id, convertedAt: new Date() })
+      .where(eq(availability_responses.id, responseId));
+    return booking;
   }
 }
 

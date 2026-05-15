@@ -1,0 +1,172 @@
+Step 2 — Storage Methods (server/storage.ts)
+Add the following six methods to the storage object in server/storage.ts. Add them in the FMS section, after the existing booking methods.
+
+⚠️  server/storage.ts exports a single 'storage' object. All database access goes through it. Do not use db directly in controllers — always add a storage method and call that.
+
+2.1 — createEnquiryWithResponses
+Creates one enquiry row and one response row per freelancer in a single transaction. Generates a UUID token for each response row.
+async createEnquiryWithResponses(data: {
+  employerId: number;
+  jobId?: number | null;
+  eventTitle: string;
+  eventDate: string;
+  eventEndDate?: string | null;
+  callTime?: string | null;
+  venueAddress?: string | null;
+  roleRequired?: string | null;
+  agreedRate?: string | null;
+  additionalNotes?: string | null;
+  freelancerIds: number[];
+  expiresAt?: Date | null;
+}) {
+  const { freelancerIds, ...enquiryData } = data;
+  // Create the enquiry
+  const [enquiry] = await db
+    .insert(availability_enquiries)
+    .values({
+      ...enquiryData,
+      expiresAt: data.expiresAt ?? new Date(Date.now() + 48 * 60 * 60 * 1000),
+    })
+    .returning();
+  // Create one response slot per freelancer
+  const responseRows = freelancerIds.map(fId => ({
+    enquiryId: enquiry.id,
+    freelancerId: fId,
+    token: crypto.randomUUID(),
+  }));
+  const responses = await db
+    .insert(availability_responses)
+    .values(responseRows)
+    .returning();
+  return { enquiry, responses };
+},
+
+2.2 — getEnquiriesForEmployer
+async getEnquiriesForEmployer(employerId: number) {
+  const enquiries = await db
+    .select()
+    .from(availability_enquiries)
+    .where(eq(availability_enquiries.employerId, employerId))
+    .orderBy(desc(availability_enquiries.createdAt));
+  // Attach response summary to each enquiry
+  const withSummary = await Promise.all(enquiries.map(async (enq) => {
+    const responses = await db
+      .select()
+      .from(availability_responses)
+      .where(eq(availability_responses.enquiryId, enq.id));
+    const summary = {
+      total: responses.length,
+      yes: responses.filter(r => r.response === 'yes').length,
+      no: responses.filter(r => r.response === 'no').length,
+      maybe: responses.filter(r => r.response === 'maybe').length,
+      pending: responses.filter(r => r.response === null).length,
+    };
+    return { ...enq, summary };
+  }));
+  return withSummary;
+},
+
+2.3 — getEnquiryResponses
+async getEnquiryResponses(enquiryId: number, employerId: number) {
+  // Verify ownership first
+  const [enquiry] = await db
+    .select()
+    .from(availability_enquiries)
+    .where(and(
+      eq(availability_enquiries.id, enquiryId),
+      eq(availability_enquiries.employerId, employerId)
+    ));
+  if (!enquiry) return null;
+  // Get responses with freelancer profile data
+  const responses = await db
+    .select({
+      response: availability_responses,
+      profile: freelancer_profiles,
+      user: { id: users.id, email: users.email,
+               first_name: users.first_name, last_name: users.last_name },
+    })
+    .from(availability_responses)
+    .leftJoin(users, eq(availability_responses.freelancerId, users.id))
+    .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
+    .where(eq(availability_responses.enquiryId, enquiryId));
+  return { enquiry, responses };
+},
+
+2.4 — recordAvailabilityResponse
+Called by the public (no-auth) token endpoint when a freelancer clicks Yes/No/Maybe in their email.
+async recordAvailabilityResponse(token: string, response: 'yes' | 'no' | 'maybe', note?: string) {
+  const [existing] = await db
+    .select()
+    .from(availability_responses)
+    .where(eq(availability_responses.token, token));
+  if (!existing) return null;
+  const [updated] = await db
+    .update(availability_responses)
+    .set({ response, responseNote: note ?? null, respondedAt: new Date() })
+    .where(eq(availability_responses.token, token))
+    .returning();
+  return updated;
+},
+
+2.5 — getResponseByToken
+Used by the public response page to display event details before the freelancer submits their response.
+async getResponseByToken(token: string) {
+  const [row] = await db
+    .select({
+      response: availability_responses,
+      enquiry: availability_enquiries,
+      user: { first_name: users.first_name, last_name: users.last_name },
+    })
+    .from(availability_responses)
+    .innerJoin(availability_enquiries, eq(availability_responses.enquiryId, availability_enquiries.id))
+    .innerJoin(users, eq(availability_responses.freelancerId, users.id))
+    .where(eq(availability_responses.token, token));
+  return row ?? null;
+},
+
+2.6 — convertResponseToBooking
+Converts a 'yes' response into a confirmed booking. Re-uses the existing createBooking storage method.
+async convertResponseToBooking(responseId: number, employerId: number) {
+  const [response] = await db
+    .select()
+    .from(availability_responses)
+    .where(eq(availability_responses.id, responseId));
+  if (!response || response.response !== 'yes') {
+    throw new Error('Response not found or not a yes response');
+  }
+  const [enquiry] = await db
+    .select()
+    .from(availability_enquiries)
+    .where(and(
+      eq(availability_enquiries.id, response.enquiryId),
+      eq(availability_enquiries.employerId, employerId)
+    ));
+  if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+  // Check if already converted
+  if (response.convertedToBookingId) {
+    throw new Error('Already converted to a booking');
+  }
+  // Create booking — jobId may be null if enquiry was standalone
+  const booking = await db
+    .insert(bookings)
+    .values({
+      jobId: enquiry.jobId ?? 0, // 0 if no linked job — handle in UI
+      employerId,
+      freelancerId: response.freelancerId,
+      status: 'confirmed',
+      agreedRate: enquiry.agreedRate,
+      callTime: enquiry.callTime,
+      venueAddress: enquiry.venueAddress,
+      employerNotes: `Converted from availability enquiry #${enquiry.id}`,
+    })
+    .returning();
+  // Mark response as converted
+  await db
+    .update(availability_responses)
+    .set({ convertedToBookingId: booking[0].id, convertedAt: new Date() })
+    .where(eq(availability_responses.id, responseId));
+  return booking[0];
+},
+
+⚠️  Add these imports to the top of storage.ts if not already present: import { availability_enquiries, availability_responses } from '../shared/schema.js'
+ 
