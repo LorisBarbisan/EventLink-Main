@@ -123,6 +123,40 @@ export const respondToEnquiry = async (req: Request, res: Response) => {
   }
 };
 
+// 4.4b — Public endpoint: load event details by token (for the response page)
+export const getResponseByTokenHandler = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const row = await storage.getResponseByToken(token);
+    if (!row) return res.status(404).json({ error: "Token not found" });
+    const { response: resp, enquiry, user } = row;
+    return res.json({
+      response: {
+        id: resp.id,
+        response: resp.response,
+        respondedAt: resp.respondedAt,
+        responseNote: resp.responseNote,
+      },
+      enquiry: {
+        id: enquiry.id,
+        eventTitle: enquiry.eventTitle,
+        eventDate: enquiry.eventDate,
+        eventEndDate: enquiry.eventEndDate,
+        callTime: enquiry.callTime,
+        venueAddress: enquiry.venueAddress,
+        roleRequired: enquiry.roleRequired,
+        agreedRate: enquiry.agreedRate,
+        additionalNotes: enquiry.additionalNotes,
+        status: enquiry.status,
+      },
+      freelancer: { firstName: user.firstName },
+    });
+  } catch (error) {
+    console.error("getResponseByTokenHandler error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 // 4.5 — Convert a "yes" response into a confirmed booking
 export const convertResponseToBooking = async (req: Request, res: Response) => {
   try {

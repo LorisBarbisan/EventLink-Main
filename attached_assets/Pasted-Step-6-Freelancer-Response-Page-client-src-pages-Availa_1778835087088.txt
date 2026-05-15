@@ -1,0 +1,94 @@
+Step 6 — Freelancer Response Page (client/src/pages/AvailabilityResponse.tsx)
+⚠️  This page must work WITHOUT the user being logged in. It is accessed via a token link in an email. It must look professional and be fully functional on mobile.
+
+Create this file at client/src/pages/AvailabilityResponse.tsx
+
+// Route: /availability/respond/:token
+// Also handle: /availability/responded (confirmation page after redirect)
+
+// URL parameter: token (from useParams — wouter)
+// Query parameter: r (optional — 'yes' | 'no' | 'maybe') for one-click email links
+
+// On mount:
+//   1. Fetch event details: GET /api/enquiries/respond/:token (new public endpoint — see Step 4.4)
+//      Returns: { enquiry: {...}, response: { response, respondedAt }, user: { first_name } }
+//   2. If query param 'r' is present, immediately call POST /api/enquiries/respond/:token
+//      with { response: r } — this submits the one-click response
+//   3. Show confirmation state once submitted
+
+// States to render:
+
+// LOADING: Spinner + 'Loading event details...'
+
+// ERROR (token not found): 
+//   EventLink logo header
+//   'This link has expired or is invalid.'
+//   'If you received an availability check, please contact the employer directly.'
+
+// ALREADY_RESPONDED:
+//   Show what they previously responded
+//   'You already responded to this enquiry: [Yes/No/Maybe]'
+//   Allow them to change their response with the three buttons below
+
+// PENDING (not yet responded, no query param):
+//   EventLink logo + header
+//   Event details card:
+//     Event: [title]
+//     Date: [date]
+//     [optional fields if present: Call time, Venue, Role, Rate]
+//     [additional notes if present]
+//   'Hi [firstName], are you available for this event?'
+//   Three large buttons stacked vertically (mobile-first):
+//     Green: 'Yes, I'm available'
+//     Amber: 'Maybe / I need more info'
+//     Grey: 'Not available'
+//   Optional note textarea (shown after selecting maybe):
+//     Placeholder: 'Add a note for the employer (optional)'
+//   Submit button (only shown when maybe is selected and they want to add a note)
+
+// CONFIRMED (after successful submission):
+//   Large checkmark icon
+//   'Response recorded'
+//   '[Yes / Maybe / Not available] — we've let [employer name] know.'
+//   'You can close this page.'
+//   Small EventLink branding footer
+
+6.1 — New public API endpoint for token lookup
+Add this endpoint to enquiry.route.ts (before the POST /respond/:token route):
+// Add to enquiry.route.ts:
+enquiryRouter.get('/respond/:token', getResponseByToken); // PUBLIC — no auth
+
+// Add to enquiry.controller.ts:
+export const getResponseByTokenHandler = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const row = await storage.getResponseByToken(token);
+    if (!row) return res.status(404).json({ error: 'Token not found' });
+    // Do not expose the token itself in the response
+    const { response: resp, enquiry, user } = row;
+    return res.json({
+      response: {
+        id: resp.id,
+        response: resp.response,
+        respondedAt: resp.respondedAt,
+        responseNote: resp.responseNote,
+      },
+      enquiry: {
+        id: enquiry.id,
+        eventTitle: enquiry.eventTitle,
+        eventDate: enquiry.eventDate,
+        eventEndDate: enquiry.eventEndDate,
+        callTime: enquiry.callTime,
+        venueAddress: enquiry.venueAddress,
+        roleRequired: enquiry.roleRequired,
+        agreedRate: enquiry.agreedRate,
+        additionalNotes: enquiry.additionalNotes,
+        status: enquiry.status,
+      },
+      freelancer: { firstName: user.first_name },
+    });
+  } catch (error) {
+    console.error('getResponseByToken error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
