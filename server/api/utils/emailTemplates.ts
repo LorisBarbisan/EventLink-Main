@@ -658,3 +658,88 @@ export function singleJobNotifyEmail(data: {
     html: masterTemplate(content),
   };
 }
+
+/**
+ * Availability Enquiry — sent to freelancers with one-click Yes/Maybe/No response links
+ */
+export function generateAvailabilityEnquiryEmail(data: {
+  freelancerFirstName: string;
+  employerName: string;
+  eventTitle: string;
+  eventDate: string;
+  callTime?: string | null;
+  venueAddress?: string | null;
+  roleRequired?: string | null;
+  agreedRate?: string | null;
+  additionalNotes?: string | null;
+  responseToken: string;
+  baseUrl: string;
+}): { subject: string; html: string } {
+  const yesUrl = `${data.baseUrl}/availability/respond/${data.responseToken}?r=yes`;
+  const noUrl = `${data.baseUrl}/availability/respond/${data.responseToken}?r=no`;
+  const maybeUrl = `${data.baseUrl}/availability/respond/${data.responseToken}?r=maybe`;
+  const detailUrl = `${data.baseUrl}/availability/respond/${data.responseToken}`;
+
+  const detailRows = [
+    data.callTime
+      ? `<tr><td style="padding:10px 12px;font-weight:600;width:35%;background:#f9f9f9;border-bottom:1px solid #eee;">Call time</td><td style="padding:10px 12px;border-bottom:1px solid #eee;">${data.callTime}</td></tr>`
+      : "",
+    data.venueAddress
+      ? `<tr><td style="padding:10px 12px;font-weight:600;width:35%;background:#f9f9f9;border-bottom:1px solid #eee;">Venue</td><td style="padding:10px 12px;border-bottom:1px solid #eee;">${data.venueAddress}</td></tr>`
+      : "",
+    data.roleRequired
+      ? `<tr><td style="padding:10px 12px;font-weight:600;width:35%;background:#f9f9f9;border-bottom:1px solid #eee;">Role</td><td style="padding:10px 12px;border-bottom:1px solid #eee;">${data.roleRequired}</td></tr>`
+      : "",
+    data.agreedRate
+      ? `<tr><td style="padding:10px 12px;font-weight:600;width:35%;background:#f9f9f9;">Rate</td><td style="padding:10px 12px;">${data.agreedRate}</td></tr>`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("");
+
+  const content = `
+    <p>Hi ${data.freelancerFirstName},</p>
+    <p><strong>${data.employerName}</strong> is checking your availability for the following event:</p>
+
+    <table style="width:100%;border-collapse:collapse;margin:24px 0;border:1px solid #eee;border-radius:6px;overflow:hidden;">
+      <tr style="background:#f9f9f9;">
+        <td style="padding:10px 12px;font-weight:600;width:35%;border-bottom:1px solid #eee;">Event</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #eee;">${data.eventTitle}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 12px;font-weight:600;width:35%;background:#f9f9f9;border-bottom:1px solid #eee;">Date</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #eee;">${data.eventDate}</td>
+      </tr>
+      ${detailRows}
+    </table>
+
+    ${data.additionalNotes ? `<div style="background:#f0f4ff;padding:16px;border-radius:6px;border-left:4px solid #D8690E;margin-bottom:24px;"><p style="margin:0;color:#444;">${data.additionalNotes}</p></div>` : ""}
+
+    <p style="font-weight:600;margin-top:28px;">Are you available?</p>
+    <table style="border-collapse:collapse;margin:16px 0;">
+      <tr>
+        <td style="padding-right:12px;">
+          <a href="${yesUrl}" style="display:inline-block;background:#1A6B3C;color:#fff;padding:14px 24px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">✓ Yes, I'm available</a>
+        </td>
+        <td style="padding-right:12px;">
+          <a href="${maybeUrl}" style="display:inline-block;background:#D8690E;color:#fff;padding:14px 24px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">? Maybe / Need more info</a>
+        </td>
+        <td>
+          <a href="${noUrl}" style="display:inline-block;background:#6c757d;color:#fff;padding:14px 24px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px;">✗ Not available</a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="color:#888;font-size:13px;margin-top:20px;">
+      Or <a href="${detailUrl}" style="color:#D8690E;">view full details and respond here</a>.
+    </p>
+    <p style="color:#888;font-size:13px;">
+      You're receiving this because an employer on EventLink is checking your availability.
+    </p>
+  `;
+
+  return {
+    subject: `Availability check: ${data.eventTitle} — ${data.eventDate}`,
+    html: masterTemplate(content),
+  };
+}

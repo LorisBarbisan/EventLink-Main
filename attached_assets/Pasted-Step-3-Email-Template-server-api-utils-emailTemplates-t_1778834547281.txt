@@ -1,0 +1,65 @@
+Step 3 — Email Template (server/api/utils/emailTemplates.ts)
+Add the following function to emailTemplates.ts. Study the existing template functions in that file and match their style exactly — same HTML structure, same EventLink branding, same footer.
+
+📬  The one-click response links are the most important UX element in this feature. Freelancers must be able to say Yes, No, or Maybe directly from the email without logging in. Each button must be a direct GET link to the response page.
+
+export function generateAvailabilityEnquiryEmail(data: {
+  freelancerFirstName: string;
+  employerName: string;
+  eventTitle: string;
+  eventDate: string;
+  callTime?: string | null;
+  venueAddress?: string | null;
+  roleRequired?: string | null;
+  agreedRate?: string | null;
+  additionalNotes?: string | null;
+  responseToken: string;
+  baseUrl: string;
+}): string {
+  const yesUrl = `${data.baseUrl}/availability/respond/${data.responseToken}?r=yes`;
+  const noUrl = `${data.baseUrl}/availability/respond/${data.responseToken}?r=no`;
+  const maybeUrl = `${data.baseUrl}/availability/respond/${data.responseToken}?r=maybe`;
+  const detailUrl = `${data.baseUrl}/availability/respond/${data.responseToken}`;
+
+  // Build optional detail rows only if values are present
+  const detailRows = [
+    data.callTime ? `<tr><td style='...'><strong>Call time</strong></td><td>${data.callTime}</td></tr>` : '',
+    data.venueAddress ? `<tr><td><strong>Venue</strong></td><td>${data.venueAddress}</td></tr>` : '',
+    data.roleRequired ? `<tr><td><strong>Role</strong></td><td>${data.roleRequired}</td></tr>` : '',
+    data.agreedRate ? `<tr><td><strong>Rate</strong></td><td>${data.agreedRate}</td></tr>` : '',
+  ].filter(Boolean).join('');
+
+  return `
+    <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+      <div style='background:#1E3A5F;padding:24px;text-align:center;'>
+        <h1 style='color:#fff;margin:0;font-size:24px;'>EventLink</h1>
+      </div>
+      <div style='padding:32px;'>
+        <p>Hi ${data.freelancerFirstName},</p>
+        <p><strong>${data.employerName}</strong> is checking your availability for the following event:</p>
+        <table style='width:100%;border-collapse:collapse;margin:24px 0;'>
+          <tr style='background:#f5f5f5;'>
+            <td style='padding:12px;font-weight:bold;width:35%;'>Event</td>
+            <td style='padding:12px;'>${data.eventTitle}</td>
+          </tr>
+          <tr>
+            <td style='padding:12px;font-weight:bold;'>Date</td>
+            <td style='padding:12px;'>${data.eventDate}</td>
+          </tr>
+          ${detailRows}
+        </table>
+        ${data.additionalNotes ? `<p style='background:#f0f4ff;padding:16px;border-radius:4px;'>${data.additionalNotes}</p>` : ''}
+        <p style='font-weight:bold;margin-top:32px;'>Are you available?</p>
+        <div style='display:flex;gap:12px;margin:16px 0;'>
+          <a href='${yesUrl}' style='background:#1A6B3C;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;'>Yes, I'm available</a>
+          <a href='${maybeUrl}' style='background:#E8610A;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;'>Maybe / Need more info</a>
+          <a href='${noUrl}' style='background:#6c757d;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;'>Not available</a>
+        </div>
+        <p style='color:#888;font-size:14px;'>Or <a href='${detailUrl}'>view full details and respond here</a>.</p>
+      </div>
+      <div style='background:#f5f5f5;padding:16px;text-align:center;color:#888;font-size:12px;'>
+        EventLink — The UK Events Industry Network
+      </div>
+    </div>
+  `;
+}
