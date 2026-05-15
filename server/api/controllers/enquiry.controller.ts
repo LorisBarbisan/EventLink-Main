@@ -263,6 +263,9 @@ export const updateEnquiry = async (req: Request, res: Response) => {
     return res.json({ success: true, enquiry, emailsSent: significantChange });
   } catch (error: any) {
     console.error('updateEnquiry error:', error.message, error.stack);
+    if (error.message === 'Cannot edit a closed enquiry' || error.message === 'Enquiry not found or not owned by employer') {
+      return res.status(409).json({ error: error.message });
+    }
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
