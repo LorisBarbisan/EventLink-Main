@@ -1,0 +1,89 @@
+Step 6 — UI Changes (client/src/components/fms/EnquiryResponsesPanel.tsx)
+Add four management actions to the existing EnquiryResponsesPanel component. These appear in the panel header area, above the list of responses. Do not remove or modify any existing UI elements.
+
+⚠️  All four actions must only appear when enquiry.status === 'active'. When status === 'closed', show a grey 'Closed' banner instead and hide all action buttons.
+
+6.1 — Cancel Enquiry button
+// Add to EnquiryResponsesPanel — in the panel header, top right
+// Only show when enquiry.status === 'active'
+
+const cancelMutation = useMutation({
+  mutationFn: () => apiRequest(`/api/enquiries/${enquiryId}/cancel`, { method: 'PATCH' }),
+  onSuccess: () => {
+    toast({ title: 'Enquiry cancelled', description: 'All freelancers have been notified.' });
+    queryClient.invalidateQueries({ queryKey: ['/api/enquiries'] });
+  },
+  onError: () => toast({ title: 'Failed to cancel', variant: 'destructive' }),
+});
+
+// Confirm before cancelling — use a simple window.confirm or an AlertDialog:
+// 'Cancel this availability enquiry? All freelancers will be notified by email.'
+// Button label: 'Cancel Enquiry'  |  variant: destructive outline  |  size: sm
+
+6.2 — Edit Details button
+// Add an 'Edit Details' button in the panel header next to Cancel
+// Clicking it opens an inline edit form (or small dialog) with these fields:
+//   eventTitle (text input)
+//   eventDate (date input)
+//   eventEndDate (date input, optional)
+//   callTime (time input, optional)
+//   venueAddress (text input, optional)
+//   roleRequired (text input, optional)
+//   agreedRate (text input, optional)
+//   additionalNotes (textarea, optional)
+// Pre-populate all fields with current enquiry values
+
+const updateMutation = useMutation({
+  mutationFn: (updates: object) =>
+    apiRequest(`/api/enquiries/${enquiryId}`, { method: 'PATCH', body: JSON.stringify(updates) }),
+  onSuccess: (data: any) => {
+    const msg = data.emailsSent
+      ? 'Details updated. Freelancers notified of the changes.'
+      : 'Details updated.';
+    toast({ title: 'Enquiry updated', description: msg });
+    queryClient.invalidateQueries({ queryKey: ['/api/enquiries'] });
+    setEditOpen(false);
+  },
+  onError: () => toast({ title: 'Failed to update', variant: 'destructive' }),
+});
+
+6.3 — Add Freelancers button
+// Add an 'Add Freelancers' button in the panel header
+// Clicking it opens a small dialog showing saved freelancers NOT already on this enquiry
+// (filter out freelancerIds already in the responses list)
+// User selects one or more and clicks 'Send Enquiry'
+
+const addMutation = useMutation({
+  mutationFn: (ids: number[]) =>
+    apiRequest(`/api/enquiries/${enquiryId}/freelancers`, {
+      method: 'POST', body: JSON.stringify({ freelancerIds: ids })
+    }),
+  onSuccess: () => {
+    toast({ title: 'Freelancers added', description: 'They have been sent the availability check.' });
+    queryClient.invalidateQueries({ queryKey: ['/api/enquiries', enquiryId, 'responses'] });
+  },
+  onError: () => toast({ title: 'Failed to add freelancers', variant: 'destructive' }),
+});
+
+6.4 — Remove Freelancer button per row
+// Add a small 'Remove' icon button on each response row
+// Only show when:
+//   enquiry.status === 'active'
+//   AND resp.convertedToBookingId is null (not yet booked)
+// Use a Trash2 icon from lucide-react, size sm, variant ghost, red on hover
+// Confirm before removing: 'Remove [name] from this enquiry? They will be notified by email.'
+
+const removeMutation = useMutation({
+  mutationFn: (fId: number) =>
+    apiRequest(`/api/enquiries/${enquiryId}/freelancers/${fId}`, { method: 'DELETE' }),
+  onSuccess: () => {
+    toast({ title: 'Freelancer removed', description: 'They have been notified by email.' });
+    queryClient.invalidateQueries({ queryKey: ['/api/enquiries', enquiryId, 'responses'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/enquiries'] });
+  },
+  onError: (err: any) => toast({
+    title: 'Cannot remove',
+    description: err?.message ?? 'Please try again.',
+    variant: 'destructive'
+  }),
+});
