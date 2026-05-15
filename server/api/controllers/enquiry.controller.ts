@@ -60,7 +60,7 @@ export const createEnquiry = async (req: Request, res: Response) => {
 
     return res.status(201).json({ enquiry, responses });
   } catch (error) {
-    console.error("createEnquiry error:", error);
+    console.error("createEnquiry FULL ERROR:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     return res.status(500).json({ error: "Internal server error" });
   }
 };

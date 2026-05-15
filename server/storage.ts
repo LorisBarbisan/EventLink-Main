@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import {
   availability_enquiries,
   availability_responses,
