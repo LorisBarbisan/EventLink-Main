@@ -1,0 +1,112 @@
+Step 5 — React Components (client/src/components/fms/)
+Create the directory client/src/components/fms/ and add the following three component files. These use the existing shadcn/ui components already installed in the project.
+
+🎨  Design principles for all FMS components:
+— Use existing shadcn/ui components: Button, Dialog, Input, Label, Select, Badge, Card
+— Use TanStack Query (useQuery / useMutation) for all data fetching — match the pattern in existing hooks
+— Use the existing useToast hook for success/error feedback
+— Tailwind only — no inline styles
+— Mobile-first: all layouts must work at 375px width
+
+5.1 — SendEnquiryModal.tsx
+A dialog modal triggered from the employer's saved freelancers list. The employer selects which saved freelancers to include, fills in event details, and sends.
+// client/src/components/fms/SendEnquiryModal.tsx
+// Props:
+//   open: boolean
+//   onOpenChange: (open: boolean) => void
+//   preselectedFreelancerIds?: number[]  // When triggered from a specific freelancer
+
+// State fields (controlled form — use react-hook-form):
+//   eventTitle: string (required)
+//   eventDate: string — date picker (required)
+//   eventEndDate: string — date picker (optional)
+//   callTime: string — time input (optional)
+//   venueAddress: string (optional)
+//   roleRequired: string (optional)
+//   agreedRate: string (optional)
+//   additionalNotes: string — textarea (optional)
+//   selectedFreelancerIds: number[] — checkboxes (required, min 1)
+
+// Data fetching:
+//   useQuery(['saved-freelancers'], () => fetch('/api/saved-freelancers').then(r => r.json()))
+//   Display each saved freelancer as a checkbox with their name, title, and profile photo
+
+// Submit:
+//   useMutation: POST /api/enquiries with all form fields + selectedFreelancerIds
+//   On success: toast('Availability enquiry sent'), close modal, invalidate ['enquiries']
+//   On error: toast error message
+
+// UI structure:
+//   <Dialog>
+//     <DialogHeader> Send Availability Enquiry </DialogHeader>
+//     <DialogContent>
+//       Section 1: 'Event Details' — eventTitle, eventDate, eventEndDate, callTime
+//       Section 2: 'Location & Role' — venueAddress, roleRequired, agreedRate
+//       Section 3: 'Message' — additionalNotes textarea
+//       Section 4: 'Select Freelancers' — scrollable list of saved freelancers with checkboxes
+//         Show name, title/role, profile photo (or initials avatar if no photo)
+//         Show count badge: '3 selected'
+//     </DialogContent>
+//     <DialogFooter>
+//       Cancel button + 'Send Enquiry' submit button (disabled if 0 selected or form invalid)
+//       Show spinner on submit button while mutation is pending
+//     </DialogFooter>
+//   </Dialog>
+
+5.2 — EnquiryList.tsx
+Displays all availability enquiries sent by the employer, with response summary badges and a link to view full responses.
+// client/src/components/fms/EnquiryList.tsx
+// No props — fetches its own data
+
+// Data fetching:
+//   useQuery(['enquiries'], () => fetch('/api/enquiries').then(r => r.json()))
+
+// For each enquiry, render an EnquiryCard showing:
+//   — Event title (bold, large)
+//   — Event date
+//   — Status badge: 'Active' (green) or 'Closed' (grey)
+//   — Response summary row:
+//       Green badge: '{n} Yes'
+//       Amber badge: '{n} Maybe'
+//       Grey badge: '{n} No'
+//       Blue badge: '{n} Pending'
+//   — 'View Responses' button → opens EnquiryResponsesPanel for this enquiry
+//   — Created date (small, muted)
+
+// Empty state:
+//   Icon + 'No availability enquiries sent yet'
+//   'Send your first enquiry' button that opens SendEnquiryModal
+
+// Loading state: skeleton cards (3 rows)
+
+5.3 — EnquiryResponsesPanel.tsx
+Detailed view of responses for a single enquiry. Shown in a slide-over sheet or expanded section below the EnquiryCard.
+// client/src/components/fms/EnquiryResponsesPanel.tsx
+// Props:
+//   enquiryId: number
+//   onClose: () => void
+
+// Data fetching:
+//   useQuery(['enquiry-responses', enquiryId],
+//     () => fetch(`/api/enquiries/${enquiryId}/responses`).then(r => r.json()))
+
+// Display the enquiry header (event title, date, role, rate)
+
+// For each response, render a ResponseRow showing:
+//   — Profile photo (or initials avatar)
+//   — Full name + title
+//   — Response badge:
+//       'Yes' — green filled badge
+//       'Maybe' — amber filled badge
+//       'No' — red filled badge
+//       'Awaiting response' — grey outlined badge
+//   — Response note (if any) in italics below the badge
+//   — Responded at timestamp (if responded)
+//   — For 'yes' responses that haven't been converted:
+//       'Book Now' button — calls POST /api/enquiries/{id}/convert/{responseId}
+//       On success: toast('Booking confirmed'), invalidate ['enquiries', 'bookings']
+//   — For already-converted responses:
+//       'Booked' chip (green, non-clickable)
+
+// Sort order: yes first, maybe second, pending third, no last
+ 
