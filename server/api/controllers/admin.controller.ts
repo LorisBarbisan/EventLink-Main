@@ -4,6 +4,9 @@ import { storage } from "../../storage";
 import { generateJWTToken } from "../utils/auth.util";
 import { sendContactReplyEmail } from "../utils/emailService";
 import { emailService } from "../utils/emailNotificationService";
+import { db } from "../config/db";
+import { teamMembers, users } from "../../../shared/schema";
+import { eq } from "drizzle-orm";
 
 // Get all feedback (admin only)
 export async function getAllFeedback(req: Request, res: Response) {
@@ -985,5 +988,71 @@ export async function sendBulkMessages(req: Request, res: Response) {
   } catch (error) {
     console.error("Bulk message error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+/**
+ * Admin-only: link an existing user account to a company
+ * as a team member, bypassing the invitation email flow.
+ *
+ * POST /api/admin/team/link
+ * Body: { companyId, userId, role }
+ */
+export async function adminLinkTeamMember(req: Request, res: Response) {
+  try {
+    const { companyId, userId, role = "manager" } = req.body;
+
+    if (!companyId || !userId) {
+      return res.status(400).json({ error: "companyId and userId are both required" });
+    }
+
+    if (!["admin", "manager", "viewer"].includes(role)) {
+      return res.status(400).json({ error: "Invalid role" });
+    }
+
+    const [company] = await db.select().from(users).where(eq(users.id, companyId));
+    const [member] = await db.select().from(users).where(eq(users.id, userId));
+
+    if (!company || !member) {
+      return res.status(404).json({ error: "One or both accounts not found" });
+    }
+
+    const [existing] = await db
+      .select()
+      .from(teamMembers)
+      .where(eq(teamMembers.userId, userId));
+
+    if (existing) {
+      return res.status(409).json({
+        error: `User ${userId} is already linked to company ${existing.companyId}`,
+        existingLink: existing,
+      });
+    }
+
+    const [link] = await db
+      .insert(teamMembers)
+      .values({
+        companyId,
+        userId,
+        role,
+        invitedEmail: member.email,
+        inviteToken: null,
+        inviteAccepted: true,
+        inviteAcceptedAt: new Date(),
+      })
+      .returning();
+
+    console.log(
+      `Admin linked user ${userId} (${member.email}) to company ${companyId} as ${role}`
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: `${member.email} is now linked to company ${companyId} as ${role}`,
+      membership: link,
+    });
+  } catch (error) {
+    console.error("adminLinkTeamMember error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }

@@ -1029,3 +1029,27 @@ export type BookingStatus = (typeof bookingStatusValues)[number];
 export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = typeof bookings.$inferInsert;
 export type BookingStatusHistory = typeof bookingStatusHistory.$inferSelect;
+
+// ============================================================
+// Team Members
+// ============================================================
+
+export const teamMembers = pgTable("team_members", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .references(() => users.id, { onDelete: "set null" }),
+  role: text("role").notNull().default("manager"),
+  invitedEmail: text("invited_email").notNull(),
+  inviteToken: text("invite_token").unique(),
+  inviteAccepted: boolean("invite_accepted").notNull().default(false),
+  inviteSentAt: timestamp("invite_sent_at", { withTimezone: true }).defaultNow(),
+  inviteAcceptedAt: timestamp("invite_accepted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type InsertTeamMember = typeof teamMembers.$inferInsert;
