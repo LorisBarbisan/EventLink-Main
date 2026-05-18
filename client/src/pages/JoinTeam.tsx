@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ export default function JoinTeam() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
 
   const token = new URLSearchParams(window.location.search).get("token") || "";
 
@@ -21,6 +22,7 @@ export default function JoinTeam() {
   const [signInPassword, setSignInPassword] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [companyName, setCompanyName] = useState("");
+  const [freelancerBlocked, setFreelancerBlocked] = useState(false);
 
   const { data: tokenInfo, isLoading: tokenLoading, error: tokenError } = useQuery<{
     requiresAuth: boolean;
@@ -69,12 +71,31 @@ export default function JoinTeam() {
         body: JSON.stringify({}),
         headers: { "Content-Type": "application/json" },
       }),
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       setAccepted(true);
       setCompanyName(data.companyName || companyName);
-      setTimeout(() => setLocation("/dashboard"), 3000);
+      // Refresh auth session so the dashboard receives updated companyId/isTeamMember
+      try {
+        await queryClient.invalidateQueries({ queryKey: ["/api/auth/session"] });
+        await queryClient.refetchQueries({ queryKey: ["/api/auth/session"] });
+      } catch {
+        // ignore refresh errors — redirect anyway
+      }
+      setTimeout(() => setLocation("/dashboard"), 2500);
     },
     onError: (err: any) => {
+      if (err?.message?.includes("freelancer_cannot_join_team") || err?.error === "freelancer_cannot_join_team") {
+        setFreelancerBlocked(true);
+        return;
+      }
+      // Try parsing the error body for the error code
+      try {
+        const parsed = typeof err === "string" ? JSON.parse(err) : err;
+        if (parsed?.error === "freelancer_cannot_join_team") {
+          setFreelancerBlocked(true);
+          return;
+        }
+      } catch {}
       toast({
         title: "Failed to accept invitation",
         description: err?.message || "Please try again or contact support.",
@@ -84,7 +105,7 @@ export default function JoinTeam() {
   });
 
   useEffect(() => {
-    if (user && tokenInfo && !accepted) {
+    if (user && tokenInfo && !accepted && !freelancerBlocked) {
       acceptMutation.mutate();
     }
   }, [user, tokenInfo]);
@@ -171,6 +192,30 @@ export default function JoinTeam() {
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 bg-muted/30">
+      {/* Freelancer blocked modal */}
+      {freelancerBlocked && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+            <div className="mb-4 text-5xl">🚫</div>
+            <h2 className="mb-3 text-xl font-bold text-gray-900">
+              This invitation is for employer accounts
+            </h2>
+            <p className="mb-4 text-sm leading-relaxed text-gray-500">
+              Your account is registered as a freelancer on EventLink. Team invitations can only be accepted by employer accounts.
+            </p>
+            <p className="mb-6 text-sm leading-relaxed text-gray-500">
+              If you need to join this company's team, please register a separate employer account using a different email address, then accept the invitation from there.
+            </p>
+            <a
+              href="/dashboard"
+              className="block w-full rounded-xl bg-orange-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-orange-700"
+            >
+              Back to my dashboard
+            </a>
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-orange-100">

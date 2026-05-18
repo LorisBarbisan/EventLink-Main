@@ -1,0 +1,162 @@
+Replit Agent 4 — Team Account Bug Fixes
+Two bugs to fix. Read everything before starting.
+
+Bug 1 — Freelancers can accept employer team invitations
+What is happening: A user with a freelancer account can currently navigate to /join-team?token=xxx and accept an invitation that was intended for an employer team member. This should be blocked entirely, with a clear explanation shown to the freelancer.
+Where to fix: server/api/controllers/team.controller.ts — in the acceptInvitation function (the POST route handler that runs when an authenticated user accepts a token).
+The fix — add this check after you confirm the user is authenticated and before you link them:
+typescript// After confirming req.user exists and the invitation is valid,
+// check that the accepting user is NOT a freelancer
+
+const [acceptingUser] = await db
+  .select({ role: users.role })
+  .from(users)
+  .where(eq(users.id, req.user.id))
+  .limit(1);
+
+if (acceptingUser?.role === 'freelancer') {
+  return res.status(403).json({
+    error: 'freelancer_cannot_join_team',
+    message: 'Your account is registered as a freelancer. Team invitations are for employer accounts only. If you need to join a company team, please register with a new employer account.',
+  });
+}
+Frontend — show the popup in client/src/pages/JoinTeam.tsx:
+When the API returns error: 'freelancer_cannot_join_team', do not show the generic error state. Instead show a specific modal or inline message:
+tsx// Add a freelancerBlocked state:
+const [freelancerBlocked, setFreelancerBlocked] = useState(false);
+
+// In the catch/error handler for the accept API call:
+if (errorData.error === 'freelancer_cannot_join_team') {
+  setFreelancerBlocked(true);
+  return;
+}
+
+// Render this when freelancerBlocked is true — shown as an overlay modal:
+{freelancerBlocked && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
+      <div className="text-5xl mb-4">🚫</div>
+      <h2 className="text-xl font-bold text-gray-900 mb-3">
+        This invitation is for employer accounts
+      </h2>
+      <p className="text-gray-500 text-sm leading-relaxed mb-6">
+        Your account is registered as a freelancer on EventLink.
+        Team invitations can only be accepted by employer accounts.
+      </p>
+      <p className="text-gray-500 text-sm leading-relaxed mb-6">
+        If you need to join this company's team, please register
+        a separate employer account using a different email address,
+        then accept the invitation from there.
+      </p>
+      
+        href="/dashboard"
+        className="block w-full py-3 px-6 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 transition-colors"
+      >
+        Back to my dashboard
+      </a>
+    </div>
+  </div>
+)}
+
+Bug 2 — After accepting an invitation, user lands on their own empty dashboard instead of the company dashboard
+What is happening: When a newly registered employer accepts an invitation and logs in, they are routed to their own employer dashboard rather than the company dashboard of the employer who invited them. The resolveCompanyId middleware is supposed to handle this but something in the login/redirect flow is bypassing it or firing before the middleware runs.
+There are two parts to this fix — one backend, one frontend.
+
+Backend fix — ensure the login response includes team membership data:
+Find the login handler in server/api/controllers/auth.controller.ts. The function that handles POST /api/auth/login (or equivalent) and returns the user object on successful authentication.
+After verifying credentials and before returning the response, add a check for team membership:
+typescript// After successful authentication, check if this user is a team member
+const [membership] = await db
+  .select({
+    companyId: teamMembers.companyId,
+    role: teamMembers.role,
+  })
+  .from(teamMembers)
+  .where(
+    and(
+      eq(teamMembers.userId, user.id),
+      eq(teamMembers.inviteAccepted, true)
+    )
+  )
+  .limit(1);
+
+// Add companyId and teamRole to the response payload
+const responsePayload = {
+  ...user, // existing user fields
+  companyId: membership?.companyId ?? user.id,
+  teamRole: membership ? membership.role : 'owner',
+  isTeamMember: !!membership,
+};
+
+// Return responsePayload instead of just user
+Make sure to import teamMembers from the schema at the top of the file if not already imported.
+Do the same for the GET /api/auth/me endpoint (or equivalent session check endpoint) — wherever the frontend calls to check if a user is currently logged in, that response also needs to include companyId, teamRole, and isTeamMember.
+
+Frontend fix — use companyId from the auth response for routing:
+Find where the frontend decides which dashboard to show after login. This is likely in one of these places — check all of them:
+
+client/src/pages/Dashboard.tsx — the main dashboard router
+client/src/App.tsx — the route definitions
+client/src/pages/Auth.tsx — the post-login redirect logic
+The auth context file in client/src/contexts/ — wherever user state is stored
+
+The current logic probably does something like:
+typescript// Current (broken) logic:
+if (user.role === 'employer') {
+  navigate('/employer/dashboard');
+}
+This sends all employer-role users to their own dashboard regardless of team membership.
+Replace with:
+typescript// Fixed logic — team members go to their company's dashboard
+if (user.role === 'employer') {
+  if (user.isTeamMember && user.companyId && user.companyId !== user.id) {
+    // This user belongs to another company — go to company dashboard
+    // The employer dashboard will automatically show company data
+    // because resolveCompanyId middleware reads the team_members table
+    navigate('/employer/dashboard');
+    // NOTE: the dashboard content will be correct because every API call
+    // uses req.companyId (from resolveCompanyId) not req.user.id
+  } else {
+    navigate('/employer/dashboard');
+  }
+}
+Wait — the route is the same. The issue is not the route, it is that the frontend is fetching dashboard data using user.id directly somewhere instead of relying on the backend's companyId. Find every place in the employer dashboard components where data is fetched and check if any of them pass the user's ID as a query parameter or in the request body. Those calls should not need any ID — the backend resolveCompanyId middleware handles it automatically.
+The most likely actual cause is in the employer dashboard component itself. Look for something like:
+typescript// Broken — fetches this user's own data by ID:
+const { data } = useQuery(`/api/jobs?employerId=${user.id}`);
+
+// Correct — lets the backend resolve the company:
+const { data } = useQuery('/api/jobs/employer');
+If you find any query that passes user.id as an employer filter, remove that parameter. The backend resolveCompanyId middleware already knows which company to use — the frontend should not be overriding it by sending an explicit ID.
+
+Additionally — fix the JoinTeam.tsx redirect after acceptance:
+After a successful invitation acceptance, the current code likely redirects to /employer/dashboard immediately. But the session/auth state has not been refreshed yet, so the middleware does not know about the new team membership until the next full login.
+Add a session refresh before the redirect:
+typescript// After successful invitation acceptance:
+try {
+  // 1. Invalidate the auth query cache to force a fresh /api/auth/me call
+  await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+  // OR if you use a different query key for user session, invalidate that
+
+  // 2. Wait briefly for the cache to refresh
+  await queryClient.refetchQueries({ queryKey: ['/api/auth/me'] });
+
+  // 3. Now redirect — the fresh session will include companyId and isTeamMember
+  navigate('/employer/dashboard');
+} catch {
+  navigate('/employer/dashboard');
+}
+This ensures that by the time the user lands on the dashboard, the auth context already knows they are a team member and resolveCompanyId will work correctly on all subsequent API calls.
+
+Testing checklist
+
+ Log in as a freelancer, navigate to a valid invite URL — confirm the freelancer blocked modal appears and does NOT link the account
+ Click "Back to my dashboard" from the blocked modal — confirm it routes to the freelancer dashboard
+ Log in as an employer, accept a valid invitation — confirm the session refreshes and the company dashboard loads showing the inviting company's jobs and data
+ Log out and log back in as the team member — confirm they go directly to the company dashboard, never their own empty dashboard
+ Confirm all employer dashboard data (jobs, bookings, crew pool) belongs to the company, not the team member's own empty account
+ Remove the team member from the Team tab — confirm their next login shows their own empty employer dashboard again
+
+
+Files to modify
+FileWhat changesserver/api/controllers/team.controller.tsAdd freelancer role check in acceptInvitationserver/api/controllers/auth.controller.tsAdd companyId, teamRole, isTeamMember to login and /me responsesclient/src/pages/JoinTeam.tsxAdd freelancer blocked modal + session refresh before redirectclient/src/pages/Dashboard.tsx or auth contextFix any hardcoded user.id employer data fetching

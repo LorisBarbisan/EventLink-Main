@@ -1,9 +1,11 @@
-import { insertUserSchema } from "@shared/schema";
+import { insertUserSchema, teamMembers } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import passport from "passport";
+import { eq, and } from "drizzle-orm";
+import { db } from "../config/db";
 import { storage } from "../../storage";
 import {
   blacklistToken,
@@ -610,6 +612,23 @@ export async function getSession(req: Request, res: Response) {
     // Apply role computation to fresh user data
     const userWithRole = computeUserRole(user);
 
+    // Check team membership for employer users
+    let companyId = userWithRole.id;
+    let teamRole: string | null = null;
+    let isTeamMember = false;
+    if (userWithRole.role === "employer") {
+      const [membership] = await db
+        .select({ companyId: teamMembers.companyId, role: teamMembers.role })
+        .from(teamMembers)
+        .where(and(eq(teamMembers.userId, userWithRole.id), eq(teamMembers.inviteAccepted, true)))
+        .limit(1);
+      if (membership) {
+        companyId = membership.companyId;
+        teamRole = membership.role;
+        isTeamMember = true;
+      }
+    }
+
     res.json({
       user: {
         id: userWithRole.id,
@@ -619,6 +638,9 @@ export async function getSession(req: Request, res: Response) {
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
         auth_provider: userWithRole.auth_provider || "email",
+        companyId,
+        teamRole,
+        isTeamMember,
       },
     });
   } catch (error) {
@@ -757,6 +779,23 @@ export async function signin(req: Request, res: Response) {
     // Update last login
     await storage.updateUserLastLogin(user.id, "email");
 
+    // Check team membership for employer users
+    let companyId = userWithRole.id;
+    let teamRole: string | null = null;
+    let isTeamMember = false;
+    if (userWithRole.role === "employer") {
+      const [membership] = await db
+        .select({ companyId: teamMembers.companyId, role: teamMembers.role })
+        .from(teamMembers)
+        .where(and(eq(teamMembers.userId, userWithRole.id), eq(teamMembers.inviteAccepted, true)))
+        .limit(1);
+      if (membership) {
+        companyId = membership.companyId;
+        teamRole = membership.role;
+        isTeamMember = true;
+      }
+    }
+
     res.json({
       message: "Sign in successful",
       token: token,
@@ -767,6 +806,9 @@ export async function signin(req: Request, res: Response) {
         last_name: (userWithRole as any).last_name,
         role: (userWithRole as any).role,
         email_verified: (userWithRole as any).email_verified,
+        companyId,
+        teamRole,
+        isTeamMember,
       },
     });
   } catch (error) {

@@ -218,6 +218,20 @@ export async function acceptInvitation(req: Request, res: Response) {
       return res.status(401).json({ error: "You must be signed in to accept this invitation" });
     }
 
+    // Block freelancers from accepting team invitations
+    const [acceptingUser] = await db
+      .select({ role: users.role })
+      .from(users)
+      .where(eq(users.id, req.user.id))
+      .limit(1);
+
+    if (acceptingUser?.role === "freelancer") {
+      return res.status(403).json({
+        error: "freelancer_cannot_join_team",
+        message: "Your account is registered as a freelancer. Team invitations are for employer accounts only. If you need to join a company team, please register with a new employer account.",
+      });
+    }
+
     if (membership.inviteAccepted) {
       return res.status(409).json({ error: "This invitation has already been accepted" });
     }
