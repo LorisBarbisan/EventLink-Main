@@ -151,10 +151,12 @@ export default function SimplifiedRecruiterDashboard() {
   // });
 
   // Fetch jobs
+  const effectiveId = user?.companyId ?? user?.id;
+
   const { data: myJobs = [], isLoading: jobsLoading } = useQuery({
-    queryKey: ["/api/jobs/recruiter", user?.id],
-    queryFn: () => apiRequest(`/api/jobs/recruiter/${user?.id}`),
-    enabled: !!user?.id,
+    queryKey: ["/api/jobs/recruiter", effectiveId],
+    queryFn: () => apiRequest(`/api/jobs/recruiter/${effectiveId}`),
+    enabled: !!effectiveId,
   });
 
   const { data: jobDetailData, isLoading: jobDetailLoading } = useQuery<{
@@ -177,9 +179,9 @@ export default function SimplifiedRecruiterDashboard() {
 
   // Fetch applications
   const { data: applications = [], isLoading: applicationsLoading } = useQuery({
-    queryKey: ["/api/recruiter", user?.id, "applications"],
-    queryFn: () => apiRequest(`/api/recruiter/${user?.id}/applications`),
-    enabled: !!user?.id,
+    queryKey: ["/api/recruiter", effectiveId, "applications"],
+    queryFn: () => apiRequest(`/api/recruiter/${effectiveId}/applications`),
+    enabled: !!effectiveId,
     select: (data) => {
       // Filter out applications for jobs that might have been deleted
       return data.filter((app: JobApplication) => {
@@ -258,7 +260,7 @@ export default function SimplifiedRecruiterDashboard() {
       console.log("🎯 Job created successfully! Invalidating all job caches...");
 
       // Invalidate queries to ensure fresh data on next fetch
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
 
       console.log("✅ Jobs cache invalidated");
@@ -302,7 +304,7 @@ export default function SimplifiedRecruiterDashboard() {
     },
     onSuccess: (data, variables) => {
       // Invalidate queries to ensure fresh data on next fetch
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       setEditingJob(null);
       toast({
@@ -331,11 +333,11 @@ export default function SimplifiedRecruiterDashboard() {
     },
     onSuccess: async () => {
       await queryClient.refetchQueries({
-        queryKey: ["/api/jobs/recruiter", user?.id],
+        queryKey: ["/api/jobs/recruiter", effectiveId],
         type: "active",
       });
       await queryClient.refetchQueries({
-        queryKey: ["/api/recruiter", user?.id, "applications"],
+        queryKey: ["/api/recruiter", effectiveId, "applications"],
         type: "active",
       });
       toast({
@@ -362,7 +364,7 @@ export default function SimplifiedRecruiterDashboard() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({
         title: "Success",
@@ -389,7 +391,7 @@ export default function SimplifiedRecruiterDashboard() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({
         title: "Success",
@@ -412,7 +414,7 @@ export default function SimplifiedRecruiterDashboard() {
       return await apiRequest(`/api/jobs/${jobId}/reopen`, { method: "PUT" });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({
         title: "Job Reopened",
@@ -437,9 +439,9 @@ export default function SimplifiedRecruiterDashboard() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/recruiter", user?.id, "applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/recruiter", effectiveId, "applications"] });
       toast({
         title: "Job Closed",
         description: "Job has been closed. No more applications or invitations will be accepted.",
@@ -476,11 +478,11 @@ export default function SimplifiedRecruiterDashboard() {
     // They remain unread until user explicitly views/reads them
     if (tab === "jobs") {
       markCategoryAsRead("jobs");
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
     } else if (tab === "applications") {
       markCategoryAsRead("applications");
       // Force refetch applications to ensure new ones appear immediately
-      queryClient.invalidateQueries({ queryKey: ["/api/recruiter", user?.id, "applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/recruiter", effectiveId, "applications"] });
     }
     // Removed: markCategoryAsRead('messages') - keep message notifications unread until user reads them
   };

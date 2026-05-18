@@ -20,6 +20,9 @@ export interface User {
   last_login_at?: Date | null;
   created_at: string | Date;
   updated_at: string | Date;
+  companyId?: number;
+  teamRole?: string | null;
+  isTeamMember?: boolean;
 }
 
 export interface FreelancerProfile {

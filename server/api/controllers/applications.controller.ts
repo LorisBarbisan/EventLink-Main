@@ -231,10 +231,12 @@ export async function getRecruiterApplications(req: Request, res: Response) {
   try {
     const recruiterId = parseInt(req.params.recruiterId);
 
-    // Check authorization
+    // Check authorization — allow admin, the owner themselves, or a team member whose companyId matches
+    const reqUser = (req as any).user;
+    const effectiveCompanyId = (req as any).companyId ?? reqUser?.id;
     if (
-      !(req as any).user ||
-      ((req as any).user.id !== recruiterId && (req as any).user.role !== "admin")
+      !reqUser ||
+      (reqUser.id !== recruiterId && effectiveCompanyId !== recruiterId && reqUser.role !== "admin")
     ) {
       return res.status(403).json({ error: "Not authorized to view these applications" });
     }
