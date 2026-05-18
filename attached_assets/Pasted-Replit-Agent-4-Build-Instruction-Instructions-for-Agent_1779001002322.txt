@@ -1,0 +1,447 @@
+Replit Agent 4 Build Instruction
+Instructions for Agent 4
+Read this entire document before starting. Implement each sprint in order. Do not begin the next sprint until the current one is tested and working. Check shared/schema.ts and existing controllers for exact field names before writing any queries — do not assume field names.
+
+Sprint 1 — Database: Create the team_members table
+Create a new migration file: migrations/0008_team_members.sql
+CREATE TABLE IF NOT EXISTS "team_members" (
+  "id" serial PRIMARY KEY NOT NULL,
+  "company_id" integer NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  -- company_id = the primary employer account (the company)
+  -- All team members share this company's jobs, bookings, crew pool
+  "user_id" integer REFERENCES "users"("id") ON DELETE SET NULL,
+  -- user_id = the individual person's login account
+  -- NULL means invitation sent but not yet accepted
+  "role" text NOT NULL DEFAULT 'manager',
+  -- Values: 'admin' | 'manager' | 'viewer'
+  "invited_email" text NOT NULL,
+  "invite_token" text UNIQUE,
+  -- UUID token sent in invitation email link
+  "invite_accepted" boolean NOT NULL DEFAULT false,
+  "invite_sent_at" timestamp with time zone DEFAULT now(),
+  "invite_accepted_at" timestamp with time zone,
+  "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+  "updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+  CONSTRAINT "team_members_user_unique" UNIQUE ("user_id")
+);
+
+CREATE INDEX IF NOT EXISTS "team_members_company_id_idx" ON "team_members"("company_id");
+CREATE INDEX IF NOT EXISTS "team_members_user_id_idx" ON "team_members"("user_id");
+CREATE INDEX IF NOT EXISTS "team_members_invite_token_idx" ON "team_members"("invite_token");
+
+Add to shared/schema.ts:
+export const teamMembers = pgTable("team_members", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .references(() => users.id, { onDelete: "set null" }),
+  role: text("role").notNull().default("manager"),
+  invitedEmail: text("invited_email").notNull(),
+  inviteToken: text("invite_token").unique(),
+  inviteAccepted: boolean("invite_accepted").notNull().default(false),
+  inviteSentAt: timestamp("invite_sent_at", { withTimezone: true }).defaultNow(),
+  inviteAcceptedAt: timestamp("invite_accepted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type InsertTeamMember = typeof teamMembers.$inferInsert;
+
+Run the migration before proceeding to Sprint 2.
+
+Sprint 2 — Auth middleware: Company resolution
+This is the most important piece. Create server/api/middleware/team.middleware.ts:
+import { db } from "../../storage";
+import { teamMembers } from "../../../shared/schema";
+import { eq } from "drizzle-orm";
+import { Request, Response, NextFunction } from "express";
+
+/**
+ * resolveCompanyId
+ *
+ * Attaches req.companyId to every authenticated employer request.
+ * If the user IS the company account: req.companyId = req.user.id
+ * If the user is a team member: req.companyId = the company they belong to
+ * All employer data queries use req.companyId instead of req.user.id
+ * Also attaches req.teamRole for permission checks
+ */
+export async function resolveCompanyId(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  if (!req.user) return next();
+
+  const [membership] = await db
+    .select()
+    .from(teamMembers)
+    .where(eq(teamMembers.userId, req.user.id))
+    .limit(1);
+
+  if (membership && membership.inviteAccepted) {
+    req.companyId = membership.companyId;
+    req.teamRole = membership.role as "admin" | "manager" | "viewer";
+  } else {
+    req.companyId = req.user.id;
+    req.teamRole = "owner";
+  }
+
+  next();
+}
+
+Add companyId and teamRole to the Express Request type. Find the types file (likely server/types.ts or server/@types/express/index.d.ts) and add:
+declare global {
+  namespace Express {
+    interface Request {
+      companyId?: number;
+      teamRole?: "owner" | "admin" | "manager" | "viewer";
+    }
+  }
+}
+
+Apply resolveCompanyId middleware to all employer routes in server/api/routes/index.ts — add it after requireAuth for all employer-facing routes.
+
+Sprint 3 — Update existing employer queries to use companyId
+In every controller that currently queries by req.user.id for employer data, replace req.user.id with req.companyId. This is what makes team members see the company data.
+The affected files are:
+•	job.controller.ts — any query using employerId: req.user.id
+•	booking.controller.ts — same replacement
+•	admin.controller.ts — any employer-scoped queries
+•	Any other controller fetching jobs, bookings, applications, or crew using the employer user ID
+Important
+Do NOT change freelancer queries — those correctly use req.user.id and must stay as they are. Only change queries that are explicitly for the employer side of the platform.
+
+Sprint 4 — Team management controller
+Create server/api/controllers/team.controller.ts with the following functions:
+
+getTeamMembers — GET /api/team
+export async function getTeamMembers(req: Request, res: Response) {
+  const companyId = req.companyId!;
+  const members = await db
+    .select({
+      id: teamMembers.id,
+      role: teamMembers.role,
+      invitedEmail: teamMembers.invitedEmail,
+      inviteAccepted: teamMembers.inviteAccepted,
+      inviteSentAt: teamMembers.inviteSentAt,
+      inviteAcceptedAt: teamMembers.inviteAcceptedAt,
+      userId: teamMembers.userId,
+      firstName: users.firstName,
+      lastName: users.lastName,
+    })
+    .from(teamMembers)
+    .leftJoin(users, eq(teamMembers.userId, users.id))
+    .where(eq(teamMembers.companyId, companyId));
+  return res.json(members);
+}
+
+inviteTeamMember — POST /api/team/invite
+This function: validates email and role, checks for duplicate invitations, generates a UUID invite token, saves the invitation to team_members, and sends the invitation email via SendGrid. Email subject and body are specified below.
+
+Invitation email:
+Subject: You have been invited to join [Company Name] on EventLink
+
+Hi,
+
+You have been invited to join the [Company Name] team on EventLink
+as a [role].
+
+EventLink is a platform for the UK events industry connecting
+employers with verified freelance technicians.
+
+Click the link below to accept your invitation and set up
+your account:
+
+[Accept Invitation button] → https://eventlink.one/join-team?token=[token]
+
+This invitation expires in 7 days.
+
+The EventLink Team
+eventlink.one
+
+You received this because someone at [Company Name]
+invited you to EventLink.
+
+acceptInvitation — GET and POST /api/team/accept/:token
+GET (unauthenticated): Look up the token, check it is not expired (7 days), return requiresAuth: true plus the invited email and role if the user is not yet logged in. The frontend uses this to show a login or signup form.
+POST (authenticated): Look up the token, link req.user.id to the team_members record, set inviteAccepted = true, inviteAcceptedAt = now(), clear the token. Return success.
+
+updateTeamMemberRole — PATCH /api/team/:id/role
+Owner and Admin only. Validates the new role is one of admin, manager, viewer. Updates the role field on the team_members record matching the given ID and the current companyId.
+
+removeTeamMember — DELETE /api/team/:id
+Owner and Admin only. Deletes the team_members record. The user's own account still exists — they will simply see their own empty dashboard on next login.
+
+Sprint 5 — Team routes
+Create server/api/routes/team.route.ts:
+import { Router } from "express";
+import { requireAuth } from "../middleware/auth.middleware";
+import { requireRole } from "../middleware/role.middleware";
+import { resolveCompanyId } from "../middleware/team.middleware";
+import {
+  getTeamMembers, inviteTeamMember, acceptInvitation,
+  updateTeamMemberRole, removeTeamMember
+} from "../controllers/team.controller";
+
+const router = Router();
+
+// Accept invitation — no auth required initially
+router.get("/accept/:token", acceptInvitation);
+router.post("/accept/:token", requireAuth, acceptInvitation);
+
+// All other routes require auth + company resolution
+router.use(requireAuth, requireRole("employer"), resolveCompanyId);
+
+router.get("/", getTeamMembers);
+router.post("/invite", inviteTeamMember);
+router.patch("/:id/role", updateTeamMemberRole);
+router.delete("/:id", removeTeamMember);
+
+export default router;
+
+Register in server/api/routes/index.ts:
+import teamRouter from "./team.route";
+router.use("/team", teamRouter);
+
+Sprint 6 — Admin merge endpoint (for existing accounts)
+This is the endpoint that handles the Blue Elephant UK situation and any future case where two existing accounts need to be linked without going through the invitation email flow.
+Add to the admin controller (server/api/controllers/admin.controller.ts):
+/**
+ * Admin-only: link an existing user account to a company
+ * as a team member, bypassing the invitation email flow.
+ *
+ * Use this when both accounts already exist and you want
+ * to link them immediately from the admin dashboard.
+ *
+ * POST /api/admin/team/link
+ * Body: { companyId, userId, role }
+ */
+export async function adminLinkTeamMember(req: Request, res: Response) {
+  const { companyId, userId, role = "manager" } = req.body;
+
+  if (!companyId || !userId) {
+    return res.status(400).json({
+      error: "companyId and userId are both required"
+    });
+  }
+
+  if (![ "admin", "manager", "viewer" ].includes(role)) {
+    return res.status(400).json({ error: "Invalid role" });
+  }
+
+  // Verify both accounts exist and are employer accounts
+  const [company] = await db.select()
+    .from(users)
+    .where(eq(users.id, companyId));
+
+  const [member] = await db.select()
+    .from(users)
+    .where(eq(users.id, userId));
+
+  if (!company || !member) {
+    return res.status(404).json({ error: "One or both accounts not found" });
+  }
+
+  // Check userId is not already linked to another company
+  const [existing] = await db.select()
+    .from(teamMembers)
+    .where(eq(teamMembers.userId, userId));
+
+  if (existing) {
+    return res.status(409).json({
+      error: `User ${userId} is already linked to company ${existing.companyId}`,
+      existingLink: existing
+    });
+  }
+
+  // Get the email of the user being linked
+  const memberEmail = member.email;
+
+  // Create the team membership — pre-accepted, no token needed
+  const [link] = await db.insert(teamMembers).values({
+    companyId,
+    userId,
+    role,
+    invitedEmail: memberEmail,
+    inviteToken: null,
+    inviteAccepted: true,
+    inviteAcceptedAt: new Date(),
+  }).returning();
+
+  console.log(
+    `Admin linked user ${userId} (${memberEmail}) to company ${companyId} as ${role}`
+  );
+
+  return res.status(201).json({
+    success: true,
+    message: `${memberEmail} is now linked to company ${companyId} as ${role}`,
+    membership: link
+  });
+}
+
+Add to the admin routes file:
+router.post("/team/link", requireAdmin, adminLinkTeamMember);
+
+Sprint 7 — Frontend: Team Management tab
+Add a Team tab to the employer dashboard settings area. The component has two sections:
+
+Section 1 — Current team members list
+•	Show each member with their name (or email if not yet accepted), role badge, and status (Pending / Active)
+•	For pending invitations show a Resend invite button
+•	For active members show a role dropdown (Admin / Manager / Viewer) and a Remove button
+•	The account owner row has no Remove or role change controls
+
+Section 2 — Invite new member form
+•	Email address field
+•	Role selector: Manager (default) / Viewer / Admin
+•	Send Invitation button — on success show: Invitation sent to [email]
+
+API calls for this component:
+GET  /api/team          → load members list
+POST /api/team/invite   → send invitation
+PATCH /api/team/:id/role → change a member's role
+DELETE /api/team/:id    → remove a member
+
+Sprint 8 — Frontend: Accept invitation page
+Create a new page at /join-team that handles the invitation acceptance flow:
+1.	Read the token query parameter from the URL
+2.	Call GET /api/team/accept/:token
+3.	If requiresAuth: true is returned — show a login or signup form. After authentication call POST /api/team/accept/:token to complete the link
+4.	If accepted successfully — redirect to the employer dashboard with a welcome banner: You have joined the [Company Name] team
+5.	If token is expired or invalid — show a clear error message with a link to contact support at loris@eventlink.one
+
+Sprint 9 — Permission enforcement
+Throughout the controllers, enforce the following permission matrix. Use req.teamRole for all checks.
+Action	Owner	Admin	Manager	Viewer
+View all dashboard data	✓	✓	✓	✓
+Post jobs	✓	✓	✓	✗
+Close jobs	✓	✓	✓	✗
+Manage bookings	✓	✓	✓	✗
+Rate freelancers	✓	✓	✓	✗
+Invite team members	✓	✓	✗	✗
+Remove team members	✓	✓	✗	✗
+Change roles	✓	✓	✗	✗
+Access billing	✓	✗	✗	✗
+
+Testing Checklist
+Complete all of the following before considering the feature deployed:
+•	Employer A invites Employer B via the Team tab
+•	Employer B receives invitation email with a working Accept link
+•	Employer B clicks link, logs in, and sees Employer A's dashboard
+•	Employer B can see all of Employer A's jobs, bookings, and crew pool
+•	Employer A can see Employer B listed in their Team tab as Active
+•	Employer A changes Employer B's role from Manager to Viewer
+•	Employer B as Viewer cannot post a job (button disabled or 403 returned)
+•	Employer A removes Employer B from the team
+•	After removal, Employer B sees their own empty dashboard again
+•	Expired token (older than 7 days) returns a clear error message
+•	Admin merge endpoint correctly links two existing accounts
+•	Admin merge endpoint returns 409 if user is already linked to another company
+
+Files to create or modify
+migrations/0008_team_members.sql (New) | shared/schema.ts (Add teamMembers table) | server/api/middleware/team.middleware.ts (New) | server/api/controllers/team.controller.ts (New) | server/api/controllers/admin.controller.ts (Add adminLinkTeamMember) | server/api/routes/team.route.ts (New) | server/api/routes/index.ts (Register team router and admin endpoint) | server/@types/express/index.d.ts (Add companyId and teamRole to Request) | job.controller.ts and booking.controller.ts (Replace req.user.id with req.companyId for employer queries) | Employer dashboard — Team tab component (New) | /join-team page (New)
+ 
+Part 3 — Admin Merge Tool: How to Use It
+Once the feature is deployed, this is how you link the two existing Blue Elephant UK accounts without any invitation emails being exchanged.
+
+3.1  What You Need
+You need the user IDs of both Blue Elephant UK accounts. Find them in your admin dashboard or by querying the database. You will need:
+•	Account A ID — the better profile, will become the company account
+•	Account B ID — the person to be linked in as a team member
+
+3.2  Making the API Call
+From your admin dashboard (once the admin UI is built for this), or directly via an API call, send the following:
+POST /api/admin/team/link
+Authorization: [your admin session]
+Content-Type: application/json
+
+{
+  "companyId": [Account A's user ID],
+  "userId":    [Account B's user ID],
+  "role":      "manager"
+}
+
+The endpoint immediately creates the team membership record with inviteAccepted = true — no email is sent, no token is generated. Account B is linked to Account A's dashboard instantly.
+
+3.3  What Happens Immediately After
+•	The next time Account B logs in, they see Account A's company dashboard
+•	Account B appears in Account A's Team tab as an active Manager
+•	Account A can change Account B's role or remove them from the Team tab
+•	Account B's original empty profile still exists in the database but is never shown to them
+
+3.4  If You Need to Undo It
+Account A can remove Account B from their Team tab at any time. Once removed, Account B logs in and sees their own original empty employer profile again. No data is lost on either side.
+
+3.5  Adding the Admin UI
+Ask Replit Agent to add a simple form to the admin dashboard under a Team Accounts section:
+•	Two fields: Company Account ID and Member User ID
+•	A Role dropdown: Manager / Viewer / Admin
+•	A Link Accounts button that calls POST /api/admin/team/link
+•	On success, show: [email] is now linked to [company name] as [role]
+•	On 409 conflict, show the existing link details so you can investigate
+ 
+Part 4 — Optional: Migrating Account B's Historical Data
+If Account B posted any jobs, received applications, or has booking records under their own account ID before being linked to Account A, those records will not automatically appear on Account A's dashboard. They remain under Account B's employer ID in the database.
+For Blue Elephant UK, if Account B was not very active, skip this entirely. If Account B has meaningful data you want to consolidate, ask Replit Agent to run the following one-time migration script.
+
+Run this only once
+This script permanently reassigns jobs, bookings, and applications from Account B's employer ID to Account A's employer ID. Back up the database before running. This cannot be undone without restoring from backup.
+
+4.1  The Migration Script
+Ask Replit Agent to create and run a one-time script with the following logic. Replace ACCOUNT_A_ID and ACCOUNT_B_ID with the actual user IDs.
+-- One-time migration: reassign Account B's employer data to Account A
+-- Run ONCE after confirming Account B ID and Account A ID
+-- Back up the database first
+
+BEGIN;
+
+-- Reassign jobs posted by Account B to Account A
+UPDATE jobs
+SET employer_id = [ACCOUNT_A_ID]
+WHERE employer_id = [ACCOUNT_B_ID];
+
+-- Reassign bookings made by Account B to Account A
+UPDATE bookings
+SET employer_id = [ACCOUNT_A_ID]
+WHERE employer_id = [ACCOUNT_B_ID];
+
+-- Log what was moved
+SELECT
+  (SELECT COUNT(*) FROM jobs WHERE employer_id = [ACCOUNT_A_ID]) as total_jobs,
+  (SELECT COUNT(*) FROM bookings WHERE employer_id = [ACCOUNT_A_ID]) as total_bookings;
+
+COMMIT;
+
+After running this script, all of Account B's historical jobs and bookings will appear on Account A's dashboard immediately, with no further changes needed.
+ 
+Part 5 — Future: Connecting to the Teams Tier Billing
+The team membership feature is being built now without a billing gate so it can be deployed immediately for the Blue Elephant UK situation and tested properly. Once Stripe billing (Sprint 8 of the FMS build plan) is implemented, the paywall can be added in a single sprint.
+
+5.1  How the Billing Gate Will Work
+When billing is added, the inviteTeamMember function will check whether the company account has an active Teams tier subscription before allowing new invitations to be sent. The check is a single database query against the subscriptions table.
+// Add to the top of inviteTeamMember, after role validation:
+
+const [subscription] = await db
+  .select()
+  .from(subscriptions)
+  .where(
+    and(
+      eq(subscriptions.userId, companyId),
+      eq(subscriptions.status, "active"),
+      inArray(subscriptions.tier, ["teams", "enterprise"])
+    )
+  );
+
+if (!subscription) {
+  return res.status(402).json({
+    error: "Team accounts require a Teams tier subscription",
+    upgradeUrl: "https://eventlink.one/upgrade"
+  });
+}
+
+Existing team members who were linked before billing was introduced are grandfathered in — their membership records remain active regardless of subscription status. Only new invitations are gated.
+
+The admin merge tool bypasses billing entirely and always works regardless of subscription — this is by design, as it is an admin-only operation.

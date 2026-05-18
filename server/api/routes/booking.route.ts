@@ -6,6 +6,7 @@
 import { Router } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
+import { resolveCompanyId } from "../middleware/team.middleware";
 import {
   createBooking,
   getEmployerBookings,
@@ -22,11 +23,11 @@ const router = Router();
 router.use(authenticateJWT);
 
 // ── Employer routes ───────────────────────────────────────
-router.get("/employer", requireRole("employer"), getEmployerBookings);
-router.get("/employer/summary", requireRole("employer"), getBookingsSummary);
-router.get("/job/:jobId", requireRole("employer"), getBookingsByJob);
-router.post("/", requireRole("employer"), createBooking);
-router.patch("/:id/details", requireRole("employer"), updateBookingDetails);
+router.get("/employer", requireRole("employer"), resolveCompanyId, getEmployerBookings);
+router.get("/employer/summary", requireRole("employer"), resolveCompanyId, getBookingsSummary);
+router.get("/job/:jobId", requireRole("employer"), resolveCompanyId, getBookingsByJob);
+router.post("/", requireRole("employer"), resolveCompanyId, createBooking);
+router.patch("/:id/details", requireRole("employer"), resolveCompanyId, updateBookingDetails);
 
 // ── Freelancer routes ─────────────────────────────────────
 router.get("/freelancer", requireRole("freelancer"), getFreelancerBookings);

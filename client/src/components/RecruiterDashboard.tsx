@@ -34,6 +34,7 @@ import { JobCard } from "./JobCard";
 import { JobForm } from "./JobForm";
 import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
+import { TeamManagement } from "./TeamManagement";
 
 export default function SimplifiedRecruiterDashboard() {
   const { user } = useAuth();
@@ -85,7 +86,7 @@ export default function SimplifiedRecruiterDashboard() {
       const actionParam = urlParams.get("action");
 
       // Switch to tab specified in URL (e.g., from notifications)
-      if (tabParam && ["profile", "jobs", "applications", "messages", "crew", "bookings"].includes(tabParam)) {
+      if (tabParam && ["profile", "jobs", "applications", "messages", "crew", "bookings", "team"].includes(tabParam)) {
         if (tabParam !== activeTab) {
           setActiveTab(tabParam);
         }
@@ -612,7 +613,7 @@ export default function SimplifiedRecruiterDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-4 md:grid-cols-7">
           <TabsTrigger value="jobs" className="gap-2">
             My Jobs
             <TabBadge count={roleSpecificCounts.jobs || 0} />
@@ -627,7 +628,8 @@ export default function SimplifiedRecruiterDashboard() {
           </TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="crew">My Crew</TabsTrigger>
-          <TabsTrigger value="profile">Company Profile</TabsTrigger>
+          <TabsTrigger value="team">Team</TabsTrigger>
+          <TabsTrigger value="profile">Profile</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -1190,6 +1192,11 @@ export default function SimplifiedRecruiterDashboard() {
         {/* Bookings Tab */}
         <TabsContent value="bookings" className="space-y-6">
           <MyBookings />
+        </TabsContent>
+
+        {/* Team Tab */}
+        <TabsContent value="team">
+          <TeamManagement />
         </TabsContent>
       </Tabs>
 

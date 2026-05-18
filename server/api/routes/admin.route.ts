@@ -2,6 +2,7 @@ import type { Express } from "express";
 import {
   addFeedbackResponse,
   adminDeleteUser,
+  adminLinkTeamMember,
   bootstrapCreateFirstAdmin,
   bootstrapGrantAdminAccess,
   exportAdminXLSX,
@@ -85,6 +86,9 @@ export function registerAdminRoutes(app: Express) {
 
   // Export all dashboard data as XLSX workbook (admin only)
   app.get("/api/admin/export/xlsx", requireAdminAuth, exportAdminXLSX);
+
+  // Admin: link two existing employer accounts as company + team member
+  app.post("/api/admin/team/link", requireAdminAuth, adminLinkTeamMember);
 
   // Bootstrap endpoint for initial admin setup (no auth required)
   // Special override endpoint for admin@eventlink.one production access

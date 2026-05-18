@@ -1,0 +1,25 @@
+import { Router } from "express";
+import { authenticateJWT } from "../middleware/auth.middleware";
+import { requireRole } from "../middleware/role.middleware";
+import { resolveCompanyId } from "../middleware/team.middleware";
+import {
+  getTeamMembers,
+  inviteTeamMember,
+  acceptInvitation,
+  updateTeamMemberRole,
+  removeTeamMember,
+} from "../controllers/team.controller";
+
+const router = Router();
+
+router.get("/accept/:token", acceptInvitation);
+router.post("/accept/:token", authenticateJWT, acceptInvitation);
+
+router.use(authenticateJWT, requireRole("employer"), resolveCompanyId);
+
+router.get("/", getTeamMembers);
+router.post("/invite", inviteTeamMember);
+router.patch("/:id/role", updateTeamMemberRole);
+router.delete("/:id", removeTeamMember);
+
+export default router;

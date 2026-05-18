@@ -32,7 +32,7 @@ function canTransition(from: BookingStatus, to: BookingStatus): boolean {
 // ── Create a booking (employer initiates) ─────────────────
 export async function createBooking(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
     const { jobId, freelancerId, agreedRate, callTime, venueAddress, employerNotes } =
       req.body;
 
@@ -102,7 +102,7 @@ export async function createBooking(req: Request, res: Response) {
 // ── Get all bookings for the authenticated employer ────────
 export async function getEmployerBookings(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
 
     const results = await db
       .select({
@@ -307,7 +307,7 @@ export async function updateBookingStatus(req: Request, res: Response) {
 // ── Update booking details (employer only) ─────────────────
 export async function updateBookingDetails(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
     const bookingId = parseInt(req.params.id);
     const { agreedRate, callTime, venueAddress, employerNotes } = req.body;
 
@@ -352,7 +352,7 @@ export async function updateBookingDetails(req: Request, res: Response) {
 // ── Get bookings for a specific job (employer only) ────────
 export async function getBookingsByJob(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
     const jobId = parseInt(req.params.jobId);
 
     if (isNaN(jobId)) {
@@ -396,7 +396,7 @@ export async function getBookingsByJob(req: Request, res: Response) {
 // ── Dashboard summary counts (employer) ───────────────────
 export async function getBookingsSummary(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
 
     const allBookings = await db
       .select({ status: bookings.status })

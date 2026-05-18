@@ -13,6 +13,7 @@ import {
   updateJob,
 } from "../controllers/job.controller";
 import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
+import { resolveCompanyId } from "../middleware/team.middleware";
 
 export function registerJobRoutes(app: Express) {
   // Get job by ID
@@ -31,20 +32,20 @@ export function registerJobRoutes(app: Express) {
   app.get("/api/jobs/:id/link-views", authenticateJWT, getJobLinkViewCount);
 
   // Create new job
-  app.post("/api/jobs", authenticateJWT, createJob);
+  app.post("/api/jobs", authenticateJWT, resolveCompanyId, createJob);
 
   // Update job
-  app.put("/api/jobs/:jobId", authenticateJWT, updateJob);
+  app.put("/api/jobs/:jobId", authenticateJWT, resolveCompanyId, updateJob);
 
   // Close job manually
-  app.put("/api/jobs/:jobId/close", authenticateJWT, closeJob);
+  app.put("/api/jobs/:jobId/close", authenticateJWT, resolveCompanyId, closeJob);
 
   // Reopen a closed job (resets to private/unposted)
-  app.put("/api/jobs/:jobId/reopen", authenticateJWT, reopenJob);
+  app.put("/api/jobs/:jobId/reopen", authenticateJWT, resolveCompanyId, reopenJob);
 
   // Delete job
-  app.delete("/api/jobs/:jobId", authenticateJWT, deleteJob);
+  app.delete("/api/jobs/:jobId", authenticateJWT, resolveCompanyId, deleteJob);
 
   // Get full job detail + applications (recruiter owner only)
-  app.get("/api/jobs/:jobId/detail", authenticateJWT, getRecruiterJobDetail);
+  app.get("/api/jobs/:jobId/detail", authenticateJWT, resolveCompanyId, getRecruiterJobDetail);
 }
