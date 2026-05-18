@@ -10,7 +10,13 @@ import { SendEnquiryModal } from "./SendEnquiryModal";
 import { EnquiryResponsesPanel } from "./EnquiryResponsesPanel";
 import { EnquiryArchiveModal } from "./EnquiryArchiveModal";
 import { useToast } from "@/hooks/use-toast";
-import { Archive, ArchiveRestore, CalendarDays, ChevronDown, ChevronUp, Send } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Archive, ArchiveRestore, CalendarDays, Send } from "lucide-react";
 
 interface EnquirySummary {
   id: number;
@@ -31,7 +37,7 @@ export function EnquiryList() {
   const [sendOpen, setSendOpen] = useState(false);
   const [selectedEnquiryId, setSelectedEnquiryId] = useState<number | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<{ id: number; title: string } | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
+  const [archivedOpen, setArchivedOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: enquiries = [], isLoading } = useQuery<EnquirySummary[]>({
@@ -42,7 +48,7 @@ export function EnquiryList() {
   const { data: archivedEnquiries = [], isLoading: archivedLoading } = useQuery<EnquirySummary[]>({
     queryKey: ["/api/enquiries/archived"],
     queryFn: () => apiRequest("/api/enquiries/archived"),
-    enabled: showArchived,
+    enabled: archivedOpen,
   });
 
   const archiveMutation = useMutation({
@@ -122,12 +128,11 @@ export function EnquiryList() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setShowArchived((v) => !v)}
+          onClick={() => setArchivedOpen(true)}
           className="flex items-center gap-1.5 text-muted-foreground"
         >
           <Archive className="h-3.5 w-3.5" />
-          {showArchived ? "Hide Archived" : "View Archived"}
-          {showArchived ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          View Archived
         </Button>
         <Button onClick={() => setSendOpen(true)} className="bg-orange-500 hover:bg-orange-600">
           <Send className="mr-2 h-4 w-4" />
@@ -148,13 +153,17 @@ export function EnquiryList() {
         ))}
       </div>
 
-      {/* Archived section */}
-      {showArchived && (
-        <div className="mt-8">
-          <div className="flex items-center gap-2 mb-3">
-            <Archive className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Archived</h3>
-          </div>
+      <SendEnquiryModal open={sendOpen} onOpenChange={setSendOpen} />
+
+      {/* Archived enquiries dialog */}
+      <Dialog open={archivedOpen} onOpenChange={setArchivedOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Archive className="h-4 w-4" />
+              Archived Enquiries
+            </DialogTitle>
+          </DialogHeader>
           {archivedLoading ? (
             <div className="space-y-3">
               {[1, 2].map((i) => (
@@ -167,11 +176,11 @@ export function EnquiryList() {
               ))}
             </div>
           ) : archivedEnquiries.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">No archived enquiries.</p>
+            <p className="text-sm text-muted-foreground text-center py-8">No archived enquiries.</p>
           ) : (
             <div className="space-y-3">
               {archivedEnquiries.map((enq) => (
-                <Card key={enq.id} className="opacity-75">
+                <Card key={enq.id} className="opacity-80">
                   <CardContent className="p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-0.5 min-w-0">
@@ -224,10 +233,8 @@ export function EnquiryList() {
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      <SendEnquiryModal open={sendOpen} onOpenChange={setSendOpen} />
+        </DialogContent>
+      </Dialog>
 
       <EnquiryArchiveModal
         open={archiveTarget !== null}
