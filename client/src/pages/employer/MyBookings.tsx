@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
+import { BriefStatusBadge } from "@/components/fms/BriefStatusBadge";
 
 // ── Types ─────────────────────────────────────────────────
 type BookingStatus =
@@ -215,6 +216,18 @@ function BookingCard({
           {booking.cancellationReason && (
             <p className="text-sm text-red-700">{booking.cancellationReason}</p>
           )}
+        </div>
+      )}
+
+      {/* Brief status */}
+      {(booking.status === "confirmed" || booking.status === "briefed") && (
+        <div className="px-4 py-3 border-b border-gray-100">
+          <BriefStatusBadge
+            bookingId={booking.id}
+            bookingStatus={booking.status}
+            booking={booking}
+            job={job}
+          />
         </div>
       )}
 

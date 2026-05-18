@@ -314,6 +314,36 @@ export class ObjectStorageService {
     const cvId = rawObjectPath.slice(privateDir.length);
     return `/cvs/${cvId}`;
   }
+
+  async getBriefAttachmentUploadURL(): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const objectId = randomUUID();
+    const fullPath = `${privateObjectDir}/briefs/${objectId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900, // 15 minutes
+    });
+  }
+
+  async getBriefAttachmentFile(objectPath: string): Promise<File> {
+    let privateDir = this.getPrivateObjectDir();
+    if (!privateDir.endsWith("/")) privateDir = `${privateDir}/`;
+    let fullPath;
+    if (objectPath.startsWith("/briefs/")) {
+      fullPath = `${privateDir}${objectPath.substring(1)}`;
+    } else {
+      fullPath = `${privateDir}${objectPath.startsWith("/") ? objectPath.substring(1) : objectPath}`;
+    }
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    const [exists] = await file.exists();
+    if (!exists) throw new ObjectNotFoundError();
+    return file;
+  }
 }
 
 function parseObjectPath(path: string): {

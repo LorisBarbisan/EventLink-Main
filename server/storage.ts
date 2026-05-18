@@ -2,7 +2,11 @@ import crypto from "node:crypto";
 import {
   availability_enquiries,
   availability_responses,
+  bookingStatusHistory,
   bookings,
+  brief_attachments,
+  brief_templates,
+  briefs,
   contact_messages,
   conversations,
   cv_parsed_data,
@@ -5015,6 +5019,148 @@ export class DatabaseStorage implements IStorage {
     }));
 
     return withResponses;
+  }
+
+  // ── Step 8 — Booking helpers ──────────────────────────────
+
+  async getBookingById(bookingId: number) {
+    const [booking] = await db.select().from(bookings)
+      .where(eq(bookings.id, bookingId));
+    return booking ?? null;
+  }
+
+  async updateBookingStatus(bookingId: number, status: string, changedById: number, note?: string) {
+    const [booking] = await db.select().from(bookings)
+      .where(eq(bookings.id, bookingId));
+    if (!booking) throw new Error('Booking not found');
+    await db.insert(bookingStatusHistory).values({
+      bookingId,
+      fromStatus: booking.status,
+      toStatus: status,
+      changedById,
+      note: note ?? null,
+    });
+    const [updated] = await db.update(bookings)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(bookings.id, bookingId))
+      .returning();
+    return updated;
+  }
+
+  // ── Step 3 — Brief storage methods ───────────────────────
+
+  async createBrief(data: {
+    bookingId: number;
+    employerId: number;
+    freelancerId: number;
+    eventTitle: string;
+    eventDate: string;
+    callTime?: string | null;
+    venueAddress?: string | null;
+    roleRequired?: string | null;
+    agreedRate?: string | null;
+    details?: string | null;
+    dresscode?: string | null;
+    parkingInfo?: string | null;
+    contactOnDay?: string | null;
+    scheduleNotes?: string | null;
+  }) {
+    const existing = await db.select().from(briefs)
+      .where(eq(briefs.bookingId, data.bookingId));
+    if (existing.length > 0) {
+      throw new Error('A brief has already been sent for this booking');
+    }
+    const [brief] = await db.insert(briefs).values({
+      ...data,
+      token: crypto.randomUUID(),
+      status: 'sent',
+    }).returning();
+    return brief;
+  }
+
+  async getBriefByBookingId(bookingId: number) {
+    const [brief] = await db.select().from(briefs)
+      .where(eq(briefs.bookingId, bookingId));
+    if (!brief) return null;
+    const attachments = await db.select().from(brief_attachments)
+      .where(eq(brief_attachments.briefId, brief.id));
+    return { ...brief, attachments };
+  }
+
+  async getBriefByToken(token: string) {
+    const [brief] = await db.select().from(briefs)
+      .where(eq(briefs.token, token));
+    if (!brief) return null;
+    const attachments = await db.select().from(brief_attachments)
+      .where(eq(brief_attachments.briefId, brief.id));
+    const employer = await this.getRecruiterProfile(brief.employerId);
+    return {
+      brief: { ...brief, attachments },
+      employerName: employer?.company_name ?? 'Your employer',
+    };
+  }
+
+  async acknowledgeBrief(token: string, note?: string) {
+    const [brief] = await db.select().from(briefs)
+      .where(eq(briefs.token, token));
+    if (!brief) return null;
+    if (brief.status === 'acknowledged') return brief;
+    const [updated] = await db.update(briefs)
+      .set({
+        status: 'acknowledged',
+        acknowledgedAt: new Date(),
+        acknowledgementNote: note ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(briefs.token, token))
+      .returning();
+    return updated;
+  }
+
+  async addBriefAttachment(data: {
+    briefId: number;
+    objectPath: string;
+    originalFilename: string;
+    fileType: string;
+    fileSize: number;
+  }) {
+    const [attachment] = await db.insert(brief_attachments)
+      .values(data).returning();
+    return attachment;
+  }
+
+  async getBriefTemplates(employerId: number) {
+    return db.select().from(brief_templates)
+      .where(eq(brief_templates.employerId, employerId))
+      .orderBy(brief_templates.name);
+  }
+
+  async createBriefTemplate(data: {
+    employerId: number;
+    name: string;
+    details?: string | null;
+    callTime?: string | null;
+    venueAddress?: string | null;
+    roleRequired?: string | null;
+    dresscode?: string | null;
+    parkingInfo?: string | null;
+    contactOnDay?: string | null;
+    scheduleNotes?: string | null;
+  }) {
+    const [template] = await db.insert(brief_templates)
+      .values(data).returning();
+    return template;
+  }
+
+  async deleteBriefTemplate(templateId: number, employerId: number) {
+    const [deleted] = await db.delete(brief_templates)
+      .where(and(
+        eq(brief_templates.id, templateId),
+        eq(brief_templates.employerId, employerId)
+      ))
+      .returning();
+    if (!deleted) throw new Error('Template not found or not owned by employer');
+    return deleted;
   }
 }
 

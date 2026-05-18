@@ -832,3 +832,87 @@ export function generateEnquiryRemovedEmail(data: {
     </div>
   `;
 }
+
+export function generateBriefEmail(data: {
+  freelancerFirstName: string;
+  employerName: string;
+  eventTitle: string;
+  eventDate: string;
+  callTime?: string | null;
+  venueAddress?: string | null;
+  roleRequired?: string | null;
+  agreedRate?: string | null;
+  details?: string | null;
+  dresscode?: string | null;
+  parkingInfo?: string | null;
+  contactOnDay?: string | null;
+  scheduleNotes?: string | null;
+  hasAttachments: boolean;
+  acknowledgeToken: string;
+  baseUrl: string;
+}): string {
+  const ackUrl = `${data.baseUrl}/brief/acknowledge/${data.acknowledgeToken}`;
+
+  const rows = [
+    ['Event', data.eventTitle],
+    ['Date', data.eventDate],
+    data.callTime ? ['Call time', data.callTime] : null,
+    data.venueAddress ? ['Venue', data.venueAddress] : null,
+    data.roleRequired ? ['Role', data.roleRequired] : null,
+    data.agreedRate ? ['Rate', data.agreedRate] : null,
+    data.dresscode ? ['Dress code', data.dresscode] : null,
+    data.parkingInfo ? ['Parking', data.parkingInfo] : null,
+    data.contactOnDay ? ['Contact on the day', data.contactOnDay] : null,
+  ].filter(Boolean) as [string, string][];
+
+  const tableRows = rows.map(([label, value], i) => `
+    <tr style='background:${i % 2 === 0 ? '#f5f5f5' : '#ffffff'};'>
+      <td style='padding:10px 12px;font-weight:bold;width:35%;'>${label}</td>
+      <td style='padding:10px 12px;'>${value}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+      <div style='background:#1E3A5F;padding:24px;text-align:center;'>
+        <h1 style='color:#fff;margin:0;font-size:24px;'>EventLink</h1>
+      </div>
+      <div style='padding:32px;'>
+        <p>Hi ${data.freelancerFirstName},</p>
+        <p><strong>${data.employerName}</strong> has sent you a job brief.
+        Please read it carefully and confirm you have received and understood it.</p>
+        <table style='width:100%;border-collapse:collapse;margin:24px 0;'>
+          ${tableRows}
+        </table>
+        ${data.scheduleNotes ? `
+          <div style='background:#f0f4ff;padding:16px;border-radius:4px;margin:16px 0;'>
+            <strong>Schedule / Running order:</strong>
+            <p style='margin:8px 0 0;white-space:pre-line;'>${data.scheduleNotes}</p>
+          </div>` : ''}
+        ${data.details ? `
+          <div style='background:#f9f9f9;padding:16px;border-radius:4px;margin:16px 0;'>
+            <strong>Additional information:</strong>
+            <p style='margin:8px 0 0;white-space:pre-line;'>${data.details}</p>
+          </div>` : ''}
+        ${data.hasAttachments ? `
+          <p style='color:#555;font-size:14px;'>
+            This brief includes attached documents.
+            <a href='${ackUrl}'>View and download them here.</a>
+          </p>` : ''}
+        <div style='margin:32px 0;text-align:center;'>
+          <a href='${ackUrl}' style='background:#1A6B3C;color:#fff;padding:16px 32px;
+            text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;
+            display:inline-block;'>
+            I have read and understood this brief
+          </a>
+        </div>
+        <p style='color:#888;font-size:13px;text-align:center;'>
+          Or <a href='${ackUrl}'>open the full brief page</a> to add a message before confirming.
+        </p>
+      </div>
+      <div style='background:#f5f5f5;padding:16px;text-align:center;color:#888;font-size:12px;'>
+        EventLink — The UK Events Industry Network
+      </div>
+    </div>
+  `;
+}

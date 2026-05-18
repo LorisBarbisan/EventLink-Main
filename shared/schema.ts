@@ -1092,3 +1092,100 @@ export type AvailabilityEnquiry = typeof availability_enquiries.$inferSelect;
 export type InsertAvailabilityEnquiry = z.infer<typeof insertAvailabilityEnquirySchema>;
 export type AvailabilityResponse = typeof availability_responses.$inferSelect;
 export type InsertAvailabilityResponse = z.infer<typeof insertAvailabilityResponseSchema>;
+
+// ============================================================
+// FMS Phase 3 — Brief Templates & Delivery
+// ============================================================
+
+export const brief_templates = pgTable('brief_templates', {
+  id: serial('id').primaryKey(),
+  employerId: integer('employer_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  details: text('details'),
+  callTime: text('call_time'),
+  venueAddress: text('venue_address'),
+  roleRequired: text('role_required'),
+  dresscode: text('dresscode'),
+  parkingInfo: text('parking_info'),
+  contactOnDay: text('contact_on_day'),
+  scheduleNotes: text('schedule_notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const briefs = pgTable('briefs', {
+  id: serial('id').primaryKey(),
+  bookingId: integer('booking_id')
+    .notNull()
+    .references(() => bookings.id, { onDelete: 'cascade' }),
+  employerId: integer('employer_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  freelancerId: integer('freelancer_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  eventTitle: text('event_title').notNull(),
+  eventDate: text('event_date').notNull(),
+  callTime: text('call_time'),
+  venueAddress: text('venue_address'),
+  roleRequired: text('role_required'),
+  agreedRate: text('agreed_rate'),
+  details: text('details'),
+  dresscode: text('dresscode'),
+  parkingInfo: text('parking_info'),
+  contactOnDay: text('contact_on_day'),
+  scheduleNotes: text('schedule_notes'),
+  token: text('token').notNull().unique(),
+  status: text('status')
+    .notNull()
+    .default('sent')
+    .$type<'sent' | 'acknowledged'>(),
+  acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true }),
+  acknowledgementNote: text('acknowledgement_note'),
+  sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const brief_attachments = pgTable('brief_attachments', {
+  id: serial('id').primaryKey(),
+  briefId: integer('brief_id')
+    .notNull()
+    .references(() => briefs.id, { onDelete: 'cascade' }),
+  objectPath: text('object_path').notNull(),
+  originalFilename: text('original_filename').notNull(),
+  fileType: text('file_type').notNull(),
+  fileSize: integer('file_size').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const insertBriefTemplateSchema = createInsertSchema(brief_templates).omit({
+  id: true, createdAt: true, updatedAt: true,
+}).extend({
+  employerId: z.number(),
+  name: z.string().min(1, 'Template name is required'),
+});
+
+export const insertBriefSchema = createInsertSchema(briefs).omit({
+  id: true, createdAt: true, updatedAt: true, sentAt: true,
+  status: true, acknowledgedAt: true, token: true,
+}).extend({
+  bookingId: z.number(),
+  employerId: z.number(),
+  freelancerId: z.number(),
+  eventTitle: z.string().min(1, 'Event title is required'),
+  eventDate: z.string().min(1, 'Event date is required'),
+});
+
+export const insertBriefAttachmentSchema = createInsertSchema(brief_attachments).omit({
+  id: true, createdAt: true,
+}).extend({ briefId: z.number() });
+
+export type BriefTemplate = typeof brief_templates.$inferSelect;
+export type InsertBriefTemplate = z.infer<typeof insertBriefTemplateSchema>;
+export type Brief = typeof briefs.$inferSelect;
+export type InsertBrief = z.infer<typeof insertBriefSchema>;
+export type BriefAttachment = typeof brief_attachments.$inferSelect;
+export type InsertBriefAttachment = z.infer<typeof insertBriefAttachmentSchema>;

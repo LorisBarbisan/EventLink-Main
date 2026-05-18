@@ -1,0 +1,812 @@
+Overview
+📋  Sprint 3 adds the Brief system. An employer can create a job brief for any confirmed booking,
+optionally from a saved template, attach documents, and send it to the freelancer by email.
+The freelancer reads it and acknowledges with one click plus an optional message.
+The employer sees acknowledgement status on each booking card.
+
+Three new database tables: brief_templates, briefs, brief_attachments.
+One new GCS storage folder: /briefs/{uuid}.
+Brief status displayed on the existing booking card — no new dashboard section needed.
+
+Do not modify any existing tables, routes, or components from Sprints 1 and 2.
+ 
+Step 1 — Schema (shared/schema.ts)
+Append the following three tables to shared/schema.ts, immediately before the final type export block. Do not modify any existing table definitions.
+
+1.1 — brief_templates table
+Saved reusable templates belonging to an employer. Pre-populate the brief form when selected.
+// ============================================================
+// FMS Phase 3 — Brief Templates & Delivery
+// ============================================================
+
+export const brief_templates = pgTable('brief_templates', {
+  id: serial('id').primaryKey(),
+  employerId: integer('employer_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),              // Template name e.g. 'Standard Festival Brief'
+  details: text('details'),                  // Free-text body
+  callTime: text('call_time'),
+  venueAddress: text('venue_address'),
+  roleRequired: text('role_required'),
+  dresscode: text('dresscode'),
+  parkingInfo: text('parking_info'),
+  contactOnDay: text('contact_on_day'),
+  scheduleNotes: text('schedule_notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+1.2 — briefs table
+One brief per booking. Links to the booking and tracks acknowledgement state.
+export const briefs = pgTable('briefs', {
+  id: serial('id').primaryKey(),
+  bookingId: integer('booking_id')
+    .notNull()
+    .references(() => bookings.id, { onDelete: 'cascade' }),
+  employerId: integer('employer_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  freelancerId: integer('freelancer_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  // Brief content (copied from template or entered fresh)
+  eventTitle: text('event_title').notNull(),
+  eventDate: text('event_date').notNull(),
+  callTime: text('call_time'),
+  venueAddress: text('venue_address'),
+  roleRequired: text('role_required'),
+  agreedRate: text('agreed_rate'),
+  details: text('details'),        // Free-text: parking, dress code, schedule, etc.
+  dresscode: text('dresscode'),
+  parkingInfo: text('parking_info'),
+  contactOnDay: text('contact_on_day'),
+  scheduleNotes: text('schedule_notes'),
+  // Delivery and acknowledgement
+  token: text('token').notNull().unique(), // UUID for passwordless acknowledgement
+  status: text('status')
+    .notNull()
+    .default('sent')
+    .$type<'sent' | 'acknowledged'>(),
+  acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true }),
+  acknowledgementNote: text('acknowledgement_note'), // Optional message from freelancer
+  sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+1.3 — brief_attachments table
+Files attached to a brief. Stored in GCS under /briefs/{uuid}. No scan pipeline needed for this sprint.
+export const brief_attachments = pgTable('brief_attachments', {
+  id: serial('id').primaryKey(),
+  briefId: integer('brief_id')
+    .notNull()
+    .references(() => briefs.id, { onDelete: 'cascade' }),
+  objectPath: text('object_path').notNull(), // GCS path e.g. /briefs/{uuid}
+  originalFilename: text('original_filename').notNull(),
+  fileType: text('file_type').notNull(),     // MIME type
+  fileSize: integer('file_size').notNull(),  // bytes
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+1.4 — Zod schemas and type exports
+export const insertBriefTemplateSchema = createInsertSchema(brief_templates).omit({
+  id: true, createdAt: true, updatedAt: true,
+}).extend({ employerId: z.number(), name: z.string().min(1, 'Template name is required') });
+
+export const insertBriefSchema = createInsertSchema(briefs).omit({
+  id: true, createdAt: true, updatedAt: true, sentAt: true,
+  status: true, acknowledgedAt: true, token: true,
+}).extend({
+  bookingId: z.number(),
+  employerId: z.number(),
+  freelancerId: z.number(),
+  eventTitle: z.string().min(1, 'Event title is required'),
+  eventDate: z.string().min(1, 'Event date is required'),
+});
+
+export const insertBriefAttachmentSchema = createInsertSchema(brief_attachments).omit({
+  id: true, createdAt: true,
+}).extend({ briefId: z.number() });
+
+export type BriefTemplate = typeof brief_templates.$inferSelect;
+export type InsertBriefTemplate = z.infer<typeof insertBriefTemplateSchema>;
+export type Brief = typeof briefs.$inferSelect;
+export type InsertBrief = z.infer<typeof insertBriefSchema>;
+export type BriefAttachment = typeof brief_attachments.$inferSelect;
+export type InsertBriefAttachment = z.infer<typeof insertBriefAttachmentSchema>;
+
+1.5 — Run migration
+npm run db:push
+ 
+Step 2 — GCS Upload Support for Brief Attachments (server/api/utils/object-storage.ts)
+Add one new method to the ObjectStorageService class for brief attachment uploads. This follows the exact same pattern as getObjectEntityUploadURL() which handles message attachments.
+
+// Add to ObjectStorageService class:
+async getBriefAttachmentUploadURL(): Promise<string> {
+  const privateObjectDir = this.getPrivateObjectDir();
+  const objectId = randomUUID();
+  const fullPath = `${privateObjectDir}/briefs/${objectId}`;
+  const { bucketName, objectName } = parseObjectPath(fullPath);
+  return signObjectURL({
+    bucketName,
+    objectName,
+    method: 'PUT',
+    ttlSec: 900, // 15 minutes
+  });
+}
+
+// Also add a method to retrieve brief attachment files:
+async getBriefAttachmentFile(objectPath: string): Promise<File> {
+  let privateDir = this.getPrivateObjectDir();
+  if (!privateDir.endsWith('/')) privateDir = `${privateDir}/`;
+  let fullPath;
+  if (objectPath.startsWith('/briefs/')) {
+    fullPath = `${privateDir}${objectPath.substring(1)}`;
+  } else {
+    fullPath = `${privateDir}${objectPath.startsWith('/') ? objectPath.substring(1) : objectPath}`;
+  }
+  const { bucketName, objectName } = parseObjectPath(fullPath);
+  const bucket = objectStorageClient.bucket(bucketName);
+  const file = bucket.file(objectName);
+  const [exists] = await file.exists();
+  if (!exists) throw new ObjectNotFoundError();
+  return file;
+}
+ 
+Step 3 — Storage Methods (server/storage.ts)
+Add the following methods to server/storage.ts in the FMS section, after the enquiry methods.
+
+3.1 — createBrief
+async createBrief(data: {
+  bookingId: number;
+  employerId: number;
+  freelancerId: number;
+  eventTitle: string;
+  eventDate: string;
+  callTime?: string | null;
+  venueAddress?: string | null;
+  roleRequired?: string | null;
+  agreedRate?: string | null;
+  details?: string | null;
+  dresscode?: string | null;
+  parkingInfo?: string | null;
+  contactOnDay?: string | null;
+  scheduleNotes?: string | null;
+}) {
+  // Check if a brief already exists for this booking
+  const existing = await db.select().from(briefs)
+    .where(eq(briefs.bookingId, data.bookingId));
+  if (existing.length > 0) {
+    throw new Error('A brief has already been sent for this booking');
+  }
+  const [brief] = await db.insert(briefs).values({
+    ...data,
+    token: crypto.randomUUID(),
+    status: 'sent',
+  }).returning();
+  return brief;
+},
+
+3.2 — getBriefByBookingId
+async getBriefByBookingId(bookingId: number) {
+  const [brief] = await db.select().from(briefs)
+    .where(eq(briefs.bookingId, bookingId));
+  if (!brief) return null;
+  const attachments = await db.select().from(brief_attachments)
+    .where(eq(brief_attachments.briefId, brief.id));
+  return { ...brief, attachments };
+},
+
+3.3 — getBriefByToken
+Public method — no auth required. Used by the freelancer acknowledgement page.
+async getBriefByToken(token: string) {
+  const [brief] = await db.select().from(briefs)
+    .where(eq(briefs.token, token));
+  if (!brief) return null;
+  const attachments = await db.select().from(brief_attachments)
+    .where(eq(brief_attachments.briefId, brief.id));
+  // Get employer name
+  const employer = await this.getRecruiterProfile(brief.employerId);
+  return {
+    brief: { ...brief, attachments },
+    employerName: employer?.company_name ?? 'Your employer',
+  };
+},
+
+3.4 — acknowledgeBrief
+async acknowledgeBrief(token: string, note?: string) {
+  const [brief] = await db.select().from(briefs)
+    .where(eq(briefs.token, token));
+  if (!brief) return null;
+  if (brief.status === 'acknowledged') return brief; // idempotent
+  const [updated] = await db.update(briefs)
+    .set({
+      status: 'acknowledged',
+      acknowledgedAt: new Date(),
+      acknowledgementNote: note ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(briefs.token, token))
+    .returning();
+  return updated;
+},
+
+3.5 — addBriefAttachment
+async addBriefAttachment(data: {
+  briefId: number;
+  objectPath: string;
+  originalFilename: string;
+  fileType: string;
+  fileSize: number;
+}) {
+  const [attachment] = await db.insert(brief_attachments)
+    .values(data).returning();
+  return attachment;
+},
+
+3.6 — getBriefTemplates
+async getBriefTemplates(employerId: number) {
+  return db.select().from(brief_templates)
+    .where(eq(brief_templates.employerId, employerId))
+    .orderBy(brief_templates.name);
+},
+
+3.7 — createBriefTemplate
+async createBriefTemplate(data: {
+  employerId: number;
+  name: string;
+  details?: string | null;
+  callTime?: string | null;
+  venueAddress?: string | null;
+  roleRequired?: string | null;
+  dresscode?: string | null;
+  parkingInfo?: string | null;
+  contactOnDay?: string | null;
+  scheduleNotes?: string | null;
+}) {
+  const [template] = await db.insert(brief_templates)
+    .values(data).returning();
+  return template;
+},
+
+3.8 — deleteBriefTemplate
+async deleteBriefTemplate(templateId: number, employerId: number) {
+  const [deleted] = await db.delete(brief_templates)
+    .where(and(
+      eq(brief_templates.id, templateId),
+      eq(brief_templates.employerId, employerId)
+    ))
+    .returning();
+  if (!deleted) throw new Error('Template not found or not owned by employer');
+  return deleted;
+},
+
+⚠️  Add these imports to the top of storage.ts if not already present: import { briefs, brief_templates, brief_attachments } from '../shared/schema.js'
+ 
+Step 4 — Email Template (server/api/utils/emailTemplates.ts)
+Add one new email template function for brief delivery. Match the style of existing templates exactly.
+
+export function generateBriefEmail(data: {
+  freelancerFirstName: string;
+  employerName: string;
+  eventTitle: string;
+  eventDate: string;
+  callTime?: string | null;
+  venueAddress?: string | null;
+  roleRequired?: string | null;
+  agreedRate?: string | null;
+  details?: string | null;
+  dresscode?: string | null;
+  parkingInfo?: string | null;
+  contactOnDay?: string | null;
+  scheduleNotes?: string | null;
+  hasAttachments: boolean;
+  acknowledgeToken: string;
+  baseUrl: string;
+}): string {
+  const ackUrl = `${data.baseUrl}/brief/acknowledge/${data.acknowledgeToken}`;
+
+  // Build detail rows — only include fields that have values
+  const rows = [
+    ['Event', data.eventTitle],
+    ['Date', data.eventDate],
+    data.callTime ? ['Call time', data.callTime] : null,
+    data.venueAddress ? ['Venue', data.venueAddress] : null,
+    data.roleRequired ? ['Role', data.roleRequired] : null,
+    data.agreedRate ? ['Rate', data.agreedRate] : null,
+    data.dresscode ? ['Dress code', data.dresscode] : null,
+    data.parkingInfo ? ['Parking', data.parkingInfo] : null,
+    data.contactOnDay ? ['Contact on the day', data.contactOnDay] : null,
+  ].filter(Boolean);
+
+  const tableRows = rows.map(([label, value], i) => `
+    <tr style='background:${i % 2 === 0 ? '#f5f5f5' : '#ffffff'};'>
+      <td style='padding:10px 12px;font-weight:bold;width:35%;'>${label}</td>
+      <td style='padding:10px 12px;'>${value}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+      <div style='background:#1E3A5F;padding:24px;text-align:center;'>
+        <h1 style='color:#fff;margin:0;font-size:24px;'>EventLink</h1>
+      </div>
+      <div style='padding:32px;'>
+        <p>Hi ${data.freelancerFirstName},</p>
+        <p><strong>${data.employerName}</strong> has sent you a job brief.
+        Please read it carefully and confirm you have received and understood it.</p>
+        <table style='width:100%;border-collapse:collapse;margin:24px 0;'>
+          ${tableRows}
+        </table>
+        ${data.scheduleNotes ? `
+          <div style='background:#f0f4ff;padding:16px;border-radius:4px;margin:16px 0;'>
+            <strong>Schedule / Running order:</strong>
+            <p style='margin:8px 0 0;white-space:pre-line;'>${data.scheduleNotes}</p>
+          </div>` : ''}
+        ${data.details ? `
+          <div style='background:#f9f9f9;padding:16px;border-radius:4px;margin:16px 0;'>
+            <strong>Additional information:</strong>
+            <p style='margin:8px 0 0;white-space:pre-line;'>${data.details}</p>
+          </div>` : ''}
+        ${data.hasAttachments ? `
+          <p style='color:#555;font-size:14px;'>
+            📎 This brief includes attached documents.
+            <a href='${ackUrl}'>View and download them here.</a>
+          </p>` : ''}
+        <div style='margin:32px 0;text-align:center;'>
+          <a href='${ackUrl}' style='background:#1A6B3C;color:#fff;padding:16px 32px;
+            text-decoration:none;border-radius:6px;font-weight:bold;font-size:16px;
+            display:inline-block;'>
+            I have read and understood this brief
+          </a>
+        </div>
+        <p style='color:#888;font-size:13px;text-align:center;'>
+          Or <a href='${ackUrl}'>open the full brief page</a> to add a message before confirming.
+        </p>
+      </div>
+      <div style='background:#f5f5f5;padding:16px;text-align:center;color:#888;font-size:12px;'>
+        EventLink — The UK Events Industry Network
+      </div>
+    </div>
+  `;
+}
+ 
+Step 5 — Controller (server/api/controllers/brief.controller.ts)
+Create this file at server/api/controllers/brief.controller.ts with the following exported functions.
+
+5.1 — sendBrief
+export const sendBrief = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const bookingId = parseInt(req.params.bookingId);
+    if (isNaN(bookingId)) return res.status(400).json({ error: 'Invalid booking ID' });
+    // Verify employer owns this booking
+    const booking = await storage.getBookingById(bookingId);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (booking.employerId !== employerId) return res.status(403).json({ error: 'Forbidden' });
+    if (booking.status !== 'confirmed' && booking.status !== 'briefed') {
+      return res.status(400).json({ error: 'Can only send briefs for confirmed bookings' });
+    }
+    const brief = await storage.createBrief({
+      bookingId,
+      employerId,
+      freelancerId: booking.freelancerId,
+      ...req.body,
+    });
+    // Update booking status to 'briefed'
+    await storage.updateBookingStatus(bookingId, 'briefed', employerId, 'Brief sent');
+    // Send email to freelancer
+    const employer = await storage.getRecruiterProfile(employerId);
+    const freelancer = await storage.getUser(booking.freelancerId);
+    const profile = await storage.getFreelancerProfile(booking.freelancerId);
+    const firstName = (profile as any)?.first_name ?? freelancer?.first_name ?? 'there';
+    const baseUrl = req.protocol + '://' + req.get('host');
+    const { sendEmail } = await import('../utils/emailService.js');
+    const { generateBriefEmail } = await import('../utils/emailTemplates.js');
+    const attachments = await storage.getBriefByBookingId(bookingId);
+    const html = generateBriefEmail({
+      freelancerFirstName: firstName,
+      employerName: employer?.company_name ?? 'Your employer',
+      eventTitle: brief.eventTitle,
+      eventDate: brief.eventDate,
+      callTime: brief.callTime,
+      venueAddress: brief.venueAddress,
+      roleRequired: brief.roleRequired,
+      agreedRate: brief.agreedRate,
+      details: brief.details,
+      dresscode: brief.dresscode,
+      parkingInfo: brief.parkingInfo,
+      contactOnDay: brief.contactOnDay,
+      scheduleNotes: brief.scheduleNotes,
+      hasAttachments: (attachments?.attachments?.length ?? 0) > 0,
+      acknowledgeToken: brief.token,
+      baseUrl,
+    });
+    if (freelancer?.email) {
+      await sendEmail({
+        to: freelancer.email,
+        subject: `Job brief: ${brief.eventTitle} on ${brief.eventDate}`,
+        html,
+      });
+    }
+    return res.status(201).json(brief);
+  } catch (error: any) {
+    console.error('sendBrief error:', error.message, error.stack);
+    if (error.message === 'A brief has already been sent for this booking') {
+      return res.status(409).json({ error: error.message });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+5.2 — getBriefForBooking
+export const getBriefForBooking = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const bookingId = parseInt(req.params.bookingId);
+    if (isNaN(bookingId)) return res.status(400).json({ error: 'Invalid booking ID' });
+    const brief = await storage.getBriefByBookingId(bookingId);
+    if (!brief) return res.status(404).json({ error: 'No brief found for this booking' });
+    if (brief.employerId !== employerId) return res.status(403).json({ error: 'Forbidden' });
+    return res.json(brief);
+  } catch (error: any) {
+    console.error('getBriefForBooking error:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+5.3 — getBriefByToken (PUBLIC)
+export const getBriefByTokenHandler = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const result = await storage.getBriefByToken(token);
+    if (!result) return res.status(404).json({ error: 'Brief not found' });
+    // Generate signed download URLs for attachments
+    const attachmentsWithUrls = await Promise.all(
+      (result.brief.attachments ?? []).map(async (att: any) => {
+        const downloadUrl = await ObjectStorageService.getDownloadUrl(att.objectPath);
+        return { ...att, downloadUrl };
+      })
+    );
+    return res.json({
+      ...result,
+      brief: { ...result.brief, attachments: attachmentsWithUrls },
+    });
+  } catch (error: any) {
+    console.error('getBriefByToken error:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+5.4 — acknowledgeBrief (PUBLIC)
+export const acknowledgeBriefHandler = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const note = req.body?.note as string | undefined;
+    const brief = await storage.acknowledgeBrief(token, note);
+    if (!brief) return res.status(404).json({ error: 'Brief not found' });
+    // Notify employer by email
+    try {
+      const { sendEmail } = await import('../utils/emailService.js');
+      const freelancer = await storage.getUser(brief.freelancerId);
+      const employer = await storage.getUser(brief.employerId);
+      const fullName = `${freelancer?.first_name ?? ''} ${freelancer?.last_name ?? ''}`.trim();
+      if (employer?.email) {
+        await sendEmail({
+          to: employer.email,
+          subject: `Brief acknowledged: ${brief.eventTitle}`,
+          html: `<p>${fullName} has acknowledged the brief for <strong>${brief.eventTitle}</strong>.
+            ${note ? `<br><br>Their message: <em>${note}</em>` : ''}</p>`,
+        });
+      }
+    } catch (emailError) {
+      console.error('Brief ack email failed (non-blocking):', emailError);
+    }
+    return res.json({ success: true, brief });
+  } catch (error: any) {
+    console.error('acknowledgeBrief error:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+5.5 — Template controllers
+export const getBriefTemplates = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const templates = await storage.getBriefTemplates(employerId);
+    return res.json(templates);
+  } catch (error: any) {
+    console.error('getBriefTemplates error:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const createBriefTemplate = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const template = await storage.createBriefTemplate({ employerId, ...req.body });
+    return res.status(201).json(template);
+  } catch (error: any) {
+    console.error('createBriefTemplate error:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const deleteBriefTemplate = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const templateId = parseInt(req.params.templateId);
+    if (isNaN(templateId)) return res.status(400).json({ error: 'Invalid template ID' });
+    await storage.deleteBriefTemplate(templateId, employerId);
+    return res.json({ success: true });
+  } catch (error: any) {
+    console.error('deleteBriefTemplate error:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const getBriefAttachmentUploadUrl = async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ error: 'Unauthorised' });
+    const { objectStorageService } = await import('../utils/object-storage.js');
+    const uploadURL = await objectStorageService.getBriefAttachmentUploadURL();
+    return res.json({ uploadURL });
+  } catch (error: any) {
+    console.error('getBriefAttachmentUploadUrl error:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+ 
+Step 6 — Route File (server/api/routes/brief.route.ts)
+Create this file at server/api/routes/brief.route.ts
+
+import express from 'express';
+import { requireAuth } from '../middleware/auth.middleware.js';
+import { requireRole } from '../middleware/role.middleware.js';
+import {
+  sendBrief,
+  getBriefForBooking,
+  getBriefByTokenHandler,
+  acknowledgeBriefHandler,
+  getBriefTemplates,
+  createBriefTemplate,
+  deleteBriefTemplate,
+  getBriefAttachmentUploadUrl,
+} from '../controllers/brief.controller.js';
+
+const briefRouter = express.Router();
+
+// Public routes — no auth required
+briefRouter.get('/acknowledge/:token', getBriefByTokenHandler);
+briefRouter.post('/acknowledge/:token', acknowledgeBriefHandler);
+
+// Employer routes
+briefRouter.post('/booking/:bookingId', requireAuth, requireRole('recruiter'), sendBrief);
+briefRouter.get('/booking/:bookingId', requireAuth, requireRole('recruiter'), getBriefForBooking);
+briefRouter.get('/attachment-upload-url', requireAuth, requireRole('recruiter'), getBriefAttachmentUploadUrl);
+
+// Template routes
+briefRouter.get('/templates', requireAuth, requireRole('recruiter'), getBriefTemplates);
+briefRouter.post('/templates', requireAuth, requireRole('recruiter'), createBriefTemplate);
+briefRouter.delete('/templates/:templateId', requireAuth, requireRole('recruiter'), deleteBriefTemplate);
+
+export default briefRouter;
+
+6.1 — Register in routes-modular.ts
+// Add import:
+import briefRouter from './api/routes/brief.route.js';
+
+// Add registration after bookingRouter line:
+app.use('/api/briefs', briefRouter);
+ 
+Step 7 — React Components
+
+7.1 — SendBriefModal.tsx (client/src/components/fms/SendBriefModal.tsx)
+A dialog modal triggered from a confirmed booking card. Employer fills in brief details, optionally loads a saved template, attaches files, and sends.
+
+// Props:
+//   open: boolean
+//   onOpenChange: (open: boolean) => void
+//   booking: { id, eventTitle, eventDate, callTime, venueAddress, roleRequired, agreedRate }
+
+// Form fields (all pre-populated from booking data where available):
+//   eventTitle (text, required)
+//   eventDate (date, required)
+//   callTime (time, optional)
+//   venueAddress (text, optional)
+//   roleRequired (text, optional)
+//   agreedRate (text, optional)
+//   dresscode (text, optional)
+//   parkingInfo (text, optional)
+//   contactOnDay (text, optional)
+//   scheduleNotes (textarea, optional)
+//   details (textarea, optional — label: 'Additional information')
+
+// Template selector:
+//   useQuery(['/api/briefs/templates'], () => apiRequest('/api/briefs/templates'))
+//   Show a 'Load template' select dropdown above the form
+//   When template selected: pre-populate matching fields, merge with booking data
+//   Show a 'Save as template' checkbox at bottom of form
+//   If checked, show a 'Template name' text input
+//   On submit, if 'Save as template' checked: first POST /api/briefs/templates, then send brief
+
+// File attachments:
+//   Show a file input: 'Attach documents (optional)'
+//   Accepted: PDF, DOC, DOCX, images (JPG, PNG)
+//   Max file size: 10MB per file, max 5 files
+//   Upload flow:
+//     1. GET /api/briefs/attachment-upload-url — get signed PUT URL
+//     2. PUT file to signed URL
+//     3. Store { objectPath, originalFilename, fileType, fileSize } in local state
+//     4. After brief is created, POST each attachment to /api/briefs/booking/:bookingId/attachments
+//   Show uploaded files as a list with remove button
+
+// Submit mutation:
+//   POST /api/briefs/booking/:bookingId with all form fields
+//   On success: toast('Brief sent'), invalidate bookings query, close modal
+
+// UI structure:
+//   <Dialog> max-height scrollable
+//   Header: 'Send Brief — [event title]'
+//   Template selector row (dropdown + 'Load' button)
+//   Divider
+//   Form sections: Event Details | Location & Role | Brief Details | Attachments
+//   Save as template row
+//   Footer: Cancel | Send Brief button
+
+7.2 — BriefStatusBadge.tsx (client/src/components/fms/BriefStatusBadge.tsx)
+A small badge shown on each confirmed booking card indicating brief status.
+
+// Props:
+//   bookingId: number
+//   bookingStatus: string
+
+// Only fetch and show when bookingStatus is 'confirmed' or 'briefed'
+// useQuery(['/api/briefs/booking', bookingId],
+//   () => apiRequest(`/api/briefs/booking/${bookingId}`),
+//   {
+//     enabled: ['confirmed', 'briefed'].includes(bookingStatus),
+//     retry: false, // 404 is expected when no brief sent yet
+//   }
+// )
+
+// States to render:
+// No brief yet (404): show 'Send Brief' button — orange outline, small
+//   Clicking opens SendBriefModal for this booking
+// Brief sent, not acknowledged:
+//   Amber badge: 'Brief sent — awaiting acknowledgement'
+//   Small text: sent date
+// Brief acknowledged:
+//   Green badge: 'Brief acknowledged'
+//   Small text: acknowledged date
+//   If acknowledgement note present: show it in italics below badge
+
+7.3 — BriefAcknowledgePage.tsx (client/src/pages/BriefAcknowledgePage.tsx)
+The freelancer-facing page. Accessible without login via token link in email.
+
+// Route: /brief/acknowledge/:token
+// Public — no auth required
+
+// On mount:
+//   GET /api/briefs/acknowledge/:token
+//   Returns: { brief: { ...fields, attachments: [{downloadUrl, originalFilename, ...}] }, employerName }
+
+// States:
+// LOADING: spinner
+// NOT FOUND: 'This brief link is invalid or has expired.'
+
+// ALREADY ACKNOWLEDGED:
+//   Large green checkmark
+//   'You have already acknowledged this brief.'
+//   Show acknowledged date
+
+// PENDING:
+//   EventLink header
+//   'Job Brief from [employerName]'
+//   Details card (event title, date, call time, venue, role, rate)
+//   Sections for: dress code, parking, contact on day, schedule, additional info
+//     (only show sections where content exists)
+//   Attachments section (if any):
+//     List of files with download links (use downloadUrl from API response)
+//     File icon + original filename + file size
+//   Acknowledgement form:
+//     Large green button: 'I have read and understood this brief'
+//     Optional textarea below: 'Add a message (optional)'
+//     placeholder: 'e.g. See you there! / I have a question about...'
+//     Submit sends POST /api/briefs/acknowledge/:token with { note }
+
+// CONFIRMED (after successful submission):
+//   Large checkmark
+//   'Brief acknowledged'
+//   '[employerName] has been notified.'
+//   'You can close this page.'
+//   EventLink footer
+
+7.4 — Register client-side route in App.tsx
+// Add import:
+import BriefAcknowledgePage from './pages/BriefAcknowledgePage';
+
+// Add route — OUTSIDE any auth wrapper:
+<Route path='/brief/acknowledge/:token' component={BriefAcknowledgePage} />
+
+7.5 — Add BriefStatusBadge to booking cards
+Find the existing booking card component (in the employer dashboard or My Bookings view) and add BriefStatusBadge for each confirmed or briefed booking:
+// Import:
+import { BriefStatusBadge } from '../components/fms/BriefStatusBadge';
+
+// Add inside each booking card, below the existing status badge:
+{['confirmed', 'briefed'].includes(booking.status) && (
+  <BriefStatusBadge bookingId={booking.id} bookingStatus={booking.status} />
+)}
+ 
+Step 8 — Storage Helper Needed
+⚠️  The sendBrief controller calls storage.getBookingById(bookingId) and storage.updateBookingStatus(). Check whether these methods exist in storage.ts. If getBookingById does not exist, add it:
+
+async getBookingById(bookingId: number) {
+  const [booking] = await db.select().from(bookings)
+    .where(eq(bookings.id, bookingId));
+  return booking ?? null;
+},
+
+Also check whether updateBookingStatus exists. If not, add it:
+async updateBookingStatus(bookingId: number, status: string, changedById: number, note?: string) {
+  const [booking] = await db.select().from(bookings)
+    .where(eq(bookings.id, bookingId));
+  if (!booking) throw new Error('Booking not found');
+  await db.insert(bookingStatusHistory).values({
+    bookingId,
+    fromStatus: booking.status,
+    toStatus: status,
+    changedById,
+    note: note ?? null,
+  });
+  const [updated] = await db.update(bookings)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(bookings.id, bookingId))
+    .returning();
+  return updated;
+},
+ 
+Step 9 — Completion Checklist
+✔  Test every item below before marking Sprint 3 complete.
+
+Database & API
+•	npm run db:push completed — brief_templates, briefs, brief_attachments tables created
+•	POST /api/briefs/booking/:bookingId creates brief, updates booking to 'briefed', sends email
+•	GET /api/briefs/booking/:bookingId returns brief with attachments for employer
+•	GET /api/briefs/acknowledge/:token returns brief details publicly (no auth)
+•	POST /api/briefs/acknowledge/:token records acknowledgement, emails employer
+•	GET /api/briefs/templates returns employer's saved templates
+•	POST /api/briefs/templates creates a new template
+•	DELETE /api/briefs/templates/:templateId deletes a template
+•	GET /api/briefs/attachment-upload-url returns a signed GCS PUT URL under /briefs/
+
+Employer UI
+•	Confirmed booking cards show BriefStatusBadge
+•	'Send Brief' button opens SendBriefModal pre-populated with booking data
+•	Template selector loads saved templates and pre-fills form on selection
+•	File upload works — files upload to GCS under /briefs/ folder
+•	Uploaded files listed with remove option before sending
+•	'Save as template' checkbox saves template before sending brief
+•	Sending brief shows success toast and badge updates to 'Brief sent — awaiting acknowledgement'
+•	After freelancer acknowledges: badge updates to green 'Brief acknowledged'
+•	Acknowledgement note (if provided) shows under the badge
+
+Freelancer Acknowledgement Page
+•	Page loads at /brief/acknowledge/:token without login
+•	All brief fields display correctly
+•	Attachments show as downloadable links
+•	'I have read and understood this brief' button works
+•	Optional message textarea appears and submits correctly
+•	Confirmation state shows after acknowledgement
+•	Already-acknowledged briefs show the already-acknowledged state
+•	Invalid token shows error message
+•	Page works correctly on mobile (375px viewport)
+
+EventLink FMS — S
