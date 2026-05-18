@@ -17,6 +17,9 @@ import {
   updateEnquiry,
   addFreelancers,
   removeFreelancer,
+  archiveEnquiry,
+  reactivateEnquiry,
+  getArchivedEnquiries,
 } from "../controllers/enquiry.controller";
 
 const router = Router();
@@ -26,11 +29,14 @@ router.get("/respond/:token", getResponseByTokenHandler);
 router.post("/respond/:token", respondToEnquiry);
 
 // ── Employer-only routes ──────────────────────────────────
+router.get("/archived", authenticateJWT, requireRole("recruiter"), getArchivedEnquiries);
 router.get("/", authenticateJWT, requireRole("employer"), getEnquiriesForEmployer);
 router.post("/", authenticateJWT, requireRole("employer"), createEnquiry);
 router.get("/:id/responses", authenticateJWT, requireRole("employer"), getEnquiryResponses);
 router.post("/:id/convert/:responseId", authenticateJWT, requireRole("employer"), convertResponseToBooking);
 router.patch("/:id/cancel", authenticateJWT, requireRole("recruiter"), cancelEnquiry);
+router.patch("/:id/archive", authenticateJWT, requireRole("recruiter"), archiveEnquiry);
+router.patch("/:id/reactivate", authenticateJWT, requireRole("recruiter"), reactivateEnquiry);
 router.patch("/:id", authenticateJWT, requireRole("recruiter"), updateEnquiry);
 router.post("/:id/freelancers", authenticateJWT, requireRole("recruiter"), addFreelancers);
 router.delete("/:id/freelancers/:freelancerId", authenticateJWT, requireRole("recruiter"), removeFreelancer);

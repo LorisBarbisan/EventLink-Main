@@ -1046,7 +1046,7 @@ export const availability_enquiries = pgTable("availability_enquiries", {
   roleRequired: text("role_required"),
   agreedRate: text("agreed_rate"),
   additionalNotes: text("additional_notes"),
-  status: text("status").notNull().default("active").$type<"active" | "closed">(),
+  status: text("status").notNull().default("active").$type<"active" | "closed" | "archived">(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

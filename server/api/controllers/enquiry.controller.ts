@@ -363,3 +363,52 @@ export const removeFreelancer = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+// 4.10 — Archive a closed enquiry
+export const archiveEnquiry = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const enquiryId = parseInt(req.params.id);
+    if (isNaN(enquiryId)) return res.status(400).json({ error: 'Invalid enquiry ID' });
+    const enquiry = await storage.archiveEnquiry(enquiryId, employerId);
+    return res.json({ success: true, enquiry });
+  } catch (error: any) {
+    console.error('archiveEnquiry error:', error.message, error.stack);
+    if (error.message === 'Close the enquiry before archiving' || error.message === 'Enquiry already archived') {
+      return res.status(409).json({ error: error.message });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// 4.11 — Reactivate an archived enquiry
+export const reactivateEnquiry = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const enquiryId = parseInt(req.params.id);
+    if (isNaN(enquiryId)) return res.status(400).json({ error: 'Invalid enquiry ID' });
+    const enquiry = await storage.reactivateEnquiry(enquiryId, employerId);
+    return res.json({ success: true, enquiry });
+  } catch (error: any) {
+    console.error('reactivateEnquiry error:', error.message, error.stack);
+    if (error.message === 'Only archived enquiries can be reactivated') {
+      return res.status(409).json({ error: error.message });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// 4.12 — List archived enquiries for employer
+export const getArchivedEnquiries = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const enquiries = await storage.getArchivedEnquiries(employerId);
+    return res.json(enquiries);
+  } catch (error: any) {
+    console.error('getArchivedEnquiries error:', error.message, error.stack);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};

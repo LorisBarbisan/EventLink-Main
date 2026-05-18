@@ -4699,7 +4699,10 @@ export class DatabaseStorage implements IStorage {
     const enquiries = await db
       .select()
       .from(availability_enquiries)
-      .where(eq(availability_enquiries.employerId, employerId))
+      .where(and(
+        eq(availability_enquiries.employerId, employerId),
+        ne(availability_enquiries.status, 'archived')
+      ))
       .orderBy(desc(availability_enquiries.createdAt));
     const withSummary = await Promise.all(
       enquiries.map(async (enq) => {
@@ -4939,6 +4942,79 @@ export class DatabaseStorage implements IStorage {
     await db.delete(availability_responses)
       .where(eq(availability_responses.id, response.id));
     return { enquiry, removedResponse: response };
+  }
+
+  async archiveEnquiry(enquiryId: number, employerId: number) {
+    const [enquiry] = await db.select().from(availability_enquiries)
+      .where(and(
+        eq(availability_enquiries.id, enquiryId),
+        eq(availability_enquiries.employerId, employerId)
+      ));
+    if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+    if (enquiry.status === 'active') throw new Error('Close the enquiry before archiving');
+    if (enquiry.status === 'archived') throw new Error('Enquiry already archived');
+    const [updated] = await db.update(availability_enquiries)
+      .set({ status: 'archived', updatedAt: new Date() })
+      .where(eq(availability_enquiries.id, enquiryId))
+      .returning();
+    return updated;
+  }
+
+  async reactivateEnquiry(enquiryId: number, employerId: number) {
+    const [enquiry] = await db.select().from(availability_enquiries)
+      .where(and(
+        eq(availability_enquiries.id, enquiryId),
+        eq(availability_enquiries.employerId, employerId)
+      ));
+    if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+    if (enquiry.status !== 'archived') throw new Error('Only archived enquiries can be reactivated');
+    const [updated] = await db.update(availability_enquiries)
+      .set({ status: 'active', updatedAt: new Date() })
+      .where(eq(availability_enquiries.id, enquiryId))
+      .returning();
+    return updated;
+  }
+
+  async getArchivedEnquiries(employerId: number) {
+    const enquiries = await db.select().from(availability_enquiries)
+      .where(and(
+        eq(availability_enquiries.employerId, employerId),
+        eq(availability_enquiries.status, 'archived')
+      ))
+      .orderBy(desc(availability_enquiries.updatedAt));
+
+    const withResponses = await Promise.all(enquiries.map(async (enq) => {
+      const respRows = await db.select().from(availability_responses)
+        .where(eq(availability_responses.enquiryId, enq.id));
+
+      const responses = await Promise.all(respRows.map(async (resp) => {
+        const [userRow] = await db.select().from(users)
+          .where(eq(users.id, resp.freelancerId));
+        const [profileRow] = await db.select().from(freelancer_profiles)
+          .where(eq(freelancer_profiles.user_id, resp.freelancerId));
+        return {
+          response: resp,
+          user: userRow
+            ? { id: userRow.id, first_name: userRow.first_name, last_name: userRow.last_name }
+            : null,
+          profile: profileRow
+            ? { first_name: profileRow.first_name, last_name: profileRow.last_name, profile_image_url: profileRow.profile_image_url, title: profileRow.title }
+            : null,
+        };
+      }));
+
+      const summary = {
+        total: responses.length,
+        yes: responses.filter(r => r.response.response === 'yes').length,
+        no: responses.filter(r => r.response.response === 'no').length,
+        maybe: responses.filter(r => r.response.response === 'maybe').length,
+        pending: responses.filter(r => r.response.response === null).length,
+      };
+
+      return { ...enq, responses, summary };
+    }));
+
+    return withResponses;
   }
 }
 

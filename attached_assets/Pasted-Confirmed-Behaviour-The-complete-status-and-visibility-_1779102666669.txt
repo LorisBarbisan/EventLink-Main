@@ -1,0 +1,359 @@
+Confirmed Behaviour
+📋  The complete status and visibility model for availability enquiries:
+
+ACTIVE — visible on main dashboard, all management actions available
+CLOSED — visible on main dashboard in a reduced/greyed state, detail panel collapses on close, Archive button appears, no management actions available except Archive
+ARCHIVED — hidden from main dashboard entirely, visible only in the Archive popup
+
+Transitions:
+  active  →  closed    (employer clicks Close — detail panel collapses)
+  closed  →  archived  (employer clicks Archive — disappears from dashboard)
+  archived → active   (employer clicks Reactivate inside Archive popup — no emails sent automatically)
+
+Completed enquiries (where a freelancer has been booked) stay on the main dashboard
+in active or closed state until the employer manually archives them.
+
+There is no single-step close-and-archive. These are always two separate actions.
+ 
+Step 1 — Schema Change (shared/schema.ts)
+The current status field on availability_enquiries only supports 'active' and 'closed'. We need to add 'archived' as a third valid status.
+
+⚠️  Find the availability_enquiries table definition in shared/schema.ts and update the status field type. Then run npm run db:push.
+
+1.1 — Update status type on availability_enquiries
+Find this line in the availability_enquiries table:
+// EXISTING — find and replace this:
+status: text('status')
+  .notNull()
+  .default('active')
+  .$type<'active' | 'closed'>(),
+
+Replace it with:
+// UPDATED:
+status: text('status')
+  .notNull()
+  .default('active')
+  .$type<'active' | 'closed' | 'archived'>(),
+
+Also update the TypeScript type for AvailabilityEnquiry — find the insertAvailabilityEnquirySchema and ensure the status type is updated to match.
+
+1.2 — Run migration
+npm run db:push
+ 
+Step 2 — New Storage Methods (server/storage.ts)
+Add these two methods to server/storage.ts in the FMS section, after the existing enquiry methods.
+
+2.1 — archiveEnquiry
+Archives a closed enquiry. Only closed enquiries can be archived — active enquiries must be closed first.
+async archiveEnquiry(enquiryId: number, employerId: number) {
+  const [enquiry] = await db.select().from(availability_enquiries)
+    .where(and(
+      eq(availability_enquiries.id, enquiryId),
+      eq(availability_enquiries.employerId, employerId)
+    ));
+  if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+  if (enquiry.status === 'active') {
+    throw new Error('Close the enquiry before archiving');
+  }
+  if (enquiry.status === 'archived') {
+    throw new Error('Enquiry already archived');
+  }
+  const [updated] = await db.update(availability_enquiries)
+    .set({ status: 'archived', updatedAt: new Date() })
+    .where(eq(availability_enquiries.id, enquiryId))
+    .returning();
+  return updated;
+},
+
+2.2 — reactivateEnquiry
+Moves an archived enquiry back to active status. No emails are sent — the employer decides whether to resend after reactivating.
+async reactivateEnquiry(enquiryId: number, employerId: number) {
+  const [enquiry] = await db.select().from(availability_enquiries)
+    .where(and(
+      eq(availability_enquiries.id, enquiryId),
+      eq(availability_enquiries.employerId, employerId)
+    ));
+  if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
+  if (enquiry.status !== 'archived') {
+    throw new Error('Only archived enquiries can be reactivated');
+  }
+  const [updated] = await db.update(availability_enquiries)
+    .set({ status: 'active', updatedAt: new Date() })
+    .where(eq(availability_enquiries.id, enquiryId))
+    .returning();
+  return updated;
+},
+
+2.3 — getArchivedEnquiries
+Returns all archived enquiries for an employer, with full response details for each. Used by the Archive popup.
+async getArchivedEnquiries(employerId: number) {
+  const enquiries = await db.select().from(availability_enquiries)
+    .where(and(
+      eq(availability_enquiries.employerId, employerId),
+      eq(availability_enquiries.status, 'archived')
+    ))
+    .orderBy(desc(availability_enquiries.updatedAt));
+  // Attach full response data to each enquiry
+  const withResponses = await Promise.all(enquiries.map(async (enq) => {
+    const responses = await db
+      .select({
+        response: availability_responses,
+        profile: freelancer_profiles,
+        user: {
+          id: users.id,
+          first_name: users.first_name,
+          last_name: users.last_name,
+        },
+      })
+      .from(availability_responses)
+      .leftJoin(users, eq(availability_responses.freelancerId, users.id))
+      .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
+      .where(eq(availability_responses.enquiryId, enq.id));
+    const summary = {
+      total: responses.length,
+      yes: responses.filter(r => r.response.response === 'yes').length,
+      no: responses.filter(r => r.response.response === 'no').length,
+      maybe: responses.filter(r => r.response.response === 'maybe').length,
+      pending: responses.filter(r => r.response.response === null).length,
+    };
+    return { ...enq, responses, summary };
+  }));
+  return withResponses;
+},
+ 
+Step 3 — Controller Methods (server/api/controllers/enquiry.controller.ts)
+Add these three new exported functions. Do not modify any existing functions.
+
+3.1 — archiveEnquiry
+export const archiveEnquiry = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const enquiryId = parseInt(req.params.id);
+    if (isNaN(enquiryId)) return res.status(400).json({ error: 'Invalid enquiry ID' });
+    const enquiry = await storage.archiveEnquiry(enquiryId, employerId);
+    return res.json({ success: true, enquiry });
+  } catch (error: any) {
+    console.error('archiveEnquiry error:', error.message, error.stack);
+    if (error.message === 'Close the enquiry before archiving') {
+      return res.status(409).json({ error: error.message });
+    }
+    if (error.message === 'Enquiry already archived') {
+      return res.status(409).json({ error: error.message });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+3.2 — reactivateEnquiry
+export const reactivateEnquiry = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const enquiryId = parseInt(req.params.id);
+    if (isNaN(enquiryId)) return res.status(400).json({ error: 'Invalid enquiry ID' });
+    const enquiry = await storage.reactivateEnquiry(enquiryId, employerId);
+    return res.json({ success: true, enquiry });
+  } catch (error: any) {
+    console.error('reactivateEnquiry error:', error.message, error.stack);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+3.3 — getArchivedEnquiries
+export const getArchivedEnquiries = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const enquiries = await storage.getArchivedEnquiries(employerId);
+    return res.json(enquiries);
+  } catch (error: any) {
+    console.error('getArchivedEnquiries error:', error.message, error.stack);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+ 
+Step 4 — Route Additions (server/api/routes/enquiry.route.ts)
+Add three new routes and update the controller import. Do not modify existing routes.
+
+4.1 — Updated import
+// Add to the existing import from enquiry.controller:
+import {
+  // ... all existing imports ...
+  archiveEnquiry,      // NEW
+  reactivateEnquiry,   // NEW
+  getArchivedEnquiries, // NEW
+} from '../controllers/enquiry.controller.js';
+
+4.2 — New routes
+// Add after existing routes:
+router.get('/archived', requireAuth, requireRole('recruiter'), getArchivedEnquiries);
+router.patch('/:id/archive', requireAuth, requireRole('recruiter'), archiveEnquiry);
+router.patch('/:id/reactivate', requireAuth, requireRole('recruiter'), reactivateEnquiry);
+
+⚠️  Important: the GET /archived route must be declared BEFORE any /:id routes to prevent Express matching 'archived' as an ID parameter.
+ 
+Step 5 — UI Changes
+
+5.1 — EnquiryList.tsx — Filter and display changes
+Update the existing EnquiryList component with the following changes:
+
+5.1a — Filter out archived enquiries from main list
+// The API already returns only non-archived enquiries because getEnquiriesForEmployer
+// queries without a status filter. Update the storage method getEnquiriesForEmployer
+// to exclude archived enquiries:
+
+// In server/storage.ts, find getEnquiriesForEmployer and add this where clause:
+.where(and(
+  eq(availability_enquiries.employerId, employerId),
+  ne(availability_enquiries.status, 'archived')  // exclude archived
+))
+
+// Import 'ne' from drizzle-orm if not already imported.
+
+5.1b — Closed enquiry card appearance
+When an enquiry has status 'closed', render the card in a visually reduced state:
+•	Card background: slightly greyed (bg-muted/40 or similar)
+•	Event title and date: muted text colour
+•	Status badge: grey 'Closed' badge (already implemented in Sprint 2)
+•	Hide all action buttons from Sprint 2b (Edit, Add Freelancers, Cancel)
+•	Show one new button: 'Archive' — grey outline, small, on the right side of the card
+•	The 'View Responses' button remains visible on closed cards — employer can still see who responded
+
+5.1c — Archive button on closed cards
+const archiveMutation = useMutation({
+  mutationFn: (enquiryId: number) =>
+    apiRequest(`/api/enquiries/${enquiryId}/archive`, { method: 'PATCH' }),
+  onSuccess: () => {
+    toast({ title: 'Enquiry archived' });
+    queryClient.invalidateQueries({ queryKey: ['/api/enquiries'] });
+  },
+  onError: (err: any) => toast({
+    title: 'Cannot archive',
+    description: err?.message ?? 'Please try again.',
+    variant: 'destructive'
+  }),
+});
+
+// Button — only on closed enquiry cards:
+// <Button size='sm' variant='outline' onClick={() => archiveMutation.mutate(enq.id)}>
+//   Archive
+// </Button>
+
+5.1d — Archive button in the Availability tab header
+Add an 'Archive' button in the top area of the Availability tab, next to the existing 'New Enquiry' button. Clicking it opens the Archive popup (see 5.2 below).
+// In the header row of EnquiryList (where the New Enquiry button lives):
+<div className='flex justify-between items-center mb-4'>
+  <Button variant='outline' size='sm' onClick={() => setArchiveOpen(true)}>
+    <Archive className='mr-2 h-4 w-4' />
+    Archive
+  </Button>
+  <Button onClick={() => setSendOpen(true)} className='bg-orange-500 hover:bg-orange-600'>
+    <Send className='mr-2 h-4 w-4' />
+    New Enquiry
+  </Button>
+</div>
+
+// Import Archive icon from lucide-react
+
+5.2 — New component: EnquiryArchiveModal.tsx
+Create this file at client/src/components/fms/EnquiryArchiveModal.tsx
+
+// Props:
+//   open: boolean
+//   onOpenChange: (open: boolean) => void
+
+// Data fetching:
+//   useQuery(['/api/enquiries/archived'],
+//     () => apiRequest('/api/enquiries/archived'),
+//     { enabled: open }  // only fetch when modal is open
+//   )
+
+// Layout: Dialog with max-height scroll
+// Title: 'Archived Enquiries'
+// Subtitle: 'Enquiries you have archived. Reactivate to make them active again.'
+
+// Empty state:
+//   'No archived enquiries yet.'
+
+// For each archived enquiry, render an collapsible item:
+//
+// COLLAPSED state shows:
+//   — Event title (bold)
+//   — Event date
+//   — Response summary badges (Yes / Maybe / No / Pending)
+//   — 'Reactivate' button (right side)
+//   — Chevron icon to expand
+//
+// EXPANDED state additionally shows:
+//   — Full event details (call time, venue, role, rate, notes)
+//   — Full list of freelancer responses with:
+//       Profile photo or initials avatar
+//       Full name and title
+//       Response badge (Yes / Maybe / No / Awaiting)
+//       Response note if present
+//       Responded at timestamp
+//       'Booked' chip if convertedToBookingId is set
+
+// Reactivate mutation:
+const reactivateMutation = useMutation({
+  mutationFn: (enquiryId: number) =>
+    apiRequest(`/api/enquiries/${enquiryId}/reactivate`, { method: 'PATCH' }),
+  onSuccess: () => {
+    toast({
+      title: 'Enquiry reactivated',
+      description: 'The enquiry is now active. You can resend it to freelancers from the Availability tab.',
+    });
+    queryClient.invalidateQueries({ queryKey: ['/api/enquiries'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/enquiries/archived'] });
+  },
+  onError: () => toast({ title: 'Failed to reactivate', variant: 'destructive' }),
+});
+
+// Use Collapsible from '@/components/ui/collapsible' (already installed)
+// Use Dialog from '@/components/ui/dialog' (already installed)
+// Use ScrollArea from '@/components/ui/scroll-area' for the list (already installed)
+
+5.3 — EnquiryResponsesPanel.tsx — Collapse on close
+When the employer clicks Close in the EnquiryResponsesPanel (from Sprint 2b), the panel must collapse automatically. This is already handled by the parent EnquiryList component — when the enquiry status changes to 'closed', the parent re-renders and the selectedEnquiryId state should be cleared.
+
+Update the cancelEnquiry mutation onSuccess in EnquiryResponsesPanel to also call onClose():
+// In the cancelEnquiry mutation (Sprint 2b), update onSuccess:
+onSuccess: () => {
+  toast({ title: 'Enquiry closed', description: 'All freelancers have been notified.' });
+  queryClient.invalidateQueries({ queryKey: ['/api/enquiries'] });
+  onClose(); // ADD THIS LINE — collapses the panel
+},
+ 
+Step 6 — Completion Checklist
+✔  Test every item below before marking Sprint 2c complete.
+
+Schema & API
+•	npm run db:push completed with no errors
+•	GET /api/enquiries returns only active and closed enquiries (not archived)
+•	GET /api/enquiries/archived returns only archived enquiries with full response data
+•	PATCH /api/enquiries/:id/archive works on closed enquiries, returns 409 on active
+•	PATCH /api/enquiries/:id/reactivate works on archived enquiries, returns 409 on others
+
+Main Dashboard — Active Enquiries
+•	Active enquiries show full card with all management buttons (from Sprint 2b)
+•	Active enquiries do NOT show an Archive button
+
+Main Dashboard — Closed Enquiries
+•	Closed enquiry cards appear in greyed/muted style
+•	Management buttons (Edit, Add, Cancel) are hidden on closed cards
+•	Archive button appears on closed cards
+•	View Responses button still works on closed cards
+•	Clicking Archive removes the card from the dashboard immediately
+•	After closing (Cancel from 2b), the detail panel collapses automatically
+
+Archive Popup
+•	Archive button in tab header opens the popup
+•	Popup shows all archived enquiries
+•	Each enquiry shows collapsed summary with response badges
+•	Clicking chevron/expand shows full event details and all freelancer responses
+•	Reactivate button moves enquiry back to active on main dashboard
+•	After reactivating, enquiry disappears from archive popup and reappears on main dashboard
+•	No emails are sent on reactivation — toast tells employer they can resend from Availability tab
+•	Empty state shown when no archived enquiries exist
+
