@@ -41,63 +41,52 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.setItem("app_version", APP_VERSION);
       }
 
-      const storedUser = localStorage.getItem("user");
       const storedToken = localStorage.getItem("auth_token");
 
-      if (storedUser && storedToken) {
-        try {
-          // CRITICAL FIX: Validate token with server before trusting it
-          apiRequest("/api/auth/session", { skipAuthRedirect: true })
-            .then(sessionData => {
-              if (sessionData && sessionData.user) {
-                // Token is valid, use fresh data from server
-                setUser(sessionData.user);
-                localStorage.setItem("user", JSON.stringify(sessionData.user));
-                console.log("✅ Token validated, user restored:", {
-                  email: sessionData.user.email,
-                  id: sessionData.user.id,
-                  role: sessionData.user.role,
-                });
-              } else {
-                throw new Error("Invalid session response");
-              }
-              setLoading(false);
-            })
-            .catch(error => {
-              console.log("❌ Token validation failed, clearing auth state:", error.message);
-              localStorage.removeItem("user");
-              localStorage.removeItem("auth_token");
-              setUser(null);
-              setLoading(false);
-            });
-
-          return; // Exit early, let validation complete async
-        } catch (error) {
-          console.log("❌ Failed to parse stored user, clearing cache", error);
-          localStorage.removeItem("user");
-          localStorage.removeItem("auth_token");
-          setUser(null);
-        }
-      } else {
-        // No cached user or token
-        // In development, auto-login as admin for convenience
-        if (import.meta.env.DEV) {
-          fetch("/api/auth/dev-admin-login")
-            .then(r => r.json())
-            .then(data => {
-              if (data.token && data.user) {
-                localStorage.setItem("auth_token", data.token);
-                localStorage.setItem("user", JSON.stringify(data.user));
-                setUser(data.user);
-                console.log("🔧 [DEV] Auto-logged in as admin:", data.user.email);
-              }
-            })
-            .catch(() => {})
-            .finally(() => setLoading(false));
-          return;
-        }
-        setUser(null);
+      if (storedToken) {
+        apiRequest("/api/auth/session", { skipAuthRedirect: true })
+          .then((sessionData) => {
+            if (sessionData && sessionData.user) {
+              setUser(sessionData.user);
+              localStorage.setItem("user", JSON.stringify(sessionData.user));
+              console.log("✅ Token validated, user restored:", {
+                email: sessionData.user.email,
+                id: sessionData.user.id,
+                role: sessionData.user.role,
+              });
+            } else {
+              throw new Error("Invalid session response");
+            }
+            setLoading(false);
+          })
+          .catch((error) => {
+            console.log("❌ Token validation failed, clearing auth state:", error.message);
+            localStorage.removeItem("user");
+            localStorage.removeItem("auth_token");
+            setUser(null);
+            setLoading(false);
+          });
+        return;
       }
+
+      // No token — in development, auto-login as admin for convenience
+      if (import.meta.env.DEV) {
+        fetch("/api/auth/dev-admin-login")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.token && data.user) {
+              localStorage.setItem("auth_token", data.token);
+              localStorage.setItem("user", JSON.stringify(data.user));
+              setUser(data.user);
+              console.log("🔧 [DEV] Auto-logged in as admin:", data.user.email);
+            }
+          })
+          .catch(() => {})
+          .finally(() => setLoading(false));
+        return;
+      }
+
+      setUser(null);
       setLoading(false);
     };
 

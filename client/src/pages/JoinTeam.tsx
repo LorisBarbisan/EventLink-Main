@@ -13,7 +13,7 @@ import { Loader2, CheckCircle, AlertCircle, Users } from "lucide-react";
 export default function JoinTeam() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, loading: authLoading, signIn, updateUser } = useAuth();
   const queryClient = useQueryClient();
 
   const token = new URLSearchParams(window.location.search).get("token") || "";
@@ -42,27 +42,7 @@ export default function JoinTeam() {
     }
   }, [tokenInfo]);
 
-  const signInMutation = useMutation({
-    mutationFn: (data: { email: string; password: string }) =>
-      apiRequest("/api/auth/signin", {
-        method: "POST",
-        body: JSON.stringify(data),
-        headers: { "Content-Type": "application/json" },
-      }),
-    onSuccess: (data: any) => {
-      if (data.token) {
-        localStorage.setItem("auth_token", data.token);
-        window.location.reload();
-      }
-    },
-    onError: (err: any) => {
-      toast({
-        title: "Sign in failed",
-        description: err?.message || "Invalid email or password.",
-        variant: "destructive",
-      });
-    },
-  });
+  const [signingIn, setSigningIn] = useState(false);
 
   const acceptMutation = useMutation({
     mutationFn: () =>
@@ -76,8 +56,11 @@ export default function JoinTeam() {
       setCompanyName(data.companyName || companyName);
       // Refresh auth session so the dashboard receives updated companyId/isTeamMember
       try {
+        const sessionData = await apiRequest("/api/auth/session", { skipAuthRedirect: true });
+        if (sessionData?.user) {
+          updateUser(sessionData.user);
+        }
         await queryClient.invalidateQueries({ queryKey: ["/api/auth/session"] });
-        await queryClient.refetchQueries({ queryKey: ["/api/auth/session"] });
       } catch {
         // ignore refresh errors — redirect anyway
       }
@@ -253,9 +236,18 @@ export default function JoinTeam() {
               </div>
             ) : (
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  signInMutation.mutate({ email: signInEmail, password: signInPassword });
+                  setSigningIn(true);
+                  const { error } = await signIn(signInEmail, signInPassword);
+                  setSigningIn(false);
+                  if (error) {
+                    toast({
+                      title: "Sign in failed",
+                      description: error.message || "Invalid email or password.",
+                      variant: "destructive",
+                    });
+                  }
                 }}
                 className="space-y-4"
               >
@@ -283,9 +275,9 @@ export default function JoinTeam() {
                 <Button
                   type="submit"
                   className="w-full bg-orange-500 hover:bg-orange-600"
-                  disabled={signInMutation.isPending}
+                  disabled={signingIn}
                 >
-                  {signInMutation.isPending && (
+                  {signingIn && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
                   Sign In & Accept
@@ -293,7 +285,7 @@ export default function JoinTeam() {
                 <p className="text-center text-xs text-muted-foreground">
                   Don't have an account?{" "}
                   <a
-                    href={`/auth?redirect=/join-team?token=${token}`}
+                    href={`/auth?redirect=${encodeURIComponent(`/join-team?token=${token}`)}`}
                     className="text-orange-500 hover:underline"
                   >
                     Create one
