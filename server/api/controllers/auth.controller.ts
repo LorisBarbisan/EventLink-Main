@@ -616,7 +616,7 @@ export async function getSession(req: Request, res: Response) {
     let companyId = userWithRole.id;
     let teamRole: string | null = null;
     let isTeamMember = false;
-    if (userWithRole.role === "employer") {
+    if (userWithRole.role === "recruiter") {
       const [membership] = await db
         .select({ companyId: teamMembers.companyId, role: teamMembers.role })
         .from(teamMembers)
@@ -783,7 +783,7 @@ export async function signin(req: Request, res: Response) {
     let companyId = userWithRole.id;
     let teamRole: string | null = null;
     let isTeamMember = false;
-    if (userWithRole.role === "employer") {
+    if (userWithRole.role === "recruiter") {
       const [membership] = await db
         .select({ companyId: teamMembers.companyId, role: teamMembers.role })
         .from(teamMembers)
