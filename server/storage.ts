@@ -1804,8 +1804,18 @@ export class DatabaseStorage implements IStorage {
       // Build conditions array
       const conditions = [];
 
-      // Only show active jobs
-      conditions.push(or(eq(jobs.status, "active"), isNull(jobs.status)));
+      // Show active jobs + jobs closed within the last 24 hours
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      conditions.push(
+        or(
+          eq(jobs.status, "active"),
+          isNull(jobs.status),
+          and(
+            eq(jobs.status, "closed"),
+            sql`${jobs.updated_at} >= ${twentyFourHoursAgo}::timestamptz`
+          )
+        )
+      );
 
       // Exclude jobs whose event_date has passed
       const today = new Date().toISOString().split("T")[0];

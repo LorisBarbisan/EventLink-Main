@@ -501,7 +501,7 @@ export default function Jobs() {
                   {currentJobs.map((job: any) => (
                     <Card
                       key={job.id}
-                      className={`hover:shadow-lg transition-shadow border-l-4 ${!job.external_source ? "border-l-primary" : "border-l-muted"}`}
+                      className={`transition-shadow border-l-4 ${job.status === "closed" ? "opacity-70 border-l-muted" : !job.external_source ? "hover:shadow-lg border-l-primary" : "hover:shadow-lg border-l-muted"}`}
                     >
                       <CardHeader>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -521,8 +521,12 @@ export default function Jobs() {
                               <p className="text-muted-foreground font-medium">{job.company}</p>
                             )}
                           </div>
-                          <div className="flex flex-col gap-2">
-                            {!job.external_source ? (
+                          <div className="flex flex-col gap-2 items-start sm:items-end">
+                            {job.status === "closed" ? (
+                              <Badge variant="outline" className="text-xs text-muted-foreground border-muted-foreground/40">
+                                Closed
+                              </Badge>
+                            ) : !job.external_source ? (
                               <Badge className="bg-gradient-to-r from-[#D8690E] to-[#E97B24] text-white font-semibold">
                                 EventLink Opportunity
                               </Badge>
@@ -627,7 +631,11 @@ export default function Jobs() {
                           )}
 
                           <div className="flex gap-3 pt-4">
-                            {job.external_url ? (
+                            {job.status === "closed" ? (
+                              <Button disabled variant="outline" className="cursor-not-allowed opacity-50">
+                                Applications Closed
+                              </Button>
+                            ) : job.external_url ? (
                               <Button
                                 asChild
                                 className="bg-gradient-primary hover:bg-primary-hover"
