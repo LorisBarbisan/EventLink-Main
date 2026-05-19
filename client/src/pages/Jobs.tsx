@@ -21,7 +21,6 @@ import {
   PoundSterling,
   Filter,
   MapPin,
-  RefreshCw,
   Search,
   X,
 } from "lucide-react";
@@ -165,29 +164,6 @@ export default function Jobs() {
       localStorage.setItem("lastJobSync", now.toString());
     }
   }, [refetch]);
-
-  // Sync external jobs mutation
-  const syncExternalJobsMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("/api/jobs/sync-external", {
-        method: "POST",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
-      toast({
-        title: "Jobs synced",
-        description: "Latest jobs from Reed and Adzuna have been fetched.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Sync failed",
-        description: error.message || "Failed to sync external jobs.",
-        variant: "destructive",
-      });
-    },
-  });
 
   // Current user is now available from useAuth hook
   console.log("Current user from useAuth:", currentUser);
@@ -441,18 +417,6 @@ export default function Jobs() {
               {filteredJobs.length} Job{filteredJobs.length !== 1 ? "s" : ""} Found
             </h2>
             <div className="flex items-center gap-3 sm:gap-4">
-              <Button
-                onClick={() => syncExternalJobsMutation.mutate()}
-                disabled={syncExternalJobsMutation.isPending}
-                size="sm"
-                variant="outline"
-                data-testid="button-sync-jobs"
-              >
-                <RefreshCw
-                  className={`w-4 h-4 mr-2 ${syncExternalJobsMutation.isPending ? "animate-spin" : ""}`}
-                />
-                {syncExternalJobsMutation.isPending ? "Syncing..." : "Sync Jobs"}
-              </Button>
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Sort by: Most Recent</span>
