@@ -36,6 +36,18 @@ import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
 import { TeamManagement } from "./TeamManagement";
 
+const showTeamTab = import.meta.env.VITE_SHOW_TEAM_TAB !== "false";
+
+const RECRUITER_DASHBOARD_TABS = [
+  "profile",
+  "jobs",
+  "applications",
+  "messages",
+  "crew",
+  "bookings",
+  ...(showTeamTab ? (["team"] as const) : []),
+] as const;
+
 export default function SimplifiedRecruiterDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -86,10 +98,15 @@ export default function SimplifiedRecruiterDashboard() {
       const actionParam = urlParams.get("action");
 
       // Switch to tab specified in URL (e.g., from notifications)
-      if (tabParam && ["profile", "jobs", "applications", "messages", "crew", "bookings", "team"].includes(tabParam)) {
+      if (tabParam && (RECRUITER_DASHBOARD_TABS as readonly string[]).includes(tabParam)) {
         if (tabParam !== activeTab) {
           setActiveTab(tabParam);
         }
+      } else if (tabParam === "team" && !showTeamTab) {
+        setActiveTab("jobs");
+        urlParams.delete("tab");
+        const newUrl = `${window.location.pathname}${urlParams.toString() ? `?${urlParams.toString()}` : ""}`;
+        window.history.replaceState({}, "", newUrl);
       }
 
       // Update active conversation if present
@@ -615,7 +632,9 @@ export default function SimplifiedRecruiterDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 md:grid-cols-7">
+        <TabsList
+          className={`grid w-full grid-cols-4 ${showTeamTab ? "md:grid-cols-7" : "md:grid-cols-6"}`}
+        >
           <TabsTrigger value="jobs" className="gap-2">
             My Jobs
             <TabBadge count={roleSpecificCounts.jobs || 0} />
@@ -630,7 +649,7 @@ export default function SimplifiedRecruiterDashboard() {
           </TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="crew">My Crew</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
+          {showTeamTab && <TabsTrigger value="team">Team</TabsTrigger>}
           <TabsTrigger value="profile">Profile</TabsTrigger>
         </TabsList>
 
@@ -1196,10 +1215,11 @@ export default function SimplifiedRecruiterDashboard() {
           <MyBookings />
         </TabsContent>
 
-        {/* Team Tab */}
-        <TabsContent value="team">
-          <TeamManagement />
-        </TabsContent>
+        {showTeamTab && (
+          <TabsContent value="team">
+            <TeamManagement />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Invite Modal */}
