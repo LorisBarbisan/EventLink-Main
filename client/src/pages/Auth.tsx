@@ -53,6 +53,9 @@ export default function Auth() {
   }, []);
 
   const [signUpData, setSignUpData, clearSignUpData] = usePersistentState("auth_signup", {
+    first_name: "",
+    last_name: "",
+    company_name: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -320,6 +323,33 @@ export default function Auth() {
     e.preventDefault();
 
     // Enhanced validation
+    if (!signUpData.first_name.trim()) {
+      toast({
+        title: "Error",
+        description: "Name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!signUpData.last_name.trim()) {
+      toast({
+        title: "Error",
+        description: "Surname is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (signUpData.role === "recruiter" && !signUpData.company_name.trim()) {
+      toast({
+        title: "Error",
+        description: "Company Name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!signUpData.email.trim()) {
       toast({
         title: "Error",
@@ -379,7 +409,13 @@ export default function Auth() {
       const { error, message } = await signUp(
         signUpData.email,
         signUpData.password,
-        signUpData.role
+        signUpData.role,
+        {
+          first_name: signUpData.first_name.trim(),
+          last_name: signUpData.last_name.trim(),
+          company_name:
+            signUpData.role === "recruiter" ? signUpData.company_name.trim() : undefined,
+        }
       );
 
       if (error) {
@@ -774,6 +810,54 @@ export default function Auth() {
                       </div>
                     </RadioGroup>
                   </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-first-name">Name</Label>
+                      <Input
+                        id="signup-first-name"
+                        type="text"
+                        placeholder="Your first name"
+                        value={signUpData.first_name}
+                        onChange={(e) =>
+                          setSignUpData((prev) => ({ ...prev, first_name: e.target.value }))
+                        }
+                        required
+                        data-testid="input-signup-first-name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-last-name">Surname</Label>
+                      <Input
+                        id="signup-last-name"
+                        type="text"
+                        placeholder="Your surname"
+                        value={signUpData.last_name}
+                        onChange={(e) =>
+                          setSignUpData((prev) => ({ ...prev, last_name: e.target.value }))
+                        }
+                        required
+                        data-testid="input-signup-last-name"
+                      />
+                    </div>
+                  </div>
+
+                  {signUpData.role === "recruiter" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-company-name">Company Name</Label>
+                      <Input
+                        id="signup-company-name"
+                        type="text"
+                        placeholder="Your company name"
+                        value={signUpData.company_name}
+                        onChange={(e) =>
+                          setSignUpData((prev) => ({ ...prev, company_name: e.target.value }))
+                        }
+                        required
+                        data-testid="input-signup-company-name"
+                      />
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>

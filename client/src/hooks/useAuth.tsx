@@ -10,7 +10,8 @@ interface AuthContextType {
   signUp: (
     email: string,
     password: string,
-    role: "freelancer" | "recruiter"
+    role: "freelancer" | "recruiter",
+    extra?: { first_name?: string; last_name?: string; company_name?: string }
   ) => Promise<{ error: any; message?: string }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -115,11 +116,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const signUp = async (email: string, password: string, role: "freelancer" | "recruiter") => {
+  const signUp = async (
+    email: string,
+    password: string,
+    role: "freelancer" | "recruiter",
+    extra?: { first_name?: string; last_name?: string; company_name?: string }
+  ) => {
     try {
       const result = await apiRequest("/api/auth/signup", {
         method: "POST",
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({
+          email,
+          password,
+          role,
+          first_name: extra?.first_name,
+          last_name: extra?.last_name,
+          company_name: extra?.company_name,
+        }),
       });
       return { error: null, message: result.message };
     } catch (error) {

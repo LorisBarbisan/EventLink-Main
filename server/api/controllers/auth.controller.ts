@@ -665,6 +665,19 @@ export async function signup(req: Request, res: Response) {
     }
 
     const { email, password, first_name, last_name, role } = result.data;
+    const company_name = typeof req.body?.company_name === "string"
+      ? req.body.company_name.trim()
+      : "";
+
+    if (!first_name || !first_name.trim()) {
+      return res.status(400).json({ error: "Name is required" });
+    }
+    if (!last_name || !last_name.trim()) {
+      return res.status(400).json({ error: "Surname is required" });
+    }
+    if (role === "recruiter" && !company_name) {
+      return res.status(400).json({ error: "Company Name is required" });
+    }
 
     // Check if user already exists
     const existingUser = await storage.getUserByEmail(email);
@@ -690,6 +703,26 @@ export async function signup(req: Request, res: Response) {
       email_verification_token: emailVerificationToken,
       email_verification_expires: emailVerificationExpires,
     });
+
+    // For recruiters, create the recruiter profile immediately with the company name.
+    // If profile creation fails, roll back the user so the signup can be retried cleanly.
+    if (role === "recruiter" && company_name) {
+      try {
+        await storage.createRecruiterProfile({
+          user_id: user.id,
+          company_name,
+          contact_name: `${first_name ?? ""} ${last_name ?? ""}`.trim() || null,
+        } as any);
+      } catch (profileError) {
+        console.error("Failed to create recruiter profile on signup:", profileError);
+        try {
+          await storage.deleteUserAccount(user.id);
+        } catch (rollbackError) {
+          console.error("Failed to roll back user after recruiter profile failure:", rollbackError);
+        }
+        return res.status(500).json({ error: "Failed to create recruiter profile" });
+      }
+    }
 
     // Send verification email
     try {
