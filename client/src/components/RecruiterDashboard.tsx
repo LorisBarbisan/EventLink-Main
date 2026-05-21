@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useProfile } from "@/hooks/useProfile";
+import { getEffectiveCompanyId, isCompanyOwner } from "@/lib/employerContext";
 import { apiRequest } from "@/lib/queryClient";
 import type { Job, JobApplication, JobFormData } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -158,22 +159,17 @@ export default function SimplifiedRecruiterDashboard() {
     saveProfile,
     isSaving,
   } = useProfile({
-    userId: user?.id || 0,
+    userId: user ? getEffectiveCompanyId(user) : 0,
     userType: "recruiter",
   });
 
-  // Remove the problematic notification hook for now
-  // const { notifyApplicationUpdate } = useNotifications({
-  //   userId: user?.id
-  // });
-
-  // Fetch jobs
-  const effectiveId = user?.companyId ?? user?.id;
+  const effectiveCompanyId = user ? getEffectiveCompanyId(user) : 0;
+  const profileReadOnly = user ? !isCompanyOwner(user) : true;
 
   const { data: myJobs = [], isLoading: jobsLoading } = useQuery({
-    queryKey: ["/api/jobs/recruiter", effectiveId],
-    queryFn: () => apiRequest(`/api/jobs/recruiter/${effectiveId}`),
-    enabled: !!effectiveId,
+    queryKey: ["/api/jobs/recruiter", effectiveCompanyId],
+    queryFn: () => apiRequest(`/api/jobs/recruiter/${effectiveCompanyId}`),
+    enabled: !!effectiveCompanyId,
   });
 
   const { data: jobDetailData, isLoading: jobDetailLoading } = useQuery<{
@@ -196,9 +192,9 @@ export default function SimplifiedRecruiterDashboard() {
 
   // Fetch applications
   const { data: applications = [], isLoading: applicationsLoading } = useQuery({
-    queryKey: ["/api/recruiter", effectiveId, "applications"],
-    queryFn: () => apiRequest(`/api/recruiter/${effectiveId}/applications`),
-    enabled: !!effectiveId,
+    queryKey: ["/api/recruiter", effectiveCompanyId, "applications"],
+    queryFn: () => apiRequest(`/api/recruiter/${effectiveCompanyId}/applications`),
+    enabled: !!effectiveCompanyId,
     select: (data) => {
       // Filter out applications for jobs that might have been deleted
       return data.filter((app: JobApplication) => {
@@ -258,7 +254,7 @@ export default function SimplifiedRecruiterDashboard() {
         delete processedData.contract_type;
 
       const requestPayload = {
-        recruiter_id: user?.id,
+        recruiter_id: effectiveCompanyId,
         company: (profile as any)?.company_name || "Company",
         // status is included in processedData spread, but let's be explicit if needed or rely on spread
         // The JobFormData doesn't have status, but we are passing it in the extended type.
@@ -277,7 +273,7 @@ export default function SimplifiedRecruiterDashboard() {
       console.log("🎯 Job created successfully! Invalidating all job caches...");
 
       // Invalidate queries to ensure fresh data on next fetch
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveCompanyId] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
 
       console.log("✅ Jobs cache invalidated");
@@ -321,7 +317,7 @@ export default function SimplifiedRecruiterDashboard() {
     },
     onSuccess: (data, variables) => {
       // Invalidate queries to ensure fresh data on next fetch
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveCompanyId] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       setEditingJob(null);
       toast({
@@ -350,11 +346,11 @@ export default function SimplifiedRecruiterDashboard() {
     },
     onSuccess: async () => {
       await queryClient.refetchQueries({
-        queryKey: ["/api/jobs/recruiter", effectiveId],
+        queryKey: ["/api/jobs/recruiter", effectiveCompanyId],
         type: "active",
       });
       await queryClient.refetchQueries({
-        queryKey: ["/api/recruiter", effectiveId, "applications"],
+        queryKey: ["/api/recruiter", effectiveCompanyId, "applications"],
         type: "active",
       });
       toast({
@@ -381,7 +377,7 @@ export default function SimplifiedRecruiterDashboard() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveCompanyId] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({
         title: "Success",
@@ -408,7 +404,7 @@ export default function SimplifiedRecruiterDashboard() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveCompanyId] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({
         title: "Success",
@@ -431,7 +427,7 @@ export default function SimplifiedRecruiterDashboard() {
       return await apiRequest(`/api/jobs/${jobId}/reopen`, { method: "PUT" });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveCompanyId] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({
         title: "Job Reopened",
@@ -456,9 +452,9 @@ export default function SimplifiedRecruiterDashboard() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveCompanyId] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/recruiter", effectiveId, "applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/recruiter", effectiveCompanyId, "applications"] });
       toast({
         title: "Job Closed",
         description: "Job has been closed. No more applications or invitations will be accepted.",
@@ -495,11 +491,11 @@ export default function SimplifiedRecruiterDashboard() {
     // They remain unread until user explicitly views/reads them
     if (tab === "jobs") {
       markCategoryAsRead("jobs");
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveCompanyId] });
     } else if (tab === "applications") {
       markCategoryAsRead("applications");
       // Force refetch applications to ensure new ones appear immediately
-      queryClient.invalidateQueries({ queryKey: ["/api/recruiter", effectiveId, "applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/recruiter", effectiveCompanyId, "applications"] });
     }
     // Removed: markCategoryAsRead('messages') - keep message notifications unread until user reads them
   };
@@ -529,7 +525,7 @@ export default function SimplifiedRecruiterDashboard() {
       updateJobMutation.mutate({ ...jobData, id: editingJob.id, status });
     } else {
       const companyName = (profile as any)?.company_name?.trim();
-      if (!user?.id || !companyName) {
+      if (!effectiveCompanyId || !companyName) {
         toast({
           title: "Error",
           description:
@@ -660,6 +656,7 @@ export default function SimplifiedRecruiterDashboard() {
             userType="recruiter"
             onSave={saveProfile}
             isSaving={isSaving}
+            readOnly={profileReadOnly}
           />
         </TabsContent>
         {/* My Crew Tab */}

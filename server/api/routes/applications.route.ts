@@ -12,6 +12,7 @@ import {
   respondToInvitation,
 } from "../controllers/applications.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
+import { resolveCompanyId } from "../middleware/team.middleware";
 
 export function registerApplicationRoutes(app: Express) {
   // Respond to invitation (Accept/Decline)
@@ -33,7 +34,12 @@ export function registerApplicationRoutes(app: Express) {
   app.get("/api/jobs/:jobId/applications", authenticateJWT, getJobApplications);
 
   // Get recruiter applications
-  app.get("/api/recruiter/:recruiterId/applications", authenticateJWT, getRecruiterApplications);
+  app.get(
+    "/api/recruiter/:recruiterId/applications",
+    authenticateJWT,
+    resolveCompanyId,
+    getRecruiterApplications
+  );
 
   // Accept application
   app.put("/api/applications/:applicationId/accept", authenticateJWT, acceptApplication);

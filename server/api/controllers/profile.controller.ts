@@ -3,6 +3,14 @@ import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import sharp from "sharp";
 
+/** Only the company owner account may create/update recruiter_profiles (keyed by owner user_id). */
+function canWriteRecruiterProfile(req: Request, profileUserId: number): boolean {
+  const user = (req as any).user;
+  if (!user) return false;
+  if (user.role === "admin") return true;
+  return user.id === profileUserId;
+}
+
 // Get user by ID
 export async function getUserById(req: Request, res: Response) {
   try {
@@ -176,13 +184,11 @@ export async function getRecruiterProfile(req: Request, res: Response) {
 // Create recruiter profile
 export async function createRecruiterProfile(req: Request, res: Response) {
   try {
-    // Verify user is authorized to create profile for this user_id
-    const requestedUserId = req.body.user_id;
-    if (
-      !(req as any).user ||
-      ((req as any).user.id !== requestedUserId && (req as any).user.role !== "admin")
-    ) {
-      return res.status(403).json({ error: "Not authorized to create this profile" });
+    const requestedUserId = parseInt(String(req.body.user_id), 10);
+    if (!canWriteRecruiterProfile(req, requestedUserId)) {
+      return res.status(403).json({
+        error: "Only the company owner can create or update the company profile",
+      });
     }
 
     const result = insertRecruiterProfileSchema.safeParse(req.body);
@@ -204,12 +210,10 @@ export async function updateRecruiterProfile(req: Request, res: Response) {
   try {
     const userId = parseInt(req.params.userId);
 
-    // Check if user is authorized to update this profile
-    if (
-      !(req as any).user ||
-      ((req as any).user.id !== userId && (req as any).user.role !== "admin")
-    ) {
-      return res.status(403).json({ error: "Not authorized to update this profile" });
+    if (!canWriteRecruiterProfile(req, userId)) {
+      return res.status(403).json({
+        error: "Only the company owner can create or update the company profile",
+      });
     }
 
     const result = insertRecruiterProfileSchema.partial().safeParse(req.body);

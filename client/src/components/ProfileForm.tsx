@@ -41,9 +41,17 @@ interface ProfileFormProps {
   userType: "freelancer" | "recruiter";
   onSave: (data: FreelancerFormData | RecruiterFormData) => Promise<void>;
   isSaving: boolean;
+  /** When true (team members), company profile is view-only; only the owner may edit. */
+  readOnly?: boolean;
 }
 
-export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileFormProps) {
+export function ProfileForm({
+  profile,
+  userType,
+  onSave,
+  isSaving,
+  readOnly = false,
+}: ProfileFormProps) {
   const { user } = useAuth();
   const hasProfileContent = (() => {
     if (!profile) return false;
@@ -51,7 +59,7 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
     return !!(profile as FreelancerProfile).first_name;
   })();
 
-  const [isEditing, setIsEditing] = useState(!hasProfileContent);
+  const [isEditing, setIsEditing] = useState(!readOnly && !hasProfileContent);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const hasInitializedEditing = useRef(false);
 
@@ -62,9 +70,15 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
         userType === "recruiter"
           ? !!(profile as RecruiterProfile).company_name
           : !!(profile as FreelancerProfile).first_name;
-      setIsEditing(!hasContent);
+      setIsEditing(!readOnly && !hasContent);
     }
-  }, [profile, userType]);
+  }, [profile, userType, readOnly]);
+
+  useEffect(() => {
+    if (readOnly) {
+      setIsEditing(false);
+    }
+  }, [readOnly]);
   const draftKey = user?.id
     ? `${DRAFT_STORAGE_KEY_PREFIX}${userType}_${user.id}`
     : "profile_draft_temp";
@@ -216,6 +230,24 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
     }
   };
 
+  if (readOnly && !profile && userType === "recruiter") {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Company Profile</CardTitle>
+          <CardDescription>
+            The company owner has not completed the company profile yet.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Contact your company owner to set up the profile before posting jobs.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!isEditing && profile) {
     return (
       <Card>
@@ -228,18 +260,22 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
               <CardDescription>
                 {userType === "freelancer"
                   ? "Your professional information and skills"
-                  : "Your company information and details"}
+                  : readOnly
+                    ? "Company information (view only — contact the owner to make changes)"
+                    : "Your company information and details"}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               {userType === "freelancer" && user?.id && <ShareProfileButton userId={user.id} />}
-              <Button
-                onClick={() => setIsEditing(true)}
-                data-testid="button-edit-profile"
-                className="shrink-0"
-              >
-                Edit Profile
-              </Button>
+              {!readOnly && (
+                <Button
+                  onClick={() => setIsEditing(true)}
+                  data-testid="button-edit-profile"
+                  className="shrink-0"
+                >
+                  Edit Profile
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -252,6 +288,10 @@ export function ProfileForm({ profile, userType, onSave, isSaving }: ProfileForm
         </CardContent>
       </Card>
     );
+  }
+
+  if (readOnly) {
+    return null;
   }
 
   return (

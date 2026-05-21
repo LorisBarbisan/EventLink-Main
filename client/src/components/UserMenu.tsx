@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { getEffectiveCompanyId } from "@/lib/employerContext";
 import { Bell, LogOut, Settings, Star, User, UserCircle } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -20,7 +21,11 @@ export const UserMenu = () => {
 
   // Get profile data based on user role
   const userType = user?.role === "freelancer" ? "freelancer" : "recruiter";
-  const { profile } = useProfile({ userType, userId: user?.id || 0 });
+  const profileUserId =
+    user?.role === "recruiter" && user
+      ? getEffectiveCompanyId(user)
+      : user?.id || 0;
+  const { profile } = useProfile({ userType, userId: profileUserId });
 
   // Get display name based on user account data
   const getDisplayName = () => {
