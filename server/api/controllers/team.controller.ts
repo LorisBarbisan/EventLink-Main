@@ -4,6 +4,7 @@ import { teamMembers, users, recruiter_profiles } from "../../../shared/schema";
 import { eq, and } from "drizzle-orm";
 import { sendEmail } from "../utils/emailService";
 import crypto from "crypto";
+import { canManageTeam } from "../utils/team.util";
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ async function getCompanyName(companyId: number): Promise<string> {
 }
 
 function isOwnerOrAdmin(role: string | undefined) {
-  return role === "owner" || role === "admin";
+  return canManageTeam(role);
 }
 
 // ── GET /api/team ─────────────────────────────────────────
@@ -232,6 +233,14 @@ export async function acceptInvitation(req: Request, res: Response) {
       });
     }
 
+    if (req.user.id === membership.companyId) {
+      return res.status(400).json({
+        error: "owner_cannot_join_own_team",
+        message:
+          "You are the company account owner. You already have full access — you do not need to accept a team invitation.",
+      });
+    }
+
     if (membership.inviteAccepted) {
       return res.status(409).json({ error: "This invitation has already been accepted" });
     }
@@ -334,6 +343,14 @@ export async function removeTeamMember(req: Request, res: Response) {
 
     if (!member) {
       return res.status(404).json({ error: "Team member not found" });
+    }
+
+    if (member.userId === companyId) {
+      return res.status(400).json({
+        error: "cannot_remove_company_owner",
+        message:
+          "The company owner cannot be removed from the team. Delete the team_members row for your own account if it was created by mistake.",
+      });
     }
 
     await db.delete(teamMembers).where(eq(teamMembers.id, memberId));

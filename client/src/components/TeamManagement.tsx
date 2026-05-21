@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { Loader2, Mail, RefreshCw, Trash2, UserPlus, Users } from "lucide-react";
 
@@ -52,9 +53,15 @@ const ROLE_COLORS: Record<string, string> = {
   viewer: "bg-gray-100 text-gray-700",
 };
 
+function canManageTeam(teamRole: string | null | undefined): boolean {
+  return teamRole === "owner" || teamRole === "admin";
+}
+
 export function TeamManagement() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const manageTeam = canManageTeam(user?.teamRole);
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<TeamMemberRole>("manager");
@@ -220,50 +227,58 @@ export function TeamManagement() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {!member.inviteAccepted && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              resendMutation.mutate({
-                                email: member.invitedEmail,
-                                role: member.role,
-                              })
-                            }
-                            disabled={resendMutation.isPending}
-                          >
-                            <RefreshCw className="mr-1 h-3 w-3" />
-                            Resend
-                          </Button>
-                        )}
-                        {member.inviteAccepted && (
-                          <Select
-                            value={member.role}
-                            onValueChange={(role) =>
-                              updateRoleMutation.mutate({ id: member.id, role })
-                            }
-                          >
-                            <SelectTrigger className="h-8 w-32 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="manager">Manager</SelectItem>
-                              <SelectItem value="viewer">Viewer</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => removeMutation.mutate(member.id)}
-                          disabled={removeMutation.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {manageTeam ? (
+                        <div className="flex items-center justify-end gap-2">
+                          {!member.inviteAccepted && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                resendMutation.mutate({
+                                  email: member.invitedEmail,
+                                  role: member.role,
+                                })
+                              }
+                              disabled={resendMutation.isPending}
+                            >
+                              <RefreshCw className="mr-1 h-3 w-3" />
+                              Resend
+                            </Button>
+                          )}
+                          {member.inviteAccepted &&
+                            member.userId !== user?.companyId &&
+                            member.userId !== user?.id && (
+                              <Select
+                                value={member.role}
+                                onValueChange={(role) =>
+                                  updateRoleMutation.mutate({ id: member.id, role })
+                                }
+                              >
+                                <SelectTrigger className="h-8 w-32 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                  <SelectItem value="manager">Manager</SelectItem>
+                                  <SelectItem value="viewer">Viewer</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          {member.userId !== user?.companyId && member.userId !== user?.id && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => removeMutation.mutate(member.id)}
+                              disabled={removeMutation.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -274,6 +289,7 @@ export function TeamManagement() {
       </Card>
 
       {/* Invite new member */}
+      {manageTeam ? (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -345,6 +361,11 @@ export function TeamManagement() {
           </form>
         </CardContent>
       </Card>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Only company owners and admins can invite or manage team members.
+        </p>
+      )}
     </div>
   );
 }
