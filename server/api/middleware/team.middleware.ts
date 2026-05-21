@@ -1,7 +1,8 @@
 import { db } from "../config/db";
 import { teamMembers } from "../../../shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { Request, Response, NextFunction } from "express";
+import { resolveTeamContextForUser } from "../utils/team.util";
 
 export async function resolveCompanyId(
   req: Request,
@@ -12,18 +13,20 @@ export async function resolveCompanyId(
 
   try {
     const [membership] = await db
-      .select()
+      .select({
+        companyId: teamMembers.companyId,
+        role: teamMembers.role,
+        inviteAccepted: teamMembers.inviteAccepted,
+      })
       .from(teamMembers)
-      .where(eq(teamMembers.userId, req.user.id))
+      .where(
+        and(eq(teamMembers.userId, req.user.id), eq(teamMembers.inviteAccepted, true))
+      )
       .limit(1);
 
-    if (membership && membership.inviteAccepted) {
-      req.companyId = membership.companyId;
-      req.teamRole = membership.role as "admin" | "manager" | "viewer";
-    } else {
-      req.companyId = req.user.id;
-      req.teamRole = "owner";
-    }
+    const ctx = resolveTeamContextForUser(req.user.id, membership ?? undefined);
+    req.companyId = ctx.companyId;
+    req.teamRole = ctx.teamRole;
   } catch (err) {
     console.error("resolveCompanyId error:", err);
     req.companyId = req.user.id;

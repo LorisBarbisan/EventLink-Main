@@ -16,6 +16,7 @@ import {
   verifyJWTToken,
 } from "../utils/auth.util";
 import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from "../utils/emailService";
+import { resolveTeamContextForUser } from "../utils/team.util";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "eventlink-secret-key";
 const OAUTH_PENDING_SECRET = JWT_SECRET + "-oauth-pending";
@@ -618,15 +619,18 @@ export async function getSession(req: Request, res: Response) {
     let isTeamMember = false;
     if (userWithRole.role === "recruiter") {
       const [membership] = await db
-        .select({ companyId: teamMembers.companyId, role: teamMembers.role })
+        .select({
+          companyId: teamMembers.companyId,
+          role: teamMembers.role,
+          inviteAccepted: teamMembers.inviteAccepted,
+        })
         .from(teamMembers)
         .where(and(eq(teamMembers.userId, userWithRole.id), eq(teamMembers.inviteAccepted, true)))
         .limit(1);
-      if (membership) {
-        companyId = membership.companyId;
-        teamRole = membership.role;
-        isTeamMember = true;
-      }
+      const teamCtx = resolveTeamContextForUser(userWithRole.id, membership ?? undefined);
+      companyId = teamCtx.companyId;
+      teamRole = teamCtx.teamRole;
+      isTeamMember = teamCtx.isTeamMember;
     }
 
     res.json({
@@ -785,15 +789,18 @@ export async function signin(req: Request, res: Response) {
     let isTeamMember = false;
     if (userWithRole.role === "recruiter") {
       const [membership] = await db
-        .select({ companyId: teamMembers.companyId, role: teamMembers.role })
+        .select({
+          companyId: teamMembers.companyId,
+          role: teamMembers.role,
+          inviteAccepted: teamMembers.inviteAccepted,
+        })
         .from(teamMembers)
         .where(and(eq(teamMembers.userId, userWithRole.id), eq(teamMembers.inviteAccepted, true)))
         .limit(1);
-      if (membership) {
-        companyId = membership.companyId;
-        teamRole = membership.role;
-        isTeamMember = true;
-      }
+      const teamCtx = resolveTeamContextForUser(userWithRole.id, membership ?? undefined);
+      companyId = teamCtx.companyId;
+      teamRole = teamCtx.teamRole;
+      isTeamMember = teamCtx.isTeamMember;
     }
 
     res.json({
