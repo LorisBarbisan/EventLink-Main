@@ -11,6 +11,8 @@ import {
   serial,
   text,
   timestamp,
+  unique,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -49,7 +51,7 @@ export const users = pgTable(
     status: text("status").default("pending").notNull(),
     welcome_email_sent: boolean("welcome_email_sent").default(false).notNull(),
     marketing_emails_opt_out: boolean("marketing_emails_opt_out").default(false).notNull(),
-    unsubscribe_token: text("unsubscribe_token").unique(),
+    unsubscribe_token: text("unsubscribe_token"),
     job_alerts_opt_out: boolean("job_alerts_opt_out").default(false), // Freelancer has unsubscribed from job alert emails
     last_job_alert_sent_at: timestamp("last_job_alert_sent_at", { withTimezone: true }), // Timestamp of last job alert email sent
     job_alert_frequency_preference: text("job_alert_frequency_preference").default("instant").$type<"instant" | "weekly" | "none">(), // 'instant' = include in batch, 'none' = no automated emails
@@ -59,6 +61,11 @@ export const users = pgTable(
       "users_status_check",
       sql`${table.status} IN ('pending', 'active', 'deactivated')`
     ),
+    // Partial unique index — matches the live DB definition exactly so drizzle-kit
+    // does not propose to swap a regular unique constraint for this on every push.
+    unsubscribeTokenUnique: uniqueIndex("users_unsubscribe_token_unique")
+      .on(table.unsubscribe_token)
+      .where(sql`${table.unsubscribe_token} IS NOT NULL`),
   })
 );
 
@@ -970,41 +977,60 @@ export type InsertReferenceReport = z.infer<typeof insertReferenceReportSchema>;
 // FMS Phase 1 — Bookings
 // ============================================================
 
-export const bookings = pgTable("bookings", {
-  id: serial("id").primaryKey(),
-  jobId: integer("job_id")
-    .notNull()
-    .references(() => jobs.id, { onDelete: "cascade" }),
-  employerId: integer("employer_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  freelancerId: integer("freelancer_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  status: text("status").notNull().default("enquired"),
-  agreedRate: text("agreed_rate"),
-  callTime: text("call_time"),
-  venueAddress: text("venue_address"),
-  employerNotes: text("employer_notes"),
-  cancellationReason: text("cancellation_reason"),
-  cancelledBy: text("cancelled_by"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const bookings = pgTable(
+  "bookings",
+  {
+    id: serial("id").primaryKey(),
+    jobId: integer("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    employerId: integer("employer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    freelancerId: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("enquired"),
+    agreedRate: text("agreed_rate"),
+    callTime: text("call_time"),
+    venueAddress: text("venue_address"),
+    employerNotes: text("employer_notes"),
+    cancellationReason: text("cancellation_reason"),
+    cancelledBy: text("cancelled_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    jobFreelancerUnique: unique("bookings_job_freelancer_unique").on(
+      table.jobId,
+      table.freelancerId
+    ),
+    employerIdIdx: index("bookings_employer_id_idx").on(table.employerId),
+    freelancerIdIdx: index("bookings_freelancer_id_idx").on(table.freelancerId),
+    jobIdIdx: index("bookings_job_id_idx").on(table.jobId),
+    statusIdx: index("bookings_status_idx").on(table.status),
+  })
+);
 
-export const bookingStatusHistory = pgTable("booking_status_history", {
-  id: serial("id").primaryKey(),
-  bookingId: integer("booking_id")
-    .notNull()
-    .references(() => bookings.id, { onDelete: "cascade" }),
-  fromStatus: text("from_status"),
-  toStatus: text("to_status").notNull(),
-  changedById: integer("changed_by_id")
-    .notNull()
-    .references(() => users.id),
-  note: text("note"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const bookingStatusHistory = pgTable(
+  "booking_status_history",
+  {
+    id: serial("id").primaryKey(),
+    bookingId: integer("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    fromStatus: text("from_status"),
+    toStatus: text("to_status").notNull(),
+    changedById: integer("changed_by_id")
+      .notNull()
+      .references(() => users.id),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    bookingIdIdx: index("booking_history_booking_id_idx").on(table.bookingId),
+  })
+);
 
 export const insertBookingSchema = createInsertSchema(bookings).omit({
   id: true,
@@ -1034,22 +1060,30 @@ export type BookingStatusHistory = typeof bookingStatusHistory.$inferSelect;
 // Team Members
 // ============================================================
 
-export const teamMembers = pgTable("team_members", {
-  id: serial("id").primaryKey(),
-  companyId: integer("company_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  userId: integer("user_id")
-    .references(() => users.id, { onDelete: "set null" }),
-  role: text("role").notNull().default("manager"),
-  invitedEmail: text("invited_email").notNull(),
-  inviteToken: text("invite_token").unique(),
-  inviteAccepted: boolean("invite_accepted").notNull().default(false),
-  inviteSentAt: timestamp("invite_sent_at", { withTimezone: true }).defaultNow(),
-  inviteAcceptedAt: timestamp("invite_accepted_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+    role: text("role").notNull().default("manager"),
+    invitedEmail: text("invited_email").notNull(),
+    inviteToken: text("invite_token").unique(),
+    inviteAccepted: boolean("invite_accepted").notNull().default(false),
+    inviteSentAt: timestamp("invite_sent_at", { withTimezone: true }).defaultNow(),
+    inviteAcceptedAt: timestamp("invite_accepted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    userUnique: unique("team_members_user_unique").on(table.userId),
+    companyIdIdx: index("team_members_company_id_idx").on(table.companyId),
+    userIdIdx: index("team_members_user_id_idx").on(table.userId),
+    inviteTokenIdx: index("team_members_invite_token_idx").on(table.inviteToken),
+  })
+);
 
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type InsertTeamMember = typeof teamMembers.$inferInsert;
