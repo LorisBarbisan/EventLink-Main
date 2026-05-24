@@ -4,7 +4,10 @@ import { teamMembers, users, recruiter_profiles } from "../../../shared/schema";
 import { eq, and } from "drizzle-orm";
 import { sendEmail } from "../utils/emailService";
 import crypto from "crypto";
-import { canManageTeam } from "../utils/team.util";
+import bcrypt from "bcryptjs";
+import { canManageTeam, resolveTeamContextForUser } from "../utils/team.util";
+import { computeUserRole, generateJWTToken } from "../utils/auth.util";
+import { storage } from "../../storage";
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -19,6 +22,34 @@ async function getCompanyName(companyId: number): Promise<string> {
 
 function isOwnerOrAdmin(role: string | undefined) {
   return canManageTeam(role);
+}
+
+type InviteMembership = typeof teamMembers.$inferSelect;
+
+async function getInviteMembership(token: string): Promise<InviteMembership | null> {
+  const [membership] = await db
+    .select()
+    .from(teamMembers)
+    .where(eq(teamMembers.inviteToken, token))
+    .limit(1);
+  return membership ?? null;
+}
+
+function inviteExpiryError(membership: InviteMembership): { status: number; error: string } | null {
+  if (membership.inviteAccepted) {
+    return { status: 404, error: "Invitation not found or already accepted" };
+  }
+  if (membership.inviteSentAt) {
+    const sentAt = new Date(membership.inviteSentAt).getTime();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    if (Date.now() - sentAt > sevenDays) {
+      return {
+        status: 410,
+        error: "This invitation has expired. Please contact the company to send a new one.",
+      };
+    }
+  }
+  return null;
 }
 
 // ── GET /api/team ─────────────────────────────────────────
@@ -182,35 +213,26 @@ export async function acceptInvitation(req: Request, res: Response) {
   try {
     const { token } = req.params;
 
-    const [membership] = await db
-      .select()
-      .from(teamMembers)
-      .where(eq(teamMembers.inviteToken, token))
-      .limit(1);
+    const membership = await getInviteMembership(token);
 
     if (!membership) {
       return res.status(404).json({ error: "Invitation not found or already accepted" });
     }
 
-    // Check expiry (7 days)
-    if (membership.inviteSentAt) {
-      const sentAt = new Date(membership.inviteSentAt).getTime();
-      const sevenDays = 7 * 24 * 60 * 60 * 1000;
-      if (Date.now() - sentAt > sevenDays) {
-        return res.status(410).json({
-          error: "This invitation has expired. Please contact the company to send a new one.",
-        });
-      }
+    const expiryError = inviteExpiryError(membership);
+    if (expiryError) {
+      return res.status(expiryError.status).json({ error: expiryError.error });
     }
 
     if (req.method === "GET") {
-      // Return info for frontend to show login/signup form
       const companyName = await getCompanyName(membership.companyId);
+      const existingUser = await storage.getUserByEmail(membership.invitedEmail);
       return res.json({
         requiresAuth: !req.user,
         invitedEmail: membership.invitedEmail,
         role: membership.role,
         companyName,
+        accountExists: !!existingUser,
       });
     }
 
@@ -275,6 +297,110 @@ export async function acceptInvitation(req: Request, res: Response) {
   } catch (error) {
     console.error("acceptInvitation error:", error);
     return res.status(500).json({ error: "Failed to process invitation" });
+  }
+}
+
+// ── POST /api/team/register/:token (unauthenticated — create account + accept) ──
+export async function registerTeamMember(req: Request, res: Response) {
+  try {
+    const { token } = req.params;
+    const { email, password, first_name, last_name } = req.body ?? {};
+
+    if (!email || !password || !first_name?.trim() || !last_name?.trim()) {
+      return res.status(400).json({
+        error: "Email, password, first name, and last name are required",
+      });
+    }
+
+    const membership = await getInviteMembership(token);
+    if (!membership) {
+      return res.status(404).json({ error: "Invitation not found or already accepted" });
+    }
+
+    const expiryError = inviteExpiryError(membership);
+    if (expiryError) {
+      return res.status(expiryError.status).json({ error: expiryError.error });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    if (normalizedEmail !== membership.invitedEmail.toLowerCase()) {
+      return res.status(400).json({
+        error: "email_mismatch",
+        message: "The email must match the address this invitation was sent to.",
+      });
+    }
+
+    const existingUser = await storage.getUserByEmail(normalizedEmail);
+    if (existingUser) {
+      return res.status(409).json({
+        error: "account_exists",
+        message: "An account with this email already exists. Please sign in to accept the invitation.",
+      });
+    }
+
+    const companyName = await getCompanyName(membership.companyId);
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await db.transaction(async (tx) => {
+      const [user] = await tx
+        .insert(users)
+        .values({
+          email: normalizedEmail,
+          password: hashedPassword,
+          first_name: first_name.trim(),
+          last_name: last_name.trim(),
+          role: "recruiter",
+          email_verified: true,
+          status: "active",
+          auth_provider: "email",
+          unsubscribe_token: crypto.randomBytes(32).toString("hex"),
+        })
+        .returning();
+
+      await tx
+        .update(teamMembers)
+        .set({
+          userId: user.id,
+          inviteAccepted: true,
+          inviteAcceptedAt: new Date(),
+          inviteToken: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(teamMembers.id, membership.id));
+
+      return user;
+    });
+
+    await storage.updateUserLastLogin(newUser.id, "email");
+
+    const userWithRole = computeUserRole(newUser);
+    const jwtToken = generateJWTToken(userWithRole);
+    const teamCtx = resolveTeamContextForUser(userWithRole.id, {
+      companyId: membership.companyId,
+      role: membership.role,
+      inviteAccepted: true,
+    });
+
+    return res.status(201).json({
+      message: "Account created and invitation accepted",
+      token: jwtToken,
+      companyName,
+      user: {
+        id: userWithRole.id,
+        email: userWithRole.email,
+        first_name: userWithRole.first_name,
+        last_name: userWithRole.last_name,
+        role: userWithRole.role,
+        email_verified: true,
+        auth_provider: "email",
+        companyId: teamCtx.companyId,
+        teamRole: teamCtx.teamRole,
+        isTeamMember: teamCtx.isTeamMember,
+      },
+    });
+  } catch (error) {
+    console.error("registerTeamMember error:", error);
+    return res.status(500).json({ error: "Failed to create account" });
   }
 }
 

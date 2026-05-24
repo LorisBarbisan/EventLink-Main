@@ -6,6 +6,7 @@ import {
   getTeamMembers,
   inviteTeamMember,
   acceptInvitation,
+  registerTeamMember,
   updateTeamMemberRole,
   removeTeamMember,
 } from "../controllers/team.controller";
@@ -14,6 +15,7 @@ const router = Router();
 
 router.get("/accept/:token", acceptInvitation);
 router.post("/accept/:token", authenticateJWT, acceptInvitation);
+router.post("/register/:token", registerTeamMember);
 
 router.use(authenticateJWT, requireRole("employer"), resolveCompanyId);
 
