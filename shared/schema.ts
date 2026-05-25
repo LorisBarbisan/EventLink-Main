@@ -145,7 +145,10 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
 
 export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
-  recruiter_id: integer("recruiter_id").references(() => users.id, { onDelete: "cascade" }), // Made nullable for external jobs
+  recruiter_id: integer("recruiter_id").references(() => users.id, { onDelete: "cascade" }), // Company owner id; nullable for external jobs
+  posted_by_user_id: integer("posted_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }), // User who created the posting — receives application alerts (legacy rows: company owner)
   title: text("title").notNull(),
   company: text("company").notNull(),
   location: text("location").notNull(),

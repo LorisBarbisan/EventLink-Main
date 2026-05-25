@@ -167,6 +167,10 @@ export interface IStorage {
   getJobsByRecruiterId(recruiterId: number): Promise<Job[]>;
   getJobById(jobId: number): Promise<Job | undefined>;
   createJob(job: InsertJob): Promise<Job>;
+  /** Persist posted_by_user_id from recruiter_id when missing (legacy rows). */
+  ensureJobPostedByUserId(
+    job: Pick<Job, "id" | "posted_by_user_id" | "recruiter_id">
+  ): Promise<number | null>;
   updateJob(jobId: number, job: Partial<InsertJob>): Promise<Job | undefined>;
   deleteJob(jobId: number): Promise<void>;
   searchJobs(filters: {
@@ -1699,9 +1703,30 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async ensureJobPostedByUserId(
+    job: Pick<Job, "id" | "posted_by_user_id" | "recruiter_id">
+  ): Promise<number | null> {
+    if (job.posted_by_user_id != null) {
+      return job.posted_by_user_id;
+    }
+    if (job.recruiter_id == null) {
+      return null;
+    }
+    const [updated] = await db
+      .update(jobs)
+      .set({ posted_by_user_id: job.recruiter_id })
+      .where(eq(jobs.id, job.id))
+      .returning({ posted_by_user_id: jobs.posted_by_user_id });
+    return updated?.posted_by_user_id ?? job.recruiter_id;
+  }
+
   async createJob(job: InsertJob): Promise<Job> {
     const { generateJobSlug } = await import("./api/utils/slugify.js");
-    const inserted = await db.insert(jobs).values([job as any]).returning();
+    const jobToInsert = {
+      ...job,
+      posted_by_user_id: job.posted_by_user_id ?? job.recruiter_id ?? null,
+    };
+    const inserted = await db.insert(jobs).values([jobToInsert as any]).returning();
     const newJob = inserted[0];
     const slug = generateJobSlug(newJob.title, newJob.location, newJob.id);
     const updated = await db.update(jobs).set({ slug }).where(eq(jobs.id, newJob.id)).returning();
@@ -2820,7 +2845,39 @@ export class DatabaseStorage implements IStorage {
     contact_messages: number;
     total: number;
   }> {
-    // Get counts for each category
+    const user = await this.getUser(userId);
+    const isRecruiter = user?.role === "recruiter";
+    const unreadExpiry = or(
+      isNull(notifications.expires_at),
+      sql`${notifications.expires_at} > NOW()`
+    );
+    const baseUnread = and(
+      eq(notifications.user_id, userId),
+      eq(notifications.is_read, false),
+      unreadExpiry
+    );
+
+    // Recruiters: application tab = job_update on applications. Freelancers: application_update only.
+    const applicationsWhere = isRecruiter
+      ? and(
+          baseUnread,
+          eq(notifications.type, "job_update"),
+          eq(notifications.related_entity_type, "application")
+        )
+      : and(baseUnread, eq(notifications.type, "application_update"));
+
+    // Recruiters: jobs tab excludes application alerts (those live on Applications tab).
+    const jobsWhere = isRecruiter
+      ? and(
+          baseUnread,
+          eq(notifications.type, "job_update"),
+          or(
+            isNull(notifications.related_entity_type),
+            ne(notifications.related_entity_type, "application")
+          )
+        )
+      : and(baseUnread, eq(notifications.type, "job_update"));
+
     const [
       messagesResult,
       applicationsResult,
@@ -2843,30 +2900,10 @@ export class DatabaseStorage implements IStorage {
         ),
 
       // Applications count
-      db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(notifications)
-        .where(
-          and(
-            eq(notifications.user_id, userId),
-            eq(notifications.is_read, false),
-            eq(notifications.type, "application_update"),
-            or(isNull(notifications.expires_at), sql`${notifications.expires_at} > NOW()`)
-          )
-        ),
+      db.select({ count: sql<number>`count(*)::int` }).from(notifications).where(applicationsWhere),
 
       // Jobs count
-      db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(notifications)
-        .where(
-          and(
-            eq(notifications.user_id, userId),
-            eq(notifications.is_read, false),
-            eq(notifications.type, "job_update"),
-            or(isNull(notifications.expires_at), sql`${notifications.expires_at} > NOW()`)
-          )
-        ),
+      db.select({ count: sql<number>`count(*)::int` }).from(notifications).where(jobsWhere),
 
       // Ratings count
       db
@@ -2945,18 +2982,41 @@ export class DatabaseStorage implements IStorage {
     userId: number,
     category: "messages" | "applications" | "jobs" | "ratings" | "feedback" | "contact_messages"
   ): Promise<void> {
+    const user = await this.getUser(userId);
+    const isRecruiter = user?.role === "recruiter";
+    const baseUnread = and(eq(notifications.user_id, userId), eq(notifications.is_read, false));
+
     let notificationTypes: string[] = [];
 
     switch (category) {
       case "messages":
         notificationTypes = ["new_message"];
         break;
-      case "applications":
-        notificationTypes = ["application_update"];
-        break;
-      case "jobs":
-        notificationTypes = ["job_update"];
-        break;
+      case "applications": {
+        const applicationsWhere = isRecruiter
+          ? and(
+              baseUnread,
+              eq(notifications.type, "job_update"),
+              eq(notifications.related_entity_type, "application")
+            )
+          : and(baseUnread, eq(notifications.type, "application_update"));
+        await db.update(notifications).set({ is_read: true }).where(applicationsWhere);
+        return;
+      }
+      case "jobs": {
+        const jobsWhere = isRecruiter
+          ? and(
+              baseUnread,
+              eq(notifications.type, "job_update"),
+              or(
+                isNull(notifications.related_entity_type),
+                ne(notifications.related_entity_type, "application")
+              )
+            )
+          : and(baseUnread, eq(notifications.type, "job_update"));
+        await db.update(notifications).set({ is_read: true }).where(jobsWhere);
+        return;
+      }
       case "ratings":
         notificationTypes = ["rating_received", "rating_request"];
         break;
