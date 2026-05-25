@@ -1,7 +1,10 @@
 import { insertJobApplicationSchema, type JobApplication } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-import { emailService } from "../utils/emailNotificationService";
+import {
+  notifyJobPosterInApp,
+  notifyJobPosterOfNewApplication,
+} from "../utils/jobApplicationNotifications";
 import { getEmployerCompanyId, ownsEmployerCompany } from "../utils/team.util";
 
 // Get freelancer bookings (accepted applications)
@@ -93,71 +96,14 @@ export async function applyToJob(req: Request, res: Response) {
 
     const application = await storage.createJobApplication(result.data);
 
-    // Create notification for recruiter (non-blocking)
-    if (job.recruiter_id) {
-      try {
-        await storage.createNotification({
-          user_id: job.recruiter_id,
-          type: "application_update",
-          title: "New Job Application",
-          message: `A freelancer has applied to your job: ${job.title}`,
-          priority: "high",
-          related_entity_type: "application",
-          related_entity_id: application.id,
-          action_url: "/dashboard?tab=applications",
-          metadata: JSON.stringify({ application_id: application.id, job_id: jobId }),
-        });
-
-        // Send email notification to recruiter
-        try {
-          const recruiter = await storage.getUser(job.recruiter_id);
-          if (recruiter) {
-            let recruiterDisplayName = recruiter.email;
-            const recruiterProfile = await storage.getRecruiterProfile(job.recruiter_id);
-            // Priority: company_name → user's full name → email
-            if (recruiterProfile?.company_name) {
-              recruiterDisplayName = recruiterProfile.company_name;
-            } else if (recruiter.first_name || recruiter.last_name) {
-              const firstName = recruiter.first_name || "";
-              const lastName = recruiter.last_name || "";
-              recruiterDisplayName = `${firstName} ${lastName}`.trim() || recruiter.email;
-            }
-
-            // Get freelancer's display name
-            let freelancerDisplayName = "A freelancer";
-            let freelancerTitle: string | undefined;
-            const freelancerProfile = await storage.getFreelancerProfile((req as any).user.id);
-            if (freelancerProfile) {
-              if (freelancerProfile.first_name || freelancerProfile.last_name) {
-                const firstName = freelancerProfile.first_name || "";
-                const lastName = freelancerProfile.last_name || "";
-                freelancerDisplayName = `${firstName} ${lastName}`.trim();
-              }
-              freelancerTitle = freelancerProfile.title || undefined;
-            }
-
-            emailService
-              .sendNewApplicationNotification({
-                recipientId: job.recruiter_id,
-                recipientEmail: recruiter.email,
-                recipientName: recruiterDisplayName,
-                jobTitle: job.title,
-                freelancerName: freelancerDisplayName,
-                freelancerTitle: freelancerTitle,
-                jobId: jobId,
-                applicationId: application.id,
-              })
-              .catch(error => {
-                console.error("Failed to send new application email:", error);
-              });
-          }
-        } catch (emailError) {
-          console.error("Error preparing new application email:", emailError);
-        }
-      } catch (notifError) {
-        console.error("Failed to create notification (non-critical):", notifError);
-        // Don't fail the application if notification fails
-      }
+    try {
+      await notifyJobPosterOfNewApplication({
+        job,
+        applicationId: application.id,
+        freelancerUserId: (req as any).user.id,
+      });
+    } catch (notifError) {
+      console.error("Failed to notify job poster of new application (non-critical):", notifError);
     }
 
     res.status(201).json(application);
@@ -676,21 +622,16 @@ export async function respondToInvitation(req: Request, res: Response) {
           ? `Freelancer accepted your invitation for "${job.title}"`
           : `Freelancer declined your invitation for "${job.title}"`;
 
-      await storage.createNotification({
-        user_id: job.recruiter_id,
-        type: "application_update",
-        title: title,
-        message: message,
-        priority: "normal",
-        related_entity_type: "application",
-        related_entity_id: applicationId,
-        action_url: "/dashboard?tab=applications",
-        metadata: JSON.stringify({
-          application_id: applicationId,
-          job_id: job.id,
-          status: status,
+      await notifyJobPosterInApp({
+        job,
+        applicationId,
+        title,
+        message,
+        metadata: {
+          kind: "invitation_response",
+          status,
           response: responseMessage,
-        }),
+        },
       });
     }
 

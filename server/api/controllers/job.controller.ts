@@ -135,6 +135,7 @@ export async function createJob(req: Request, res: Response) {
     const job = await storage.createJob({
       ...result.data,
       recruiter_id: (req as any).companyId ?? (req as any).user.id,
+      posted_by_user_id: (req as any).user.id,
       status: result.data.status || "private", // Default to private if not specified
     });
 
