@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticateJWT } from "../middleware/auth.middleware";
+import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { resolveCompanyId } from "../middleware/team.middleware";
 import {
@@ -13,7 +13,7 @@ import {
 
 const router = Router();
 
-router.get("/accept/:token", acceptInvitation);
+router.get("/accept/:token", authenticateOptionalJWT, acceptInvitation);
 router.post("/accept/:token", authenticateJWT, acceptInvitation);
 router.post("/register/:token", registerTeamMember);
 

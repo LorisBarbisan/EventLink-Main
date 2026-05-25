@@ -799,12 +799,37 @@ export async function signin(req: Request, res: Response) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    // Check if email is verified
+    // Check if email is verified (pending team invitees may sign in to accept on /join-team)
     if (!user.email_verified) {
-      return res.status(403).json({
-        error: "Please verify your email address before signing in",
-        code: "EMAIL_NOT_VERIFIED",
-      });
+      const normalizedEmail = email.toLowerCase().trim();
+      const [pendingTeamInvite] = await db
+        .select({ id: teamMembers.id })
+        .from(teamMembers)
+        .where(
+          and(
+            eq(teamMembers.invitedEmail, normalizedEmail),
+            eq(teamMembers.inviteAccepted, false)
+          )
+        )
+        .limit(1);
+
+      if (pendingTeamInvite) {
+        await db
+          .update(users)
+          .set({
+            email_verified: true,
+            email_verification_token: null,
+            email_verification_expires: null,
+            updated_at: new Date(),
+          })
+          .where(eq(users.id, user.id));
+        user.email_verified = true;
+      } else {
+        return res.status(403).json({
+          error: "Please verify your email address before signing in",
+          code: "EMAIL_NOT_VERIFIED",
+        });
+      }
     }
 
     // Apply role computation

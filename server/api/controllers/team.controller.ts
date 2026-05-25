@@ -233,6 +233,8 @@ export async function acceptInvitation(req: Request, res: Response) {
         role: membership.role,
         companyName,
         accountExists: !!existingUser,
+        emailVerified: existingUser?.email_verified ?? true,
+        existingAccountRole: existingUser?.role ?? null,
       });
     }
 
@@ -241,14 +243,33 @@ export async function acceptInvitation(req: Request, res: Response) {
       return res.status(401).json({ error: "You must be signed in to accept this invitation" });
     }
 
-    // Block freelancers from accepting team invitations
     const [acceptingUser] = await db
-      .select({ role: users.role })
+      .select({
+        role: users.role,
+        email_verified: users.email_verified,
+      })
       .from(users)
       .where(eq(users.id, req.user.id))
       .limit(1);
 
-    if (acceptingUser?.role === "freelancer") {
+    if (!acceptingUser) {
+      return res.status(404).json({ error: "User account not found" });
+    }
+
+    // Team invite link proves inbox access — allow sign-in for invited employer emails
+    if (!acceptingUser.email_verified) {
+      await db
+        .update(users)
+        .set({
+          email_verified: true,
+          email_verification_token: null,
+          email_verification_expires: null,
+          updated_at: new Date(),
+        })
+        .where(eq(users.id, req.user.id));
+    }
+
+    if (acceptingUser.role === "freelancer") {
       return res.status(403).json({
         error: "freelancer_cannot_join_team",
         message: "Your account is registered as a freelancer. Team invitations are for employer accounts only. If you need to join a company team, please register with a new employer account.",
@@ -321,6 +342,16 @@ export async function registerTeamMember(req: Request, res: Response) {
       });
     }
 
+    if (typeof password !== "string" || password.length < 8) {
+      return res.status(400).json({
+        error: "Password must be at least 8 characters",
+      });
+    }
+
+    if (password.length > 128) {
+      return res.status(400).json({ error: "Password too long" });
+    }
+
     const membership = await getInviteMembership(token);
     if (!membership) {
       return res.status(404).json({ error: "Invitation not found or already accepted" });
@@ -380,6 +411,10 @@ export async function registerTeamMember(req: Request, res: Response) {
       return user;
     });
 
+    if (!newUser?.id) {
+      return res.status(500).json({ error: "Failed to create account" });
+    }
+
     await storage.updateUserLastLogin(newUser.id, "email");
 
     const userWithRole = computeUserRole(newUser);
@@ -407,9 +442,19 @@ export async function registerTeamMember(req: Request, res: Response) {
         isTeamMember: teamCtx.isTeamMember,
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("registerTeamMember error:", error);
-    return res.status(500).json({ error: "Failed to create account" });
+    const message = error instanceof Error ? error.message : "Failed to create account";
+    if (message.includes("unique") || message.includes("duplicate")) {
+      return res.status(409).json({
+        error: "account_exists",
+        message: "An account with this email already exists. Please sign in to accept the invitation.",
+      });
+    }
+    return res.status(500).json({
+      error: "Failed to create account",
+      ...(process.env.NODE_ENV === "development" && { details: message }),
+    });
   }
 }
 
