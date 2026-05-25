@@ -263,6 +263,15 @@ export async function acceptInvitation(req: Request, res: Response) {
       });
     }
 
+    const acceptingEmail = (req.user.email || "").toLowerCase().trim();
+    const invitedEmail = membership.invitedEmail.toLowerCase().trim();
+    if (acceptingEmail !== invitedEmail) {
+      return res.status(403).json({
+        error: "email_mismatch",
+        message: `This invitation was sent to ${membership.invitedEmail}. Sign in with that email address to accept.`,
+      });
+    }
+
     if (membership.inviteAccepted) {
       return res.status(409).json({ error: "This invitation has already been accepted" });
     }
