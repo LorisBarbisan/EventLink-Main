@@ -9,7 +9,7 @@ declare global {
     interface Request {
       user?: User;
       companyId?: number;
-      teamRole?: "owner" | "admin" | "manager" | "viewer";
+      teamRole?: "owner" | "admin" | "manager";
     }
   }
 }

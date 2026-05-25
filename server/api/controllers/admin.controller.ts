@@ -1006,7 +1006,7 @@ export async function adminLinkTeamMember(req: Request, res: Response) {
       return res.status(400).json({ error: "companyId and userId are both required" });
     }
 
-    if (!["admin", "manager", "viewer"].includes(role)) {
+    if (!["admin", "manager"].includes(role)) {
       return res.status(400).json({ error: "Invalid role" });
     }
 
