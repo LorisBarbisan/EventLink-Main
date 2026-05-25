@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useProfile } from "@/hooks/useProfile";
-import { getEffectiveCompanyId, isCompanyOwner } from "@/lib/employerContext";
+import { getEffectiveCompanyId, isCompanyOwner, isManagerTeamMember } from "@/lib/employerContext";
 import { apiRequest } from "@/lib/queryClient";
 import type { Job, JobApplication, JobFormData } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,15 +39,23 @@ import { TeamManagement } from "./TeamManagement";
 
 const showTeamTab = import.meta.env.VITE_SHOW_TEAM_TAB !== "false";
 
-const RECRUITER_DASHBOARD_TABS = [
-  "profile",
-  "jobs",
-  "applications",
-  "messages",
-  "crew",
-  "bookings",
-  ...(showTeamTab ? (["team"] as const) : []),
-] as const;
+function getRecruiterDashboardTabs(showTeam: boolean, showProfile: boolean) {
+  return [
+    "jobs",
+    "applications",
+    "messages",
+    "crew",
+    "bookings",
+    ...(showTeam ? (["team"] as const) : []),
+    ...(showProfile ? (["profile"] as const) : []),
+  ] as const;
+}
+
+const MD_GRID_COLS: Record<number, string> = {
+  5: "md:grid-cols-5",
+  6: "md:grid-cols-6",
+  7: "md:grid-cols-7",
+};
 
 export default function SimplifiedRecruiterDashboard() {
   const { user } = useAuth();
@@ -91,19 +99,31 @@ export default function SimplifiedRecruiterDashboard() {
     refetchInterval: activeTab === "messages" ? 10000 : 15000, // Poll faster when on messages tab
   });
 
+  const effectiveCompanyId = user ? getEffectiveCompanyId(user) : 0;
+  const isManager = user ? isManagerTeamMember(user) : false;
+  const showTeamTabForUser = showTeamTab && !isManager;
+  const showProfileTab = !isManager;
+  const dashboardTabs = getRecruiterDashboardTabs(showTeamTabForUser, showProfileTab);
+  const tabCount = dashboardTabs.length;
+
   // Handle URL parameters for direct navigation to job posting and messages
   useEffect(() => {
     const handleSearchParams = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const tabParam = urlParams.get("tab");
       const actionParam = urlParams.get("action");
+      const allowedTabs = getRecruiterDashboardTabs(showTeamTabForUser, showProfileTab);
 
       // Switch to tab specified in URL (e.g., from notifications)
-      if (tabParam && (RECRUITER_DASHBOARD_TABS as readonly string[]).includes(tabParam)) {
+      if (tabParam && (allowedTabs as readonly string[]).includes(tabParam)) {
         if (tabParam !== activeTab) {
           setActiveTab(tabParam);
         }
-      } else if (tabParam === "team" && !showTeamTab) {
+      } else if (
+        tabParam &&
+        (tabParam === "team" || tabParam === "profile") &&
+        !(allowedTabs as readonly string[]).includes(tabParam)
+      ) {
         setActiveTab("jobs");
         urlParams.delete("tab");
         const newUrl = `${window.location.pathname}${urlParams.toString() ? `?${urlParams.toString()}` : ""}`;
@@ -150,7 +170,13 @@ export default function SimplifiedRecruiterDashboard() {
       window.removeEventListener("popstate", handlePopState);
       clearInterval(intervalId);
     };
-  }, [activeTab]);
+  }, [activeTab, showTeamTabForUser, showProfileTab]);
+
+  useEffect(() => {
+    if (isManager && (activeTab === "profile" || activeTab === "team")) {
+      setActiveTab("jobs");
+    }
+  }, [isManager, activeTab]);
 
   // Use custom hooks - only call when user ID is available
   const {
@@ -163,7 +189,6 @@ export default function SimplifiedRecruiterDashboard() {
     userType: "recruiter",
   });
 
-  const effectiveCompanyId = user ? getEffectiveCompanyId(user) : 0;
   const profileReadOnly = user ? !isCompanyOwner(user) : true;
 
   const { data: myJobs = [], isLoading: jobsLoading } = useQuery({
@@ -629,7 +654,7 @@ export default function SimplifiedRecruiterDashboard() {
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList
-          className={`grid w-full grid-cols-4 ${showTeamTab ? "md:grid-cols-7" : "md:grid-cols-6"}`}
+          className={`grid w-full grid-cols-4 ${MD_GRID_COLS[tabCount] ?? "md:grid-cols-6"}`}
         >
           <TabsTrigger value="jobs" className="gap-2">
             My Jobs
@@ -645,11 +670,12 @@ export default function SimplifiedRecruiterDashboard() {
           </TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="crew">My Crew</TabsTrigger>
-          {showTeamTab && <TabsTrigger value="team">Team</TabsTrigger>}
-          <TabsTrigger value="profile">Profile</TabsTrigger>
+          {showTeamTabForUser && <TabsTrigger value="team">Team</TabsTrigger>}
+          {showProfileTab && <TabsTrigger value="profile">Profile</TabsTrigger>}
         </TabsList>
 
         {/* Profile Tab */}
+        {showProfileTab && (
         <TabsContent value="profile">
           <ProfileForm
             profile={profile}
@@ -659,6 +685,7 @@ export default function SimplifiedRecruiterDashboard() {
             readOnly={profileReadOnly}
           />
         </TabsContent>
+        )}
         {/* My Crew Tab */}
         <TabsContent value="crew" className="space-y-6">
           <div>
@@ -1212,7 +1239,7 @@ export default function SimplifiedRecruiterDashboard() {
           <MyBookings />
         </TabsContent>
 
-        {showTeamTab && (
+        {showTeamTabForUser && (
           <TabsContent value="team">
             <TeamManagement />
           </TabsContent>
