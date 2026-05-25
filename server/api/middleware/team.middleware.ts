@@ -35,3 +35,15 @@ export async function resolveCompanyId(
 
   next();
 }
+
+/** Same as resolveCompanyId but no-op when unauthenticated (e.g. optional-auth routes). */
+export async function resolveCompanyIdOptional(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  if (!req.user) {
+    return next();
+  }
+  return resolveCompanyId(req, res, next);
+}

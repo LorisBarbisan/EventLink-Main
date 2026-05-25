@@ -2,6 +2,7 @@ import { insertJobApplicationSchema, type JobApplication } from "@shared/schema"
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { emailService } from "../utils/emailNotificationService";
+import { getEmployerCompanyId, ownsEmployerCompany } from "../utils/team.util";
 
 // Get freelancer bookings (accepted applications)
 export async function getFreelancerBookings(req: Request, res: Response) {
@@ -214,7 +215,7 @@ export async function getJobApplications(req: Request, res: Response) {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    if ((req as any).user.role !== "admin" && job.recruiter_id !== (req as any).user.id) {
+    if (!ownsEmployerCompany(req, job.recruiter_id)) {
       return res.status(403).json({ error: "Not authorized to view applications for this job" });
     }
 
@@ -268,7 +269,7 @@ export async function acceptApplication(req: Request, res: Response) {
     }
 
     const job = await storage.getJobById(application.job_id);
-    if (!job || ((req as any).user.role !== "admin" && job.recruiter_id !== (req as any).user.id)) {
+    if (!job || !ownsEmployerCompany(req, job.recruiter_id)) {
       return res.status(403).json({ error: "Not authorized to accept this application" });
     }
 
@@ -358,7 +359,7 @@ export async function rejectApplication(req: Request, res: Response) {
     }
 
     const job = await storage.getJobById(application.job_id);
-    if (!job || ((req as any).user.role !== "admin" && job.recruiter_id !== (req as any).user.id)) {
+    if (!job || !ownsEmployerCompany(req, job.recruiter_id)) {
       return res.status(403).json({ error: "Not authorized to reject this application" });
     }
 
@@ -467,7 +468,7 @@ export async function deleteApplication(req: Request, res: Response) {
         return res.status(404).json({ error: "Job not found" });
       }
 
-      if ((req as any).user.role === "admin" || job.recruiter_id === (req as any).user.id) {
+      if (ownsEmployerCompany(req, job.recruiter_id)) {
         userRole = "recruiter";
       } else {
         return res.status(403).json({ error: "Not authorized to delete this application" });
@@ -510,7 +511,7 @@ export async function inviteFreelancer(req: Request, res: Response) {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    if ((req as any).user.role !== "admin" && job.recruiter_id !== (req as any).user.id) {
+    if (!ownsEmployerCompany(req, job.recruiter_id)) {
       return res.status(403).json({ error: "Not authorized to invite to this job" });
     }
 
@@ -563,8 +564,9 @@ export async function inviteFreelancer(req: Request, res: Response) {
     // Send email notification to freelancer
     try {
       const freelancer = await storage.getUser(freelancerId);
+      const companyId = getEmployerCompanyId(req);
       const recruiter = await storage.getUser((req as any).user.id);
-      const recruiterProfile = await storage.getRecruiterProfile((req as any).user.id);
+      const recruiterProfile = await storage.getRecruiterProfile(companyId);
 
       if (freelancer && recruiter) {
         let recruiterDisplayName = recruiterProfile?.company_name || recruiter.email;

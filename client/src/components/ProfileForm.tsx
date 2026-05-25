@@ -236,12 +236,12 @@ export function ProfileForm({
         <CardHeader>
           <CardTitle>Company Profile</CardTitle>
           <CardDescription>
-            The company owner has not completed the company profile yet.
+            The company profile has not been set up yet.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Contact your company owner to set up the profile before posting jobs.
+            Complete the company profile here before posting jobs.
           </p>
         </CardContent>
       </Card>

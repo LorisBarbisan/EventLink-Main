@@ -45,3 +45,22 @@ export function resolveTeamContextForUser(
 export function canManageTeam(teamRole: string | undefined): boolean {
   return teamRole === "owner" || teamRole === "admin";
 }
+
+/** Company id for employer API requests (owner id or invited company's owner id). */
+export function getEmployerCompanyId(req: {
+  companyId?: number;
+  user?: { id: number };
+}): number {
+  return req.companyId ?? req.user?.id ?? 0;
+}
+
+/** Whether the request may act on data owned by the company (jobs, applications, crew, etc.). */
+export function ownsEmployerCompany(
+  req: { companyId?: number; user?: { id: number; role?: string } },
+  companyOwnerId: number
+): boolean {
+  const user = req.user;
+  if (!user) return false;
+  if (user.role === "admin") return true;
+  return getEmployerCompanyId(req) === companyOwnerId;
+}

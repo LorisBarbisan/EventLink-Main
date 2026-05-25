@@ -10,10 +10,11 @@ import {
   reportRating,
 } from "../controllers/rating.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
+import { resolveCompanyId } from "../middleware/team.middleware";
 
 export function registerRatingsRoutes(app: Express) {
   // Create a rating
-  app.post("/api/ratings", authenticateJWT, createRating);
+  app.post("/api/ratings", authenticateJWT, resolveCompanyId, createRating);
 
   // Admin: Get all ratings for moderation (Must constitute before /:applicationId to prevent collision)
   app.get("/api/ratings/admin", authenticateJWT, getAdminRatings);

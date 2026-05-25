@@ -13,11 +13,11 @@ import {
   updateJob,
 } from "../controllers/job.controller";
 import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
-import { resolveCompanyId } from "../middleware/team.middleware";
+import { resolveCompanyId, resolveCompanyIdOptional } from "../middleware/team.middleware";
 
 export function registerJobRoutes(app: Express) {
   // Get job by ID
-  app.get("/api/jobs/:id", authenticateOptionalJWT, getJobById);
+  app.get("/api/jobs/:id", authenticateOptionalJWT, resolveCompanyIdOptional, getJobById);
 
   // Get job posting presets
   app.get("/api/jobs/presets", getJobPresets);

@@ -2,13 +2,16 @@ import { insertFreelancerProfileSchema, insertRecruiterProfileSchema } from "@sh
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import sharp from "sharp";
+import { canManageTeam, getEmployerCompanyId } from "../utils/team.util";
 
-/** Only the company owner account may create/update recruiter_profiles (keyed by owner user_id). */
+/** Company owner or team admin may create/update recruiter_profiles (keyed by owner user_id). */
 function canWriteRecruiterProfile(req: Request, profileUserId: number): boolean {
   const user = (req as any).user;
   if (!user) return false;
   if (user.role === "admin") return true;
-  return user.id === profileUserId;
+  const companyId = getEmployerCompanyId(req);
+  if (companyId !== profileUserId) return false;
+  return user.id === profileUserId || canManageTeam((req as any).teamRole);
 }
 
 // Get user by ID
@@ -187,7 +190,7 @@ export async function createRecruiterProfile(req: Request, res: Response) {
     const requestedUserId = parseInt(String(req.body.user_id), 10);
     if (!canWriteRecruiterProfile(req, requestedUserId)) {
       return res.status(403).json({
-        error: "Only the company owner can create or update the company profile",
+        error: "Only the company owner or a team admin can create or update the company profile",
       });
     }
 
@@ -212,7 +215,7 @@ export async function updateRecruiterProfile(req: Request, res: Response) {
 
     if (!canWriteRecruiterProfile(req, userId)) {
       return res.status(403).json({
-        error: "Only the company owner can create or update the company profile",
+        error: "Only the company owner or a team admin can create or update the company profile",
       });
     }
 
