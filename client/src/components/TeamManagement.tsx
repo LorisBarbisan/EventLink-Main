@@ -25,7 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { Loader2, Mail, RefreshCw, Trash2, UserPlus, Users } from "lucide-react";
 
-type TeamMemberRole = "admin" | "manager" | "viewer";
+type TeamMemberRole = "admin" | "manager";
 
 interface TeamMemberRecord {
   id: number;
@@ -43,14 +43,12 @@ const ROLE_LABELS: Record<string, string> = {
   owner: "Owner",
   admin: "Admin",
   manager: "Manager",
-  viewer: "Viewer",
 };
 
 const ROLE_COLORS: Record<string, string> = {
   owner: "bg-orange-100 text-orange-800",
   admin: "bg-purple-100 text-purple-800",
   manager: "bg-blue-100 text-blue-800",
-  viewer: "bg-gray-100 text-gray-700",
 };
 
 function canManageTeam(teamRole: string | null | undefined): boolean {
@@ -260,7 +258,6 @@ export function TeamManagement() {
                                 <SelectContent>
                                   <SelectItem value="admin">Admin</SelectItem>
                                   <SelectItem value="manager">Manager</SelectItem>
-                                  <SelectItem value="viewer">Viewer</SelectItem>
                                 </SelectContent>
                               </Select>
                             )}
@@ -326,7 +323,6 @@ export function TeamManagement() {
                   <SelectContent>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -355,7 +351,6 @@ export function TeamManagement() {
               <ul className="space-y-0.5">
                 <li><span className="font-medium">Admin</span> — Full access except billing. Can invite and remove members.</li>
                 <li><span className="font-medium">Manager</span> — Post jobs, manage bookings, rate freelancers. Cannot manage team.</li>
-                <li><span className="font-medium">Viewer</span> — View-only access to all dashboard data.</li>
               </ul>
             </div>
           </form>

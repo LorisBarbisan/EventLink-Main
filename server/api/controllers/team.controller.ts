@@ -95,9 +95,9 @@ export async function inviteTeamMember(req: Request, res: Response) {
       return res.status(400).json({ error: "A valid email address is required" });
     }
 
-    const validRoles = ["admin", "manager", "viewer"];
+    const validRoles = ["admin", "manager"];
     if (!validRoles.includes(role)) {
-      return res.status(400).json({ error: "Role must be admin, manager, or viewer" });
+      return res.status(400).json({ error: "Role must be admin or manager" });
     }
 
     // Check for existing invitation
@@ -415,9 +415,9 @@ export async function updateTeamMemberRole(req: Request, res: Response) {
       return res.status(403).json({ error: "Only owners and admins can change roles" });
     }
 
-    const validRoles = ["admin", "manager", "viewer"];
+    const validRoles = ["admin", "manager"];
     if (!validRoles.includes(role)) {
-      return res.status(400).json({ error: "Role must be admin, manager, or viewer" });
+      return res.status(400).json({ error: "Role must be admin or manager" });
     }
 
     if (isNaN(memberId)) {

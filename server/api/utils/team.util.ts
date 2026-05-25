@@ -1,7 +1,7 @@
 /** Resolved employer company + team role for API auth and session payloads. */
 export type ResolvedTeamContext = {
   companyId: number;
-  teamRole: "owner" | "admin" | "manager" | "viewer";
+  teamRole: "owner" | "admin" | "manager";
   isTeamMember: boolean;
 };
 
@@ -30,7 +30,7 @@ export function resolveTeamContextForUser(
     const role = membership.role as ResolvedTeamContext["teamRole"];
     return {
       companyId: membership.companyId,
-      teamRole: role === "admin" || role === "manager" || role === "viewer" ? role : "viewer",
+      teamRole: role === "admin" || role === "manager" ? role : "manager",
       isTeamMember: true,
     };
   }
