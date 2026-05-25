@@ -11,7 +11,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useProfile } from "@/hooks/useProfile";
-import { getEffectiveCompanyId, isCompanyOwner, isManagerTeamMember } from "@/lib/employerContext";
+import {
+  canManageCompanySettings,
+  getEffectiveCompanyId,
+  isManagerTeamMember,
+} from "@/lib/employerContext";
 import { apiRequest } from "@/lib/queryClient";
 import type { Job, JobApplication, JobFormData } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -189,7 +193,7 @@ export default function SimplifiedRecruiterDashboard() {
     userType: "recruiter",
   });
 
-  const profileReadOnly = user ? !isCompanyOwner(user) : true;
+  const profileReadOnly = user ? !canManageCompanySettings(user) : true;
 
   const { data: myJobs = [], isLoading: jobsLoading } = useQuery({
     queryKey: ["/api/jobs/recruiter", effectiveCompanyId],

@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { sendUrgentJobNotification } from "../services/job-notification-scheduler.service";
 import { sendJobClosureEmails } from "../services/job-closure-email.service";
+import { ownsEmployerCompany } from "../utils/team.util";
 
 /**
  * Determine which batch window a job belongs to based on current UK time,
@@ -54,7 +55,9 @@ export async function getJobById(req: Request, res: Response) {
       if (!currentUser) {
         return res.status(403).json({ error: "This job is only accessible via invitation. Please sign in to check if you have been invited." });
       }
-      const isOwner = currentUser.role === "admin" || job.recruiter_id === currentUser.id;
+      const isOwner =
+        currentUser.role === "admin" ||
+        ownsEmployerCompany({ companyId: (req as any).companyId, user: currentUser }, job.recruiter_id);
       if (!isOwner && currentUser.role === "freelancer") {
         const apps = await storage.getFreelancerApplications(currentUser.id);
         const hasInviteOrApplication = apps.some(app => app.job_id === jobId);

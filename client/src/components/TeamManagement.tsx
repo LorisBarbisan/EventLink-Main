@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { canManageTeam } from "@/lib/employerContext";
 import { apiRequest } from "@/lib/queryClient";
 import { Loader2, Mail, RefreshCw, Trash2, UserPlus, Users } from "lucide-react";
 
@@ -50,10 +51,6 @@ const ROLE_COLORS: Record<string, string> = {
   admin: "bg-purple-100 text-purple-800",
   manager: "bg-blue-100 text-blue-800",
 };
-
-function canManageTeam(teamRole: string | null | undefined): boolean {
-  return teamRole === "owner" || teamRole === "admin";
-}
 
 export function TeamManagement() {
   const { user } = useAuth();
@@ -349,7 +346,7 @@ export function TeamManagement() {
             <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
               <p className="font-medium mb-1">Role permissions:</p>
               <ul className="space-y-0.5">
-                <li><span className="font-medium">Admin</span> — Full access except billing. Can invite and remove members.</li>
+                <li><span className="font-medium">Admin</span> — Same company access as the owner, including profile, team, jobs, and bookings.</li>
                 <li><span className="font-medium">Manager</span> — Post jobs, manage bookings, rate freelancers. Cannot manage team.</li>
               </ul>
             </div>

@@ -19,7 +19,7 @@ export function registerApplicationRoutes(app: Express) {
   app.post("/api/applications/:applicationId/respond", authenticateJWT, respondToInvitation);
 
   // Invite freelancer to apply
-  app.post("/api/applications/invite", authenticateJWT, inviteFreelancer);
+  app.post("/api/applications/invite", authenticateJWT, resolveCompanyId, inviteFreelancer);
 
   // Get freelancer bookings (accepted applications)
   app.get("/api/freelancer/:freelancerId/bookings", authenticateJWT, getFreelancerBookings);
@@ -31,7 +31,7 @@ export function registerApplicationRoutes(app: Express) {
   app.get("/api/freelancer/:freelancerId/applications", authenticateJWT, getFreelancerApplications);
 
   // Get applications for a job
-  app.get("/api/jobs/:jobId/applications", authenticateJWT, getJobApplications);
+  app.get("/api/jobs/:jobId/applications", authenticateJWT, resolveCompanyId, getJobApplications);
 
   // Get recruiter applications
   app.get(
@@ -42,11 +42,11 @@ export function registerApplicationRoutes(app: Express) {
   );
 
   // Accept application
-  app.put("/api/applications/:applicationId/accept", authenticateJWT, acceptApplication);
+  app.put("/api/applications/:applicationId/accept", authenticateJWT, resolveCompanyId, acceptApplication);
 
   // Reject application
-  app.put("/api/applications/:applicationId/reject", authenticateJWT, rejectApplication);
+  app.put("/api/applications/:applicationId/reject", authenticateJWT, resolveCompanyId, rejectApplication);
 
   // Delete application (soft delete with role-based permissions)
-  app.delete("/api/applications/:applicationId", authenticateJWT, deleteApplication);
+  app.delete("/api/applications/:applicationId", authenticateJWT, resolveCompanyId, deleteApplication);
 }

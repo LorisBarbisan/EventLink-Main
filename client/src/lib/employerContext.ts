@@ -20,3 +20,13 @@ export function isCompanyOwner(user: EmployerContextUser): boolean {
 export function isManagerTeamMember(user: EmployerContextUser): boolean {
   return !!user.isTeamMember && user.teamRole === "manager";
 }
+
+/** Owner or team admin — full company settings (profile, team tab). */
+export function canManageCompanySettings(user: EmployerContextUser): boolean {
+  if (isCompanyOwner(user)) return true;
+  return !!user.isTeamMember && user.teamRole === "admin";
+}
+
+export function canManageTeam(teamRole: string | null | undefined): boolean {
+  return teamRole === "owner" || teamRole === "admin";
+}
