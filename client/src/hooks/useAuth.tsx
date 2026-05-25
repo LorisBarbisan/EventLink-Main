@@ -19,7 +19,10 @@ interface AuthContextType {
     role: "freelancer" | "recruiter",
     extra?: { first_name?: string; last_name?: string; company_name?: string }
   ) => Promise<{ error: any; message?: string }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signIn: (
+    email: string,
+    password: string
+  ) => Promise<{ error: { message: string } | null; user?: User; token?: string }>;
   signOut: () => Promise<void>;
   updateUser: (updatedUser: User) => void;
 }
@@ -131,12 +134,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         skipAuthRedirect: true,
       });
 
-      if (result?.user && result?.token) {
-        persistAuthSession(result.token, result.user);
-        setUser(result.user);
+      if (!result?.user || !result?.token) {
+        return {
+          error: { message: "Sign in failed. Please try again or contact support." },
+        };
       }
 
-      return { error: null };
+      persistAuthSession(result.token, result.user);
+      setUser(result.user);
+
+      return { error: null, user: result.user as User, token: result.token as string };
     } catch (error) {
       return { error: { message: error instanceof Error ? error.message : "Sign in failed" } };
     }

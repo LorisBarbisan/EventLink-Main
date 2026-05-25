@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { Loader2, CheckCircle, AlertCircle, Users } from "lucide-react";
 import type { User } from "@shared/types";
-import { persistAuthSession } from "@/lib/authStorage";
+import { getStoredAuthToken, persistAuthSession } from "@/lib/authStorage";
 import { getEffectiveCompanyId } from "@/lib/employerContext";
 
 function emailsMatch(a: string, b: string): boolean {
@@ -24,6 +24,8 @@ type TokenInfo = {
   role: string;
   companyName?: string;
   accountExists?: boolean;
+  emailVerified?: boolean;
+  existingAccountRole?: string | null;
 };
 
 export default function JoinTeam() {
@@ -40,6 +42,7 @@ export default function JoinTeam() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [createPassword, setCreatePassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [companyName, setCompanyName] = useState("");
   const [freelancerBlocked, setFreelancerBlocked] = useState(false);
@@ -79,40 +82,65 @@ export default function JoinTeam() {
     token?: string;
     user?: User;
   }) => {
-    setAccepted(true);
+    if (!data.token || !data.user) {
+      toast({
+        title: "Could not finish joining the team",
+        description: "Your session was not saved. Please sign in and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    skipAutoAcceptRef.current = true;
+    persistAuthSession(data.token, data.user);
+    updateUser(data.user);
+
     if (data.companyName) {
       setCompanyName(data.companyName);
     }
-    if (data.token && data.user) {
-      skipAutoAcceptRef.current = true;
-      persistAuthSession(data.token, data.user);
-      updateUser(data.user);
-    }
+
     try {
+      const sessionData = await apiRequest("/api/auth/session", { skipAuthRedirect: true });
+      if (sessionData?.user) {
+        updateUser(sessionData.user);
+      }
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/session"] });
     } catch {
-      // ignore refresh errors — redirect anyway
+      // Session refresh failed — still have token from register/sign-in
     }
+
+    setAccepted(true);
     setTimeout(() => setLocation("/dashboard"), 2500);
   };
 
+  const acceptInvite = () =>
+    apiRequest(`/api/team/accept/${token}`, {
+      method: "POST",
+      body: JSON.stringify({}),
+      headers: { "Content-Type": "application/json" },
+    });
+
   const acceptMutation = useMutation({
-    mutationFn: () =>
-      apiRequest(`/api/team/accept/${token}`, {
-        method: "POST",
-        body: JSON.stringify({}),
-        headers: { "Content-Type": "application/json" },
-      }),
+    mutationFn: acceptInvite,
     onSuccess: async (data: { companyName?: string }) => {
       try {
         const sessionData = await apiRequest("/api/auth/session", { skipAuthRedirect: true });
-        if (sessionData?.user) {
-          updateUser(sessionData.user);
+        const authToken = getStoredAuthToken();
+        if (!sessionData?.user || !authToken) {
+          throw new Error("Not signed in");
         }
+        await completeJoin({
+          companyName: data.companyName || companyName,
+          token: authToken,
+          user: sessionData.user,
+        });
       } catch {
-        // ignore refresh errors
+        toast({
+          title: "Invitation accepted",
+          description: "Please sign in with your invited email to continue.",
+        });
+        setActiveTab("signin");
       }
-      await completeJoin({ companyName: data.companyName || companyName });
     },
     onError: (err: Error & { error?: string }) => {
       if (
@@ -153,6 +181,24 @@ export default function JoinTeam() {
     e.preventDefault();
     if (!tokenInfo?.invitedEmail) return;
 
+    if (createPassword.length < 8) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 8 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (createPassword !== confirmPassword) {
+      toast({
+        title: "Passwords do not match",
+        description: "Please make sure both password fields match.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setRegistering(true);
     try {
       const data = await apiRequest(`/api/team/register/${token}`, {
@@ -160,11 +206,16 @@ export default function JoinTeam() {
         body: JSON.stringify({
           email: tokenInfo.invitedEmail,
           password: createPassword,
-          first_name: firstName,
-          last_name: lastName,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
         }),
         skipAuthRedirect: true,
       });
+
+      if (!data?.token || !data?.user) {
+        throw new Error("Account was not created. Please try again or contact support.");
+      }
+
       await completeJoin({
         companyName: data.companyName,
         token: data.token,
@@ -359,8 +410,15 @@ export default function JoinTeam() {
                 </p>
                 <Button
                   className="w-full bg-orange-500 hover:bg-orange-600"
-                  onClick={() => acceptMutation.mutate()}
-                  disabled={acceptMutation.isPending}
+                  onClick={() =>
+                    acceptMutation.mutateAsync().catch(() => {
+                      toast({
+                        title: "Failed to accept invitation",
+                        variant: "destructive",
+                      });
+                    })
+                  }
+                  disabled={acceptMutation.isPending || signingIn}
                 >
                   {acceptMutation.isPending && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -419,12 +477,33 @@ export default function JoinTeam() {
                         onChange={(e) => setCreatePassword(e.target.value)}
                         required
                         minLength={8}
+                        autoComplete="new-password"
                       />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="confirmPassword">Confirm password</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        minLength={8}
+                        autoComplete="new-password"
+                      />
+                      {confirmPassword &&
+                        createPassword !== confirmPassword && (
+                          <p className="text-xs text-destructive">Passwords do not match</p>
+                        )}
                     </div>
                     <Button
                       type="submit"
                       className="w-full bg-orange-500 hover:bg-orange-600"
-                      disabled={registering}
+                      disabled={
+                        registering ||
+                        createPassword.length < 8 ||
+                        confirmPassword !== createPassword
+                      }
                     >
                       {registering && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -435,18 +514,73 @@ export default function JoinTeam() {
                 </TabsContent>
 
                 <TabsContent value="signin">
+                  {tokenInfo.accountExists && tokenInfo.emailVerified === false && (
+                    <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                      An account exists for this email but it is not verified yet. Sign in below —
+                      accepting the invitation will verify your email automatically.
+                    </p>
+                  )}
+                  {tokenInfo.accountExists && tokenInfo.existingAccountRole === "freelancer" && (
+                    <p className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+                      This email is registered as a freelancer. Team invites require a separate
+                      employer account with a different email address.
+                    </p>
+                  )}
                   <form
                     onSubmit={async (e) => {
                       e.preventDefault();
-                      setSigningIn(true);
-                      const { error } = await signIn(signInEmail, signInPassword);
-                      setSigningIn(false);
-                      if (error) {
+                      if (!emailsMatch(signInEmail, tokenInfo.invitedEmail)) {
                         toast({
-                          title: "Sign in failed",
-                          description: error.message || "Invalid email or password.",
+                          title: "Wrong email",
+                          description: `Sign in with ${tokenInfo.invitedEmail} to accept this invitation.`,
                           variant: "destructive",
                         });
+                        return;
+                      }
+
+                      setSigningIn(true);
+                      try {
+                        const { error, user: signedInUser, token: signedInToken } = await signIn(
+                          signInEmail,
+                          signInPassword
+                        );
+                        if (error) {
+                          const msg = error.message || "Invalid email or password.";
+                          toast({
+                            title: msg.includes("verify")
+                              ? "Email not verified"
+                              : "Sign in failed",
+                            description: msg,
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        if (!signedInUser || !signedInToken) {
+                          toast({
+                            title: "Sign in failed",
+                            description: "Could not start your session. Please try again.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        await acceptMutation.mutateAsync();
+                      } catch (err: unknown) {
+                        const message =
+                          err instanceof Error ? err.message : "Could not accept invitation";
+                        if (
+                          message.includes("freelancer_cannot_join_team") ||
+                          message.includes("freelancer")
+                        ) {
+                          setFreelancerBlocked(true);
+                          return;
+                        }
+                        toast({
+                          title: "Could not join team",
+                          description: message,
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setSigningIn(false);
                       }
                     }}
                     className="space-y-4"
