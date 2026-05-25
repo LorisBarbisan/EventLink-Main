@@ -11,6 +11,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { Loader2, CheckCircle, AlertCircle, Users } from "lucide-react";
 import type { User } from "@shared/types";
+import { persistAuthSession } from "@/lib/authStorage";
+import { getEffectiveCompanyId } from "@/lib/employerContext";
+
+function emailsMatch(a: string, b: string): boolean {
+  return a.toLowerCase().trim() === b.toLowerCase().trim();
+}
 
 type TokenInfo = {
   requiresAuth: boolean;
@@ -23,7 +29,7 @@ type TokenInfo = {
 export default function JoinTeam() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user, loading: authLoading, signIn, updateUser } = useAuth();
+  const { user, loading: authLoading, signIn, signOut, updateUser } = useAuth();
   const queryClient = useQueryClient();
 
   const token = new URLSearchParams(window.location.search).get("token") || "";
@@ -39,6 +45,7 @@ export default function JoinTeam() {
   const [freelancerBlocked, setFreelancerBlocked] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const skipAutoAcceptRef = useRef(false);
 
   const { data: tokenInfo, isLoading: tokenLoading, error: tokenError } = useQuery<TokenInfo>({
@@ -47,6 +54,13 @@ export default function JoinTeam() {
     enabled: !!token,
     retry: false,
   });
+
+  const inviteEmailMatchesUser =
+    !!user && !!tokenInfo && emailsMatch(user.email, tokenInfo.invitedEmail);
+  const wrongAccountSignedIn =
+    !!user && !!tokenInfo && !emailsMatch(user.email, tokenInfo.invitedEmail);
+  const isOwnerViewingInvite =
+    !!user && !!tokenInfo && getEffectiveCompanyId(user) === user.id;
 
   useEffect(() => {
     if (tokenInfo?.companyName) {
@@ -71,7 +85,7 @@ export default function JoinTeam() {
     }
     if (data.token && data.user) {
       skipAutoAcceptRef.current = true;
-      localStorage.setItem("auth_token", data.token);
+      persistAuthSession(data.token, data.user);
       updateUser(data.user);
     }
     try {
@@ -108,6 +122,12 @@ export default function JoinTeam() {
         setFreelancerBlocked(true);
         return;
       }
+      if (
+        err?.message?.includes("owner_cannot_join_own_team") ||
+        err?.message?.includes("email_mismatch")
+      ) {
+        return;
+      }
       toast({
         title: "Failed to accept invitation",
         description: err?.message || "Please try again or contact support.",
@@ -118,7 +138,7 @@ export default function JoinTeam() {
 
   useEffect(() => {
     if (
-      user &&
+      inviteEmailMatchesUser &&
       tokenInfo &&
       !accepted &&
       !freelancerBlocked &&
@@ -127,7 +147,7 @@ export default function JoinTeam() {
     ) {
       acceptMutation.mutate();
     }
-  }, [user, tokenInfo, accepted, freelancerBlocked, registering]);
+  }, [inviteEmailMatchesUser, tokenInfo, accepted, freelancerBlocked, registering]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,7 +316,43 @@ export default function JoinTeam() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {user ? (
+            {wrongAccountSignedIn ? (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  {isOwnerViewingInvite ? (
+                    <p>
+                      This invitation was sent to{" "}
+                      <span className="font-medium">{tokenInfo.invitedEmail}</span>. You are signed
+                      in as the company owner ({user.email}) — you do not need to accept this link.
+                    </p>
+                  ) : (
+                    <p>
+                      This invitation was sent to{" "}
+                      <span className="font-medium">{tokenInfo.invitedEmail}</span>, but you are
+                      signed in as <span className="font-medium">{user.email}</span>.
+                    </p>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {isOwnerViewingInvite
+                    ? "Ask the invitee to open this link in their browser or email app. To test the flow yourself, sign out first."
+                    : "Sign out and continue with the invited email address to accept."}
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled={signingOut}
+                  onClick={async () => {
+                    setSigningOut(true);
+                    await signOut();
+                    setSigningOut(false);
+                  }}
+                >
+                  {signingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Sign out and continue
+                </Button>
+              </div>
+            ) : inviteEmailMatchesUser ? (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
                   You're signed in as <span className="font-medium">{user.email}</span>.

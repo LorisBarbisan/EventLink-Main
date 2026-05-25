@@ -1,8 +1,14 @@
 import { apiRequest } from "@/lib/queryClient";
+import {
+  clearClientAuthState,
+  clearSignedOutMark,
+  getStoredAuthToken,
+  isPublicAuthPath,
+  persistAuthSession,
+  wasSignedOut,
+} from "@/lib/authStorage";
 import type { User } from "@shared/types";
 import React, { createContext, useContext, useEffect, useState } from "react";
-
-// OPTIMIZED AUTH HOOK: Simplified authentication with essential features only
 
 interface AuthContextType {
   user: User | null;
@@ -26,60 +32,46 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const restoreStoredUser = () => {
-      // Check if we already have a valid user to prevent infinite loops
-      if (user) {
-        setLoading(false);
-        return;
-      }
-
-      // Version-based cache clearing - COMPLETELY DISABLED for session persistence
       const APP_VERSION = "2025-09-24-jwt-fixed";
       const storedVersion = localStorage.getItem("app_version");
-
-      // Only update version, never clear cache to preserve sessions
       if (storedVersion !== APP_VERSION) {
-        console.log("App version updated, preserving authentication state");
         localStorage.setItem("app_version", APP_VERSION);
       }
 
-      const storedToken = localStorage.getItem("auth_token");
+      const storedToken = getStoredAuthToken();
 
       if (storedToken) {
         apiRequest("/api/auth/session", { skipAuthRedirect: true })
           .then((sessionData) => {
-            if (sessionData && sessionData.user) {
+            if (sessionData?.user) {
+              clearSignedOutMark();
               setUser(sessionData.user);
               localStorage.setItem("user", JSON.stringify(sessionData.user));
-              console.log("✅ Token validated, user restored:", {
-                email: sessionData.user.email,
-                id: sessionData.user.id,
-                role: sessionData.user.role,
-              });
             } else {
               throw new Error("Invalid session response");
             }
             setLoading(false);
           })
-          .catch((error) => {
-            console.log("❌ Token validation failed, clearing auth state:", error.message);
-            localStorage.removeItem("user");
-            localStorage.removeItem("auth_token");
+          .catch(() => {
+            clearClientAuthState();
             setUser(null);
             setLoading(false);
           });
         return;
       }
 
-      // No token — in development, auto-login as admin for convenience
-      if (import.meta.env.DEV) {
+      // Dev convenience login — never on invite/auth pages or after explicit sign-out
+      if (
+        import.meta.env.DEV &&
+        !wasSignedOut() &&
+        !isPublicAuthPath()
+      ) {
         fetch("/api/auth/dev-admin-login")
           .then((r) => r.json())
           .then((data) => {
             if (data.token && data.user) {
-              localStorage.setItem("auth_token", data.token);
-              localStorage.setItem("user", JSON.stringify(data.user));
+              persistAuthSession(data.token, data.user);
               setUser(data.user);
-              console.log("🔧 [DEV] Auto-logged in as admin:", data.user.email);
             }
           })
           .catch(() => {})
@@ -92,28 +84,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     restoreStoredUser();
-  }, []); // Remove user dependency to prevent infinite loops
+  }, []);
 
-  // Listen for auth:invalid events and handle logout
   useEffect(() => {
     const handleAuthInvalid = () => {
-      console.log("🔄 Invalid session detected, clearing authentication");
+      clearClientAuthState();
       setUser(null);
-      localStorage.removeItem("user");
-      localStorage.removeItem("auth_token");
-      sessionStorage.clear();
-
-      // Navigate to auth page if not already there
       if (window.location.pathname !== "/auth") {
         window.location.href = "/auth";
       }
     };
 
     window.addEventListener("auth:invalid", handleAuthInvalid);
-
-    return () => {
-      window.removeEventListener("auth:invalid", handleAuthInvalid);
-    };
+    return () => window.removeEventListener("auth:invalid", handleAuthInvalid);
   }, []);
 
   const signUp = async (
@@ -148,11 +131,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         skipAuthRedirect: true,
       });
 
-      // Store JWT token and user data from signin response
-      if (result && result.user && result.token) {
-        localStorage.setItem("auth_token", result.token);
+      if (result?.user && result?.token) {
+        persistAuthSession(result.token, result.user);
         setUser(result.user);
-        localStorage.setItem("user", JSON.stringify(result.user));
       }
 
       return { error: null };
@@ -162,17 +143,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
-    try {
-      // Call server signout to clear session
-      await apiRequest("/api/auth/signout", { method: "POST" });
-    } catch (error) {
-      console.log("Server signout failed, clearing local state anyway", error);
+    const token = getStoredAuthToken();
+
+    // Clear client state first so navigation cannot race ahead of logout
+    setUser(null);
+    clearClientAuthState();
+
+    if (!token) {
+      return;
     }
 
-    setUser(null);
-    localStorage.removeItem("user");
-    localStorage.removeItem("auth_token"); // Clear JWT token
-    sessionStorage.clear();
+    try {
+      await fetch("/api/auth/signout", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (error) {
+      console.log("Server signout failed, local session already cleared", error);
+    }
   };
 
   const updateUser = (updatedUser: User) => {

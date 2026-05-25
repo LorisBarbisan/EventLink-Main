@@ -947,27 +947,40 @@ export function signout(req: Request, res: Response) {
     const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
 
     if (token) {
-      // Add token to blacklist to invalidate it immediately
       blacklistToken(token);
       console.log("✅ JWT token blacklisted on signout");
     }
 
-    req.logout((err: any) => {
-      if (err) {
-        console.error("Logout error:", err);
-        return res.status(500).json({ error: "Failed to sign out" });
+    const finishSignout = () => {
+      res.clearCookie("eventlink.sid");
+      res.json({ message: "Signed out successfully" });
+    };
+
+    const destroySession = () => {
+      const session = (req as any).session;
+      if (session?.destroy) {
+        session.destroy((sessionErr: unknown) => {
+          if (sessionErr) {
+            console.error("Session destruction error:", sessionErr);
+          }
+          finishSignout();
+        });
+        return;
       }
+      finishSignout();
+    };
 
-      (req as any).session.destroy((sessionErr: any) => {
-        if (sessionErr) {
-          console.error("Session destruction error:", sessionErr);
-          return res.status(500).json({ error: "Failed to destroy session" });
+    if (typeof req.logout === "function") {
+      req.logout((err: unknown) => {
+        if (err) {
+          console.warn("Passport logout warning (non-fatal):", err);
         }
-
-        res.clearCookie("eventlink.sid");
-        res.json({ message: "Signed out successfully" });
+        destroySession();
       });
-    });
+      return;
+    }
+
+    destroySession();
   } catch (error) {
     console.error("Signout error:", error);
     res.status(500).json({ error: "Internal server error" });
