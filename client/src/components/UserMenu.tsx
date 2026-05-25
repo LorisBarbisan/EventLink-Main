@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-import { getEffectiveCompanyId } from "@/lib/employerContext";
+import { getEffectiveCompanyId, isManagerTeamMember } from "@/lib/employerContext";
 import { Bell, LogOut, Settings, Star, User, UserCircle } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -18,6 +18,11 @@ export const UserMenu = () => {
   const { user, signOut } = useAuth();
 
   if (!user) return null;
+
+  const showProfileLink =
+    user.role === "freelancer" ||
+    user.role === "admin" ||
+    (user.role === "recruiter" && !isManagerTeamMember(user));
 
   // Get profile data based on user role
   const userType = user?.role === "freelancer" ? "freelancer" : "recruiter";
@@ -133,10 +138,12 @@ export const UserMenu = () => {
           Dashboard
         </DropdownMenuItem>
 
-        <DropdownMenuItem onClick={() => setLocation("/profile")} data-testid="menu-profile">
-          <UserCircle className="mr-2 h-4 w-4" />
-          Profile
-        </DropdownMenuItem>
+        {showProfileLink && (
+          <DropdownMenuItem onClick={() => setLocation("/profile")} data-testid="menu-profile">
+            <UserCircle className="mr-2 h-4 w-4" />
+            Profile
+          </DropdownMenuItem>
+        )}
 
         {user.role === "freelancer" && (
           <DropdownMenuItem onClick={() => setLocation("/ratings")} data-testid="menu-ratings">
