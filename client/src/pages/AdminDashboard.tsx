@@ -60,7 +60,9 @@ import { formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
   Briefcase,
+  Building2,
   Check,
+  ChevronLeft,
   Download,
   FileText,
   Mail,
@@ -252,6 +254,11 @@ function AdminDashboardContent() {
 
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
+  // Teams Tab State
+  const [teamsSearch, setTeamsSearch] = useState("");
+  const [teamsPage, setTeamsPage] = useState(1);
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ userId, status }: { userId: number; status: string }) => {
       await apiRequest(`/api/admin/users/${userId}/status`, {
@@ -338,7 +345,7 @@ function AdminDashboardContent() {
   useEffect(() => {
     const handleHashSync = () => {
       const hash = window.location.hash.replace("#", "");
-      const validTabs = ["overview", "users", "jobs", "feedback", "contact", "admin-management"];
+      const validTabs = ["overview", "users", "jobs", "feedback", "contact", "teams", "admin-management"];
       if (hash && validTabs.includes(hash)) {
         setActiveTab((prev) => (prev !== hash ? hash : prev));
       }
@@ -573,6 +580,88 @@ function AdminDashboardContent() {
     queryFn: () => apiRequest(`/api/admin/jobs/${selectedJobId}`),
     enabled: selectedJobId !== null,
     retry: 1,
+  });
+
+  // Teams queries
+  const { data: teamsData, isLoading: teamsLoading } = useQuery<{
+    teams: Array<{
+      company_user_id: number;
+      company_name: string | null;
+      owner_email: string;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
+      member_count: number;
+      pending_invitations: number;
+      active_jobs: number;
+      closed_jobs: number;
+      total_hired: number;
+      created_at: string;
+    }>;
+    total: number;
+    totalPages: number;
+    page: number;
+    limit: number;
+  }>({
+    queryKey: ["/api/admin/teams", teamsPage, teamsSearch],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.append("page", teamsPage.toString());
+      params.append("limit", "20");
+      if (teamsSearch.trim()) params.append("search", teamsSearch.trim());
+      return apiRequest(`/api/admin/teams?${params.toString()}`);
+    },
+    enabled: activeTab === "teams",
+    retry: 1,
+    staleTime: 0,
+    gcTime: 0,
+    placeholderData: keepPreviousData,
+  });
+
+  const { data: teamDetailData, isLoading: teamDetailLoading } = useQuery<{
+    company: {
+      company_user_id: number;
+      company_name: string | null;
+      owner_email: string;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
+      member_count: number;
+      pending_invitations: number;
+      active_jobs: number;
+      closed_jobs: number;
+      total_hired: number;
+      created_at: string;
+      website_url: string | null;
+      location: string | null;
+      company_type: string | null;
+    };
+    members: Array<{
+      id: number;
+      user_id: number | null;
+      email: string;
+      name: string;
+      role: string;
+      joined_at: string | null;
+      invite_accepted: boolean;
+      account_status: string | null;
+      jobs_posted: number;
+    }>;
+    jobs: Array<{
+      id: number;
+      title: string;
+      status: string;
+      is_published: boolean;
+      created_at: string;
+      application_count: number;
+      hired_count: number;
+      recruiter_name: string;
+    }>;
+  }>({
+    queryKey: ["/api/admin/teams", selectedTeamId, "detail"],
+    queryFn: () => apiRequest(`/api/admin/teams/${selectedTeamId}`),
+    enabled: selectedTeamId !== null && activeTab === "teams",
+    retry: 1,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   // Send job alert emails mutation
@@ -834,36 +923,44 @@ function AdminDashboardContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7 p-1">
-          <TabsTrigger value="overview" className="flex items-center justify-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Overview
+        <TabsList className="grid w-full grid-cols-4 gap-1 p-1 sm:grid-cols-8">
+          <TabsTrigger value="overview" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Overview</span>
+            <span className="sm:hidden">Stats</span>
           </TabsTrigger>
-          <TabsTrigger value="feedback" className="flex items-center justify-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Feedback
+          <TabsTrigger value="feedback" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+            <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Feedback</span>
+            <span className="sm:hidden">Feed.</span>
             <TabBadge count={counts.feedback} />
           </TabsTrigger>
-          <TabsTrigger value="moderation" className="flex items-center justify-center gap-2">
-            <Shield className="h-4 w-4" />
-            Moderation
+          <TabsTrigger value="moderation" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+            <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Moderation</span>
+            <span className="sm:hidden">Mod.</span>
           </TabsTrigger>
-          <TabsTrigger value="contact" className="flex items-center justify-center gap-2">
-            <Mail className="h-4 w-4" />
+          <TabsTrigger value="contact" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+            <Mail className="h-3 w-3 sm:h-4 sm:w-4" />
             Contact
             <TabBadge count={counts.contact_messages} />
           </TabsTrigger>
-          <TabsTrigger value="jobs" className="flex items-center justify-center gap-2">
-            <Briefcase className="h-4 w-4" />
+          <TabsTrigger value="jobs" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+            <Briefcase className="h-3 w-3 sm:h-4 sm:w-4" />
             Jobs
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center justify-center gap-2">
-            <Users className="h-4 w-4" />
+          <TabsTrigger value="users" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="admin-management" className="flex items-center justify-center gap-2">
-            <UserCheck className="h-4 w-4" />
-            Admin Management
+          <TabsTrigger value="teams" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+            <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
+            Teams
+          </TabsTrigger>
+          <TabsTrigger value="admin-management" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+            <UserCheck className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Admin</span>
+            <span className="sm:hidden">Adm.</span>
           </TabsTrigger>
         </TabsList>
 
@@ -2186,7 +2283,19 @@ function AdminDashboardContent() {
                                   : "N/A"}
                               </TableCell>
                               <TableCell className="py-2">
-                                {rowUser.role !== "admin" ? (
+                                {rowUser.role === "recruiter" ? (
+                                  <button
+                                    className="text-left text-primary hover:underline"
+                                    onClick={() => {
+                                      setSelectedTeamId(rowUser.id);
+                                      setActiveTab("teams");
+                                      window.history.replaceState(null, "", "#teams");
+                                    }}
+                                    title="View company/team"
+                                  >
+                                    {rowUser.email}
+                                  </button>
+                                ) : rowUser.role !== "admin" ? (
                                   <a
                                     href={`/profile/${rowUser.id}`}
                                     target="_blank"
@@ -2377,6 +2486,350 @@ function AdminDashboardContent() {
                     </Pagination>
                   )}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Teams / Companies Tab */}
+        <TabsContent value="teams" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    {selectedTeamId && teamDetailData ? (
+                      <span>{teamDetailData.company.company_name || teamDetailData.company.owner_email}</span>
+                    ) : (
+                      <span>Employer Companies</span>
+                    )}
+                  </CardTitle>
+                  {!selectedTeamId && (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      All recruiter accounts and their team structure
+                    </p>
+                  )}
+                </div>
+                {selectedTeamId ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedTeamId(null)}
+                    className="flex items-center gap-1 self-start"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Back to Companies
+                  </Button>
+                ) : (
+                  <div className="relative w-full sm:w-72">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search companies, emails..."
+                      value={teamsSearch}
+                      onChange={(e) => { setTeamsSearch(e.target.value); setTeamsPage(1); }}
+                      className="pl-8"
+                    />
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Team Detail View */}
+              {selectedTeamId ? (
+                teamDetailLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  </div>
+                ) : teamDetailData ? (
+                  <div className="space-y-6">
+                    {/* Overview Stats */}
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {[
+                        { label: "Team Members", value: teamDetailData.company.member_count },
+                        { label: "Pending Invites", value: teamDetailData.company.pending_invitations },
+                        { label: "Active Jobs", value: teamDetailData.company.active_jobs },
+                        { label: "Total Hired", value: teamDetailData.company.total_hired },
+                      ].map((s) => (
+                        <div key={s.label} className="rounded-lg border bg-muted/30 p-3 text-center">
+                          <div className="text-2xl font-bold">{s.value}</div>
+                          <div className="text-xs text-muted-foreground">{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Company Info */}
+                    <div className="rounded-lg border p-4 text-sm">
+                      <h3 className="mb-3 font-semibold">Company Info</h3>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div><span className="text-muted-foreground">Owner:</span>{" "}
+                          <a href={`/profile/${teamDetailData.company.company_user_id}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                            {teamDetailData.company.owner_first_name && teamDetailData.company.owner_last_name
+                              ? `${teamDetailData.company.owner_first_name} ${teamDetailData.company.owner_last_name}`
+                              : teamDetailData.company.owner_email}
+                          </a>
+                        </div>
+                        <div><span className="text-muted-foreground">Email:</span>{" "}{teamDetailData.company.owner_email}</div>
+                        {teamDetailData.company.location && (
+                          <div><span className="text-muted-foreground">Location:</span>{" "}{teamDetailData.company.location}</div>
+                        )}
+                        {teamDetailData.company.company_type && (
+                          <div><span className="text-muted-foreground">Type:</span>{" "}{teamDetailData.company.company_type}</div>
+                        )}
+                        {teamDetailData.company.website_url && (
+                          <div><span className="text-muted-foreground">Website:</span>{" "}
+                            <a href={teamDetailData.company.website_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{teamDetailData.company.website_url}</a>
+                          </div>
+                        )}
+                        <div><span className="text-muted-foreground">Joined:</span>{" "}{new Date(teamDetailData.company.created_at).toLocaleDateString()}</div>
+                        <div><span className="text-muted-foreground">Active / Closed Jobs:</span>{" "}{teamDetailData.company.active_jobs} / {teamDetailData.company.closed_jobs}</div>
+                      </div>
+                    </div>
+
+                    {/* Team Members */}
+                    <div>
+                      <h3 className="mb-3 font-semibold">
+                        Team Members{" "}
+                        <span className="text-sm font-normal text-muted-foreground">
+                          ({teamDetailData.members.length})
+                        </span>
+                      </h3>
+                      {teamDetailData.members.length === 0 ? (
+                        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                          No team members — this is a solo employer account.
+                        </p>
+                      ) : (
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Name / Email</TableHead>
+                                <TableHead>Role</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Joined</TableHead>
+                                <TableHead>Jobs Posted</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {teamDetailData.members.map((m) => (
+                                <TableRow key={m.id}>
+                                  <TableCell className="py-2">
+                                    <div className="font-medium">{m.name}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {m.user_id ? (
+                                        <a href={`/profile/${m.user_id}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                          {m.email}
+                                        </a>
+                                      ) : m.email}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    <Badge variant="outline" className="capitalize">{m.role}</Badge>
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    {m.invite_accepted ? (
+                                      <Badge className="bg-green-600 hover:bg-green-700 text-xs">Accepted</Badge>
+                                    ) : (
+                                      <Badge variant="secondary" className="text-xs">Pending</Badge>
+                                    )}
+                                    {m.account_status && (
+                                      <span className="ml-1 text-xs text-muted-foreground capitalize">· {m.account_status}</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="py-2 text-sm">
+                                    {m.joined_at ? new Date(m.joined_at).toLocaleDateString() : "—"}
+                                  </TableCell>
+                                  <TableCell className="py-2 text-sm">{m.jobs_posted}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Jobs */}
+                    <div>
+                      <h3 className="mb-3 font-semibold">
+                        Jobs{" "}
+                        <span className="text-sm font-normal text-muted-foreground">
+                          ({teamDetailData.jobs.length})
+                        </span>
+                      </h3>
+                      {teamDetailData.jobs.length === 0 ? (
+                        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                          No jobs posted yet.
+                        </p>
+                      ) : (
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Visibility</TableHead>
+                                <TableHead>Posted By</TableHead>
+                                <TableHead>Applications</TableHead>
+                                <TableHead>Hired</TableHead>
+                                <TableHead>Date</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {teamDetailData.jobs.map((j) => (
+                                <TableRow key={j.id}>
+                                  <TableCell className="py-2 font-medium">
+                                    <button
+                                      className="text-left text-primary hover:underline"
+                                      onClick={() => { setSelectedJobId(j.id); setActiveTab("jobs"); window.history.replaceState(null, "", "#jobs"); }}
+                                    >
+                                      {j.title}
+                                    </button>
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    <Badge
+                                      variant={j.status === "active" ? "default" : j.status === "closed" ? "destructive" : "secondary"}
+                                      className="text-xs capitalize"
+                                    >
+                                      {j.status}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="py-2 text-xs">
+                                    {j.is_published ? (
+                                      <Badge variant="outline" className="border-green-500 text-green-700 text-xs">Posted</Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-xs">Private</Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="py-2 text-sm">{j.recruiter_name}</TableCell>
+                                  <TableCell className="py-2 text-sm">{j.application_count}</TableCell>
+                                  <TableCell className="py-2 text-sm">{j.hired_count}</TableCell>
+                                  <TableCell className="py-2 text-xs">{new Date(j.created_at).toLocaleDateString()}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="py-8 text-center text-sm text-muted-foreground">Company not found.</p>
+                )
+              ) : (
+                /* Teams List View */
+                teamsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-2 text-sm text-muted-foreground">
+                      {teamsData?.total ?? 0} employer account{teamsData?.total !== 1 ? "s" : ""}
+                      {teamsSearch && ` matching "${teamsSearch}"`}
+                    </div>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Company</TableHead>
+                            <TableHead>Owner</TableHead>
+                            <TableHead>Members</TableHead>
+                            <TableHead>Pending Invites</TableHead>
+                            <TableHead>Active Jobs</TableHead>
+                            <TableHead>Hired</TableHead>
+                            <TableHead>Joined</TableHead>
+                            <TableHead />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(teamsData?.teams ?? []).length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                                {teamsSearch ? "No companies match your search." : "No employer accounts found."}
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            (teamsData?.teams ?? []).map((team) => (
+                              <TableRow key={team.company_user_id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedTeamId(team.company_user_id)}>
+                                <TableCell className="py-2 font-medium">
+                                  {team.company_name || <span className="italic text-muted-foreground">No company name</span>}
+                                </TableCell>
+                                <TableCell className="py-2">
+                                  <div className="text-sm">
+                                    {team.owner_first_name || team.owner_last_name
+                                      ? `${team.owner_first_name ?? ""} ${team.owner_last_name ?? ""}`.trim()
+                                      : "—"}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">{team.owner_email}</div>
+                                </TableCell>
+                                <TableCell className="py-2 text-center">
+                                  {team.member_count > 0 ? (
+                                    <Badge className="bg-blue-600 hover:bg-blue-700 text-xs">{team.member_count}</Badge>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="py-2 text-center">
+                                  {team.pending_invitations > 0 ? (
+                                    <Badge variant="secondary" className="text-xs">{team.pending_invitations}</Badge>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="py-2 text-center text-sm">{team.active_jobs}</TableCell>
+                                <TableCell className="py-2 text-center text-sm">{team.total_hired}</TableCell>
+                                <TableCell className="py-2 text-xs">{new Date(team.created_at).toLocaleDateString()}</TableCell>
+                                <TableCell className="py-2">
+                                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); setSelectedTeamId(team.company_user_id); }}>
+                                    View
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Pagination */}
+                    {(teamsData?.totalPages ?? 1) > 1 && (
+                      <div className="mt-4 flex justify-center">
+                        <Pagination>
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious
+                                onClick={() => setTeamsPage((p) => Math.max(1, p - 1))}
+                                className={teamsPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              />
+                            </PaginationItem>
+                            {Array.from({ length: teamsData?.totalPages ?? 1 }, (_, i) => i + 1)
+                              .filter((p) => p === 1 || p === (teamsData?.totalPages ?? 1) || Math.abs(p - teamsPage) <= 1)
+                              .map((p, i, arr) => (
+                                <>
+                                  {i > 0 && arr[i - 1] !== p - 1 && (
+                                    <PaginationItem key={`ellipsis-${p}`}>
+                                      <span className="px-2">…</span>
+                                    </PaginationItem>
+                                  )}
+                                  <PaginationItem key={p}>
+                                    <PaginationLink isActive={p === teamsPage} onClick={() => setTeamsPage(p)} className="cursor-pointer">
+                                      {p}
+                                    </PaginationLink>
+                                  </PaginationItem>
+                                </>
+                              ))}
+                            <PaginationItem>
+                              <PaginationNext
+                                onClick={() => setTeamsPage((p) => Math.min(teamsData?.totalPages ?? 1, p + 1))}
+                                className={teamsPage >= (teamsData?.totalPages ?? 1) ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                      </div>
+                    )}
+                  </>
+                )
               )}
             </CardContent>
           </Card>
