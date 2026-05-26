@@ -4864,7 +4864,7 @@ export class DatabaseStorage implements IStorage {
           closed: sql<number>`count(*) filter (where ${jobs.status} = 'closed')`,
         })
         .from(jobs)
-        .where(and(inArray(jobs.recruiter_id, recruiterIds), isNull(jobs.deleted_at)))
+        .where(inArray(jobs.recruiter_id, recruiterIds))
         .groupBy(jobs.recruiter_id),
 
       db
@@ -4874,7 +4874,7 @@ export class DatabaseStorage implements IStorage {
         })
         .from(jobs)
         .leftJoin(job_applications, eq(job_applications.job_id, jobs.id))
-        .where(and(inArray(jobs.recruiter_id, recruiterIds), isNull(jobs.deleted_at)))
+        .where(inArray(jobs.recruiter_id, recruiterIds))
         .groupBy(jobs.recruiter_id),
     ]);
 
@@ -4992,12 +4992,11 @@ export class DatabaseStorage implements IStorage {
           id: jobs.id,
           title: jobs.title,
           status: jobs.status,
-          is_published: jobs.is_published,
           created_at: jobs.created_at,
           recruiter_id: jobs.recruiter_id,
         })
         .from(jobs)
-        .where(and(inArray(jobs.recruiter_id, allRecruiterIds), isNull(jobs.deleted_at)))
+        .where(inArray(jobs.recruiter_id, allRecruiterIds))
         .orderBy(desc(jobs.created_at)),
 
       db
@@ -5033,7 +5032,7 @@ export class DatabaseStorage implements IStorage {
         id: j.id,
         title: j.title,
         status: j.status,
-        is_published: j.is_published ?? false,
+        is_published: j.status === "active" || j.status === "paused",
         created_at: j.created_at,
         application_count: app ? Number(app.total) : 0,
         hired_count: app ? Number(app.hired) : 0,
