@@ -8,6 +8,8 @@ import {
   exportAdminXLSX,
   getAdminJobDetail,
   getAdminJobs,
+  getAdminTeamDetail,
+  getAdminTeams,
   getAdminUsers,
   getAllContactMessages,
   getAllFeedback,
@@ -86,6 +88,10 @@ export function registerAdminRoutes(app: Express) {
 
   // Export all dashboard data as XLSX workbook (admin only)
   app.get("/api/admin/export/xlsx", requireAdminAuth, exportAdminXLSX);
+
+  // Admin Teams / Companies management
+  app.get("/api/admin/teams", requireAdminAuth, getAdminTeams);
+  app.get("/api/admin/teams/:id", requireAdminAuth, getAdminTeamDetail);
 
   // Admin: link two existing employer accounts as company + team member
   app.post("/api/admin/team/link", requireAdminAuth, adminLinkTeamMember);

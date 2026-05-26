@@ -991,6 +991,48 @@ export async function sendBulkMessages(req: Request, res: Response) {
   }
 }
 
+// Get all teams/companies (admin only)
+export async function getAdminTeams(req: Request, res: Response) {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const search = (req.query.search as string) || undefined;
+
+    const { teams, total } = await storage.getAdminTeams(page, limit, search);
+
+    res.json({
+      teams,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    });
+  } catch (error) {
+    console.error("Get admin teams error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Get team detail (admin only)
+export async function getAdminTeamDetail(req: Request, res: Response) {
+  try {
+    const companyUserId = parseInt(req.params.id);
+    if (isNaN(companyUserId)) {
+      return res.status(400).json({ error: "Invalid company user ID" });
+    }
+
+    const result = await storage.getAdminTeamDetail(companyUserId);
+    if (!result) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Get admin team detail error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 /**
  * Admin-only: link an existing user account to a company
  * as a team member, bypassing the invitation email flow.

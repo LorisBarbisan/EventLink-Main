@@ -66,6 +66,8 @@ import {
   type InsertReferenceReport,
   reference_requests,
   reference_reports,
+  teamMembers,
+  type TeamMember,
   type User,
 } from "@shared/schema";
 import {
@@ -361,6 +363,63 @@ export interface IStorage {
     profileStatus?: string
   ): Promise<{ users: (User & { profile_status?: string })[]; total: number }>;
   updateUserStatus(userId: number, status: string): Promise<User>;
+
+  // Admin Teams management
+  getAdminTeams(page: number, limit: number, search?: string): Promise<{
+    teams: Array<{
+      company_user_id: number;
+      company_name: string | null;
+      owner_email: string;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
+      member_count: number;
+      pending_invitations: number;
+      active_jobs: number;
+      closed_jobs: number;
+      total_hired: number;
+      created_at: Date;
+    }>;
+    total: number;
+  }>;
+  getAdminTeamDetail(companyUserId: number): Promise<{
+    company: {
+      company_user_id: number;
+      company_name: string | null;
+      owner_email: string;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
+      member_count: number;
+      pending_invitations: number;
+      active_jobs: number;
+      closed_jobs: number;
+      total_hired: number;
+      created_at: Date;
+      website_url: string | null;
+      location: string | null;
+      company_type: string | null;
+    };
+    members: Array<{
+      id: number;
+      user_id: number | null;
+      email: string;
+      name: string;
+      role: string;
+      joined_at: Date | null;
+      invite_accepted: boolean;
+      account_status: string | null;
+      jobs_posted: number;
+    }>;
+    jobs: Array<{
+      id: number;
+      title: string;
+      status: string;
+      is_published: boolean;
+      created_at: Date;
+      application_count: number;
+      hired_count: number;
+      recruiter_name: string;
+    }>;
+  } | null>;
 
   // Category-specific notification counts
   getCategoryUnreadCounts(userId: number): Promise<{
@@ -4723,6 +4782,315 @@ export class DatabaseStorage implements IStorage {
         .set({ last_job_alert_sent_at: now as any, updated_at: now })
         .where(inArray(users.id, freelancerUserIds));
     }
+  }
+
+  async getAdminTeams(page: number, limit: number, search?: string): Promise<{
+    teams: Array<{
+      company_user_id: number;
+      company_name: string | null;
+      owner_email: string;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
+      member_count: number;
+      pending_invitations: number;
+      active_jobs: number;
+      closed_jobs: number;
+      total_hired: number;
+      created_at: Date;
+    }>;
+    total: number;
+  }> {
+    const offset = (page - 1) * limit;
+
+    const conditions: any[] = [eq(users.role, "recruiter"), isNull(users.deleted_at)];
+
+    if (search) {
+      conditions.push(
+        or(
+          ilike(users.email, `%${search}%`),
+          ilike(users.first_name, `%${search}%`),
+          ilike(users.last_name, `%${search}%`),
+          ilike(recruiter_profiles.company_name, `%${search}%`)
+        )
+      );
+    }
+
+    const whereClause = and(...conditions);
+
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(users)
+      .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
+      .where(whereClause);
+
+    const recruiterRows = await db
+      .select({
+        user_id: users.id,
+        email: users.email,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        created_at: users.created_at,
+        company_name: recruiter_profiles.company_name,
+      })
+      .from(users)
+      .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
+      .where(whereClause)
+      .orderBy(desc(users.created_at))
+      .limit(limit)
+      .offset(offset);
+
+    if (recruiterRows.length === 0) {
+      return { teams: [], total: totalResult?.count || 0 };
+    }
+
+    const recruiterIds = recruiterRows.map((r) => r.user_id);
+
+    const [memberStats, jobStats, hiredStats] = await Promise.all([
+      db
+        .select({
+          company_id: teamMembers.companyId,
+          total: count(),
+          pending: sql<number>`count(*) filter (where ${teamMembers.inviteAccepted} = false)`,
+          accepted: sql<number>`count(*) filter (where ${teamMembers.inviteAccepted} = true)`,
+        })
+        .from(teamMembers)
+        .where(inArray(teamMembers.companyId, recruiterIds))
+        .groupBy(teamMembers.companyId),
+
+      db
+        .select({
+          recruiter_id: jobs.recruiter_id,
+          active: sql<number>`count(*) filter (where ${jobs.status} = 'active' or ${jobs.status} = 'paused')`,
+          closed: sql<number>`count(*) filter (where ${jobs.status} = 'closed')`,
+        })
+        .from(jobs)
+        .where(and(inArray(jobs.recruiter_id, recruiterIds), isNull(jobs.deleted_at)))
+        .groupBy(jobs.recruiter_id),
+
+      db
+        .select({
+          recruiter_id: jobs.recruiter_id,
+          hired: sql<number>`count(${job_applications.id}) filter (where ${job_applications.status} = 'hired')`,
+        })
+        .from(jobs)
+        .leftJoin(job_applications, eq(job_applications.job_id, jobs.id))
+        .where(and(inArray(jobs.recruiter_id, recruiterIds), isNull(jobs.deleted_at)))
+        .groupBy(jobs.recruiter_id),
+    ]);
+
+    const memberMap = new Map(memberStats.map((m) => [m.company_id, m]));
+    const jobMap = new Map(jobStats.map((j) => [j.recruiter_id, j]));
+    const hiredMap = new Map(hiredStats.map((h) => [h.recruiter_id, h]));
+
+    const teams = recruiterRows.map((r) => {
+      const m = memberMap.get(r.user_id);
+      const j = jobMap.get(r.user_id);
+      const h = hiredMap.get(r.user_id);
+      return {
+        company_user_id: r.user_id,
+        company_name: r.company_name ?? null,
+        owner_email: r.email,
+        owner_first_name: r.first_name ?? null,
+        owner_last_name: r.last_name ?? null,
+        member_count: m ? Number(m.accepted) : 0,
+        pending_invitations: m ? Number(m.pending) : 0,
+        active_jobs: j ? Number(j.active) : 0,
+        closed_jobs: j ? Number(j.closed) : 0,
+        total_hired: h ? Number(h.hired) : 0,
+        created_at: r.created_at,
+      };
+    });
+
+    return { teams, total: totalResult?.count || 0 };
+  }
+
+  async getAdminTeamDetail(companyUserId: number): Promise<{
+    company: {
+      company_user_id: number;
+      company_name: string | null;
+      owner_email: string;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
+      member_count: number;
+      pending_invitations: number;
+      active_jobs: number;
+      closed_jobs: number;
+      total_hired: number;
+      created_at: Date;
+      website_url: string | null;
+      location: string | null;
+      company_type: string | null;
+    };
+    members: Array<{
+      id: number;
+      user_id: number | null;
+      email: string;
+      name: string;
+      role: string;
+      joined_at: Date | null;
+      invite_accepted: boolean;
+      account_status: string | null;
+      jobs_posted: number;
+    }>;
+    jobs: Array<{
+      id: number;
+      title: string;
+      status: string;
+      is_published: boolean;
+      created_at: Date;
+      application_count: number;
+      hired_count: number;
+      recruiter_name: string;
+    }>;
+  } | null> {
+    const [ownerRow] = await db
+      .select({
+        user_id: users.id,
+        email: users.email,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        created_at: users.created_at,
+        company_name: recruiter_profiles.company_name,
+        website_url: recruiter_profiles.website_url,
+        location: recruiter_profiles.location,
+        company_type: recruiter_profiles.company_type,
+      })
+      .from(users)
+      .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
+      .where(and(eq(users.id, companyUserId), isNull(users.deleted_at)))
+      .limit(1);
+
+    if (!ownerRow) return null;
+
+    const memberRows = await db
+      .select({
+        id: teamMembers.id,
+        user_id: teamMembers.userId,
+        invited_email: teamMembers.invitedEmail,
+        role: teamMembers.role,
+        joined_at: teamMembers.inviteAcceptedAt,
+        invite_accepted: teamMembers.inviteAccepted,
+        member_first_name: users.first_name,
+        member_last_name: users.last_name,
+        member_email: users.email,
+        account_status: users.status,
+      })
+      .from(teamMembers)
+      .leftJoin(users, eq(users.id, teamMembers.userId))
+      .where(eq(teamMembers.companyId, companyUserId))
+      .orderBy(desc(teamMembers.createdAt));
+
+    const memberUserIds = memberRows
+      .filter((m) => m.user_id !== null)
+      .map((m) => m.user_id as number);
+
+    const allRecruiterIds = [companyUserId, ...memberUserIds];
+
+    const [jobRows, appStats] = await Promise.all([
+      db
+        .select({
+          id: jobs.id,
+          title: jobs.title,
+          status: jobs.status,
+          is_published: jobs.is_published,
+          created_at: jobs.created_at,
+          recruiter_id: jobs.recruiter_id,
+        })
+        .from(jobs)
+        .where(and(inArray(jobs.recruiter_id, allRecruiterIds), isNull(jobs.deleted_at)))
+        .orderBy(desc(jobs.created_at)),
+
+      db
+        .select({
+          job_id: job_applications.job_id,
+          total: count(),
+          hired: sql<number>`count(*) filter (where ${job_applications.status} = 'hired')`,
+        })
+        .from(job_applications)
+        .groupBy(job_applications.job_id),
+    ]);
+
+    const appMap = new Map(appStats.map((a) => [a.job_id, a]));
+
+    const recruiterNameMap = new Map<number, string>();
+    recruiterNameMap.set(
+      companyUserId,
+      [ownerRow.first_name, ownerRow.last_name].filter(Boolean).join(" ") || ownerRow.email
+    );
+    for (const m of memberRows) {
+      if (m.user_id) {
+        const name =
+          [m.member_first_name, m.member_last_name].filter(Boolean).join(" ") ||
+          m.member_email ||
+          m.invited_email;
+        recruiterNameMap.set(m.user_id, name);
+      }
+    }
+
+    const enrichedJobs = jobRows.map((j) => {
+      const app = appMap.get(j.id);
+      return {
+        id: j.id,
+        title: j.title,
+        status: j.status,
+        is_published: j.is_published ?? false,
+        created_at: j.created_at,
+        application_count: app ? Number(app.total) : 0,
+        hired_count: app ? Number(app.hired) : 0,
+        recruiter_name: recruiterNameMap.get(j.recruiter_id ?? 0) ?? "Unknown",
+      };
+    });
+
+    const memberCount = memberRows.filter((m) => m.invite_accepted).length;
+    const pendingCount = memberRows.filter((m) => !m.invite_accepted).length;
+    const activeJobs = jobRows.filter(
+      (j) => j.status === "active" || j.status === "paused"
+    ).length;
+    const closedJobs = jobRows.filter((j) => j.status === "closed").length;
+    const totalHired = jobRows.reduce((sum, j) => {
+      const app = appMap.get(j.id);
+      return sum + (app ? Number(app.hired) : 0);
+    }, 0);
+
+    const membersList = memberRows.map((m) => {
+      const name =
+        [m.member_first_name, m.member_last_name].filter(Boolean).join(" ") ||
+        m.member_email ||
+        m.invited_email;
+      const memberJobCount = jobRows.filter((j) => j.recruiter_id === m.user_id).length;
+      return {
+        id: m.id,
+        user_id: m.user_id,
+        email: m.member_email || m.invited_email,
+        name,
+        role: m.role,
+        joined_at: m.joined_at,
+        invite_accepted: m.invite_accepted,
+        account_status: m.account_status,
+        jobs_posted: memberJobCount,
+      };
+    });
+
+    return {
+      company: {
+        company_user_id: ownerRow.user_id,
+        company_name: ownerRow.company_name ?? null,
+        owner_email: ownerRow.email,
+        owner_first_name: ownerRow.first_name ?? null,
+        owner_last_name: ownerRow.last_name ?? null,
+        member_count: memberCount,
+        pending_invitations: pendingCount,
+        active_jobs: activeJobs,
+        closed_jobs: closedJobs,
+        total_hired: totalHired,
+        created_at: ownerRow.created_at,
+        website_url: ownerRow.website_url ?? null,
+        location: ownerRow.location ?? null,
+        company_type: ownerRow.company_type ?? null,
+      },
+      members: membersList,
+      jobs: enrichedJobs,
+    };
   }
 }
 
