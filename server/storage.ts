@@ -5032,7 +5032,7 @@ export class DatabaseStorage implements IStorage {
         id: j.id,
         title: j.title,
         status: j.status,
-        is_published: j.status === "active" || j.status === "paused",
+        is_published: j.status === "active",
         created_at: j.created_at,
         application_count: app ? Number(app.total) : 0,
         hired_count: app ? Number(app.hired) : 0,
