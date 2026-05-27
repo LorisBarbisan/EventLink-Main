@@ -37,9 +37,6 @@ export async function applyToJob(req: Request, res: Response) {
     // Extract numeric ID from job ID (handles both "123" and "real-123" formats)
     const jobIdStr = req.params.jobId;
     const jobId = parseInt(jobIdStr.replace(/^real-/, ""));
-    if (!Number.isFinite(jobId)) {
-      return res.status(400).json({ error: "Invalid job id" });
-    }
 
     if (!(req as any).user) {
       return res.status(401).json({ error: "Please log in to apply for jobs" });

@@ -77,15 +77,10 @@ export default function JobDetail() {
     }
   }, [jobId, isSlug]);
 
-  // Always use the resolved numeric job id from the loaded job for backend calls.
-  // The URL `jobId` may be a slug (e.g. "event-technician-tentative-london-289"),
-  // and the apply / applications-check endpoints require a numeric id.
-  const numericJobId = job?.id;
-
   const { data: existingApplication } = useQuery({
-    queryKey: ["/api/applications/check", numericJobId],
+    queryKey: ["/api/applications/check", jobId],
     queryFn: async () => {
-      if (!user || user.role !== "freelancer" || !numericJobId) return null;
+      if (!user || user.role !== "freelancer") return null;
       const res = await fetch(`/api/freelancer/${user.id}/applications`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
@@ -93,17 +88,14 @@ export default function JobDetail() {
       });
       if (!res.ok) return null;
       const apps = await res.json();
-      return apps.find((a: any) => a.job_id === numericJobId);
+      return apps.find((a: any) => a.job_id === parseInt(jobId!));
     },
-    enabled: !!user && user.role === "freelancer" && !!numericJobId,
+    enabled: !!user && user.role === "freelancer",
   });
 
   const applyMutation = useMutation({
     mutationFn: async () => {
-      if (!numericJobId) {
-        throw new Error("Job is still loading. Please try again in a moment.");
-      }
-      return await apiRequest(`/api/jobs/${numericJobId}/apply`, {
+      return await apiRequest(`/api/jobs/${jobId}/apply`, {
         method: "POST",
         body: JSON.stringify({
           cover_letter: coverLetter || undefined,
@@ -111,8 +103,8 @@ export default function JobDetail() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/applications/check", numericJobId] });
-      setLocation(`/application-success/${numericJobId}`);
+      queryClient.invalidateQueries({ queryKey: ["/api/applications/check", jobId] });
+      setLocation(`/application-success/${jobId}`);
     },
     onError: (err: Error) => {
       toast({ title: "Application failed", description: err.message, variant: "destructive" });
