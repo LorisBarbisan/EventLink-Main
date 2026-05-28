@@ -399,7 +399,7 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
             <img
               src={profile.profile_photo_url}
               alt="Profile"
-              className="h-full w-full object-cover"
+              className="h-full w-full bg-white object-cover"
               onError={() => {
                 console.log(
                   "Profile photo failed to load:",
@@ -487,7 +487,7 @@ function RecruiterProfileView({ profile }: { profile: RecruiterProfile }) {
             <img
               src={profile.company_logo_url}
               alt={`${profile.company_name} logo`}
-              className="h-full w-full object-cover"
+              className="h-full w-full bg-white object-cover"
               onError={() => {
                 console.log(
                   "Company logo failed to load:",

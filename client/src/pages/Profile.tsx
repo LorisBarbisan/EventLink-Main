@@ -951,7 +951,7 @@ export default function Profile() {
                       <img
                         src={freelancerProfile.profile_photo_url}
                         alt="Profile"
-                        className="h-full w-full object-cover"
+                        className="h-full w-full bg-white object-cover"
                       />
                     ) : (
                       <User className="h-16 w-16 text-white" />
@@ -1094,7 +1094,7 @@ export default function Profile() {
                       <img
                         src={recruiterProfile.company_logo_url}
                         alt="Company Logo"
-                        className="h-full w-full object-cover"
+                        className="h-full w-full bg-white object-cover"
                       />
                     ) : (
                       <User className="h-16 w-16 text-white" />

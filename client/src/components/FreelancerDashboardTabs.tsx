@@ -433,7 +433,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                     <img
                       src={freelancerProfile.profile_photo_url}
                       alt="Profile"
-                      className="h-full w-full object-cover"
+                      className="h-full w-full bg-white object-cover"
                       onLoad={() => console.log("Profile photo loaded successfully")}
                       onError={(e) => console.log("Profile photo failed to load:", e)}
                     />
@@ -556,7 +556,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                       <img
                         src={freelancerProfile.profile_photo_url}
                         alt="Profile"
-                        className="h-full w-full object-cover"
+                        className="h-full w-full bg-white object-cover"
                       />
                     ) : (
                       <Camera className="h-8 w-8 text-white" />

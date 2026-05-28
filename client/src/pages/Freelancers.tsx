@@ -361,7 +361,7 @@ export default function Freelancers() {
                         <img
                           src={freelancer.avatar}
                           alt={`${freelancer.name} profile photo`}
-                          className="w-full h-full object-cover rounded-full"
+                          className="w-full h-full bg-white object-cover rounded-full"
                         />
                       ) : (
                         <div className="w-full h-full bg-blue-600 rounded-full flex items-center justify-center">
