@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { UKLocationInput } from "@/components/ui/uk-location-input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -715,19 +716,19 @@ export default function SimplifiedRecruiterDashboard() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name, title, skills..."
+                  placeholder="Search freelancers, skills, or specializations..."
                   value={crewSearch}
                   onChange={(e) => setCrewSearch(e.target.value)}
                   className="pl-9"
+                  data-testid="input-my-crew-search"
                 />
               </div>
-              <div className="relative max-w-[200px] flex-1">
-                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Location"
+              <div className="max-w-[240px] flex-1">
+                <UKLocationInput
+                  placeholder="Filter by UK location..."
                   value={crewLocation}
-                  onChange={(e) => setCrewLocation(e.target.value)}
-                  className="pl-9"
+                  onChange={(value) => setCrewLocation(value)}
+                  data-testid="input-my-crew-location"
                 />
               </div>
             </div>
@@ -742,27 +743,44 @@ export default function SimplifiedRecruiterDashboard() {
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <Users className="mb-4 h-12 w-12 text-muted-foreground" />
                 <h3 className="mb-2 text-lg font-semibold">
-                  {crewTab === "saved"
-                    ? "No one saved to My Crew yet"
-                    : crewTab === "worked"
-                      ? "No freelancers worked with yet"
-                      : "No crew members yet"}
+                  {crewSearch.trim() || crewLocation.trim()
+                    ? "No crew members match your search"
+                    : crewTab === "saved"
+                      ? "No one saved to My Crew yet"
+                      : crewTab === "worked"
+                        ? "No freelancers worked with yet"
+                        : "No crew members yet"}
                 </h3>
                 <p className="max-w-md text-muted-foreground">
-                  {crewTab === "saved"
-                    ? "Save freelancers from the Find Crew page to add them to My Crew."
-                    : crewTab === "worked"
-                      ? "Hire freelancers through job postings to see them here."
-                      : "Save or hire freelancers to start building My Crew."}
+                  {crewSearch.trim() || crewLocation.trim()
+                    ? "Try adjusting your search terms or location filter."
+                    : crewTab === "saved"
+                      ? "Save freelancers from the Find Crew page to add them to My Crew."
+                      : crewTab === "worked"
+                        ? "Hire freelancers through job postings to see them here."
+                        : "Save or hire freelancers to start building My Crew."}
                 </p>
-                <Button
-                  variant="outline"
-                  className="mt-4"
-                  onClick={() => setLocation("/freelancers")}
-                >
-                  <Search className="mr-2 h-4 w-4" />
-                  Find Crew
-                </Button>
+                {crewSearch.trim() || crewLocation.trim() ? (
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => {
+                      setCrewSearch("");
+                      setCrewLocation("");
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => setLocation("/freelancers")}
+                  >
+                    <Search className="mr-2 h-4 w-4" />
+                    Find Crew
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (

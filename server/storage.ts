@@ -89,6 +89,10 @@ import {
 import { randomBytes } from "crypto";
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
+import {
+  freelancerKeywordCondition,
+  freelancerLocationCondition,
+} from "./api/utils/freelancer-search.util";
 
 export interface IStorage {
   // User management
@@ -1245,26 +1249,12 @@ export class DatabaseStorage implements IStorage {
       // Only show profiles from non-deleted users
       conditions.push(isNull(users.deleted_at));
 
-      // Keyword search: title, name, bio, or skills (case-insensitive)
-      if (keyword && keyword.trim()) {
-        const searchTerm = `%${keyword.toLowerCase()}%`;
-        conditions.push(
-          or(
-            sql`LOWER(${freelancer_profiles.title}) LIKE ${searchTerm}`,
-            sql`LOWER(CONCAT(${freelancer_profiles.first_name}, ' ', ${freelancer_profiles.last_name})) LIKE ${searchTerm}`,
-            sql`LOWER(${freelancer_profiles.bio}) LIKE ${searchTerm}`,
-            sql`EXISTS (
-              SELECT 1 FROM unnest(${freelancer_profiles.skills}) AS skill
-              WHERE LOWER(skill) LIKE ${searchTerm}
-            )`
-          )
-        );
+      if (keyword?.trim()) {
+        conditions.push(freelancerKeywordCondition(keyword));
       }
 
-      // Location filter (case-insensitive partial match)
-      if (location && location.trim()) {
-        const locationTerm = `%${location.toLowerCase()}%`;
-        conditions.push(sql`LOWER(${freelancer_profiles.location}) LIKE ${locationTerm}`);
+      if (location?.trim()) {
+        conditions.push(freelancerLocationCondition(location));
       }
 
       // Always fetch EventLink profile separately (if it matches filters)
@@ -4564,19 +4554,11 @@ export class DatabaseStorage implements IStorage {
     const conditions: any[] = [inArray(freelancer_profiles.user_id, targetIds)];
 
     if (filters?.keyword?.trim()) {
-      const term = `%${filters.keyword.toLowerCase()}%`;
-      conditions.push(or(
-        sql`LOWER(${freelancer_profiles.title}) LIKE ${term}`,
-        sql`LOWER(${freelancer_profiles.first_name}) LIKE ${term}`,
-        sql`LOWER(${freelancer_profiles.last_name}) LIKE ${term}`,
-        sql`LOWER(${freelancer_profiles.bio}) LIKE ${term}`,
-        sql`LOWER(COALESCE(array_to_string(${freelancer_profiles.skills}, ' '), '')) LIKE ${term}`
-      ));
+      conditions.push(freelancerKeywordCondition(filters.keyword));
     }
 
     if (filters?.location?.trim()) {
-      const locTerm = `%${filters.location.toLowerCase()}%`;
-      conditions.push(sql`LOWER(${freelancer_profiles.location}) LIKE ${locTerm}`);
+      conditions.push(freelancerLocationCondition(filters.location));
     }
 
     const profiles = await db
