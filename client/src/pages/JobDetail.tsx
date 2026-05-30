@@ -78,9 +78,9 @@ export default function JobDetail() {
   }, [jobId, isSlug]);
 
   const { data: existingApplication } = useQuery({
-    queryKey: ["/api/applications/check", jobId],
+    queryKey: ["/api/applications/check", job?.id],
     queryFn: async () => {
-      if (!user || user.role !== "freelancer") return null;
+      if (!user || user.role !== "freelancer" || !job?.id) return null;
       const res = await fetch(`/api/freelancer/${user.id}/applications`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
@@ -88,23 +88,23 @@ export default function JobDetail() {
       });
       if (!res.ok) return null;
       const apps = await res.json();
-      return apps.find((a: any) => a.job_id === parseInt(jobId!));
+      return apps.find((a: { job_id: number }) => a.job_id === job.id);
     },
-    enabled: !!user && user.role === "freelancer",
+    enabled: !!user && user.role === "freelancer" && !!job?.id,
   });
 
   const applyMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest(`/api/jobs/${jobId}/apply`, {
+    mutationFn: async (numericJobId: number) => {
+      return await apiRequest(`/api/jobs/${numericJobId}/apply`, {
         method: "POST",
         body: JSON.stringify({
           cover_letter: coverLetter || undefined,
         }),
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/applications/check", jobId] });
-      setLocation(`/application-success/${jobId}`);
+    onSuccess: (_, numericJobId) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/applications/check", numericJobId] });
+      setLocation(`/application-success/${numericJobId}`);
     },
     onError: (err: Error) => {
       toast({ title: "Application failed", description: err.message, variant: "destructive" });
@@ -306,7 +306,7 @@ export default function JobDetail() {
                     </div>
                     <div className="flex gap-2">
                       <Button
-                        onClick={() => applyMutation.mutate()}
+                        onClick={() => applyMutation.mutate(job.id)}
                         disabled={applyMutation.isPending}
                         className="bg-orange-600 hover:bg-orange-700"
                       >
