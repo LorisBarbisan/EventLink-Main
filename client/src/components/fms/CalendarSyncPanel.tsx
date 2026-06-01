@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { SiGoogle, SiMicrosoftoutlook } from "react-icons/si";
-import { CalendarCheck, CalendarX, RefreshCw, Unplug } from "lucide-react";
+import { SiGoogle } from "react-icons/si";
+import { CalendarCheck, CalendarX, Mail, RefreshCw, Unplug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -229,7 +229,7 @@ export default function CalendarSyncPanel() {
                 window.location.href = "/api/calendar/outlook/connect";
               }}
             >
-              <SiMicrosoftoutlook className="w-4 h-4 text-[#0078D4]" />
+              <Mail className="w-4 h-4 text-[#0078D4]" />
               Connect Outlook Calendar
             </Button>
           </div>
