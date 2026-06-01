@@ -1,0 +1,801 @@
+Overview & Behaviour
+📅  Sprint 5 adds calendar sync for employers. All bookings at every status are pushed
+to the employer's connected Google Calendar or Microsoft Outlook calendar.
+
+DIRECTION: Push only. EventLink writes to the employer's calendar. It never reads
+from it. No two-way sync.
+
+TRIGGER: Manual. The employer clicks 'Sync to Calendar' from the Calendar tab.
+There is no automatic sync on booking creation or status change.
+
+AUTO-UPDATE: When a booking's status, date, time, or venue changes in EventLink,
+the corresponding calendar event is automatically updated via the API.
+When a booking is cancelled, the calendar event is automatically deleted.
+
+SCOPE: All booking statuses sync — enquired, confirmed, briefed, completed, cancelled.
+Cancelled bookings are deleted from the calendar.
+
+ACCOUNT: Each employer connects their own personal Google or Outlook calendar.
+Teams accounts (Sprint 9) will share the calendar connection across team members.
+
+IMPLEMENTATION ORDER: Build Google Calendar first, then Outlook.
+They are independent integrations and do not share code.
+
+No new database tables are required beyond the calendar_connections table defined below.
+ 
+Step 1 — Schema (shared/schema.ts)
+Add one new table to store the employer's calendar connection tokens. Append to shared/schema.ts before the type exports.
+
+1.1 — calendar_connections table
+// ============================================================
+// FMS Phase 5 — Calendar Sync
+// ============================================================
+
+export const calendar_connections = pgTable('calendar_connections', {
+  id: serial('id').primaryKey(),
+  employerId: integer('employer_id')
+    .notNull()
+    .unique() // one connection per employer
+    .references(() => users.id, { onDelete: 'cascade' }),
+  provider: text('provider')
+    .notNull()
+    .$type<'google' | 'outlook'>(),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token'),
+  tokenExpiresAt: timestamp('token_expires_at', { withTimezone: true }),
+  calendarId: text('calendar_id'), // Google: calendar ID. Outlook: defaults to 'primary'
+  connectedAt: timestamp('connected_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Add a column to bookings to track the external calendar event ID
+// Find the bookings table and add this field:
+// googleEventId: text('google_event_id'),   // Google Calendar event ID
+// outlookEventId: text('outlook_event_id'), // Outlook event ID
+
+export const insertCalendarConnectionSchema = createInsertSchema(calendar_connections).omit({
+  id: true, connectedAt: true, updatedAt: true,
+}).extend({ employerId: z.number() });
+
+export type CalendarConnection = typeof calendar_connections.$inferSelect;
+export type InsertCalendarConnection = z.infer<typeof insertCalendarConnectionSchema>;
+
+1.2 — Add event ID columns to bookings table
+Find the existing bookings table definition in shared/schema.ts and add these two optional columns inside it:
+// Add inside the bookings table definition, after the cancellationReason field:
+googleEventId: text('google_event_id'),   // Google Calendar event ID for this booking
+outlookEventId: text('outlook_event_id'), // Microsoft Outlook event ID for this booking
+
+1.3 — Run migration
+npm run db:push
+ 
+Step 2 — Google Calendar Integration
+⚠️  BEFORE BUILDING: The Google OAuth credentials for EventLink already exist in the
+codebase — passport.ts uses passport-google-oauth20 for user login.
+Check whether GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are already set as
+environment variables. If they are, use them for calendar OAuth too.
+The calendar OAuth scope is different from login — it needs:
+https://www.googleapis.com/auth/calendar.events
+This is a separate OAuth consent that the employer must grant.
+
+google-auth-library is already installed in the project (in package.json).
+Do NOT install googleapis — use direct REST API calls via fetch instead.
+This avoids a heavy dependency and keeps the bundle size manageable.
+
+2.1 — Google Calendar service (server/api/services/googleCalendar.service.ts)
+Create this file. It handles token management and all Google Calendar API calls.
+import { OAuth2Client } from 'google-auth-library';
+import { db } from '../config/db.js';
+import { calendar_connections, bookings } from '../../../shared/schema.js';
+import { eq } from 'drizzle-orm';
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_CALENDAR_REDIRECT_URI
+  ?? `${process.env.APP_URL}/api/calendar/google/callback`;
+
+export function getGoogleOAuthClient() {
+  return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
+}
+
+// Generate the OAuth consent URL — employer clicks this to connect their calendar
+export function getGoogleAuthUrl(): string {
+  const client = getGoogleOAuthClient();
+  return client.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent', // force refresh token on every connect
+    scope: [
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/userinfo.email',
+    ],
+  });
+}
+
+// Exchange auth code for tokens and store in database
+export async function connectGoogleCalendar(employerId: number, code: string) {
+  const client = getGoogleOAuthClient();
+  const { tokens } = await client.getToken(code);
+  if (!tokens.access_token) throw new Error('No access token returned from Google');
+  // Upsert the calendar connection
+  await db.insert(calendar_connections).values({
+    employerId,
+    provider: 'google',
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token ?? null,
+    tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+    calendarId: 'primary',
+  }).onConflictDoUpdate({
+    target: calendar_connections.employerId,
+    set: {
+      provider: 'google',
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token ?? null,
+      tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+      updatedAt: new Date(),
+    }
+  });
+}
+
+// Get a valid access token, refreshing if expired
+export async function getValidGoogleToken(employerId: number): Promise<string> {
+  const [conn] = await db.select().from(calendar_connections)
+    .where(eq(calendar_connections.employerId, employerId));
+  if (!conn || conn.provider !== 'google') throw new Error('No Google Calendar connection');
+  // Check if token is expired (with 5 min buffer)
+  const isExpired = conn.tokenExpiresAt &&
+    conn.tokenExpiresAt.getTime() < Date.now() + 5 * 60 * 1000;
+  if (!isExpired) return conn.accessToken;
+  // Refresh the token
+  if (!conn.refreshToken) throw new Error('No refresh token — employer must reconnect');
+  const client = getGoogleOAuthClient();
+  client.setCredentials({ refresh_token: conn.refreshToken });
+  const { credentials } = await client.refreshAccessToken();
+  // Update stored token
+  await db.update(calendar_connections).set({
+    accessToken: credentials.access_token!,
+    tokenExpiresAt: credentials.expiry_date ? new Date(credentials.expiry_date) : null,
+    updatedAt: new Date(),
+  }).where(eq(calendar_connections.employerId, employerId));
+  return credentials.access_token!;
+}
+
+2.2 — Google Calendar event operations
+Add these functions to googleCalendar.service.ts. They handle creating, updating, and deleting Google Calendar events.
+// Build a Google Calendar event object from a booking
+function buildGoogleEvent(booking: any): object {
+  const dateStr = booking.eventDate ?? booking.createdAt?.toISOString().split('T')[0];
+  const STATUS_LABELS: Record<string, string> = {
+    enquired: '[Enquired]',
+    confirmed: '[Confirmed]',
+    briefed: '[Briefed]',
+    completed: '[Completed]',
+    cancelled: '[Cancelled]',
+  };
+  const prefix = STATUS_LABELS[booking.status] ?? '';
+  const title = `${prefix} ${booking.freelancerName ?? 'Booking'} — EventLink`.trim();
+  const description = [
+    booking.freelancerName ? `Freelancer: ${booking.freelancerName}` : '',
+    booking.roleRequired ? `Role: ${booking.roleRequired}` : '',
+    booking.agreedRate ? `Rate: ${booking.agreedRate}` : '',
+    booking.employerNotes ? `Notes: ${booking.employerNotes}` : '',
+    `Status: ${booking.status}`,
+    `EventLink booking ID: ${booking.id}`,
+  ].filter(Boolean).join('\n');
+  // Build start/end — all-day event if no call time, timed event if call time present
+  let start, end;
+  if (booking.callTime) {
+    const startDateTime = new Date(`${dateStr}T${booking.callTime}:00`);
+    const endDateTime = new Date(startDateTime.getTime() + 8 * 60 * 60 * 1000); // 8hr default
+    start = { dateTime: startDateTime.toISOString(), timeZone: 'Europe/London' };
+    end = { dateTime: endDateTime.toISOString(), timeZone: 'Europe/London' };
+  } else {
+    start = { date: dateStr };
+    end = { date: dateStr };
+  }
+  return {
+    summary: title,
+    description,
+    location: booking.venueAddress ?? undefined,
+    start,
+    end,
+  };
+}
+
+// Create a new Google Calendar event
+export async function createGoogleEvent(employerId: number, booking: any): Promise<string> {
+  const token = await getValidGoogleToken(employerId);
+  const event = buildGoogleEvent(booking);
+  const response = await fetch(
+    'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    }
+  );
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Google Calendar create failed: ${err}`);
+  }
+  const data = await response.json();
+  return data.id; // Google event ID — store this on the booking
+}
+
+// Update an existing Google Calendar event
+export async function updateGoogleEvent(
+  employerId: number, googleEventId: string, booking: any
+): Promise<void> {
+  const token = await getValidGoogleToken(employerId);
+  const event = buildGoogleEvent(booking);
+  const response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    }
+  );
+  if (!response.ok && response.status !== 404) {
+    const err = await response.text();
+    throw new Error(`Google Calendar update failed: ${err}`);
+  }
+}
+
+// Delete a Google Calendar event
+export async function deleteGoogleEvent(
+  employerId: number, googleEventId: string
+): Promise<void> {
+  const token = await getValidGoogleToken(employerId);
+  await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  // 404 and 410 are acceptable — event already gone
+}
+ 
+Step 3 — Microsoft Outlook Integration
+⚠️  BEFORE BUILDING: Outlook uses Microsoft Identity Platform (OAuth 2.0).
+You need to register an app in Azure Active Directory to get:
+  MICROSOFT_CLIENT_ID
+  MICROSOFT_CLIENT_SECRET
+
+Registration steps:
+1. Go to portal.azure.com → Azure Active Directory → App registrations → New registration
+2. Name: EventLink Calendar Sync
+3. Supported account types: Accounts in any organisational directory and personal Microsoft accounts
+4. Redirect URI: https://fms-1.replit.app/api/calendar/outlook/callback
+5. After creation: Certificates & secrets → New client secret → copy the value
+6. API permissions → Add permission → Microsoft Graph → Delegated → Calendars.ReadWrite
+7. Add MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET to Replit environment variables
+
+@microsoft/microsoft-graph-client is NOT needed — use direct fetch calls to
+https://graph.microsoft.com/v1.0/me/events just like the Google implementation.
+
+3.1 — Outlook Calendar service (server/api/services/outlookCalendar.service.ts)
+Create this file. It mirrors the structure of googleCalendar.service.ts.
+const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID!;
+const MICROSOFT_CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET!;
+const MICROSOFT_REDIRECT_URI = process.env.MICROSOFT_CALENDAR_REDIRECT_URI
+  ?? `${process.env.APP_URL}/api/calendar/outlook/callback`;
+const MICROSOFT_TENANT = 'common'; // supports personal and work accounts
+
+export function getOutlookAuthUrl(): string {
+  const params = new URLSearchParams({
+    client_id: MICROSOFT_CLIENT_ID,
+    response_type: 'code',
+    redirect_uri: MICROSOFT_REDIRECT_URI,
+    scope: 'Calendars.ReadWrite offline_access User.Read',
+    response_mode: 'query',
+  });
+  return `https://login.microsoftonline.com/${MICROSOFT_TENANT}/oauth2/v2.0/authorize?${params}`;
+}
+
+export async function connectOutlookCalendar(employerId: number, code: string) {
+  const response = await fetch(
+    `https://login.microsoftonline.com/${MICROSOFT_TENANT}/oauth2/v2.0/token`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: MICROSOFT_CLIENT_ID,
+        client_secret: MICROSOFT_CLIENT_SECRET,
+        code,
+        redirect_uri: MICROSOFT_REDIRECT_URI,
+        grant_type: 'authorization_code',
+      }),
+    }
+  );
+  if (!response.ok) throw new Error('Outlook token exchange failed');
+  const tokens = await response.json();
+  const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
+  await db.insert(calendar_connections).values({
+    employerId,
+    provider: 'outlook',
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token ?? null,
+    tokenExpiresAt: expiresAt,
+    calendarId: 'primary',
+  }).onConflictDoUpdate({
+    target: calendar_connections.employerId,
+    set: {
+      provider: 'outlook',
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token ?? null,
+      tokenExpiresAt: expiresAt,
+      updatedAt: new Date(),
+    }
+  });
+}
+
+export async function getValidOutlookToken(employerId: number): Promise<string> {
+  const [conn] = await db.select().from(calendar_connections)
+    .where(eq(calendar_connections.employerId, employerId));
+  if (!conn || conn.provider !== 'outlook') throw new Error('No Outlook connection');
+  const isExpired = conn.tokenExpiresAt &&
+    conn.tokenExpiresAt.getTime() < Date.now() + 5 * 60 * 1000;
+  if (!isExpired) return conn.accessToken;
+  if (!conn.refreshToken) throw new Error('No refresh token — employer must reconnect');
+  const response = await fetch(
+    `https://login.microsoftonline.com/${MICROSOFT_TENANT}/oauth2/v2.0/token`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: MICROSOFT_CLIENT_ID,
+        client_secret: MICROSOFT_CLIENT_SECRET,
+        refresh_token: conn.refreshToken,
+        grant_type: 'refresh_token',
+      }),
+    }
+  );
+  if (!response.ok) throw new Error('Outlook token refresh failed');
+  const tokens = await response.json();
+  const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
+  await db.update(calendar_connections).set({
+    accessToken: tokens.access_token,
+    tokenExpiresAt: expiresAt,
+    updatedAt: new Date(),
+  }).where(eq(calendar_connections.employerId, employerId));
+  return tokens.access_token;
+}
+
+3.2 — Outlook event operations
+Add these functions to outlookCalendar.service.ts.
+function buildOutlookEvent(booking: any): object {
+  const dateStr = booking.eventDate ?? booking.createdAt?.toISOString().split('T')[0];
+  const STATUS_LABELS: Record<string, string> = {
+    enquired: '[Enquired]', confirmed: '[Confirmed]', briefed: '[Briefed]',
+    completed: '[Completed]', cancelled: '[Cancelled]',
+  };
+  const prefix = STATUS_LABELS[booking.status] ?? '';
+  const subject = `${prefix} ${booking.freelancerName ?? 'Booking'} — EventLink`.trim();
+  const body = [
+    booking.freelancerName ? `Freelancer: ${booking.freelancerName}` : '',
+    booking.roleRequired ? `Role: ${booking.roleRequired}` : '',
+    booking.agreedRate ? `Rate: ${booking.agreedRate}` : '',
+    booking.employerNotes ? `Notes: ${booking.employerNotes}` : '',
+    `Status: ${booking.status}`,
+    `EventLink booking ID: ${booking.id}`,
+  ].filter(Boolean).join('<br>');
+  let start, end;
+  if (booking.callTime) {
+    const startDT = new Date(`${dateStr}T${booking.callTime}:00`);
+    const endDT = new Date(startDT.getTime() + 8 * 60 * 60 * 1000);
+    start = { dateTime: startDT.toISOString(), timeZone: 'Europe/London' };
+    end = { dateTime: endDT.toISOString(), timeZone: 'Europe/London' };
+  } else {
+    start = { date: dateStr };
+    end = { date: dateStr };
+  }
+  return {
+    subject,
+    body: { contentType: 'HTML', content: body },
+    location: booking.venueAddress ? { displayName: booking.venueAddress } : undefined,
+    start,
+    end,
+    isAllDay: !booking.callTime,
+  };
+}
+
+export async function createOutlookEvent(employerId: number, booking: any): Promise<string> {
+  const token = await getValidOutlookToken(employerId);
+  const event = buildOutlookEvent(booking);
+  const response = await fetch('https://graph.microsoft.com/v1.0/me/events', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(event),
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Outlook event create failed: ${err}`);
+  }
+  const data = await response.json();
+  return data.id;
+}
+
+export async function updateOutlookEvent(
+  employerId: number, outlookEventId: string, booking: any
+): Promise<void> {
+  const token = await getValidOutlookToken(employerId);
+  const event = buildOutlookEvent(booking);
+  await fetch(`https://graph.microsoft.com/v1.0/me/events/${outlookEventId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(event),
+  });
+}
+
+export async function deleteOutlookEvent(
+  employerId: number, outlookEventId: string
+): Promise<void> {
+  const token = await getValidOutlookToken(employerId);
+  await fetch(`https://graph.microsoft.com/v1.0/me/events/${outlookEventId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+ 
+Step 4 — Sync Orchestrator (server/api/services/calendarSync.service.ts)
+Create this file. It orchestrates the manual sync — pushing all bookings to whichever calendar provider the employer has connected.
+import { db } from '../config/db.js';
+import { bookings, calendar_connections } from '../../../shared/schema.js';
+import { eq, and } from 'drizzle-orm';
+import {
+  createGoogleEvent, updateGoogleEvent, deleteGoogleEvent
+} from './googleCalendar.service.js';
+import {
+  createOutlookEvent, updateOutlookEvent, deleteOutlookEvent
+} from './outlookCalendar.service.js';
+
+export async function syncAllBookings(employerId: number): Promise<{
+  synced: number; updated: number; deleted: number; errors: string[];
+}> {
+  const [conn] = await db.select().from(calendar_connections)
+    .where(eq(calendar_connections.employerId, employerId));
+  if (!conn) throw new Error('No calendar connected');
+
+  // Get all bookings for this employer with freelancer name
+  const allBookings = await db
+    .select({
+      id: bookings.id,
+      status: bookings.status,
+      eventDate: bookings.eventDate,
+      callTime: bookings.callTime,
+      venueAddress: bookings.venueAddress,
+      agreedRate: bookings.agreedRate,
+      employerNotes: bookings.employerNotes,
+      googleEventId: bookings.googleEventId,
+      outlookEventId: bookings.outlookEventId,
+      freelancerId: bookings.freelancerId,
+    })
+    .from(bookings)
+    .where(eq(bookings.employerId, employerId));
+
+  // Enrich with freelancer names
+  const { storage } = await import('../../storage.js');
+  const enriched = await Promise.all(allBookings.map(async (b) => {
+    const user = await storage.getUser(b.freelancerId);
+    const profile = await storage.getFreelancerProfile(b.freelancerId);
+    return {
+      ...b,
+      freelancerName: `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim(),
+      roleRequired: (profile as any)?.title ?? null,
+    };
+  }));
+
+  const results = { synced: 0, updated: 0, deleted: 0, errors: [] as string[] };
+  const isGoogle = conn.provider === 'google';
+
+  for (const booking of enriched) {
+    try {
+      const existingEventId = isGoogle ? booking.googleEventId : booking.outlookEventId;
+      if (booking.status === 'cancelled') {
+        // Delete from calendar if event exists
+        if (existingEventId) {
+          if (isGoogle) await deleteGoogleEvent(employerId, existingEventId);
+          else await deleteOutlookEvent(employerId, existingEventId);
+          // Clear stored event ID
+          await db.update(bookings).set(
+            isGoogle ? { googleEventId: null } : { outlookEventId: null }
+          ).where(eq(bookings.id, booking.id));
+          results.deleted++;
+        }
+      } else if (existingEventId) {
+        // Update existing event
+        if (isGoogle) await updateGoogleEvent(employerId, existingEventId, booking);
+        else await updateOutlookEvent(employerId, existingEventId, booking);
+        results.updated++;
+      } else {
+        // Create new event
+        const eventId = isGoogle
+          ? await createGoogleEvent(employerId, booking)
+          : await createOutlookEvent(employerId, booking);
+        await db.update(bookings).set(
+          isGoogle ? { googleEventId: eventId } : { outlookEventId: eventId }
+        ).where(eq(bookings.id, booking.id));
+        results.synced++;
+      }
+    } catch (err: any) {
+      results.errors.push(`Booking ${booking.id}: ${err.message}`);
+    }
+  }
+  return results;
+}
+
+// Auto-update a single booking in the calendar when it changes
+// Called from booking status update and booking edit operations
+export async function syncSingleBooking(employerId: number, bookingId: number): Promise<void> {
+  const [conn] = await db.select().from(calendar_connections)
+    .where(eq(calendar_connections.employerId, employerId));
+  if (!conn) return; // no calendar connected — silently skip
+
+  const [booking] = await db.select().from(bookings)
+    .where(eq(bookings.id, bookingId));
+  if (!booking) return;
+
+  const { storage } = await import('../../storage.js');
+  const user = await storage.getUser(booking.freelancerId);
+  const profile = await storage.getFreelancerProfile(booking.freelancerId);
+  const enriched = {
+    ...booking,
+    freelancerName: `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim(),
+    roleRequired: (profile as any)?.title ?? null,
+  };
+
+  const isGoogle = conn.provider === 'google';
+  const existingEventId = isGoogle ? booking.googleEventId : booking.outlookEventId;
+
+  try {
+    if (booking.status === 'cancelled' && existingEventId) {
+      if (isGoogle) await deleteGoogleEvent(employerId, existingEventId);
+      else await deleteOutlookEvent(employerId, existingEventId);
+      await db.update(bookings).set(
+        isGoogle ? { googleEventId: null } : { outlookEventId: null }
+      ).where(eq(bookings.id, bookingId));
+    } else if (existingEventId) {
+      if (isGoogle) await updateGoogleEvent(employerId, existingEventId, enriched);
+      else await updateOutlookEvent(employerId, existingEventId, enriched);
+    } else if (booking.status !== 'cancelled') {
+      const eventId = isGoogle
+        ? await createGoogleEvent(employerId, enriched)
+        : await createOutlookEvent(employerId, enriched);
+      await db.update(bookings).set(
+        isGoogle ? { googleEventId: eventId } : { outlookEventId: eventId }
+      ).where(eq(bookings.id, bookingId));
+    }
+  } catch (err: any) {
+    // Non-blocking — log but don't fail the booking operation
+    console.error(`Calendar sync failed for booking ${bookingId}:`, err.message);
+  }
+}
+ 
+Step 5 — Controller & Routes
+
+5.1 — Controller (server/api/controllers/calendar.controller.ts)
+import type { Request, Response } from 'express';
+import { db } from '../config/db.js';
+import { calendar_connections } from '../../../shared/schema.js';
+import { eq } from 'drizzle-orm';
+import { getGoogleAuthUrl, connectGoogleCalendar } from '../services/googleCalendar.service.js';
+import { getOutlookAuthUrl, connectOutlookCalendar } from '../services/outlookCalendar.service.js';
+import { syncAllBookings } from '../services/calendarSync.service.js';
+
+// GET /api/calendar/status — returns current connection status
+export const getCalendarStatus = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const [conn] = await db.select({
+      provider: calendar_connections.provider,
+      connectedAt: calendar_connections.connectedAt,
+    }).from(calendar_connections)
+      .where(eq(calendar_connections.employerId, employerId));
+    return res.json({ connected: !!conn, provider: conn?.provider ?? null, connectedAt: conn?.connectedAt ?? null });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// GET /api/calendar/google/connect — redirect to Google OAuth
+export const connectGoogle = async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ error: 'Unauthorised' });
+    const url = getGoogleAuthUrl();
+    return res.redirect(url);
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// GET /api/calendar/google/callback — OAuth callback
+export const googleCallback = async (req: Request, res: Response) => {
+  try {
+    const employerId = (req.session as any)?.passport?.user;
+    if (!employerId) return res.redirect('/dashboard?tab=calendar&error=auth');
+    const code = req.query.code as string;
+    if (!code) return res.redirect('/dashboard?tab=calendar&error=no_code');
+    await connectGoogleCalendar(employerId, code);
+    return res.redirect('/dashboard?tab=calendar&connected=google');
+  } catch (err: any) {
+    console.error('Google calendar callback error:', err.message);
+    return res.redirect('/dashboard?tab=calendar&error=connect_failed');
+  }
+};
+
+// GET /api/calendar/outlook/connect
+export const connectOutlook = async (req: Request, res: Response) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ error: 'Unauthorised' });
+    const url = getOutlookAuthUrl();
+    return res.redirect(url);
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// GET /api/calendar/outlook/callback
+export const outlookCallback = async (req: Request, res: Response) => {
+  try {
+    const employerId = (req.session as any)?.passport?.user;
+    if (!employerId) return res.redirect('/dashboard?tab=calendar&error=auth');
+    const code = req.query.code as string;
+    if (!code) return res.redirect('/dashboard?tab=calendar&error=no_code');
+    await connectOutlookCalendar(employerId, code);
+    return res.redirect('/dashboard?tab=calendar&connected=outlook');
+  } catch (err: any) {
+    console.error('Outlook calendar callback error:', err.message);
+    return res.redirect('/dashboard?tab=calendar&error=connect_failed');
+  }
+};
+
+// POST /api/calendar/sync — manual sync all bookings
+export const syncCalendar = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const results = await syncAllBookings(employerId);
+    return res.json({ success: true, ...results });
+  } catch (err: any) {
+    console.error('Calendar sync error:', err.message);
+    if (err.message === 'No calendar connected') {
+      return res.status(400).json({ error: err.message });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// DELETE /api/calendar/disconnect — remove calendar connection
+export const disconnectCalendar = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    await db.delete(calendar_connections)
+      .where(eq(calendar_connections.employerId, employerId));
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+5.2 — Route file (server/api/routes/calendar.route.ts)
+import express from 'express';
+import { requireAuth } from '../middleware/auth.middleware.js';
+import { requireRole } from '../middleware/role.middleware.js';
+import {
+  getCalendarStatus, connectGoogle, googleCallback,
+  connectOutlook, outlookCallback, syncCalendar, disconnectCalendar
+} from '../controllers/calendar.controller.js';
+
+const calendarRouter = express.Router();
+
+calendarRouter.get('/status', requireAuth, requireRole('recruiter'), getCalendarStatus);
+calendarRouter.get('/google/connect', requireAuth, requireRole('recruiter'), connectGoogle);
+calendarRouter.get('/google/callback', googleCallback); // PUBLIC — OAuth callback
+calendarRouter.get('/outlook/connect', requireAuth, requireRole('recruiter'), connectOutlook);
+calendarRouter.get('/outlook/callback', outlookCallback); // PUBLIC — OAuth callback
+calendarRouter.post('/sync', requireAuth, requireRole('recruiter'), syncCalendar);
+calendarRouter.delete('/disconnect', requireAuth, requireRole('recruiter'), disconnectCalendar);
+
+export default calendarRouter;
+
+5.3 — Register in routes-modular.ts
+import calendarRouter from './api/routes/calendar.route.js';
+app.use('/api/calendar', calendarRouter);
+
+5.4 — Hook syncSingleBooking into booking status updates
+Find the existing booking status update logic in booking.controller.ts or storage.ts. After any booking status change, call syncSingleBooking non-blocking:
+// Add to booking.controller.ts after any status update:
+// Non-blocking — import dynamically to avoid circular dependency
+import('../../services/calendarSync.service.js').then(({ syncSingleBooking }) => {
+  syncSingleBooking(employerId, bookingId).catch(err =>
+    console.error('Auto calendar sync failed:', err.message)
+  );
+});
+ 
+Step 6 — React UI (Calendar Tab)
+Add a calendar connection panel to the Calendar tab in the employer dashboard. It sits above the BookingCalendar component built in Sprint 4.
+
+6.1 — CalendarSyncPanel.tsx (client/src/components/fms/CalendarSyncPanel.tsx)
+// Data fetching:
+// useQuery(['/api/calendar/status'], () => apiRequest('/api/calendar/status'))
+// Returns: { connected: boolean, provider: 'google' | 'outlook' | null, connectedAt: string | null }
+
+// Sync mutation:
+// useMutation: POST /api/calendar/sync
+// On success: toast with results — 'Synced X events, updated Y, deleted Z'
+// On error: toast error
+
+// Disconnect mutation:
+// useMutation: DELETE /api/calendar/disconnect
+// On success: toast 'Calendar disconnected', invalidate status query
+
+// DISCONNECTED STATE — show two connect buttons:
+//   Google button:
+//     Google icon (use react-icons/si: SiGoogle) + 'Connect Google Calendar'
+//     onClick: window.location.href = '/api/calendar/google/connect'
+//   Outlook button:
+//     Microsoft icon (SiMicrosoftoutlook) + 'Connect Outlook Calendar'
+//     onClick: window.location.href = '/api/calendar/outlook/connect'
+
+// CONNECTED STATE — show:
+//   Green connected badge: 'Connected to [Google Calendar / Outlook]'
+//   Connected since: [date]
+//   'Sync to Calendar' button — orange, triggers sync mutation
+//     Show spinner while syncing
+//     After success: show result summary inline below button
+//       e.g. 'Last sync: 12 created, 3 updated, 1 deleted'
+//   'Disconnect' link (small, muted, destructive) — triggers disconnect mutation
+//     Confirm before disconnecting: 'This will remove the calendar connection.
+//     Existing calendar events created by EventLink will not be deleted.'
+
+// Handle URL params on mount:
+//   If ?connected=google or ?connected=outlook: show success toast
+//   If ?error=connect_failed: show error toast
+//   Clear params from URL after reading them
+ 
+Step 7 — Completion Checklist
+✔  Test every item below before marking Sprint 5 complete.
+
+Schema & Database
+•	npm run db:push completed — calendar_connections table created
+•	bookings table now has googleEventId and outlookEventId columns
+
+Google Calendar
+•	GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET set as environment variables
+•	GOOGLE_CALENDAR_REDIRECT_URI set correctly
+•	Clicking 'Connect Google Calendar' redirects to Google OAuth consent screen
+•	After consent, redirected back to /dashboard?tab=calendar&connected=google
+•	Calendar connection stored in database
+•	Status panel shows 'Connected to Google Calendar'
+•	'Sync to Calendar' pushes all bookings to Google Calendar
+•	Each booking creates an event with correct title, date, time, venue
+•	Cancelled bookings are deleted from Google Calendar
+•	Running sync again updates existing events rather than creating duplicates
+•	When a booking status changes, Google Calendar event updates automatically
+•	Token refresh works when access token expires
+•	Disconnecting removes the connection from the database
+
+Outlook Calendar
+•	MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET set as environment variables
+•	MICROSOFT_CALENDAR_REDIRECT_URI set correctly in Azure portal and as env var
+•	Clicking 'Connect Outlook Calendar' redirects to Microsoft OAuth consent
+•	After consent, redirected back to /dashboard?tab=calendar&connected=outlook
+•	All sync operations work identically to Google Calendar
+•	Token refresh works when access token expires
+
+Sync Behaviour
+•	Manual sync button works and shows result count toast
+•	Auto-update fires when booking status changes — calendar event updates
+•	Auto-delete fires when booking is cancelled — calendar event deleted
+•	Sync errors for individual bookings are logged but do not block other bookings
+•	No duplicates created on repeated syncs
+

@@ -986,6 +986,8 @@ export const bookings = pgTable("bookings", {
   employerNotes: text("employer_notes"),
   cancellationReason: text("cancellation_reason"),
   cancelledBy: text("cancelled_by"),
+  googleEventId: text("google_event_id"),
+  outlookEventId: text("outlook_event_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -1189,3 +1191,29 @@ export type Brief = typeof briefs.$inferSelect;
 export type InsertBrief = z.infer<typeof insertBriefSchema>;
 export type BriefAttachment = typeof brief_attachments.$inferSelect;
 export type InsertBriefAttachment = z.infer<typeof insertBriefAttachmentSchema>;
+
+// ============================================================
+// FMS Phase 5 — Calendar Sync
+// ============================================================
+
+export const calendar_connections = pgTable("calendar_connections", {
+  id: serial("id").primaryKey(),
+  employerId: integer("employer_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull().$type<"google" | "outlook">(),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token"),
+  tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+  calendarId: text("calendar_id"),
+  connectedAt: timestamp("connected_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const insertCalendarConnectionSchema = createInsertSchema(calendar_connections)
+  .omit({ id: true, connectedAt: true, updatedAt: true })
+  .extend({ employerId: z.number() });
+
+export type CalendarConnection = typeof calendar_connections.$inferSelect;
+export type InsertCalendarConnection = z.infer<typeof insertCalendarConnectionSchema>;

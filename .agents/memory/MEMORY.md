@@ -1,0 +1,1 @@
+- [Calendar OAuth state pattern](calendar-oauth-state.md) — use base64url-encoded state param (not passport session) to pass employerId through OAuth redirects.

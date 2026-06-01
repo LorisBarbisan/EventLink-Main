@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Loader2 } from "lucide-react";
 import { BookingEventPopup } from "./BookingEventPopup";
+import CalendarSyncPanel from "./CalendarSyncPanel";
 
 const locales = { "en-GB": enGB };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
@@ -65,7 +66,9 @@ export function BookingCalendar() {
   };
 
   return (
-    <div className="h-[700px] p-4">
+    <div className="p-4">
+      <CalendarSyncPanel />
+    <div className="h-[700px]">
       {/* Colour legend */}
       <div className="flex flex-wrap gap-3 mb-4">
         {Object.entries(STATUS_COLOURS).map(([status, colour]) => (
@@ -110,6 +113,7 @@ export function BookingCalendar() {
           }}
         />
       )}
+    </div>
     </div>
   );
 }

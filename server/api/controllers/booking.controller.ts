@@ -298,6 +298,13 @@ export async function updateBookingStatus(req: Request, res: Response) {
       note: note ?? null,
     });
 
+    // Non-blocking calendar auto-update
+    import("../services/calendarSync.service.js").then(({ syncSingleBooking }) => {
+      syncSingleBooking(booking.employerId, bookingId).catch((err) =>
+        console.error("Auto calendar sync failed:", err.message)
+      );
+    });
+
     return res.json(updated);
   } catch (error) {
     console.error("updateBookingStatus error:", error);
@@ -342,6 +349,13 @@ export async function updateBookingDetails(req: Request, res: Response) {
       })
       .where(eq(bookings.id, bookingId))
       .returning();
+
+    // Non-blocking calendar auto-update
+    import("../services/calendarSync.service.js").then(({ syncSingleBooking }) => {
+      syncSingleBooking(employerId, bookingId).catch((err) =>
+        console.error("Auto calendar sync (details) failed:", err.message)
+      );
+    });
 
     return res.json(updated);
   } catch (error) {
