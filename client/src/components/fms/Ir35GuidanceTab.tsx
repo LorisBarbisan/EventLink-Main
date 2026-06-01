@@ -114,7 +114,7 @@ export function Ir35GuidanceTab() {
 
         {/* Primary CTA */}
         <a
-          href="https://www.tax.service.gov.uk/check-employment-status-for-tax"
+          href="https://www.tax.service.gov.uk/guidance/check-employment-status-for-tax/start/disclaimer"
           target="_blank"
           rel="noopener noreferrer"
           className="block"
