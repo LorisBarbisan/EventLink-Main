@@ -21,6 +21,8 @@ import { apiRequest } from "@/lib/queryClient";
 import type { Job, JobApplication, JobFormData } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ChevronLeft,
+  ChevronRight,
   Bookmark,
   Briefcase,
   Loader2,
@@ -87,6 +89,13 @@ export default function SimplifiedRecruiterDashboard() {
   const [crewTab, setCrewTab] = useState<"all" | "saved" | "worked">("all");
   const [crewSearch, setCrewSearch] = useState("");
   const [crewLocation, setCrewLocation] = useState("");
+  const [crewSearchPage, setCrewSearchPage] = useState(1);
+
+  const isCrewSearching = !!(crewSearch.trim() || crewLocation.trim());
+
+  useEffect(() => {
+    setCrewSearchPage(1);
+  }, [crewSearch, crewLocation]);
 
   const [jobSearch, setJobSearch] = useState("");
   const [jobStatusFilter, setJobStatusFilter] = useState<"all" | "active" | "private" | "closed">(
@@ -234,16 +243,68 @@ export default function SimplifiedRecruiterDashboard() {
     },
   });
 
-  const crewQueryParams = new URLSearchParams();
-  if (crewTab !== "all") crewQueryParams.set("tab", crewTab);
-  if (crewSearch.trim()) crewQueryParams.set("keyword", crewSearch.trim());
-  if (crewLocation.trim()) crewQueryParams.set("location", crewLocation.trim());
-  const crewQueryString = crewQueryParams.toString();
+  const crewTabQuery = crewTab !== "all" ? `?tab=${crewTab}` : "";
+
+  const { data: savedIds = [] } = useQuery<number[]>({
+    queryKey: ["/api/saved-freelancers"],
+    enabled: !!user?.id && activeTab === "crew",
+  });
+
+  const { data: workedWithCrew = [] } = useQuery<any[]>({
+    queryKey: ["/api/my-crew", "worked"],
+    queryFn: () => apiRequest("/api/my-crew?tab=worked"),
+    enabled: !!user?.id && activeTab === "crew" && isCrewSearching,
+  });
+
+  const workedWithIds = new Set(workedWithCrew.map((f: { user_id: number }) => f.user_id));
 
   const { data: crewFreelancers = [], isLoading: crewLoading } = useQuery<any[]>({
-    queryKey: ["/api/my-crew", crewTab, crewSearch, crewLocation],
-    queryFn: () => apiRequest(`/api/my-crew${crewQueryString ? `?${crewQueryString}` : ""}`),
-    enabled: !!user?.id && activeTab === "crew",
+    queryKey: ["/api/my-crew", crewTab],
+    queryFn: () => apiRequest(`/api/my-crew${crewTabQuery}`),
+    enabled: !!user?.id && activeTab === "crew" && !isCrewSearching,
+  });
+
+  const {
+    data: crewSearchResults,
+    isLoading: crewSearchLoading,
+  } = useQuery({
+    queryKey: ["/api/freelancers/search", crewSearch, crewLocation, crewSearchPage],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (crewSearch.trim()) params.append("keyword", crewSearch.trim());
+      if (crewLocation.trim()) params.append("location", crewLocation.trim());
+      params.append("page", crewSearchPage.toString());
+      params.append("limit", "21");
+
+      const response = await fetch(`/api/freelancers/search?${params}`);
+      if (!response.ok) throw new Error("Failed to search freelancers");
+      return response.json();
+    },
+    enabled: !!user?.id && activeTab === "crew" && isCrewSearching,
+  });
+
+  const crewSearchFreelancers = crewSearchResults?.results ?? [];
+  const crewSearchTotal = crewSearchResults?.total ?? 0;
+  const crewSearchTotalPages = Math.ceil(crewSearchTotal / 21);
+  const displayedCrewFreelancers = isCrewSearching ? crewSearchFreelancers : crewFreelancers;
+  const crewListLoading = isCrewSearching ? crewSearchLoading : crewLoading;
+
+  const saveCrewMutation = useMutation({
+    mutationFn: async (freelancerId: number) => {
+      return apiRequest("/api/saved-freelancers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ freelancerId }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/my-crew"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/saved-freelancers"] });
+      toast({
+        title: "Saved to My Crew",
+        description: "Freelancer saved to your My Crew list.",
+      });
+    },
   });
 
   const unsaveCrewMutation = useMutation({
@@ -695,7 +756,11 @@ export default function SimplifiedRecruiterDashboard() {
         <TabsContent value="crew" className="space-y-6">
           <div>
             <h2 className="text-2xl font-bold">My Crew</h2>
-            <p className="text-muted-foreground">Freelancers you&apos;ve saved or worked with</p>
+            <p className="text-muted-foreground">
+              {isCrewSearching
+                ? "Search all freelancers on EventLink and save them to My Crew."
+                : "Freelancers you've saved or worked with"}
+            </p>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -706,6 +771,7 @@ export default function SimplifiedRecruiterDashboard() {
                   variant={crewTab === tab ? "default" : "outline"}
                   size="sm"
                   onClick={() => setCrewTab(tab)}
+                  disabled={isCrewSearching}
                   className={crewTab === tab ? "bg-orange-500 hover:bg-orange-600" : ""}
                 >
                   {tab === "all" ? "All" : tab === "saved" ? "Saved" : "Worked With"}
@@ -734,17 +800,17 @@ export default function SimplifiedRecruiterDashboard() {
             </div>
           </div>
 
-          {crewLoading ? (
+          {crewListLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
             </div>
-          ) : crewFreelancers.length === 0 ? (
+          ) : displayedCrewFreelancers.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <Users className="mb-4 h-12 w-12 text-muted-foreground" />
                 <h3 className="mb-2 text-lg font-semibold">
-                  {crewSearch.trim() || crewLocation.trim()
-                    ? "No crew members match your search"
+                  {isCrewSearching
+                    ? "No freelancers match your search"
                     : crewTab === "saved"
                       ? "No one saved to My Crew yet"
                       : crewTab === "worked"
@@ -752,15 +818,15 @@ export default function SimplifiedRecruiterDashboard() {
                         : "No crew members yet"}
                 </h3>
                 <p className="max-w-md text-muted-foreground">
-                  {crewSearch.trim() || crewLocation.trim()
+                  {isCrewSearching
                     ? "Try adjusting your search terms or location filter."
                     : crewTab === "saved"
-                      ? "Save freelancers from the Find Crew page to add them to My Crew."
+                      ? "Search above to find freelancers and save them to My Crew."
                       : crewTab === "worked"
                         ? "Hire freelancers through job postings to see them here."
                         : "Save or hire freelancers to start building My Crew."}
                 </p>
-                {crewSearch.trim() || crewLocation.trim() ? (
+                {isCrewSearching ? (
                   <Button
                     variant="outline"
                     className="mt-4"
@@ -772,20 +838,25 @@ export default function SimplifiedRecruiterDashboard() {
                     Clear filters
                   </Button>
                 ) : (
-                  <Button
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => setLocation("/freelancers")}
-                  >
-                    <Search className="mr-2 h-4 w-4" />
-                    Find Crew
-                  </Button>
+                  <p className="mt-4 text-sm text-muted-foreground">
+                    Use the search bar above to find and save freelancers.
+                  </p>
                 )}
               </CardContent>
             </Card>
           ) : (
+            <>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {crewFreelancers.map((freelancer: any) => (
+              {displayedCrewFreelancers.map((freelancer: any) => {
+                const isSaved = isCrewSearching
+                  ? savedIds.includes(freelancer.user_id)
+                  : freelancer.isSaved;
+                const isWorkedWith = isCrewSearching
+                  ? workedWithIds.has(freelancer.user_id)
+                  : freelancer.isWorkedWith;
+                const photoUrl = freelancer.profile_photo_url || freelancer.profile_image_url;
+
+                return (
                 <Card
                   key={freelancer.user_id}
                   className="cursor-pointer transition-shadow hover:shadow-md"
@@ -794,9 +865,9 @@ export default function SimplifiedRecruiterDashboard() {
                   <CardContent className="p-4">
                     <div className="mb-3 flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        {freelancer.profile_image_url ? (
+                        {photoUrl ? (
                           <img
-                            src={freelancer.profile_image_url}
+                            src={photoUrl}
                             alt={`${freelancer.first_name} ${freelancer.last_name}`}
                             className="h-12 w-12 rounded-full object-cover"
                           />
@@ -815,18 +886,23 @@ export default function SimplifiedRecruiterDashboard() {
                         </div>
                       </div>
                       <div className="flex gap-1">
-                        {freelancer.isSaved && (
+                        {(isSaved || isCrewSearching) && (
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-orange-500"
+                            className={`h-8 w-8 ${isSaved ? "text-orange-500" : "text-muted-foreground"}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              unsaveCrewMutation.mutate(freelancer.user_id);
+                              if (isSaved) {
+                                unsaveCrewMutation.mutate(freelancer.user_id);
+                              } else {
+                                saveCrewMutation.mutate(freelancer.user_id);
+                              }
                             }}
-                            title="Remove from My Crew"
+                            disabled={saveCrewMutation.isPending || unsaveCrewMutation.isPending}
+                            title={isSaved ? "Remove from My Crew" : "Save to My Crew"}
                           >
-                            <Bookmark className="h-4 w-4 fill-current" />
+                            <Bookmark className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
                           </Button>
                         )}
                       </div>
@@ -864,17 +940,47 @@ export default function SimplifiedRecruiterDashboard() {
                     )}
 
                     <div className="mt-2 flex gap-1">
-                      {freelancer.isSaved && (
+                      {isSaved && (
                         <Badge className="bg-orange-100 text-xs text-orange-700">Saved</Badge>
                       )}
-                      {freelancer.isWorkedWith && (
+                      {isWorkedWith && (
                         <Badge className="bg-green-100 text-xs text-green-700">Worked With</Badge>
                       )}
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              )})}
             </div>
+
+            {isCrewSearching && crewSearchTotalPages > 1 && (
+              <div className="flex items-center justify-between gap-4 pt-2">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(crewSearchPage - 1) * 21 + 1}–
+                  {Math.min(crewSearchPage * 21, crewSearchTotal)} of {crewSearchTotal} results
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCrewSearchPage((p) => Math.max(1, p - 1))}
+                    disabled={crewSearchPage <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCrewSearchPage((p) => Math.min(crewSearchTotalPages, p + 1))}
+                    disabled={crewSearchPage >= crewSearchTotalPages}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </TabsContent>
 
