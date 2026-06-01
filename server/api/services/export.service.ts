@@ -75,6 +75,9 @@ export async function generateBookingsExcel(data: any[]): Promise<Buffer> {
     { header: "Employer Notes", key: "notes", width: 30 },
     { header: "Attachments", key: "attachments", width: 50 },
     { header: "Booking Created", key: "createdAt", width: 16 },
+    { header: "IR35 Status", key: "ir35Status", width: 16 },
+    { header: "IR35 Assessed", key: "ir35AssessedAt", width: 18 },
+    { header: "IR35 Notes", key: "ir35Notes", width: 30 },
   ];
 
   const headerRow = ws.getRow(1);
@@ -107,6 +110,9 @@ export async function generateBookingsExcel(data: any[]): Promise<Buffer> {
       notes: row.booking.employerNotes ?? "",
       attachments: attachmentUrls.join("\n"),
       createdAt: formatDate(row.booking.createdAt),
+      ir35Status: capitalise((row.booking.ir35Status ?? "not_assessed").replace(/_/g, " ")),
+      ir35AssessedAt: formatDate(row.booking.ir35AssessedAt),
+      ir35Notes: row.booking.ir35Notes ?? "",
     });
   }
 
@@ -241,6 +247,7 @@ export async function generateBookingsCsv(data: any[]): Promise<string> {
     "Freelancer Name", "Freelancer Email", "Role", "Agreed Rate", "Booking Status",
     "Brief Status", "Brief Acknowledged At", "Acknowledgement Note",
     "Employer Notes", "Attachments", "Booking Created",
+    "IR35 Status", "IR35 Assessed", "IR35 Notes",
   ];
   const rows = await Promise.all(
     data.map(async (row) => {
@@ -267,6 +274,9 @@ export async function generateBookingsCsv(data: any[]): Promise<string> {
         row.booking.employerNotes ?? "",
         attachmentUrls.join(" | "),
         formatDate(row.booking.createdAt),
+        capitalise((row.booking.ir35Status ?? "not_assessed").replace(/_/g, " ")),
+        formatDate(row.booking.ir35AssessedAt),
+        row.booking.ir35Notes ?? "",
       ];
     })
   );

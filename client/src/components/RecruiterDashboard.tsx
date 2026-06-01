@@ -8,6 +8,7 @@ import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MyBookings from "@/pages/employer/MyBookings";
 import { BillingPanel } from "./fms/BillingPanel";
+import { Ir35GuidanceTab } from "./fms/Ir35GuidanceTab";
 import { BookingCalendar } from "./fms/BookingCalendar";
 import { EnquiryList } from "./fms/EnquiryList";
 import { ExportButton } from "./fms/ExportButton";
@@ -624,7 +625,7 @@ export default function SimplifiedRecruiterDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 md:grid-cols-9">
+        <TabsList className="grid w-full grid-cols-4 md:grid-cols-10">
           <TabsTrigger value="jobs" className="gap-2">
             My Jobs
             <TabBadge count={roleSpecificCounts.jobs || 0} />
@@ -644,6 +645,7 @@ export default function SimplifiedRecruiterDashboard() {
           </TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="crew">My Crew</TabsTrigger>
+          <TabsTrigger value="ir35">IR35</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="profile">Company Profile</TabsTrigger>
         </TabsList>
@@ -1235,6 +1237,17 @@ export default function SimplifiedRecruiterDashboard() {
             </div>
           </div>
           <EnquiryList />
+        </TabsContent>
+
+        {/* IR35 Tab */}
+        <TabsContent value="ir35" className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold">IR35 Guidance</h2>
+            <p className="text-muted-foreground">
+              UK IR35 guidance, HMRC CEST links, and per-booking status recording
+            </p>
+          </div>
+          <Ir35GuidanceTab />
         </TabsContent>
 
         {/* Billing Tab */}

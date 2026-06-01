@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { BriefStatusBadge } from "@/components/fms/BriefStatusBadge";
+import { Ir35StatusBadge } from "@/components/fms/Ir35StatusBadge";
 import { useSearch } from "wouter";
 
 // ── Types ─────────────────────────────────────────────────
@@ -148,7 +149,10 @@ function BookingCard({
             )}
           </p>
         </div>
-        <StatusBadge status={booking.status} />
+        <div className="flex flex-col items-end gap-1.5">
+          <StatusBadge status={booking.status} />
+          <Ir35StatusBadge status={booking.ir35Status} />
+        </div>
       </div>
 
       {/* Freelancer info */}

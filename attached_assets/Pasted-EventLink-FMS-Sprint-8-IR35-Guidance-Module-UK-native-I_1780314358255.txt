@@ -1,0 +1,395 @@
+EventLink FMS
+Sprint 8 — IR35 Guidance Module
+UK-native IR35 guidance, HMRC CEST links, and per-booking status recording
+Branch: FMS1  |  May 2026  |  Employer-only — freelancers see nothing
+ 
+Overview & Scope
+🇬🇧  Sprint 8 adds IR35 guidance to the EventLink FMS.
+
+WHAT IT IS: An information and guidance resource for UK employers.
+It explains IR35 clearly, links to the correct HMRC pages and the CEST tool,
+and allows employers to record their IR35 determination per booking.
+
+WHAT IT IS NOT: An assessment engine. EventLink does not make IR35
+determinations. It guides employers to the official HMRC tools and helps
+them record the outcome of their own assessment.
+
+SCOPE:
+  — IR35 guidance tab in the FMS section of the employer dashboard
+  — IR35 status field added to each booking record
+  — IR35 status visible on booking cards and included in exports
+  — Freelancers see nothing — employer-only feature
+  — Legal disclaimer on every IR35 screen
+
+DATABASE: One new column added to the bookings table.
+No new tables required.
+
+⚖️  LEGAL DISCLAIMER — must appear on every IR35 screen in the application:
+
+"The information on this page is provided for general guidance only and does not
+constitute legal or tax advice. IR35 status determinations are the responsibility
+of the hiring organisation. EventLink accepts no liability for any determination
+made using this guidance. For definitive advice, consult a qualified tax professional
+or use HMRC's official Check Employment Status for Tax (CEST) tool."
+ 
+Step 1 — Schema Change (shared/schema.ts)
+Add one new column to the existing bookings table. No new tables needed.
+
+⚠️  Find the bookings table definition in shared/schema.ts and add the ir35Status column inside it, after the cancellationReason field.
+
+1.1 — Add ir35Status to bookings table
+// Add inside the bookings table definition:
+ir35Status: text('ir35_status')
+  .$type<'not_assessed' | 'inside' | 'outside' | 'undetermined'>()
+  .default('not_assessed'),
+ir35AssessedAt: timestamp('ir35_assessed_at', { withTimezone: true }),
+ir35Notes: text('ir35_notes'), // Optional employer notes on the determination
+
+1.2 — Update Booking type exports
+The BookingStatus type and Booking type are already inferred from the table. No changes needed to type exports — the new fields will be included automatically.
+
+1.3 — Run migration
+npm run db:push
+
+1.4 — Update spreadsheet export
+The bookings export from Sprint 6 must include the new IR35 fields. Find generateBookingsExcel and generateBookingsCsv in server/api/services/export.service.ts and add these three columns:
+// Add to ws.columns in generateBookingsExcel after the 'Booking Created' column:
+{ header: 'IR35 Status', key: 'ir35Status', width: 16 },
+{ header: 'IR35 Assessed', key: 'ir35AssessedAt', width: 18 },
+{ header: 'IR35 Notes', key: 'ir35Notes', width: 30 },
+
+// Add to each row in generateBookingsExcel:
+ir35Status: capitalise((row.booking.ir35Status ?? 'not_assessed').replace('_', ' ')),
+ir35AssessedAt: formatDate(row.booking.ir35AssessedAt),
+ir35Notes: row.booking.ir35Notes ?? '',
+
+// Add the same three fields to generateBookingsCsv rows in the same positions.
+ 
+Step 2 — Storage Methods (server/storage.ts)
+Add one new storage method for updating the IR35 status on a booking.
+
+2.1 — updateBookingIr35Status
+async updateBookingIr35Status(
+  bookingId: number,
+  employerId: number,
+  ir35Status: 'not_assessed' | 'inside' | 'outside' | 'undetermined',
+  ir35Notes?: string | null
+) {
+  // Verify employer owns this booking
+  const [booking] = await db.select().from(bookings)
+    .where(and(
+      eq(bookings.id, bookingId),
+      eq(bookings.employerId, employerId)
+    ));
+  if (!booking) throw new Error('Booking not found or not owned by employer');
+  const [updated] = await db.update(bookings).set({
+    ir35Status,
+    ir35Notes: ir35Notes ?? null,
+    ir35AssessedAt: ir35Status !== 'not_assessed' ? new Date() : null,
+    updatedAt: new Date(),
+  }).where(eq(bookings.id, bookingId)).returning();
+  return updated;
+},
+ 
+Step 3 — Controller & Route
+
+3.1 — Add to booking.controller.ts
+export const updateIr35Status = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const bookingId = parseInt(req.params.bookingId);
+    if (isNaN(bookingId)) return res.status(400).json({ error: 'Invalid booking ID' });
+    const { ir35Status, ir35Notes } = req.body;
+    const validStatuses = ['not_assessed', 'inside', 'outside', 'undetermined'];
+    if (!validStatuses.includes(ir35Status)) {
+      return res.status(400).json({ error: 'Invalid IR35 status' });
+    }
+    const updated = await storage.updateBookingIr35Status(
+      bookingId, employerId, ir35Status, ir35Notes
+    );
+    return res.json(updated);
+  } catch (err: any) {
+    console.error('updateIr35Status error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+3.2 — Add to booking.route.ts
+// Add this import:
+import { updateIr35Status } from '../controllers/booking.controller.js';
+
+// Add this route (requires FMS access):
+bookingRouter.patch(
+  '/:bookingId/ir35',
+  requireAuth,
+  requireRole('recruiter'),
+  requireFmsAccess,
+  updateIr35Status
+);
+ 
+Step 4 — IR35 Guidance Content
+The following is the exact content to be displayed in the IR35 guidance tab. It must be hardcoded as static content — no CMS or database needed. All HMRC links open in a new tab.
+
+⚠️  All external links must use target='_blank' rel='noopener noreferrer'. Never open HMRC links in the same tab.
+
+Section 1 — What is IR35?
+Display this content verbatim in the guidance tab:
+
+HEADING: What is IR35?
+
+IR35 is UK tax legislation that determines whether a contractor or freelancer
+should be treated as an employee for tax purposes, even when they work through
+a limited company or as a self-employed individual.
+
+If a freelancer is found to be 'inside IR35', the hiring organisation is responsible
+for deducting Income Tax and National Insurance contributions from their pay,
+just as they would for an employee.
+
+If a freelancer is 'outside IR35', they manage their own tax affairs and the
+hiring organisation has no additional tax obligations beyond paying their agreed fee.
+
+Since April 2021, medium and large private sector organisations bear the
+responsibility for making IR35 determinations — not the freelancer.
+Small companies are currently exempt, but should still be aware of the rules.
+
+Section 2 — Your Responsibilities
+HEADING: Your Responsibilities as an Employer
+
+As the organisation engaging a freelancer, you are responsible for:
+
+  1. Assessing whether each engagement falls inside or outside IR35
+  2. Providing a Status Determination Statement (SDS) to the freelancer
+  3. Deducting and paying Income Tax and NICs if the engagement is inside IR35
+  4. Keeping records of your determinations
+
+The HMRC Check Employment Status for Tax (CEST) tool is the recommended
+starting point for making a determination. HMRC will stand behind CEST results
+provided the information entered is accurate and the tool is used correctly.
+
+If you are a small company (fewer than 50 employees, annual turnover under £10.2m,
+and balance sheet under £5.1m — two of three must apply), the off-payroll
+working rules currently do not apply to you, but best practice is still to
+assess and document each engagement.
+
+Section 3 — HMRC Links
+Display these as styled link cards, each opening in a new tab:
+
+LINK 1 — Primary action button (orange):
+  Label: 'Use HMRC CEST Tool'
+  URL: https://www.tax.service.gov.uk/check-employment-status-for-tax
+  Description: 'HMRC's official tool to check employment status for tax purposes.'
+
+LINK 2 — Secondary card:
+  Label: 'IR35 and Off-Payroll Working — HMRC Guidance'
+  URL: https://www.gov.uk/guidance/understanding-off-payroll-working-ir35
+  Description: 'Official government guidance on IR35 and off-payroll working rules.'
+
+LINK 3 — Secondary card:
+  Label: 'Status Determination Statements'
+  URL: https://www.gov.uk/guidance/status-determination-statements
+  Description: 'How to provide a Status Determination Statement to your contractor.'
+
+LINK 4 — Secondary card:
+  Label: 'Employment Status for Tax — Overview'
+  URL: https://www.gov.uk/employment-status
+  Description: 'General overview of employment status and its tax implications.'
+
+LINK 5 — Secondary card:
+  Label: 'Small Companies Exemption'
+  URL: https://www.gov.uk/guidance/april-2021-changes-to-off-payroll-working-for-clients
+  Description: 'Information on which companies are exempt from the off-payroll rules.'
+
+Section 4 — IR35 Status per Booking
+Below the guidance content, display a table of all the employer's confirmed and completed bookings with their IR35 status. This section has a heading:
+HEADING: Record IR35 Status per Booking
+
+After using the CEST tool, record the outcome for each booking below.
+This helps you maintain an audit trail of your determinations.
+
+Note: This record is for your internal use only.
+EventLink does not share IR35 status information with freelancers.
+ 
+Step 5 — React Components
+
+5.1 — Ir35GuidanceTab.tsx (client/src/components/fms/Ir35GuidanceTab.tsx)
+The main IR35 guidance component rendered inside the employer dashboard.
+
+// No props — self-contained component
+// No data fetching needed for the guidance content — it is static
+// The booking IR35 status section fetches bookings separately (see 5.2)
+
+// Layout (top to bottom):
+
+// 1. LEGAL DISCLAIMER BANNER
+//    Amber/yellow background box at the very top
+//    Icon: AlertTriangle from lucide-react
+//    Text: The full disclaimer from the spec cover page
+//    This banner must ALWAYS be the first element visible
+
+// 2. WHAT IS IR35 SECTION
+//    Card with the content from Step 4 Section 1
+//    Clean typography, no heavy styling
+
+// 3. YOUR RESPONSIBILITIES SECTION
+//    Card with numbered list from Step 4 Section 2
+//    Numbered items styled as clear steps
+
+// 4. HMRC LINKS SECTION
+//    Heading: 'Official HMRC Resources'
+//    Primary CTA: Large orange button — 'Use HMRC CEST Tool'
+//    Opens: https://www.tax.service.gov.uk/check-employment-status-for-tax
+//    target='_blank' rel='noopener noreferrer'
+//
+//    Four secondary link cards in a 2x2 grid (stacked on mobile):
+//    Each card: external link icon + label + description
+//    All open in new tab
+
+// 5. BOOKING IR35 STATUS TABLE
+//    See component 5.2 below — render <Ir35BookingTable /> here
+
+// 6. FOOTER DISCLAIMER
+//    Repeat the disclaimer in smaller text at the very bottom
+//    'This information is provided for guidance only and does not constitute
+//     legal or tax advice.'
+
+5.2 — Ir35BookingTable.tsx (client/src/components/fms/Ir35BookingTable.tsx)
+A table of all confirmed and completed bookings with an IR35 status selector per row. Allows the employer to record their determination after using CEST.
+
+// Data fetching:
+// useQuery(['/api/bookings/calendar'],
+//   () => apiRequest('/api/bookings/calendar'))
+// Filter to only show bookings with status: confirmed, briefed, or completed
+
+// For each booking, render a table row with:
+//   Col 1: Event date (DD/MM/YYYY)
+//   Col 2: Freelancer name
+//   Col 3: Role
+//   Col 4: Booking status badge
+//   Col 5: IR35 Status selector (Select component)
+//     Options:
+//       'Not assessed' (value: not_assessed) — default, grey
+//       'Outside IR35' (value: outside) — green
+//       'Inside IR35' (value: inside) — red
+//       'Undetermined' (value: undetermined) — amber
+//   Col 6: Notes (small editable text input, optional)
+//   Col 7: Save button — only visible when status or notes has changed
+//           Calls PATCH /api/bookings/:bookingId/ir35
+//           Shows spinner while saving, checkmark on success
+
+// IR35 status colour coding:
+const IR35_COLOURS = {
+  not_assessed: { bg: '#F3F4F6', text: '#6B7280', label: 'Not assessed' },
+  outside:      { bg: '#D4EDDA', text: '#1A6B3C', label: 'Outside IR35' },
+  inside:       { bg: '#FDECEA', text: '#DC2626', label: 'Inside IR35' },
+  undetermined: { bg: '#FFF3CD', text: '#856404', label: 'Undetermined' },
+};
+
+// Save mutation:
+const ir35Mutation = useMutation({
+  mutationFn: ({ bookingId, ir35Status, ir35Notes }: {
+    bookingId: number;
+    ir35Status: string;
+    ir35Notes?: string;
+  }) => apiRequest(`/api/bookings/${bookingId}/ir35`, {
+    method: 'PATCH',
+    body: JSON.stringify({ ir35Status, ir35Notes }),
+  }),
+  onSuccess: () => {
+    toast({ title: 'IR35 status saved' });
+    queryClient.invalidateQueries({ queryKey: ['/api/bookings/calendar'] });
+  },
+  onError: () => toast({ title: 'Failed to save IR35 status', variant: 'destructive' }),
+});
+
+// Empty state (no confirmed/completed bookings):
+// 'No confirmed bookings yet. IR35 status can be recorded once a booking is confirmed.'
+
+// Mobile: table scrolls horizontally — use overflow-x-auto wrapper
+
+5.3 — Ir35StatusBadge.tsx (client/src/components/fms/Ir35StatusBadge.tsx)
+A small reusable badge showing the IR35 status of a booking. Used on booking cards.
+
+// Props:
+//   status: 'not_assessed' | 'inside' | 'outside' | 'undetermined'
+//   showLabel?: boolean — default true
+
+// Only render when status is NOT 'not_assessed'
+// When status is 'not_assessed', render nothing (return null)
+
+// Render a small Badge with the IR35_COLOURS from Ir35BookingTable
+// Label format: 'IR35: Outside' / 'IR35: Inside' / 'IR35: Undetermined'
+
+// Add Ir35StatusBadge to each booking card in the employer's bookings list:
+// {booking.ir35Status && booking.ir35Status !== 'not_assessed' && (
+//   <Ir35StatusBadge status={booking.ir35Status} />
+// )}
+
+5.4 — Add IR35 tab to employer dashboard
+// In the employer dashboard tabs component:
+// Add import:
+import { Ir35GuidanceTab } from '../components/fms/Ir35GuidanceTab';
+
+// Add tab trigger — place after the Availability tab:
+// <TabsTrigger value='ir35'>
+//   <Scale className='mr-2 h-4 w-4' />
+//   IR35
+// </TabsTrigger>
+
+// Add tab content:
+// <TabsContent value='ir35'>
+//   <Ir35GuidanceTab />
+// </TabsContent>
+
+// Import Scale icon from lucide-react
+
+// Also support URL tab navigation:
+// /dashboard?tab=ir35 should open the IR35 tab directly
+ 
+Step 6 — Completion Checklist
+✔  Test every item below before marking Sprint 8 complete.
+
+Database & API
+•	npm run db:push completed — ir35_status, ir35_assessed_at, ir35_notes columns added to bookings
+•	PATCH /api/bookings/:bookingId/ir35 updates IR35 status and notes correctly
+•	Invalid status values return 400
+•	Employers cannot update IR35 status on bookings they do not own
+•	ir35AssessedAt is set when status is changed from not_assessed
+•	ir35AssessedAt is cleared when status is set back to not_assessed
+
+Exports
+•	Bookings Excel export includes IR35 Status, IR35 Assessed, and IR35 Notes columns
+•	Bookings CSV export includes the same three columns
+•	IR35 status displays as readable text: 'Outside IR35' not 'outside'
+
+IR35 Guidance Tab
+•	IR35 tab appears in employer dashboard
+•	Legal disclaimer banner appears at the very top — always visible
+•	What is IR35 section displays correctly
+•	Your Responsibilities section displays with numbered steps
+•	HMRC CEST Tool button is prominent and orange
+•	All five HMRC links open in a new tab
+•	No HMRC links open in the same tab
+
+Booking IR35 Status Table
+•	Table shows all confirmed, briefed, and completed bookings
+•	Pending and cancelled bookings are not shown
+•	IR35 status selector defaults to 'Not assessed'
+•	Changing the selector reveals the Save button
+•	Save button calls the correct API and shows success feedback
+•	Status colours apply correctly: green for outside, red for inside, amber for undetermined
+•	Optional notes field saves alongside the status
+•	Table is scrollable on mobile
+
+Booking Cards
+•	Ir35StatusBadge appears on booking cards where status is not 'not_assessed'
+•	Badge does not appear when status is 'not_assessed'
+•	Badge colours match the IR35 colour scheme
+
+Legal & Content
+•	Disclaimer text matches the spec exactly — no paraphrasing
+•	Disclaimer appears both at the top and bottom of the guidance tab
+•	All HMRC URLs are correct and link to live HMRC pages
+•	Content is factually accurate and up to date as of 2025/26
+
+EventLink FMS — Sprint 8 Spec — May 2026

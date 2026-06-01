@@ -421,6 +421,32 @@ export async function getBookingsForCalendar(req: Request, res: Response) {
   }
 }
 
+// ── Update IR35 status for a booking (employer only) ──────
+export const updateIr35Status = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
+    const bookingId = parseInt(req.params.bookingId);
+    if (isNaN(bookingId)) return res.status(400).json({ error: "Invalid booking ID" });
+    const { ir35Status, ir35Notes } = req.body;
+    const validStatuses = ["not_assessed", "inside", "outside", "undetermined"];
+    if (!validStatuses.includes(ir35Status)) {
+      return res.status(400).json({ error: "Invalid IR35 status" });
+    }
+    const updated = await storage.updateBookingIr35Status(
+      bookingId,
+      employerId,
+      ir35Status,
+      ir35Notes
+    );
+    return res.json(updated);
+  } catch (err: any) {
+    console.error("updateIr35Status error:", err.message);
+    if (err.message?.includes("not found")) return res.status(404).json({ error: err.message });
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 // ── Dashboard summary counts (employer) ───────────────────
 export async function getBookingsSummary(req: Request, res: Response) {
   try {

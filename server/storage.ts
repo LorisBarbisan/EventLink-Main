@@ -5251,6 +5251,30 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async updateBookingIr35Status(
+    bookingId: number,
+    employerId: number,
+    ir35Status: "not_assessed" | "inside" | "outside" | "undetermined",
+    ir35Notes?: string | null
+  ) {
+    const [booking] = await db
+      .select()
+      .from(bookings)
+      .where(and(eq(bookings.id, bookingId), eq(bookings.employerId, employerId)));
+    if (!booking) throw new Error("Booking not found or not owned by employer");
+    const [updated] = await db
+      .update(bookings)
+      .set({
+        ir35Status,
+        ir35Notes: ir35Notes ?? null,
+        ir35AssessedAt: ir35Status !== "not_assessed" ? new Date() : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, bookingId))
+      .returning();
+    return updated;
+  }
+
   async getAvailabilityForExport(employerId: number, dateFrom?: string, dateTo?: string) {
     const conditions: any[] = [eq(availability_enquiries.employerId, employerId)];
     if (dateFrom) conditions.push(gte(availability_enquiries.eventDate, dateFrom));

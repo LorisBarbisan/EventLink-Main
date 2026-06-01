@@ -11,6 +11,7 @@ import {
   createBooking,
   getEmployerBookings,
   getFreelancerBookings,
+  updateIr35Status,
   getBookingById,
   updateBookingStatus,
   updateBookingDetails,
@@ -30,6 +31,7 @@ router.get("/employer/summary", requireRole("employer"), requireFmsAccess, getBo
 router.get("/job/:jobId", requireRole("employer"), requireFmsAccess, getBookingsByJob);
 router.post("/", requireRole("employer"), requireFmsAccess, createBooking);
 router.patch("/:id/details", requireRole("employer"), requireFmsAccess, updateBookingDetails);
+router.patch("/:bookingId/ir35", requireRole("recruiter"), requireFmsAccess, updateIr35Status);
 
 // ── Freelancer routes ─────────────────────────────────────
 router.get("/freelancer", requireRole("freelancer"), getFreelancerBookings);

@@ -988,6 +988,11 @@ export const bookings = pgTable("bookings", {
   cancelledBy: text("cancelled_by"),
   googleEventId: text("google_event_id"),
   outlookEventId: text("outlook_event_id"),
+  ir35Status: text("ir35_status")
+    .$type<"not_assessed" | "inside" | "outside" | "undetermined">()
+    .default("not_assessed"),
+  ir35AssessedAt: timestamp("ir35_assessed_at", { withTimezone: true }),
+  ir35Notes: text("ir35_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
