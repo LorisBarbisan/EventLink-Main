@@ -794,11 +794,11 @@ export default function SimplifiedRecruiterDashboard() {
                   <CardContent className="p-4">
                     <div className="mb-3 flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        {freelancer.profile_image_url ? (
+                        {freelancer.profile_photo_url ? (
                           <img
-                            src={freelancer.profile_image_url}
+                            src={freelancer.profile_photo_url}
                             alt={`${freelancer.first_name} ${freelancer.last_name}`}
-                            className="h-12 w-12 rounded-full object-cover"
+                            className="h-12 w-12 rounded-full bg-white object-cover"
                           />
                         ) : (
                           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">

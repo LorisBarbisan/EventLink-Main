@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -111,6 +111,17 @@ export const UserMenu = () => {
       .toUpperCase();
   };
 
+  const getAvatarUrl = (): string | undefined => {
+    if (!profile) return undefined;
+    const p = profile as any;
+    const url =
+      user.role === "recruiter" ? p.company_logo_url : p.profile_photo_url;
+    if (url && typeof url === "string" && url.trim() !== "" && url !== "null") {
+      return url;
+    }
+    return undefined;
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -120,6 +131,7 @@ export const UserMenu = () => {
           data-testid="button-user-menu"
         >
           <Avatar className="h-8 w-8">
+            {getAvatarUrl() && <AvatarImage src={getAvatarUrl()} alt={getDisplayName()} />}
             <AvatarFallback>{getInitials()}</AvatarFallback>
           </Avatar>
         </Button>
