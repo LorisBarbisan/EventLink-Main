@@ -88,6 +88,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  lte,
   ne,
   or,
   sql,
@@ -5183,6 +5184,95 @@ export class DatabaseStorage implements IStorage {
       .returning();
     if (!deleted) throw new Error('Template not found or not owned by employer');
     return deleted;
+  }
+
+  // ── FMS Phase 6 — Export Methods ──────────────────────────
+
+  async getBookingsForExport(employerId: number, dateFrom?: string, dateTo?: string) {
+    const conditions: any[] = [eq(bookings.employerId, employerId)];
+    if (dateFrom) conditions.push(gte(bookings.eventDate, dateFrom));
+    if (dateTo) conditions.push(lte(bookings.eventDate, dateTo));
+
+    const results = await db
+      .select({
+        booking: bookings,
+        freelancerEmail: users.email,
+        freelancerFirstName: users.first_name,
+        freelancerLastName: users.last_name,
+        freelancerTitle: freelancer_profiles.title,
+        jobTitle: jobs.title,
+      })
+      .from(bookings)
+      .leftJoin(users, eq(bookings.freelancerId, users.id))
+      .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
+      .leftJoin(jobs, eq(bookings.jobId, jobs.id))
+      .where(and(...conditions))
+      .orderBy(bookings.eventDate);
+
+    return Promise.all(results.map(async (r) => {
+      const brief = await db.select().from(briefs)
+        .where(eq(briefs.bookingId, r.booking.id))
+        .then(rows => rows[0] ?? null);
+      const attachments = brief
+        ? await db.select().from(brief_attachments).where(eq(brief_attachments.briefId, brief.id))
+        : [];
+      return { ...r, brief, attachments };
+    }));
+  }
+
+  async getCrewListForExport(employerId: number) {
+    const bookedFreelancers = await db
+      .selectDistinct({ freelancerId: bookings.freelancerId })
+      .from(bookings)
+      .where(eq(bookings.employerId, employerId));
+
+    return Promise.all(bookedFreelancers.map(async ({ freelancerId }) => {
+      const user = await this.getUser(freelancerId);
+      const profile = await this.getFreelancerProfile(freelancerId);
+      const bookingStats = await db
+        .select({
+          count: sql<number>`COUNT(*)`,
+          lastBooked: sql<string>`MAX(${bookings.createdAt})`,
+        })
+        .from(bookings)
+        .where(and(eq(bookings.employerId, employerId), eq(bookings.freelancerId, freelancerId)));
+      const ratingStats = await db
+        .select({ avg: sql<number>`AVG(${ratings.rating})` })
+        .from(ratings)
+        .where(and(eq(ratings.freelancerId, freelancerId), eq(ratings.recruiterId, employerId)));
+      return {
+        user,
+        profile,
+        totalBookings: Number(bookingStats[0]?.count ?? 0),
+        lastBooked: bookingStats[0]?.lastBooked ?? null,
+        avgRating: ratingStats[0]?.avg ? Number(ratingStats[0].avg).toFixed(1) : null,
+      };
+    }));
+  }
+
+  async getAvailabilityForExport(employerId: number, dateFrom?: string, dateTo?: string) {
+    const conditions: any[] = [eq(availability_enquiries.employerId, employerId)];
+    if (dateFrom) conditions.push(gte(availability_enquiries.eventDate, dateFrom));
+    if (dateTo) conditions.push(lte(availability_enquiries.eventDate, dateTo));
+
+    const enquiries = await db
+      .select()
+      .from(availability_enquiries)
+      .where(and(...conditions))
+      .orderBy(availability_enquiries.eventDate);
+
+    return Promise.all(enquiries.map(async (enq) => {
+      const responses = await db.select().from(availability_responses)
+        .where(eq(availability_responses.enquiryId, enq.id));
+      return {
+        ...enq,
+        total: responses.length,
+        yes: responses.filter(r => r.response === 'yes').length,
+        maybe: responses.filter(r => r.response === 'maybe').length,
+        no: responses.filter(r => r.response === 'no').length,
+        pending: responses.filter(r => r.response === null).length,
+      };
+    }));
   }
 }
 

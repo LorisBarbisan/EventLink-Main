@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MyBookings from "@/pages/employer/MyBookings";
 import { BookingCalendar } from "./fms/BookingCalendar";
 import { EnquiryList } from "./fms/EnquiryList";
+import { ExportButton } from "./fms/ExportButton";
 import { SendEnquiryModal } from "./fms/SendEnquiryModal";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -611,11 +612,14 @@ export default function SimplifiedRecruiterDashboard() {
 
   return (
     <div className="container mx-auto max-w-full min-w-0 px-1 py-4 sm:px-6 sm:py-6">
-      <div className="mb-4 px-3 sm:px-0">
-        <h1 className="text-2xl font-bold sm:text-3xl">Employer Dashboard</h1>
-        <p className="text-sm text-muted-foreground sm:text-base">
-          Manage your company profile, job postings, and applications
-        </p>
+      <div className="mb-4 px-3 sm:px-0 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold sm:text-3xl">Employer Dashboard</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
+            Manage your company profile, job postings, and applications
+          </p>
+        </div>
+        <ExportButton />
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">

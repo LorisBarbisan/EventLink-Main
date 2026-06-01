@@ -1,0 +1,781 @@
+EventLink FMS
+Sprint 6 — Spreadsheet Export
+Export bookings, crew lists, and availability data to Excel and CSV
+Branch: FMS1  |  May 2026  |  No new database tables required
+ 
+Overview & Behaviour
+📊  Sprint 6 adds a data export system accessible from a dedicated Export button
+in the employer dashboard header. A dropdown menu offers three export types,
+each available in Excel (.xlsx) and CSV formats.
+
+EXPORT TYPES:
+  1. Bookings Export — all booking records with full details and attachment links
+  2. Crew List Export — unique freelancers the employer has booked
+  3. Availability Export — all availability enquiries with response summaries
+
+DATE RANGE FILTER: Before downloading, employer selects a date range.
+Filter applies to event date for bookings and availability exports.
+Crew list is not filtered by date — it always exports all unique crew.
+
+ATTACHMENT LINKS: Bookings export includes a column with signed 24-hour
+GCS download URLs for any files attached to the booking via the brief system.
+
+FORMAT: Excel files are generated server-side using the exceljs library,
+which is already installed in the project. CSV files are generated as plain text.
+
+No new database tables. No schema changes. No db:push needed.
+ 
+Export Column Definitions
+The following tables define the exact columns in each export type. Column headers must match exactly as shown — these are what employers will see in Excel.
+
+Bookings Export Columns
+Column Header	Source Field	Notes
+Booking ID	bookings.id	
+Event Title	jobs.title or bookings.employerNotes	Use job title if linked, else notes
+Event Date	bookings.eventDate	Format: DD/MM/YYYY
+Call Time	bookings.callTime	Format: HH:MM, blank if not set
+Venue	bookings.venueAddress	
+Freelancer Name	users.first_name + last_name	Joined from users table
+Freelancer Email	users.email	
+Role	freelancer_profiles.title	
+Agreed Rate	bookings.agreedRate	
+Booking Status	bookings.status	Capitalised: Confirmed, Briefed etc.
+Brief Status	briefs.status	'Sent', 'Acknowledged', or 'Not sent'
+Brief Acknowledged At	briefs.acknowledgedAt	Format: DD/MM/YYYY HH:MM, blank if not ack.
+Acknowledgement Note	briefs.acknowledgementNote	Freelancer's optional message
+Employer Notes	bookings.employerNotes	
+Attachments	brief_attachments	Comma-separated signed download URLs, 24hr TTL
+Booking Created	bookings.createdAt	Format: DD/MM/YYYY
+
+Crew List Export Columns
+Column Header	Source Field	Notes
+Freelancer Name	users.first_name + last_name	
+Email	users.email	
+Phone	freelancer_profiles (if available)	May be blank
+Title / Role	freelancer_profiles.title	
+Location	freelancer_profiles.location	
+Skills	freelancer_profiles.skills	Comma-separated array
+Total Bookings	COUNT(bookings)	Total bookings with this employer
+Last Booked	MAX(bookings.createdAt)	Format: DD/MM/YYYY
+Avg Rating	AVG(ratings.rating)	From ratings table, 1dp, blank if no ratings
+Profile URL	freelancer_profiles.slug	https://eventlink.one/profile/{slug}
+
+Availability Export Columns
+Column Header	Source Field	Notes
+Enquiry ID	availability_enquiries.id	
+Event Title	availability_enquiries.eventTitle	
+Event Date	availability_enquiries.eventDate	Format: DD/MM/YYYY
+Role Required	availability_enquiries.roleRequired	
+Venue	availability_enquiries.venueAddress	
+Rate	availability_enquiries.agreedRate	
+Enquiry Status	availability_enquiries.status	Active / Closed / Archived
+Total Sent	COUNT(availability_responses)	
+Yes	COUNT where response = yes	
+Maybe	COUNT where response = maybe	
+No	COUNT where response = no	
+Pending	COUNT where response = null	
+Sent At	availability_enquiries.createdAt	Format: DD/MM/YYYY
+ 
+Step 1 — Storage Methods (server/storage.ts)
+Add these three data-gathering methods to server/storage.ts. They return raw data that the export service formats into rows. Add them after the existing FMS methods.
+
+1.1 — getBookingsForExport
+async getBookingsForExport(employerId: number, dateFrom?: string, dateTo?: string) {
+  // Build where conditions
+  const conditions = [eq(bookings.employerId, employerId)];
+  if (dateFrom) conditions.push(gte(bookings.eventDate, dateFrom));
+  if (dateTo) conditions.push(lte(bookings.eventDate, dateTo));
+
+  const results = await db
+    .select({
+      booking: bookings,
+      freelancerEmail: users.email,
+      freelancerFirstName: users.first_name,
+      freelancerLastName: users.last_name,
+      freelancerTitle: freelancer_profiles.title,
+      jobTitle: jobs.title,
+    })
+    .from(bookings)
+    .leftJoin(users, eq(bookings.freelancerId, users.id))
+    .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
+    .leftJoin(jobs, eq(bookings.jobId, jobs.id))
+    .where(and(...conditions))
+    .orderBy(bookings.eventDate);
+
+  // Attach brief and attachments for each booking
+  return Promise.all(results.map(async (r) => {
+    const brief = await db.select().from(briefs)
+      .where(eq(briefs.bookingId, r.booking.id)).then(rows => rows[0] ?? null);
+    const attachments = brief
+      ? await db.select().from(brief_attachments)
+          .where(eq(brief_attachments.briefId, brief.id))
+      : [];
+    return { ...r, brief, attachments };
+  }));
+},
+
+1.2 — getCrewListForExport
+async getCrewListForExport(employerId: number) {
+  // Get all unique freelancers this employer has ever booked
+  const bookedFreelancers = await db
+    .selectDistinct({ freelancerId: bookings.freelancerId })
+    .from(bookings)
+    .where(eq(bookings.employerId, employerId));
+
+  return Promise.all(bookedFreelancers.map(async ({ freelancerId }) => {
+    const user = await this.getUser(freelancerId);
+    const profile = await this.getFreelancerProfile(freelancerId);
+    // Count bookings and get last booked date
+    const bookingStats = await db
+      .select({
+        count: sql<number>`COUNT(*)`,
+        lastBooked: sql<string>`MAX(${bookings.createdAt})`,
+      })
+      .from(bookings)
+      .where(and(
+        eq(bookings.employerId, employerId),
+        eq(bookings.freelancerId, freelancerId)
+      ));
+    // Get average rating
+    const ratingStats = await db
+      .select({ avg: sql<number>`AVG(${ratings.rating})` })
+      .from(ratings)
+      .where(and(
+        eq(ratings.freelancerId, freelancerId),
+        eq(ratings.recruiterId, employerId)
+      ));
+    return {
+      user,
+      profile,
+      totalBookings: Number(bookingStats[0]?.count ?? 0),
+      lastBooked: bookingStats[0]?.lastBooked ?? null,
+      avgRating: ratingStats[0]?.avg ? Number(ratingStats[0].avg).toFixed(1) : null,
+    };
+  }));
+},
+
+1.3 — getAvailabilityForExport
+async getAvailabilityForExport(employerId: number, dateFrom?: string, dateTo?: string) {
+  const conditions = [eq(availability_enquiries.employerId, employerId)];
+  if (dateFrom) conditions.push(gte(availability_enquiries.eventDate, dateFrom));
+  if (dateTo) conditions.push(lte(availability_enquiries.eventDate, dateTo));
+
+  const enquiries = await db.select().from(availability_enquiries)
+    .where(and(...conditions))
+    .orderBy(availability_enquiries.eventDate);
+
+  return Promise.all(enquiries.map(async (enq) => {
+    const responses = await db.select().from(availability_responses)
+      .where(eq(availability_responses.enquiryId, enq.id));
+    return {
+      ...enq,
+      total: responses.length,
+      yes: responses.filter(r => r.response === 'yes').length,
+      maybe: responses.filter(r => r.response === 'maybe').length,
+      no: responses.filter(r => r.response === 'no').length,
+      pending: responses.filter(r => r.response === null).length,
+    };
+  }));
+},
+
+⚠️  Add these imports to storage.ts if not already present: import { gte, lte, sql } from 'drizzle-orm'; and import { briefs, brief_attachments, ratings } from '../shared/schema.js'
+ 
+Step 2 — Export Service (server/api/services/export.service.ts)
+Create this file. It takes raw data from storage methods and generates Excel or CSV files. It uses exceljs which is already installed in the project.
+
+⚠️  exceljs is already in package.json. Verify with: grep exceljs package.json. Do not install it again.
+
+2.1 — Date formatting helper
+import ExcelJS from 'exceljs';
+import { ObjectStorageService } from '../utils/object-storage.js';
+
+function formatDate(val: string | Date | null | undefined): string {
+  if (!val) return '';
+  const d = typeof val === 'string' ? new Date(val) : val;
+  if (isNaN(d.getTime())) return String(val);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function formatDateTime(val: string | Date | null | undefined): string {
+  if (!val) return '';
+  const d = typeof val === 'string' ? new Date(val) : val;
+  if (isNaN(d.getTime())) return '';
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  return `${formatDate(d)} ${hours}:${mins}`;
+}
+
+function capitalise(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+2.2 — generateBookingsExcel
+export async function generateBookingsExcel(data: any[]): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'EventLink FMS';
+  wb.created = new Date();
+  const ws = wb.addWorksheet('Bookings');
+
+  // Define columns with widths
+  ws.columns = [
+    { header: 'Booking ID', key: 'id', width: 12 },
+    { header: 'Event Title', key: 'eventTitle', width: 30 },
+    { header: 'Event Date', key: 'eventDate', width: 14 },
+    { header: 'Call Time', key: 'callTime', width: 12 },
+    { header: 'Venue', key: 'venue', width: 30 },
+    { header: 'Freelancer Name', key: 'freelancerName', width: 24 },
+    { header: 'Freelancer Email', key: 'freelancerEmail', width: 30 },
+    { header: 'Role', key: 'role', width: 20 },
+    { header: 'Agreed Rate', key: 'rate', width: 14 },
+    { header: 'Booking Status', key: 'status', width: 16 },
+    { header: 'Brief Status', key: 'briefStatus', width: 16 },
+    { header: 'Brief Acknowledged At', key: 'acknowledgedAt', width: 22 },
+    { header: 'Acknowledgement Note', key: 'ackNote', width: 30 },
+    { header: 'Employer Notes', key: 'notes', width: 30 },
+    { header: 'Attachments', key: 'attachments', width: 50 },
+    { header: 'Booking Created', key: 'createdAt', width: 16 },
+  ];
+
+  // Style header row
+  const headerRow = ws.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+  headerRow.alignment = { vertical: 'middle' };
+  headerRow.height = 20;
+
+  // Generate signed attachment URLs and add rows
+  for (const row of data) {
+    // Generate signed 24hr download URLs for attachments
+    const attachmentUrls: string[] = [];
+    for (const att of (row.attachments ?? [])) {
+      try {
+        const url = await ObjectStorageService.getDownloadUrl(att.objectPath);
+        attachmentUrls.push(`${att.originalFilename}: ${url}`);
+      } catch {
+        attachmentUrls.push(`${att.originalFilename}: (unavailable)`);
+      }
+    }
+    const briefStatus = !row.brief ? 'Not sent'
+      : row.brief.status === 'acknowledged' ? 'Acknowledged' : 'Sent';
+    ws.addRow({
+      id: row.booking.id,
+      eventTitle: row.jobTitle ?? row.booking.employerNotes ?? '',
+      eventDate: formatDate(row.booking.eventDate),
+      callTime: row.booking.callTime ?? '',
+      venue: row.booking.venueAddress ?? '',
+      freelancerName: `${row.freelancerFirstName ?? ''} ${row.freelancerLastName ?? ''}`.trim(),
+      freelancerEmail: row.freelancerEmail ?? '',
+      role: row.freelancerTitle ?? '',
+      rate: row.booking.agreedRate ?? '',
+      status: capitalise(row.booking.status),
+      briefStatus,
+      acknowledgedAt: formatDateTime(row.brief?.acknowledgedAt),
+      ackNote: row.brief?.acknowledgementNote ?? '',
+      notes: row.booking.employerNotes ?? '',
+      attachments: attachmentUrls.join('\n'),
+      createdAt: formatDate(row.booking.createdAt),
+    });
+  }
+
+  // Alternate row shading
+  ws.eachRow((row, rowNum) => {
+    if (rowNum > 1 && rowNum % 2 === 0) {
+      row.eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+      });
+    }
+    row.alignment = { wrapText: true, vertical: 'top' };
+  });
+
+  // Freeze header row
+  ws.views = [{ state: 'frozen', ySplit: 1 }];
+
+  return wb.xlsx.writeBuffer() as Promise<Buffer>;
+}
+
+2.3 — generateCrewListExcel
+export async function generateCrewListExcel(data: any[]): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'EventLink FMS';
+  const ws = wb.addWorksheet('Crew List');
+  ws.columns = [
+    { header: 'Freelancer Name', key: 'name', width: 24 },
+    { header: 'Email', key: 'email', width: 30 },
+    { header: 'Title / Role', key: 'title', width: 22 },
+    { header: 'Location', key: 'location', width: 20 },
+    { header: 'Skills', key: 'skills', width: 40 },
+    { header: 'Total Bookings', key: 'totalBookings', width: 16 },
+    { header: 'Last Booked', key: 'lastBooked', width: 14 },
+    { header: 'Avg Rating', key: 'avgRating', width: 12 },
+    { header: 'Profile URL', key: 'profileUrl', width: 40 },
+  ];
+  const headerRow = ws.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+  headerRow.height = 20;
+  for (const row of data) {
+    const profile = row.profile as any;
+    const user = row.user as any;
+    ws.addRow({
+      name: `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim(),
+      email: user?.email ?? '',
+      title: profile?.title ?? '',
+      location: profile?.location ?? '',
+      skills: (profile?.skills ?? []).join(', '),
+      totalBookings: row.totalBookings,
+      lastBooked: formatDate(row.lastBooked),
+      avgRating: row.avgRating ?? '',
+      profileUrl: profile?.slug ? `https://eventlink.one/profile/${profile.slug}` : '',
+    });
+  }
+  ws.eachRow((row, rowNum) => {
+    if (rowNum > 1 && rowNum % 2 === 0) {
+      row.eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+      });
+    }
+  });
+  ws.views = [{ state: 'frozen', ySplit: 1 }];
+  return wb.xlsx.writeBuffer() as Promise<Buffer>;
+}
+
+2.4 — generateAvailabilityExcel
+export async function generateAvailabilityExcel(data: any[]): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'EventLink FMS';
+  const ws = wb.addWorksheet('Availability Enquiries');
+  ws.columns = [
+    { header: 'Enquiry ID', key: 'id', width: 12 },
+    { header: 'Event Title', key: 'eventTitle', width: 30 },
+    { header: 'Event Date', key: 'eventDate', width: 14 },
+    { header: 'Role Required', key: 'role', width: 20 },
+    { header: 'Venue', key: 'venue', width: 30 },
+    { header: 'Rate', key: 'rate', width: 14 },
+    { header: 'Enquiry Status', key: 'status', width: 16 },
+    { header: 'Total Sent', key: 'total', width: 12 },
+    { header: 'Yes', key: 'yes', width: 8 },
+    { header: 'Maybe', key: 'maybe', width: 8 },
+    { header: 'No', key: 'no', width: 8 },
+    { header: 'Pending', key: 'pending', width: 10 },
+    { header: 'Sent At', key: 'sentAt', width: 14 },
+  ];
+  const headerRow = ws.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+  headerRow.height = 20;
+  for (const row of data) {
+    ws.addRow({
+      id: row.id,
+      eventTitle: row.eventTitle,
+      eventDate: formatDate(row.eventDate),
+      role: row.roleRequired ?? '',
+      venue: row.venueAddress ?? '',
+      rate: row.agreedRate ?? '',
+      status: capitalise(row.status),
+      total: row.total,
+      yes: row.yes,
+      maybe: row.maybe,
+      no: row.no,
+      pending: row.pending,
+      sentAt: formatDate(row.createdAt),
+    });
+  }
+  ws.eachRow((row, rowNum) => {
+    if (rowNum > 1 && rowNum % 2 === 0) {
+      row.eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+      });
+    }
+  });
+  ws.views = [{ state: 'frozen', ySplit: 1 }];
+  return wb.xlsx.writeBuffer() as Promise<Buffer>;
+}
+
+2.5 — CSV generators
+Add these three CSV functions to the same export.service.ts file. CSV is plain text — no library needed.
+function escapeCsv(val: any): string {
+  if (val === null || val === undefined) return '';
+  const str = String(val).replace(/"/g, '""');
+  return str.includes(',') || str.includes('"') || str.includes('\n')
+    ? `"${str}"` : str;
+}
+
+function rowsToCsv(headers: string[], rows: string[][]): string {
+  const lines = [headers.map(escapeCsv).join(',')];
+  for (const row of rows) lines.push(row.map(escapeCsv).join(','));
+  return lines.join('\r\n');
+}
+
+export async function generateBookingsCsv(data: any[]): Promise<string> {
+  const headers = ['Booking ID','Event Title','Event Date','Call Time','Venue',
+    'Freelancer Name','Freelancer Email','Role','Agreed Rate','Booking Status',
+    'Brief Status','Brief Acknowledged At','Acknowledgement Note',
+    'Employer Notes','Attachments','Booking Created'];
+  const rows = await Promise.all(data.map(async (row) => {
+    const attachmentUrls: string[] = [];
+    for (const att of (row.attachments ?? [])) {
+      try {
+        const url = await ObjectStorageService.getDownloadUrl(att.objectPath);
+        attachmentUrls.push(`${att.originalFilename}: ${url}`);
+      } catch { attachmentUrls.push(`${att.originalFilename}: (unavailable)`); }
+    }
+    const briefStatus = !row.brief ? 'Not sent'
+      : row.brief.status === 'acknowledged' ? 'Acknowledged' : 'Sent';
+    return [
+      String(row.booking.id),
+      row.jobTitle ?? row.booking.employerNotes ?? '',
+      formatDate(row.booking.eventDate),
+      row.booking.callTime ?? '',
+      row.booking.venueAddress ?? '',
+      `${row.freelancerFirstName ?? ''} ${row.freelancerLastName ?? ''}`.trim(),
+      row.freelancerEmail ?? '',
+      row.freelancerTitle ?? '',
+      row.booking.agreedRate ?? '',
+      capitalise(row.booking.status),
+      briefStatus,
+      formatDateTime(row.brief?.acknowledgedAt),
+      row.brief?.acknowledgementNote ?? '',
+      row.booking.employerNotes ?? '',
+      attachmentUrls.join(' | '),
+      formatDate(row.booking.createdAt),
+    ];
+  }));
+  return rowsToCsv(headers, rows);
+}
+
+export async function generateCrewListCsv(data: any[]): Promise<string> {
+  const headers = ['Freelancer Name','Email','Title / Role','Location',
+    'Skills','Total Bookings','Last Booked','Avg Rating','Profile URL'];
+  const rows = data.map(row => {
+    const p = row.profile as any; const u = row.user as any;
+    return [
+      `${u?.first_name ?? ''} ${u?.last_name ?? ''}`.trim(),
+      u?.email ?? '', p?.title ?? '', p?.location ?? '',
+      (p?.skills ?? []).join(', '),
+      String(row.totalBookings), formatDate(row.lastBooked),
+      row.avgRating ?? '',
+      p?.slug ? `https://eventlink.one/profile/${p.slug}` : '',
+    ];
+  });
+  return rowsToCsv(headers, rows);
+}
+
+export async function generateAvailabilityCsv(data: any[]): Promise<string> {
+  const headers = ['Enquiry ID','Event Title','Event Date','Role Required',
+    'Venue','Rate','Enquiry Status','Total Sent','Yes','Maybe','No','Pending','Sent At'];
+  const rows = data.map(row => [
+    String(row.id), row.eventTitle, formatDate(row.eventDate),
+    row.roleRequired ?? '', row.venueAddress ?? '', row.agreedRate ?? '',
+    capitalise(row.status), String(row.total), String(row.yes),
+    String(row.maybe), String(row.no), String(row.pending),
+    formatDate(row.createdAt),
+  ]);
+  return rowsToCsv(headers, rows);
+}
+ 
+Step 3 — Controller (server/api/controllers/export.controller.ts)
+Create this file. All six export endpoints live here — three export types, two formats each.
+
+import type { Request, Response } from 'express';
+import { storage } from '../../storage.js';
+import {
+  generateBookingsExcel, generateBookingsCsv,
+  generateCrewListExcel, generateCrewListCsv,
+  generateAvailabilityExcel, generateAvailabilityCsv,
+} from '../services/export.service.js';
+
+// Helper: extract and validate date range from query params
+function getDateRange(req: Request): { dateFrom?: string; dateTo?: string } {
+  const dateFrom = req.query.dateFrom as string | undefined;
+  const dateTo = req.query.dateTo as string | undefined;
+  return { dateFrom, dateTo };
+}
+
+// Helper: generate filename with date range and timestamp
+function filename(base: string, ext: string, dateFrom?: string, dateTo?: string): string {
+  const today = new Date().toISOString().split('T')[0];
+  const range = dateFrom && dateTo ? `_${dateFrom}_to_${dateTo}` : `_${today}`;
+  return `${base}${range}.${ext}`;
+}
+
+// --- BOOKINGS ---
+export const exportBookingsExcel = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const { dateFrom, dateTo } = getDateRange(req);
+    const data = await storage.getBookingsForExport(employerId, dateFrom, dateTo);
+    const buffer = await generateBookingsExcel(data);
+    const name = filename('EventLink_Bookings', 'xlsx', dateFrom, dateTo);
+    res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    return res.send(buffer);
+  } catch (err: any) {
+    console.error('exportBookingsExcel error:', err.message);
+    return res.status(500).json({ error: 'Export failed' });
+  }
+};
+
+export const exportBookingsCsv = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const { dateFrom, dateTo } = getDateRange(req);
+    const data = await storage.getBookingsForExport(employerId, dateFrom, dateTo);
+    const csv = await generateBookingsCsv(data);
+    const name = filename('EventLink_Bookings', 'csv', dateFrom, dateTo);
+    res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('BOM', '\uFEFF'); // UTF-8 BOM for Excel compatibility
+    return res.send('\uFEFF' + csv);
+  } catch (err: any) {
+    console.error('exportBookingsCsv error:', err.message);
+    return res.status(500).json({ error: 'Export failed' });
+  }
+};
+
+// --- CREW LIST ---
+export const exportCrewExcel = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const data = await storage.getCrewListForExport(employerId);
+    const buffer = await generateCrewListExcel(data);
+    res.setHeader('Content-Disposition', 'attachment; filename="EventLink_Crew_List.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    return res.send(buffer);
+  } catch (err: any) {
+    console.error('exportCrewExcel error:', err.message);
+    return res.status(500).json({ error: 'Export failed' });
+  }
+};
+
+export const exportCrewCsv = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const data = await storage.getCrewListForExport(employerId);
+    const csv = await generateCrewListCsv(data);
+    res.setHeader('Content-Disposition', 'attachment; filename="EventLink_Crew_List.csv"');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    return res.send('\uFEFF' + csv);
+  } catch (err: any) {
+    console.error('exportCrewCsv error:', err.message);
+    return res.status(500).json({ error: 'Export failed' });
+  }
+};
+
+// --- AVAILABILITY ---
+export const exportAvailabilityExcel = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const { dateFrom, dateTo } = getDateRange(req);
+    const data = await storage.getAvailabilityForExport(employerId, dateFrom, dateTo);
+    const buffer = await generateAvailabilityExcel(data);
+    const name = filename('EventLink_Availability', 'xlsx', dateFrom, dateTo);
+    res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    return res.send(buffer);
+  } catch (err: any) {
+    console.error('exportAvailabilityExcel error:', err.message);
+    return res.status(500).json({ error: 'Export failed' });
+  }
+};
+
+export const exportAvailabilityCsv = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const { dateFrom, dateTo } = getDateRange(req);
+    const data = await storage.getAvailabilityForExport(employerId, dateFrom, dateTo);
+    const csv = await generateAvailabilityCsv(data);
+    const name = filename('EventLink_Availability', 'csv', dateFrom, dateTo);
+    res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    return res.send('\uFEFF' + csv);
+  } catch (err: any) {
+    console.error('exportAvailabilityCsv error:', err.message);
+    return res.status(500).json({ error: 'Export failed' });
+  }
+};
+ 
+Step 4 — Route File (server/api/routes/export.route.ts)
+import express from 'express';
+import { requireAuth } from '../middleware/auth.middleware.js';
+import { requireRole } from '../middleware/role.middleware.js';
+import {
+  exportBookingsExcel, exportBookingsCsv,
+  exportCrewExcel, exportCrewCsv,
+  exportAvailabilityExcel, exportAvailabilityCsv,
+} from '../controllers/export.controller.js';
+
+const exportRouter = express.Router();
+
+// All routes require employer auth
+exportRouter.use(requireAuth, requireRole('recruiter'));
+
+exportRouter.get('/bookings/excel', exportBookingsExcel);
+exportRouter.get('/bookings/csv', exportBookingsCsv);
+exportRouter.get('/crew/excel', exportCrewExcel);
+exportRouter.get('/crew/csv', exportCrewCsv);
+exportRouter.get('/availability/excel', exportAvailabilityExcel);
+exportRouter.get('/availability/csv', exportAvailabilityCsv);
+
+export default exportRouter;
+
+Register in routes-modular.ts
+import exportRouter from './api/routes/export.route.js';
+app.use('/api/export', exportRouter);
+ 
+Step 5 — React UI
+
+5.1 — ExportButton.tsx (client/src/components/fms/ExportButton.tsx)
+A dropdown button placed in the employer dashboard header. It opens a menu with export options. When an option requiring a date range is selected, a small date range picker appears before the download is triggered.
+
+// Use DropdownMenu from @/components/ui/dropdown-menu (already installed)
+// Use Dialog from @/components/ui/dialog for the date range picker
+// Use Input type='date' for date range inputs
+// Use Download icon from lucide-react
+// Use ChevronDown icon from lucide-react
+
+// State:
+//   datePickerOpen: boolean — controls date range dialog
+//   pendingExport: { type: 'bookings'|'crew'|'availability', format: 'excel'|'csv' } | null
+//   dateFrom: string — YYYY-MM-DD
+//   dateTo: string — YYYY-MM-DD (default: today)
+//   isDownloading: boolean — loading state
+
+// Dropdown menu items:
+//   Label: 'Bookings'
+//     Sub-items: 'Excel (.xlsx)' | 'CSV (.csv)'
+//     On click: setPendingExport({ type: 'bookings', format }), setDatePickerOpen(true)
+//   Label: 'Crew List'
+//     Sub-items: 'Excel (.xlsx)' | 'CSV (.csv)'
+//     On click: directly trigger download (no date range needed for crew)
+//   Label: 'Availability'
+//     Sub-items: 'Excel (.xlsx)' | 'CSV (.csv)'
+//     On click: setPendingExport({ type: 'availability', format }), setDatePickerOpen(true)
+
+// Date range dialog:
+//   Title: 'Select date range'
+//   'From' date input + 'To' date input
+//   'Download' button — triggers the export
+//   'Cancel' button
+
+// Download trigger function:
+const triggerDownload = async (type: string, format: string, from?: string, to?: string) => {
+  setIsDownloading(true);
+  try {
+    const params = new URLSearchParams();
+    if (from) params.set('dateFrom', from);
+    if (to) params.set('dateTo', to);
+    const url = `/api/export/${type}/${format}?${params}`;
+    // Use fetch with blob to trigger file download
+    const res = await fetch(url, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
+    });
+    if (!res.ok) throw new Error('Export failed');
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') ?? '';
+    const filenameMatch = disposition.match(/filename="([^"]+)"/);
+    const downloadName = filenameMatch?.[1] ?? `export.${format}`;
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = downloadName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
+    toast({ title: 'Export downloaded' });
+  } catch {
+    toast({ title: 'Export failed', variant: 'destructive' });
+  } finally {
+    setIsDownloading(false);
+    setDatePickerOpen(false);
+    setPendingExport(null);
+  }
+};
+
+// Button render:
+// <DropdownMenu>
+//   <DropdownMenuTrigger asChild>
+//     <Button variant='outline' size='sm'>
+//       <Download className='mr-2 h-4 w-4' />
+//       Export
+//       <ChevronDown className='ml-2 h-4 w-4' />
+//     </Button>
+//   </DropdownMenuTrigger>
+//   <DropdownMenuContent>
+//     <DropdownMenuLabel>Bookings</DropdownMenuLabel>
+//     <DropdownMenuItem onClick={() => handleExportClick('bookings','excel')}>Excel (.xlsx)</DropdownMenuItem>
+//     <DropdownMenuItem onClick={() => handleExportClick('bookings','csv')}>CSV (.csv)</DropdownMenuItem>
+//     <DropdownMenuSeparator />
+//     <DropdownMenuLabel>Crew List</DropdownMenuLabel>
+//     <DropdownMenuItem onClick={() => triggerDownload('crew','excel')}>Excel (.xlsx)</DropdownMenuItem>
+//     <DropdownMenuItem onClick={() => triggerDownload('crew','csv')}>CSV (.csv)</DropdownMenuItem>
+//     <DropdownMenuSeparator />
+//     <DropdownMenuLabel>Availability</DropdownMenuLabel>
+//     <DropdownMenuItem onClick={() => handleExportClick('availability','excel')}>Excel (.xlsx)</DropdownMenuItem>
+//     <DropdownMenuItem onClick={() => handleExportClick('availability','csv')}>CSV (.csv)</DropdownMenuItem>
+//   </DropdownMenuContent>
+// </DropdownMenu>
+
+5.2 — Add ExportButton to employer dashboard header
+// Find the employer dashboard header/toolbar area.
+// Add ExportButton alongside the existing header actions.
+// Import:
+import { ExportButton } from '../components/fms/ExportButton';
+
+// Add in the header row:
+// <ExportButton />
+
+// It should appear to the left of any primary action buttons
+// (e.g. to the left of 'Post a Job' or 'New Enquiry' buttons).
+ 
+Step 6 — Completion Checklist
+✔  Test every item below before marking Sprint 6 complete.
+
+API Endpoints
+•	GET /api/export/bookings/excel — returns .xlsx file with correct headers
+•	GET /api/export/bookings/csv — returns .csv file with UTF-8 BOM
+•	GET /api/export/crew/excel — returns .xlsx crew list
+•	GET /api/export/crew/csv — returns .csv crew list
+•	GET /api/export/availability/excel — returns .xlsx availability export
+•	GET /api/export/availability/csv — returns .csv availability export
+•	Date range filter works: ?dateFrom=2026-01-01&dateTo=2026-12-31
+•	All endpoints return 401 for non-employer users
+
+Excel Files
+•	Header row has navy background with white bold text
+•	Alternate row shading applied
+•	Header row is frozen (stays visible when scrolling)
+•	All columns have appropriate widths — no truncated content
+•	Dates formatted as DD/MM/YYYY throughout
+•	Bookings export includes attachment download links in Attachments column
+•	Attachment URLs are valid signed GCS links (test by clicking one)
+•	File downloads with a descriptive filename including date range
+
+CSV Files
+•	Opens correctly in Excel without encoding issues (BOM present)
+•	Commas and quotes in field values are properly escaped
+•	All columns present and in correct order
+•	File downloads with a descriptive filename
+
+UI
+•	Export button appears in employer dashboard header
+•	Dropdown shows three sections: Bookings, Crew List, Availability
+•	Each section has Excel and CSV options
+•	Clicking Bookings or Availability options opens date range picker dialog
+•	Date range defaults to sensible values (e.g. start of current year to today)
+•	Clicking Crew List directly triggers download with no date picker
+•	Download spinner shows while file is generating
+•	Success toast appears after download
+•	Error toast appears if export fails
+
+EventLink FMS — Sprint 6 Spec — May 2026
