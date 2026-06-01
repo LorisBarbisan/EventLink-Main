@@ -30,6 +30,7 @@ import { registerSeoRoutes } from "./api/routes/seo.route.js";
 import { registerSavedFreelancerRoutes } from "./api/routes/saved-freelancers.route.js";
 import referenceRouter from "./api/routes/reference.route.js";
 import bookingRouter from "./api/routes/booking.route.js";
+import teamRouter from "./api/routes/team.route.js";
 import enquiryRouter from "./api/routes/enquiry.route.js";
 import briefRouter from "./api/routes/brief.route.js";
 import calendarRouter from "./api/routes/calendar.route.js";
@@ -267,6 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/calendar", calendarRouter);
   app.use("/api/export", exportRouter);
   app.use("/api/subscription", subscriptionRouter);
+  app.use("/api/team", teamRouter);
   registerContactRoutes(app);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering

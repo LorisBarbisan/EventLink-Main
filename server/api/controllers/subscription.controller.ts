@@ -90,6 +90,17 @@ export const handleWebhook = async (req: Request, res: Response) => {
             : null,
           cancelAtPeriodEnd: sub.cancel_at_period_end,
         });
+        if (tier === "teams") {
+          try {
+            const employer = await storage.getUser(employerId);
+            const profile = await storage.getRecruiterProfile(employerId);
+            const teamName =
+              profile?.company_name ?? employer?.first_name ?? "My Team";
+            await storage.createTeamAccount(employerId, teamName);
+          } catch (teamErr: any) {
+            console.error("Auto-create team account failed:", teamErr.message);
+          }
+        }
         console.log(`Subscription ${event.type} for employer ${employerId}`);
         break;
       }

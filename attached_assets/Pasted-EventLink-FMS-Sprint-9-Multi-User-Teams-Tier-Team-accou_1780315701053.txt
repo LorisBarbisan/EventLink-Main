@@ -1,0 +1,850 @@
+EventLink FMS
+Sprint 9 — Multi-User Teams Tier
+Team accounts, role permissions, delegate access, and member management
+Branch: FMS1  |  May 2026  |  Builds on top of Sprint 7 subscription system
+ 
+Overview & Team Model
+👥  Sprint 9 activates the Teams tier (£99/month, up to 10 users) built in Sprint 7.
+It adds multi-user accounts, role permissions, and delegate access.
+
+TIERS AND SEAT LIMITS:
+  Pro    — £49/month — up to 3 users
+  Teams  — £99/month — up to 10 users
+
+ROLES:
+  Account Owner — the user who created the Teams subscription.
+    Has all Admin powers. Is the only one who can remove Admins.
+    Cannot be removed from the account. Cannot be demoted.
+  Admin — full account management: invite/remove members, edit company
+    profile, manage billing, grant delegate access, all FMS features.
+    Multiple admins allowed. Admins are nominated by the Account Owner or
+    another Admin.
+  Manager — all FMS features (post jobs, enquiries, briefs, bookings,
+    documents). Cannot manage team members, billing, or company profile.
+
+SHARED DATA:
+  All team members see all bookings, enquiries, briefs, and the shared
+  crew pool on the team account.
+  Each member has their own saved freelancers list.
+  By default, members can only edit their own records.
+  Admins can grant delegate access: allowing one member to edit another
+  member's records (for cover when away).
+
+INVITATIONS:
+  Admin-only. Invite by email. Invitee receives a link, creates a password,
+  and joins the team account.
+
+SEAT LIMIT:
+  When the seat limit is reached, the Add Member button is disabled.
+  A clear message explains the limit and which tier they are on.
+
+REMOVAL:
+  Only the Account Owner can remove members, including other Admins.
+  Records created by a removed member stay on the account.
+ 
+Permission Matrix
+The following table defines what each role can do. Implement this exactly.
+
+Action	Account Owner	Admin	Manager
+Post jobs to the job board	✓	✓	✓
+Send availability enquiries	✓	✓	✓
+Confirm bookings	✓	✓	✓
+Send briefs	✓	✓	✓
+Manage own bookings and enquiries	✓	✓	✓
+View all team bookings, enquiries, briefs	✓	✓	✓
+Edit another member's records (with delegate access)	✓	✓	✓
+Upload documents	✓	✓	✓
+Access calendar, export, IR35 guidance	✓	✓	✓
+Edit company profile	✓	✓	✗
+Manage billing / subscription	✓	✓	✗
+Invite new team members	✓	✓	✗
+Remove team members	✓	✗	✗
+Grant or revoke delegate access	✓	✓	✗
+Promote a Manager to Admin	✓	✓	✗
+Remove an Admin	✓	✗	✗
+ 
+Step 1 — Schema (shared/schema.ts)
+Add three new tables to shared/schema.ts. Append before the type exports.
+
+1.1 — team_accounts table
+One row per Teams subscription. Links the subscription to a set of members.
+// ============================================================
+// FMS Phase 9 — Multi-User Teams Tier
+// ============================================================
+
+export const team_accounts = pgTable('team_accounts', {
+  id: serial('id').primaryKey(),
+  ownerId: integer('owner_id')
+    .notNull()
+    .unique() // one team account per owner
+    .references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(), // Company/team name
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+1.2 — team_members table
+One row per user per team. Tracks role and status.
+export const team_members = pgTable('team_members', {
+  id: serial('id').primaryKey(),
+  teamId: integer('team_id')
+    .notNull()
+    .references(() => team_accounts.id, { onDelete: 'cascade' }),
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  role: text('role')
+    .notNull()
+    .default('manager')
+    .$type<'owner' | 'admin' | 'manager'>(),
+  status: text('status')
+    .notNull()
+    .default('active')
+    .$type<'active' | 'invited' | 'suspended'>(),
+  invitedByUserId: integer('invited_by_user_id')
+    .references(() => users.id, { onDelete: 'set null' }),
+  inviteToken: text('invite_token').unique(), // UUID for invite link
+  inviteEmail: text('invite_email'),           // Email the invite was sent to
+  inviteExpiresAt: timestamp('invite_expires_at', { withTimezone: true }),
+  joinedAt: timestamp('joined_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+1.3 — team_delegate_access table
+Tracks which team member has been granted access to act on behalf of another.
+export const team_delegate_access = pgTable('team_delegate_access', {
+  id: serial('id').primaryKey(),
+  teamId: integer('team_id')
+    .notNull()
+    .references(() => team_accounts.id, { onDelete: 'cascade' }),
+  // The member whose records can be accessed
+  delegatorUserId: integer('delegator_user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  // The member who is granted access
+  delegateUserId: integer('delegate_user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  grantedByUserId: integer('granted_by_user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+1.4 — Zod schemas and type exports
+export type TeamAccount = typeof team_accounts.$inferSelect;
+export type TeamMember = typeof team_members.$inferSelect;
+export type TeamDelegateAccess = typeof team_delegate_access.$inferSelect;
+
+1.5 — Run migration
+npm run db:push
+ 
+Step 2 — Storage Methods (server/storage.ts)
+Add the following methods to server/storage.ts after the existing FMS methods.
+
+2.1 — getTeamByOwner
+async getTeamByOwner(ownerId: number) {
+  const [team] = await db.select().from(team_accounts)
+    .where(eq(team_accounts.ownerId, ownerId));
+  return team ?? null;
+},
+
+2.2 — getTeamByMember
+Returns the team a user belongs to, regardless of their role.
+async getTeamByMember(userId: number) {
+  const [membership] = await db.select({
+    team: team_accounts,
+    role: team_members.role,
+    status: team_members.status,
+  })
+  .from(team_members)
+  .innerJoin(team_accounts, eq(team_members.teamId, team_accounts.id))
+  .where(and(
+    eq(team_members.userId, userId),
+    eq(team_members.status, 'active')
+  ));
+  return membership ?? null;
+},
+
+2.3 — getTeamMembers
+async getTeamMembers(teamId: number) {
+  return db.select({
+    member: team_members,
+    user: {
+      id: users.id,
+      email: users.email,
+      first_name: users.first_name,
+      last_name: users.last_name,
+    },
+    profile: {
+      company_name: recruiter_profiles.company_name,
+      profile_photo_url: recruiter_profiles.company_logo_url,
+    }
+  })
+  .from(team_members)
+  .leftJoin(users, eq(team_members.userId, users.id))
+  .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
+  .where(eq(team_members.teamId, teamId))
+  .orderBy(team_members.role, team_members.createdAt);
+},
+
+2.4 — createTeamAccount
+Called when an employer upgrades to the Teams tier. Creates the team and adds the owner as the first member.
+async createTeamAccount(ownerId: number, name: string) {
+  // Check if team already exists
+  const existing = await this.getTeamByOwner(ownerId);
+  if (existing) return existing;
+  const [team] = await db.insert(team_accounts)
+    .values({ ownerId, name })
+    .returning();
+  // Add owner as first member with 'owner' role
+  await db.insert(team_members).values({
+    teamId: team.id,
+    userId: ownerId,
+    role: 'owner',
+    status: 'active',
+    joinedAt: new Date(),
+  });
+  return team;
+},
+
+2.5 — inviteTeamMember
+async inviteTeamMember(data: {
+  teamId: number;
+  invitedByUserId: number;
+  email: string;
+  role: 'admin' | 'manager';
+}) {
+  // Check seat limit
+  const members = await this.getTeamMembers(data.teamId);
+  const activeCount = members.filter(m =>
+    m.member.status === 'active' || m.member.status === 'invited'
+  ).length;
+  const sub = await db.select().from(subscriptions)
+    .where(eq(subscriptions.stripeSubscriptionId,
+      (await db.select({ id: team_accounts.id })
+        .from(team_accounts)
+        .where(eq(team_accounts.id, data.teamId)))[0]?.id?.toString() ?? ''))
+    .then(() => null); // just get tier from team owner
+  // Get subscription for the team owner
+  const [team] = await db.select().from(team_accounts)
+    .where(eq(team_accounts.id, data.teamId));
+  const ownerSub = await this.getSubscription(team.ownerId);
+  const limit = ownerSub?.tier === 'teams' ? 10 : 3;
+  if (activeCount >= limit) {
+    throw new Error(`SEAT_LIMIT_REACHED:${limit}`);
+  }
+  // Check if already a member
+  const existingUser = await db.select().from(users)
+    .where(eq(users.email, data.email));
+  if (existingUser.length > 0) {
+    const alreadyMember = await db.select().from(team_members)
+      .where(and(
+        eq(team_members.teamId, data.teamId),
+        eq(team_members.userId, existingUser[0].id)
+      ));
+    if (alreadyMember.length > 0) throw new Error('User is already a team member');
+  }
+  // Create invite record
+  const token = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  const [invite] = await db.insert(team_members).values({
+    teamId: data.teamId,
+    userId: existingUser[0]?.id ?? 0, // 0 for non-existing users — updated on accept
+    role: data.role,
+    status: 'invited',
+    invitedByUserId: data.invitedByUserId,
+    inviteToken: token,
+    inviteEmail: data.email,
+    inviteExpiresAt: expiresAt,
+  }).returning();
+  return { invite, token };
+},
+
+2.6 — acceptTeamInvite
+async acceptTeamInvite(token: string, userId: number) {
+  const [invite] = await db.select().from(team_members)
+    .where(eq(team_members.inviteToken, token));
+  if (!invite) throw new Error('Invite not found');
+  if (invite.status !== 'invited') throw new Error('Invite already used');
+  if (invite.inviteExpiresAt && invite.inviteExpiresAt < new Date()) {
+    throw new Error('Invite has expired');
+  }
+  const [updated] = await db.update(team_members).set({
+    userId,
+    status: 'active',
+    joinedAt: new Date(),
+    inviteToken: null,
+    updatedAt: new Date(),
+  }).where(eq(team_members.id, invite.id)).returning();
+  return updated;
+},
+
+2.7 — updateMemberRole
+async updateMemberRole(
+  teamId: number,
+  targetUserId: number,
+  newRole: 'admin' | 'manager',
+  requestingUserId: number
+) {
+  // Verify requester is admin or owner on this team
+  const [requester] = await db.select().from(team_members)
+    .where(and(
+      eq(team_members.teamId, teamId),
+      eq(team_members.userId, requestingUserId),
+      inArray(team_members.role, ['owner', 'admin'])
+    ));
+  if (!requester) throw new Error('Insufficient permissions');
+  // Cannot change the owner's role
+  const [target] = await db.select().from(team_members)
+    .where(and(
+      eq(team_members.teamId, teamId),
+      eq(team_members.userId, targetUserId)
+    ));
+  if (!target) throw new Error('Member not found');
+  if (target.role === 'owner') throw new Error('Cannot change owner role');
+  const [updated] = await db.update(team_members).set({
+    role: newRole, updatedAt: new Date(),
+  }).where(eq(team_members.id, target.id)).returning();
+  return updated;
+},
+
+2.8 — removeTeamMember
+async removeTeamMember(
+  teamId: number,
+  targetUserId: number,
+  requestingUserId: number
+) {
+  // Only the owner can remove members
+  const [team] = await db.select().from(team_accounts)
+    .where(eq(team_accounts.id, teamId));
+  if (!team || team.ownerId !== requestingUserId) {
+    throw new Error('Only the account owner can remove members');
+  }
+  // Cannot remove the owner
+  if (targetUserId === team.ownerId) {
+    throw new Error('Cannot remove the account owner');
+  }
+  await db.delete(team_members).where(and(
+    eq(team_members.teamId, teamId),
+    eq(team_members.userId, targetUserId)
+  ));
+  // Remove any delegate access involving this user
+  await db.delete(team_delegate_access).where(and(
+    eq(team_delegate_access.teamId, teamId),
+    or(
+      eq(team_delegate_access.delegatorUserId, targetUserId),
+      eq(team_delegate_access.delegateUserId, targetUserId)
+    )
+  ));
+},
+
+2.9 — grantDelegateAccess / revokeDelegateAccess
+async grantDelegateAccess(data: {
+  teamId: number;
+  delegatorUserId: number;
+  delegateUserId: number;
+  grantedByUserId: number;
+}) {
+  // Check already exists
+  const existing = await db.select().from(team_delegate_access)
+    .where(and(
+      eq(team_delegate_access.teamId, data.teamId),
+      eq(team_delegate_access.delegatorUserId, data.delegatorUserId),
+      eq(team_delegate_access.delegateUserId, data.delegateUserId)
+    ));
+  if (existing.length > 0) return existing[0];
+  const [access] = await db.insert(team_delegate_access)
+    .values(data).returning();
+  return access;
+},
+
+async revokeDelegateAccess(
+  teamId: number,
+  delegatorUserId: number,
+  delegateUserId: number
+) {
+  await db.delete(team_delegate_access).where(and(
+    eq(team_delegate_access.teamId, teamId),
+    eq(team_delegate_access.delegatorUserId, delegatorUserId),
+    eq(team_delegate_access.delegateUserId, delegateUserId)
+  ));
+},
+
+2.10 — canActOnBehalf
+Used by controllers to check if a user can edit another member's records.
+async canActOnBehalf(
+  teamId: number,
+  actingUserId: number,
+  targetUserId: number
+): Promise<boolean> {
+  if (actingUserId === targetUserId) return true;
+  const [access] = await db.select().from(team_delegate_access)
+    .where(and(
+      eq(team_delegate_access.teamId, teamId),
+      eq(team_delegate_access.delegatorUserId, targetUserId),
+      eq(team_delegate_access.delegateUserId, actingUserId)
+    ));
+  return !!access;
+},
+
+⚠️  Add these imports to storage.ts: import { team_accounts, team_members, team_delegate_access } from '../shared/schema.js' and import { inArray, or } from 'drizzle-orm'
+ 
+Step 3 — Team Middleware (server/api/middleware/team.middleware.ts)
+Create this file. It provides reusable middleware for team permission checks.
+
+import type { Request, Response, NextFunction } from 'express';
+import { storage } from '../../storage.js';
+
+// Attach team context to the request
+// Adds req.teamContext = { teamId, role, isOwner }
+export const attachTeamContext = async (
+  req: Request, res: Response, next: NextFunction
+) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return next(); // no user — skip
+    const membership = await storage.getTeamByMember(userId);
+    if (membership) {
+      (req as any).teamContext = {
+        teamId: membership.team.id,
+        role: membership.role,
+        isOwner: membership.team.ownerId === userId,
+      };
+    }
+    next();
+  } catch (err: any) {
+    console.error('attachTeamContext error:', err.message);
+    next();
+  }
+};
+
+// Require admin or owner role on the team
+export const requireTeamAdmin = async (
+  req: Request, res: Response, next: NextFunction
+) => {
+  const ctx = (req as any).teamContext;
+  if (!ctx) return res.status(403).json({ error: 'Not a team member' });
+  if (ctx.role !== 'admin' && ctx.role !== 'owner') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
+
+// Require account owner role specifically
+export const requireTeamOwner = async (
+  req: Request, res: Response, next: NextFunction
+) => {
+  const ctx = (req as any).teamContext;
+  if (!ctx || !ctx.isOwner) {
+    return res.status(403).json({ error: 'Account owner access required' });
+  }
+  next();
+};
+ 
+Step 4 — Controller (server/api/controllers/team.controller.ts)
+Create this file with all team management controller functions.
+
+4.1 — getTeam
+export const getTeam = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorised' });
+    const membership = await storage.getTeamByMember(userId);
+    if (!membership) return res.json({ team: null, role: null });
+    const members = await storage.getTeamMembers(membership.team.id);
+    const sub = await storage.getSubscription(membership.team.ownerId);
+    const limit = sub?.tier === 'teams' ? 10 : 3;
+    const activeCount = members.filter(m =>
+      m.member.status === 'active' || m.member.status === 'invited'
+    ).length;
+    return res.json({
+      team: membership.team,
+      role: membership.role,
+      isOwner: membership.team.ownerId === userId,
+      members,
+      seatLimit: limit,
+      seatsUsed: activeCount,
+    });
+  } catch (err: any) {
+    console.error('getTeam error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+4.2 — inviteMember
+export const inviteMember = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorised' });
+    const ctx = (req as any).teamContext;
+    if (!ctx) return res.status(403).json({ error: 'Not a team member' });
+    const { email, role } = req.body;
+    if (!email || !['admin','manager'].includes(role)) {
+      return res.status(400).json({ error: 'Valid email and role required' });
+    }
+    const { invite, token } = await storage.inviteTeamMember({
+      teamId: ctx.teamId,
+      invitedByUserId: userId,
+      email,
+      role,
+    });
+    // Send invitation email
+    const { sendEmail } = await import('../utils/emailService.js');
+    const inviter = await storage.getUser(userId);
+    const team = await storage.getTeamByOwner(
+      (await storage.getTeamByMember(userId))!.team.ownerId
+    );
+    const baseUrl = req.protocol + '://' + req.get('host');
+    const inviteUrl = `${baseUrl}/team/accept-invite/${token}`;
+    await sendEmail({
+      to: email,
+      subject: `You've been invited to join ${team?.name ?? 'a team'} on EventLink`,
+      html: `
+        <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+          <div style='background:#1E3A5F;padding:24px;text-align:center;'>
+            <h1 style='color:#fff;margin:0;font-size:24px;'>EventLink</h1>
+          </div>
+          <div style='padding:32px;'>
+            <p>${inviter?.first_name ?? 'A colleague'} has invited you to join
+            <strong>${team?.name ?? 'their team'}</strong> on EventLink FMS
+            as a <strong>${role}</strong>.</p>
+            <div style='text-align:center;margin:32px 0;'>
+              <a href='${inviteUrl}' style='background:#E8610A;color:#fff;
+                padding:16px 32px;text-decoration:none;border-radius:6px;
+                font-weight:bold;font-size:16px;'>Accept Invitation</a>
+            </div>
+            <p style='color:#888;font-size:13px;'>
+              This invitation expires in 7 days.
+              If you did not expect this email, you can ignore it.
+            </p>
+          </div>
+        </div>
+      `,
+    });
+    return res.status(201).json({ success: true, inviteEmail: email });
+  } catch (err: any) {
+    console.error('inviteMember error:', err.message);
+    if (err.message.startsWith('SEAT_LIMIT_REACHED')) {
+      const limit = err.message.split(':')[1];
+      return res.status(409).json({
+        error: 'SEAT_LIMIT_REACHED',
+        message: `Your plan allows up to ${limit} team members.`,
+      });
+    }
+    if (err.message === 'User is already a team member') {
+      return res.status(409).json({ error: err.message });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+4.3 — acceptInvite
+export const acceptInvite = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const userId = req.user?.id;
+    if (!userId) {
+      // Not logged in — redirect to login with return URL
+      return res.redirect(`/login?redirect=/team/accept-invite/${token}`);
+    }
+    await storage.acceptTeamInvite(token, userId);
+    return res.redirect('/dashboard?team_joined=true');
+  } catch (err: any) {
+    console.error('acceptInvite error:', err.message);
+    const msg = encodeURIComponent(err.message);
+    return res.redirect(`/dashboard?invite_error=${msg}`);
+  }
+};
+
+4.4 — updateRole, removeMember, grantDelegate, revokeDelegate
+export const updateMemberRole = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorised' });
+    const ctx = (req as any).teamContext;
+    const { targetUserId, role } = req.body;
+    const updated = await storage.updateMemberRole(
+      ctx.teamId, targetUserId, role, userId
+    );
+    return res.json(updated);
+  } catch (err: any) {
+    console.error('updateMemberRole error:', err.message);
+    return res.status(err.message === 'Insufficient permissions' ? 403 : 500)
+      .json({ error: err.message });
+  }
+};
+
+export const removeMember = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorised' });
+    const ctx = (req as any).teamContext;
+    const targetUserId = parseInt(req.params.userId);
+    await storage.removeTeamMember(ctx.teamId, targetUserId, userId);
+    return res.json({ success: true });
+  } catch (err: any) {
+    console.error('removeMember error:', err.message);
+    return res.status(403).json({ error: err.message });
+  }
+};
+
+export const grantDelegate = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorised' });
+    const ctx = (req as any).teamContext;
+    const { delegatorUserId, delegateUserId } = req.body;
+    const access = await storage.grantDelegateAccess({
+      teamId: ctx.teamId,
+      delegatorUserId,
+      delegateUserId,
+      grantedByUserId: userId,
+    });
+    return res.status(201).json(access);
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const revokeDelegate = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorised' });
+    const ctx = (req as any).teamContext;
+    const { delegatorUserId, delegateUserId } = req.body;
+    await storage.revokeDelegateAccess(ctx.teamId, delegatorUserId, delegateUserId);
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+ 
+Step 5 — Route File (server/api/routes/team.route.ts)
+import express from 'express';
+import { requireAuth } from '../middleware/auth.middleware.js';
+import { requireRole } from '../middleware/role.middleware.js';
+import { requireFmsAccess } from '../middleware/subscription.middleware.js';
+import { attachTeamContext, requireTeamAdmin, requireTeamOwner }
+  from '../middleware/team.middleware.js';
+import {
+  getTeam, inviteMember, acceptInvite, updateMemberRole,
+  removeMember, grantDelegate, revokeDelegate
+} from '../controllers/team.controller.js';
+
+const teamRouter = express.Router();
+
+// Public — OAuth-style redirect after login
+teamRouter.get('/accept-invite/:token', acceptInvite);
+
+// Authenticated routes
+teamRouter.use(requireAuth, requireRole('recruiter'), requireFmsAccess, attachTeamContext);
+
+teamRouter.get('/', getTeam);
+teamRouter.post('/invite', requireTeamAdmin, inviteMember);
+teamRouter.patch('/members/role', requireTeamAdmin, updateMemberRole);
+teamRouter.delete('/members/:userId', requireTeamOwner, removeMember);
+teamRouter.post('/delegate', requireTeamAdmin, grantDelegate);
+teamRouter.delete('/delegate', requireTeamAdmin, revokeDelegate);
+
+export default teamRouter;
+
+Register in routes-modular.ts
+import teamRouter from './api/routes/team.route.js';
+app.use('/api/team', teamRouter);
+
+Create team on Teams subscription
+In the Stripe webhook handler (subscription.controller.ts), when a Teams subscription is created or updated, automatically create the team account if it does not exist:
+// Add inside the customer.subscription.created / updated case:
+// After upsertSubscription, if tier === 'teams', create team account:
+if (tier === 'teams') {
+  const employer = await storage.getUser(employerId);
+  const profile = await storage.getRecruiterProfile(employerId);
+  const teamName = profile?.company_name ?? employer?.first_name ?? 'My Team';
+  await storage.createTeamAccount(employerId, teamName);
+}
+ 
+Step 6 — React Components
+
+6.1 — TeamManagementPanel.tsx (client/src/components/fms/TeamManagementPanel.tsx)
+The team management UI. Shown on the Billing tab for Teams subscribers, or as a dedicated Team tab.
+
+// Data fetching:
+// useQuery(['/api/team'], () => apiRequest('/api/team'))
+// Returns: { team, role, isOwner, members, seatLimit, seatsUsed }
+
+// If team is null and subscription tier is 'teams':
+//   Show 'Setting up your team...' with a spinner
+//   (Team is created by webhook — may take a few seconds)
+
+// If team is null and tier is 'pro':
+//   Show 'Team accounts are available on the Teams plan.'
+//   'Upgrade to Teams' button — links to /pricing
+
+// TEAM HEADER:
+//   Team name (large)
+//   Seat usage: 'X of Y seats used' with a progress bar
+//   'Invite Member' button (Admin/Owner only) — opens InviteMemberModal
+
+// MEMBERS TABLE:
+// For each member show:
+//   Avatar (initials or photo)
+//   Name + email
+//   Role badge: 'Owner' (navy), 'Admin' (blue), 'Manager' (grey)
+//   Status badge: 'Active' (green), 'Invited' (amber), 'Suspended' (red)
+//   Actions (Admin/Owner only):
+//     Dropdown: 'Change to Admin' / 'Change to Manager' / 'Remove'
+//     Remove only shown to Owner, and not on Owner's own row
+//     Role change not available on Owner row
+
+// DELEGATE ACCESS SECTION:
+//   Heading: 'Delegate Access'
+//   Description: 'Allow a team member to manage bookings on behalf of another'
+//   Table of current delegate access grants:
+//     '[Member A] can act on behalf of [Member B]'
+//     Revoke button (Admin/Owner only)
+//   'Add Delegate Access' button — opens DelegateAccessModal
+
+// Mutations:
+// updateRole: PATCH /api/team/members/role
+// removeMember: DELETE /api/team/members/:userId
+// grantDelegate: POST /api/team/delegate
+// revokeDelegate: DELETE /api/team/delegate
+// All invalidate ['/api/team'] on success
+
+6.2 — InviteMemberModal.tsx (client/src/components/fms/InviteMemberModal.tsx)
+// Props: open, onOpenChange
+
+// Form fields:
+//   Email address (required)
+//   Role: Admin or Manager (radio or select)
+//     Admin description: 'Can manage team members and company profile'
+//     Manager description: 'Can manage bookings, enquiries, and briefs'
+
+// Submit: POST /api/team/invite
+// On success: toast 'Invitation sent to [email]', close modal
+// On SEAT_LIMIT_REACHED: show error 'Your plan allows up to X team members.
+//   Upgrade to add more.' with 'Upgrade' link
+// On already member: toast 'This person is already on your team'
+
+6.3 — AcceptInvitePage.tsx (client/src/pages/AcceptInvitePage.tsx)
+// Route: /team/accept-invite/:token — PUBLIC
+// Add to App.tsx: <Route path='/team/accept-invite/:token' component={AcceptInvitePage} />
+
+// The server-side acceptInvite handler redirects here after processing.
+// This page handles the case where the user is not logged in:
+
+// On mount:
+//   Check if user is logged in (check auth context)
+//   If logged in: call GET /api/team/accept-invite/:token (add a GET handler
+//     that calls storage.acceptTeamInvite and redirects)
+//   If not logged in:
+//     Show 'You have been invited to join [team name] on EventLink.'
+//     'Please sign in or create an account to accept this invitation.'
+//     'Sign in' button → /login?redirect=/team/accept-invite/:token
+//     'Create account' button → /register?redirect=/team/accept-invite/:token
+
+// After accepting (redirected to /dashboard?team_joined=true):
+//   Dashboard shows toast: 'You have joined the team!'
+
+6.4 — Add Team tab to employer dashboard
+// Add import:
+import { TeamManagementPanel } from '../components/fms/TeamManagementPanel';
+
+// Add tab trigger — visible only to Teams subscribers:
+// {subStatus?.tier === 'teams' && (
+//   <TabsTrigger value='team'>
+//     <Users className='mr-2 h-4 w-4' />
+//     Team
+//   </TabsTrigger>
+// )}
+
+// Add tab content:
+// <TabsContent value='team'>
+//   <TeamManagementPanel />
+// </TabsContent>
+
+// Import Users icon from lucide-react
+
+// Handle URL params on mount:
+// If ?team_joined=true: toast 'You have joined the team!'
+// If ?invite_error=...: toast the decoded error message
+
+6.5 — Team-aware data visibility
+All FMS data queries must be updated to show team-shared data when the employer is part of a team. Update the following storage methods to include team member data:
+
+⚠️  For each of these storage methods, check if the employer is part of a team.
+If they are, return data for ALL team members, not just the requesting user.
+If they are not part of a team, return only their own data (existing behaviour).
+
+Methods to update:
+  getEnquiriesForEmployer — return enquiries for all team members
+  getBookingsForCalendar — return bookings for all team members
+  getBookingsForExport   — return bookings for all team members
+  getArchivedEnquiries   — return archived enquiries for all team members
+
+Implementation pattern for each method:
+  1. Check if the employerId has a team: const membership = await this.getTeamByMember(employerId)
+  2. If membership exists, get all active member user IDs from the team
+  3. Use inArray(bookings.employerId, memberUserIds) instead of eq(bookings.employerId, employerId)
+  4. If no membership, use existing eq() filter — behaviour unchanged
+ 
+Step 7 — Completion Checklist
+✔  Test every item below before marking Sprint 9 complete.
+
+Database
+•	npm run db:push — team_accounts, team_members, team_delegate_access tables created
+•	Team account created automatically when Teams subscription is activated via webhook
+
+Invitation Flow
+•	Admin can invite a new member by email with a role of Admin or Manager
+•	Invitation email arrives with a working Accept Invitation link
+•	Invitee who is not logged in sees the AcceptInvitePage with sign in / register options
+•	Invitee who is logged in is added to the team on clicking the link
+•	After accepting, /dashboard?team_joined=true shows success toast
+•	Invite link expires after 7 days — expired links show an appropriate error
+•	Duplicate invitation to an existing member returns a clear error
+
+Seat Limits
+•	Pro accounts: cannot add a 4th user — seat limit error shown
+•	Teams accounts: cannot add an 11th user — seat limit error shown
+•	Seat usage bar shows correctly in TeamManagementPanel
+
+Role Management
+•	Admin can promote a Manager to Admin
+•	Admin can demote an Admin to Manager
+•	Owner role cannot be changed by anyone
+•	Non-admins cannot access role management actions
+•	Only the Account Owner can remove members
+•	Owner cannot be removed
+
+Delegate Access
+•	Admin can grant delegate access: Member A can act on behalf of Member B
+•	Member A can then edit Member B's bookings and enquiries
+•	Without delegate access, Member A cannot edit Member B's records
+•	Admin can revoke delegate access
+•	Delegate access is automatically removed when a member is removed
+
+Shared Data
+•	All team members see all bookings on the calendar
+•	All team members see all availability enquiries
+•	Bookings export includes bookings from all team members
+•	Each member still has their own individual saved freelancers list
+
+Permissions
+•	Managers cannot invite members, remove members, or change roles
+•	Managers cannot access company profile editing
+•	Admins can do everything except remove other Admins and change Owner role
+•	Only Owner can remove Admins and other members
+•	All existing API endpoints respect team permissions
+
+UI
+•	Team tab visible in dashboard for Teams subscribers only
+•	Members table shows all members with correct role and status badges
+•	InviteMemberModal sends invitation correctly
+•	Seat limit message shown correctly when limit is reached
+•	Delegate access section shows current grants and allows revocation
+•	All team management actions show appropriate success and error toasts
+
+EventLink FMS — Sprint 9 Spec — May 2026

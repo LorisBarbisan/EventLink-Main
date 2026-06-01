@@ -75,6 +75,11 @@ import {
   reference_requests,
   reference_reports,
   subscriptions,
+  team_accounts,
+  team_members,
+  team_delegate_access,
+  type TeamAccount,
+  type TeamDelegateAccess,
   type User,
 } from "@shared/schema";
 import {
@@ -4702,11 +4707,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEnquiriesForEmployer(employerId: number) {
+    const membership = await this.getTeamByMember(employerId);
+    let memberIds = [employerId];
+    if (membership) {
+      const allMembers = await this.getTeamMembers(membership.team.id);
+      const ids = allMembers
+        .filter((m) => m.member.status === "active")
+        .map((m) => m.member.userId)
+        .filter((id): id is number => id !== null);
+      if (ids.length > 0) memberIds = ids;
+    }
     const enquiries = await db
       .select()
       .from(availability_enquiries)
       .where(and(
-        eq(availability_enquiries.employerId, employerId),
+        memberIds.length === 1
+          ? eq(availability_enquiries.employerId, memberIds[0])
+          : inArray(availability_enquiries.employerId, memberIds),
         ne(availability_enquiries.status, 'archived')
       ))
       .orderBy(desc(availability_enquiries.createdAt));
@@ -4982,9 +4999,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getArchivedEnquiries(employerId: number) {
+    const membership = await this.getTeamByMember(employerId);
+    let memberIds = [employerId];
+    if (membership) {
+      const allMembers = await this.getTeamMembers(membership.team.id);
+      const ids = allMembers
+        .filter((m) => m.member.status === "active")
+        .map((m) => m.member.userId)
+        .filter((id): id is number => id !== null);
+      if (ids.length > 0) memberIds = ids;
+    }
     const enquiries = await db.select().from(availability_enquiries)
       .where(and(
-        eq(availability_enquiries.employerId, employerId),
+        memberIds.length === 1
+          ? eq(availability_enquiries.employerId, memberIds[0])
+          : inArray(availability_enquiries.employerId, memberIds),
         eq(availability_enquiries.status, 'archived')
       ))
       .orderBy(desc(availability_enquiries.updatedAt));
@@ -5050,6 +5079,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBookingsForCalendar(employerId: number) {
+    const membership = await this.getTeamByMember(employerId);
+    let memberIds = [employerId];
+    if (membership) {
+      const allMembers = await this.getTeamMembers(membership.team.id);
+      const ids = allMembers
+        .filter((m) => m.member.status === "active")
+        .map((m) => m.member.userId)
+        .filter((id): id is number => id !== null);
+      if (ids.length > 0) memberIds = ids;
+    }
     const results = await db
       .select({
         booking: bookings,
@@ -5061,7 +5100,11 @@ export class DatabaseStorage implements IStorage {
       .from(bookings)
       .leftJoin(users, eq(bookings.freelancerId, users.id))
       .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
-      .where(eq(bookings.employerId, employerId))
+      .where(
+        memberIds.length === 1
+          ? eq(bookings.employerId, memberIds[0])
+          : inArray(bookings.employerId, memberIds)
+      )
       .orderBy(bookings.createdAt);
     return results.map((r) => ({
       ...r.booking,
@@ -5190,7 +5233,21 @@ export class DatabaseStorage implements IStorage {
   // ── FMS Phase 6 — Export Methods ──────────────────────────
 
   async getBookingsForExport(employerId: number, dateFrom?: string, dateTo?: string) {
-    const conditions: any[] = [eq(bookings.employerId, employerId)];
+    const membership = await this.getTeamByMember(employerId);
+    let memberIds = [employerId];
+    if (membership) {
+      const allMembers = await this.getTeamMembers(membership.team.id);
+      const ids = allMembers
+        .filter((m) => m.member.status === "active")
+        .map((m) => m.member.userId)
+        .filter((id): id is number => id !== null);
+      if (ids.length > 0) memberIds = ids;
+    }
+    const conditions: any[] = [
+      memberIds.length === 1
+        ? eq(bookings.employerId, memberIds[0])
+        : inArray(bookings.employerId, memberIds),
+    ];
     if (dateFrom) conditions.push(gte(bookings.eventDate, dateFrom));
     if (dateTo) conditions.push(lte(bookings.eventDate, dateTo));
 
@@ -5353,6 +5410,276 @@ export class DatabaseStorage implements IStorage {
       .from(subscriptions)
       .where(eq(subscriptions.stripeCustomerId, stripeCustomerId));
     return sub ?? null;
+  }
+
+  // ── FMS Phase 9 — Team Storage Methods ───────────────────
+
+  async getTeamByOwner(ownerId: number): Promise<TeamAccount | null> {
+    const [team] = await db
+      .select()
+      .from(team_accounts)
+      .where(eq(team_accounts.ownerId, ownerId));
+    return team ?? null;
+  }
+
+  async getTeamByMember(userId: number) {
+    const [membership] = await db
+      .select({
+        team: team_accounts,
+        role: team_members.role,
+        status: team_members.status,
+      })
+      .from(team_members)
+      .innerJoin(team_accounts, eq(team_members.teamId, team_accounts.id))
+      .where(
+        and(eq(team_members.userId, userId), eq(team_members.status, "active"))
+      );
+    return membership ?? null;
+  }
+
+  async getTeamMembers(teamId: number) {
+    return db
+      .select({
+        member: team_members,
+        user: {
+          id: users.id,
+          email: users.email,
+          first_name: users.first_name,
+          last_name: users.last_name,
+        },
+        profile: {
+          company_name: recruiter_profiles.company_name,
+          profile_photo_url: recruiter_profiles.company_logo_url,
+        },
+      })
+      .from(team_members)
+      .leftJoin(users, eq(team_members.userId, users.id))
+      .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
+      .where(eq(team_members.teamId, teamId))
+      .orderBy(team_members.role, team_members.createdAt);
+  }
+
+  async getTeamDelegateAccess(teamId: number): Promise<TeamDelegateAccess[]> {
+    return db
+      .select()
+      .from(team_delegate_access)
+      .where(eq(team_delegate_access.teamId, teamId));
+  }
+
+  async createTeamAccount(ownerId: number, name: string): Promise<TeamAccount> {
+    const existing = await this.getTeamByOwner(ownerId);
+    if (existing) return existing;
+    const [team] = await db
+      .insert(team_accounts)
+      .values({ ownerId, name })
+      .returning();
+    await db.insert(team_members).values({
+      teamId: team.id,
+      userId: ownerId,
+      role: "owner",
+      status: "active",
+      joinedAt: new Date(),
+    });
+    return team;
+  }
+
+  async inviteTeamMember(data: {
+    teamId: number;
+    invitedByUserId: number;
+    email: string;
+    role: "admin" | "manager";
+  }) {
+    const members = await this.getTeamMembers(data.teamId);
+    const activeCount = members.filter(
+      (m) => m.member.status === "active" || m.member.status === "invited"
+    ).length;
+    const [team] = await db
+      .select()
+      .from(team_accounts)
+      .where(eq(team_accounts.id, data.teamId));
+    const ownerSub = await this.getSubscription(team.ownerId);
+    const limit = ownerSub?.tier === "teams" ? 10 : 3;
+    if (activeCount >= limit) throw new Error(`SEAT_LIMIT_REACHED:${limit}`);
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, data.email));
+    if (existingUser.length > 0) {
+      const alreadyMember = await db
+        .select()
+        .from(team_members)
+        .where(
+          and(
+            eq(team_members.teamId, data.teamId),
+            eq(team_members.userId, existingUser[0].id)
+          )
+        );
+      if (alreadyMember.length > 0) throw new Error("User is already a team member");
+    }
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const [invite] = await db
+      .insert(team_members)
+      .values({
+        teamId: data.teamId,
+        userId: existingUser[0]?.id ?? null,
+        role: data.role,
+        status: "invited",
+        invitedByUserId: data.invitedByUserId,
+        inviteToken: token,
+        inviteEmail: data.email,
+        inviteExpiresAt: expiresAt,
+      })
+      .returning();
+    return { invite, token };
+  }
+
+  async acceptTeamInvite(token: string, userId: number) {
+    const [invite] = await db
+      .select()
+      .from(team_members)
+      .where(eq(team_members.inviteToken, token));
+    if (!invite) throw new Error("Invite not found");
+    if (invite.status !== "invited") throw new Error("Invite already used");
+    if (invite.inviteExpiresAt && invite.inviteExpiresAt < new Date()) {
+      throw new Error("Invite has expired");
+    }
+    const [updated] = await db
+      .update(team_members)
+      .set({
+        userId,
+        status: "active",
+        joinedAt: new Date(),
+        inviteToken: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(team_members.id, invite.id))
+      .returning();
+    return updated;
+  }
+
+  async updateMemberRole(
+    teamId: number,
+    targetUserId: number,
+    newRole: "admin" | "manager",
+    requestingUserId: number
+  ) {
+    const [requester] = await db
+      .select()
+      .from(team_members)
+      .where(
+        and(
+          eq(team_members.teamId, teamId),
+          eq(team_members.userId, requestingUserId),
+          inArray(team_members.role, ["owner", "admin"])
+        )
+      );
+    if (!requester) throw new Error("Insufficient permissions");
+    const [target] = await db
+      .select()
+      .from(team_members)
+      .where(
+        and(eq(team_members.teamId, teamId), eq(team_members.userId, targetUserId))
+      );
+    if (!target) throw new Error("Member not found");
+    if (target.role === "owner") throw new Error("Cannot change owner role");
+    const [updated] = await db
+      .update(team_members)
+      .set({ role: newRole, updatedAt: new Date() })
+      .where(eq(team_members.id, target.id))
+      .returning();
+    return updated;
+  }
+
+  async removeTeamMember(
+    teamId: number,
+    targetUserId: number,
+    requestingUserId: number
+  ) {
+    const [team] = await db
+      .select()
+      .from(team_accounts)
+      .where(eq(team_accounts.id, teamId));
+    if (!team || team.ownerId !== requestingUserId) {
+      throw new Error("Only the account owner can remove members");
+    }
+    if (targetUserId === team.ownerId) {
+      throw new Error("Cannot remove the account owner");
+    }
+    await db
+      .delete(team_members)
+      .where(
+        and(
+          eq(team_members.teamId, teamId),
+          eq(team_members.userId, targetUserId)
+        )
+      );
+    await db.delete(team_delegate_access).where(
+      and(
+        eq(team_delegate_access.teamId, teamId),
+        or(
+          eq(team_delegate_access.delegatorUserId, targetUserId),
+          eq(team_delegate_access.delegateUserId, targetUserId)
+        )
+      )
+    );
+  }
+
+  async grantDelegateAccess(data: {
+    teamId: number;
+    delegatorUserId: number;
+    delegateUserId: number;
+    grantedByUserId: number;
+  }): Promise<TeamDelegateAccess> {
+    const existing = await db
+      .select()
+      .from(team_delegate_access)
+      .where(
+        and(
+          eq(team_delegate_access.teamId, data.teamId),
+          eq(team_delegate_access.delegatorUserId, data.delegatorUserId),
+          eq(team_delegate_access.delegateUserId, data.delegateUserId)
+        )
+      );
+    if (existing.length > 0) return existing[0];
+    const [access] = await db
+      .insert(team_delegate_access)
+      .values(data)
+      .returning();
+    return access;
+  }
+
+  async revokeDelegateAccess(
+    teamId: number,
+    delegatorUserId: number,
+    delegateUserId: number
+  ) {
+    await db.delete(team_delegate_access).where(
+      and(
+        eq(team_delegate_access.teamId, teamId),
+        eq(team_delegate_access.delegatorUserId, delegatorUserId),
+        eq(team_delegate_access.delegateUserId, delegateUserId)
+      )
+    );
+  }
+
+  async canActOnBehalf(
+    teamId: number,
+    actingUserId: number,
+    targetUserId: number
+  ): Promise<boolean> {
+    if (actingUserId === targetUserId) return true;
+    const [access] = await db
+      .select()
+      .from(team_delegate_access)
+      .where(
+        and(
+          eq(team_delegate_access.teamId, teamId),
+          eq(team_delegate_access.delegatorUserId, targetUserId),
+          eq(team_delegate_access.delegateUserId, actingUserId)
+        )
+      );
+    return !!access;
   }
 }
 

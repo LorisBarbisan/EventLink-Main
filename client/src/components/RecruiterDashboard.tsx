@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MyBookings from "@/pages/employer/MyBookings";
 import { BillingPanel } from "./fms/BillingPanel";
 import { Ir35GuidanceTab } from "./fms/Ir35GuidanceTab";
+import { TeamManagementPanel } from "./fms/TeamManagementPanel";
 import { BookingCalendar } from "./fms/BookingCalendar";
 import { EnquiryList } from "./fms/EnquiryList";
 import { ExportButton } from "./fms/ExportButton";
@@ -95,7 +96,7 @@ export default function SimplifiedRecruiterDashboard() {
       const actionParam = urlParams.get("action");
 
       // Switch to tab specified in URL (e.g., from notifications)
-      if (tabParam && ["profile", "jobs", "applications", "messages", "crew", "bookings", "calendar"].includes(tabParam)) {
+      if (tabParam && ["profile", "jobs", "applications", "messages", "crew", "bookings", "calendar", "team"].includes(tabParam)) {
         if (tabParam !== activeTab) {
           setActiveTab(tabParam);
         }
@@ -120,6 +121,20 @@ export default function SimplifiedRecruiterDashboard() {
         window.history.replaceState({}, "", newUrl);
       }
     };
+
+    // Handle team invite params
+    const urlParams2 = new URLSearchParams(window.location.search);
+    if (urlParams2.get("team_joined") === "true") {
+      toast({ title: "You have joined the team!" });
+      urlParams2.delete("team_joined");
+      window.history.replaceState({}, "", `${window.location.pathname}${urlParams2.toString() ? `?${urlParams2.toString()}` : ""}`);
+    }
+    const inviteError = urlParams2.get("invite_error");
+    if (inviteError) {
+      toast({ title: decodeURIComponent(inviteError), variant: "destructive" });
+      urlParams2.delete("invite_error");
+      window.history.replaceState({}, "", `${window.location.pathname}${urlParams2.toString() ? `?${urlParams2.toString()}` : ""}`);
+    }
 
     // Check on mount
     handleSearchParams();
@@ -223,6 +238,14 @@ export default function SimplifiedRecruiterDashboard() {
       });
     },
   });
+
+  // Subscription tier for conditional team tab
+  const { data: subData } = useQuery<{ tier: string; status: string }>({
+    queryKey: ["/api/subscription/status"],
+    queryFn: () => apiRequest("/api/subscription/status"),
+    enabled: !!user?.id,
+  });
+  const isTeamsTier = subData?.tier === "teams";
 
   // Fetch unread message count with optimized polling
   const { data: unreadCount } = useQuery({
@@ -625,7 +648,7 @@ export default function SimplifiedRecruiterDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 md:grid-cols-10">
+        <TabsList className={`grid w-full grid-cols-4 ${isTeamsTier ? "md:grid-cols-11" : "md:grid-cols-10"}`}>
           <TabsTrigger value="jobs" className="gap-2">
             My Jobs
             <TabBadge count={roleSpecificCounts.jobs || 0} />
@@ -646,6 +669,12 @@ export default function SimplifiedRecruiterDashboard() {
           <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="crew">My Crew</TabsTrigger>
           <TabsTrigger value="ir35">IR35</TabsTrigger>
+          {isTeamsTier && (
+            <TabsTrigger value="team" className="gap-1">
+              <Users className="h-3.5 w-3.5" />
+              Team
+            </TabsTrigger>
+          )}
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="profile">Company Profile</TabsTrigger>
         </TabsList>
@@ -1249,6 +1278,19 @@ export default function SimplifiedRecruiterDashboard() {
           </div>
           <Ir35GuidanceTab />
         </TabsContent>
+
+        {/* Team Tab */}
+        {isTeamsTier && (
+          <TabsContent value="team" className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Team Management</h2>
+              <p className="text-muted-foreground">
+                Manage members, roles, and delegate access for your team
+              </p>
+            </div>
+            <TeamManagementPanel />
+          </TabsContent>
+        )}
 
         {/* Billing Tab */}
         <TabsContent value="billing" className="space-y-6">

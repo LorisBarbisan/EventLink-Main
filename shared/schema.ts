@@ -1249,3 +1249,64 @@ export const subscriptions = pgTable("subscriptions", {
 
 export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = typeof subscriptions.$inferInsert;
+
+// ============================================================
+// FMS Phase 9 — Multi-User Teams Tier
+// ============================================================
+
+export const team_accounts = pgTable("team_accounts", {
+  id: serial("id").primaryKey(),
+  ownerId: integer("owner_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const team_members = pgTable("team_members", {
+  id: serial("id").primaryKey(),
+  teamId: integer("team_id")
+    .notNull()
+    .references(() => team_accounts.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  role: text("role")
+    .notNull()
+    .default("manager")
+    .$type<"owner" | "admin" | "manager">(),
+  status: text("status")
+    .notNull()
+    .default("active")
+    .$type<"active" | "invited" | "suspended">(),
+  invitedByUserId: integer("invited_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  inviteToken: text("invite_token").unique(),
+  inviteEmail: text("invite_email"),
+  inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }),
+  joinedAt: timestamp("joined_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const team_delegate_access = pgTable("team_delegate_access", {
+  id: serial("id").primaryKey(),
+  teamId: integer("team_id")
+    .notNull()
+    .references(() => team_accounts.id, { onDelete: "cascade" }),
+  delegatorUserId: integer("delegator_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  delegateUserId: integer("delegate_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  grantedByUserId: integer("granted_by_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type TeamAccount = typeof team_accounts.$inferSelect;
+export type TeamMember = typeof team_members.$inferSelect;
+export type TeamDelegateAccess = typeof team_delegate_access.$inferSelect;
