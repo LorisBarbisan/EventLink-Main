@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MyBookings from "@/pages/employer/MyBookings";
+import { BookingCalendar } from "./fms/BookingCalendar";
 import { EnquiryList } from "./fms/EnquiryList";
 import { SendEnquiryModal } from "./fms/SendEnquiryModal";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
   Briefcase,
+  CalendarDays,
   Loader2,
   MapPin,
   Plus,
@@ -90,7 +92,7 @@ export default function SimplifiedRecruiterDashboard() {
       const actionParam = urlParams.get("action");
 
       // Switch to tab specified in URL (e.g., from notifications)
-      if (tabParam && ["profile", "jobs", "applications", "messages", "crew", "bookings"].includes(tabParam)) {
+      if (tabParam && ["profile", "jobs", "applications", "messages", "crew", "bookings", "calendar"].includes(tabParam)) {
         if (tabParam !== activeTab) {
           setActiveTab(tabParam);
         }
@@ -617,7 +619,7 @@ export default function SimplifiedRecruiterDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 md:grid-cols-7">
+        <TabsList className="grid w-full grid-cols-4 md:grid-cols-8">
           <TabsTrigger value="jobs" className="gap-2">
             My Jobs
             <TabBadge count={roleSpecificCounts.jobs || 0} />
@@ -631,6 +633,10 @@ export default function SimplifiedRecruiterDashboard() {
             <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="calendar" className="gap-1.5">
+            <CalendarDays className="h-3.5 w-3.5" />
+            Calendar
+          </TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="crew">My Crew</TabsTrigger>
           <TabsTrigger value="profile">Company Profile</TabsTrigger>
@@ -1205,6 +1211,11 @@ export default function SimplifiedRecruiterDashboard() {
         {/* Bookings Tab */}
         <TabsContent value="bookings" className="space-y-6">
           <MyBookings />
+        </TabsContent>
+
+        {/* Calendar Tab */}
+        <TabsContent value="calendar">
+          <BookingCalendar />
         </TabsContent>
 
         {/* Availability Tab */}

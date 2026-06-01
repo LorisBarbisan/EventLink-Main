@@ -1,0 +1,416 @@
+Colour System — Status to Colour Mapping
+Every booking status maps to a specific colour. These colours must be used consistently everywhere — calendar events, popup badge, and booking card badge.
+
+Colour	Status	Meaning
+	enquired	Availability check sent, not yet confirmed — amber/orange
+	confirmed	Booking confirmed — dark green
+	briefed	Brief sent to freelancer — EventLink navy
+	completed	Event complete — neutral grey
+	cancelled	Booking cancelled — red
+
+⚠️  These exact hex values must be used: enquired #FFA500, confirmed #1A6B3C, briefed #1E3A5F, completed #6B7280, cancelled #EF4444. Define them as a constant object STATUS_COLOURS at the top of the calendar component file.
+ 
+Step 1 — API Endpoint (server/api/routes/booking.route.ts)
+Add one new endpoint to the existing booking route. This returns all bookings for the logged-in employer, with freelancer name and profile photo included, formatted for the calendar.
+
+⚠️  Check the existing booking.route.ts and booking.controller.ts before adding. If a 'get all bookings for employer' endpoint already exists, check whether it includes freelancer name and photo. If it does, use it and skip this step. If not, add the endpoint below.
+
+1.1 — Storage method (server/storage.ts)
+Add this method in the FMS bookings section:
+async getBookingsForCalendar(employerId: number) {
+  const results = await db
+    .select({
+      booking: bookings,
+      freelancerFirstName: users.first_name,
+      freelancerLastName: users.last_name,
+      freelancerPhoto: freelancer_profiles.profile_photo_url,
+      freelancerTitle: freelancer_profiles.title,
+    })
+    .from(bookings)
+    .leftJoin(users, eq(bookings.freelancerId, users.id))
+    .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
+    .where(eq(bookings.employerId, employerId))
+    .orderBy(bookings.createdAt);
+  return results.map(r => ({
+    ...r.booking,
+    freelancerName: `${r.freelancerFirstName ?? ''} ${r.freelancerLastName ?? ''}`.trim(),
+    freelancerPhoto: r.freelancerPhoto ?? null,
+    freelancerTitle: r.freelancerTitle ?? null,
+  }));
+},
+
+1.2 — Controller function
+Add to server/api/controllers/booking.controller.ts:
+export const getBookingsForCalendar = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const bookings = await storage.getBookingsForCalendar(employerId);
+    return res.json(bookings);
+  } catch (error: any) {
+    console.error('getBookingsForCalendar error:', error.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+1.3 — Route
+Add to the existing booking router:
+// Add to booking.route.ts:
+bookingRouter.get('/calendar', requireAuth, requireRole('recruiter'), getBookingsForCalendar);
+
+// IMPORTANT: This must be declared BEFORE any /:id routes
+// to prevent Express matching 'calendar' as a booking ID.
+ 
+Step 2 — React Components
+
+2.1 — BookingCalendar.tsx (client/src/components/fms/BookingCalendar.tsx)
+The main calendar component. Uses react-big-calendar with the date-fns localiser.
+
+2.1a — Imports and setup
+import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { enGB } from 'date-fns/locale';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { BookingEventPopup } from './BookingEventPopup';
+
+const locales = { 'en-GB': enGB };
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
+
+const STATUS_COLOURS: Record<string, string> = {
+  enquired:  '#FFA500',
+  confirmed: '#1A6B3C',
+  briefed:   '#1E3A5F',
+  completed: '#6B7280',
+  cancelled: '#EF4444',
+};
+
+2.1b — Data fetching and event transformation
+// Inside BookingCalendar component:
+const [selectedBooking, setSelectedBooking] = useState<any>(null);
+const [popupOpen, setPopupOpen] = useState(false);
+
+const { data: bookings = [], isLoading } = useQuery({
+  queryKey: ['/api/bookings/calendar'],
+  queryFn: () => apiRequest('/api/bookings/calendar'),
+});
+
+// Transform bookings to react-big-calendar event format
+const events = bookings.map((b: any) => ({
+  id: b.id,
+  title: b.freelancerName || 'Unnamed',
+  // Use eventDate as both start and end (single day events)
+  // Parse date string carefully — bookings store dates as text (YYYY-MM-DD)
+  start: new Date(b.eventDate ?? b.createdAt),
+  end: new Date(b.eventDate ?? b.createdAt),
+  allDay: true,
+  resource: b, // store full booking data for popup
+  status: b.status,
+  colour: STATUS_COLOURS[b.status] ?? '#6B7280',
+}));
+
+2.1c — Calendar render
+// Event style getter — applies status colour to each event
+const eventStyleGetter = (event: any) => ({
+  style: {
+    backgroundColor: event.colour,
+    borderRadius: '4px',
+    border: 'none',
+    color: '#ffffff',
+    fontSize: '12px',
+    padding: '2px 6px',
+    cursor: 'pointer',
+  }
+});
+
+// Handle event click — open popup
+const handleSelectEvent = (event: any) => {
+  setSelectedBooking(event.resource);
+  setPopupOpen(true);
+};
+
+// Render
+return (
+  <div className='h-[700px] p-4'>
+    {/* Colour legend */}
+    <div className='flex flex-wrap gap-3 mb-4'>
+      {Object.entries(STATUS_COLOURS).map(([status, colour]) => (
+        <div key={status} className='flex items-center gap-1.5'>
+          <div className='h-3 w-3 rounded-full' style={{ backgroundColor: colour }} />
+          <span className='text-xs capitalize text-muted-foreground'>{status}</span>
+        </div>
+      ))}
+    </div>
+    {isLoading ? (
+      <div className='flex items-center justify-center h-full'>
+        <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
+      </div>
+    ) : (
+      <Calendar
+        localizer={localizer}
+        events={events}
+        defaultView={Views.MONTH}
+        views={[Views.MONTH, Views.WEEK, Views.AGENDA]}
+        style={{ height: '100%' }}
+        eventPropGetter={eventStyleGetter}
+        onSelectEvent={handleSelectEvent}
+        culture='en-GB'
+        formats={{
+          monthHeaderFormat: (date: Date) => format(date, 'MMMM yyyy'),
+          dayHeaderFormat: (date: Date) => format(date, 'EEE d MMM'),
+          agendaDateFormat: (date: Date) => format(date, 'EEE d MMM yyyy'),
+        }}
+        popup // show overflow popup when too many events on one day
+        tooltipAccessor={(event: any) => `${event.title} — ${event.status}`}
+      />
+    )}
+    {selectedBooking && (
+      <BookingEventPopup
+        booking={selectedBooking}
+        open={popupOpen}
+        onOpenChange={(open) => { setPopupOpen(open); if (!open) setSelectedBooking(null); }}
+      />
+    )}
+  </div>
+);
+
+2.2 — BookingEventPopup.tsx (client/src/components/fms/BookingEventPopup.tsx)
+A Dialog popup that appears when the employer clicks a booking event on the calendar. Shows key booking details and a button to open the full booking page.
+
+// Props:
+//   booking: {
+//     id: number
+//     status: string
+//     freelancerName: string
+//     freelancerPhoto: string | null
+//     freelancerTitle: string | null
+//     eventDate: string
+//     callTime: string | null
+//     venueAddress: string | null
+//     agreedRate: string | null
+//     employerNotes: string | null
+//     jobId: number
+//   }
+//   open: boolean
+//   onOpenChange: (open: boolean) => void
+
+// Use Dialog from @/components/ui/dialog
+// Use Badge from @/components/ui/badge
+// Use Button from @/components/ui/button
+// Use useLocation from wouter for navigation
+
+// Layout:
+// DialogHeader:
+//   Freelancer avatar (photo or initials) + name + title
+//   Status badge — use STATUS_COLOURS, import the constant from BookingCalendar
+//   OR redefine STATUS_COLOURS locally in this file to avoid circular imports
+
+// DialogContent:
+//   Detail rows (only show rows where value is present):
+//     Calendar icon + event date
+//     Clock icon + call time
+//     MapPin icon + venue address
+//     Briefcase icon + role (from job title if available)
+//     PoundSterling icon + agreed rate
+//   Employer notes section (if present):
+//     Label 'Notes' + text
+
+// DialogFooter:
+//   'Close' button (variant outline)
+//   'Open booking' button (orange) — navigates to /dashboard?tab=bookings&booking={id}
+//     Use wouter's useLocation: const [, navigate] = useLocation()
+//     onClick: navigate(`/dashboard?tab=bookings&booking=${booking.id}`); onOpenChange(false);
+
+// STATUS_COLOURS constant (redefine here to keep component self-contained):
+const STATUS_COLOURS: Record<string, { bg: string; label: string }> = {
+  enquired:  { bg: '#FFF3E0', label: '#E65100' },
+  confirmed: { bg: '#E8F5E9', label: '#1A6B3C' },
+  briefed:   { bg: '#E8EAF6', label: '#1E3A5F' },
+  completed: { bg: '#F3F4F6', label: '#374151' },
+  cancelled: { bg: '#FEE2E2', label: '#DC2626' },
+};
+
+// Status badge render:
+// const colours = STATUS_COLOURS[booking.status] ?? STATUS_COLOURS.completed;
+// <span style={{ background: colours.bg, color: colours.label }}
+//   className='px-2 py-0.5 rounded-full text-xs font-semibold capitalize'>
+//   {booking.status}
+// </span>
+
+2.3 — CSS override for react-big-calendar
+react-big-calendar ships with its own CSS that may conflict with Tailwind. Add these overrides to the component or a global CSS file to ensure the calendar renders correctly inside the EventLink design system.
+
+/* Add to client/src/index.css or a new file imported in BookingCalendar.tsx */
+
+.rbc-calendar {
+  font-family: Arial, sans-serif;
+  background: transparent;
+}
+
+.rbc-header {
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 4px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.rbc-today {
+  background-color: #FFF8F0;
+}
+
+.rbc-off-range-bg {
+  background-color: #f9fafb;
+}
+
+.rbc-event {
+  font-size: 12px;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+}
+
+.rbc-event:focus {
+  outline: 2px solid #E8610A;
+  outline-offset: 2px;
+}
+
+.rbc-toolbar button {
+  font-size: 13px;
+  border-radius: 6px;
+  padding: 6px 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.rbc-toolbar button.rbc-active {
+  background-color: #1E3A5F;
+  color: #ffffff;
+  border-color: #1E3A5F;
+}
+
+.rbc-toolbar button:hover {
+  background-color: #f3f4f6;
+}
+
+.rbc-show-more {
+  color: #E8610A;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rbc-agenda-view table.rbc-agenda-table {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+2.4 — Add Calendar tab to employer dashboard
+Add a 'Calendar' tab to the employer dashboard alongside the existing tabs. The calendar should be the second tab, between the overview/bookings tab and the Availability tab.
+
+// In the employer dashboard tabs component:
+// Add import:
+import { BookingCalendar } from '../components/fms/BookingCalendar';
+
+// Add tab trigger:
+// <TabsTrigger value='calendar'>
+//   <CalendarDays className='mr-2 h-4 w-4' />
+//   Calendar
+// </TabsTrigger>
+
+// Add tab content:
+// <TabsContent value='calendar'>
+//   <BookingCalendar />
+// </TabsContent>
+
+// Import CalendarDays from lucide-react
+
+// Also support URL-based tab navigation:
+// If the URL contains ?tab=calendar, the Calendar tab should be active on load.
+// This is used by the BookingEventPopup 'Open booking' button which navigates
+// to /dashboard?tab=bookings&booking={id} — make sure the bookings tab
+// scrolls to or highlights the relevant booking when the booking param is present.
+ 
+Step 3 — Booking Detail Page
+The 'Open booking' button in the popup navigates to /dashboard?tab=bookings&booking={id}. The bookings tab must support highlighting or scrolling to a specific booking when this parameter is present.
+
+// In the employer bookings list/tab component:
+// On mount, read the 'booking' query param using wouter's useSearch() or useLocation()
+import { useSearch } from 'wouter';
+
+const search = useSearch();
+const params = new URLSearchParams(search);
+const highlightBookingId = params.get('booking') ? parseInt(params.get('booking')!) : null;
+
+// When highlightBookingId is set:
+// 1. Scroll the page to that booking card (use useRef + scrollIntoView)
+// 2. Add a highlighted ring to that card: className='ring-2 ring-orange-400'
+// 3. Auto-clear the highlight after 3 seconds
+
+// Example highlight effect:
+useEffect(() => {
+  if (highlightBookingId && bookingRefs.current[highlightBookingId]) {
+    bookingRefs.current[highlightBookingId].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightedId(highlightBookingId);
+    const timer = setTimeout(() => setHighlightedId(null), 3000);
+    return () => clearTimeout(timer);
+  }
+}, [highlightBookingId]);
+ 
+Step 4 — Dependency Check
+⚠️  Before building, verify react-big-calendar is installed:
+
+Run: grep 'react-big-calendar' package.json
+
+If it appears in dependencies — proceed.
+If it does not — run: npm install react-big-calendar
+
+Also check that the date-fns locale is available:
+Run: grep '"date-fns"' package.json
+date-fns is already in the project (used in existing components).
+The en-GB locale is included in date-fns — no separate install needed.
+ 
+Step 5 — Completion Checklist
+✔  Test every item below before marking Sprint 4 complete.
+
+API
+•	GET /api/bookings/calendar returns all bookings for the employer with freelancer name and photo
+•	Response includes bookings at all five statuses
+•	Endpoint requires employer auth — freelancers cannot access it
+
+Calendar Display
+•	Calendar tab appears in employer dashboard
+•	Calendar loads and shows current month by default
+•	All bookings appear on their correct event date
+•	Each booking event is coloured correctly by status
+•	Colour legend appears above the calendar
+•	Month, Week, and Agenda views all work and switch correctly
+•	UK date formatting (dd/mm/yyyy) used throughout
+•	'Today' date cell is highlighted in a light amber
+•	When more events exist than fit in a day cell, '+n more' link shows and opens overflow popup
+•	Hovering an event shows tooltip with freelancer name and status
+
+Event Popup
+•	Clicking an event opens the BookingEventPopup
+•	Popup shows freelancer avatar (photo or initials), name, and title
+•	Status badge shows correct colour and label
+•	Event date, call time, venue, rate shown where present
+•	Employer notes shown if present
+•	'Close' button dismisses popup
+•	'Open booking' button navigates to /dashboard?tab=bookings&booking={id} and closes popup
+
+Booking Highlight
+•	Navigating to /dashboard?tab=bookings&booking={id} opens bookings tab
+•	Page scrolls to the correct booking card
+•	Booking card shows a visible highlight ring for 3 seconds then fades
+
+Responsive
+•	Calendar renders correctly on desktop (1024px+)
+•	Calendar is usable on tablet (768px)
+•	On mobile (375px): Agenda view is shown by default instead of Month view
+
+EventLink FMS — Sprint 4 Spec — May 

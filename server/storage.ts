@@ -5047,6 +5047,28 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async getBookingsForCalendar(employerId: number) {
+    const results = await db
+      .select({
+        booking: bookings,
+        freelancerFirstName: users.first_name,
+        freelancerLastName: users.last_name,
+        freelancerPhoto: freelancer_profiles.profile_photo_url,
+        freelancerTitle: freelancer_profiles.title,
+      })
+      .from(bookings)
+      .leftJoin(users, eq(bookings.freelancerId, users.id))
+      .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
+      .where(eq(bookings.employerId, employerId))
+      .orderBy(bookings.createdAt);
+    return results.map((r) => ({
+      ...r.booking,
+      freelancerName: `${r.freelancerFirstName ?? ""} ${r.freelancerLastName ?? ""}`.trim(),
+      freelancerPhoto: r.freelancerPhoto ?? null,
+      freelancerTitle: r.freelancerTitle ?? null,
+    }));
+  }
+
   // ── Step 3 — Brief storage methods ───────────────────────
 
   async createBrief(data: {

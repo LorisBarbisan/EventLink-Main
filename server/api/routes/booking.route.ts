@@ -15,6 +15,7 @@ import {
   updateBookingDetails,
   getBookingsByJob,
   getBookingsSummary,
+  getBookingsForCalendar,
 } from "../controllers/booking.controller";
 
 const router = Router();
@@ -22,6 +23,7 @@ const router = Router();
 router.use(authenticateJWT);
 
 // ── Employer routes ───────────────────────────────────────
+router.get("/calendar", requireRole("employer"), getBookingsForCalendar);
 router.get("/employer", requireRole("employer"), getEmployerBookings);
 router.get("/employer/summary", requireRole("employer"), getBookingsSummary);
 router.get("/job/:jobId", requireRole("employer"), getBookingsByJob);

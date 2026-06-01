@@ -14,6 +14,7 @@ import {
   bookingStatusValues,
 } from "../../../shared/schema";
 import { eq, and, desc, or } from "drizzle-orm";
+import { storage } from "../../storage.js";
 
 // ── Valid status transitions ───────────────────────────────
 const VALID_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
@@ -390,6 +391,19 @@ export async function getBookingsByJob(req: Request, res: Response) {
   } catch (error) {
     console.error("getBookingsByJob error:", error);
     return res.status(500).json({ error: "Failed to fetch job bookings" });
+  }
+}
+
+// ── Get all bookings for calendar (employer) ──────────────
+export async function getBookingsForCalendar(req: Request, res: Response) {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
+    const result = await storage.getBookingsForCalendar(employerId);
+    return res.json(result);
+  } catch (error: any) {
+    console.error("getBookingsForCalendar error:", error.message);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
 

@@ -130,3 +130,58 @@ All colors MUST be HSL.
     background: hsl(var(--primary-hover));
   }
 }
+
+/* react-big-calendar overrides */
+.rbc-calendar {
+  font-family: inherit;
+  background: transparent;
+}
+.rbc-header {
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 4px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.rbc-today {
+  background-color: #FFF8F0;
+}
+.rbc-off-range-bg {
+  background-color: #f9fafb;
+}
+.rbc-event {
+  font-size: 12px;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+}
+.rbc-event:focus {
+  outline: 2px solid #E8610A;
+  outline-offset: 2px;
+}
+.rbc-toolbar button {
+  font-size: 13px;
+  border-radius: 6px;
+  padding: 6px 12px;
+  border: 1px solid #e5e7eb;
+}
+.rbc-toolbar button.rbc-active {
+  background-color: #1E3A5F;
+  color: #ffffff;
+  border-color: #1E3A5F;
+}
+.rbc-toolbar button:hover:not(.rbc-active) {
+  background-color: #f3f4f6;
+}
+.rbc-show-more {
+  color: #E8610A;
+  font-size: 11px;
+  font-weight: 600;
+}
+.rbc-agenda-view table.rbc-agenda-table {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f3f4f6;
+}

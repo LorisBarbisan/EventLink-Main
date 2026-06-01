@@ -3,11 +3,12 @@
 // File: client/src/pages/employer/MyBookings.tsx
 // ============================================================
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { BriefStatusBadge } from "@/components/fms/BriefStatusBadge";
+import { useSearch } from "wouter";
 
 // ── Types ─────────────────────────────────────────────────
 type BookingStatus =
@@ -107,19 +108,33 @@ function StatusBadge({ status }: { status: BookingStatus }) {
 function BookingCard({
   result,
   onStatusChange,
+  highlight,
 }: {
   result: BookingResult;
   onStatusChange: (bookingId: number, status: BookingStatus, cancellationReason?: string) => void;
+  highlight?: boolean;
 }) {
   const { booking, job, freelancer } = result;
   const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (highlight && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlight]);
   const statusConfig = STATUS_CONFIG[booking.status];
   const nextStatuses = statusConfig.next.filter((s) => s !== "cancelled");
   const canCancel = booking.status !== "completed" && booking.status !== "cancelled";
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+    <div
+      ref={cardRef}
+      className={`bg-white rounded-xl border shadow-sm hover:shadow-md transition-shadow ${
+        highlight ? "border-orange-400 ring-2 ring-orange-400" : "border-gray-200"
+      }`}
+    >
       {/* Header */}
       <div className="p-4 border-b border-gray-100 flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -332,6 +347,11 @@ function BookingsSummary({
 export default function MyBookings() {
   const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<BookingStatus | "all">("all");
+  const search = useSearch();
+  const highlightBookingId = (() => {
+    const v = new URLSearchParams(search).get("booking");
+    return v ? parseInt(v) : null;
+  })();
 
   const { data: bookingsData, isLoading } = useQuery<BookingResult[]>({
     queryKey: ["/api/bookings/employer"],
@@ -453,6 +473,7 @@ export default function MyBookings() {
               key={result.booking.id}
               result={result}
               onStatusChange={handleStatusChange}
+              highlight={result.booking.id === highlightBookingId}
             />
           ))}
         </div>
