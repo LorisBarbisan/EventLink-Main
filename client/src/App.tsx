@@ -43,6 +43,7 @@ const MyBookings = lazy(() => import("./pages/employer/MyBookings"));
 const MyJobs = lazy(() => import("./pages/freelancer/MyJobs"));
 const AvailabilityResponse = lazy(() => import("./pages/AvailabilityResponse"));
 const BriefAcknowledgePage = lazy(() => import("./pages/BriefAcknowledgePage"));
+const Pricing = lazy(() => import("./pages/Pricing"));
 
 function PageLoader() {
   return (
@@ -88,6 +89,7 @@ function AppRouter() {
           <Route path="/availability/respond/:token" component={AvailabilityResponse} />
           <Route path="/availability/responded" component={AvailabilityResponse} />
           <Route path="/brief/acknowledge/:token" component={BriefAcknowledgePage} />
+          <Route path="/pricing" component={Pricing} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>

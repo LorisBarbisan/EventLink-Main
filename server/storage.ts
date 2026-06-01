@@ -74,6 +74,7 @@ import {
   type InsertReferenceReport,
   reference_requests,
   reference_reports,
+  subscriptions,
   type User,
 } from "@shared/schema";
 import {
@@ -5273,6 +5274,61 @@ export class DatabaseStorage implements IStorage {
         pending: responses.filter(r => r.response === null).length,
       };
     }));
+  }
+
+  // ── FMS Phase 7 — Subscription Methods ────────────────────
+
+  async getSubscription(employerId: number) {
+    const [sub] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.employerId, employerId));
+    return sub ?? null;
+  }
+
+  async upsertSubscription(data: {
+    employerId: number;
+    stripeCustomerId: string;
+    stripeSubscriptionId?: string;
+    tier?: "pro" | "teams";
+    status: "trialing" | "active" | "past_due" | "canceled" | "incomplete";
+    trialEndsAt?: Date | null;
+    currentPeriodEnd?: Date | null;
+    cancelAtPeriodEnd?: boolean;
+  }) {
+    await db
+      .insert(subscriptions)
+      .values({
+        ...data,
+        tier: data.tier ?? "pro",
+      })
+      .onConflictDoUpdate({
+        target: subscriptions.employerId,
+        set: {
+          stripeCustomerId: data.stripeCustomerId,
+          stripeSubscriptionId: data.stripeSubscriptionId ?? null,
+          tier: data.tier ?? "pro",
+          status: data.status,
+          trialEndsAt: data.trialEndsAt ?? null,
+          currentPeriodEnd: data.currentPeriodEnd ?? null,
+          cancelAtPeriodEnd: data.cancelAtPeriodEnd ?? false,
+          updatedAt: new Date(),
+        },
+      });
+  }
+
+  async hasActiveSubscription(employerId: number): Promise<boolean> {
+    const sub = await this.getSubscription(employerId);
+    if (!sub) return false;
+    return sub.status === "active" || sub.status === "trialing";
+  }
+
+  async getSubscriptionByStripeCustomerId(stripeCustomerId: string) {
+    const [sub] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.stripeCustomerId, stripeCustomerId));
+    return sub ?? null;
   }
 }
 

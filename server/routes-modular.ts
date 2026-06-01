@@ -34,6 +34,7 @@ import enquiryRouter from "./api/routes/enquiry.route.js";
 import briefRouter from "./api/routes/brief.route.js";
 import calendarRouter from "./api/routes/calendar.route.js";
 import exportRouter from "./api/routes/export.route.js";
+import subscriptionRouter from "./api/routes/subscription.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { wsService } from "./api/websocket/websocketService";
 
@@ -265,6 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/briefs", briefRouter);
   app.use("/api/calendar", calendarRouter);
   app.use("/api/export", exportRouter);
+  app.use("/api/subscription", subscriptionRouter);
   registerContactRoutes(app);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering

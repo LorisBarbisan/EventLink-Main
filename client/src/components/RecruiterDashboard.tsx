@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MyBookings from "@/pages/employer/MyBookings";
+import { BillingPanel } from "./fms/BillingPanel";
 import { BookingCalendar } from "./fms/BookingCalendar";
 import { EnquiryList } from "./fms/EnquiryList";
 import { ExportButton } from "./fms/ExportButton";
@@ -623,7 +624,7 @@ export default function SimplifiedRecruiterDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 md:grid-cols-8">
+        <TabsList className="grid w-full grid-cols-4 md:grid-cols-9">
           <TabsTrigger value="jobs" className="gap-2">
             My Jobs
             <TabBadge count={roleSpecificCounts.jobs || 0} />
@@ -643,6 +644,7 @@ export default function SimplifiedRecruiterDashboard() {
           </TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="crew">My Crew</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="profile">Company Profile</TabsTrigger>
         </TabsList>
 
@@ -1233,6 +1235,17 @@ export default function SimplifiedRecruiterDashboard() {
             </div>
           </div>
           <EnquiryList />
+        </TabsContent>
+
+        {/* Billing Tab */}
+        <TabsContent value="billing" className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold">Billing & Subscription</h2>
+            <p className="text-muted-foreground">
+              Manage your EventLink FMS subscription
+            </p>
+          </div>
+          <BillingPanel />
         </TabsContent>
       </Tabs>
 

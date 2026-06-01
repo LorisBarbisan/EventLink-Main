@@ -17,8 +17,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import queryClient from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { PaywallModal } from "./PaywallModal";
 
 interface CalendarStatus {
   connected: boolean;
@@ -38,6 +38,13 @@ export default function CalendarSyncPanel() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [lastSync, setLastSync] = useState<SyncResult | null>(null);
+  const [paywallOpen, setPaywallOpen] = useState(false);
+
+  const { data: subStatus } = useQuery<{ subscribed: boolean }>({
+    queryKey: ["/api/subscription/status"],
+    queryFn: () => apiRequest("/api/subscription/status"),
+  });
+  const isSubscribed = subStatus?.subscribed ?? false;
 
   const { data: status, isLoading } = useQuery<CalendarStatus>({
     queryKey: ["/api/calendar/status"],
@@ -149,7 +156,10 @@ export default function CalendarSyncPanel() {
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <Button
-              onClick={() => syncMutation.mutate()}
+              onClick={() => {
+                if (!isSubscribed) { setPaywallOpen(true); return; }
+                syncMutation.mutate();
+              }}
               disabled={syncMutation.isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
               size="sm"
@@ -204,6 +214,7 @@ export default function CalendarSyncPanel() {
               variant="outline"
               className="gap-2 border-gray-300 hover:border-gray-400 text-sm"
               onClick={() => {
+                if (!isSubscribed) { setPaywallOpen(true); return; }
                 window.location.href = "/api/calendar/google/connect";
               }}
             >
@@ -214,6 +225,7 @@ export default function CalendarSyncPanel() {
               variant="outline"
               className="gap-2 border-gray-300 hover:border-gray-400 text-sm"
               onClick={() => {
+                if (!isSubscribed) { setPaywallOpen(true); return; }
                 window.location.href = "/api/calendar/outlook/connect";
               }}
             >
@@ -223,6 +235,12 @@ export default function CalendarSyncPanel() {
           </div>
         </div>
       )}
+
+      <PaywallModal
+        open={paywallOpen}
+        onOpenChange={setPaywallOpen}
+        featureName="Calendar Sync"
+      />
     </div>
   );
 }

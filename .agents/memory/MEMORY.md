@@ -1,1 +1,4 @@
 - [Calendar OAuth state pattern](calendar-oauth-state.md) — use base64url-encoded state param (not passport session) to pass employerId through OAuth redirects.
+- [FMS auth middleware](fms-auth-middleware.md) — FMS routes use authenticateJWT (never requireAuth); spread middleware arrays with `as any[]` for TS compatibility.
+- [Stripe webhook injection](stripe-webhook.md) — webhook must register with express.raw() BEFORE express.json() in index.ts; import handleWebhook from subscription.controller.
+- [queryClient import](queryclient-import.md) — queryClient is a named export from @/lib/queryClient, not default; use `import { queryClient } from "@/lib/queryClient"`.

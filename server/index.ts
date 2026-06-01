@@ -10,6 +10,7 @@ import { backfillSlugs } from "./api/utils/backfill-slugs";
 import { registerJobNotificationScheduler } from "./api/services/job-notification-scheduler.service";
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
+import { handleWebhook } from "./api/controllers/subscription.controller";
 import { storage } from "./storage";
 import { log, serveStatic, setupVite } from "./vite";
 dotenv.config();
@@ -132,6 +133,9 @@ const saveOperationsLimit = rateLimit({
 app.use("/api", generalRateLimit);
 // Apply stricter limits to save/update operations
 app.use(["/api/profiles", "/api/jobs", "/api/applications"], saveOperationsLimit);
+
+// Stripe webhook — raw body required BEFORE express.json() is applied
+app.post("/api/subscription/webhook", express.raw({ type: "application/json" }), handleWebhook);
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));

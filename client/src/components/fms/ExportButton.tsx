@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Download, ChevronDown, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,6 +20,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { PaywallModal } from "./PaywallModal";
 
 type ExportType = "bookings" | "crew" | "availability";
 type ExportFormat = "excel" | "csv";
@@ -28,17 +31,23 @@ const FORMAT_EXT: Record<ExportFormat, string> = { excel: "xlsx", csv: "csv" };
 export function ExportButton() {
   const { toast } = useToast();
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [paywallOpen, setPaywallOpen] = useState(false);
   const [pendingExport, setPendingExport] = useState<{
     type: ExportType;
     format: ExportFormat;
   } | null>(null);
 
-  // Default: current year start → today
   const today = new Date().toISOString().split("T")[0];
   const yearStart = `${new Date().getFullYear()}-01-01`;
   const [dateFrom, setDateFrom] = useState(yearStart);
   const [dateTo, setDateTo] = useState(today);
   const [isDownloading, setIsDownloading] = useState(false);
+
+  const { data: subStatus } = useQuery<{ subscribed: boolean }>({
+    queryKey: ["/api/subscription/status"],
+    queryFn: () => apiRequest("/api/subscription/status"),
+  });
+  const isSubscribed = subStatus?.subscribed ?? false;
 
   const triggerDownload = async (
     type: ExportType,
@@ -53,7 +62,6 @@ export function ExportButton() {
       if (from) params.set("dateFrom", from);
       if (to) params.set("dateTo", to);
       const url = `/api/export/${type}/${ext}?${params}`;
-
       const res = await fetch(url, {
         credentials: "include",
         headers: {
@@ -84,8 +92,14 @@ export function ExportButton() {
   };
 
   const handleExportClick = (type: ExportType, format: ExportFormat) => {
+    if (!isSubscribed) { setPaywallOpen(true); return; }
     setPendingExport({ type, format });
     setDatePickerOpen(true);
+  };
+
+  const handleDirectClick = (type: ExportType, format: ExportFormat) => {
+    if (!isSubscribed) { setPaywallOpen(true); return; }
+    triggerDownload(type, format);
   };
 
   const handleDownload = () => {
@@ -117,10 +131,10 @@ export function ExportButton() {
           <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
             Crew List
           </DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => triggerDownload("crew", "excel")}>
+          <DropdownMenuItem onClick={() => handleDirectClick("crew", "excel")}>
             Excel (.xlsx)
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => triggerDownload("crew", "csv")}>
+          <DropdownMenuItem onClick={() => handleDirectClick("crew", "csv")}>
             CSV (.csv)
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -186,6 +200,12 @@ export function ExportButton() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PaywallModal
+        open={paywallOpen}
+        onOpenChange={setPaywallOpen}
+        featureName="Spreadsheet Export"
+      />
     </>
   );
 }

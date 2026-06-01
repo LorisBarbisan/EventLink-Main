@@ -1217,3 +1217,30 @@ export const insertCalendarConnectionSchema = createInsertSchema(calendar_connec
 
 export type CalendarConnection = typeof calendar_connections.$inferSelect;
 export type InsertCalendarConnection = z.infer<typeof insertCalendarConnectionSchema>;
+
+// ============================================================
+// FMS Phase 7 — Stripe Subscription Gate
+// ============================================================
+
+export const subscriptions = pgTable("subscriptions", {
+  id: serial("id").primaryKey(),
+  employerId: integer("employer_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  stripeCustomerId: text("stripe_customer_id").notNull().unique(),
+  stripeSubscriptionId: text("stripe_subscription_id").unique(),
+  tier: text("tier").$type<"pro" | "teams">().notNull().default("pro"),
+  status: text("status")
+    .notNull()
+    .default("trialing")
+    .$type<"trialing" | "active" | "past_due" | "canceled" | "incomplete">(),
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;

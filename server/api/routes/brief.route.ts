@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware.js";
 import { requireRole } from "../middleware/role.middleware.js";
+import { requireFmsAccess } from "../middleware/subscription.middleware.js";
 import {
   sendBrief,
   getBriefForBooking,
@@ -20,14 +21,16 @@ briefRouter.get("/acknowledge/:token", getBriefByTokenHandler);
 briefRouter.post("/acknowledge/:token", acknowledgeBriefHandler);
 
 // Employer routes
-briefRouter.post("/booking/:bookingId", authenticateJWT, requireRole("recruiter"), sendBrief);
-briefRouter.get("/booking/:bookingId", authenticateJWT, requireRole("recruiter"), getBriefForBooking);
-briefRouter.post("/booking/:bookingId/attachments", authenticateJWT, requireRole("recruiter"), addBriefAttachment);
-briefRouter.get("/attachment-upload-url", authenticateJWT, requireRole("recruiter"), getBriefAttachmentUploadUrl);
+const fms = [authenticateJWT, requireRole("recruiter"), requireFmsAccess] as any[];
+
+briefRouter.post("/booking/:bookingId", ...fms, sendBrief);
+briefRouter.get("/booking/:bookingId", ...fms, getBriefForBooking);
+briefRouter.post("/booking/:bookingId/attachments", ...fms, addBriefAttachment);
+briefRouter.get("/attachment-upload-url", ...fms, getBriefAttachmentUploadUrl);
 
 // Template routes
-briefRouter.get("/templates", authenticateJWT, requireRole("recruiter"), getBriefTemplates);
-briefRouter.post("/templates", authenticateJWT, requireRole("recruiter"), createBriefTemplate);
-briefRouter.delete("/templates/:templateId", authenticateJWT, requireRole("recruiter"), deleteBriefTemplate);
+briefRouter.get("/templates", ...fms, getBriefTemplates);
+briefRouter.post("/templates", ...fms, createBriefTemplate);
+briefRouter.delete("/templates/:templateId", ...fms, deleteBriefTemplate);
 
 export default briefRouter;

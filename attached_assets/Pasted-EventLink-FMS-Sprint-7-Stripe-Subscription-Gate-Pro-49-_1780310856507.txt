@@ -1,0 +1,711 @@
+EventLink FMS
+Sprint 7 — Stripe Subscription Gate
+Pro (£49/mo) and Teams (£99/mo) tiers, 14-day trial, Stripe Customer Portal
+Branch: FMS1  |  May 2026  |  Requires Stripe account setup before building
+ 
+Overview & Behaviour
+💳  Sprint 7 puts all FMS features behind a paid subscription gate.
+
+TIERS:
+  Pro    — £49/month — up to 3 users — all FMS features
+  Teams  — £99/month — up to 10 users — all FMS features (multi-user logic in Sprint 9)
+
+TRIAL: 14-day free trial on both tiers. Card required upfront.
+After 14 days Stripe charges automatically.
+
+FREE EMPLOYERS: Can still post jobs, browse crew, manage applications,
+and message freelancers. All existing free-tier features are untouched.
+Any FMS action triggers a paywall modal with an Upgrade button.
+
+PAYWALL MODAL: Explains what the employer is missing.
+Contains a single CTA button: 'Start Free Trial' — goes to pricing page.
+
+BILLING MANAGEMENT: Stripe Customer Portal.
+Employers click 'Manage Subscription' and are redirected to Stripe's
+hosted portal to cancel, update card, or view invoices.
+
+WEBHOOKS: Stripe notifies EventLink of subscription events.
+EventLink updates the employer's subscription status in the database.
+
+FREELANCERS: Completely unaffected. No changes to freelancer features.
+No subscription required for freelancers, ever.
+ 
+Pre-Build Setup — Stripe Dashboard (Do This Before Running Agent)
+⚠️  These steps must be completed manually in the Stripe dashboard BEFORE Agent builds anything. Agent needs the Stripe Price IDs and webhook secret to write correct code.
+
+Step A — Create Stripe Products and Prices
+1.	Log in to dashboard.stripe.com
+2.	Go to Products → Add product
+3.	Create Product 1: Name = 'EventLink Pro', Description = 'Full FMS access for up to 3 users'
+4.	Add a price to Pro: £49.00 GBP / month / recurring. Note the Price ID — it looks like price_xxxxxxxxxx
+5.	Create Product 2: Name = 'EventLink Teams', Description = 'Full FMS access for up to 10 users'
+6.	Add a price to Teams: £99.00 GBP / month / recurring. Note the Price ID
+7.	On each product, set the trial period: click the price → Edit → Trial period → 14 days
+
+Step B — Configure the Customer Portal
+8.	In Stripe dashboard: Settings → Billing → Customer portal
+9.	Enable: Cancel subscriptions, Update payment methods, View invoices, View subscription details
+10.	Set cancellation behaviour: Cancel at end of billing period (not immediately)
+11.	Set the return URL: https://fms-1.replit.app/dashboard?tab=billing
+12.	Save the portal configuration
+
+Step C — Set Up Webhooks
+13.	In Stripe dashboard: Developers → Webhooks → Add endpoint
+14.	Endpoint URL: https://fms-1.replit.app/api/subscription/webhook
+15.	Select these events to listen for:
+•	customer.subscription.created
+•	customer.subscription.updated
+•	customer.subscription.deleted
+•	customer.subscription.trial_will_end
+•	invoice.payment_succeeded
+•	invoice.payment_failed
+16.	After creating, click the webhook → Reveal signing secret. Copy this value.
+
+Step D — Set Environment Variables in Replit
+Add these to your Replit project Secrets (not .env file — use the Secrets tab in Replit):
+STRIPE_SECRET_KEY=sk_live_xxxx          # From Stripe API keys (use sk_test_ for testing)
+STRIPE_WEBHOOK_SECRET=whsec_xxxx        # From the webhook signing secret above
+STRIPE_PRO_PRICE_ID=price_xxxx          # Pro tier price ID from Step A
+STRIPE_TEAMS_PRICE_ID=price_xxxx        # Teams tier price ID from Step A
+APP_URL=https://fms-1.replit.app        # Your Replit app URL
+
+Step E — Install Stripe
+Run in the Replit shell before Agent starts building:
+npm install stripe
+ 
+Step 1 — Schema (shared/schema.ts)
+Add one new table to shared/schema.ts. Append before the type exports.
+
+1.1 — subscriptions table
+// ============================================================
+// FMS Phase 7 — Stripe Subscription Gate
+// ============================================================
+
+export const subscriptions = pgTable('subscriptions', {
+  id: serial('id').primaryKey(),
+  employerId: integer('employer_id')
+    .notNull()
+    .unique() // one subscription record per employer
+    .references(() => users.id, { onDelete: 'cascade' }),
+  stripeCustomerId: text('stripe_customer_id').notNull().unique(),
+  stripeSubscriptionId: text('stripe_subscription_id').unique(),
+  tier: text('tier')
+    .$type<'pro' | 'teams'>()
+    .notNull()
+    .default('pro'),
+  status: text('status')
+    .notNull()
+    .default('trialing')
+    .$type<'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete'>(),
+  trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
+  currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+  cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;
+
+1.2 — Run migration
+npm run db:push
+ 
+Step 2 — Storage Methods (server/storage.ts)
+Add these methods to server/storage.ts after the existing FMS methods.
+
+2.1 — getSubscription
+async getSubscription(employerId: number) {
+  const [sub] = await db.select().from(subscriptions)
+    .where(eq(subscriptions.employerId, employerId));
+  return sub ?? null;
+},
+
+2.2 — upsertSubscription
+Called by webhook handler to create or update subscription records.
+async upsertSubscription(data: {
+  employerId: number;
+  stripeCustomerId: string;
+  stripeSubscriptionId?: string;
+  tier?: 'pro' | 'teams';
+  status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete';
+  trialEndsAt?: Date | null;
+  currentPeriodEnd?: Date | null;
+  cancelAtPeriodEnd?: boolean;
+}) {
+  await db.insert(subscriptions).values({
+    ...data,
+    tier: data.tier ?? 'pro',
+  }).onConflictDoUpdate({
+    target: subscriptions.employerId,
+    set: {
+      stripeCustomerId: data.stripeCustomerId,
+      stripeSubscriptionId: data.stripeSubscriptionId ?? null,
+      tier: data.tier ?? 'pro',
+      status: data.status,
+      trialEndsAt: data.trialEndsAt ?? null,
+      currentPeriodEnd: data.currentPeriodEnd ?? null,
+      cancelAtPeriodEnd: data.cancelAtPeriodEnd ?? false,
+      updatedAt: new Date(),
+    }
+  });
+},
+
+2.3 — hasActiveSubscription
+The key gate check. Returns true if the employer has an active or trialing subscription.
+async hasActiveSubscription(employerId: number): Promise<boolean> {
+  const sub = await this.getSubscription(employerId);
+  if (!sub) return false;
+  return sub.status === 'active' || sub.status === 'trialing';
+},
+
+2.4 — getSubscriptionByStripeCustomerId
+Used by the webhook handler to find the employer from a Stripe customer ID.
+async getSubscriptionByStripeCustomerId(stripeCustomerId: string) {
+  const [sub] = await db.select().from(subscriptions)
+    .where(eq(subscriptions.stripeCustomerId, stripeCustomerId));
+  return sub ?? null;
+},
+
+⚠️  Add this import to storage.ts: import { subscriptions } from '../shared/schema.js'
+ 
+Step 3 — Subscription Middleware (server/api/middleware/subscription.middleware.ts)
+Create this file. It is the gate that protects all FMS API routes.
+
+import type { Request, Response, NextFunction } from 'express';
+import { storage } from '../../storage.js';
+
+export const requireFmsAccess = async (
+  req: Request, res: Response, next: NextFunction
+) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const hasAccess = await storage.hasActiveSubscription(employerId);
+    if (!hasAccess) {
+      return res.status(403).json({
+        error: 'FMS_ACCESS_REQUIRED',
+        message: 'An active EventLink Pro or Teams subscription is required.',
+      });
+    }
+    next();
+  } catch (err: any) {
+    console.error('requireFmsAccess error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+⚠️  Apply requireFmsAccess to ALL FMS routes in the following route files:
+  server/api/routes/enquiry.route.ts   — all employer routes
+  server/api/routes/booking.route.ts   — all employer routes
+  server/api/routes/brief.route.ts     — all employer routes
+  server/api/routes/calendar.route.ts  — all employer routes
+  server/api/routes/export.route.ts    — all routes
+
+Add requireFmsAccess AFTER requireAuth and requireRole in each route:
+router.post('/', requireAuth, requireRole('recruiter'), requireFmsAccess, handler);
+
+DO NOT apply it to public routes (token-based freelancer endpoints).
+DO NOT apply it to any existing free-tier routes (jobs, applications, messages).
+ 
+Step 4 — Stripe Service (server/api/services/stripe.service.ts)
+Create this file. All Stripe API interactions live here.
+
+import Stripe from 'stripe';
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('STRIPE_SECRET_KEY environment variable is required');
+}
+
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2024-06-20',
+});
+
+const PRICE_IDS = {
+  pro: process.env.STRIPE_PRO_PRICE_ID!,
+  teams: process.env.STRIPE_TEAMS_PRICE_ID!,
+};
+
+// Create or retrieve a Stripe customer for an employer
+export async function getOrCreateStripeCustomer(
+  employerId: number,
+  email: string,
+  name: string
+): Promise<string> {
+  const { storage } = await import('../../storage.js');
+  const existing = await storage.getSubscription(employerId);
+  if (existing?.stripeCustomerId) return existing.stripeCustomerId;
+  const customer = await stripe.customers.create({
+    email,
+    name,
+    metadata: { employerId: String(employerId) },
+  });
+  return customer.id;
+}
+
+// Create a Stripe Checkout session for a new subscription
+export async function createCheckoutSession(
+  employerId: number,
+  email: string,
+  name: string,
+  tier: 'pro' | 'teams'
+): Promise<string> {
+  const customerId = await getOrCreateStripeCustomer(employerId, email, name);
+  const priceId = PRICE_IDS[tier];
+  if (!priceId) throw new Error(`Price ID not configured for tier: ${tier}`);
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: 'subscription',
+    payment_method_types: ['card'],
+    line_items: [{ price: priceId, quantity: 1 }],
+    subscription_data: {
+      trial_period_days: 14,
+      metadata: { employerId: String(employerId), tier },
+    },
+    success_url: `${process.env.APP_URL}/dashboard?tab=billing&subscribed=true`,
+    cancel_url: `${process.env.APP_URL}/pricing?cancelled=true`,
+    metadata: { employerId: String(employerId), tier },
+  });
+  if (!session.url) throw new Error('No checkout URL returned from Stripe');
+  return session.url;
+}
+
+// Create a Stripe Customer Portal session for managing subscription
+export async function createPortalSession(stripeCustomerId: string): Promise<string> {
+  const session = await stripe.billingPortal.sessions.create({
+    customer: stripeCustomerId,
+    return_url: `${process.env.APP_URL}/dashboard?tab=billing`,
+  });
+  return session.url;
+}
+
+// Determine tier from Stripe subscription price ID
+export function getTierFromPriceId(priceId: string): 'pro' | 'teams' {
+  if (priceId === PRICE_IDS.teams) return 'teams';
+  return 'pro';
+}
+ 
+Step 5 — Webhook Handler
+⚠️  CRITICAL: Stripe webhooks require the raw request body to verify the signature.
+Express's json() middleware parses the body, which breaks Stripe's verification.
+The webhook route MUST use express.raw() middleware, not express.json().
+This is handled in Step 5.2 — do not change the middleware order.
+
+5.1 — Webhook controller (server/api/controllers/subscription.controller.ts)
+Create this file with all subscription-related controller functions.
+import type { Request, Response } from 'express';
+import Stripe from 'stripe';
+import { stripe, createCheckoutSession, createPortalSession, getTierFromPriceId }
+  from '../services/stripe.service.js';
+import { storage } from '../../storage.js';
+
+// POST /api/subscription/checkout — create Stripe checkout session
+export const createCheckout = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const user = await storage.getUser(employerId);
+    const profile = await storage.getRecruiterProfile(employerId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const tier = (req.body.tier === 'teams') ? 'teams' : 'pro';
+    const name = profile?.company_name ?? user.first_name ?? 'Employer';
+    const url = await createCheckoutSession(employerId, user.email, name, tier);
+    return res.json({ url });
+  } catch (err: any) {
+    console.error('createCheckout error:', err.message);
+    return res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+};
+
+// POST /api/subscription/portal — redirect to Stripe Customer Portal
+export const openPortal = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const sub = await storage.getSubscription(employerId);
+    if (!sub) return res.status(404).json({ error: 'No subscription found' });
+    const url = await createPortalSession(sub.stripeCustomerId);
+    return res.json({ url });
+  } catch (err: any) {
+    console.error('openPortal error:', err.message);
+    return res.status(500).json({ error: 'Failed to open billing portal' });
+  }
+};
+
+// GET /api/subscription/status — returns current subscription for employer
+export const getSubscriptionStatus = async (req: Request, res: Response) => {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const sub = await storage.getSubscription(employerId);
+    if (!sub) return res.json({ subscribed: false, tier: null, status: null });
+    return res.json({
+      subscribed: sub.status === 'active' || sub.status === 'trialing',
+      tier: sub.tier,
+      status: sub.status,
+      trialEndsAt: sub.trialEndsAt,
+      currentPeriodEnd: sub.currentPeriodEnd,
+      cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
+    });
+  } catch (err: any) {
+    console.error('getSubscriptionStatus error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// POST /api/subscription/webhook — Stripe webhook handler
+// IMPORTANT: This handler receives raw body — do not parse as JSON
+export const handleWebhook = async (req: Request, res: Response) => {
+  const sig = req.headers['stripe-signature'] as string;
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+  let event: Stripe.Event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch (err: any) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).json({ error: `Webhook error: ${err.message}` });
+  }
+  try {
+    switch (event.type) {
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const sub = event.data.object as Stripe.Subscription;
+        const employerId = parseInt(sub.metadata?.employerId ?? '0');
+        if (!employerId) break;
+        const priceId = sub.items.data[0]?.price?.id ?? '';
+        const tier = getTierFromPriceId(priceId);
+        await storage.upsertSubscription({
+          employerId,
+          stripeCustomerId: sub.customer as string,
+          stripeSubscriptionId: sub.id,
+          tier,
+          status: sub.status as any,
+          trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
+          currentPeriodEnd: sub.current_period_end
+            ? new Date(sub.current_period_end * 1000) : null,
+          cancelAtPeriodEnd: sub.cancel_at_period_end,
+        });
+        console.log(`Subscription ${event.type} for employer ${employerId}`);
+        break;
+      }
+      case 'customer.subscription.deleted': {
+        const sub = event.data.object as Stripe.Subscription;
+        const employerId = parseInt(sub.metadata?.employerId ?? '0');
+        if (!employerId) break;
+        await storage.upsertSubscription({
+          employerId,
+          stripeCustomerId: sub.customer as string,
+          stripeSubscriptionId: sub.id,
+          status: 'canceled',
+          cancelAtPeriodEnd: false,
+        });
+        console.log(`Subscription cancelled for employer ${employerId}`);
+        break;
+      }
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string;
+        const existing = await storage.getSubscriptionByStripeCustomerId(customerId);
+        if (existing) {
+          await storage.upsertSubscription({
+            employerId: existing.employerId,
+            stripeCustomerId: customerId,
+            status: 'past_due',
+          });
+        }
+        break;
+      }
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = invoice.customer as string;
+        const existing = await storage.getSubscriptionByStripeCustomerId(customerId);
+        if (existing && existing.status === 'past_due') {
+          await storage.upsertSubscription({
+            employerId: existing.employerId,
+            stripeCustomerId: customerId,
+            status: 'active',
+          });
+        }
+        break;
+      }
+      default:
+        console.log(`Unhandled Stripe event: ${event.type}`);
+    }
+    return res.json({ received: true });
+  } catch (err: any) {
+    console.error('Webhook processing error:', err.message);
+    return res.status(500).json({ error: 'Webhook processing failed' });
+  }
+};
+
+5.2 — Route file (server/api/routes/subscription.route.ts)
+import express from 'express';
+import { requireAuth } from '../middleware/auth.middleware.js';
+import { requireRole } from '../middleware/role.middleware.js';
+import {
+  createCheckout, openPortal, getSubscriptionStatus, handleWebhook
+} from '../controllers/subscription.controller.js';
+
+const subscriptionRouter = express.Router();
+
+// CRITICAL: Webhook must use raw body — register BEFORE json middleware
+// This route is registered separately in routes-modular.ts (see Step 5.3)
+
+subscriptionRouter.get('/status', requireAuth, requireRole('recruiter'), getSubscriptionStatus);
+subscriptionRouter.post('/checkout', requireAuth, requireRole('recruiter'), createCheckout);
+subscriptionRouter.post('/portal', requireAuth, requireRole('recruiter'), openPortal);
+
+export default subscriptionRouter;
+
+5.3 — Registration in routes-modular.ts
+⚠️  The webhook endpoint MUST be registered with express.raw() BEFORE the express.json() middleware is applied. Add it at the very top of the registerRoutes function, before any other middleware.
+
+// Add these imports at the top of routes-modular.ts:
+import express from 'express';
+import { handleWebhook } from './api/controllers/subscription.controller.js';
+import subscriptionRouter from './api/routes/subscription.route.js';
+
+// Inside registerRoutes(), ADD THIS FIRST — before session, passport, and all other middleware:
+// Stripe webhook — must use raw body before express.json() is applied
+app.post(
+  '/api/subscription/webhook',
+  express.raw({ type: 'application/json' }),
+  handleWebhook
+);
+
+// Then register the subscription router as normal (after other middleware):
+app.use('/api/subscription', subscriptionRouter);
+ 
+Step 6 — Pricing Page (client/src/pages/Pricing.tsx)
+Create a public-facing pricing page at /pricing. This is where employers land when they click Upgrade from the paywall modal. It must be accessible without login.
+
+// Route: /pricing — PUBLIC, no auth required
+// Add to App.tsx: <Route path='/pricing' component={Pricing} />
+
+// Page layout:
+// EventLink header (same as other public pages)
+// Hero section:
+//   'Unlock the EventLink FMS'
+//   'The complete crew management system for UK event professionals.'
+//   '14-day free trial — no commitment, cancel anytime.'
+
+// Two pricing cards side by side (stacked on mobile):
+
+// PRO CARD — £49/month
+//   Badge: 'Most Popular'
+//   Price: £49 /month
+//   Subtext: 'Up to 3 users · 14-day free trial'
+//   Feature list:
+//     Availability enquiry system
+//     Brief templates and delivery
+//     Booking calendar
+//     Google Calendar and Outlook sync
+//     Excel and CSV export
+//     IR35 guidance (Sprint 8)
+//   CTA button: 'Start Free Trial' — orange, large
+//   onClick: call POST /api/subscription/checkout with { tier: 'pro' }
+//            then redirect to the returned URL
+
+// TEAMS CARD — £99/month
+//   Badge: 'For growing teams'
+//   Price: £99 /month
+//   Subtext: 'Up to 10 users · 14-day free trial'
+//   Feature list: Everything in Pro, plus:
+//     Up to 10 team members
+//     Shared crew pool
+//     Team availability calendar
+//   CTA button: 'Start Free Trial' — navy, large
+//   onClick: call POST /api/subscription/checkout with { tier: 'teams' }
+//            then redirect to the returned URL
+
+// Below cards:
+//   'Already subscribed? Sign in to access your dashboard.'
+//   FAQ section (accordion):
+//     Q: Can I cancel anytime? A: Yes. Cancel before your trial ends and you won't be charged.
+//     Q: What payment methods do you accept? A: All major credit and debit cards via Stripe.
+//     Q: What happens after the free trial? A: Your card is charged automatically at the end of 14 days.
+//     Q: Is my team's data secure? A: Yes. EventLink uses bank-grade encryption via Stripe.
+//     Q: Do freelancers need to subscribe? A: No. Freelancers always use EventLink for free.
+
+// Checkout mutation:
+const checkoutMutation = useMutation({
+  mutationFn: (tier: 'pro' | 'teams') =>
+    apiRequest('/api/subscription/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ tier }),
+    }),
+  onSuccess: (data: any) => {
+    if (data.url) window.location.href = data.url;
+  },
+  onError: () => toast({ title: 'Could not start checkout', variant: 'destructive' }),
+});
+
+// Show loading spinner on CTA buttons while mutation is pending
+ 
+Step 7 — Billing Tab in Employer Dashboard
+Add a Billing tab to the employer dashboard. This is where subscribed employers manage their plan.
+
+// Create: client/src/components/fms/BillingPanel.tsx
+
+// Data fetching:
+// useQuery(['/api/subscription/status'], () => apiRequest('/api/subscription/status'))
+// Returns: { subscribed, tier, status, trialEndsAt, currentPeriodEnd, cancelAtPeriodEnd }
+
+// Portal mutation:
+// useMutation: POST /api/subscription/portal
+// onSuccess: window.location.href = data.url
+
+// NOT SUBSCRIBED STATE:
+//   'You are not currently subscribed to EventLink FMS.'
+//   'Start your 14-day free trial to unlock all features.'
+//   'Start Free Trial' button — links to /pricing
+
+// TRIALING STATE:
+//   Green badge: 'Free Trial Active'
+//   'Your [Pro / Teams] trial ends on [date].'
+//   'After this date your card will be charged £[49/99] per month.'
+//   'Manage Subscription' button — calls portal mutation → redirects to Stripe portal
+
+// ACTIVE STATE:
+//   Green badge: '[Pro / Teams] — Active'
+//   'Next billing date: [currentPeriodEnd formatted as DD/MM/YYYY]'
+//   If cancelAtPeriodEnd:
+//     Amber badge: 'Cancels on [date]'
+//     'Your subscription will not renew. You have access until [date].'
+//   'Manage Subscription' button — Stripe portal
+
+// PAST_DUE STATE:
+//   Red badge: 'Payment Failed'
+//   'Your last payment failed. Please update your payment method to maintain access.'
+//   'Update Payment Method' button — Stripe portal
+
+// CANCELED STATE:
+//   Grey badge: 'Subscription Cancelled'
+//   'Your subscription has ended. Resubscribe to regain FMS access.'
+//   'Resubscribe' button — links to /pricing
+
+// Handle URL params on mount:
+// If ?subscribed=true: show success toast 'Welcome to EventLink Pro! Your trial has started.'
+// Clear params after reading
+ 
+Step 8 — Paywall Modal (client/src/components/fms/PaywallModal.tsx)
+A reusable modal shown whenever a free employer tries to access a gated FMS feature. Import and use it anywhere a FMS action is triggered.
+
+// Props:
+//   open: boolean
+//   onOpenChange: (open: boolean) => void
+//   featureName: string — e.g. 'Availability Enquiries', 'Brief Templates', 'Calendar Export'
+
+// Layout:
+// Dialog — max-width 480px
+// Header:
+//   Lock icon (Lucide: Lock) in amber circle
+//   'Unlock [featureName]'
+
+// Body:
+//   'This feature is part of EventLink FMS, available to Pro and Teams subscribers.'
+//   Feature highlights (3 bullet points, always the same):
+//     Availability enquiry system — replace WhatsApp round-robins
+//     Brief templates — send job briefs and track acknowledgements
+//     Booking calendar, calendar sync, and Excel export
+//   '14-day free trial. No commitment. Cancel anytime.'
+
+// Footer:
+//   'Maybe later' button (outline) — closes modal
+//   'Start Free Trial' button (orange, large) — navigates to /pricing
+
+// Usage pattern throughout the app:
+// Instead of calling the FMS action directly, first check subscription status.
+// If not subscribed, open PaywallModal instead.
+
+// Example in EnquiryList.tsx:
+// const { data: subStatus } = useQuery({
+//   queryKey: ['/api/subscription/status'],
+//   queryFn: () => apiRequest('/api/subscription/status'),
+// });
+// const isSubscribed = subStatus?.subscribed ?? false;
+// const [paywallOpen, setPaywallOpen] = useState(false);
+//
+// // On 'New Enquiry' button click:
+// if (!isSubscribed) { setPaywallOpen(true); return; }
+// setSendOpen(true);
+//
+// <PaywallModal
+//   open={paywallOpen}
+//   onOpenChange={setPaywallOpen}
+//   featureName='Availability Enquiries'
+// />
+
+// Apply the same pattern to:
+//   SendBriefModal trigger
+//   ExportButton dropdown items
+//   CalendarSyncPanel sync button
+//   Any other FMS action button
+
+⚠️  The API middleware (requireFmsAccess) already blocks unauthorised API calls.
+The PaywallModal is the UI layer — it prevents the action before the API is even called.
+Both layers are needed: the middleware protects the API, the modal protects the UX.
+If the API returns a 403 with error: 'FMS_ACCESS_REQUIRED', the frontend should
+also open the PaywallModal as a fallback catch — in case the UI check was missed.
+ 
+Step 9 — Completion Checklist
+✔  Complete every item below before marking Sprint 7 done. Test in Stripe test mode first using test card 4242 4242 4242 4242, expiry any future date, CVC any 3 digits.
+
+Pre-Build Manual Steps
+•	Stripe products and prices created (Pro £49/mo, Teams £99/mo, both with 14-day trial)
+•	Stripe Customer Portal configured with correct return URL
+•	Stripe webhook endpoint created pointing to /api/subscription/webhook
+•	All six Stripe events selected on the webhook
+•	STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRO_PRICE_ID, STRIPE_TEAMS_PRICE_ID, APP_URL set as Replit Secrets
+•	npm install stripe completed
+
+Database
+•	npm run db:push completed — subscriptions table created
+
+Checkout Flow
+•	Clicking 'Start Free Trial' on pricing page redirects to Stripe Checkout
+•	Stripe Checkout shows correct price and 14-day trial
+•	After successful checkout, redirected to /dashboard?tab=billing&subscribed=true
+•	Success toast shows on redirect
+•	Subscription record created in database
+•	Employer now has FMS access
+
+Webhook
+•	customer.subscription.created updates database correctly
+•	customer.subscription.updated updates status correctly
+•	customer.subscription.deleted sets status to canceled
+•	invoice.payment_failed sets status to past_due
+•	invoice.payment_succeeded restores active status
+•	Webhook signature verification works — invalid signatures return 400
+
+Subscription Gate
+•	Free employer cannot call any FMS API endpoint — all return 403 with FMS_ACCESS_REQUIRED
+•	Subscribed employer can call all FMS API endpoints
+•	Freelancer endpoints (token-based) still work without subscription
+•	Existing free-tier routes (jobs, messages, applications) completely unaffected
+
+Paywall Modal
+•	Free employer clicking any FMS action sees PaywallModal, not the action
+•	Modal shows correct feature name
+•	'Start Free Trial' button goes to /pricing
+•	'Maybe later' closes modal
+•	API 403 response also triggers PaywallModal as fallback
+
+Billing Tab
+•	Billing tab visible in employer dashboard
+•	Trialing state shows trial end date correctly
+•	Active state shows next billing date
+•	cancelAtPeriodEnd state shows cancellation warning
+•	Past due state shows payment failed warning
+•	'Manage Subscription' redirects to Stripe Customer Portal
+•	Customer Portal allows cancellation, card update, invoice download
+•	After cancellation in portal: redirected back to /dashboard?tab=billing
+•	Subscription status updates correctly after portal actions via webhook
+
+Pricing Page
+•	Page loads at /pricing without login
+•	Both Pro and Teams cards display correct pricing and features
+•	CTA buttons trigger checkout for correct tier
+•	FAQ accordion works
+•	Page is mobile-responsive
+
+EventLink FMS — Sprint 7 Spec — May 2026

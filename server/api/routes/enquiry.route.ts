@@ -6,6 +6,7 @@
 import { Router } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
+import { requireFmsAccess } from "../middleware/subscription.middleware";
 import {
   createEnquiry,
   getEnquiriesForEmployer,
@@ -29,16 +30,18 @@ router.get("/respond/:token", getResponseByTokenHandler);
 router.post("/respond/:token", respondToEnquiry);
 
 // ── Employer-only routes ──────────────────────────────────
-router.get("/archived", authenticateJWT, requireRole("recruiter"), getArchivedEnquiries);
-router.get("/", authenticateJWT, requireRole("employer"), getEnquiriesForEmployer);
-router.post("/", authenticateJWT, requireRole("employer"), createEnquiry);
-router.get("/:id/responses", authenticateJWT, requireRole("employer"), getEnquiryResponses);
-router.post("/:id/convert/:responseId", authenticateJWT, requireRole("employer"), convertResponseToBooking);
-router.patch("/:id/cancel", authenticateJWT, requireRole("recruiter"), cancelEnquiry);
-router.patch("/:id/archive", authenticateJWT, requireRole("recruiter"), archiveEnquiry);
-router.patch("/:id/reactivate", authenticateJWT, requireRole("recruiter"), reactivateEnquiry);
-router.patch("/:id", authenticateJWT, requireRole("recruiter"), updateEnquiry);
-router.post("/:id/freelancers", authenticateJWT, requireRole("recruiter"), addFreelancers);
-router.delete("/:id/freelancers/:freelancerId", authenticateJWT, requireRole("recruiter"), removeFreelancer);
+const fms = [authenticateJWT, requireRole("recruiter"), requireFmsAccess] as any[];
+
+router.get("/archived", ...fms, getArchivedEnquiries);
+router.get("/", ...fms, getEnquiriesForEmployer);
+router.post("/", ...fms, createEnquiry);
+router.get("/:id/responses", ...fms, getEnquiryResponses);
+router.post("/:id/convert/:responseId", ...fms, convertResponseToBooking);
+router.patch("/:id/cancel", ...fms, cancelEnquiry);
+router.patch("/:id/archive", ...fms, archiveEnquiry);
+router.patch("/:id/reactivate", ...fms, reactivateEnquiry);
+router.patch("/:id", ...fms, updateEnquiry);
+router.post("/:id/freelancers", ...fms, addFreelancers);
+router.delete("/:id/freelancers/:freelancerId", ...fms, removeFreelancer);
 
 export default router;

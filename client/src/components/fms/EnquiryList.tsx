@@ -1,5 +1,6 @@
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
+import { PaywallModal } from "./PaywallModal";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +39,19 @@ export function EnquiryList() {
   const [selectedEnquiryId, setSelectedEnquiryId] = useState<number | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<{ id: number; title: string } | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const [paywallOpen, setPaywallOpen] = useState(false);
   const { toast } = useToast();
+
+  const { data: subStatus } = useQuery<{ subscribed: boolean }>({
+    queryKey: ["/api/subscription/status"],
+    queryFn: () => apiRequest("/api/subscription/status"),
+  });
+  const isSubscribed = subStatus?.subscribed ?? false;
+
+  const openSendModal = () => {
+    if (!isSubscribed) { setPaywallOpen(true); return; }
+    setSendOpen(true);
+  };
 
   const { data: enquiries = [], isLoading } = useQuery<EnquirySummary[]>({
     queryKey: ["/api/enquiries"],
@@ -108,7 +121,7 @@ export function EnquiryList() {
               Send availability checks to your saved freelancers before committing to a booking.
             </p>
             <Button
-              onClick={() => setSendOpen(true)}
+              onClick={openSendModal}
               className="bg-orange-500 hover:bg-orange-600"
             >
               <Send className="mr-2 h-4 w-4" />
@@ -134,7 +147,7 @@ export function EnquiryList() {
           <Archive className="h-3.5 w-3.5" />
           View Archived
         </Button>
-        <Button onClick={() => setSendOpen(true)} className="bg-orange-500 hover:bg-orange-600">
+        <Button onClick={openSendModal} className="bg-orange-500 hover:bg-orange-600">
           <Send className="mr-2 h-4 w-4" />
           New Enquiry
         </Button>
@@ -154,6 +167,7 @@ export function EnquiryList() {
       </div>
 
       <SendEnquiryModal open={sendOpen} onOpenChange={setSendOpen} />
+      <PaywallModal open={paywallOpen} onOpenChange={setPaywallOpen} featureName="Availability Enquiries" />
 
       {/* Archived enquiries dialog */}
       <Dialog open={archivedOpen} onOpenChange={setArchivedOpen}>
