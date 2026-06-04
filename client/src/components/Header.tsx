@@ -22,13 +22,13 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
   const [showInviteDialog, setShowInviteDialog] = useState(false);
 
   return (
-    <header className="border-b shadow-sm" style={{ backgroundColor: "#F4F2EE" }}>
+    <header className="border-b border-white/10 shadow-sm" style={{ backgroundColor: "#192743" }}>
       <div className="container mx-auto px-3 py-3 sm:px-4 lg:py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3" data-testid="link-logo">
             <EventLinkLogo size={48} />
-            <span className="hidden text-2xl font-bold text-foreground md:inline">
+            <span className="hidden text-2xl font-bold text-white md:inline">
               EventLink
             </span>
           </Link>
@@ -37,14 +37,14 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
           <nav className="hidden items-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
             <Link
               to="/jobs"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
+              className="text-sm text-white/70 transition-colors hover:text-white lg:text-base"
               data-testid="link-jobs"
             >
               Find Jobs
             </Link>
             <Link
               to="/freelancers"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
+              className="text-sm text-white/70 transition-colors hover:text-white lg:text-base"
               data-testid="link-freelancers"
             >
               Find Crew
@@ -57,14 +57,14 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
                   setLocation("/auth");
                 }
               }}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
+              className="text-sm text-white/70 transition-colors hover:text-white lg:text-base"
               data-testid="button-dashboard"
             >
               Dashboard
             </button>
             <button
               onClick={onFeedbackClick}
-              className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
+              className="flex items-center gap-1 text-sm text-white/70 transition-colors hover:text-white lg:text-base"
               data-testid="button-feedback"
             >
               <MessageSquare className="h-4 w-4" />

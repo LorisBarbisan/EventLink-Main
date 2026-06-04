@@ -655,7 +655,7 @@ export default function SimplifiedRecruiterDashboard() {
         >
           <div>
             <h1 className="text-2xl font-bold sm:text-3xl" style={{ color: "#D8690E" }}>
-              EVENTLINK
+              EventLink
             </h1>
             <p className="text-xs sm:text-sm uppercase tracking-widest mt-0.5" style={{ color: "#94a3b8" }}>
               Employer &amp; FMS Dashboard

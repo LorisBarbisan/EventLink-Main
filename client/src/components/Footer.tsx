@@ -9,30 +9,30 @@ export const Footer = () => {
   const { toast } = useToast();
 
   return (
-    <footer className="mt-auto border-t">
-      <div style={{ backgroundColor: "#F4F2EE" }}>
+    <footer className="mt-auto border-t border-white/10">
+      <div style={{ backgroundColor: "#192743" }}>
         <div className="container mx-auto px-4 py-4">
           <div className="grid grid-cols-1 gap-4 text-center md:grid-cols-4 md:text-left">
             <div className="flex flex-col items-center md:items-start">
               <div className="mb-2 flex items-center justify-center space-x-2 md:justify-start">
                 <EventLinkLogo size={28} />
-                <span className="text-sm font-semibold">EventLink</span>
+                <span className="text-sm font-semibold text-white">EventLink</span>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-white/60">
                 Connecting technical professionals with event opportunities across the events
                 industry.
               </p>
             </div>
 
             <div>
-              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-white/50">
                 For Freelancers
               </h4>
-              <ul className="space-y-1 text-xs text-muted-foreground">
+              <ul className="space-y-1 text-xs text-white/60">
                 <li>
                   <Link
                     to="/jobs"
-                    className="hover:text-foreground"
+                    className="hover:text-white"
                     data-testid="footer-link-browse-jobs"
                   >
                     Browse Jobs
@@ -41,7 +41,7 @@ export const Footer = () => {
                 <li>
                   <button
                     onClick={() => setLocation(user ? "/dashboard" : "/auth")}
-                    className="hover:text-foreground"
+                    className="hover:text-white"
                     data-testid="footer-button-create-profile"
                   >
                     Create Profile
@@ -50,7 +50,7 @@ export const Footer = () => {
                 <li>
                   <Link
                     to="/how-it-works"
-                    className="hover:text-foreground"
+                    className="hover:text-white"
                     data-testid="footer-link-how-it-works"
                   >
                     How Does It Work
@@ -60,14 +60,14 @@ export const Footer = () => {
             </div>
 
             <div>
-              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-white/50">
                 For Companies
               </h4>
-              <ul className="space-y-1 text-xs text-muted-foreground">
+              <ul className="space-y-1 text-xs text-white/60">
                 <li>
                   <Link
                     to="/freelancers"
-                    className="hover:text-foreground"
+                    className="hover:text-white"
                     data-testid="footer-link-find-crew"
                   >
                     Find Crew
@@ -89,7 +89,7 @@ export const Footer = () => {
                         setLocation("/dashboard?tab=jobs&action=post");
                       }
                     }}
-                    className="hover:text-foreground"
+                    className="hover:text-white"
                     data-testid="footer-button-post-job"
                   >
                     Post a Job
@@ -98,7 +98,7 @@ export const Footer = () => {
                 <li>
                   <Link
                     to="/auth?tab=signup"
-                    className="hover:text-foreground"
+                    className="hover:text-white"
                     data-testid="footer-link-company-signup"
                   >
                     Get Started
@@ -108,28 +108,28 @@ export const Footer = () => {
             </div>
 
             <div>
-              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-white/50">
                 Support
               </h4>
-              <ul className="space-y-1 text-xs text-muted-foreground">
+              <ul className="space-y-1 text-xs text-white/60">
                 <li>
                   <Link
                     to="/contact-us"
-                    className="hover:text-foreground"
+                    className="hover:text-white"
                     data-testid="footer-link-contact"
                   >
                     Contact Us
                   </Link>
                 </li>
                 <li>
-                  <Link to="/faq" className="hover:text-foreground" data-testid="footer-link-faq">
+                  <Link to="/faq" className="hover:text-white" data-testid="footer-link-faq">
                     FAQ
                   </Link>
                 </li>
                 <li>
                   <Link
                     to="/about"
-                    className="hover:text-foreground"
+                    className="hover:text-white"
                     data-testid="footer-link-about"
                   >
                     About
@@ -140,7 +140,7 @@ export const Footer = () => {
                     href="/terms-of-use.pdf"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-foreground"
+                    className="hover:text-white"
                   >
                     Terms &amp; Conditions
                   </a>
@@ -150,7 +150,7 @@ export const Footer = () => {
           </div>
         </div>
       </div>
-      <div className="border-t bg-white py-3 text-center text-xs text-muted-foreground">
+      <div className="border-t border-white/10 py-3 text-center text-xs text-white/50" style={{ backgroundColor: "#192743" }}>
         <p>&copy; 2026 Kite. All rights reserved.</p>
       </div>
     </footer>
