@@ -43,6 +43,13 @@ export const getSubscriptionStatus = async (req: Request, res: Response) => {
   try {
     const employerId = req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
+
+    // When Stripe is not configured, treat all employers as subscribed so
+    // FMS features are accessible (dev / self-hosted without payment setup)
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return res.json({ subscribed: true, tier: "pro", status: "active" });
+    }
+
     const sub = await storage.getSubscription(employerId);
     if (!sub) return res.json({ subscribed: false, tier: null, status: null });
     return res.json({
