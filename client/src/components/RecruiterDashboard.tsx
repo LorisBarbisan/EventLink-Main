@@ -647,22 +647,17 @@ export default function SimplifiedRecruiterDashboard() {
 
   return (
     <div className="container mx-auto max-w-full min-w-0 px-1 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8">
-      {/* FMS Header — dark navy banner matching EventLink email header */}
-      <div className="rounded-t-xl overflow-hidden">
-        <div
-          className="px-5 py-5 sm:px-7 sm:py-6 flex items-start justify-between gap-4"
-          style={{ backgroundColor: "#192743", borderBottom: "3px solid #D8690E" }}
-        >
-          <div>
-            <h1 className="text-2xl font-bold sm:text-3xl" style={{ color: "#D8690E" }}>
-              EventLink
-            </h1>
-            <p className="text-xs sm:text-sm uppercase tracking-widest mt-0.5" style={{ color: "#94a3b8" }}>
-              Employer &amp; FMS Dashboard
-            </p>
-          </div>
-          <ExportButton />
+      {/* Dashboard header */}
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h1 className="text-2xl font-bold sm:text-3xl text-foreground">
+            Employer Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage your company profile, job postings, and applications
+          </p>
         </div>
+        <ExportButton />
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
