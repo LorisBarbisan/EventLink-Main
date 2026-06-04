@@ -19,10 +19,11 @@ export const queryClient = new QueryClient({
         const url = queryKey[0] as string;
         return apiRequest(url);
       },
-      staleTime: 0, // Disable caching globallly
+      // 30s stale window — data fetched recently won't re-fire on every mount.
+      // WebSocket invalidation keeps critical data fresh in real time.
+      staleTime: 30 * 1000,
       gcTime: 1000 * 60 * 30, // 30 minutes
       retry: (failureCount, error: any) => {
-        // Don't retry on 4xx errors except 408/429
         if (
           error?.message?.includes("401") ||
           error?.message?.includes("403") ||
@@ -30,12 +31,12 @@ export const queryClient = new QueryClient({
         ) {
           return false;
         }
-        return failureCount < 2; // Retry up to 2 times
+        return failureCount < 2;
       },
-      refetchOnWindowFocus: true,
+      // WebSocket pushes real-time updates — no need to refetch on tab focus
+      refetchOnWindowFocus: false,
       refetchOnMount: true,
-      refetchOnReconnect: "always",
-      // Performance: Use network-only for critical data, cache-first for static
+      refetchOnReconnect: true,
       networkMode: "online",
     },
   },
@@ -50,7 +51,6 @@ export async function apiRequest(
 
   const response = await fetch(url, {
     ...options,
-    cache: "no-store",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
