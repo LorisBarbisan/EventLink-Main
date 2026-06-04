@@ -296,17 +296,13 @@ export default function SimplifiedRecruiterDashboard() {
       });
     },
     onSuccess: () => {
-      console.log("🎯 Job created successfully! Invalidating all job caches...");
-
-      // Invalidate queries to ensure fresh data on next fetch
       queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
-
-      console.log("✅ Jobs cache invalidated");
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/calendar"] });
 
       toast({
-        title: "Job posted",
-        description: "Your job has been posted successfully.",
+        title: "Job created",
+        description: "Your job has been created successfully.",
       });
       setShowJobForm(false);
       setCalendarJobDialogOpen(false);
