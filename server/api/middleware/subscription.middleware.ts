@@ -6,6 +6,10 @@ export const requireFmsAccess = async (
   res: Response,
   next: NextFunction
 ) => {
+  // When Stripe is not configured, subscription gating is disabled — all employers have access
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return next();
+  }
   try {
     const employerId = req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
