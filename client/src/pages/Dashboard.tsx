@@ -104,17 +104,19 @@ export default function Dashboard() {
     console.error("⚠️ Unknown user role:", profile.role, "- Defaulting to FreelancerDashboard");
   }
 
+  // RecruiterDashboard manages its own full-width layout — no outer container needed
+  if (showRecruiterDashboard) {
+    return (
+      <Layout>
+        <RecruiterDashboard />
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        {showFreelancerDashboard ? (
-          <FreelancerDashboard />
-        ) : showRecruiterDashboard ? (
-          <RecruiterDashboard />
-        ) : (
-          // Fallback: if role is somehow undefined/null, default to freelancer
-          <FreelancerDashboard />
-        )}
+        <FreelancerDashboard />
       </div>
     </Layout>
   );

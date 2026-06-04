@@ -168,5 +168,24 @@ export function registerAuthRoutes(app: Express) {
         res.status(500).json({ error: "Dev login failed" });
       }
     });
+
+    // Dev-only: auto-login as a recruiter for FMS testing
+    app.get("/api/auth/dev-recruiter-login", async (_req: Request, res: Response) => {
+      try {
+        const { db } = await import("../config/db.js");
+        const { users } = await import("../../../shared/schema.js");
+        const { eq } = await import("drizzle-orm");
+        const [recruiter] = await db
+          .select()
+          .from(users)
+          .where(eq(users.role, "recruiter"))
+          .limit(1);
+        if (!recruiter) return res.status(404).json({ error: "No recruiter found" });
+        const token = generateJWTToken(recruiter);
+        res.json({ token, user: { id: recruiter.id, email: recruiter.email, role: recruiter.role, first_name: recruiter.first_name, last_name: recruiter.last_name } });
+      } catch (err) {
+        res.status(500).json({ error: "Dev recruiter login failed" });
+      }
+    });
   }
 }
