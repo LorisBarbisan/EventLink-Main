@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { usePersistentState } from "@/hooks/usePersistentState";
-import { CheckCircle, Eye, EyeOff, Mail, Star, X } from "lucide-react";
+import { CheckCircle, Eye, EyeOff, Star, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { SiLinkedin } from "react-icons/si";
@@ -19,11 +19,7 @@ export default function Auth() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
-  const [showResendOption, setShowResendOption] = useState(false);
-  const [pendingVerificationEmail, setPendingVerificationEmail] = useState("");
   const [showDirectLink, setShowDirectLink] = useState<string | null>(null);
-  const [showVerificationSuccess, setShowVerificationSuccess] = useState(false);
-  const [verificationMessage, setVerificationMessage] = useState("");
   const [showRateBanner, setShowRateBanner] = useState(() => {
     return new URLSearchParams(window.location.search).get("reason") === "rate";
   });
@@ -389,15 +385,13 @@ export default function Auth() {
           variant: "destructive",
         });
       } else {
-        // Show centered verification success message instead of toast
-        setVerificationMessage(
-          message ||
-            "Please check your email and spam folder to verify your account before signing in."
-        );
-        setShowVerificationSuccess(true);
-        setPendingVerificationEmail(signUpData.email);
-        // Clear the form after successful signup
+        // Clear the form and switch to sign in
         clearSignUpData();
+        toast({
+          title: "Account created!",
+          description: "You can now sign in with your new account.",
+        });
+        setActiveTab("signin");
       }
     } catch (err) {
       console.error("Sign Up Error:", err);
@@ -421,15 +415,6 @@ export default function Auth() {
       if (error) {
         console.log("Sign in error:", error);
         const description = error.message || "An error occurred";
-
-        // Enhanced error handling for verification
-        if (description.includes("verify your email")) {
-          setShowResendOption(true);
-          setPendingVerificationEmail(signInData.email);
-        } else {
-          setShowResendOption(false);
-          setPendingVerificationEmail("");
-        }
 
         toast({
           title: "Sign In Failed",
@@ -455,8 +440,6 @@ export default function Auth() {
       }
     } catch (error) {
       console.error("Sign In Error:", error);
-      setShowResendOption(false);
-      setPendingVerificationEmail("");
       toast({
         title: "Sign In Failed",
         description: "An error occurred. Please try again.",
@@ -467,127 +450,6 @@ export default function Auth() {
     setLoading(false);
   };
 
-  const handleResendVerification = async () => {
-    if (!pendingVerificationEmail) return;
-
-    setLoading(true);
-    try {
-      const response = await fetch("/api/auth/resend-verification", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: pendingVerificationEmail }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        toast({
-          title: "Verification Email Sent!",
-          description: "Please check your email and spam folder for the verification link.",
-          variant: "default",
-        });
-        setShowResendOption(false);
-        setPendingVerificationEmail("");
-      } else {
-        toast({
-          title: "Failed to Resend",
-          description: data.error || "Failed to resend verification email. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (err) {
-      console.error("Resend Verification Error:", err);
-      toast({
-        title: "Error",
-        description: "Failed to resend verification email. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Show verification success message if signup was successful
-  if (showVerificationSuccess) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
-        <div className="w-full max-w-2xl">
-          <Card className="border-border/50 shadow-2xl">
-            <CardContent className="p-12">
-              <div className="space-y-6 text-center">
-                {/* Success Icon */}
-                <div className="flex justify-center">
-                  <div className="relative">
-                    <div className="flex h-24 w-24 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
-                      <CheckCircle className="h-16 w-16 text-green-600 dark:text-green-500" />
-                    </div>
-                    <div className="absolute -bottom-2 -right-2 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/20">
-                      <Mail className="h-7 w-7 text-blue-600 dark:text-blue-500" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Success Title */}
-                <div>
-                  <h2 className="mb-3 text-3xl font-bold text-gray-900 dark:text-gray-100">
-                    Registration Successful!
-                  </h2>
-                  <p className="text-lg text-muted-foreground">
-                    We&apos;ve sent a verification email to
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-primary">
-                    {pendingVerificationEmail}
-                  </p>
-                </div>
-
-                {/* Instructions */}
-                <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-6 dark:border-blue-800 dark:bg-blue-900/20">
-                  <p className="text-base leading-relaxed text-gray-700 dark:text-gray-300">
-                    {verificationMessage}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Check your <strong>inbox</strong> and <strong>spam folder</strong> for the
-                    verification link.
-                  </p>
-                </div>
-
-                {/* Resend Button */}
-                <div className="pt-4">
-                  <Button
-                    onClick={handleResendVerification}
-                    variant="outline"
-                    disabled={loading}
-                    className="w-full px-8 sm:w-auto"
-                    data-testid="button-resend-verification"
-                  >
-                    {loading ? "Sending..." : "Resend Verification Email"}
-                  </Button>
-                </div>
-
-                {/* Back to Sign In */}
-                <div className="border-t border-border pt-6">
-                  <p className="mb-3 text-sm text-muted-foreground">Already verified your email?</p>
-                  <Button
-                    onClick={() => {
-                      setShowVerificationSuccess(false);
-                      setActiveTab("signin");
-                    }}
-                    variant="default"
-                    className="bg-gradient-primary hover:bg-primary-hover text-white"
-                    data-testid="button-go-to-signin"
-                  >
-                    Go to Sign In
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
@@ -989,40 +851,6 @@ export default function Auth() {
           </Card>
         )}
 
-        {/* Resend Verification Email Option */}
-        {showResendOption && pendingVerificationEmail && !showDirectLink && (
-          <Card className="mt-4 border-red-200 bg-red-50">
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <h3 className="mb-2 text-lg font-semibold text-red-800">
-                  Email Verification Required
-                </h3>
-                <p className="mb-3 text-sm text-red-700">
-                  Please check your email and click the verification link before signing in.
-                </p>
-                <p className="mb-3 text-sm text-red-700">
-                  Didn&apos;t receive the email? We can resend it to:
-                </p>
-                <p className="mb-4 font-medium text-red-900">{pendingVerificationEmail}</p>
-                <Button
-                  onClick={handleResendVerification}
-                  disabled={loading}
-                  className="bg-red-600 text-white hover:bg-red-700"
-                  data-testid="button-resend-verification"
-                >
-                  {loading ? "Sending..." : "Resend Verification Email"}
-                </Button>
-                <button
-                  onClick={() => setShowResendOption(false)}
-                  className="ml-2 text-sm text-yellow-600 underline hover:text-yellow-800"
-                  data-testid="button-dismiss-resend"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );

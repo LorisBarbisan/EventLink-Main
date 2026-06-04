@@ -650,29 +650,14 @@ export async function signup(req: Request, res: Response) {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Generate email verification token
-    const emailVerificationToken = randomBytes(32).toString("hex");
-    const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-    // Create user with verification token
+    // Create user (auto-verified — no email verification required)
     const user = await storage.createUser({
       email,
       password: hashedPassword,
       first_name,
       last_name,
       role: role || "freelancer",
-      email_verification_token: emailVerificationToken,
-      email_verification_expires: emailVerificationExpires,
     });
-
-    // Send verification email
-    try {
-      const baseUrl = getOrigin(req);
-      await sendVerificationEmail(email, emailVerificationToken, baseUrl);
-    } catch (emailError) {
-      console.error("Failed to send verification email:", emailError);
-      // Don't fail signup if email fails
-    }
 
     // Send welcome email (fire-and-forget — never block signup)
     sendWelcomeEmail({
@@ -689,7 +674,7 @@ export async function signup(req: Request, res: Response) {
     const userWithRole = computeUserRole(user);
 
     res.status(201).json({
-      message: "User created successfully. Please check your email to verify your account.",
+      message: "User created successfully.",
       user: {
         id: userWithRole.id,
         email: userWithRole.email,
@@ -738,14 +723,6 @@ export async function signin(req: Request, res: Response) {
     const validPassword = await bcrypt.compare(password, user.password!);
     if (!validPassword) {
       return res.status(401).json({ error: "Invalid email or password" });
-    }
-
-    // Check if email is verified
-    if (!user.email_verified) {
-      return res.status(403).json({
-        error: "Please verify your email address before signing in",
-        code: "EMAIL_NOT_VERIFIED",
-      });
     }
 
     // Apply role computation

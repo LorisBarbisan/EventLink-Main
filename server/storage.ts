@@ -551,9 +551,9 @@ export class DatabaseStorage implements IStorage {
       first_name: user.first_name,
       last_name: user.last_name,
       role: user.role as "freelancer" | "recruiter",
-      email_verified: false,
-      email_verification_token: user.email_verification_token,
-      email_verification_expires: user.email_verification_expires,
+      email_verified: true,
+      email_verification_token: null,
+      email_verification_expires: null,
       unsubscribe_token: randomBytes(32).toString("hex"),
     };
     const result = await db.insert(users).values(userData).returning();
