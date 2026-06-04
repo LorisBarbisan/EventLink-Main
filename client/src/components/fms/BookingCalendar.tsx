@@ -8,7 +8,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { Loader2 } from "lucide-react";
 import CalendarSyncPanel from "./CalendarSyncPanel";
 import { CalendarEventWrapper } from "./CalendarEventWrapper";
-import { CreateEventModal } from "./CreateEventModal";
 import { EventDetailPanel } from "./EventDetailPanel";
 import { CancelBookingConfirmModal } from "./CancelBookingConfirmModal";
 
@@ -33,11 +32,13 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled (booking)",
 };
 
-export function BookingCalendar() {
+interface BookingCalendarProps {
+  onDateClick?: (date: Date) => void;
+}
+
+export function BookingCalendar({ onDateClick }: BookingCalendarProps = {}) {
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [createDate, setCreateDate] = useState<Date | null>(null);
   const [cancelBooking, setCancelBooking] = useState<any>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
 
@@ -116,8 +117,7 @@ export function BookingCalendar() {
   };
 
   const handleSelectSlot = ({ start }: { start: Date }) => {
-    setCreateDate(start);
-    setCreateModalOpen(true);
+    onDateClick?.(start);
   };
 
   const components = {
@@ -146,7 +146,7 @@ export function BookingCalendar() {
             </div>
           ))}
           <span className="ml-auto text-xs text-muted-foreground hidden sm:block">
-            Click empty day to add • Click event for details • Right-click for options
+            Click empty day to create a job • Click event for details • Right-click for options
           </span>
         </div>
 
@@ -182,12 +182,6 @@ export function BookingCalendar() {
           />
         )}
       </div>
-
-      <CreateEventModal
-        open={createModalOpen}
-        onOpenChange={setCreateModalOpen}
-        initialDate={createDate}
-      />
 
       <EventDetailPanel
         event={selectedEvent}

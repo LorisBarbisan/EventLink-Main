@@ -40,6 +40,7 @@ import {
   Users,
   Users2,
 } from "lucide-react";
+import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
@@ -60,6 +61,8 @@ export default function SimplifiedRecruiterDashboard() {
   const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [duplicatingFromJob, setDuplicatingFromJob] = useState<Job | null>(null);
+  const [calendarJobDate, setCalendarJobDate] = useState<Date | null>(null);
+  const [calendarJobDialogOpen, setCalendarJobDialogOpen] = useState(false);
   const [selectedJobDetailId, setSelectedJobDetailId] = useState<number | null>(null);
   const [expandedJobs, setExpandedJobs] = useState<Set<number>>(new Set());
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
@@ -306,6 +309,7 @@ export default function SimplifiedRecruiterDashboard() {
         description: "Your job has been posted successfully.",
       });
       setShowJobForm(false);
+      setCalendarJobDialogOpen(false);
     },
     onError: (error: any) => {
       console.error("❌ Job creation error:", error);
@@ -1276,7 +1280,13 @@ export default function SimplifiedRecruiterDashboard() {
 
         {/* Calendar Tab */}
         <TabsContent value="calendar">
-          <BookingCalendar />
+          <BookingCalendar
+            onDateClick={(date) => {
+              sessionStorage.removeItem("job_new");
+              setCalendarJobDate(date);
+              setCalendarJobDialogOpen(true);
+            }}
+          />
         </TabsContent>
 
         {/* Availability Tab */}
@@ -1369,6 +1379,29 @@ export default function SimplifiedRecruiterDashboard() {
         }}
         preselectedFreelancerIds={preselectedCrewIds}
       />
+
+      {/* Calendar date-click: Create Job Dialog */}
+      <Dialog
+        open={calendarJobDialogOpen}
+        onOpenChange={(open) => {
+          setCalendarJobDialogOpen(open);
+          if (!open) setCalendarJobDate(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Post a Job</DialogTitle>
+          </DialogHeader>
+          {calendarJobDialogOpen && (
+            <JobForm
+              initialData={calendarJobDate ? { event_date: format(calendarJobDate, "yyyy-MM-dd") } : undefined}
+              onSubmit={handleJobSubmit}
+              onCancel={() => setCalendarJobDialogOpen(false)}
+              isSubmitting={createJobMutation.isPending}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
