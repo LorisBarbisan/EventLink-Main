@@ -1378,6 +1378,11 @@ export default function SimplifiedRecruiterDashboard() {
           if (!open) setPreselectedCrewIds([]);
         }}
         preselectedFreelancerIds={preselectedCrewIds}
+        onGoToCreateJob={() => {
+          setSendEnquiryOpen(false);
+          setActiveTab("jobs");
+          setShowJobForm(true);
+        }}
       />
 
       {/* Calendar date-click: Create Job Dialog */}

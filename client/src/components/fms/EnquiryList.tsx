@@ -1,5 +1,6 @@
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { PaywallModal } from "./PaywallModal";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -35,6 +36,7 @@ interface EnquirySummary {
 }
 
 export function EnquiryList() {
+  const [, setLocation] = useLocation();
   const [sendOpen, setSendOpen] = useState(false);
   const [selectedEnquiryId, setSelectedEnquiryId] = useState<number | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<{ id: number; title: string } | null>(null);
@@ -129,7 +131,14 @@ export function EnquiryList() {
             </Button>
           </CardContent>
         </Card>
-        <SendEnquiryModal open={sendOpen} onOpenChange={setSendOpen} />
+        <SendEnquiryModal
+          open={sendOpen}
+          onOpenChange={setSendOpen}
+          onGoToCreateJob={() => {
+            setSendOpen(false);
+            setLocation("/employer?tab=jobs&action=post");
+          }}
+        />
       </>
     );
   }
@@ -166,7 +175,14 @@ export function EnquiryList() {
         ))}
       </div>
 
-      <SendEnquiryModal open={sendOpen} onOpenChange={setSendOpen} />
+      <SendEnquiryModal
+        open={sendOpen}
+        onOpenChange={setSendOpen}
+        onGoToCreateJob={() => {
+          setSendOpen(false);
+          setLocation("/employer?tab=jobs&action=post");
+        }}
+      />
       <PaywallModal open={paywallOpen} onOpenChange={setPaywallOpen} featureName="Availability Enquiries" />
 
       {/* Archived enquiries dialog */}
