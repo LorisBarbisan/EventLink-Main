@@ -104,10 +104,10 @@ export default function Dashboard() {
     console.error("⚠️ Unknown user role:", profile.role, "- Defaulting to FreelancerDashboard");
   }
 
-  // RecruiterDashboard manages its own full-width layout — no outer container needed
+  // RecruiterDashboard gets the dark navy header/footer
   if (showRecruiterDashboard) {
     return (
-      <Layout>
+      <Layout dark>
         <RecruiterDashboard />
       </Layout>
     );

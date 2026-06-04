@@ -13,40 +13,40 @@ import { Link, useLocation } from "wouter";
 
 interface HeaderProps {
   onFeedbackClick: () => void;
+  dark?: boolean;
 }
 
-export const Header = ({ onFeedbackClick }: HeaderProps) => {
+export const Header = ({ onFeedbackClick, dark = false }: HeaderProps) => {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const isHomePage = location === "/";
   const [showInviteDialog, setShowInviteDialog] = useState(false);
 
+  const bg = dark ? "#192743" : "#F4F2EE";
+  const logoText = dark ? "text-white" : "text-foreground";
+  const navLink = dark
+    ? "text-sm text-white/70 transition-colors hover:text-white lg:text-base"
+    : "text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base";
+  const borderClass = dark ? "border-b border-white/10 shadow-sm" : "border-b shadow-sm";
+
   return (
-    <header className="border-b border-white/10 shadow-sm" style={{ backgroundColor: "#192743" }}>
+    <header className={borderClass} style={{ backgroundColor: bg }}>
       <div className="container mx-auto px-3 py-3 sm:px-4 lg:py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3" data-testid="link-logo">
             <EventLinkLogo size={48} />
-            <span className="hidden text-2xl font-bold text-white md:inline">
+            <span className={`hidden text-2xl font-bold md:inline ${logoText}`}>
               EventLink
             </span>
           </Link>
 
           {/* Navigation */}
           <nav className="hidden items-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
-            <Link
-              to="/jobs"
-              className="text-sm text-white/70 transition-colors hover:text-white lg:text-base"
-              data-testid="link-jobs"
-            >
+            <Link to="/jobs" className={navLink} data-testid="link-jobs">
               Find Jobs
             </Link>
-            <Link
-              to="/freelancers"
-              className="text-sm text-white/70 transition-colors hover:text-white lg:text-base"
-              data-testid="link-freelancers"
-            >
+            <Link to="/freelancers" className={navLink} data-testid="link-freelancers">
               Find Crew
             </Link>
             <button
@@ -57,14 +57,14 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
                   setLocation("/auth");
                 }
               }}
-              className="text-sm text-white/70 transition-colors hover:text-white lg:text-base"
+              className={navLink}
               data-testid="button-dashboard"
             >
               Dashboard
             </button>
             <button
               onClick={onFeedbackClick}
-              className="flex items-center gap-1 text-sm text-white/70 transition-colors hover:text-white lg:text-base"
+              className={`flex items-center gap-1 ${navLink}`}
               data-testid="button-feedback"
             >
               <MessageSquare className="h-4 w-4" />
