@@ -131,6 +131,41 @@ All colors MUST be HSL.
   }
 }
 
+/* ── FMS (Freelancer Management System) colour scheme ─────────────────────
+   Matches the EventLink email header: dark navy #192743 / orange #D8690E
+   Applied only to the employer FMS dashboard — keeps the free platform white
+   ───────────────────────────────────────────────────────────────────────── */
+.fms-tabslist {
+  background-color: #192743 !important;
+  border-radius: 0 !important;
+  height: auto !important;
+  padding: 6px !important;
+  gap: 2px;
+  border-bottom: none !important;
+}
+.fms-tabslist > button {
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 4px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.fms-tabslist > button:hover:not([data-state="active"]) {
+  background-color: rgba(255, 255, 255, 0.09) !important;
+  color: #e2e8f0 !important;
+}
+.fms-tabslist > button[data-state="active"] {
+  background-color: #D8690E !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+/* badge counts inside active FMS tab */
+.fms-tabslist > button[data-state="active"] .fms-badge {
+  background-color: rgba(255,255,255,0.25) !important;
+  color: #fff !important;
+}
+
 /* react-big-calendar overrides */
 .rbc-calendar {
   font-family: inherit;

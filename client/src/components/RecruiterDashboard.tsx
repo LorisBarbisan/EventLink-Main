@@ -646,19 +646,27 @@ export default function SimplifiedRecruiterDashboard() {
   );
 
   return (
-    <div className="container mx-auto max-w-full min-w-0 px-1 py-4 sm:px-6 sm:py-6">
-      <div className="mb-4 px-3 sm:px-0 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold sm:text-3xl">Employer Dashboard</h1>
-          <p className="text-sm text-muted-foreground sm:text-base">
-            Manage your company profile, job postings, and applications
-          </p>
+    <div className="container mx-auto max-w-full min-w-0 px-1 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8">
+      {/* FMS Header — dark navy banner matching EventLink email header */}
+      <div className="rounded-t-xl overflow-hidden">
+        <div
+          className="px-5 py-5 sm:px-7 sm:py-6 flex items-start justify-between gap-4"
+          style={{ backgroundColor: "#192743", borderBottom: "3px solid #D8690E" }}
+        >
+          <div>
+            <h1 className="text-2xl font-bold sm:text-3xl" style={{ color: "#D8690E" }}>
+              EVENTLINK
+            </h1>
+            <p className="text-xs sm:text-sm uppercase tracking-widest mt-0.5" style={{ color: "#94a3b8" }}>
+              Employer &amp; FMS Dashboard
+            </p>
+          </div>
+          <ExportButton />
         </div>
-        <ExportButton />
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className={`grid w-full grid-cols-4 ${isTeamsTier ? "md:grid-cols-11" : "md:grid-cols-10"}`}>
+        <TabsList className={`fms-tabslist grid w-full grid-cols-4 ${isTeamsTier ? "md:grid-cols-11" : "md:grid-cols-10"}`}>
           <TabsTrigger value="calendar" className="gap-1.5">
             <CalendarDays className="h-3.5 w-3.5" />
             Calendar
