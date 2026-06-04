@@ -123,16 +123,15 @@ export async function getEmployerBookings(req: Request, res: Response) {
           id: jobs.id,
           title: jobs.title,
           location: jobs.location,
-          eventDate: jobs.eventDate,
-          payRate: jobs.payRate,
+          eventDate: jobs.event_date,
+          rate: jobs.rate,
         },
         freelancer: {
           id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          firstName: users.first_name,
+          lastName: users.last_name,
           email: users.email,
-          phone: users.phone,
-          profilePicture: users.profilePicture,
+          profilePicture: users.profile_photo_url,
         },
       })
       .from(bookings)
@@ -160,15 +159,14 @@ export async function getFreelancerBookings(req: Request, res: Response) {
           id: jobs.id,
           title: jobs.title,
           location: jobs.location,
-          eventDate: jobs.eventDate,
-          payRate: jobs.payRate,
+          eventDate: jobs.event_date,
+          rate: jobs.rate,
         },
         employer: {
           id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          companyName: users.companyName,
-          profilePicture: users.profilePicture,
+          firstName: users.first_name,
+          lastName: users.last_name,
+          profilePicture: users.profile_photo_url,
         },
       })
       .from(bookings)
@@ -201,16 +199,15 @@ export async function getBookingById(req: Request, res: Response) {
           id: jobs.id,
           title: jobs.title,
           location: jobs.location,
-          eventDate: jobs.eventDate,
-          payRate: jobs.payRate,
+          eventDate: jobs.event_date,
+          rate: jobs.rate,
           description: jobs.description,
         },
         freelancer: {
           id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          firstName: users.first_name,
+          lastName: users.last_name,
           email: users.email,
-          phone: users.phone,
         },
       })
       .from(bookings)
@@ -388,7 +385,7 @@ export async function getBookingsByJob(req: Request, res: Response) {
     const [job] = await db
       .select()
       .from(jobs)
-      .where(and(eq(jobs.id, jobId), eq(jobs.employerId, employerId)));
+      .where(and(eq(jobs.id, jobId), eq(jobs.recruiter_id, employerId)));
 
     if (!job) {
       return res.status(403).json({ error: "Job not found or not owned by you" });
@@ -399,12 +396,10 @@ export async function getBookingsByJob(req: Request, res: Response) {
         booking: bookings,
         freelancer: {
           id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          firstName: users.first_name,
+          lastName: users.last_name,
           email: users.email,
-          phone: users.phone,
-          profilePicture: users.profilePicture,
-          primaryRole: users.primaryRole,
+          profilePicture: users.profile_photo_url,
         },
       })
       .from(bookings)

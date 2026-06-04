@@ -78,7 +78,7 @@ export default function CalendarSyncPanel() {
   }, []);
 
   const syncMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/calendar/sync"),
+    mutationFn: () => apiRequest("/api/calendar/sync", { method: "POST" }),
     onSuccess: async (res) => {
       const data: SyncResult = await res.json();
       setLastSync(data);
@@ -95,7 +95,7 @@ export default function CalendarSyncPanel() {
   });
 
   const disconnectMutation = useMutation({
-    mutationFn: () => apiRequest("DELETE", "/api/calendar/disconnect"),
+    mutationFn: () => apiRequest("/api/calendar/disconnect", { method: "DELETE" }),
     onSuccess: () => {
       toast({ title: "Calendar disconnected" });
       setLastSync(null);
