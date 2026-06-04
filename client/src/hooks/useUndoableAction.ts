@@ -1,5 +1,6 @@
-import { useCallback } from "react";
+import { createElement, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 
 export function useUndoableAction() {
   const { toast } = useToast();
@@ -13,23 +14,25 @@ export function useUndoableAction() {
         title: label,
         description: "Click Undo to reverse this action.",
         duration: 5500,
-        action: (
-          <button
-            onClick={() => {
+        action: createElement(
+          ToastAction,
+          {
+            altText: "Undo",
+            onClick: () => {
               undone = true;
               clearTimeout(timeoutId);
               dismiss();
-              undoFn().then(() => {
-                toast({ title: "Action reversed" });
-              }).catch(() => {
-                toast({ title: "Undo failed", variant: "destructive" });
-              });
-            }}
-            style={{ fontWeight: 600, color: "#E8610A", padding: "4px 8px" }}
-          >
-            Undo
-          </button>
-        ) as any,
+              undoFn()
+                .then(() => {
+                  toast({ title: "Action reversed" });
+                })
+                .catch(() => {
+                  toast({ title: "Undo failed", variant: "destructive" });
+                });
+            },
+          },
+          "Undo"
+        ),
       });
 
       timeoutId = setTimeout(async () => {
