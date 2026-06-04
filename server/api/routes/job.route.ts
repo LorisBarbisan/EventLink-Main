@@ -1,8 +1,10 @@
 import type { Express } from "express";
 import {
+  cancelAllBookingsForJob,
   closeJob,
   createJob,
   deleteJob,
+  getJobActivitySummary,
   getJobById,
   getJobLinkViewCount,
   getJobPresets,
@@ -47,4 +49,10 @@ export function registerJobRoutes(app: Express) {
 
   // Get full job detail + applications (recruiter owner only)
   app.get("/api/jobs/:jobId/detail", authenticateJWT, getRecruiterJobDetail);
+
+  // Activity summary for smart delete modal
+  app.get("/api/jobs/:id/activity-summary", authenticateJWT, getJobActivitySummary);
+
+  // Cancel all confirmed bookings for a job (used in smart delete)
+  app.post("/api/jobs/:id/cancel-all-bookings", authenticateJWT, cancelAllBookingsForJob);
 }

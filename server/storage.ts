@@ -5089,29 +5089,58 @@ export class DatabaseStorage implements IStorage {
         .filter((id): id is number => id !== null);
       if (ids.length > 0) memberIds = ids;
     }
-    const results = await db
+    const bookingResults = await db
       .select({
         booking: bookings,
         freelancerFirstName: users.first_name,
         freelancerLastName: users.last_name,
         freelancerPhoto: freelancer_profiles.profile_photo_url,
         freelancerTitle: freelancer_profiles.title,
+        jobEventDate: jobs.event_date,
       })
       .from(bookings)
       .leftJoin(users, eq(bookings.freelancerId, users.id))
       .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
+      .leftJoin(jobs, eq(bookings.jobId, jobs.id))
       .where(
         memberIds.length === 1
           ? eq(bookings.employerId, memberIds[0])
           : inArray(bookings.employerId, memberIds)
       )
       .orderBy(bookings.createdAt);
-    return results.map((r) => ({
+
+    const bookingEvents = bookingResults.map((r) => ({
       ...r.booking,
+      calendarType: "booking" as const,
+      // Use booking's own event_date first, then fall back to linked job's event_date
+      eventDate: r.booking.eventDate ?? r.jobEventDate ?? null,
       freelancerName: `${r.freelancerFirstName ?? ""} ${r.freelancerLastName ?? ""}`.trim(),
       freelancerPhoto: r.freelancerPhoto ?? null,
       freelancerTitle: r.freelancerTitle ?? null,
     }));
+
+    // Also fetch jobs for the same employer(s) — exclude closed jobs
+    const jobResults = await db
+      .select()
+      .from(jobs)
+      .where(
+        and(
+          memberIds.length === 1
+            ? eq(jobs.recruiter_id, memberIds[0])
+            : inArray(jobs.recruiter_id, memberIds),
+          ne(jobs.status, "closed")
+        )
+      );
+
+    const jobEvents = jobResults
+      .filter((j) => j.event_date) // only jobs with a date appear on the calendar
+      .map((j) => ({
+        ...j,
+        calendarType: "job" as const,
+        eventDate: j.event_date,
+      }));
+
+    return [...bookingEvents, ...jobEvents];
   }
 
   // ── Step 3 — Brief storage methods ───────────────────────

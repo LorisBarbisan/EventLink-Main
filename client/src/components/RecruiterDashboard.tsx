@@ -24,15 +24,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
   Briefcase,
+  Building2,
   CalendarDays,
+  ClipboardList,
+  CreditCard,
   Loader2,
   MapPin,
+  MessageSquare,
   Plus,
+  Scale,
   Search,
   Send,
   Star,
   User,
   Users,
+  Users2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -49,7 +55,7 @@ export default function SimplifiedRecruiterDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [location, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("jobs");
+  const [activeTab, setActiveTab] = useState("calendar");
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
@@ -96,7 +102,7 @@ export default function SimplifiedRecruiterDashboard() {
       const actionParam = urlParams.get("action");
 
       // Switch to tab specified in URL (e.g., from notifications)
-      if (tabParam && ["profile", "jobs", "applications", "messages", "crew", "bookings", "calendar", "team"].includes(tabParam)) {
+      if (tabParam && ["calendar", "jobs", "bookings", "applications", "availability", "messages", "crew", "ir35", "team", "billing", "profile"].includes(tabParam)) {
         if (tabParam !== activeTab) {
           setActiveTab(tabParam);
         }
@@ -649,34 +655,52 @@ export default function SimplifiedRecruiterDashboard() {
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className={`grid w-full grid-cols-4 ${isTeamsTier ? "md:grid-cols-11" : "md:grid-cols-10"}`}>
-          <TabsTrigger value="jobs" className="gap-2">
-            My Jobs
-            <TabBadge count={roleSpecificCounts.jobs || 0} />
-          </TabsTrigger>
-          <TabsTrigger value="applications" className="gap-2">
-            Applications
-            <TabBadge count={roleSpecificCounts.applications || 0} />
-          </TabsTrigger>
-          <TabsTrigger value="messages" className="gap-2">
-            Messages
-            <TabBadge count={roleSpecificCounts.messages || 0} />
-          </TabsTrigger>
-          <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="calendar" className="gap-1.5">
             <CalendarDays className="h-3.5 w-3.5" />
             Calendar
           </TabsTrigger>
-          <TabsTrigger value="availability">Availability</TabsTrigger>
+          <TabsTrigger value="jobs" className="gap-1.5">
+            <Briefcase className="h-3.5 w-3.5" />
+            My Jobs
+            <TabBadge count={roleSpecificCounts.jobs || 0} />
+          </TabsTrigger>
+          <TabsTrigger value="bookings" className="gap-1.5">
+            <ClipboardList className="h-3.5 w-3.5" />
+            Bookings
+          </TabsTrigger>
+          <TabsTrigger value="applications" className="gap-1.5">
+            <Users className="h-3.5 w-3.5" />
+            Applications
+            <TabBadge count={roleSpecificCounts.applications || 0} />
+          </TabsTrigger>
+          <TabsTrigger value="availability" className="gap-1.5">
+            <Send className="h-3.5 w-3.5" />
+            Availability
+          </TabsTrigger>
+          <TabsTrigger value="messages" className="gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5" />
+            Messages
+            <TabBadge count={roleSpecificCounts.messages || 0} />
+          </TabsTrigger>
           <TabsTrigger value="crew">My Crew</TabsTrigger>
-          <TabsTrigger value="ir35">IR35</TabsTrigger>
+          <TabsTrigger value="ir35" className="gap-1.5">
+            <Scale className="h-3.5 w-3.5" />
+            IR35
+          </TabsTrigger>
           {isTeamsTier && (
             <TabsTrigger value="team" className="gap-1">
-              <Users className="h-3.5 w-3.5" />
+              <Users2 className="h-3.5 w-3.5" />
               Team
             </TabsTrigger>
           )}
-          <TabsTrigger value="billing">Billing</TabsTrigger>
-          <TabsTrigger value="profile">Company Profile</TabsTrigger>
+          <TabsTrigger value="billing" className="gap-1.5">
+            <CreditCard className="h-3.5 w-3.5" />
+            Billing
+          </TabsTrigger>
+          <TabsTrigger value="profile" className="gap-1.5">
+            <Building2 className="h-3.5 w-3.5" />
+            Company Profile
+          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}

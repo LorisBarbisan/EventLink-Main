@@ -1,6 +1,8 @@
-import { insertJobSchema, insertJobLinkViewSchema } from "@shared/schema";
+import { insertJobSchema, insertJobLinkViewSchema, availability_enquiries, bookings as bookings_table, jobs as jobs_table, users } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
+import { db } from "../config/db";
+import { eq, and, ne, inArray, sql } from "drizzle-orm";
 import { sendUrgentJobNotification } from "../services/job-notification-scheduler.service";
 import { sendJobClosureEmails } from "../services/job-closure-email.service";
 
@@ -445,6 +447,95 @@ export async function deleteJob(req: Request, res: Response) {
   } catch (error) {
     console.error("Delete job error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+export async function getJobActivitySummary(req: Request, res: Response) {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
+    const jobId = parseInt(req.params.id);
+    if (isNaN(jobId)) return res.status(400).json({ error: "Invalid job ID" });
+
+    const job = await storage.getJobById(jobId);
+    if (!job || job.recruiter_id !== employerId) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    const [enquiries, confirmedBookings] = await Promise.all([
+      db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(availability_enquiries)
+        .where(
+          and(
+            eq(availability_enquiries.jobId, jobId),
+            ne(availability_enquiries.status, "archived")
+          )
+        ),
+      db
+        .select({ id: bookings_table.id, freelancerName: users.first_name })
+        .from(bookings_table)
+        .leftJoin(users, eq(bookings_table.freelancerId, users.id))
+        .where(
+          and(
+            eq(bookings_table.jobId, jobId),
+            inArray(bookings_table.status, ["confirmed", "briefed"])
+          )
+        ),
+    ]);
+
+    return res.json({
+      enquiryCount: Number(enquiries[0]?.count ?? 0),
+      confirmedBookingCount: confirmedBookings.length,
+      confirmedBookings: confirmedBookings.map((b) => ({
+        id: b.id,
+        freelancerName: b.freelancerName ?? "Unknown",
+      })),
+    });
+  } catch (err: any) {
+    console.error("getJobActivitySummary error:", err.message);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+export async function cancelAllBookingsForJob(req: Request, res: Response) {
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
+    const jobId = parseInt(req.params.id);
+    if (isNaN(jobId)) return res.status(400).json({ error: "Invalid job ID" });
+
+    const activeBookings = await db
+      .select()
+      .from(bookings_table)
+      .where(
+        and(
+          eq(bookings_table.jobId, jobId),
+          eq(bookings_table.employerId, employerId),
+          inArray(bookings_table.status, ["confirmed", "briefed"])
+        )
+      );
+
+    await Promise.allSettled(
+      activeBookings.map(async (b) => {
+        await storage.updateBookingStatus(b.id, "cancelled", employerId, "Job cancelled by employer");
+        const user = await storage.getUser(b.freelancerId);
+        const employer = await storage.getRecruiterProfile(employerId);
+        if (user?.email) {
+          const { sendEmail } = await import("../utils/emailService.js");
+          await sendEmail({
+            to: user.email,
+            subject: "Booking cancelled",
+            html: `<p>Your booking on ${b.eventDate ?? "the scheduled date"} with ${employer?.company_name ?? "the employer"} has been cancelled.</p>`,
+          });
+        }
+      })
+    );
+
+    return res.json({ cancelled: activeBookings.length });
+  } catch (err: any) {
+    console.error("cancelAllBookingsForJob error:", err.message);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
 

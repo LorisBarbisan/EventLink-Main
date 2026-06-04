@@ -34,24 +34,46 @@ function canTransition(from: BookingStatus, to: BookingStatus): boolean {
 export async function createBooking(req: Request, res: Response) {
   try {
     const employerId = req.user!.id;
-    const { jobId, freelancerId, agreedRate, callTime, venueAddress, employerNotes } =
+    const { jobId, freelancerId, agreedRate, callTime, venueAddress, employerNotes, eventDate, status } =
       req.body;
 
-    if (!jobId || !freelancerId) {
-      return res.status(400).json({ error: "jobId and freelancerId are required" });
+    if (!freelancerId) {
+      return res.status(400).json({ error: "freelancerId is required" });
     }
 
-    const [job] = await db
-      .select()
-      .from(jobs)
-      .where(and(eq(jobs.id, jobId), eq(jobs.employerId, employerId)));
+    const bookingJobId: number | null = jobId || null;
+    let bookingEventDate: string | null = eventDate || null;
+    const bookingStatus: string = status || (bookingJobId ? "enquired" : "confirmed");
 
-    if (!job) {
-      return res.status(403).json({ error: "Job not found or not owned by you" });
+    // If linked to a job, verify ownership and pull event date if not provided
+    if (bookingJobId) {
+      const [job] = await db
+        .select()
+        .from(jobs)
+        .where(and(eq(jobs.id, bookingJobId), eq(jobs.recruiter_id, employerId)));
+
+      if (!job) {
+        return res.status(403).json({ error: "Job not found or not owned by you" });
+      }
+
+      if (!bookingEventDate) bookingEventDate = job.event_date ?? null;
+
+      // Prevent duplicate job+freelancer bookings
+      const [existing] = await db
+        .select()
+        .from(bookings)
+        .where(and(eq(bookings.jobId, bookingJobId), eq(bookings.freelancerId, freelancerId)));
+
+      if (existing) {
+        return res.status(409).json({
+          error: "A booking already exists for this job and freelancer",
+          bookingId: existing.id,
+        });
+      }
     }
 
     const [freelancer] = await db
-      .select({ id: users.id, role: users.role, firstName: users.firstName })
+      .select({ id: users.id, role: users.role })
       .from(users)
       .where(and(eq(users.id, freelancerId), eq(users.role, "freelancer")));
 
@@ -59,25 +81,14 @@ export async function createBooking(req: Request, res: Response) {
       return res.status(404).json({ error: "Freelancer not found" });
     }
 
-    const [existing] = await db
-      .select()
-      .from(bookings)
-      .where(and(eq(bookings.jobId, jobId), eq(bookings.freelancerId, freelancerId)));
-
-    if (existing) {
-      return res.status(409).json({
-        error: "A booking already exists for this job and freelancer",
-        bookingId: existing.id,
-      });
-    }
-
     const [booking] = await db
       .insert(bookings)
       .values({
-        jobId,
+        jobId: bookingJobId,
         employerId,
         freelancerId,
-        status: "enquired",
+        status: bookingStatus,
+        eventDate: bookingEventDate,
         agreedRate: agreedRate ?? null,
         callTime: callTime ?? null,
         venueAddress: venueAddress ?? null,
@@ -88,9 +99,9 @@ export async function createBooking(req: Request, res: Response) {
     await db.insert(bookingStatusHistory).values({
       bookingId: booking.id,
       fromStatus: null,
-      toStatus: "enquired",
+      toStatus: bookingStatus,
       changedById: employerId,
-      note: "Booking created",
+      note: bookingJobId ? "Booking created" : "Direct booking created from calendar",
     });
 
     return res.status(201).json(booking);

@@ -980,6 +980,7 @@ export const bookings = pgTable("bookings", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   status: text("status").notNull().default("enquired"),
+  eventDate: text("event_date"),
   agreedRate: text("agreed_rate"),
   callTime: text("call_time"),
   venueAddress: text("venue_address"),
