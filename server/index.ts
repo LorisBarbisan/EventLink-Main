@@ -133,7 +133,7 @@ app.use("/api", generalRateLimit);
 // Apply stricter limits to save/update operations
 app.use(["/api/profiles", "/api/jobs", "/api/applications"], saveOperationsLimit);
 
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
 // CORS configuration to allow Authorization header
