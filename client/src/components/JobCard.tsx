@@ -100,10 +100,11 @@ export function JobCard({
   const [uploading, setUploading] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
 
-  const { data: documents = [] } = useQuery<any[]>({
+  const { data: rawDocuments } = useQuery<any[]>({
     queryKey: [`/api/job/${job.id}/documents`],
     enabled: isExpanded || showDocuments,
   });
+  const documents: any[] = Array.isArray(rawDocuments) ? rawDocuments : [];
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

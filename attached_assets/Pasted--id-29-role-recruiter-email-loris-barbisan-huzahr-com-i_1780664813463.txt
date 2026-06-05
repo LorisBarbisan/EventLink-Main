@@ -1,0 +1,123 @@
+{id: 29, role: 'recruiter', email: 'loris.barbisan@huzahr.com'}
+insight.old.min.js:1  POST https://px.ads.linkedin.com/wa/?medium=fetch&fmt=g net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ insight.old.min.js:1
+f @ insight.old.min.js:1
+(anonymous) @ insight.old.min.js:1
+(anonymous) @ insight.old.min.js:1
+G @ insight.old.min.js:1
+a @ insight.old.min.js:1
+(anonymous) @ insight.old.min.js:1
+(anonymous) @ insight.old.min.js:1
+call @ insight.old.min.js:1
+Ct @ insight.old.min.js:1
+call @ insight.old.min.js:1
+(anonymous) @ insight.old.min.js:1
+Gt @ insight.old.min.js:1
+(anonymous) @ insight.old.min.js:1
+Promise.then
+Ht @ insight.old.min.js:1
+dr @ insight.old.min.js:1
+(anonymous) @ insight.old.min.js:1
+gr @ insight.old.min.js:1
+br @ insight.old.min.js:1Understand this error
+px.ads.linkedin.com/insight_tag_errors.gif?v=2&pid=9014706&error=version%3A%20308%20%7C%20WebsiteActions-308-TypeError%3A%20Failed%20to%20fetch%3B%20ErrorData%3A%20%7B%22domain%22%3A%22attach-lorisbarbisan.replit.app%22%2C%22requestFetcher%22%3A%22fetch-keepalive%22%2C%22body%22%3A%22H4sIAAAAAAAACr1WzXLbNhB%2BFc0eeiJiSlZkiTdHSTpuM26nVnNxPR0QWJKIQYAFlvqJR6%2FQSx%2Bgr9hHaMEfmVJdezKZ6YUEFtjdb3e%2FXfIBKiU9JLeLeDy9iGd3EXjhVEUf0XllDSTn8TwCUiVCMr6Yx7PZ9OI8ns7HEUhbcmUgAU7ERcG0dcqn3KXKc%2FPKYaUVveJVBRHUTkMCBVHlk7OzF%2B6fSe6L1HInIYKK57hSpBESeLdGQx%2BUuR%2BxUbMeXRlZe3K70Y%2FOZugDYq5H10gb6%2B4hgg2mXhHeqNxw%2FRP%2BVqOnKwkJiAkusixO2SKdnrNZPHnN5uMxMp4u4gmfiWyeTSEC5VeOG685oYQk49pjBFq9560VCJtvFTfUbkrlBSQPUPn0hjghJGy6D1YCaJRX5rKqDmYKLCExtdYR%2BAbfaleFKJcfrpbfQwSFw6w1K215SeRUWhP6YB81lmjoBktuSIlWsTXVHX3kuj6VDa8Rz695qCm8%2BXm1%2BuEaIki5uM%2BdrY28KnmON070l9VT%2B0tNh70x6Fa4DVn4688%2Ffv%2FFvLXCw6Pjrn7f2XT01oo6yMKxqJ237h%2BlyipD6GDf2XrX6vmTAJauLlO%2FcoiQ3D4MYpBqDREYKpaF0hKScQQq1MdZS7CPnrs6iUBo7n1I7C2kOXtMA0SQadx2LyasbkpsWMG8cIgG7o5tN%2B1wgmNgvLEyPlU6BRQf6QhriCuDLrjeMl6TDU2xZYGd1Y7Nv8Ic37INy2rdh7Vh8amXceslOPNlUm3ZrFvt2Owlz8fB%2B4oLZI1aFAbGgM2SE2fWKTTEqZk5UFinPgesGvbPeznvS82l2rLE%2BYSFINEQ%2B2TThmWDClhRe7ZWXqUaE1uTVgaZsQZDkY8OnTI5mzwttlnmkf7rNDxCHtsLQ4Ujar2UEN8OEOCC1Drg%2B9o0PVGM6ZexJ82ZaKdyap1sSNREg5LpELIvuLQb5kuIgHBLzW2WWYdd1F%2FkrTrQ7mWuxf9qtOOuzfnBWiN1dtPuFGHpQ64dtYJPtSeV7ViKtHmixZ8n%2BdBx66JZbhyvOhCBEr0LbHnw6HMAo9Q93k3fjl2vngBKayJrnhlpt9%2F86tf5XdLNWIbhw%2Bl70venvnDK3DcD4CBSn7EBcToUD8VvF0yZqg6wpfI81SgTW3GhaMdex0Pp0wD%2Bz5bMrCFWolR1OShHwRbhadfokjRnXAg0dJA0PG5lQyaHD1WDtCt5y6Nwq8lMX9GDoNqy8%2BemQd9Hpex7J3d8x2Zx3O%2Fbrgp%2FIyp0fyC2dWG%2BbQpF2Ha0sQ3V7vZ34afjvdKEDuWb3VKHqdH9eez%2FBuBxY4D0CQAA%22%7D&href=https%3A%2F%2Fattach-lorisbarbisan.replit.app%2Fdashboard:1  GET https://px.ads.linkedin.com/insight_tag_errors.gif?v=2&pid=9014706&error=version%3A%20308%20%7C%20WebsiteActions-308-TypeError%3A%20Failed%20to%20fetch%3B%20ErrorData%3A%20%7B%22domain%22%3A%22attach-lorisbarbisan.replit.app%22%2C%22requestFetcher%22%3A%22fetch-keepalive%22%2C%22body%22%3A%22H4sIAAAAAAAACr1WzXLbNhB%2BFc0eeiJiSlZkiTdHSTpuM26nVnNxPR0QWJKIQYAFlvqJR6%2FQSx%2Bgr9hHaMEfmVJdezKZ6YUEFtjdb3e%2FXfIBKiU9JLeLeDy9iGd3EXjhVEUf0XllDSTn8TwCUiVCMr6Yx7PZ9OI8ns7HEUhbcmUgAU7ERcG0dcqn3KXKc%2FPKYaUVveJVBRHUTkMCBVHlk7OzF%2B6fSe6L1HInIYKK57hSpBESeLdGQx%2BUuR%2BxUbMeXRlZe3K70Y%2FOZugDYq5H10gb6%2B4hgg2mXhHeqNxw%2FRP%2BVqOnKwkJiAkusixO2SKdnrNZPHnN5uMxMp4u4gmfiWyeTSEC5VeOG685oYQk49pjBFq9560VCJtvFTfUbkrlBSQPUPn0hjghJGy6D1YCaJRX5rKqDmYKLCExtdYR%2BAbfaleFKJcfrpbfQwSFw6w1K215SeRUWhP6YB81lmjoBktuSIlWsTXVHX3kuj6VDa8Rz695qCm8%2BXm1%2BuEaIki5uM%2BdrY28KnmON070l9VT%2B0tNh70x6Fa4DVn4688%2Ffv%2FFvLXCw6Pjrn7f2XT01oo6yMKxqJ237h%2BlyipD6GDf2XrX6vmTAJauLlO%2FcoiQ3D4MYpBqDREYKpaF0hKScQQq1MdZS7CPnrs6iUBo7n1I7C2kOXtMA0SQadx2LyasbkpsWMG8cIgG7o5tN%2B1wgmNgvLEyPlU6BRQf6QhriCuDLrjeMl6TDU2xZYGd1Y7Nv8Ic37INy2rdh7Vh8amXceslOPNlUm3ZrFvt2Owlz8fB%2B4oLZI1aFAbGgM2SE2fWKTTEqZk5UFinPgesGvbPeznvS82l2rLE%2BYSFINEQ%2B2TThmWDClhRe7ZWXqUaE1uTVgaZsQZDkY8OnTI5mzwttlnmkf7rNDxCHtsLQ4Ujar2UEN8OEOCC1Drg%2B9o0PVGM6ZexJ82ZaKdyap1sSNREg5LpELIvuLQb5kuIgHBLzW2WWYdd1F%2FkrTrQ7mWuxf9qtOOuzfnBWiN1dtPuFGHpQ64dtYJPtSeV7ViKtHmixZ8n%2BdBx66JZbhyvOhCBEr0LbHnw6HMAo9Q93k3fjl2vngBKayJrnhlpt9%2F86tf5XdLNWIbhw%2Bl70venvnDK3DcD4CBSn7EBcToUD8VvF0yZqg6wpfI81SgTW3GhaMdex0Pp0wD%2Bz5bMrCFWolR1OShHwRbhadfokjRnXAg0dJA0PG5lQyaHD1WDtCt5y6Nwq8lMX9GDoNqy8%2BemQd9Hpex7J3d8x2Zx3O%2Fbrgp%2FIyp0fyC2dWG%2BbQpF2Ha0sQ3V7vZ34afjvdKEDuWb3VKHqdH9eez%2FBuBxY4D0CQAA%22%7D&href=https%3A%2F%2Fattach-lorisbarbisan.replit.app%2Fdashboard net::ERR_BLOCKED_BY_CLIENTUnderstand this error
+insight.old.min.js:1  POST https://px.ads.linkedin.com/wa/?medium=beacon&fmt=g net::ERR_BLOCKED_BY_CLIENT
+call @ insight.old.min.js:1
+Ct @ insight.old.min.js:1
+(anonymous) @ insight.old.min.js:1
+Promise.catch
+Ct @ insight.old.min.js:1
+call @ insight.old.min.js:1
+(anonymous) @ insight.old.min.js:1
+Gt @ insight.old.min.js:1
+(anonymous) @ insight.old.min.js:1
+Promise.then
+Ht @ insight.old.min.js:1
+dr @ insight.old.min.js:1
+(anonymous) @ insight.old.min.js:1
+gr @ insight.old.min.js:1
+br @ insight.old.min.js:1Understand this error
+index-DuqQ420a.js:41 TypeError: ne.map is not a function
+    at rr (Dashboard-CZNklf8X.js:36:122009)
+    at La (index-DuqQ420a.js:39:17252)
+    at Ba (index-DuqQ420a.js:41:3158)
+    at Jf (index-DuqQ420a.js:41:45245)
+    at Yf (index-DuqQ420a.js:41:40095)
+    at Iy (index-DuqQ420a.js:41:40023)
+    at el (index-DuqQ420a.js:41:39876)
+    at su (index-DuqQ420a.js:41:36191)
+    at Wf (index-DuqQ420a.js:41:37003)
+    at nr (index-DuqQ420a.js:39:3273)
+$a @ index-DuqQ420a.js:41
+n.callback @ index-DuqQ420a.js:41
+Vd @ index-DuqQ420a.js:39
+Vf @ index-DuqQ420a.js:41
+Uf @ index-DuqQ420a.js:41
+Ny @ index-DuqQ420a.js:41
+My @ index-DuqQ420a.js:41
+Hr @ index-DuqQ420a.js:41
+Wf @ index-DuqQ420a.js:41
+nr @ index-DuqQ420a.js:39
+(anonymous) @ index-DuqQ420a.js:41
+setTimeout
+Q0 @ index-DuqQ420a.js:66
+p @ index-DuqQ420a.js:66
+batch @ index-DuqQ420a.js:66
+Dn @ index-DuqQ420a.js:66
+setData @ index-DuqQ420a.js:66
+fetch @ index-DuqQ420a.js:66
+await in fetch
+Us @ index-DuqQ420a.js:66
+setOptions @ index-DuqQ420a.js:66
+(anonymous) @ index-DuqQ420a.js:66
+Qi @ index-DuqQ420a.js:41
+Oo @ index-DuqQ420a.js:41
+My @ index-DuqQ420a.js:41
+Hr @ index-DuqQ420a.js:41
+Wf @ index-DuqQ420a.js:41
+nr @ index-DuqQ420a.js:39
+(anonymous) @ index-DuqQ420a.js:41Understand this error
+index-DuqQ420a.js:39 Uncaught TypeError: ne.map is not a function
+    at rr (Dashboard-CZNklf8X.js:36:122009)
+    at La (index-DuqQ420a.js:39:17252)
+    at Ba (index-DuqQ420a.js:41:3158)
+    at Jf (index-DuqQ420a.js:41:45245)
+    at Yf (index-DuqQ420a.js:41:40095)
+    at Iy (index-DuqQ420a.js:41:40023)
+    at el (index-DuqQ420a.js:41:39876)
+    at su (index-DuqQ420a.js:41:36191)
+    at Wf (index-DuqQ420a.js:41:37003)
+    at nr (index-DuqQ420a.js:39:3273)
+rr @ Dashboard-CZNklf8X.js:36
+La @ index-DuqQ420a.js:39
+Ba @ index-DuqQ420a.js:41
+Jf @ index-DuqQ420a.js:41
+Yf @ index-DuqQ420a.js:41
+Iy @ index-DuqQ420a.js:41
+el @ index-DuqQ420a.js:41
+su @ index-DuqQ420a.js:41
+Wf @ index-DuqQ420a.js:41
+nr @ index-DuqQ420a.js:39
+(anonymous) @ index-DuqQ420a.js:41
+setTimeout
+Q0 @ index-DuqQ420a.js:66
+p @ index-DuqQ420a.js:66
+batch @ index-DuqQ420a.js:66
+Dn @ index-DuqQ420a.js:66
+setData @ index-DuqQ420a.js:66
+fetch @ index-DuqQ420a.js:66
+await in fetch
+Us @ index-DuqQ420a.js:66
+setOptions @ index-DuqQ420a.js:66
+(anonymous) @ index-DuqQ420a.js:66
+Qi @ index-DuqQ420a.js:41
+Oo @ index-DuqQ420a.js:41
+My @ index-DuqQ420a.js:41
+Hr @ index-DuqQ420a.js:41
+Wf @ index-DuqQ420a.js:41
+nr @ index-DuqQ420a.js:39
+(anonymous) @ index-DuqQ420a.js:41Understand this error
+index-DuqQ420a.js:66 🔌 WebSocket disconnected
+index-DuqQ420a.js:66 🔄 Reconnecting in 3 seconds...
+index-DuqQ420a.js:66 🔌 Establishing centralized WebSocket connection...
+index-DuqQ420a.js:66 ✅ WebSocket connected
