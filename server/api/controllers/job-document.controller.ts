@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { db } from "../config/db";
 import { jobDocuments, jobs, job_applications } from "../../../shared/schema";
 import { eq, and } from "drizzle-orm";
-import { ObjectStorageService } from "../utils/object-storage";
+import { ObjectStorageService, objectStorageClient } from "../utils/object-storage";
 import { randomUUID } from "crypto";
 
 const ALLOWED_TYPES = [
@@ -47,10 +47,28 @@ export async function uploadJobDocument(req: Request, res: Response) {
 
     if (!job) return res.status(403).json({ error: "Job not found or not yours" });
 
-    const fileKey = `job-docs/${jobId}/${randomUUID()}-${filename}`;
+    const fileExtension = filename.split(".").pop() || "pdf";
+    const fileKey = `job-docs/${jobId}/${randomUUID()}.${fileExtension}`;
 
-    // Upload using GCS client directly (avoids signed-URL sidecar which fails in production)
-    await ObjectStorageService.uploadBuffer(fileKey, contentType, buffer);
+    // Upload using the same pattern as compliance document uploads (document.controller.ts)
+    const privateDir = process.env.PRIVATE_OBJECT_DIR;
+    if (!privateDir) throw new Error("PRIVATE_OBJECT_DIR not set");
+
+    const fullPath = `${privateDir}/${fileKey}`;
+    const pathParts = fullPath.startsWith("/") ? fullPath.split("/") : `/${fullPath}`.split("/");
+    const bucketName = pathParts[1];
+    const objectName = pathParts.slice(2).join("/");
+
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+
+    try {
+      await file.save(buffer, { contentType, metadata: { contentType } });
+      console.log(`✅ Job document uploaded to storage: ${fileKey}`);
+    } catch (uploadError) {
+      console.error("❌ Job document storage upload error:", uploadError);
+      throw new Error("Failed to upload document to storage");
+    }
 
     const [doc] = await db
       .insert(jobDocuments)
