@@ -3,7 +3,8 @@ import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { resolveCompanyId, resolveCompanyIdOptional } from "../middleware/team.middleware";
 import {
-  uploadJobDocument,
+  requestUploadUrl,
+  confirmUpload,
   getJobDocuments,
   deleteJobDocument,
 } from "../controllers/job-document.controller";
@@ -12,12 +13,20 @@ const router = Router();
 
 router.use(authenticateJWT);
 
-// Employer — upload document to their job
+// Step 1: Employer requests a signed PUT URL (tiny JSON, no file body)
 router.post(
-  "/:jobId/documents",
+  "/:jobId/documents/request-upload",
   requireRole("employer"),
   resolveCompanyId,
-  uploadJobDocument
+  requestUploadUrl
+);
+
+// Step 2: Employer confirms upload after browser PUT to storage
+router.post(
+  "/:jobId/documents/confirm",
+  requireRole("employer"),
+  resolveCompanyId,
+  confirmUpload
 );
 
 // Employer — delete a document
