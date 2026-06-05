@@ -202,6 +202,21 @@ export class ObjectStorageService {
     return buffer;
   }
 
+  // Static method: Upload a buffer directly via GCS client (no signed-URL sidecar needed)
+  static async uploadBuffer(objectKey: string, contentType: string, buffer: Buffer): Promise<void> {
+    const privateDir = process.env.PRIVATE_OBJECT_DIR || "";
+    if (!privateDir) throw new Error("PRIVATE_OBJECT_DIR not set");
+
+    const fullPath = objectKey.startsWith("/")
+      ? `${privateDir}${objectKey}`
+      : `${privateDir}/${objectKey}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    await file.save(buffer, { contentType, resumable: false });
+  }
+
   // Static method: Delete a file
   static async deleteObject(objectKey: string): Promise<void> {
     const privateDir = process.env.PRIVATE_OBJECT_DIR || "";

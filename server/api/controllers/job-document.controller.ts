@@ -14,26 +14,32 @@ const ALLOWED_TYPES = [
 ];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
-// ── Step 1: Validate ownership & return a signed PUT URL ──────────────────
-// The browser will PUT the file binary directly to object storage.
-// This avoids sending large payloads through Express / the reverse proxy.
-export async function requestUploadUrl(req: Request, res: Response) {
+// ── Upload a document to a job ────────────────────────────────────────────
+// Accepts base64-encoded file data in JSON. Uploads directly to GCS via
+// objectStorageClient (no signed-URL sidecar required — works in production).
+export async function uploadJobDocument(req: Request, res: Response) {
   try {
     const companyId = (req as any).companyId as number;
     const jobId = parseInt(req.params.jobId);
-    const { filename, contentType, documentType = "other", fileSize } = req.body;
+    const { fileData, filename, contentType, documentType = "other" } = req.body;
 
     if (isNaN(jobId)) return res.status(400).json({ error: "Invalid job ID" });
-    if (!filename || !contentType) {
-      return res.status(400).json({ error: "filename and contentType are required" });
+
+    if (!fileData || !filename || !contentType) {
+      return res.status(400).json({ error: "fileData, filename, and contentType are required" });
     }
+
     if (!ALLOWED_TYPES.includes(contentType)) {
       return res.status(400).json({ error: "Only PDF, Word, and Excel files are allowed" });
     }
-    if (fileSize && fileSize > MAX_SIZE) {
+
+    const buffer = Buffer.from(fileData, "base64");
+
+    if (buffer.length > MAX_SIZE) {
       return res.status(400).json({ error: "File too large. Max 10MB." });
     }
 
+    // Verify job belongs to this employer/company
     const [job] = await db
       .select()
       .from(jobs)
@@ -42,38 +48,9 @@ export async function requestUploadUrl(req: Request, res: Response) {
     if (!job) return res.status(403).json({ error: "Job not found or not yours" });
 
     const fileKey = `job-docs/${jobId}/${randomUUID()}-${filename}`;
-    const signedPutUrl = await ObjectStorageService.getUploadUrl(fileKey, contentType);
 
-    return res.json({ signedPutUrl, fileKey });
-  } catch (err) {
-    console.error("requestUploadUrl:", err);
-    return res.status(500).json({ error: "Failed to generate upload URL" });
-  }
-}
-
-// ── Step 2: Record the document in DB after browser PUT succeeds ──────────
-export async function confirmUpload(req: Request, res: Response) {
-  try {
-    const companyId = (req as any).companyId as number;
-    const jobId = parseInt(req.params.jobId);
-    const { fileKey, filename, contentType, documentType = "other", fileSize } = req.body;
-
-    if (isNaN(jobId)) return res.status(400).json({ error: "Invalid job ID" });
-    if (!fileKey || !filename || !contentType) {
-      return res.status(400).json({ error: "fileKey, filename, and contentType are required" });
-    }
-
-    // Ensure the fileKey belongs to this job (security check)
-    if (!fileKey.startsWith(`job-docs/${jobId}/`)) {
-      return res.status(403).json({ error: "Invalid file key" });
-    }
-
-    const [job] = await db
-      .select()
-      .from(jobs)
-      .where(and(eq(jobs.id, jobId), eq(jobs.recruiter_id, companyId)));
-
-    if (!job) return res.status(403).json({ error: "Job not found or not yours" });
+    // Upload using GCS client directly (avoids signed-URL sidecar which fails in production)
+    await ObjectStorageService.uploadBuffer(fileKey, contentType, buffer);
 
     const [doc] = await db
       .insert(jobDocuments)
@@ -82,21 +59,22 @@ export async function confirmUpload(req: Request, res: Response) {
         uploadedByUserId: (req as any).user.id,
         fileName: filename,
         fileKey,
-        fileSize: fileSize ?? 0,
+        fileSize: buffer.length,
         fileType: contentType,
         documentType,
       })
       .returning();
 
-    console.log(`✅ Job document confirmed: ${fileKey}`);
+    console.log(`✅ Job document uploaded: ${fileKey}`);
     return res.status(201).json(doc);
   } catch (err) {
-    console.error("confirmUpload:", err);
-    return res.status(500).json({ error: "Failed to save document record" });
+    console.error("uploadJobDocument:", err);
+    return res.status(500).json({ error: "Failed to upload document" });
   }
 }
 
 // ── Get documents for a job (with signed download URLs) ──────────────────
+// Employer who owns the job OR a hired freelancer can access
 export async function getJobDocuments(req: Request, res: Response) {
   try {
     const userId = (req as any).user.id;
@@ -133,6 +111,7 @@ export async function getJobDocuments(req: Request, res: Response) {
       .from(jobDocuments)
       .where(eq(jobDocuments.jobId, jobId));
 
+    // Attach fresh signed download URLs to each document
     const docsWithUrls = await Promise.all(
       docs.map(async doc => {
         try {

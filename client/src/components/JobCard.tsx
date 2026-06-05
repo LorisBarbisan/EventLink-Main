@@ -120,59 +120,35 @@ export function JobCard({
     setShowUploadWarning(false);
     setUploading(true);
     try {
-      const token = localStorage.getItem("auth_token");
       const effectiveDocType = docType === "other" && customDocName.trim()
         ? customDocName.trim()
         : docType;
 
-      // Step 1: get a signed PUT URL from backend (tiny JSON request)
-      const urlRes = await fetch(`/api/job/${job.id}/documents/request-upload`, {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(pendingFile);
+      });
+
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(`/api/job/${job.id}/documents`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
+          fileData: base64,
           filename: pendingFile.name,
           contentType: pendingFile.type,
           documentType: effectiveDocType,
-          fileSize: pendingFile.size,
         }),
       });
-      if (!urlRes.ok) {
-        const err = await urlRes.json().catch(() => ({ error: "Failed to prepare upload" }));
-        throw new Error(err.error || `Error (${urlRes.status})`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || `Upload failed (${res.status})`);
       }
-      const { signedPutUrl, fileKey } = await urlRes.json();
-
-      // Step 2: PUT file binary directly to object storage (bypasses Express body limit)
-      const putRes = await fetch(signedPutUrl, {
-        method: "PUT",
-        body: pendingFile,
-        headers: { "Content-Type": pendingFile.type },
-      });
-      if (!putRes.ok) throw new Error(`Storage upload failed (${putRes.status})`);
-
-      // Step 3: confirm to backend so it saves the DB record
-      const confirmRes = await fetch(`/api/job/${job.id}/documents/confirm`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          fileKey,
-          filename: pendingFile.name,
-          contentType: pendingFile.type,
-          documentType: effectiveDocType,
-          fileSize: pendingFile.size,
-        }),
-      });
-      if (!confirmRes.ok) {
-        const err = await confirmRes.json().catch(() => ({ error: "Failed to save document" }));
-        throw new Error(err.error || `Error (${confirmRes.status})`);
-      }
-
       queryClient.invalidateQueries({ queryKey: [`/api/job/${job.id}/documents`] });
       toast({ title: "Document uploaded", description: pendingFile.name });
       setCustomDocName("");
