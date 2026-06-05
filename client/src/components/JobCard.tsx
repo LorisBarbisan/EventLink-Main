@@ -110,9 +110,18 @@ export function JobCard({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 10 MB. Please choose a smaller file.", variant: "destructive" });
+      return;
+    }
+    const allowed = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
+    if (!allowed.includes(file.type)) {
+      toast({ title: "File type not supported", description: "Only PDF, Word (.doc/.docx), and Excel (.xls/.xlsx) files are allowed.", variant: "destructive" });
+      return;
+    }
     setPendingFile(file);
     setShowUploadWarning(true);
-    e.target.value = "";
   };
 
   const confirmUpload = async () => {
@@ -548,10 +557,23 @@ export function JobCard({
                 Once a freelancer is hired for this job, they will be able to view and download all
                 documents you attach to it.
               </p>
-              <p className="text-gray-500 text-sm leading-relaxed mb-6 text-center">
+              <p className="text-gray-500 text-sm leading-relaxed mb-4 text-center">
                 Make sure the file does not contain any sensitive information you would not want the
                 hired technician to see.
               </p>
+              <div className="flex items-center justify-center gap-1.5 mb-5 text-xs text-gray-400">
+                <span className="inline-flex items-center gap-1 bg-gray-100 rounded px-2 py-0.5">PDF</span>
+                <span className="inline-flex items-center gap-1 bg-gray-100 rounded px-2 py-0.5">Word</span>
+                <span className="inline-flex items-center gap-1 bg-gray-100 rounded px-2 py-0.5">Excel</span>
+                <span className="text-gray-300">·</span>
+                <span>Max 10 MB</span>
+              </div>
+              {pendingFile && (
+                <div className="mb-4 text-xs text-gray-500 text-center truncate">
+                  <span className="font-medium text-gray-700">{pendingFile.name}</span>
+                  <span className="ml-1">({(pendingFile.size / 1024 / 1024).toFixed(1)} MB)</span>
+                </div>
+              )}
               <div className="mb-5">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Document type</label>
                 <select

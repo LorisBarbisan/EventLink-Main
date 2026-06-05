@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { db } from "../config/db";
 import { jobDocuments, jobs, job_applications } from "../../../shared/schema";
 import { eq, and } from "drizzle-orm";
-import { ObjectStorageService, objectStorageClient } from "../utils/object-storage";
+import { ObjectStorageService } from "../utils/object-storage";
 import { randomUUID } from "crypto";
 
 const ALLOWED_TYPES = [
@@ -50,25 +50,22 @@ export async function uploadJobDocument(req: Request, res: Response) {
     const fileExtension = filename.split(".").pop() || "pdf";
     const fileKey = `job-docs/${jobId}/${randomUUID()}.${fileExtension}`;
 
-    // Upload using the same pattern as compliance document uploads (document.controller.ts)
-    const privateDir = process.env.PRIVATE_OBJECT_DIR;
-    if (!privateDir) throw new Error("PRIVATE_OBJECT_DIR not set");
-
-    const fullPath = `${privateDir}/${fileKey}`;
-    const pathParts = fullPath.startsWith("/") ? fullPath.split("/") : `/${fullPath}`.split("/");
-    const bucketName = pathParts[1];
-    const objectName = pathParts.slice(2).join("/");
-
-    const bucket = objectStorageClient.bucket(bucketName);
-    const file = bucket.file(objectName);
-
-    try {
-      await file.save(buffer, { contentType, metadata: { contentType } });
-      console.log(`✅ Job document uploaded to storage: ${fileKey}`);
-    } catch (uploadError) {
-      console.error("❌ Job document storage upload error:", uploadError);
-      throw new Error("Failed to upload document to storage");
+    // Upload via sidecar signed PUT URL + fetch — the same auth path used by CV uploads.
+    // The GCS SDK (file.save / resumable-upload) fails in production with "no allowed resources"
+    // because the Replit IdentityPoolClient token lacks the required GCS upload scope.
+    // Using the sidecar to sign the URL and then PUT with plain fetch works reliably.
+    const putUrl = await ObjectStorageService.getUploadUrl(fileKey, contentType);
+    const uploadRes = await fetch(putUrl, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: buffer,
+    });
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text().catch(() => "");
+      console.error(`❌ Job document GCS upload failed: ${uploadRes.status} ${errText.slice(0, 200)}`);
+      throw new Error(`Storage upload failed (${uploadRes.status})`);
     }
+    console.log(`✅ Job document uploaded to storage: ${fileKey}`);
 
     const [doc] = await db
       .insert(jobDocuments)

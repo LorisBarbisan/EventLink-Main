@@ -1,1 +1,1 @@
-- [Object storage signed URLs](object-storage-signed-urls.md) — signObjectURL sidecar returns 401 in production; use objectStorageClient.file.save() directly instead.
+- [Object storage uploads in production](object-storage-uploads.md) — GCS SDK file.save() fails; use sidecar signed-URL + fetch() PUT instead.
