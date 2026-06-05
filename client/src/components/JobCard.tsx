@@ -96,10 +96,11 @@ export function JobCard({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [docType, setDocType] = useState("function_sheet");
   const [uploading, setUploading] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
 
   const { data: documents = [] } = useQuery<any[]>({
     queryKey: [`/api/job/${job.id}/documents`],
-    enabled: isExpanded,
+    enabled: isExpanded || showDocuments,
   });
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -449,6 +450,23 @@ export function JobCard({
                 </AlertDialogContent>
               </AlertDialog>
             )}
+            {(onEdit || onDelete || onDuplicate) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDocuments(v => !v)}
+                className={showDocuments ? "border-orange-300 text-orange-700 bg-orange-50" : "text-gray-600"}
+                title="Job Documents"
+              >
+                <span className="text-sm mr-1.5">📎</span>
+                <span className="hidden sm:inline">Docs</span>
+                {documents.length > 0 && (
+                  <span className="ml-1 text-xs bg-orange-100 text-orange-700 rounded-full px-1.5 py-0.5 font-medium">
+                    {documents.length}
+                  </span>
+                )}
+              </Button>
+            )}
             {onEdit && !isClosed && (
               <Button
                 variant="outline"
@@ -650,7 +668,7 @@ export function JobCard({
         )}
 
         {/* Documents panel */}
-        {isExpanded && (
+        {showDocuments && (
           <div className="mt-4 pt-4 border-t border-gray-100">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-semibold text-gray-700">Job Documents</h4>
