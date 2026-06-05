@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 import type { Job, JobApplication } from "@shared/types";
 import {
   Calendar,
@@ -88,6 +89,7 @@ export function JobCard({
   );
   const [showRatingDialog, setShowRatingDialog] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
+  const { toast } = useToast();
 
   // Document upload state
   const queryClient = useQueryClient();
