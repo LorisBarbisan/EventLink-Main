@@ -116,29 +116,35 @@ export function JobCard({
     setShowUploadWarning(false);
     setUploading(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = (reader.result as string).split(",")[1];
-        const token = localStorage.getItem("auth_token");
-        await fetch(`/api/job/${job.id}/documents`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            fileData: base64,
-            filename: pendingFile.name,
-            contentType: pendingFile.type,
-            documentType: docType,
-          }),
-        });
-        queryClient.invalidateQueries({ queryKey: [`/api/job/${job.id}/documents`] });
-        setUploading(false);
-        setPendingFile(null);
-      };
-      reader.readAsDataURL(pendingFile);
-    } catch {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(pendingFile);
+      });
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(`/api/job/${job.id}/documents`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          fileData: base64,
+          filename: pendingFile.name,
+          contentType: pendingFile.type,
+          documentType: docType,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || `Upload failed (${res.status})`);
+      }
+      queryClient.invalidateQueries({ queryKey: [`/api/job/${job.id}/documents`] });
+      toast({ title: "Document uploaded", description: pendingFile.name });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err?.message || "Please try again", variant: "destructive" });
+    } finally {
       setUploading(false);
       setPendingFile(null);
     }
@@ -318,24 +324,12 @@ export function JobCard({
             {isClosed && (
               <span className="text-xs text-red-600 font-medium self-center mr-2">Closed</span>
             )}
-            {!isClosed && onInvite && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                onClick={() => onInvite(job.id)}
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Invite
-              </Button>
-            )}
+
+            {/* 1. Post / Unpost */}
             {isUnposted && onPublish && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                  >
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
                     <Send className="w-4 h-4 mr-2" />
                     Post
                   </Button>
@@ -349,25 +343,17 @@ export function JobCard({
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="bg-green-600 hover:bg-green-700"
-                      onClick={() => onPublish(job.id)}
-                    >
+                    <AlertDialogAction className="bg-green-600 hover:bg-green-700" onClick={() => onPublish(job.id)}>
                       Post Job
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             )}
-            {!isClosed && <ShareJobButton job={job} size="sm" />}
             {isPosted && onUnpublish && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-amber-700 border-amber-200 hover:bg-amber-50 hover:text-amber-800"
-                  >
+                  <Button variant="outline" size="sm" className="text-amber-700 border-amber-200 hover:bg-amber-50 hover:text-amber-800">
                     <EyeOff className="w-4 h-4 mr-2" />
                     Unpost
                   </Button>
@@ -381,24 +367,91 @@ export function JobCard({
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="bg-amber-600 hover:bg-amber-700"
-                      onClick={() => onUnpublish(job.id)}
-                    >
+                    <AlertDialogAction className="bg-amber-600 hover:bg-amber-700" onClick={() => onUnpublish(job.id)}>
                       Unpost Job
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             )}
+
+            {/* 2. Invite */}
+            {!isClosed && onInvite && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                onClick={() => onInvite(job.id)}
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Invite
+              </Button>
+            )}
+
+            {/* 3. Docs */}
+            {(onEdit || onDelete || onDuplicate) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDocuments(v => !v)}
+                className={showDocuments ? "border-orange-300 text-orange-700 bg-orange-50" : "text-gray-600"}
+                title="Job Documents"
+              >
+                <span className="text-sm mr-1.5">📎</span>
+                <span className="hidden sm:inline">Docs</span>
+                {documents.length > 0 && (
+                  <span className="ml-1 text-xs bg-orange-100 text-orange-700 rounded-full px-1.5 py-0.5 font-medium">
+                    {documents.length}
+                  </span>
+                )}
+              </Button>
+            )}
+
+            {/* 4. Share */}
+            {!isClosed && <ShareJobButton job={job} size="sm" />}
+
+            {/* 5. Create similar */}
+            {onDuplicate && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onDuplicate(job)}
+                title="Create a new job pre-filled with this job's details"
+                className="hidden sm:flex"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Create similar
+              </Button>
+            )}
+            {onDuplicate && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onDuplicate(job)}
+                title="Create similar job"
+                className="sm:hidden"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+            )}
+
+            {/* 6. Edit */}
+            {onEdit && !isClosed && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEdit(job.id)}
+                data-testid={`button-edit-job-${job.id}`}
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+            )}
+
+            {/* 7. Close / Reopen */}
             {!isClosed && onClose && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-                  >
+                  <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
                     <XCircle className="w-4 h-4 mr-2" />
                     Close
                   </Button>
@@ -425,11 +478,7 @@ export function JobCard({
             {isClosed && onReopen && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-green-700 border-green-200 hover:bg-green-50 hover:text-green-800"
-                  >
+                  <Button variant="outline" size="sm" className="text-green-700 border-green-200 hover:bg-green-50 hover:text-green-800">
                     <RotateCcw className="w-4 h-4 mr-2" />
                     Reopen
                   </Button>
@@ -443,63 +492,13 @@ export function JobCard({
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => onReopen(job.id)}>
-                      Reopen Job
-                    </AlertDialogAction>
+                    <AlertDialogAction onClick={() => onReopen(job.id)}>Reopen Job</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             )}
-            {(onEdit || onDelete || onDuplicate) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowDocuments(v => !v)}
-                className={showDocuments ? "border-orange-300 text-orange-700 bg-orange-50" : "text-gray-600"}
-                title="Job Documents"
-              >
-                <span className="text-sm mr-1.5">📎</span>
-                <span className="hidden sm:inline">Docs</span>
-                {documents.length > 0 && (
-                  <span className="ml-1 text-xs bg-orange-100 text-orange-700 rounded-full px-1.5 py-0.5 font-medium">
-                    {documents.length}
-                  </span>
-                )}
-              </Button>
-            )}
-            {onEdit && !isClosed && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onEdit(job.id)}
-                data-testid={`button-edit-job-${job.id}`}
-              >
-                <Edit className="w-4 h-4" />
-              </Button>
-            )}
-            {onDuplicate && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onDuplicate(job)}
-                title="Create a new job pre-filled with this job's details"
-                className="hidden sm:flex"
-              >
-                <Copy className="w-4 h-4 mr-2" />
-                Create similar
-              </Button>
-            )}
-            {onDuplicate && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onDuplicate(job)}
-                title="Create similar job"
-                className="sm:hidden"
-              >
-                <Copy className="w-4 h-4" />
-              </Button>
-            )}
+
+            {/* 8. Bin / Delete */}
             {onDelete && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -511,8 +510,7 @@ export function JobCard({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Job Posting</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Are you sure you want to delete &quot;{job.title}&quot;? This action cannot be
-                      undone.
+                      Are you sure you want to delete &quot;{job.title}&quot;? This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
