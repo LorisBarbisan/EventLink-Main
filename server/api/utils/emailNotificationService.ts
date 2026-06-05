@@ -148,6 +148,7 @@ export class EmailNotificationService {
     companyName: string;
     status: string;
     applicationId: number;
+    documents?: Array<{ fileName: string; downloadUrl: string | null; documentType: string }>;
   }): Promise<boolean> {
     // Check if user wants application update notifications
     if (!(await this.canSendEmail(params.recipientId, "application_update"))) {
@@ -162,6 +163,7 @@ export class EmailNotificationService {
       companyName: params.companyName,
       status: params.status,
       applicationUrl,
+      documents: params.documents,
     });
 
     return this.sendEmailWithLogging({

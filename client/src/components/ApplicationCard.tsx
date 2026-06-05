@@ -56,6 +56,39 @@ import { MessageModal } from "./MessageModal";
 import { RatingDialog } from "./RatingDialog";
 import { RatingRequestDialog } from "./RatingRequestDialog";
 
+function JobDocumentsSection({ jobId }: { jobId: number }) {
+  const { data: documents = [] } = useQuery<any[]>({
+    queryKey: [`/api/job/${jobId}/documents`],
+  });
+
+  if (documents.length === 0) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100">
+      <p className="text-xs font-semibold text-gray-600 mb-2">Job Documents</p>
+      {documents.map((doc: any) => (
+        <a
+          key={doc.id}
+          href={doc.downloadUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 py-2 px-3 bg-orange-50 rounded-lg mb-1.5 hover:bg-orange-100 transition-colors"
+        >
+          <span className="text-sm">📄</span>
+          <span className="text-sm text-orange-700 font-medium truncate">{doc.fileName}</span>
+          <span className="text-xs text-orange-500 ml-auto flex-shrink-0">
+            {doc.documentType === "function_sheet"
+              ? "Function Sheet"
+              : doc.documentType === "purchase_order"
+              ? "PO"
+              : "Document"}
+          </span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
 interface ApplicationCardProps {
   application: JobApplication;
   userType: "freelancer" | "recruiter";
@@ -1047,7 +1080,12 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
           </div>
         </div>
 
-        {userType === "recruiter" && showJobExpanded && (
+        {/* Job Documents section for hired freelancers */}
+      {userType === "freelancer" && application.status === "hired" && (
+        <JobDocumentsSection jobId={application.job_id} />
+      )}
+
+      {userType === "recruiter" && showJobExpanded && (
           <div className="mt-4 border-t pt-4">
             {jobDetailsLoading ? (
               <div className="flex items-center justify-center py-4">

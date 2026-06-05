@@ -38,7 +38,8 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface JobCardProps {
   job: Job;
@@ -87,6 +88,69 @@ export function JobCard({
   );
   const [showRatingDialog, setShowRatingDialog] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<JobApplication | null>(null);
+
+  // Document upload state
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showUploadWarning, setShowUploadWarning] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [docType, setDocType] = useState("function_sheet");
+  const [uploading, setUploading] = useState(false);
+
+  const { data: documents = [] } = useQuery<any[]>({
+    queryKey: [`/api/job/${job.id}/documents`],
+    enabled: isExpanded,
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingFile(file);
+    setShowUploadWarning(true);
+    e.target.value = "";
+  };
+
+  const confirmUpload = async () => {
+    if (!pendingFile) return;
+    setShowUploadWarning(false);
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(",")[1];
+        const token = localStorage.getItem("auth_token");
+        await fetch(`/api/job/${job.id}/documents`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            fileData: base64,
+            filename: pendingFile.name,
+            contentType: pendingFile.type,
+            documentType: docType,
+          }),
+        });
+        queryClient.invalidateQueries({ queryKey: [`/api/job/${job.id}/documents`] });
+        setUploading(false);
+        setPendingFile(null);
+      };
+      reader.readAsDataURL(pendingFile);
+    } catch {
+      setUploading(false);
+      setPendingFile(null);
+    }
+  };
+
+  const deleteDocument = async (docId: number) => {
+    const token = localStorage.getItem("auth_token");
+    await fetch(`/api/job/${job.id}/documents/${docId}`, {
+      method: "DELETE",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    queryClient.invalidateQueries({ queryKey: [`/api/job/${job.id}/documents`] });
+  };
 
   const formatDuration = (job: Job): string | null => {
     if (!job.duration_type) return null;
@@ -448,6 +512,51 @@ export function JobCard({
           </div>
         </div>
 
+        {/* Upload warning modal */}
+        {showUploadWarning && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8">
+              <div className="text-4xl mb-4 text-center">📋</div>
+              <h2 className="text-xl font-bold text-gray-900 mb-3 text-center">Before you upload</h2>
+              <p className="text-gray-600 text-sm leading-relaxed mb-4 text-center">
+                Once a freelancer is hired for this job, they will be able to view and download all
+                documents you attach to it.
+              </p>
+              <p className="text-gray-500 text-sm leading-relaxed mb-6 text-center">
+                Make sure the file does not contain any sensitive information you would not want the
+                hired technician to see.
+              </p>
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Document type</label>
+                <select
+                  value={docType}
+                  onChange={e => setDocType(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="function_sheet">Function Sheet</option>
+                  <option value="purchase_order">Purchase Order</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={confirmUpload}
+                  disabled={uploading}
+                  className="flex-1 py-3 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                >
+                  {uploading ? "Uploading..." : "Upload"}
+                </button>
+                <button
+                  onClick={() => { setShowUploadWarning(false); setPendingFile(null); }}
+                  className="flex-1 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showHiredSection && isExpanded && (
           <div className="mt-4 pt-4 border-t border-border">
             <h4 className="font-medium mb-3 flex items-center gap-2">
@@ -537,6 +646,65 @@ export function JobCard({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Documents panel */}
+        {isExpanded && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-gray-700">Job Documents</h4>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="text-xs px-3 py-1.5 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors font-medium"
+              >
+                + Attach file
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.xls,.xlsx"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+            </div>
+            {documents.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">
+                No documents attached. Add a function sheet or purchase order.
+              </p>
+            ) : (
+              documents.map((doc: any) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg mb-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-gray-400 text-sm">📄</span>
+                    <a
+                      href={doc.downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:underline truncate"
+                    >
+                      {doc.fileName}
+                    </a>
+                    <span className="text-xs text-gray-400 flex-shrink-0">
+                      {doc.documentType === "function_sheet"
+                        ? "Function Sheet"
+                        : doc.documentType === "purchase_order"
+                        ? "Purchase Order"
+                        : ""}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => deleteDocument(doc.id)}
+                    className="text-gray-400 hover:text-red-500 transition-colors text-xs ml-2 flex-shrink-0"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         )}
       </CardContent>

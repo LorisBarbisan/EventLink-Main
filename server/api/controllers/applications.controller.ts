@@ -6,6 +6,7 @@ import {
   notifyJobPosterOfNewApplication,
 } from "../utils/jobApplicationNotifications";
 import { getEmployerCompanyId, ownsEmployerCompany } from "../utils/team.util";
+import { getJobDocumentsWithUrls } from "./job-document.controller";
 
 // Get freelancer bookings (accepted applications)
 export async function getFreelancerBookings(req: Request, res: Response) {
@@ -251,6 +252,19 @@ export async function acceptApplication(req: Request, res: Response) {
           freelancerDisplayName = `${firstName} ${lastName}`.trim() || freelancer.email;
         }
 
+        // Fetch any documents attached to this job
+        let jobDocs: Array<{ fileName: string; downloadUrl: string | null; documentType: string }> = [];
+        try {
+          const docs = await getJobDocumentsWithUrls(application.job_id);
+          jobDocs = docs.map(d => ({
+            fileName: d.fileName,
+            downloadUrl: d.downloadUrl,
+            documentType: d.documentType,
+          }));
+        } catch (docErr) {
+          console.error("Failed to fetch job documents for hire email:", docErr);
+        }
+
         emailService
           .sendApplicationUpdateNotification({
             recipientId: application.freelancer_id,
@@ -260,6 +274,7 @@ export async function acceptApplication(req: Request, res: Response) {
             companyName: job.company,
             status: "Accepted",
             applicationId: applicationId,
+            documents: jobDocs.length > 0 ? jobDocs : undefined,
           })
           .catch(error => {
             console.error("Failed to send application update email:", error);

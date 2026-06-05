@@ -1090,3 +1090,33 @@ export const teamMembers = pgTable(
 
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type InsertTeamMember = typeof teamMembers.$inferInsert;
+
+// ============================================================
+// Job Documents
+// ============================================================
+
+export const jobDocuments = pgTable(
+  "job_documents",
+  {
+    id: serial("id").primaryKey(),
+    jobId: integer("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    uploadedByUserId: integer("uploaded_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    fileName: text("file_name").notNull(),
+    fileKey: text("file_key").notNull().unique(),
+    fileSize: integer("file_size"),
+    fileType: text("file_type"),
+    documentType: text("document_type").notNull().default("other"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  table => ({
+    jobIdIdx: index("job_documents_job_id_idx").on(table.jobId),
+    uploadedByIdx: index("job_documents_uploaded_by_idx").on(table.uploadedByUserId),
+  })
+);
+
+export type JobDocument = typeof jobDocuments.$inferSelect;
+export type InsertJobDocument = typeof jobDocuments.$inferInsert;

@@ -135,6 +135,7 @@ export function applicationUpdateEmail(data: {
   companyName: string;
   status: string;
   applicationUrl: string;
+  documents?: Array<{ fileName: string; downloadUrl: string | null; documentType: string }>;
 }): { subject: string; html: string } {
   const statusMessages: Record<string, { emoji: string; message: string }> = {
     reviewed: { emoji: "👀", message: "Your application is being reviewed" },
@@ -147,6 +148,42 @@ export function applicationUpdateEmail(data: {
     emoji: "🔔",
     message: "Application status update",
   };
+
+  const hasDocuments =
+    data.status === "hired" && data.documents && data.documents.length > 0;
+
+  const documentLinksHtml = hasDocuments
+    ? `
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+    <tr>
+      <td style="background-color:#F0F4FA;border-radius:8px;padding:20px;">
+        <p style="margin:0 0 12px 0;font-size:15px;font-weight:bold;color:#1B2A4A;">Job Documents</p>
+        <p style="margin:0 0 16px 0;font-size:14px;color:#374151;">
+          The employer has attached the following documents:
+        </p>
+        ${data
+          .documents!.filter(doc => doc.downloadUrl)
+          .map(
+            doc => `
+          <table cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
+            <tr>
+              <td style="background-color:#D8690E;border-radius:6px;">
+                <a href="${doc.downloadUrl}"
+                   style="display:inline-block;padding:10px 20px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;">
+                  &#128196; ${doc.fileName}
+                </a>
+              </td>
+            </tr>
+          </table>`
+          )
+          .join("")}
+        <p style="margin:12px 0 0;font-size:13px;color:#6B7280;">
+          You can also access these documents from your bookings dashboard at any time.
+        </p>
+      </td>
+    </tr>
+  </table>`
+    : "";
 
   const content = `
     <h2>${statusInfo.emoji} ${statusInfo.message}</h2>
@@ -167,6 +204,7 @@ export function applicationUpdateEmail(data: {
     `
         : ""
     }
+    ${documentLinksHtml}
     <p>
       <a href="${data.applicationUrl}" class="button">View Application</a>
     </p>
