@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TabBadge } from "@/components/ui/tab-badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MyBookings from "@/pages/employer/MyBookings";
 import { BillingPanel } from "./fms/BillingPanel";
@@ -657,54 +658,66 @@ export default function SimplifiedRecruiterDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className={`fms-tabslist grid w-full grid-cols-4 ${isTeamsTier ? "md:grid-cols-11" : "md:grid-cols-10"}`}>
-          <TabsTrigger value="calendar" className="gap-1.5">
-            <CalendarDays className="h-3.5 w-3.5" />
-            Calendar
-          </TabsTrigger>
-          <TabsTrigger value="jobs" className="gap-1.5">
-            <Briefcase className="h-3.5 w-3.5" />
-            My Jobs
-            <TabBadge count={roleSpecificCounts.jobs || 0} />
-          </TabsTrigger>
-          <TabsTrigger value="bookings" className="gap-1.5">
-            <ClipboardList className="h-3.5 w-3.5" />
-            Bookings
-          </TabsTrigger>
-          <TabsTrigger value="applications" className="gap-1.5">
-            <Users className="h-3.5 w-3.5" />
-            Applications
-            <TabBadge count={roleSpecificCounts.applications || 0} />
-          </TabsTrigger>
-          <TabsTrigger value="availability" className="gap-1.5">
-            <Send className="h-3.5 w-3.5" />
-            Availability
-          </TabsTrigger>
-          <TabsTrigger value="messages" className="gap-1.5">
-            <MessageSquare className="h-3.5 w-3.5" />
-            Messages
-            <TabBadge count={roleSpecificCounts.messages || 0} />
-          </TabsTrigger>
-          <TabsTrigger value="crew">My Crew</TabsTrigger>
-          <TabsTrigger value="ir35" className="gap-1.5">
-            <Scale className="h-3.5 w-3.5" />
-            IR35
-          </TabsTrigger>
-          {isTeamsTier && (
-            <TabsTrigger value="team" className="gap-1">
-              <Users2 className="h-3.5 w-3.5" />
-              Team
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="billing" className="gap-1.5">
-            <CreditCard className="h-3.5 w-3.5" />
-            Billing
-          </TabsTrigger>
-          <TabsTrigger value="profile" className="gap-1.5">
-            <Building2 className="h-3.5 w-3.5" />
-            Company Profile
-          </TabsTrigger>
-        </TabsList>
+        {/* Compact dropdown navigation replacing the 10–11 column tab bar */}
+        <div className="flex items-center gap-3">
+          <Select value={activeTab} onValueChange={handleTabChange}>
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="calendar">
+                <span className="flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Calendar</span>
+              </SelectItem>
+              <SelectItem value="jobs">
+                <span className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" /> My Jobs
+                  {(roleSpecificCounts.jobs || 0) > 0 && (
+                    <Badge variant="destructive" className="text-xs">{roleSpecificCounts.jobs}</Badge>
+                  )}
+                </span>
+              </SelectItem>
+              <SelectItem value="bookings">
+                <span className="flex items-center gap-2"><ClipboardList className="h-4 w-4" /> Bookings</span>
+              </SelectItem>
+              <SelectItem value="applications">
+                <span className="flex items-center gap-2">
+                  <Users className="h-4 w-4" /> Applications
+                  {(roleSpecificCounts.applications || 0) > 0 && (
+                    <Badge variant="destructive" className="text-xs">{roleSpecificCounts.applications}</Badge>
+                  )}
+                </span>
+              </SelectItem>
+              <SelectItem value="availability">
+                <span className="flex items-center gap-2"><Send className="h-4 w-4" /> Availability</span>
+              </SelectItem>
+              <SelectItem value="messages">
+                <span className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" /> Messages
+                  {(roleSpecificCounts.messages || 0) > 0 && (
+                    <Badge variant="destructive" className="text-xs">{roleSpecificCounts.messages}</Badge>
+                  )}
+                </span>
+              </SelectItem>
+              <SelectItem value="crew">
+                <span className="flex items-center gap-2"><Users className="h-4 w-4" /> My Crew</span>
+              </SelectItem>
+              <SelectItem value="ir35">
+                <span className="flex items-center gap-2"><Scale className="h-4 w-4" /> IR35</span>
+              </SelectItem>
+              {isTeamsTier && (
+                <SelectItem value="team">
+                  <span className="flex items-center gap-2"><Users2 className="h-4 w-4" /> Team</span>
+                </SelectItem>
+              )}
+              <SelectItem value="billing">
+                <span className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Billing</span>
+              </SelectItem>
+              <SelectItem value="profile">
+                <span className="flex items-center gap-2"><Building2 className="h-4 w-4" /> Company Profile</span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         {/* Profile Tab */}
         <TabsContent value="profile">
