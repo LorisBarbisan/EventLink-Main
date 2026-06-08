@@ -51,43 +51,11 @@ import {
   UserX,
   X,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { MessageModal } from "./MessageModal";
 import { RatingDialog } from "./RatingDialog";
 import { RatingRequestDialog } from "./RatingRequestDialog";
-
-function JobDocumentsSection({ jobId }: { jobId: number }) {
-  const { data: documents = [] } = useQuery<any[]>({
-    queryKey: [`/api/job/${jobId}/documents`],
-  });
-
-  if (documents.length === 0) return null;
-
-  return (
-    <div className="mt-3 pt-3 border-t border-gray-100">
-      <p className="text-xs font-semibold text-gray-600 mb-2">Job Documents</p>
-      {documents.map((doc: any) => (
-        <a
-          key={doc.id}
-          href={doc.downloadUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 py-2 px-3 bg-orange-50 rounded-lg mb-1.5 hover:bg-orange-100 transition-colors"
-        >
-          <span className="text-sm">📄</span>
-          <span className="text-sm text-orange-700 font-medium truncate">{doc.fileName}</span>
-          <span className="text-xs text-orange-500 ml-auto flex-shrink-0">
-            {doc.documentType === "function_sheet"
-              ? "Function Sheet"
-              : doc.documentType === "purchase_order"
-              ? "PO"
-              : "Document"}
-          </span>
-        </a>
-      ))}
-    </div>
-  );
-}
+import { JobDocumentsModal } from "./JobDocumentsModal";
 
 interface ApplicationCardProps {
   application: JobApplication;
@@ -119,6 +87,16 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   const [reportFlag, setReportFlag] = useState("");
   const [reportNote, setReportNote] = useState("");
   const { mutate: reportRating, isPending: isReporting } = useReportRating();
+
+  // Docs modal state
+  const [showDocsModal, setShowDocsModal] = useState(false);
+  // Freelancer upload state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showUploadWarning, setShowUploadWarning] = useState(false);
+  const [docType, setDocType] = useState("invoice");
+  const [customDocName, setCustomDocName] = useState("");
 
   // Handle invitation response
   const respondMutation = useMutation({
@@ -1080,10 +1058,125 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
           </div>
         </div>
 
-        {/* Job Documents section for hired freelancers */}
-      {userType === "freelancer" && application.status === "hired" && (
-        <JobDocumentsSection jobId={application.job_id} />
-      )}
+        {/* Docs button for hired freelancers */}
+        {userType === "freelancer" && application.status === "hired" && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <button
+              onClick={() => setShowDocsModal(true)}
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-50 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+            >
+              📎 Docs
+            </button>
+          </div>
+        )}
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx"
+          className="hidden"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            e.target.value = "";
+            if (file.size > 10 * 1024 * 1024) { toast({ title: "File too large", description: "Max 10 MB.", variant: "destructive" }); return; }
+            const allowed = ["application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
+            if (!allowed.includes(file.type)) { toast({ title: "File type not supported", description: "Only PDF, Word, and Excel files are allowed.", variant: "destructive" }); return; }
+            setPendingFile(file);
+            setShowUploadWarning(true);
+          }}
+        />
+
+        {/* Upload warning */}
+        {showUploadWarning && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8">
+              <div className="text-4xl mb-4 text-center">📋</div>
+              <h2 className="text-xl font-bold text-gray-900 mb-3 text-center">Before you upload</h2>
+              <p className="text-gray-600 text-sm leading-relaxed mb-4 text-center">
+                This document will be visible to the employer. Make sure you are happy to share it before continuing.
+              </p>
+              {pendingFile && (
+                <div className="mb-4 text-xs text-gray-500 text-center truncate">
+                  <span className="font-medium text-gray-700">{pendingFile.name}</span>
+                  <span className="ml-1">({(pendingFile.size / 1024 / 1024).toFixed(1)} MB)</span>
+                </div>
+              )}
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Document type</label>
+                <select value={docType} onChange={e => { setDocType(e.target.value); setCustomDocName(""); }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="invoice">Invoice</option>
+                  <option value="travel_receipt">Travel Receipt</option>
+                  <option value="overtime">Overtime</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              {docType === "other" && (
+                <div className="mb-5">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Document name</label>
+                  <input type="text" value={customDocName} onChange={e => setCustomDocName(e.target.value)} placeholder="e.g. NDA, Timesheet" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" maxLength={60} />
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={async () => {
+                    if (!pendingFile) return;
+                    setShowUploadWarning(false);
+                    setUploading(true);
+                    try {
+                      const effectiveDocType = docType === "other" && customDocName.trim() ? customDocName.trim() : docType;
+                      const base64 = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+                        reader.onerror = () => reject(new Error("Failed to read file"));
+                        reader.readAsDataURL(pendingFile);
+                      });
+                      const token = localStorage.getItem("auth_token");
+                      const res = await fetch(`/api/job/${application.job_id}/documents/freelancer`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                        body: JSON.stringify({ fileData: base64, filename: pendingFile.name, contentType: pendingFile.type, documentType: effectiveDocType }),
+                      });
+                      if (!res.ok) { const err = await res.json().catch(() => ({ error: "Upload failed" })); throw new Error(err.error || `Upload failed (${res.status})`); }
+                      queryClient.invalidateQueries({ queryKey: [`/api/job/${application.job_id}/documents`] });
+                      toast({ title: "Document uploaded" });
+                      setCustomDocName("");
+                      setShowDocsModal(true);
+                    } catch (err: any) {
+                      toast({ title: "Upload failed", description: err?.message || "Please try again", variant: "destructive" });
+                    } finally {
+                      setUploading(false);
+                      setPendingFile(null);
+                    }
+                  }}
+                  disabled={uploading}
+                  className="flex-1 py-3 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                >
+                  {uploading ? "Uploading..." : "Upload"}
+                </button>
+                <button onClick={() => { setShowUploadWarning(false); setPendingFile(null); }} className="flex-1 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Documents modal */}
+        <JobDocumentsModal
+          jobId={application.job_id}
+          jobTitle={application.job_title || "Job"}
+          open={showDocsModal}
+          onClose={() => setShowDocsModal(false)}
+          isOwner={false}
+          canUpload={userType === "freelancer" && application.status === "hired"}
+          onAttachFile={() => {
+            setShowDocsModal(false);
+            setTimeout(() => fileInputRef.current?.click(), 0);
+          }}
+          isUploading={uploading}
+        />
 
       {userType === "recruiter" && showJobExpanded && (
           <div className="mt-4 border-t pt-4">
