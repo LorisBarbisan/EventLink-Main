@@ -7,6 +7,7 @@ import {
 } from "../utils/jobApplicationNotifications";
 import { getEmployerCompanyId, ownsEmployerCompany } from "../utils/team.util";
 import { getJobDocumentsWithUrls } from "./job-document.controller";
+import { emailService } from "../utils/emailService";
 
 // Get freelancer bookings (accepted applications)
 export async function getFreelancerBookings(req: Request, res: Response) {
@@ -565,6 +566,78 @@ export async function inviteFreelancer(req: Request, res: Response) {
     res.status(201).json(application);
   } catch (error) {
     console.error("Invite freelancer error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Withdraw an invitation (employer only, only when status is still "invited")
+export async function withdrawInvitation(req: Request, res: Response) {
+  try {
+    const applicationId = parseInt(req.params.applicationId);
+    if (Number.isNaN(applicationId)) return res.status(400).json({ error: "Invalid application ID" });
+    if (!(req as any).user) return res.status(401).json({ error: "Not authenticated" });
+
+    const application = await storage.getJobApplicationById(applicationId);
+    if (!application) return res.status(404).json({ error: "Application not found" });
+
+    if (application.status !== "invited") {
+      return res.status(400).json({ error: "Can only withdraw pending invitations" });
+    }
+
+    const job = await storage.getJobById(application.job_id);
+    if (!job || !ownsEmployerCompany(req, job.recruiter_id)) {
+      return res.status(403).json({ error: "Not authorised" });
+    }
+
+    // Delete the invitation application record
+    await storage.softDeleteApplication(applicationId, "recruiter");
+
+    // In-app notification to freelancer
+    await storage.createNotification({
+      user_id: application.freelancer_id,
+      type: "application_update",
+      title: "Invitation Withdrawn",
+      message: `Your invitation for "${job.title}" at ${job.company} has been withdrawn by the employer.`,
+      priority: "normal",
+      related_entity_type: "application",
+      related_entity_id: applicationId,
+      action_url: "/dashboard?tab=jobs",
+      metadata: JSON.stringify({ application_id: applicationId, job_id: job.id, type: "invitation_withdrawn" }),
+    });
+
+    // Email notification (non-blocking)
+    try {
+      const freelancer = await storage.getUser(application.freelancer_id);
+      if (freelancer) {
+        let freelancerName = freelancer.email;
+        const fp = await storage.getFreelancerProfile(application.freelancer_id);
+        if (fp?.first_name || fp?.last_name) freelancerName = `${fp.first_name || ""} ${fp.last_name || ""}`.trim();
+
+        await emailService.sendApplicationUpdateNotification({
+          recipientId: application.freelancer_id,
+          recipientEmail: freelancer.email,
+          recipientName: freelancerName,
+          jobTitle: job.title,
+          companyName: job.company,
+          status: "Invitation Withdrawn",
+          applicationId,
+        });
+      }
+    } catch (emailErr) {
+      console.error("Failed to send invitation withdrawal email:", emailErr);
+    }
+
+    if ((global as any).broadcastToUser) {
+      (global as any).broadcastToUser(application.freelancer_id, {
+        type: "application_update",
+        application: { id: applicationId, job_title: job.title, company: job.company },
+        status: "invitation_withdrawn",
+      });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("withdrawInvitation error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }

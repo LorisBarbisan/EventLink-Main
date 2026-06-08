@@ -10,6 +10,7 @@ import {
   inviteFreelancer,
   rejectApplication,
   respondToInvitation,
+  withdrawInvitation,
 } from "../controllers/applications.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { resolveCompanyId } from "../middleware/team.middleware";
@@ -46,6 +47,9 @@ export function registerApplicationRoutes(app: Express) {
 
   // Reject application
   app.put("/api/applications/:applicationId/reject", authenticateJWT, resolveCompanyId, rejectApplication);
+
+  // Withdraw an invitation (employer only)
+  app.delete("/api/applications/:applicationId/invite", authenticateJWT, resolveCompanyId, withdrawInvitation);
 
   // Delete application (soft delete with role-based permissions)
   app.delete("/api/applications/:applicationId", authenticateJWT, resolveCompanyId, deleteApplication);
