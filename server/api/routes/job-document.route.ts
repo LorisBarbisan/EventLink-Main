@@ -4,6 +4,7 @@ import { requireRole } from "../middleware/role.middleware";
 import { resolveCompanyId, resolveCompanyIdOptional } from "../middleware/team.middleware";
 import {
   uploadJobDocument,
+  uploadFreelancerJobDocument,
   getJobDocuments,
   deleteJobDocument,
   downloadJobDocumentLocal,
@@ -28,6 +29,9 @@ router.delete(
   resolveCompanyId,
   deleteJobDocument
 );
+
+// Hired freelancer — upload their own document to a job
+router.post("/:jobId/documents/freelancer", requireRole("freelancer"), uploadFreelancerJobDocument);
 
 // Employer or hired freelancer — get documents for a job
 router.get("/:jobId/documents", resolveCompanyIdOptional, getJobDocuments);

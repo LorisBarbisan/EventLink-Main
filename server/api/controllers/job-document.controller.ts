@@ -218,6 +218,56 @@ export async function downloadJobDocumentLocal(req: Request, res: Response) {
   }
 }
 
+// ── Upload a document as a hired freelancer ───────────────────────────────
+export async function uploadFreelancerJobDocument(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user.id;
+    const jobId = parseInt(req.params.jobId);
+    const { fileData, filename, contentType, documentType = "other" } = req.body;
+
+    if (isNaN(jobId)) return res.status(400).json({ error: "Invalid job ID" });
+    if (!fileData || !filename || !contentType) {
+      return res.status(400).json({ error: "fileData, filename, and contentType are required" });
+    }
+    if (!ALLOWED_TYPES.includes(contentType)) {
+      return res.status(400).json({ error: "Only PDF, Word, and Excel files are allowed" });
+    }
+
+    const buffer = Buffer.from(fileData, "base64");
+    if (buffer.length > MAX_SIZE) return res.status(400).json({ error: "File too large. Max 10MB." });
+
+    // Must be hired for this job
+    const [hired] = await db
+      .select()
+      .from(job_applications)
+      .where(and(eq(job_applications.job_id, jobId), eq(job_applications.freelancer_id, userId), eq(job_applications.status, "hired")));
+    if (!hired) return res.status(403).json({ error: "Only hired freelancers can upload documents" });
+
+    const fileExtension = filename.split(".").pop() || "pdf";
+    const fileKey = `job-docs/${jobId}/freelancer-${randomUUID()}.${fileExtension}`;
+
+    let storedKey = fileKey;
+    try {
+      const putUrl = await ObjectStorageService.getUploadUrl(fileKey, contentType);
+      const uploadRes = await fetch(putUrl, { method: "PUT", headers: { "Content-Type": contentType }, body: buffer });
+      if (!uploadRes.ok) throw new Error(`Storage upload failed (${uploadRes.status})`);
+    } catch (uploadError: any) {
+      console.warn(`⚠️  Object storage unavailable, falling back to local disk`);
+      storedKey = await saveLocally(fileKey, buffer);
+    }
+
+    const [doc] = await db
+      .insert(jobDocuments)
+      .values({ jobId, uploadedByUserId: userId, fileName: filename, fileKey: storedKey, fileSize: buffer.length, fileType: contentType, documentType })
+      .returning();
+
+    return res.status(201).json(doc);
+  } catch (err) {
+    console.error("uploadFreelancerJobDocument:", err);
+    return res.status(500).json({ error: "Failed to upload document" });
+  }
+}
+
 // ── Helper: fetch docs with download URLs (for email sending) ─────────────
 export async function getJobDocumentsWithUrls(jobId: number, baseUrl?: string) {
   const docs = await db
