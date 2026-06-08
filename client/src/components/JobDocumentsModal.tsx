@@ -15,9 +15,22 @@ interface JobDocumentsModalProps {
   jobTitle: string;
   open: boolean;
   onClose: () => void;
-  isOwner?: boolean; // employer can delete
-  onAttachFile?: () => void; // employer can upload
+  isOwner?: boolean;    // employer: can delete
+  canUpload?: boolean;  // employer or hired freelancer: can upload
+  onAttachFile?: () => void;
   isUploading?: boolean;
+}
+
+function formatDocType(type: string): string {
+  const map: Record<string, string> = {
+    function_sheet: "Function Sheet",
+    purchase_order: "Purchase Order",
+    travel_receipt: "Travel Receipt",
+    overtime: "Overtime",
+    invoice: "Invoice",
+    other: "Document",
+  };
+  return map[type] ?? type; // custom names (e.g. "NDA") pass through as-is
 }
 
 async function downloadDoc(doc: any) {
@@ -45,6 +58,7 @@ export function JobDocumentsModal({
   open,
   onClose,
   isOwner = false,
+  canUpload = false,
   onAttachFile,
   isUploading = false,
 }: JobDocumentsModalProps) {
@@ -78,6 +92,8 @@ export function JobDocumentsModal({
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   };
 
+  const showUploadButton = (isOwner || canUpload) && onAttachFile;
+
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-md">
@@ -109,13 +125,9 @@ export function JobDocumentsModal({
                 <div className="flex min-w-0 items-center gap-2">
                   <FileText className="h-4 w-4 shrink-0 text-orange-500" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{doc.fileName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {doc.documentType === "function_sheet"
-                        ? "Function Sheet"
-                        : doc.documentType === "purchase_order"
-                        ? "Purchase Order"
-                        : doc.documentType || "Document"}
+                    <p className="truncate text-sm font-medium">{formatDocType(doc.documentType)}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {doc.fileName}
                       {doc.fileSize ? ` · ${formatSize(doc.fileSize)}` : ""}
                     </p>
                   </div>
@@ -147,7 +159,7 @@ export function JobDocumentsModal({
           )}
         </div>
 
-        {isOwner && onAttachFile && (
+        {showUploadButton && (
           <div className="border-t pt-3">
             <Button
               variant="outline"

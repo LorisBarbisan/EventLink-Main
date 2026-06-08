@@ -730,6 +730,7 @@ export function JobCard({
           open={showDocsModal}
           onClose={() => setShowDocsModal(false)}
           isOwner={!!(onEdit || onDelete || onDuplicate)}
+          canUpload={!!(onEdit || onDelete || onDuplicate)}
           onAttachFile={() => {
             setShowDocsModal(false);
             setTimeout(() => fileInputRef.current?.click(), 0);
