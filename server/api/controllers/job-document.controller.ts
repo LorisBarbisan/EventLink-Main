@@ -3,6 +3,7 @@ import { db } from "../config/db";
 import { jobDocuments, jobs, job_applications } from "../../../shared/schema";
 import { eq, and } from "drizzle-orm";
 import { ObjectStorageService } from "../utils/object-storage";
+import { isLocalPath, saveLocally, deleteLocally, readLocally } from "../utils/local-storage-fallback";
 import { randomUUID } from "crypto";
 
 const ALLOWED_TYPES = [
@@ -50,22 +51,24 @@ export async function uploadJobDocument(req: Request, res: Response) {
     const fileExtension = filename.split(".").pop() || "pdf";
     const fileKey = `job-docs/${jobId}/${randomUUID()}.${fileExtension}`;
 
-    // Upload via sidecar signed PUT URL + fetch — the same auth path used by CV uploads.
-    // The GCS SDK (file.save / resumable-upload) fails in production with "no allowed resources"
-    // because the Replit IdentityPoolClient token lacks the required GCS upload scope.
-    // Using the sidecar to sign the URL and then PUT with plain fetch works reliably.
-    const putUrl = await ObjectStorageService.getUploadUrl(fileKey, contentType);
-    const uploadRes = await fetch(putUrl, {
-      method: "PUT",
-      headers: { "Content-Type": contentType },
-      body: buffer,
-    });
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text().catch(() => "");
-      console.error(`❌ Job document GCS upload failed: ${uploadRes.status} ${errText.slice(0, 200)}`);
-      throw new Error(`Storage upload failed (${uploadRes.status})`);
+    let storedKey = fileKey;
+    try {
+      const putUrl = await ObjectStorageService.getUploadUrl(fileKey, contentType);
+      const uploadRes = await fetch(putUrl, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: buffer,
+      });
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text().catch(() => "");
+        throw new Error(`Storage upload failed (${uploadRes.status}): ${errText.slice(0, 200)}`);
+      }
+      console.log(`✅ Job document uploaded to object storage: ${fileKey}`);
+    } catch (uploadError: any) {
+      console.warn(`⚠️  Object storage unavailable (${uploadError?.message}), falling back to local disk`);
+      storedKey = await saveLocally(fileKey, buffer);
+      console.log(`✅ Job document saved locally: ${storedKey}`);
     }
-    console.log(`✅ Job document uploaded to storage: ${fileKey}`);
 
     const [doc] = await db
       .insert(jobDocuments)
@@ -73,7 +76,7 @@ export async function uploadJobDocument(req: Request, res: Response) {
         jobId,
         uploadedByUserId: (req as any).user.id,
         fileName: filename,
-        fileKey,
+        fileKey: storedKey,
         fileSize: buffer.length,
         fileType: contentType,
         documentType,
@@ -126,9 +129,12 @@ export async function getJobDocuments(req: Request, res: Response) {
       .from(jobDocuments)
       .where(eq(jobDocuments.jobId, jobId));
 
-    // Attach fresh signed download URLs to each document
+    // Attach download URLs — use signed GCS URL or fall back to local-serve endpoint
     const docsWithUrls = await Promise.all(
       docs.map(async doc => {
+        if (isLocalPath(doc.fileKey)) {
+          return { ...doc, downloadUrl: `/api/job/${jobId}/documents/${doc.id}/download` };
+        }
         try {
           const downloadUrl = await ObjectStorageService.getDownloadUrl(doc.fileKey);
           return { ...doc, downloadUrl };
@@ -168,7 +174,11 @@ export async function deleteJobDocument(req: Request, res: Response) {
     }
 
     try {
-      await ObjectStorageService.deleteObject(doc.fileKey);
+      if (isLocalPath(doc.fileKey)) {
+        await deleteLocally(doc.fileKey);
+      } else {
+        await ObjectStorageService.deleteObject(doc.fileKey);
+      }
     } catch (deleteError) {
       console.error("Storage delete error:", deleteError);
     }
@@ -178,6 +188,33 @@ export async function deleteJobDocument(req: Request, res: Response) {
   } catch (err) {
     console.error("deleteJobDocument:", err);
     return res.status(500).json({ error: "Failed to delete document" });
+  }
+}
+
+// ── Serve a locally-stored job document (fallback when sidecar is down) ──
+export async function downloadJobDocumentLocal(req: Request, res: Response) {
+  try {
+    const docId = parseInt(req.params.docId);
+    if (isNaN(docId)) return res.status(400).json({ error: "Invalid document ID" });
+
+    const [doc] = await db.select().from(jobDocuments).where(eq(jobDocuments.id, docId));
+    if (!doc) return res.status(404).json({ error: "Document not found" });
+
+    if (!isLocalPath(doc.fileKey)) {
+      return res.status(400).json({ error: "Document is not locally stored" });
+    }
+
+    const buffer = await readLocally(doc.fileKey);
+    res.set({
+      "Content-Type": doc.fileType,
+      "Content-Disposition": `attachment; filename="${doc.fileName}"`,
+      "Content-Length": buffer.length.toString(),
+      "Cache-Control": "private, no-store",
+    });
+    res.end(buffer);
+  } catch (err) {
+    console.error("downloadJobDocumentLocal:", err);
+    res.status(500).json({ error: "Failed to download document" });
   }
 }
 

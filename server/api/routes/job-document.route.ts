@@ -6,6 +6,7 @@ import {
   uploadJobDocument,
   getJobDocuments,
   deleteJobDocument,
+  downloadJobDocumentLocal,
 } from "../controllers/job-document.controller";
 
 const router = Router();
@@ -30,5 +31,8 @@ router.delete(
 
 // Employer or hired freelancer — get documents for a job
 router.get("/:jobId/documents", resolveCompanyIdOptional, getJobDocuments);
+
+// Serve locally-stored document (fallback when object storage sidecar is unavailable)
+router.get("/:jobId/documents/:docId/download", resolveCompanyIdOptional, downloadJobDocumentLocal);
 
 export default router;
