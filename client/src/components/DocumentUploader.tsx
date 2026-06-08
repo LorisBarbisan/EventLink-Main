@@ -517,7 +517,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
             <AlertDialogAction
               onClick={() => {
                 privacyConfirmedRef.current = true;
-                fileInputRef.current?.click();
+                setTimeout(() => fileInputRef.current?.click(), 0);
               }}
             >
               I understand and wish to continue
