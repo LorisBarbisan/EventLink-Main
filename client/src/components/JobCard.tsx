@@ -1,4 +1,5 @@
 import { MessageModal } from "@/components/MessageModal";
+import { JobDocumentsModal } from "@/components/JobDocumentsModal";
 import { RatingDialog } from "@/components/RatingDialog";
 import { ShareJobButton } from "@/components/ShareJobButton";
 import {
@@ -100,6 +101,7 @@ export function JobCard({
   const [customDocName, setCustomDocName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
+  const [showDocsModal, setShowDocsModal] = useState(false);
 
   const { data: rawDocuments } = useQuery<any[]>({
     queryKey: [`/api/job/${job.id}/documents`],
@@ -412,8 +414,8 @@ export function JobCard({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowDocuments(v => !v)}
-                className={showDocuments ? "border-orange-300 text-orange-700 bg-orange-50" : "text-gray-600"}
+                onClick={() => setShowDocsModal(true)}
+                className="text-gray-600"
                 title="Job Documents"
               >
                 <span className="text-sm mr-1.5">📎</span>
@@ -712,64 +714,29 @@ export function JobCard({
           </div>
         )}
 
-        {/* Documents panel */}
-        {showDocuments && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold text-gray-700">Job Documents</h4>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="text-xs px-3 py-1.5 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors font-medium"
-              >
-                + Attach file
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx"
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-            </div>
-            {documents.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">
-                No documents attached. Add a function sheet or purchase order.
-              </p>
-            ) : (
-              documents.map((doc: any) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg mb-2"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-gray-400 text-sm">📄</span>
-                    <a
-                      href={doc.downloadUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:underline truncate"
-                    >
-                      {doc.fileName}
-                    </a>
-                    <span className="text-xs text-gray-400 flex-shrink-0">
-                      {doc.documentType === "function_sheet"
-                        ? "Function Sheet"
-                        : doc.documentType === "purchase_order"
-                        ? "Purchase Order"
-                        : ""}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => deleteDocument(doc.id)}
-                    className="text-gray-400 hover:text-red-500 transition-colors text-xs ml-2 flex-shrink-0"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        )}
+        {/* Hidden file input for document upload (triggered from modal) */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+
+        {/* Documents modal */}
+        <JobDocumentsModal
+          jobId={job.id}
+          jobTitle={job.title}
+          open={showDocsModal}
+          onClose={() => setShowDocsModal(false)}
+          isOwner={!!(onEdit || onDelete || onDuplicate)}
+          onAttachFile={() => {
+            setShowDocsModal(false);
+            setTimeout(() => fileInputRef.current?.click(), 0);
+          }}
+          isUploading={uploading}
+        />
+
       </CardContent>
 
       {selectedFreelancer && (

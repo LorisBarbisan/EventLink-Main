@@ -7,51 +7,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
-
-function JobDocuments({ jobId }: { jobId: number }) {
-  const { data: docs } = useQuery<any[]>({
-    queryKey: [`/api/job/${jobId}/documents`],
-    retry: false,
-  });
-
-  if (!docs || docs.length === 0) return null;
-
-  const handleDownload = async (doc: any) => {
-    try {
-      const token = localStorage.getItem("auth_token");
-      const res = await fetch(doc.downloadUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Download failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = doc.fileName;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      window.open(doc.downloadUrl, "_blank");
-    }
-  };
-
-  return (
-    <div className="mt-3 pt-3 border-t border-gray-100">
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">📎 Job Documents</p>
-      <div className="flex flex-wrap gap-2">
-        {docs.map((doc: any) => (
-          <button
-            key={doc.id}
-            onClick={() => handleDownload(doc)}
-            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors font-medium"
-          >
-            📄 {doc.fileName}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
+import { JobDocumentsModal } from "@/components/JobDocumentsModal";
 
 type BookingStatus = "enquired" | "confirmed" | "briefed" | "completed" | "cancelled";
 
@@ -94,6 +50,8 @@ const STATUS_LABELS: Record<BookingStatus, { label: string; color: string; bg: s
 export default function MyJobs() {
   const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<BookingStatus | "all">("all");
+  const [docsJobId, setDocsJobId] = useState<number | null>(null);
+  const [docsJobTitle, setDocsJobTitle] = useState<string>("");
 
   const { data: bookings, isLoading } = useQuery<FreelancerBookingResult[]>({
     queryKey: ["/api/bookings/freelancer"],
@@ -244,7 +202,15 @@ export default function MyJobs() {
                   </p>
                 )}
 
-                <JobDocuments jobId={job.id} />
+                {/* Docs button */}
+                {booking.status !== "cancelled" && (
+                  <button
+                    onClick={() => { setDocsJobId(job.id); setDocsJobTitle(job.title); }}
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-50 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-medium mt-1 mb-2"
+                  >
+                    📎 Docs
+                  </button>
+                )}
 
                 {["enquired", "confirmed"].includes(booking.status) && (
                   <button
@@ -258,6 +224,16 @@ export default function MyJobs() {
             );
           })}
         </div>
+      )}
+
+      {docsJobId !== null && (
+        <JobDocumentsModal
+          jobId={docsJobId}
+          jobTitle={docsJobTitle}
+          open={docsJobId !== null}
+          onClose={() => setDocsJobId(null)}
+          isOwner={false}
+        />
       )}
     </div>
   );
