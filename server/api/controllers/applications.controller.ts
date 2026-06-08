@@ -255,7 +255,8 @@ export async function acceptApplication(req: Request, res: Response) {
         // Fetch any documents attached to this job
         let jobDocs: Array<{ fileName: string; downloadUrl: string | null; documentType: string }> = [];
         try {
-          const docs = await getJobDocumentsWithUrls(application.job_id);
+          const baseUrl = `${req.protocol}://${req.get("host")}`;
+          const docs = await getJobDocumentsWithUrls(application.job_id, baseUrl);
           jobDocs = docs.map(d => ({
             fileName: d.fileName,
             downloadUrl: d.downloadUrl,

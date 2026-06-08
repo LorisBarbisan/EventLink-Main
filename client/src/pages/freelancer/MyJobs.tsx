@@ -8,6 +8,34 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 
+function JobDocuments({ jobId }: { jobId: number }) {
+  const { data: docs } = useQuery<any[]>({
+    queryKey: [`/api/job/${jobId}/documents`],
+    retry: false,
+  });
+
+  if (!docs || docs.length === 0) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">📎 Job Documents</p>
+      <div className="flex flex-wrap gap-2">
+        {docs.map((doc: any) => (
+          <a
+            key={doc.id}
+            href={doc.downloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors font-medium"
+          >
+            📄 {doc.fileName}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 type BookingStatus = "enquired" | "confirmed" | "briefed" | "completed" | "cancelled";
 
 interface FreelancerBookingResult {
@@ -199,10 +227,12 @@ export default function MyJobs() {
                   </p>
                 )}
 
+                <JobDocuments jobId={job.id} />
+
                 {["enquired", "confirmed"].includes(booking.status) && (
                   <button
                     onClick={() => cancelMutation.mutate(booking.id)}
-                    className="text-sm text-gray-400 hover:text-red-600 transition-colors"
+                    className="text-sm text-gray-400 hover:text-red-600 transition-colors mt-2"
                   >
                     Cancel this booking
                   </button>

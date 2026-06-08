@@ -218,8 +218,8 @@ export async function downloadJobDocumentLocal(req: Request, res: Response) {
   }
 }
 
-// ── Helper: fetch docs with signed URLs (for email sending) ───────────────
-export async function getJobDocumentsWithUrls(jobId: number) {
+// ── Helper: fetch docs with download URLs (for email sending) ─────────────
+export async function getJobDocumentsWithUrls(jobId: number, baseUrl?: string) {
   const docs = await db
     .select()
     .from(jobDocuments)
@@ -227,6 +227,10 @@ export async function getJobDocumentsWithUrls(jobId: number) {
 
   return Promise.all(
     docs.map(async doc => {
+      if (isLocalPath(doc.fileKey)) {
+        const localPath = `/api/job/${jobId}/documents/${doc.id}/download`;
+        return { ...doc, downloadUrl: baseUrl ? `${baseUrl}${localPath}` : localPath };
+      }
       try {
         const downloadUrl = await ObjectStorageService.getDownloadUrl(doc.fileKey);
         return { ...doc, downloadUrl };
