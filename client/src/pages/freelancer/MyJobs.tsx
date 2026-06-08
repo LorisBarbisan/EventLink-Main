@@ -16,20 +16,37 @@ function JobDocuments({ jobId }: { jobId: number }) {
 
   if (!docs || docs.length === 0) return null;
 
+  const handleDownload = async (doc: any) => {
+    try {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(doc.downloadUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = doc.fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(doc.downloadUrl, "_blank");
+    }
+  };
+
   return (
     <div className="mt-3 pt-3 border-t border-gray-100">
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">📎 Job Documents</p>
       <div className="flex flex-wrap gap-2">
         {docs.map((doc: any) => (
-          <a
+          <button
             key={doc.id}
-            href={doc.downloadUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+            onClick={() => handleDownload(doc)}
             className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors font-medium"
           >
             📄 {doc.fileName}
-          </a>
+          </button>
         ))}
       </div>
     </div>
