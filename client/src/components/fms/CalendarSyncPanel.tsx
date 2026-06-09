@@ -213,9 +213,10 @@ export default function CalendarSyncPanel() {
             <Button
               variant="outline"
               className="gap-2 border-gray-300 hover:border-gray-400 text-sm"
-              onClick={() => {
+              onClick={async () => {
                 if (!isSubscribed) { setPaywallOpen(true); return; }
-                window.location.href = "/api/calendar/google/connect";
+                const data = await apiRequest("/api/calendar/google/connect");
+                if (data?.url) window.location.href = data.url;
               }}
             >
               <SiGoogle className="w-4 h-4 text-[#4285F4]" />
@@ -224,9 +225,10 @@ export default function CalendarSyncPanel() {
             <Button
               variant="outline"
               className="gap-2 border-gray-300 hover:border-gray-400 text-sm"
-              onClick={() => {
+              onClick={async () => {
                 if (!isSubscribed) { setPaywallOpen(true); return; }
-                window.location.href = "/api/calendar/outlook/connect";
+                const data = await apiRequest("/api/calendar/outlook/connect");
+                if (data?.url) window.location.href = data.url;
               }}
             >
               <Mail className="w-4 h-4 text-[#0078D4]" />
