@@ -45,6 +45,7 @@ const AvailabilityResponse = lazy(() => import("./pages/AvailabilityResponse"));
 const BriefAcknowledgePage = lazy(() => import("./pages/BriefAcknowledgePage"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const AcceptInvitePage = lazy(() => import("./pages/AcceptInvitePage"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 
 function PageLoader() {
   return (
@@ -92,6 +93,7 @@ function AppRouter() {
           <Route path="/brief/acknowledge/:token" component={BriefAcknowledgePage} />
           <Route path="/pricing" component={Pricing} />
           <Route path="/team/accept-invite/:token" component={AcceptInvitePage} />
+          <Route path="/privacy" component={PrivacyPolicy} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>

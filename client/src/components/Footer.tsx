@@ -132,6 +132,11 @@ export const Footer = ({ dark = false }: FooterProps) => {
                     Terms &amp; Conditions
                   </a>
                 </li>
+                <li>
+                  <Link to="/privacy" className={linkHover} data-testid="footer-link-privacy">
+                    Privacy Policy
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>
