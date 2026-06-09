@@ -22,6 +22,22 @@ function parseStateToken(state: string): number | null {
   }
 }
 
+// GET /api/calendar/debug — temporary, shows what redirect URI the server will use
+export const debugCalendar = (req: Request, res: Response) => {
+  const host = req.headers["x-forwarded-host"] || req.headers.host;
+  const proto = req.headers["x-forwarded-proto"] || "https";
+  const envVar = process.env.GOOGLE_CALENDAR_REDIRECT_URI;
+  const appUrl = process.env.APP_URL;
+  const derived = `${proto}://${host}/api/calendar/google/callback`;
+  return res.json({
+    GOOGLE_CALENDAR_REDIRECT_URI: envVar || "(not set)",
+    APP_URL: appUrl || "(not set)",
+    x_forwarded_host: req.headers["x-forwarded-host"] || "(not set)",
+    host_header: req.headers.host || "(not set)",
+    redirect_uri_that_will_be_used: envVar || derived,
+  });
+};
+
 // GET /api/calendar/status
 export const getCalendarStatus = async (req: Request, res: Response) => {
   try {
