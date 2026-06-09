@@ -145,6 +145,11 @@ export const Footer = () => {
                     Terms &amp; Conditions
                   </a>
                 </li>
+                <li>
+                  <Link to="/privacy" className="hover:text-foreground" data-testid="footer-link-privacy">
+                    Privacy Policy
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>

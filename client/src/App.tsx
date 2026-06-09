@@ -42,6 +42,7 @@ const BuildReputation = lazy(() => import("./pages/BuildReputation"));
 const MyBookings = lazy(() => import("./pages/employer/MyBookings"));
 const MyJobs = lazy(() => import("./pages/freelancer/MyJobs"));
 const JoinTeam = lazy(() => import("./pages/JoinTeam"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 
 function PageLoader() {
   return (
@@ -85,6 +86,7 @@ function AppRouter() {
           <Route path="/employer/bookings" component={MyBookings} />
           <Route path="/freelancer/bookings" component={MyJobs} />
           <Route path="/join-team" component={JoinTeam} />
+          <Route path="/privacy" component={PrivacyPolicy} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>
