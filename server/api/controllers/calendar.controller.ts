@@ -49,9 +49,8 @@ export const getCalendarStatus = async (req: Request, res: Response) => {
 export const connectGoogle = async (req: Request, res: Response) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorised" });
-    const host = req.headers.host;
     const state = makeStateToken(req.user.id);
-    const url = getGoogleAuthUrl(state, host);
+    const url = getGoogleAuthUrl(state, req);
     return res.json({ url });
   } catch {
     return res.status(500).json({ error: "Internal server error" });
@@ -66,7 +65,7 @@ export const googleCallback = async (req: Request, res: Response) => {
     if (!employerId) return res.redirect("/dashboard?tab=calendar&error=auth");
     const code = req.query.code as string;
     if (!code) return res.redirect("/dashboard?tab=calendar&error=no_code");
-    await connectGoogleCalendar(employerId, code, req.headers.host);
+    await connectGoogleCalendar(employerId, code, req);
     return res.redirect("/dashboard?tab=calendar&connected=google");
   } catch (err: any) {
     console.error("Google calendar callback error:", err.message);

@@ -6,28 +6,31 @@ import { eq } from "drizzle-orm";
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
 
-export function getRedirectUri(host?: string): string {
-  // Explicit env var always wins
+export function getRedirectUri(req?: { headers: { host?: string; "x-forwarded-host"?: string; "x-forwarded-proto"?: string } }): string {
+  // 1. Explicit env var always wins
   if (process.env.GOOGLE_CALENDAR_REDIRECT_URI) {
+    console.log("[Google Calendar] redirect URI from env:", process.env.GOOGLE_CALENDAR_REDIRECT_URI);
     return process.env.GOOGLE_CALENDAR_REDIRECT_URI;
   }
-  // Derive from the incoming request host so it matches whatever domain is in use
-  if (host) {
-    const proto = host.includes("localhost") ? "http" : "https";
-    return `${proto}://${host}/api/calendar/google/callback`;
+  // 2. Derive from the real public host (Replit uses x-forwarded-host behind its proxy)
+  if (req) {
+    const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
+    const proto = (req.headers["x-forwarded-proto"] as string) || (host.includes("localhost") ? "http" : "https");
+    console.log("[Google Calendar] host:", host, "proto:", proto);
+    if (host) return `${proto}://${host}/api/calendar/google/callback`;
   }
-  // Final fallback
+  // 3. APP_URL fallback
   return `${process.env.APP_URL ?? "http://localhost:3000"}/api/calendar/google/callback`;
 }
 
-export function getGoogleOAuthClient(host?: string) {
-  const redirectUri = getRedirectUri(host);
+export function getGoogleOAuthClient(req?: { headers: any }) {
+  const redirectUri = getRedirectUri(req);
   console.log("[Google Calendar] Using redirect URI:", redirectUri);
   return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, redirectUri);
 }
 
-export function getGoogleAuthUrl(state: string, host?: string): string {
-  const client = getGoogleOAuthClient(host);
+export function getGoogleAuthUrl(state: string, req?: { headers: any }): string {
+  const client = getGoogleOAuthClient(req);
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
@@ -39,8 +42,8 @@ export function getGoogleAuthUrl(state: string, host?: string): string {
   });
 }
 
-export async function connectGoogleCalendar(employerId: number, code: string, host?: string) {
-  const client = getGoogleOAuthClient(host);
+export async function connectGoogleCalendar(employerId: number, code: string, req?: { headers: any }) {
+  const client = getGoogleOAuthClient(req);
   const { tokens } = await client.getToken(code);
   if (!tokens.access_token) throw new Error("No access token returned from Google");
   await db
