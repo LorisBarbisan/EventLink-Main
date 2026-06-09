@@ -5,16 +5,29 @@ import { eq } from "drizzle-orm";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
-const GOOGLE_REDIRECT_URI =
-  process.env.GOOGLE_CALENDAR_REDIRECT_URI ??
-  `${process.env.APP_URL ?? "http://localhost:3000"}/api/calendar/google/callback`;
 
-export function getGoogleOAuthClient() {
-  return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
+export function getRedirectUri(host?: string): string {
+  // Explicit env var always wins
+  if (process.env.GOOGLE_CALENDAR_REDIRECT_URI) {
+    return process.env.GOOGLE_CALENDAR_REDIRECT_URI;
+  }
+  // Derive from the incoming request host so it matches whatever domain is in use
+  if (host) {
+    const proto = host.includes("localhost") ? "http" : "https";
+    return `${proto}://${host}/api/calendar/google/callback`;
+  }
+  // Final fallback
+  return `${process.env.APP_URL ?? "http://localhost:3000"}/api/calendar/google/callback`;
 }
 
-export function getGoogleAuthUrl(state: string): string {
-  const client = getGoogleOAuthClient();
+export function getGoogleOAuthClient(host?: string) {
+  const redirectUri = getRedirectUri(host);
+  console.log("[Google Calendar] Using redirect URI:", redirectUri);
+  return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, redirectUri);
+}
+
+export function getGoogleAuthUrl(state: string, host?: string): string {
+  const client = getGoogleOAuthClient(host);
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
@@ -26,8 +39,8 @@ export function getGoogleAuthUrl(state: string): string {
   });
 }
 
-export async function connectGoogleCalendar(employerId: number, code: string) {
-  const client = getGoogleOAuthClient();
+export async function connectGoogleCalendar(employerId: number, code: string, host?: string) {
+  const client = getGoogleOAuthClient(host);
   const { tokens } = await client.getToken(code);
   if (!tokens.access_token) throw new Error("No access token returned from Google");
   await db
