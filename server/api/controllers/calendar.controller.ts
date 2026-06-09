@@ -51,6 +51,7 @@ export const connectGoogle = async (req: Request, res: Response) => {
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorised" });
     const state = makeStateToken(req.user.id);
     const url = getGoogleAuthUrl(state);
+    console.log("[Google Calendar] OAuth URL:", url);
     return res.json({ url });
   } catch {
     return res.status(500).json({ error: "Internal server error" });

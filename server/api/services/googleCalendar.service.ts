@@ -9,6 +9,8 @@ const GOOGLE_REDIRECT_URI =
   process.env.GOOGLE_CALENDAR_REDIRECT_URI ??
   `${process.env.APP_URL ?? "http://localhost:3000"}/api/calendar/google/callback`;
 
+console.log("[Google Calendar] Redirect URI:", GOOGLE_REDIRECT_URI);
+
 export function getGoogleOAuthClient() {
   return new OAuth2Client(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
 }
