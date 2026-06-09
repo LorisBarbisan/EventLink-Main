@@ -45,12 +45,13 @@ export const getCalendarStatus = async (req: Request, res: Response) => {
 };
 
 // GET /api/calendar/google/connect
+// Returns JSON { url } so the frontend can redirect with its auth header intact
 export const connectGoogle = async (req: Request, res: Response) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorised" });
     const state = makeStateToken(req.user.id);
     const url = getGoogleAuthUrl(state);
-    return res.redirect(url);
+    return res.json({ url });
   } catch {
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -73,12 +74,13 @@ export const googleCallback = async (req: Request, res: Response) => {
 };
 
 // GET /api/calendar/outlook/connect
+// Returns JSON { url } so the frontend can redirect with its auth header intact
 export const connectOutlook = async (req: Request, res: Response) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorised" });
     const state = makeStateToken(req.user.id);
     const url = getOutlookAuthUrl(state);
-    return res.redirect(url);
+    return res.json({ url });
   } catch {
     return res.status(500).json({ error: "Internal server error" });
   }
