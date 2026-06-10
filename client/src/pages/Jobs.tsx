@@ -3,7 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { UKLocationInput } from "@/components/ui/uk-location-input";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +35,10 @@ export default function Jobs() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+
+  // Apply modal state
+  const [applyModalJob, setApplyModalJob] = useState<any | null>(null);
+  const [coverLetter, setCoverLetter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const jobsPerPage = 10;
 
@@ -170,32 +176,20 @@ export default function Jobs() {
 
   // Job application mutation
   const applyToJobMutation = useMutation({
-    mutationFn: async (jobId: number) => {
-      console.log("Mutation function called with:", { jobId, currentUser });
-
-      if (!currentUser?.id) {
-        throw new Error("Please log in to apply for jobs");
-      }
-
-      const payload = {
-        freelancerId: currentUser.id,
-        coverLetter: null,
-      };
-
-      console.log("Sending application request:", payload);
-
+    mutationFn: async ({ jobId, note }: { jobId: number; note: string }) => {
+      if (!currentUser?.id) throw new Error("Please log in to apply for jobs");
       return await apiRequest(`/api/jobs/${jobId}/apply`, {
         method: "POST",
-        body: JSON.stringify(payload),
-        headers: {
-          "Content-Type": "application/json",
-        },
+        body: JSON.stringify({ cover_letter: note || undefined }),
+        headers: { "Content-Type": "application/json" },
       });
     },
-    onSuccess: (_, jobId) => {
+    onSuccess: (_, { jobId }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/freelancer/applications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/recruiter"] });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      setApplyModalJob(null);
+      setCoverLetter("");
       setLocation(`/application-success/${jobId}`);
     },
     onError: (error: any) => {
@@ -224,41 +218,22 @@ export default function Jobs() {
   });
 
   const handleApplyNow = (job: any) => {
-    console.log("Apply Now clicked:", {
-      jobId: job.id,
-      currentUser,
-      hasExternalUrl: !!job.external_url,
-      userLoading,
-      userId: currentUser?.id,
-    });
-
     if (job.external_url) {
-      // For external jobs, open the external URL
       window.open(job.external_url, "_blank");
       return;
     }
-
-    // For internal jobs, apply through our system
     if (userLoading) {
-      toast({
-        title: "Please wait",
-        description: "Loading user information...",
-      });
+      toast({ title: "Please wait", description: "Loading user information..." });
       return;
     }
-
     if (!currentUser || !currentUser.id) {
-      toast({
-        title: "Login required",
-        description: "Please log in to apply for jobs.",
-        variant: "destructive",
-      });
+      toast({ title: "Login required", description: "Please log in to apply for jobs.", variant: "destructive" });
       setLocation("/auth");
       return;
     }
-
-    console.log("Applying to job:", job.id, "with user:", currentUser.id);
-    applyToJobMutation.mutate(job.id);
+    // Open the apply modal
+    setApplyModalJob(job);
+    setCoverLetter("");
   };
 
   const toggleJobExpansion = (jobId: string) => {
@@ -703,6 +678,43 @@ export default function Jobs() {
             })()}
         </div>
       </div>
+      {/* Apply modal */}
+      <Dialog open={!!applyModalJob} onOpenChange={open => { if (!open) { setApplyModalJob(null); setCoverLetter(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Apply for this job</DialogTitle>
+            <DialogDescription className="truncate">
+              {applyModalJob?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+              Note <span className="text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <Textarea
+              placeholder="Add a short note to the employer — introduce yourself, highlight relevant experience, or ask a question..."
+              value={coverLetter}
+              onChange={e => setCoverLetter(e.target.value)}
+              rows={5}
+              maxLength={1000}
+              className="resize-none"
+            />
+            <p className="text-xs text-muted-foreground mt-1 text-right">{coverLetter.length}/1000</p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setApplyModalJob(null); setCoverLetter(""); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => applyToJobMutation.mutate({ jobId: applyModalJob.id, note: coverLetter })}
+              disabled={applyToJobMutation.isPending}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {applyToJobMutation.isPending ? "Sending..." : "Submit Application"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
