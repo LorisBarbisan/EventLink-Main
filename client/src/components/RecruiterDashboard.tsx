@@ -1234,7 +1234,7 @@
                                                         variant={app.status === "hired" ? "default" : app.status === "rejected" ? "destructive" : "secondary"}
                                                         className={app.status === "hired" ? "bg-green-600 hover:bg-green-700" : ""}
                                                       >
-                                                        {app.status}
+                                                        {app.status === "rejected" ? "Declined" : app.status.charAt(0).toUpperCase() + app.status.slice(1)}
                                                       </Badge>
                                                     </TableCell>
                                                     <TableCell className="py-2 text-xs">
@@ -1303,7 +1303,7 @@
                                           onClick={() => setAppStatusFilter(s)}
                                           className={appStatusFilter === s ? "bg-orange-500 hover:bg-orange-600" : ""}
                                         >
-                                          {s.charAt(0).toUpperCase() + s.slice(1)}
+                                          {s === "rejected" ? "Declined" : s.charAt(0).toUpperCase() + s.slice(1)}
                                         </Button>
                                       )
                                     )}

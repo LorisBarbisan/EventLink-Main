@@ -205,14 +205,14 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
       setShowRejectionDialog(false);
       setRejectionMessage("");
       toast({
-        title: "Application rejected",
+        title: "Application declined",
         description: "The applicant has been notified with your message.",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to reject application.",
+        description: "Failed to decline application.",
         variant: "destructive",
       });
     },
@@ -387,7 +387,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
             {application.rejection_message && application.status === "rejected" && (
               <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
                 <p className="mb-1 text-sm font-medium text-red-800 dark:text-red-200">
-                  Rejection Reason:
+                  Reason for declining:
                 </p>
                 <p className="text-sm text-red-700 dark:text-red-300">
                   {application.rejection_message}
@@ -404,7 +404,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Application Rejection Details</DialogTitle>
+                      <DialogTitle>Application Declined</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
@@ -414,14 +414,14 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         </p>
                       </div>
                       <div>
-                        <p className="mb-2 font-medium">Rejection Message:</p>
+                        <p className="mb-2 font-medium">Message:</p>
                         <p className="rounded bg-muted p-3 text-sm text-muted-foreground">
                           {application.rejection_message}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">
-                          Rejected on: {new Date(application.updated_at).toLocaleDateString()}
+                          Declined on: {new Date(application.updated_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
@@ -520,17 +520,17 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                           >
                             <UserX className="mr-1 h-4 w-4" />
-                            Reject
+                            Decline
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-md">
                           <DialogHeader>
-                            <DialogTitle>Reject Application</DialogTitle>
+                            <DialogTitle>Decline Application</DialogTitle>
                           </DialogHeader>
                           <div className="space-y-4">
                             <div>
                               <p className="text-sm text-muted-foreground">
-                                You are about to reject the application from{" "}
+                                You are about to decline the application from{" "}
                                 <strong>
                                   {application.freelancer_profile
                                     ? `${application.freelancer_profile.first_name} ${application.freelancer_profile.last_name}`
@@ -541,7 +541,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             </div>
                             <div>
                               <Label htmlFor="rejection-message">
-                                Rejection message{" "}
+                                Message{" "}
                                 <span className="text-muted-foreground">
                                   (optional but recommended)
                                 </span>
@@ -555,7 +555,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                                 data-testid={`textarea-rejection-message-${application.id}`}
                               />
                               <p className="mt-1 text-xs text-muted-foreground">
-                                This message will be sent to the applicant along with the rejection
+                                This message will be sent to the applicant along with the decline
                                 notification.
                               </p>
                             </div>
@@ -574,7 +574,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                               disabled={rejectMutation.isPending}
                               data-testid={`button-confirm-reject-${application.id}`}
                             >
-                              {rejectMutation.isPending ? "Rejecting..." : "Reject Application"}
+                              {rejectMutation.isPending ? "Declining..." : "Decline Application"}
                             </Button>
                           </DialogFooter>
                         </DialogContent>
@@ -889,7 +889,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                                 {application.status === "hired"
                                   ? "Hired"
                                   : application.status === "rejected"
-                                    ? "Rejected"
+                                    ? "Declined"
                                     : application.status === "reviewed"
                                       ? "Under Review"
                                       : "Pending"}
@@ -915,7 +915,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         {application.rejection_message && application.status === "rejected" && (
                           <div>
                             <p className="mb-2 text-sm font-medium text-muted-foreground">
-                              Rejection Message
+                              Decline Message
                             </p>
                             <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
                               <p className="text-sm text-red-700 dark:text-red-300">

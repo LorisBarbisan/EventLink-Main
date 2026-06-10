@@ -1854,7 +1854,7 @@ function AdminDashboardContent() {
                                                 : ""
                                             }
                                           >
-                                            {app.status}
+                                            {app.status === "rejected" ? "Declined" : app.status.charAt(0).toUpperCase() + app.status.slice(1)}
                                           </Badge>
                                         </TableCell>
                                         <TableCell className="py-2 text-xs">

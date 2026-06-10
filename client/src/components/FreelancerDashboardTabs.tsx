@@ -892,7 +892,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                             : ""
                                 }`}
                               >
-                                {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                                {job.status === "rejected" ? "Declined" : job.status.charAt(0).toUpperCase() + job.status.slice(1)}
                               </Badge>
                             </div>
                             <div className="space-y-1 text-sm text-muted-foreground">
@@ -944,7 +944,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                         <AlertCircle className="mt-0.5 h-5 w-5 text-red-500" />
                                         <div>
                                           <h4 className="font-medium text-red-800">
-                                            Rejection Message
+                                            Message
                                           </h4>
                                           <p className="mt-1 text-red-700">
                                             {job.rejectionMessage}

@@ -343,7 +343,7 @@ export default function SimplifiedFreelancerDashboard() {
                           .length
                       }
                     </div>
-                    <div className="text-sm text-muted-foreground">Rejected</div>
+                    <div className="text-sm text-muted-foreground">Declined</div>
                   </div>
                   <div className="text-center">
                     <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/20">
