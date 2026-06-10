@@ -19,8 +19,8 @@ export default function PrivacyPolicy() {
             </p>
             <p className="mt-2">
               For any privacy-related enquiries, contact us at:{" "}
-              <a href="mailto:privacy@eventlink.one" className="text-primary hover:underline">
-                privacy@eventlink.one
+              <a href="mailto:admin@eventlink.one" className="text-primary hover:underline">
+                admin@eventlink.one
               </a>
             </p>
           </section>
@@ -124,8 +124,8 @@ export default function PrivacyPolicy() {
             </ul>
             <p className="mt-2">
               To exercise any of these rights, email us at{" "}
-              <a href="mailto:privacy@eventlink.one" className="text-primary hover:underline">
-                privacy@eventlink.one
+              <a href="mailto:admin@eventlink.one" className="text-primary hover:underline">
+                admin@eventlink.one
               </a>
               .
             </p>
@@ -162,8 +162,8 @@ export default function PrivacyPolicy() {
             <h2 className="mb-3 text-lg font-semibold">11. Contact</h2>
             <p>
               For any questions about this policy, contact us at{" "}
-              <a href="mailto:privacy@eventlink.one" className="text-primary hover:underline">
-                privacy@eventlink.one
+              <a href="mailto:admin@eventlink.one" className="text-primary hover:underline">
+                admin@eventlink.one
               </a>{" "}
               or via our{" "}
               <Link to="/contact-us" className="text-primary hover:underline">
