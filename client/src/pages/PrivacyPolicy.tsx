@@ -9,13 +9,12 @@ export default function PrivacyPolicy() {
         <p className="mb-8 text-sm text-muted-foreground">Last updated: June 2026</p>
 
         <div className="space-y-8 text-sm leading-relaxed text-foreground">
-
           <section>
             <h2 className="mb-3 text-lg font-semibold">1. Who We Are</h2>
             <p>
-              EventLink is operated by Kite ("we", "us", "our"). We provide a platform
-              connecting freelance event technicians with employers in the live events industry.
-              Our registered domain is <strong>app.eventlink.one</strong>.
+              EventLink is operated by Kite ("we", "us", "our"). We provide a platform connecting
+              freelance event technicians with employers in the live events industry. Our registered
+              domain is <strong>eventlink.one</strong>.
             </p>
             <p className="mt-2">
               For any privacy-related enquiries, contact us at:{" "}
@@ -28,13 +27,24 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="mb-3 text-lg font-semibold">2. What Data We Collect</h2>
             <ul className="ml-4 list-disc space-y-1">
-              <li>Account information: name, email address, password (hashed), and role (freelancer or employer)</li>
-              <li>Profile information: professional title, bio, skills, location, experience, portfolio links, and profile photo</li>
+              <li>
+                Account information: name, email address, password (hashed), and role (freelancer or
+                employer)
+              </li>
+              <li>
+                Profile information: professional title, bio, skills, location, experience,
+                portfolio links, and profile photo
+              </li>
               <li>CV / resume files you upload</li>
               <li>Job postings, applications, and booking records</li>
               <li>Messages sent through the platform</li>
-              <li>Calendar connection tokens (Google or Outlook), used solely to sync your bookings</li>
-              <li>Usage data: pages visited, actions taken, and device/browser information for analytics</li>
+              <li>
+                Calendar connection tokens (Google or Outlook), used solely to sync your bookings
+              </li>
+              <li>
+                Usage data: pages visited, actions taken, and device/browser information for
+                analytics
+              </li>
             </ul>
           </section>
 
@@ -55,15 +65,15 @@ export default function PrivacyPolicy() {
               <li>Delete those events if a booking is cancelled</li>
             </ul>
             <p className="mt-2">
-              We do <strong>not</strong> read your existing calendar events, share your Google
-              data with third parties, use it for advertising, or retain it beyond the purpose of
-              syncing your EventLink bookings.
+              We do <strong>not</strong> read your existing calendar events, share your Google data
+              with third parties, use it for advertising, or retain it beyond the purpose of syncing
+              your EventLink bookings.
             </p>
             <p className="mt-2">
-              Your Google OAuth tokens are stored securely in our database and used only to
-              perform the above actions. You can disconnect Google Calendar at any time from the
-              Calendar tab in your dashboard, which immediately revokes our access and deletes
-              your stored tokens.
+              Your Google OAuth tokens are stored securely in our database and used only to perform
+              the above actions. You can disconnect Google Calendar at any time from the Calendar
+              tab in your dashboard, which immediately revokes our access and deletes your stored
+              tokens.
             </p>
             <p className="mt-2">
               EventLink's use and transfer of information received from Google APIs adheres to the{" "}
@@ -84,31 +94,47 @@ export default function PrivacyPolicy() {
             <ul className="ml-4 list-disc space-y-1">
               <li>To operate and improve the EventLink platform</li>
               <li>To match freelancers with job opportunities</li>
-              <li>To send transactional emails (booking confirmations, application updates, messages)</li>
+              <li>
+                To send transactional emails (booking confirmations, application updates, messages)
+              </li>
               <li>To display your public profile to potential employers</li>
               <li>To generate anonymised usage statistics</li>
             </ul>
-            <p className="mt-2">We do <strong>not</strong> sell your personal data to any third party.</p>
+            <p className="mt-2">
+              We do <strong>not</strong> sell your personal data to any third party.
+            </p>
           </section>
 
           <section>
             <h2 className="mb-3 text-lg font-semibold">5. Data Sharing</h2>
             <p>We only share your data with:</p>
             <ul className="ml-4 mt-1 list-disc space-y-1">
-              <li><strong>Employers / Freelancers on the platform</strong> — profile information is visible to other users as part of the service</li>
-              <li><strong>SendGrid</strong> — email delivery service</li>
-              <li><strong>Google / Microsoft</strong> — only when you explicitly connect a calendar</li>
-              <li><strong>Stripe</strong> — payment processing for Pro subscriptions (we do not store card details)</li>
-              <li><strong>Law enforcement</strong> — if required by law</li>
+              <li>
+                <strong>Employers / Freelancers on the platform</strong> — profile information is
+                visible to other users as part of the service
+              </li>
+              <li>
+                <strong>SendGrid</strong> — email delivery service
+              </li>
+              <li>
+                <strong>Google / Microsoft</strong> — only when you explicitly connect a calendar
+              </li>
+              <li>
+                <strong>Stripe</strong> — payment processing for Pro subscriptions (we do not store
+                card details)
+              </li>
+              <li>
+                <strong>Law enforcement</strong> — if required by law
+              </li>
             </ul>
           </section>
 
           <section>
             <h2 className="mb-3 text-lg font-semibold">6. Data Retention</h2>
             <p>
-              We retain your data for as long as your account is active. If you delete your
-              account, your personal data is removed within 30 days, except where we are
-              required to retain it for legal or financial compliance purposes.
+              We retain your data for as long as your account is active. If you delete your account,
+              your personal data is removed within 30 days, except where we are required to retain
+              it for legal or financial compliance purposes.
             </p>
           </section>
 
@@ -134,8 +160,8 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="mb-3 text-lg font-semibold">8. Cookies</h2>
             <p>
-              We use essential cookies for authentication and session management. We also use
-              Google Analytics cookies to understand how the platform is used. You can disable
+              We use essential cookies for authentication and session management. We also use Google
+              Analytics cookies to understand how the platform is used. You can disable
               non-essential cookies in your browser settings.
             </p>
           </section>
@@ -153,8 +179,8 @@ export default function PrivacyPolicy() {
             <h2 className="mb-3 text-lg font-semibold">10. Changes to This Policy</h2>
             <p>
               We may update this policy from time to time. We will notify registered users of
-              significant changes by email or via an in-app notice. Continued use of EventLink
-              after changes are published constitutes acceptance of the updated policy.
+              significant changes by email or via an in-app notice. Continued use of EventLink after
+              changes are published constitutes acceptance of the updated policy.
             </p>
           </section>
 
@@ -172,7 +198,6 @@ export default function PrivacyPolicy() {
               .
             </p>
           </section>
-
         </div>
       </div>
     </Layout>
