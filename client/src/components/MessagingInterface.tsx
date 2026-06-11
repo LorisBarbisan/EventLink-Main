@@ -96,6 +96,13 @@ export function MessagingInterface({ initialConversationId }: Props) {
     staleTime: 0,
   });
 
+  // Auto-select the most recent conversation on first load
+  useEffect(() => {
+    if (!initialConversationId && !selectedConversation && conversations.length > 0) {
+      setSelectedConversation(conversations[0].id);
+    }
+  }, [conversations, initialConversationId, selectedConversation]);
+
   // --- FETCH MESSAGES ---
   const { data: messages = [], isLoading: messagesLoading } = useQuery<Message[]>({
     queryKey: ["/api/conversations", selectedConversation, "messages"],
@@ -368,10 +375,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
                             }`}
                             style={
                               !isSystemMessage && !isMyMessage
-                                ? {
-                                    backgroundColor: "hsl(var(--accent) / 0.15)",
-                                    color: "hsl(var(--foreground))",
-                                  }
+                                ? { backgroundColor: "rgb(254 243 199)", color: "rgb(120 53 15)" }
                                 : undefined
                             }
                           >
@@ -388,7 +392,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
                               }`}
                               style={
                                 !isSystemMessage && !isMyMessage
-                                  ? { color: "hsl(var(--accent) / 0.6)" }
+                                  ? { color: "rgb(180 83 9 / 0.7)" }
                                   : undefined
                               }
                             >
