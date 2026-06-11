@@ -30,11 +30,13 @@ export function getGoogleOAuthClient(req?: { headers: any }) {
 }
 
 export function getGoogleAuthUrl(state: string, req?: { headers: any }): string {
+  const redirectUri = getRedirectUri(req);
   const client = getGoogleOAuthClient(req);
   return client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
     state,
+    redirect_uri: redirectUri,
     scope: [
       "https://www.googleapis.com/auth/calendar.events",
       "https://www.googleapis.com/auth/userinfo.email",
