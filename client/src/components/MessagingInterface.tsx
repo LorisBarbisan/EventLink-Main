@@ -53,10 +53,8 @@ function ConversationAvatar({
 }) {
   const sizeClass =
     size === "lg" ? "w-10 h-10 text-sm" : size === "sm" ? "w-7 h-7 text-xs" : "w-9 h-9 text-xs";
-  const colorClass =
-    variant === "primary"
-      ? "bg-primary/20 text-primary"
-      : "bg-accent/20 text-accent";
+  // "accent" variant = other-user avatars (orange/primary), "primary" = own avatar (also orange)
+  const colorClass = "bg-primary/20 text-primary";
   return (
     <div
       className={`${sizeClass} ${colorClass} rounded-full flex-shrink-0 flex items-center justify-center font-semibold overflow-hidden`}
@@ -223,7 +221,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
                       isActive
                         ? {
                             borderLeftColor: "hsl(var(--primary))",
-                            backgroundColor: "hsl(var(--primary) / 0.10)",
+                            backgroundColor: "hsl(var(--accent) / 0.15)",
                           }
                         : {
                             borderLeftColor: "transparent",
