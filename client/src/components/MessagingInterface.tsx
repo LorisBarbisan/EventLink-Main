@@ -103,6 +103,25 @@ export function MessagingInterface({ initialConversationId }: Props) {
     }
   }, [conversations, initialConversationId, selectedConversation]);
 
+  // Fetch own profile photo directly so it's always up-to-date
+  const { data: ownProfile } = useQuery<{ profile_photo_url?: string | null; company_logo_url?: string | null }>({
+    queryKey: ["/api/own-profile-photo", user?.id, user?.role],
+    queryFn: () => {
+      if (!user?.id) return Promise.resolve({});
+      if (user.role === "freelancer") return apiRequest(`/api/freelancer/${user.id}`);
+      if (user.role === "recruiter") return apiRequest(`/api/recruiter/${user.id}`);
+      return Promise.resolve({});
+    },
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+
+  const ownPhotoUrl =
+    ownProfile?.profile_photo_url ||
+    ownProfile?.company_logo_url ||
+    user?.profile_photo_url ||
+    null;
+
   // --- FETCH MESSAGES ---
   const { data: messages = [], isLoading: messagesLoading } = useQuery<Message[]>({
     queryKey: ["/api/conversations", selectedConversation, "messages"],
@@ -401,7 +420,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
                           </div>
                           {isMyMessage && (
                             <ConversationAvatar
-                              photoUrl={user?.profile_photo_url}
+                              photoUrl={ownPhotoUrl}
                               initials={
                                 user
                                   ? (user.first_name?.[0] ?? "") + (user.last_name?.[0] ?? "") ||
