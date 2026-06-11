@@ -84,8 +84,9 @@ export const googleCallback = async (req: Request, res: Response) => {
     await connectGoogleCalendar(employerId, code, req);
     return res.redirect("/dashboard?tab=calendar&connected=google");
   } catch (err: any) {
-    console.error("Google calendar callback error:", err.message);
-    return res.redirect("/dashboard?tab=calendar&error=connect_failed");
+    console.error("Google calendar callback error:", err.message, err.stack);
+    const errorCode = encodeURIComponent(err.message?.slice(0, 80) ?? "unknown");
+    return res.redirect(`/dashboard?tab=calendar&error=connect_failed&detail=${errorCode}`);
   }
 };
 

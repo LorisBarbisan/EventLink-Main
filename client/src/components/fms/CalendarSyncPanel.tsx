@@ -63,7 +63,8 @@ export default function CalendarSyncPanel() {
       toast({ title: "Outlook Calendar connected!", description: "Your Outlook Calendar is now linked to EventLink." });
       queryClient.invalidateQueries({ queryKey: ["/api/calendar/status"] });
     } else if (error === "connect_failed") {
-      toast({ title: "Connection failed", description: "Could not connect your calendar. Please try again.", variant: "destructive" });
+      const detail = params.get("detail");
+      toast({ title: "Connection failed", description: detail ? `Error: ${detail}` : "Could not connect your calendar. Please try again.", variant: "destructive" });
     } else if (error === "auth") {
       toast({ title: "Authentication error", description: "Please sign in and try again.", variant: "destructive" });
     }
@@ -215,8 +216,13 @@ export default function CalendarSyncPanel() {
               className="gap-2 border-gray-300 hover:border-gray-400 text-sm"
               onClick={async () => {
                 if (!isSubscribed) { setPaywallOpen(true); return; }
-                const data = await apiRequest("/api/calendar/google/connect");
-                if (data?.url) window.location.href = data.url;
+                try {
+                  const data = await apiRequest("/api/calendar/google/connect");
+                  if (data?.url) window.location.href = data.url;
+                  else toast({ title: "Connection error", description: "No redirect URL returned. Please try again.", variant: "destructive" });
+                } catch (err: any) {
+                  toast({ title: "Connection failed", description: err.message || "Could not start Google Calendar connection.", variant: "destructive" });
+                }
               }}
             >
               <SiGoogle className="w-4 h-4 text-[#4285F4]" />
