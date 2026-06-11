@@ -44,15 +44,22 @@ function ConversationAvatar({
   photoUrl,
   initials,
   size = "md",
+  variant = "accent",
 }: {
   photoUrl?: string | null;
   initials: string;
   size?: "sm" | "md" | "lg";
+  variant?: "accent" | "primary";
 }) {
-  const sizeClass = size === "lg" ? "w-10 h-10 text-sm" : size === "sm" ? "w-7 h-7 text-xs" : "w-9 h-9 text-xs";
+  const sizeClass =
+    size === "lg" ? "w-10 h-10 text-sm" : size === "sm" ? "w-7 h-7 text-xs" : "w-9 h-9 text-xs";
+  const colorClass =
+    variant === "primary"
+      ? "bg-primary/20 text-primary"
+      : "bg-accent/20 text-accent";
   return (
     <div
-      className={`${sizeClass} rounded-full flex-shrink-0 flex items-center justify-center font-semibold bg-primary/20 text-primary overflow-hidden`}
+      className={`${sizeClass} ${colorClass} rounded-full flex-shrink-0 flex items-center justify-center font-semibold overflow-hidden`}
     >
       {photoUrl ? (
         <img src={photoUrl} alt="" className="w-full h-full object-cover" />
@@ -211,12 +218,28 @@ export function MessagingInterface({ initialConversationId }: Props) {
                 return (
                   <button
                     key={c.id}
-                    className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors border-l-4 ${
+                    className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors border-l-4 ${isDeleted ? "opacity-60" : ""}`}
+                    style={
                       isActive
-                        ? "bg-primary/8 border-l-primary"
-                        : "border-l-transparent hover:bg-muted/60"
-                    } ${isDeleted ? "opacity-60" : ""}`}
-                    style={isActive ? { borderLeftColor: "hsl(var(--primary))", backgroundColor: "hsl(var(--primary) / 0.07)" } : {}}
+                        ? {
+                            borderLeftColor: "hsl(var(--primary))",
+                            backgroundColor: "hsl(var(--primary) / 0.10)",
+                          }
+                        : {
+                            borderLeftColor: "transparent",
+                            backgroundColor: "hsl(var(--primary) / 0.04)",
+                          }
+                    }
+                    onMouseEnter={e => {
+                      if (!isActive)
+                        (e.currentTarget as HTMLElement).style.backgroundColor =
+                          "hsl(var(--primary) / 0.07)";
+                    }}
+                    onMouseLeave={e => {
+                      if (!isActive)
+                        (e.currentTarget as HTMLElement).style.backgroundColor =
+                          "hsl(var(--primary) / 0.04)";
+                    }}
                     onClick={() => setSelectedConversation(c.id)}
                   >
                     <ConversationAvatar
@@ -277,6 +300,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
                   photoUrl={activeConv.otherUser.profile_photo_url}
                   initials={getAvatarInitials(activeConv.otherUser)}
                   size="lg"
+                  variant="accent"
                 />
                 <div className="min-w-0">
                   <p className="font-semibold text-sm leading-tight truncate">
@@ -332,6 +356,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
                               photoUrl={activeConv.otherUser.profile_photo_url}
                               initials={getAvatarInitials(activeConv.otherUser)}
                               size="sm"
+                              variant="accent"
                             />
                           )}
                           <div
@@ -340,8 +365,16 @@ export function MessagingInterface({ initialConversationId }: Props) {
                                 ? "bg-muted text-muted-foreground text-center text-xs px-4"
                                 : isMyMessage
                                 ? "bg-primary text-primary-foreground rounded-br-sm"
-                                : "bg-muted text-foreground rounded-bl-sm"
+                                : "rounded-bl-sm"
                             }`}
+                            style={
+                              !isSystemMessage && !isMyMessage
+                                ? {
+                                    backgroundColor: "hsl(var(--accent) / 0.15)",
+                                    color: "hsl(var(--foreground))",
+                                  }
+                                : undefined
+                            }
                           >
                             <p className="break-words whitespace-pre-wrap leading-relaxed">
                               {renderWithLinks(msg.content, isMyMessage)}
@@ -352,8 +385,13 @@ export function MessagingInterface({ initialConversationId }: Props) {
                                   ? "text-muted-foreground"
                                   : isMyMessage
                                   ? "text-primary-foreground/70 text-right"
-                                  : "text-muted-foreground"
+                                  : ""
                               }`}
+                              style={
+                                !isSystemMessage && !isMyMessage
+                                  ? { color: "hsl(var(--accent) / 0.6)" }
+                                  : undefined
+                              }
                             >
                               {formatRelativeTime(msg.created_at)}
                             </p>
@@ -369,6 +407,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
                                   : "Me"
                               }
                               size="sm"
+                              variant="primary"
                             />
                           )}
                         </div>
