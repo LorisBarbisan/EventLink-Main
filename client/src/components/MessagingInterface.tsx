@@ -321,22 +321,45 @@ export function MessagingInterface({ initialConversationId }: Props) {
 
             {activeConv ? (
               <>
-                <ConversationAvatar
-                  photoUrl={activeConv.otherUser.profile_photo_url}
-                  initials={getAvatarInitials(activeConv.otherUser)}
-                  size="lg"
-                  variant="accent"
-                />
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm leading-tight truncate">
-                    {getDisplayName(activeConv.otherUser)}
-                  </p>
-                  {!isUserDeleted(activeConv.otherUser) && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {getUserHeadline(activeConv.otherUser)}
-                    </p>
-                  )}
-                </div>
+                {isUserDeleted(activeConv.otherUser) ? (
+                  <div className="flex items-center gap-3 min-w-0">
+                    <ConversationAvatar
+                      photoUrl={activeConv.otherUser.profile_photo_url}
+                      initials={getAvatarInitials(activeConv.otherUser)}
+                      size="lg"
+                      variant="accent"
+                    />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm leading-tight truncate text-muted-foreground">
+                        {getDisplayName(activeConv.otherUser)}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <a
+                    href={`/profile/${activeConv.otherUser.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 min-w-0 group"
+                  >
+                    <div className="transition-opacity group-hover:opacity-80">
+                      <ConversationAvatar
+                        photoUrl={activeConv.otherUser.profile_photo_url}
+                        initials={getAvatarInitials(activeConv.otherUser)}
+                        size="lg"
+                        variant="accent"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm leading-tight truncate group-hover:underline group-hover:text-primary transition-colors">
+                        {getDisplayName(activeConv.otherUser)}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {getUserHeadline(activeConv.otherUser)}
+                      </p>
+                    </div>
+                  </a>
+                )}
               </>
             ) : (
               <div className="flex items-center gap-2 text-muted-foreground">
