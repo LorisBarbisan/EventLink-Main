@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-import { Bell, LogOut, Settings, Star, User, UserCircle } from "lucide-react";
+import { Bell, Building2, CreditCard, LogOut, Settings, Star, User, UserCircle } from "lucide-react";
 import { useLocation } from "wouter";
 
 export const UserMenu = () => {
@@ -159,6 +159,26 @@ export const UserMenu = () => {
           <Settings className="mr-2 h-4 w-4" />
           Settings
         </DropdownMenuItem>
+
+        {user.role === "recruiter" && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => setLocation("/dashboard?tab=profile")}
+              data-testid="menu-company-profile"
+            >
+              <Building2 className="mr-2 h-4 w-4" />
+              Company Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setLocation("/dashboard?tab=billing")}
+              data-testid="menu-billing"
+            >
+              <CreditCard className="mr-2 h-4 w-4" />
+              Billing
+            </DropdownMenuItem>
+          </>
+        )}
 
         <DropdownMenuSeparator />
 
