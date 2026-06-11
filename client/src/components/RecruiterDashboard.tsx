@@ -709,12 +709,6 @@ export default function SimplifiedRecruiterDashboard() {
                   <span className="flex items-center gap-2"><Users2 className="h-4 w-4" /> Team</span>
                 </SelectItem>
               )}
-              <SelectItem value="billing">
-                <span className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Billing</span>
-              </SelectItem>
-              <SelectItem value="profile">
-                <span className="flex items-center gap-2"><Building2 className="h-4 w-4" /> Company Profile</span>
-              </SelectItem>
             </SelectContent>
           </Select>
         </div>
