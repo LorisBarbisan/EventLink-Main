@@ -214,8 +214,8 @@ export function MessagingInterface({ initialConversationId }: Props) {
                 const preview = c.last_message_preview;
 
                 return (
+                  <div key={c.id} className="border-b border-border/50 last:border-b-0">
                   <button
-                    key={c.id}
                     className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors border-l-4 ${isDeleted ? "opacity-60" : ""}`}
                     style={
                       isActive
@@ -273,6 +273,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
                       )}
                     </div>
                   </button>
+                  </div>
                 );
               })
             )}
