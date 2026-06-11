@@ -208,14 +208,14 @@ export function MessagingInterface({ initialConversationId }: Props) {
 
   // --- JSX ---
   return (
-    <div className="flex flex-col gap-0 h-[calc(100vh-180px)] min-h-[500px]">
+    <div className="flex flex-col gap-0">
       {/* Title bar — hidden when a conversation is open on mobile */}
       <div className={`flex items-center gap-2 mb-4 ${selectedConversation ? "hidden lg:flex" : "flex"}`}>
         <MessageCircle className="h-5 w-5" />
         <h1 className="text-2xl font-bold">Messages</h1>
       </div>
 
-      <div className="flex flex-1 overflow-hidden rounded-xl border border-border shadow-sm bg-background">
+      <div className="flex rounded-xl border border-border shadow-sm bg-background" style={{ minHeight: "200px" }}>
         {/* ===== LEFT: Conversation list ===== */}
         <div
           className={`w-full lg:w-[320px] lg:min-w-[280px] flex-shrink-0 border-r border-border flex flex-col ${selectedConversation ? "hidden lg:flex" : "flex"}`}
@@ -226,7 +226,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
             </p>
           </div>
 
-          <ScrollArea className="flex-1">
+          <ScrollArea className="max-h-[70vh]">
             {conversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-10 text-center text-muted-foreground">
                 <MessageCircle className="h-10 w-10 mb-3 opacity-40" />
@@ -307,7 +307,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
         </div>
 
         {/* ===== RIGHT: Chat area ===== */}
-        <div className={`flex-1 flex flex-col overflow-hidden ${!selectedConversation ? "hidden lg:flex" : "flex"}`}>
+        <div className={`flex-1 flex flex-col min-w-0 ${!selectedConversation ? "hidden lg:flex" : "flex"}`}>
           {/* Chat header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-background">
             <Button
@@ -349,7 +349,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
           {/* Messages */}
           {selectedConversation ? (
             <>
-              <ScrollArea className="flex-1 px-4 py-4">
+              <ScrollArea className="px-4 py-4 max-h-[60vh]">
                 <div className="space-y-3">
                   {messagesLoading ? (
                     <div className="flex items-center justify-center py-12">
@@ -462,7 +462,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <MessageCircle className="h-16 w-16 mb-4 opacity-30" />
               <p className="text-base font-medium">Select a conversation to start messaging</p>
             </div>
