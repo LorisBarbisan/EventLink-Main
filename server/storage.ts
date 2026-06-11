@@ -2308,6 +2308,7 @@ export class DatabaseStorage implements IStorage {
         otherUserEmail: users.email,
         otherUserRole: users.role,
         otherUserDeleted: users.deleted_at,
+        otherUserPhoto: users.profile_photo_url,
         // Profile data for freelancers
         freelancerFirstName: freelancer_profiles.first_name,
         freelancerLastName: freelancer_profiles.last_name,
@@ -2406,7 +2407,7 @@ export class DatabaseStorage implements IStorage {
         google_id: null,
         facebook_id: null,
         linkedin_id: null,
-        profile_photo_url: row.freelancerProfilePhoto ?? null,
+        profile_photo_url: row.freelancerProfilePhoto ?? row.otherUserPhoto ?? null,
         title: row.freelancerTitle ?? null,
         last_login_method: null,
         last_login_at: null,

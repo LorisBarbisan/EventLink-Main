@@ -613,6 +613,14 @@ export async function getSession(req: Request, res: Response) {
     // Apply role computation to fresh user data
     const userWithRole = computeUserRole(user);
 
+    // Fetch profile-level photo (freelancer_profiles or recruiter_profiles) to use
+    // in preference over the OAuth user-level photo stored on the users table
+    let profilePhotoUrl: string | null = userWithRole.profile_photo_url ?? null;
+    if (userWithRole.role === "freelancer") {
+      const fp = await storage.getFreelancerProfile(userWithRole.id);
+      if (fp?.profile_photo_url) profilePhotoUrl = fp.profile_photo_url;
+    }
+
     // Check team membership for employer users
     let companyId = userWithRole.id;
     let teamRole: string | null = null;
@@ -642,6 +650,7 @@ export async function getSession(req: Request, res: Response) {
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
         auth_provider: userWithRole.auth_provider || "email",
+        profile_photo_url: profilePhotoUrl,
         companyId,
         teamRole,
         isTeamMember,
