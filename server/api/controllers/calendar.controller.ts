@@ -29,12 +29,16 @@ export const debugCalendar = (req: Request, res: Response) => {
   const envVar = process.env.GOOGLE_CALENDAR_REDIRECT_URI;
   const appUrl = process.env.APP_URL;
   const derived = `${proto}://${host}/api/calendar/google/callback`;
+  const testUrl = getGoogleAuthUrl("test-state", req);
   return res.json({
     GOOGLE_CALENDAR_REDIRECT_URI: envVar || "(not set)",
     APP_URL: appUrl || "(not set)",
+    GOOGLE_CLIENT_ID_SET: !!process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET_SET: !!process.env.GOOGLE_CLIENT_SECRET,
     x_forwarded_host: req.headers["x-forwarded-host"] || "(not set)",
     host_header: req.headers.host || "(not set)",
     redirect_uri_that_will_be_used: envVar || derived,
+    generated_auth_url: testUrl,
   });
 };
 
