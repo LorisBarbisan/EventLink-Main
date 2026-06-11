@@ -2311,8 +2311,24 @@ export class DatabaseStorage implements IStorage {
         // Profile data for freelancers
         freelancerFirstName: freelancer_profiles.first_name,
         freelancerLastName: freelancer_profiles.last_name,
+        freelancerProfilePhoto: freelancer_profiles.profile_photo_url,
+        freelancerTitle: freelancer_profiles.title,
         // Profile data for recruiters
         recruiterCompanyName: recruiter_profiles.company_name,
+        // Last message preview
+        lastMessagePreview: sql<string | null>`(
+          SELECT content FROM messages
+          WHERE messages.conversation_id = ${conversations.id}
+          ORDER BY messages.created_at DESC
+          LIMIT 1
+        )`,
+        // Unread count (messages from the other user that are unread)
+        unreadCount: sql<number>`(
+          SELECT COUNT(*) FROM messages
+          WHERE messages.conversation_id = ${conversations.id}
+          AND messages.sender_id != ${userId}
+          AND messages.is_read = false
+        )`,
       })
       .from(conversations)
       .leftJoin(
@@ -2390,7 +2406,8 @@ export class DatabaseStorage implements IStorage {
         google_id: null,
         facebook_id: null,
         linkedin_id: null,
-        profile_photo_url: null,
+        profile_photo_url: row.freelancerProfilePhoto ?? null,
+        title: row.freelancerTitle ?? null,
         last_login_method: null,
         last_login_at: null,
         deleted_at: row.otherUserDeleted,
@@ -2398,6 +2415,8 @@ export class DatabaseStorage implements IStorage {
         created_at: new Date(),
         updated_at: new Date(),
       },
+      last_message_preview: row.lastMessagePreview ?? null,
+      unread_count: Number(row.unreadCount) || 0,
     }));
   }
 
