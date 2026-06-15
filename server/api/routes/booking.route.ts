@@ -18,6 +18,8 @@ import {
   getBookingsByJob,
   getBookingsSummary,
   getBookingsForCalendar,
+  getIcalToken,
+  serveIcalFeed,
 } from "../controllers/booking.controller";
 
 const router = Router();
@@ -35,9 +37,15 @@ router.patch("/:bookingId/ir35", requireRole("recruiter"), requireFmsAccess, upd
 
 // ── Freelancer routes ─────────────────────────────────────
 router.get("/freelancer", requireRole("freelancer"), getFreelancerBookings);
+router.get("/ical/token", requireRole("freelancer"), getIcalToken);
 
 // ── Shared routes ─────────────────────────────────────────
 router.get("/:id", getBookingById);
 router.patch("/:id/status", updateBookingStatus);
 
 export default router;
+
+// Public iCal feed — token-secured, no JWT required (used by calendar apps)
+import { Router as PublicRouter } from "express";
+export const publicBookingRouter = PublicRouter();
+publicBookingRouter.get("/ical/:userId/:token", serveIcalFeed);

@@ -29,7 +29,7 @@ import { registerRatingsRoutes } from "./api/routes/rating.route.js";
 import { registerSeoRoutes } from "./api/routes/seo.route.js";
 import { registerSavedFreelancerRoutes } from "./api/routes/saved-freelancers.route.js";
 import referenceRouter from "./api/routes/reference.route.js";
-import bookingRouter from "./api/routes/booking.route.js";
+import bookingRouter, { publicBookingRouter } from "./api/routes/booking.route.js";
 import teamRouter from "./api/routes/team.route.js";
 import enquiryRouter from "./api/routes/enquiry.route.js";
 import briefRouter from "./api/routes/brief.route.js";
@@ -263,6 +263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerSavedFreelancerRoutes(app);
   app.use("/api/references", referenceRouter);
   app.use("/api/bookings", bookingRouter);
+  app.use("/api/bookings", publicBookingRouter);
   app.use("/api/enquiries", enquiryRouter);
   app.use("/api/briefs", briefRouter);
   app.use("/api/calendar", calendarRouter);

@@ -13,7 +13,8 @@ import {
   type BookingStatus,
   bookingStatusValues,
 } from "../../../shared/schema";
-import { eq, and, desc, or } from "drizzle-orm";
+import { eq, and, desc, or, inArray } from "drizzle-orm";
+import { createHmac } from "crypto";
 import { storage } from "../../storage.js";
 
 // ── Valid status transitions ───────────────────────────────
@@ -482,5 +483,109 @@ export async function getBookingsSummary(req: Request, res: Response) {
   } catch (error) {
     console.error("getBookingsSummary error:", error);
     return res.status(500).json({ error: "Failed to fetch bookings summary" });
+  }
+}
+
+// ── iCal feed for freelancer (public but token-secured) ────────────────────
+// GET /api/bookings/ical/:userId/:token
+// Returns an iCal feed of confirmed/briefed/completed bookings for a freelancer.
+// Token is a simple HMAC so the URL is hard to guess without being auth-gated.
+
+function makeIcalToken(userId: number): string {
+  const secret = process.env.JWT_SECRET ?? "ical-secret";
+  return createHmac("sha256", secret).update(`ical-${userId}`).digest("hex").slice(0, 24);
+}
+
+export function getIcalToken(req: Request, res: Response) {
+  const userId = req.user!.id;
+  const token = makeIcalToken(userId);
+  const host = req.headers["x-forwarded-host"] as string || req.headers.host || "";
+  const proto = (req.headers["x-forwarded-proto"] as string) || "https";
+  return res.json({ url: `${proto}://${host}/api/bookings/ical/${userId}/${token}` });
+}
+
+export async function serveIcalFeed(req: Request, res: Response) {
+  try {
+    const userId = parseInt(req.params.userId);
+    const token = req.params.token;
+    if (makeIcalToken(userId) !== token) {
+      return res.status(401).send("Unauthorised");
+    }
+
+    const rows = await db
+      .select({
+        id: bookings.id,
+        eventDate: bookings.eventDate,
+        callTime: bookings.callTime,
+        venueAddress: bookings.venueAddress,
+        roleRequired: bookings.roleRequired,
+        status: bookings.status,
+        updatedAt: bookings.updatedAt,
+        employerName: users.email,
+      })
+      .from(bookings)
+      .leftJoin(users, eq(users.id, bookings.employerId))
+      .where(
+        and(
+          eq(bookings.freelancerId, userId),
+          inArray(bookings.status, ["confirmed", "briefed", "completed"])
+        )
+      );
+
+    const icalLines: string[] = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//EventLink//Bookings//EN",
+      "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
+      "X-WR-CALNAME:EventLink Bookings",
+      "X-WR-TIMEZONE:Europe/London",
+    ];
+
+    for (const b of rows) {
+      if (!b.eventDate) continue;
+      const dateStr = b.eventDate.replace(/-/g, "");
+      const uid = `booking-${b.id}@eventlink.one`;
+      const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+      const updated = (b.updatedAt ?? new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+
+      let dtStart: string;
+      let dtEnd: string;
+      if (b.callTime) {
+        const [h, m] = b.callTime.split(":").map(Number);
+        const start = new Date(`${b.eventDate}T${String(h).padStart(2,"0")}:${String(m||0).padStart(2,"0")}:00`);
+        const end = new Date(start.getTime() + 8 * 60 * 60 * 1000);
+        dtStart = `DTSTART:${start.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"")}`;
+        dtEnd = `DTEND:${end.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"")}`;
+      } else {
+        dtStart = `DTSTART;VALUE=DATE:${dateStr}`;
+        dtEnd = `DTEND;VALUE=DATE:${dateStr}`;
+      }
+
+      const summary = `[${b.status.toUpperCase()}] EventLink Booking${b.roleRequired ? ` — ${b.roleRequired}` : ""}`;
+      const location = b.venueAddress ?? "";
+
+      icalLines.push(
+        "BEGIN:VEVENT",
+        `UID:${uid}`,
+        `DTSTAMP:${now}`,
+        `LAST-MODIFIED:${updated}`,
+        dtStart,
+        dtEnd,
+        `SUMMARY:${summary}`,
+        ...(location ? [`LOCATION:${location.replace(/\n/g, "\n")}`] : []),
+        "END:VEVENT"
+      );
+    }
+
+    icalLines.push("END:VCALENDAR");
+
+    res.set("Content-Type", "text/calendar; charset=utf-8");
+    res.set("Content-Disposition", 'attachment; filename="eventlink-bookings.ics"');
+    res.set("Cache-Control", "no-cache");
+    return res.send(icalLines.join("\r\n"));
+  } catch (err: any) {
+    console.error("iCal feed error:", err.message);
+    return res.status(500).send("Error generating calendar feed");
   }
 }
