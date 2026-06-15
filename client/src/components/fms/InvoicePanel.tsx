@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import {
-  Plus, Trash2, Send, Receipt, Pencil, Save, CheckCircle, AlertCircle
+  Plus, Trash2, Send, Receipt, Pencil, Save, CheckCircle,
+  ChevronDown, ChevronUp, Building2, Calendar, MapPin, Mail, ArrowRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,7 +27,6 @@ interface Invoice {
   clientAddress: string | null;
   eventName: string | null;
   eventDate: string | null;
-  invoiceNumber_: string;
   status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   issueDate: string;
   dueDate: string;
@@ -34,6 +34,7 @@ interface Invoice {
   subtotal: number;
   vatRate: number;
   vatAmount: number;
+  discount: number | null;
   total: number;
   amountPaid: number | null;
   notes: string | null;
@@ -123,7 +124,7 @@ function LineEditor({ lines, onChange }: { lines: LineItem[]; onChange: (l: Line
   );
 }
 
-// ── Invoice Form ───────────────────────────────────────────────────────────
+// ── Invoice Form Data ──────────────────────────────────────────────────────
 
 interface InvoiceFormData {
   clientName: string;
@@ -186,61 +187,188 @@ function InvoiceRow({
   onSend,
   onMarkPaid,
   onDelete,
+  onViewQuote,
 }: {
   invoice: Invoice;
   onEdit: () => void;
   onSend: () => void;
   onMarkPaid: () => void;
   onDelete: () => void;
+  onViewQuote?: (quoteId: number) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   const isOverdue =
     invoice.status === "sent" &&
     invoice.dueDate &&
     new Date(invoice.dueDate) < new Date();
 
+  const effectiveStatus = isOverdue ? "overdue" : invoice.status;
+
+  const { data: detail } = useQuery<{ invoice: Invoice; lines: LineItem[] }>({
+    queryKey: ["/api/fms/invoices", invoice.id, "detail"],
+    queryFn: () => apiRequest(`/api/fms/invoices/${invoice.id}`),
+    enabled: expanded,
+    staleTime: 30000,
+  });
+
+  const lines = detail?.lines ?? [];
+
   return (
-    <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 hover:shadow-sm transition-shadow">
-      <Receipt className="h-5 w-5 text-gray-400 flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-gray-900 text-sm">{invoice.invoiceNumber}</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isOverdue ? "bg-red-100 text-red-600" : STATUS_STYLES[invoice.status]}`}>
-            {isOverdue ? "Overdue" : invoice.status}
-          </span>
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* Header row — click anywhere to expand */}
+      <div
+        className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <Receipt className="h-5 w-5 text-gray-400 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium text-gray-900 text-sm">{invoice.invoiceNumber}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[effectiveStatus]}`}>
+              {isOverdue ? "Overdue" : invoice.status}
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 truncate">
+            {invoice.clientName}
+            {invoice.clientCompany && ` · ${invoice.clientCompany}`}
+            {invoice.eventName && ` · ${invoice.eventName}`}
+          </p>
+          <p className="text-xs text-gray-400">
+            {fmt(invoice.total)} · Due: {invoice.dueDate && format(new Date(invoice.dueDate), "d MMM yyyy")}
+            {invoice.quoteId && (
+              <button
+                className="ml-2 text-blue-500 hover:text-blue-700 hover:underline"
+                onClick={(e) => { e.stopPropagation(); onViewQuote?.(invoice.quoteId!); }}
+              >
+                (from quote)
+              </button>
+            )}
+          </p>
         </div>
-        <p className="text-sm text-gray-500 truncate">
-          {invoice.clientName}
-          {invoice.clientCompany && ` · ${invoice.clientCompany}`}
-          {invoice.eventName && ` · ${invoice.eventName}`}
-        </p>
-        <p className="text-xs text-gray-400">
-          {fmt(invoice.total)} · Due: {invoice.dueDate && format(new Date(invoice.dueDate), "d MMM yyyy")}
-          {invoice.quoteId && <span className="ml-1 text-blue-400">(from quote)</span>}
-        </p>
-      </div>
-      <div className="flex items-center gap-1 flex-shrink-0">
-        {invoice.status === "draft" && (
-          <>
-            <button onClick={onEdit} title="Edit" className="p-1.5 text-gray-400 hover:text-blue-600 rounded">
-              <Pencil className="h-4 w-4" />
+        <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          {invoice.status === "draft" && (
+            <>
+              <button onClick={onEdit} title="Edit" className="p-1.5 text-gray-400 hover:text-blue-600 rounded">
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button onClick={onSend} title="Mark as sent" className="p-1.5 text-gray-400 hover:text-blue-600 rounded">
+                <Send className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          {(invoice.status === "sent" || isOverdue) && (
+            <button
+              onClick={onMarkPaid}
+              className="flex items-center gap-1 text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              <CheckCircle className="h-3 w-3" /> Paid
             </button>
-            <button onClick={onSend} title="Mark as sent" className="p-1.5 text-gray-400 hover:text-blue-600 rounded">
-              <Send className="h-4 w-4" />
-            </button>
-          </>
-        )}
-        {(invoice.status === "sent" || isOverdue) && (
-          <button
-            onClick={onMarkPaid}
-            className="flex items-center gap-1 text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-          >
-            <CheckCircle className="h-3 w-3" /> Paid
+          )}
+          <button onClick={onDelete} title="Delete" className="p-1.5 text-gray-400 hover:text-red-500 rounded">
+            <Trash2 className="h-4 w-4" />
           </button>
-        )}
-        <button onClick={onDelete} title="Delete" className="p-1.5 text-gray-400 hover:text-red-500 rounded">
-          <Trash2 className="h-4 w-4" />
-        </button>
+          <button className="p-1.5 text-gray-400 hover:text-gray-700 rounded" onClick={() => setExpanded(!expanded)}>
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div className="border-t border-gray-100 bg-gray-50 p-4 space-y-4">
+          {/* Client + Event */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Client</h4>
+              <p className="text-sm font-medium text-gray-900">{invoice.clientName}</p>
+              {invoice.clientCompany && (
+                <p className="text-sm text-gray-600 flex items-center gap-1"><Building2 className="h-3 w-3" />{invoice.clientCompany}</p>
+              )}
+              {invoice.clientEmail && (
+                <p className="text-sm text-gray-600 flex items-center gap-1"><Mail className="h-3 w-3" />{invoice.clientEmail}</p>
+              )}
+              {invoice.clientAddress && (
+                <p className="text-sm text-gray-500 flex items-start gap-1"><MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />{invoice.clientAddress}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Invoice Details</h4>
+              {invoice.eventName && <p className="text-sm font-medium text-gray-900">{invoice.eventName}</p>}
+              {invoice.eventDate && (
+                <p className="text-sm text-gray-600 flex items-center gap-1"><Calendar className="h-3 w-3" />{format(new Date(invoice.eventDate), "d MMMM yyyy")}</p>
+              )}
+              <p className="text-sm text-gray-600">Issued: {format(new Date(invoice.issueDate), "d MMM yyyy")}</p>
+              <p className="text-sm text-gray-600">Due: {format(new Date(invoice.dueDate), "d MMM yyyy")}</p>
+              {invoice.paidAt && (
+                <p className="text-sm text-green-700 font-medium">Paid: {format(new Date(invoice.paidAt), "d MMM yyyy")}</p>
+              )}
+              {invoice.quoteId && onViewQuote && (
+                <button
+                  onClick={() => onViewQuote(invoice.quoteId!)}
+                  className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  <ArrowRight className="h-3 w-3" /> View original quote
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Line items */}
+          {lines.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Line Items</h4>
+              <div className="bg-white rounded border border-gray-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">Description</th>
+                      <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Qty</th>
+                      <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Unit</th>
+                      <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lines.map((l, i) => (
+                      <tr key={i} className="border-b border-gray-100 last:border-0">
+                        <td className="px-3 py-2 text-gray-800">{l.description}</td>
+                        <td className="px-3 py-2 text-right text-gray-600">{l.quantity}</td>
+                        <td className="px-3 py-2 text-right text-gray-600">{fmt(l.unitPrice)}</td>
+                        <td className="px-3 py-2 text-right font-medium text-gray-900">{fmt(l.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="bg-gray-50 border-t border-gray-200 px-3 py-2 space-y-0.5 text-right text-sm">
+                  <div className="text-gray-500">Subtotal: <span className="font-medium text-gray-800">{fmt(invoice.subtotal)}</span></div>
+                  {invoice.discount ? <div className="text-gray-500">Discount: <span className="font-medium text-gray-800">-{fmt(invoice.discount)}</span></div> : null}
+                  <div className="text-gray-500">VAT ({invoice.vatRate}%): <span className="font-medium text-gray-800">{fmt(invoice.vatAmount)}</span></div>
+                  <div className="text-base font-bold text-gray-900">Total: {fmt(invoice.total)}</div>
+                  {invoice.amountPaid ? <div className="text-green-700 font-medium">Paid: {fmt(invoice.amountPaid)}</div> : null}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notes / Terms */}
+          {(invoice.notes || invoice.terms) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              {invoice.notes && (
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Notes</h4>
+                  <p className="text-gray-600 whitespace-pre-line">{invoice.notes}</p>
+                </div>
+              )}
+              {invoice.terms && (
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Terms</h4>
+                  <p className="text-gray-600 whitespace-pre-line">{invoice.terms}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -312,11 +440,15 @@ export function InvoicePanel() {
   const totals = totalsFromForm(form);
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
-  // Aggregate stats
   const outstanding = invoices
     .filter((i) => i.status === "sent" || i.status === "overdue")
     .reduce((s, i) => s + i.total, 0);
   const paid = invoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.total, 0);
+
+  // Navigate to quotes tab and highlight a specific quote
+  const handleViewQuote = (quoteId: number) => {
+    window.dispatchEvent(new CustomEvent("dashboard:switch-tab", { detail: { tab: "quotes", highlightId: quoteId } }));
+  };
 
   return (
     <div className="space-y-4">
@@ -399,7 +531,6 @@ export function InvoicePanel() {
             </div>
           </div>
 
-          {/* Line items */}
           <div>
             <h4 className="text-sm font-medium text-gray-700 mb-2">Line Items</h4>
             <div className="grid grid-cols-12 gap-1 mb-1 text-xs text-gray-400 font-medium">
@@ -412,7 +543,6 @@ export function InvoicePanel() {
             <LineEditor lines={form.lines} onChange={(lines) => setForm({ ...form, lines })} />
           </div>
 
-          {/* VAT */}
           <div className="flex gap-3">
             <div className="w-32">
               <label className="block text-xs font-medium text-gray-600 mb-1">VAT Rate (%)</label>
@@ -421,14 +551,12 @@ export function InvoicePanel() {
             </div>
           </div>
 
-          {/* Totals */}
           <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1 text-right">
             <div className="text-gray-500">Subtotal: <span className="font-medium text-gray-900">{fmt(totals.subtotal)}</span></div>
             <div className="text-gray-500">VAT ({form.vatRate}%): <span className="font-medium text-gray-900">{fmt(totals.vatAmount)}</span></div>
             <div className="text-gray-800 font-bold text-base">Total: {fmt(totals.total)}</div>
           </div>
 
-          {/* Notes / Terms */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
@@ -480,6 +608,7 @@ export function InvoicePanel() {
               onSend={() => sendMutation.mutate(inv.id)}
               onMarkPaid={() => paidMutation.mutate(inv.id)}
               onDelete={() => deleteMutation.mutate(inv.id)}
+              onViewQuote={handleViewQuote}
             />
           ))}
         </div>

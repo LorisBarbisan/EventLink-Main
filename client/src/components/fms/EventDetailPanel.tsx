@@ -15,9 +15,11 @@ import {
   Briefcase,
   ExternalLink,
   XCircle,
+  FileText,
+  Users,
+  DollarSign,
 } from "lucide-react";
 import { format } from "date-fns";
-import { useLocation } from "wouter";
 import { CancelBookingConfirmModal } from "./CancelBookingConfirmModal";
 import { useState } from "react";
 
@@ -38,14 +40,24 @@ const STATUS_COLOURS: Record<string, string> = {
   paused: "bg-yellow-100 text-yellow-700 border-yellow-200",
 };
 
+function switchTab(tab: string, extra?: Record<string, any>) {
+  window.dispatchEvent(new CustomEvent("dashboard:switch-tab", { detail: { tab, ...extra } }));
+}
+
+function openProfile(freelancerId: number) {
+  window.dispatchEvent(new CustomEvent("profile:open", { detail: { freelancerId } }));
+}
+
+function openJobDetail(jobId: number) {
+  window.dispatchEvent(new CustomEvent("job:open-detail", { detail: { jobId } }));
+}
+
 export function EventDetailPanel({ event, open, onOpenChange }: Props) {
-  const [, setLocation] = useLocation();
   const [cancelOpen, setCancelOpen] = useState(false);
 
   if (!event) return null;
 
   const isJob = event.calendarType === "job";
-
   const date = event.eventDate || event.event_date;
   const formattedDate = date ? format(new Date(date), "EEEE, d MMMM yyyy") : null;
 
@@ -91,11 +103,36 @@ export function EventDetailPanel({ event, open, onOpenChange }: Props) {
               )}
               {event.rate && (
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <span className="font-medium">Rate:</span>
+                  <DollarSign className="h-4 w-4 flex-shrink-0" />
                   <span>{event.rate}</span>
                 </div>
               )}
+              {(event.start_time || event.end_time) && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-4 w-4 flex-shrink-0" />
+                  <span>{event.start_time}{event.end_time ? ` – ${event.end_time}` : ""}</span>
+                </div>
+              )}
+              {(event.application_count != null || event.hired_count != null) && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Users className="h-4 w-4 flex-shrink-0" />
+                  <span>
+                    {event.application_count ?? 0} application{event.application_count !== 1 ? "s" : ""}
+                    {event.hired_count > 0 && ` · ${event.hired_count} hired`}
+                  </span>
+                </div>
+              )}
             </div>
+
+            {event.description && (
+              <>
+                <Separator />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                  <p className="text-sm whitespace-pre-wrap">{event.description}</p>
+                </div>
+              </>
+            )}
 
             <Separator />
 
@@ -105,7 +142,31 @@ export function EventDetailPanel({ event, open, onOpenChange }: Props) {
                 size="sm"
                 className="w-full"
                 onClick={() => {
-                  setLocation(`/employer?tab=jobs`);
+                  if (event.id) openJobDetail(event.id);
+                  onOpenChange(false);
+                }}
+              >
+                <FileText className="h-3.5 w-3.5 mr-1.5" />
+                View Job Details
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  switchTab("applications");
+                  onOpenChange(false);
+                }}
+              >
+                <Users className="h-3.5 w-3.5 mr-1.5" />
+                View Applications
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  switchTab("jobs");
                   onOpenChange(false);
                 }}
               >
@@ -119,6 +180,9 @@ export function EventDetailPanel({ event, open, onOpenChange }: Props) {
     );
   }
 
+  // Booking event
+  const freelancerId = event.freelancerId || event.freelancer_id;
+
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
@@ -131,7 +195,21 @@ export function EventDetailPanel({ event, open, onOpenChange }: Props) {
           </SheetHeader>
           <div className="mt-6 space-y-5">
             <div>
-              <h3 className="font-semibold text-lg">{event.freelancerName || "Unnamed Freelancer"}</h3>
+              {freelancerId ? (
+                <button
+                  className="text-left group"
+                  onClick={() => {
+                    openProfile(freelancerId);
+                    onOpenChange(false);
+                  }}
+                >
+                  <h3 className="font-semibold text-lg text-blue-600 group-hover:underline">
+                    {event.freelancerName || "Unnamed Freelancer"}
+                  </h3>
+                </button>
+              ) : (
+                <h3 className="font-semibold text-lg">{event.freelancerName || "Unnamed Freelancer"}</h3>
+              )}
               {event.freelancerTitle && (
                 <p className="text-sm text-muted-foreground">{event.freelancerTitle}</p>
               )}
@@ -167,8 +245,26 @@ export function EventDetailPanel({ event, open, onOpenChange }: Props) {
               )}
               {event.agreedRate && (
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <span className="font-medium">Rate:</span>
+                  <DollarSign className="h-4 w-4 flex-shrink-0" />
                   <span>{event.agreedRate}</span>
+                </div>
+              )}
+              {event.jobTitle && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Briefcase className="h-4 w-4 flex-shrink-0" />
+                  {event.jobId ? (
+                    <button
+                      className="text-blue-600 hover:underline text-left"
+                      onClick={() => {
+                        openJobDetail(event.jobId);
+                        onOpenChange(false);
+                      }}
+                    >
+                      {event.jobTitle}
+                    </button>
+                  ) : (
+                    <span>{event.jobTitle}</span>
+                  )}
                 </div>
               )}
             </div>
@@ -186,17 +282,43 @@ export function EventDetailPanel({ event, open, onOpenChange }: Props) {
             <Separator />
 
             <div className="flex flex-col gap-2">
+              {freelancerId && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    openProfile(freelancerId);
+                    onOpenChange(false);
+                  }}
+                >
+                  <User className="h-3.5 w-3.5 mr-1.5" />
+                  View Freelancer Profile
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
                 className="w-full"
                 onClick={() => {
-                  setLocation("/employer?tab=bookings");
+                  switchTab("bookings");
                   onOpenChange(false);
                 }}
               >
                 <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                 Go to Bookings
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  switchTab("crew");
+                  onOpenChange(false);
+                }}
+              >
+                <Users className="h-3.5 w-3.5 mr-1.5" />
+                Go to My Crew
               </Button>
               {event.status !== "cancelled" && event.status !== "completed" && (
                 <Button

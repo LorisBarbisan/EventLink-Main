@@ -5097,6 +5097,7 @@ export class DatabaseStorage implements IStorage {
         freelancerPhoto: freelancer_profiles.profile_photo_url,
         freelancerTitle: freelancer_profiles.title,
         jobEventDate: jobs.event_date,
+        jobTitle: jobs.title,
       })
       .from(bookings)
       .leftJoin(users, eq(bookings.freelancerId, users.id))
@@ -5117,6 +5118,7 @@ export class DatabaseStorage implements IStorage {
       freelancerName: `${r.freelancerFirstName ?? ""} ${r.freelancerLastName ?? ""}`.trim(),
       freelancerPhoto: r.freelancerPhoto ?? null,
       freelancerTitle: r.freelancerTitle ?? null,
+      jobTitle: r.jobTitle ?? null,
     }));
 
     // Also fetch jobs for the same employer(s) — exclude closed jobs

@@ -226,8 +226,8 @@ function QuoteRow({
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      {/* Header row */}
-      <div className="flex items-center gap-3 p-3">
+      {/* Header row — click anywhere to expand */}
+      <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => setExpanded(!expanded)}>
         <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -246,7 +246,7 @@ function QuoteRow({
             {fmt(quote.total)} · {quote.createdAt && format(new Date(quote.createdAt), "d MMM yyyy")}
           </p>
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
           {quote.status === "draft" && (
             <>
               <button onClick={onEdit} title="Edit" className="p-1.5 text-gray-400 hover:text-blue-600 rounded">

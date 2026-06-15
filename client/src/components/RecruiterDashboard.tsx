@@ -175,6 +175,30 @@ export default function SimplifiedRecruiterDashboard() {
     };
   }, [activeTab]);
 
+  // Listen for cross-component navigation events
+  useEffect(() => {
+    const onSwitchTab = (e: CustomEvent) => {
+      const { tab } = e.detail;
+      if (tab) setActiveTab(tab);
+    };
+    const onOpenProfile = (e: CustomEvent) => {
+      const { freelancerId } = e.detail;
+      if (freelancerId) setSelectedFreelancerId(freelancerId);
+    };
+    const onOpenJob = (e: CustomEvent) => {
+      const { jobId } = e.detail;
+      if (jobId) setSelectedJobDetailId(jobId);
+    };
+    window.addEventListener("dashboard:switch-tab", onSwitchTab as EventListener);
+    window.addEventListener("profile:open", onOpenProfile as EventListener);
+    window.addEventListener("job:open-detail", onOpenJob as EventListener);
+    return () => {
+      window.removeEventListener("dashboard:switch-tab", onSwitchTab as EventListener);
+      window.removeEventListener("profile:open", onOpenProfile as EventListener);
+      window.removeEventListener("job:open-detail", onOpenJob as EventListener);
+    };
+  }, []);
+
   // Use custom hooks - only call when user ID is available
   const {
     profile,
