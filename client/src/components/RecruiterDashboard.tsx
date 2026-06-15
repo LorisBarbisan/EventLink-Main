@@ -13,6 +13,8 @@ import { Ir35GuidanceTab } from "./fms/Ir35GuidanceTab";
 import { TeamManagementPanel } from "./fms/TeamManagementPanel";
 import { BookingCalendar } from "./fms/BookingCalendar";
 import { CompanyProfilePanel } from "./fms/CompanyProfilePanel";
+import { QuotingPanel } from "./fms/QuotingPanel";
+import { InvoicePanel } from "./fms/InvoicePanel";
 import { EnquiryList } from "./fms/EnquiryList";
 import { ExportButton } from "./fms/ExportButton";
 import { SendEnquiryModal } from "./fms/SendEnquiryModal";
@@ -30,10 +32,12 @@ import {
   CalendarDays,
   ClipboardList,
   CreditCard,
+  FileText,
   Loader2,
   MapPin,
   MessageSquare,
   Plus,
+  Receipt,
   Scale,
   Search,
   Send,
@@ -714,6 +718,12 @@ export default function SimplifiedRecruiterDashboard() {
               <SelectItem value="crew">
                 <span className="flex items-center gap-2"><Users className="h-4 w-4" /> My Crew</span>
               </SelectItem>
+              <SelectItem value="quotes">
+                <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> Quotes</span>
+              </SelectItem>
+              <SelectItem value="invoices">
+                <span className="flex items-center gap-2"><Receipt className="h-4 w-4" /> Invoices</span>
+              </SelectItem>
               <SelectItem value="ir35">
                 <span className="flex items-center gap-2"><Scale className="h-4 w-4" /> IR35</span>
               </SelectItem>
@@ -729,6 +739,14 @@ export default function SimplifiedRecruiterDashboard() {
         {/* Profile Tab */}
         <TabsContent value="profile">
           <CompanyProfilePanel />
+        </TabsContent>
+        {/* Quotes Tab */}
+        <TabsContent value="quotes">
+          <QuotingPanel />
+        </TabsContent>
+        {/* Invoices Tab */}
+        <TabsContent value="invoices">
+          <InvoicePanel />
         </TabsContent>
         {/* My Crew Tab */}
         <TabsContent value="crew" className="space-y-6">
