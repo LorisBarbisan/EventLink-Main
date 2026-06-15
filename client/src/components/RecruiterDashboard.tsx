@@ -70,6 +70,7 @@ export default function SimplifiedRecruiterDashboard() {
   const [calendarJobDate, setCalendarJobDate] = useState<Date | null>(null);
   const [calendarJobDialogOpen, setCalendarJobDialogOpen] = useState(false);
   const [selectedJobDetailId, setSelectedJobDetailId] = useState<number | null>(null);
+  const [selectedFreelancerId, setSelectedFreelancerId] = useState<number | null>(null);
   const [expandedJobs, setExpandedJobs] = useState<Set<number>>(new Set());
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedJobForInvite, setSelectedJobForInvite] = useState<{
@@ -212,6 +213,17 @@ export default function SimplifiedRecruiterDashboard() {
     queryKey: ["/api/jobs", selectedJobDetailId, "detail"],
     queryFn: () => apiRequest(`/api/jobs/${selectedJobDetailId}/detail`),
     enabled: selectedJobDetailId !== null,
+    retry: 1,
+  });
+
+  const { data: freelancerProfileData, isLoading: freelancerProfileLoading } = useQuery<{
+    user_id: number; first_name: string; last_name: string; title?: string;
+    bio?: string; location?: string; experience_years?: number; daily_rate?: number;
+    skills?: string[]; profile_image_url?: string;
+  }>({
+    queryKey: ["/api/freelancer", selectedFreelancerId],
+    queryFn: () => apiRequest(`/api/freelancer/${selectedFreelancerId}`),
+    enabled: selectedFreelancerId !== null,
     retry: 1,
   });
 
@@ -847,7 +859,7 @@ export default function SimplifiedRecruiterDashboard() {
                 <Card
                   key={freelancer.user_id}
                   className="cursor-pointer transition-shadow hover:shadow-md"
-                  onClick={() => setLocation(`/profile/${freelancer.user_id}`)}
+                  onClick={() => setSelectedFreelancerId(freelancer.user_id)}
                 >
                   <CardContent className="p-4">
                     <div className="mb-3 flex items-start justify-between">
@@ -1217,6 +1229,94 @@ export default function SimplifiedRecruiterDashboard() {
           </DialogContent>
         </Dialog>
 
+        {/* Freelancer Profile Dialog */}
+        <Dialog open={selectedFreelancerId !== null} onOpenChange={(open) => { if (!open) setSelectedFreelancerId(null); }}>
+          <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl">
+                {freelancerProfileLoading ? "Loading..." : freelancerProfileData
+                  ? `${freelancerProfileData.first_name} ${freelancerProfileData.last_name}`
+                  : "Freelancer Profile"}
+              </DialogTitle>
+            </DialogHeader>
+            {freelancerProfileLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+              </div>
+            ) : freelancerProfileData ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  {freelancerProfileData.profile_image_url ? (
+                    <img
+                      src={freelancerProfileData.profile_image_url}
+                      alt={`${freelancerProfileData.first_name} ${freelancerProfileData.last_name}`}
+                      className="h-16 w-16 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-100">
+                      <User className="h-8 w-8 text-orange-600" />
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      {freelancerProfileData.first_name} {freelancerProfileData.last_name}
+                    </h3>
+                    {freelancerProfileData.title && (
+                      <p className="text-muted-foreground">{freelancerProfileData.title}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {freelancerProfileData.location && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Location</p>
+                      <p className="font-medium">{freelancerProfileData.location}</p>
+                    </div>
+                  )}
+                  {freelancerProfileData.experience_years != null && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Experience</p>
+                      <p className="font-medium">{freelancerProfileData.experience_years} years</p>
+                    </div>
+                  )}
+                  {freelancerProfileData.daily_rate != null && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Day Rate</p>
+                      <p className="font-medium">£{freelancerProfileData.daily_rate}</p>
+                    </div>
+                  )}
+                </div>
+                {freelancerProfileData.bio && (
+                  <div>
+                    <p className="mb-1 text-sm text-muted-foreground">About</p>
+                    <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm">{freelancerProfileData.bio}</p>
+                  </div>
+                )}
+                {freelancerProfileData.skills && freelancerProfileData.skills.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-sm text-muted-foreground">Skills</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {freelancerProfileData.skills.map((skill) => (
+                        <Badge key={skill} variant="secondary">{skill}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-end">
+                  <a
+                    href={`/profile/${selectedFreelancerId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    View full profile →
+                  </a>
+                </div>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+
         {/* Messages Tab */}
         <TabsContent value="messages" className="space-y-6">
           <div className="mb-6 flex items-center justify-between">
@@ -1288,6 +1388,8 @@ export default function SimplifiedRecruiterDashboard() {
                       application={application}
                       userType="recruiter"
                       currentUserId={user.id}
+                      onJobClick={(jobId) => setSelectedJobDetailId(jobId)}
+                      onFreelancerClick={(freelancerId) => setSelectedFreelancerId(freelancerId)}
                     />
                   ))}
                 </div>

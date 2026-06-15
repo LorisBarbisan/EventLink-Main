@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import {
   Plus, Trash2, Send, FileText, ChevronDown, ChevronUp,
-  Check, X, Copy, ArrowRight, Pencil, Save
+  Check, X, Copy, ArrowRight, Pencil, Save, Eye, Building2, Calendar, MapPin, Mail
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -41,6 +41,7 @@ interface Quote {
   terms: string | null;
   sentAt: string | null;
   acceptedAt: string | null;
+  acceptedByName: string | null;
   bookingId: number | null;
   createdAt: string;
 }
@@ -213,64 +214,157 @@ function QuoteRow({
   onConvert: () => void;
   onDelete: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data: detail } = useQuery<{ quote: Quote; lines: LineItem[] }>({
+    queryKey: ["/api/fms/quotes", quote.id, "detail"],
+    queryFn: () => apiRequest(`/api/fms/quotes/${quote.id}`),
+    enabled: expanded,
+    staleTime: 30000,
+  });
+
+  const lines = detail?.lines ?? [];
+
   return (
-    <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 hover:shadow-sm transition-shadow">
-      <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-gray-900 text-sm">{quote.quoteNumber}</span>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[quote.status]}`}
-          >
-            {quote.status}
-          </span>
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* Header row */}
+      <div className="flex items-center gap-3 p-3">
+        <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium text-gray-900 text-sm">{quote.quoteNumber}</span>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[quote.status]}`}>
+              {quote.status}
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 truncate">
+            {quote.clientName}
+            {quote.clientCompany && ` · ${quote.clientCompany}`}
+            {" · "}
+            {quote.eventName}
+          </p>
+          <p className="text-xs text-gray-400">
+            {fmt(quote.total)} · {quote.createdAt && format(new Date(quote.createdAt), "d MMM yyyy")}
+          </p>
         </div>
-        <p className="text-sm text-gray-500 truncate">
-          {quote.clientName}
-          {quote.clientCompany && ` · ${quote.clientCompany}`}
-          {" · "}
-          {quote.eventName}
-        </p>
-        <p className="text-xs text-gray-400">
-          {fmt(quote.total)} · {quote.createdAt && format(new Date(quote.createdAt), "d MMM yyyy")}
-        </p>
-      </div>
-      <div className="flex items-center gap-1 flex-shrink-0">
-        {quote.status === "draft" && (
-          <>
-            <button
-              onClick={onEdit}
-              title="Edit"
-              className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
-            >
-              <Pencil className="h-4 w-4" />
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {quote.status === "draft" && (
+            <>
+              <button onClick={onEdit} title="Edit" className="p-1.5 text-gray-400 hover:text-blue-600 rounded">
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button onClick={onSend} title="Mark as sent" className="p-1.5 text-gray-400 hover:text-blue-600 rounded">
+                <Send className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          {quote.status === "accepted" && (
+            <button onClick={onConvert} className="flex items-center gap-1 text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700">
+              <ArrowRight className="h-3 w-3" /> Invoice
             </button>
-            <button
-              onClick={onSend}
-              title="Mark as sent"
-              className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          </>
-        )}
-        {quote.status === "accepted" && (
-          <button
-            onClick={onConvert}
-            title="Convert to invoice"
-            className="flex items-center gap-1 text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-          >
-            <ArrowRight className="h-3 w-3" /> Invoice
+          )}
+          <button onClick={onDelete} title="Delete" className="p-1.5 text-gray-400 hover:text-red-500 rounded">
+            <Trash2 className="h-4 w-4" />
           </button>
-        )}
-        <button
-          onClick={onDelete}
-          title="Delete"
-          className="p-1.5 text-gray-400 hover:text-red-500 rounded"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+          <button onClick={() => setExpanded(!expanded)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded">
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div className="border-t border-gray-100 bg-gray-50 p-4 space-y-4">
+          {/* Client + Event info */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Client</h4>
+              <p className="text-sm font-medium text-gray-900">{quote.clientName}</p>
+              {quote.clientCompany && (
+                <p className="text-sm text-gray-600 flex items-center gap-1"><Building2 className="h-3 w-3" />{quote.clientCompany}</p>
+              )}
+              {quote.clientEmail && (
+                <p className="text-sm text-gray-600 flex items-center gap-1"><Mail className="h-3 w-3" />{quote.clientEmail}</p>
+              )}
+              {quote.clientAddress && (
+                <p className="text-sm text-gray-500 flex items-start gap-1"><MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />{quote.clientAddress}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Event</h4>
+              <p className="text-sm font-medium text-gray-900">{quote.eventName}</p>
+              {quote.eventDate && (
+                <p className="text-sm text-gray-600 flex items-center gap-1"><Calendar className="h-3 w-3" />{format(new Date(quote.eventDate), "d MMMM yyyy")}</p>
+              )}
+              {quote.venueAddress && (
+                <p className="text-sm text-gray-500 flex items-start gap-1"><MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />{quote.venueAddress}</p>
+              )}
+              {quote.validUntil && (
+                <p className="text-xs text-amber-600">Valid until: {format(new Date(quote.validUntil), "d MMM yyyy")}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Line items */}
+          {lines.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Line Items</h4>
+              <div className="bg-white rounded border border-gray-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">Description</th>
+                      <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Qty</th>
+                      <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Unit</th>
+                      <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lines.map((l, i) => (
+                      <tr key={i} className="border-b border-gray-100 last:border-0">
+                        <td className="px-3 py-2 text-gray-800">{l.description}</td>
+                        <td className="px-3 py-2 text-right text-gray-600">{l.quantity}</td>
+                        <td className="px-3 py-2 text-right text-gray-600">{fmt(l.unitPrice)}</td>
+                        <td className="px-3 py-2 text-right font-medium text-gray-900">{fmt(l.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="bg-gray-50 border-t border-gray-200 px-3 py-2 space-y-0.5 text-right text-sm">
+                  <div className="text-gray-500">Subtotal: <span className="font-medium text-gray-800">{fmt(quote.subtotal)}</span></div>
+                  {quote.discount ? <div className="text-gray-500">Discount: <span className="font-medium text-gray-800">-{fmt(quote.discount)}</span></div> : null}
+                  <div className="text-gray-500">VAT ({quote.vatRate}%): <span className="font-medium text-gray-800">{fmt(quote.vatAmount)}</span></div>
+                  <div className="text-base font-bold text-gray-900">Total: {fmt(quote.total)}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notes / Terms */}
+          {(quote.notes || quote.terms) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              {quote.notes && (
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Notes</h4>
+                  <p className="text-gray-600 whitespace-pre-line">{quote.notes}</p>
+                </div>
+              )}
+              {quote.terms && (
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Terms</h4>
+                  <p className="text-gray-600 whitespace-pre-line">{quote.terms}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Acceptance info */}
+          {quote.status === "accepted" && quote.acceptedAt && (
+            <div className="bg-green-50 border border-green-200 rounded p-2 text-sm text-green-800">
+              Accepted by <strong>{quote.acceptedByName || "client"}</strong> on {format(new Date(quote.acceptedAt), "d MMM yyyy")}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
