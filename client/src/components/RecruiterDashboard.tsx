@@ -12,6 +12,7 @@ import { BillingPanel } from "./fms/BillingPanel";
 import { Ir35GuidanceTab } from "./fms/Ir35GuidanceTab";
 import { TeamManagementPanel } from "./fms/TeamManagementPanel";
 import { BookingCalendar } from "./fms/BookingCalendar";
+import { CompanyProfilePanel } from "./fms/CompanyProfilePanel";
 import { EnquiryList } from "./fms/EnquiryList";
 import { ExportButton } from "./fms/ExportButton";
 import { SendEnquiryModal } from "./fms/SendEnquiryModal";
@@ -715,12 +716,7 @@ export default function SimplifiedRecruiterDashboard() {
 
         {/* Profile Tab */}
         <TabsContent value="profile">
-          <ProfileForm
-            profile={profile}
-            userType="recruiter"
-            onSave={saveProfile}
-            isSaving={isSaving}
-          />
+          <CompanyProfilePanel />
         </TabsContent>
         {/* My Crew Tab */}
         <TabsContent value="crew" className="space-y-6">

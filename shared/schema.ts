@@ -123,15 +123,61 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
   user_id: integer("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+
+  // ── Identity ─────────────────────────────────────────────────────────────
   company_name: text("company_name").notNull(),
   contact_name: text("contact_name"),
   company_type: text("company_type"),
-  location: text("location"),
+  company_size: text("company_size"),           // "1-5" | "6-20" | "21-50" | "51-200" | "200+"
+  founded_year: integer("founded_year"),
+  company_registration_number: text("company_registration_number"),
+  vat_number: text("vat_number"),
   description: text("description"),
+  mission_statement: text("mission_statement"),
+  notable_clients: text("notable_clients"),
+  company_logo_url: text("company_logo_url"),
+  cover_image_url: text("cover_image_url"),
+  slug: text("slug"),
+
+  // ── Contact & Location ───────────────────────────────────────────────────
+  location: text("location"),                   // Legacy / display city
+  address_line1: text("address_line1"),
+  address_line2: text("address_line2"),
+  city: text("city"),
+  county: text("county"),
+  postcode: text("postcode"),
+  phone: text("phone"),
   website_url: text("website_url"),
   linkedin_url: text("linkedin_url"),
-  company_logo_url: text("company_logo_url"), // No character limit for base64 image data
-  slug: text("slug"), // SEO-friendly URL slug e.g. live-nation
+  instagram_url: text("instagram_url"),
+  twitter_url: text("twitter_url"),
+
+  // ── Billing Address ──────────────────────────────────────────────────────
+  billing_same_as_company: boolean("billing_same_as_company").default(true),
+  billing_address_line1: text("billing_address_line1"),
+  billing_address_line2: text("billing_address_line2"),
+  billing_city: text("billing_city"),
+  billing_county: text("billing_county"),
+  billing_postcode: text("billing_postcode"),
+
+  // ── Operations ───────────────────────────────────────────────────────────
+  specialisations: text("specialisations").array(),   // e.g. ["Live Events","AV","Broadcast"]
+  typical_roles: text("typical_roles").array(),       // crew roles they typically hire
+  day_rate_min: integer("day_rate_min"),
+  day_rate_max: integer("day_rate_max"),
+  payment_terms: text("payment_terms"),               // "14 days" | "30 days" | "on completion"
+  ir35_preference: text("ir35_preference"),           // "inside" | "outside" | "both"
+
+  // ── Insurance & Compliance ───────────────────────────────────────────────
+  public_liability_value: text("public_liability_value"),  // "£2m" | "£5m" | "£10m"
+  employers_liability: boolean("employers_liability").default(false),
+  professional_indemnity: boolean("professional_indemnity").default(false),
+  gdpr_compliant: boolean("gdpr_compliant").default(false),
+
+  // ── Accreditations ───────────────────────────────────────────────────────
+  industry_bodies: text("industry_bodies").array(),   // ["ALD","PLASA","PSA"]
+  other_accreditations: text("other_accreditations"),
+
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
