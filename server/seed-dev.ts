@@ -27,6 +27,37 @@ import { eq } from "drizzle-orm";
 const client = postgres(process.env.DATABASE_URL!, { prepare: false });
 const db = drizzle(client, { schema });
 
+// ── Cleanup: delete all previous seed data by known emails ───────────────────
+
+const SEED_EMAILS = [
+  "sarah@apexav.co.uk",
+  "tom@northernlights.tv",
+  "claire@peaklive.com",
+  "james.harris@gmail.com",
+  "priya.nair@gmail.com",
+  "ben.watts@hotmail.co.uk",
+  "aisha.osei@gmail.com",
+  "luke.jenkins@gmail.com",
+  "chloe.barnes@icloud.com",
+  "dan.moran@gmail.com",
+  "nina.walsh@gmail.com",
+  "oliver.stead@gmail.com",
+  "fatima.ali@yahoo.co.uk",
+  "ryan.cooper@gmail.com",
+  "sian.hughes@gmail.com",
+];
+
+console.log("Cleaning up previous seed data…");
+import { inArray } from "drizzle-orm";
+const existing = await db.select({ id: schema.users.id }).from(schema.users)
+  .where(inArray(schema.users.email, SEED_EMAILS));
+if (existing.length) {
+  const ids = existing.map(u => u.id);
+  // Cascade delete via users (all child rows cascade)
+  await db.delete(schema.users).where(inArray(schema.users.id, ids));
+  console.log(`Removed ${ids.length} existing seed users and all their data.`);
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const hash = (pw: string) => bcrypt.hash(pw, 10);
