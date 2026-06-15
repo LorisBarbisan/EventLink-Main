@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { BriefStatusBadge } from "@/components/fms/BriefStatusBadge";
 import { Ir35StatusBadge } from "@/components/fms/Ir35StatusBadge";
 import { useSearch } from "wouter";
+import { ChevronDown, ChevronUp, Pencil, PoundSterling, Tag, X, Plus, Save } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────
 type BookingStatus =
@@ -28,6 +29,12 @@ interface BookingResult {
     venueAddress: string | null;
     employerNotes: string | null;
     cancellationReason: string | null;
+    roleRequired: string | null;
+    skillTags: string[] | null;
+    agreedBudget: number | null;
+    actualCost: number | null;
+    expenses: number | null;
+    budgetNotes: string | null;
     createdAt: string;
     updatedAt: string;
   };
@@ -118,7 +125,37 @@ function BookingCard({
   const { booking, job, freelancer } = result;
   const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    roleRequired: booking.roleRequired ?? "",
+    skillTags: booking.skillTags ?? [] as string[],
+    agreedBudget: booking.agreedBudget ? (booking.agreedBudget / 100).toString() : "",
+    actualCost: booking.actualCost ? (booking.actualCost / 100).toString() : "",
+    expenses: booking.expenses ? (booking.expenses / 100).toString() : "",
+    budgetNotes: booking.budgetNotes ?? "",
+  });
+  const [newTag, setNewTag] = useState("");
   const cardRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+
+  const updateDetailsMutation = useMutation({
+    mutationFn: () =>
+      apiRequest(`/api/bookings/${booking.id}/details`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          roleRequired: editForm.roleRequired || null,
+          skillTags: editForm.skillTags.length ? editForm.skillTags : null,
+          agreedBudget: editForm.agreedBudget ? Math.round(parseFloat(editForm.agreedBudget) * 100) : null,
+          actualCost: editForm.actualCost ? Math.round(parseFloat(editForm.actualCost) * 100) : null,
+          expenses: editForm.expenses ? Math.round(parseFloat(editForm.expenses) * 100) : null,
+          budgetNotes: editForm.budgetNotes || null,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/employer"] });
+      setShowEdit(false);
+    },
+  });
 
   useEffect(() => {
     if (highlight && cardRef.current) {
@@ -228,6 +265,125 @@ function BookingCard({
         </div>
       )}
 
+      {/* Role, Skills & Budget display */}
+      {(booking.roleRequired || booking.skillTags?.length || booking.agreedBudget) && !showEdit && (
+        <div className="px-4 py-3 border-b border-gray-100 space-y-2">
+          {booking.roleRequired && (
+            <div className="flex items-center gap-2 text-sm">
+              <Tag className="h-3.5 w-3.5 text-gray-400" />
+              <span className="font-medium text-gray-700">{booking.roleRequired}</span>
+            </div>
+          )}
+          {booking.skillTags?.length ? (
+            <div className="flex flex-wrap gap-1">
+              {booking.skillTags.map((t) => (
+                <span key={t} className="rounded-full bg-orange-50 border border-orange-200 px-2 py-0.5 text-xs text-orange-700">{t}</span>
+              ))}
+            </div>
+          ) : null}
+          {booking.agreedBudget ? (
+            <div className="flex gap-4 text-sm">
+              <span className="text-gray-400">Budget: <span className="text-gray-700 font-medium">£{(booking.agreedBudget / 100).toFixed(2)}</span></span>
+              {booking.actualCost ? <span className="text-gray-400">Actual: <span className="text-gray-700 font-medium">£{(booking.actualCost / 100).toFixed(2)}</span></span> : null}
+              {booking.expenses ? <span className="text-gray-400">Expenses: <span className="text-gray-700 font-medium">£{(booking.expenses / 100).toFixed(2)}</span></span> : null}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Inline edit panel */}
+      {showEdit && (
+        <div className="px-4 py-4 border-b border-gray-100 bg-gray-50 space-y-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Role, Skills & Budget</p>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Role for this booking</label>
+            <input
+              className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm"
+              value={editForm.roleRequired}
+              onChange={(e) => setEditForm((f) => ({ ...f, roleRequired: e.target.value }))}
+              placeholder="e.g. FOH Engineer"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Skill / equipment tags</label>
+            <div className="flex flex-wrap gap-1 mb-1.5">
+              {editForm.skillTags.map((t) => (
+                <span key={t} className="flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">
+                  {t}
+                  <button onClick={() => setEditForm((f) => ({ ...f, skillTags: f.skillTags.filter((s) => s !== t) }))}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm"
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                placeholder="Add tag (e.g. Midas M32)"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newTag.trim()) {
+                    setEditForm((f) => ({ ...f, skillTags: [...f.skillTags, newTag.trim()] }));
+                    setNewTag("");
+                  }
+                }}
+              />
+              <button
+                className="rounded-lg border border-gray-200 px-2 py-1.5 text-gray-500 hover:bg-gray-100"
+                onClick={() => { if (newTag.trim()) { setEditForm((f) => ({ ...f, skillTags: [...f.skillTags, newTag.trim()] })); setNewTag(""); } }}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { key: "agreedBudget", label: "Budget (£)" },
+              { key: "actualCost", label: "Actual cost (£)" },
+              { key: "expenses", label: "Expenses (£)" },
+            ].map(({ key, label }) => (
+              <div key={key}>
+                <label className="text-xs text-gray-500 mb-1 block">{label}</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm"
+                  value={(editForm as any)[key]}
+                  onChange={(e) => setEditForm((f) => ({ ...f, [key]: e.target.value }))}
+                />
+              </div>
+            ))}
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Budget notes</label>
+            <input
+              className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm"
+              value={editForm.budgetNotes}
+              onChange={(e) => setEditForm((f) => ({ ...f, budgetNotes: e.target.value }))}
+              placeholder="Optional notes"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5"
+              onClick={() => setShowEdit(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="flex items-center gap-1 rounded-lg bg-orange-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-700"
+              onClick={() => updateDetailsMutation.mutate()}
+              disabled={updateDetailsMutation.isPending}
+            >
+              <Save className="h-3.5 w-3.5" />
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Cancellation info */}
       {booking.status === "cancelled" && (
         <div className="px-4 py-3 border-b border-gray-100 bg-red-50">
@@ -253,6 +409,13 @@ function BookingCard({
       {/* Actions */}
       {(nextStatuses.length > 0 || canCancel) && (
         <div className="p-4 flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowEdit((v) => !v)}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            {showEdit ? "Close" : "Edit details"}
+          </button>
           {nextStatuses.map((nextStatus) => (
             <button
               key={nextStatus}

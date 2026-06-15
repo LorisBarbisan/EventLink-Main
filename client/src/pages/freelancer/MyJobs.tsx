@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
+import { CalendarDays, Copy, Check } from "lucide-react";
 
 type BookingStatus = "enquired" | "confirmed" | "briefed" | "completed" | "cancelled";
 
@@ -46,6 +47,36 @@ const STATUS_LABELS: Record<BookingStatus, { label: string; color: string; bg: s
   cancelled: { label: "Cancelled", color: "text-gray-500", bg: "bg-gray-100" },
 };
 
+function IcalSubscribeButton() {
+  const [copied, setCopied] = useState(false);
+  const { data } = useQuery<{ url: string }>({
+    queryKey: ["/api/bookings/ical/token"],
+    staleTime: Infinity,
+  });
+  const copy = () => {
+    if (!data?.url) return;
+    navigator.clipboard.writeText(data.url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  if (!data?.url) return null;
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-dashed border-blue-300 bg-blue-50 px-3 py-2 text-sm">
+      <CalendarDays className="h-4 w-4 text-blue-500 flex-shrink-0" />
+      <span className="text-blue-700 flex-1 min-w-0 truncate hidden sm:block">{data.url}</span>
+      <button
+        onClick={copy}
+        className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors flex-shrink-0"
+        title="Copy iCal subscription link"
+      >
+        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+        {copied ? "Copied!" : "Copy iCal link"}
+      </button>
+    </div>
+  );
+}
+
 export default function MyJobs() {
   const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<BookingStatus | "all">("all");
@@ -79,9 +110,15 @@ export default function MyJobs() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold text-gray-900">My Jobs</h1>
         <p className="text-gray-500 mt-1">Jobs you've been booked for through EventLink</p>
+      </div>
+
+      {/* iCal subscription */}
+      <div className="mb-5">
+        <p className="text-xs text-gray-400 mb-1.5">Subscribe to sync confirmed bookings to Google Calendar, Outlook, or Apple Calendar:</p>
+        <IcalSubscribeButton />
       </div>
 
       {/* Filter tabs */}

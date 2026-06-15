@@ -80,6 +80,7 @@ export default function SimplifiedRecruiterDashboard() {
   const [crewTab, setCrewTab] = useState<"all" | "saved" | "worked">("all");
   const [crewSearch, setCrewSearch] = useState("");
   const [crewLocation, setCrewLocation] = useState("");
+  const [crewRoleFilter, setCrewRoleFilter] = useState("");
   const [sendEnquiryOpen, setSendEnquiryOpen] = useState(false);
   const [preselectedCrewIds, setPreselectedCrewIds] = useState<number[]>([]);
 
@@ -230,11 +231,22 @@ export default function SimplifiedRecruiterDashboard() {
   if (crewLocation.trim()) crewQueryParams.set("location", crewLocation.trim());
   const crewQueryString = crewQueryParams.toString();
 
-  const { data: crewFreelancers = [], isLoading: crewLoading } = useQuery<any[]>({
+  const { data: crewFreelancersRaw = [], isLoading: crewLoading } = useQuery<any[]>({
     queryKey: ["/api/my-crew", crewTab, crewSearch, crewLocation],
     queryFn: () => apiRequest(`/api/my-crew${crewQueryString ? `?${crewQueryString}` : ""}`),
     enabled: !!user?.id && activeTab === "crew",
   });
+
+  // Client-side role/skill filter
+  const crewFreelancers = crewRoleFilter.trim()
+    ? crewFreelancersRaw.filter((f: any) => {
+        const role = crewRoleFilter.toLowerCase();
+        return (
+          f.title?.toLowerCase().includes(role) ||
+          f.skills?.some((s: string) => s.toLowerCase().includes(role))
+        );
+      })
+    : crewFreelancersRaw;
 
   const unsaveCrewMutation = useMutation({
     mutationFn: async (freelancerId: number) => {
@@ -758,7 +770,16 @@ export default function SimplifiedRecruiterDashboard() {
                   className="pl-9"
                 />
               </div>
-              <div className="relative max-w-[200px] flex-1">
+              <div className="relative max-w-[160px] flex-1">
+                <ClipboardList className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Filter by role..."
+                  value={crewRoleFilter}
+                  onChange={(e) => setCrewRoleFilter(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="relative max-w-[160px] flex-1">
                 <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Location"
