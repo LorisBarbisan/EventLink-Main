@@ -1365,3 +1365,111 @@ export const team_delegate_access = pgTable("team_delegate_access", {
 export type TeamAccount = typeof team_accounts.$inferSelect;
 export type TeamMember = typeof team_members.$inferSelect;
 export type TeamDelegateAccess = typeof team_delegate_access.$inferSelect;
+
+// ============================================================
+// FMS Phase 2 — Quoting & Invoicing
+// ============================================================
+
+export const quotes = pgTable("quotes", {
+  id: serial("id").primaryKey(),
+  employerId: integer("employer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Client info (may differ from recruiter profile)
+  clientName: text("client_name").notNull(),
+  clientEmail: text("client_email"),
+  clientCompany: text("client_company"),
+  clientAddress: text("client_address"),
+  // Event / project context
+  eventName: text("event_name").notNull(),
+  eventDate: text("event_date"),
+  venueAddress: text("venue_address"),
+  // Quote metadata
+  quoteNumber: text("quote_number").notNull(),   // e.g. "QT-2026-001"
+  status: text("status").notNull().default("draft")
+    .$type<"draft" | "sent" | "accepted" | "declined" | "expired">(),
+  validUntil: text("valid_until"),               // ISO date
+  currency: text("currency").notNull().default("GBP"),
+  // Financial
+  subtotal: integer("subtotal").notNull().default(0),  // pence
+  vatRate: integer("vat_rate").notNull().default(20),  // percent
+  vatAmount: integer("vat_amount").notNull().default(0),
+  total: integer("total").notNull().default(0),
+  discount: integer("discount").default(0),            // pence
+  // Content
+  notes: text("notes"),
+  terms: text("terms"),
+  // Tracking
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  acceptedByName: text("accepted_by_name"),
+  acceptedByIp: text("accepted_by_ip"),
+  // Linked booking
+  bookingId: integer("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const quote_line_items = pgTable("quote_line_items", {
+  id: serial("id").primaryKey(),
+  quoteId: integer("quote_id").notNull().references(() => quotes.id, { onDelete: "cascade" }),
+  description: text("description").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: integer("unit_price").notNull().default(0),  // pence
+  total: integer("total").notNull().default(0),           // pence
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  employerId: integer("employer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  quoteId: integer("quote_id").references(() => quotes.id, { onDelete: "set null" }),
+  bookingId: integer("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+  // Client info
+  clientName: text("client_name").notNull(),
+  clientEmail: text("client_email"),
+  clientCompany: text("client_company"),
+  clientAddress: text("client_address"),
+  // Invoice metadata
+  invoiceNumber: text("invoice_number").notNull(),  // e.g. "INV-2026-001"
+  status: text("status").notNull().default("draft")
+    .$type<"draft" | "sent" | "paid" | "overdue" | "cancelled">(),
+  currency: text("currency").notNull().default("GBP"),
+  issueDate: text("issue_date").notNull(),
+  dueDate: text("due_date").notNull(),
+  // Financial
+  subtotal: integer("subtotal").notNull().default(0),
+  vatRate: integer("vat_rate").notNull().default(20),
+  vatAmount: integer("vat_amount").notNull().default(0),
+  total: integer("total").notNull().default(0),
+  amountPaid: integer("amount_paid").default(0),
+  // Content
+  notes: text("notes"),
+  terms: text("terms"),
+  stripePaymentLinkUrl: text("stripe_payment_link_url"),
+  stripePaymentLinkId: text("stripe_payment_link_id"),
+  // Tracking
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+  // Event context
+  eventName: text("event_name"),
+  eventDate: text("event_date"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const invoice_line_items = pgTable("invoice_line_items", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+  description: text("description").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: integer("unit_price").notNull().default(0),
+  total: integer("total").notNull().default(0),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, updatedAt: true });
+
+export type Quote = typeof quotes.$inferSelect;
+export type QuoteLineItem = typeof quote_line_items.$inferSelect;
+export type Invoice = typeof invoices.$inferSelect;
+export type InvoiceLineItem = typeof invoice_line_items.$inferSelect;
