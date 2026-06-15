@@ -1040,6 +1040,14 @@ export const bookings = pgTable("bookings", {
     .default("not_assessed"),
   ir35AssessedAt: timestamp("ir35_assessed_at", { withTimezone: true }),
   ir35Notes: text("ir35_notes"),
+  // Skills & role context
+  roleRequired: text("role_required"),           // e.g. "FOH Engineer"
+  skillTags: text("skill_tags").array(),          // e.g. ["Midas M32","DiGiCo SD9"]
+  // Budget tracking
+  agreedBudget: integer("agreed_budget"),         // employer's budget for this booking (pence)
+  actualCost: integer("actual_cost"),             // actual amount paid (pence)
+  expenses: integer("expenses"),                  // any expenses claimed (pence)
+  budgetNotes: text("budget_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
