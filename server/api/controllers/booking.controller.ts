@@ -325,7 +325,7 @@ export async function updateBookingDetails(req: Request, res: Response) {
   try {
     const employerId = req.user!.id;
     const bookingId = parseInt(req.params.id);
-    const { agreedRate, callTime, venueAddress, employerNotes } = req.body;
+    const { agreedRate, callTime, venueAddress, employerNotes, roleRequired, skillTags, agreedBudget, actualCost, expenses, budgetNotes } = req.body;
 
     if (isNaN(bookingId)) {
       return res.status(400).json({ error: "Invalid booking ID" });
@@ -353,6 +353,12 @@ export async function updateBookingDetails(req: Request, res: Response) {
         ...(callTime !== undefined && { callTime }),
         ...(venueAddress !== undefined && { venueAddress }),
         ...(employerNotes !== undefined && { employerNotes }),
+        ...(roleRequired !== undefined && { roleRequired }),
+        ...(skillTags !== undefined && { skillTags }),
+        ...(agreedBudget !== undefined && { agreedBudget }),
+        ...(actualCost !== undefined && { actualCost }),
+        ...(expenses !== undefined && { expenses }),
+        ...(budgetNotes !== undefined && { budgetNotes }),
         updatedAt: new Date(),
       })
       .where(eq(bookings.id, bookingId))
