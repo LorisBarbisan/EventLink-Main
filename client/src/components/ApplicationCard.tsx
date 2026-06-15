@@ -194,7 +194,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
       setShowRejectionDialog(false);
       setRejectionMessage("");
       toast({
-        title: "Application rejected",
+        title: "Application declined",
         description: "The applicant has been notified with your message.",
       });
     },
@@ -300,7 +300,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
         return "default";
       case "reviewed":
         return "secondary";
-      case "rejected":
+      case "declined":
         return "destructive";
       default:
         return "outline";
@@ -311,7 +311,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
     switch (status) {
       case "hired":
         return <CheckCircle className="h-4 w-4" />;
-      case "rejected":
+      case "declined":
         return <X className="h-4 w-4" />;
       default:
         return <AlertCircle className="h-4 w-4" />;
@@ -373,7 +373,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
               </div>
             )}
 
-            {application.rejection_message && application.status === "rejected" && (
+            {application.rejection_message && application.status === "declined" && (
               <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
                 <p className="mb-1 text-sm font-medium text-red-800 dark:text-red-200">
                   Rejection Reason:
@@ -868,7 +868,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                                 variant={
                                   application.status === "hired"
                                     ? "default"
-                                    : application.status === "rejected"
+                                    : application.status === "declined"
                                       ? "destructive"
                                       : application.status === "reviewed"
                                         ? "secondary"
@@ -877,7 +877,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                               >
                                 {application.status === "hired"
                                   ? "Hired"
-                                  : application.status === "rejected"
+                                  : application.status === "declined"
                                     ? "Rejected"
                                     : application.status === "reviewed"
                                       ? "Under Review"
@@ -901,7 +901,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                           </div>
                         )}
 
-                        {application.rejection_message && application.status === "rejected" && (
+                        {application.rejection_message && application.status === "declined" && (
                           <div>
                             <p className="mb-2 text-sm font-medium text-muted-foreground">
                               Rejection Message

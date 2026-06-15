@@ -360,7 +360,7 @@ export async function rejectApplication(req: Request, res: Response) {
       return res.status(403).json({ error: "Not authorized to reject this application" });
     }
 
-    await storage.updateApplicationStatus(applicationId, "rejected", req.body.message);
+    await storage.updateApplicationStatus(applicationId, "declined", req.body.message);
 
     // Create notification for freelancer
     await storage.createNotification({
@@ -375,7 +375,7 @@ export async function rejectApplication(req: Request, res: Response) {
       metadata: JSON.stringify({
         application_id: applicationId,
         job_id: job.id,
-        status: "rejected",
+        status: "declined",
         has_feedback: !!req.body.message,
       }),
     });
@@ -419,11 +419,11 @@ export async function rejectApplication(req: Request, res: Response) {
           job_title: job.title,
           company: job.company,
         },
-        status: "rejected",
+        status: "declined",
       });
     }
 
-    res.json({ message: "Application rejected successfully" });
+    res.json({ message: "Application declined successfully" });
   } catch (error) {
     console.error("Reject application error:", error);
     res.status(500).json({ error: "Internal server error" });

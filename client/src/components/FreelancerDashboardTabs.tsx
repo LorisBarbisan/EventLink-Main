@@ -500,7 +500,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
               {(() => {
                 const updatedApplications = jobApplications.filter(
                   (app: any) =>
-                    ["rejected", "hired"].includes(app.status || "applied") &&
+                    ["declined", "hired"].includes(app.status || "applied") &&
                     new Date(app.updated_at || app.applied_at).getTime() > lastViewedJobs
                 );
                 console.log("Notification check:", {
@@ -872,7 +872,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                       ? "secondary"
                                       : job.status === "shortlisted"
                                         ? "default"
-                                        : job.status === "rejected"
+                                        : job.status === "declined"
                                           ? "destructive"
                                           : job.status === "hired"
                                             ? "default"
@@ -885,7 +885,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                       ? "bg-yellow-100 text-yellow-800"
                                       : job.status === "shortlisted"
                                         ? "bg-green-100 text-green-800"
-                                        : job.status === "rejected"
+                                        : job.status === "declined"
                                           ? "bg-red-100 text-red-800"
                                           : job.status === "hired"
                                             ? "bg-purple-100 text-purple-800"
@@ -923,7 +923,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                               >
                                 View on Site
                               </Button>
-                            ) : job.status === "rejected" && job.rejectionMessage ? (
+                            ) : job.status === "declined" && job.rejectionMessage ? (
                               <Dialog>
                                 <DialogTrigger asChild>
                                   <Button
@@ -956,7 +956,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                 </DialogContent>
                               </Dialog>
                             ) : (
-                              job.status !== "rejected" && (
+                              job.status !== "declined" && (
                                 <Button
                                   size="sm"
                                   variant="outline"

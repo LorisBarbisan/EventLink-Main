@@ -73,14 +73,14 @@ export function LiveNotificationPopups({ enabled = true }: LiveNotificationPopup
     const statusMessages = {
       reviewed: "👀 Your application has been reviewed",
       shortlisted: "🎉 You've been shortlisted!",
-      rejected: "❌ Application not successful",
+      declined: "❌ Application not successful",
       hired: "🎊 Congratulations! You're hired!",
     };
 
     const descriptions = {
       reviewed: `Your application for "${application.job_title || "Position"}" has been reviewed by the employer. Check your dashboard for more details.`,
       shortlisted: `Great news! You've made it to the shortlist for "${application.job_title || "Position"}". The employer will contact you soon.`,
-      rejected: `Unfortunately, your application for "${application.job_title || "Position"}" was not successful this time. Don't give up - keep applying!`,
+      declined: `Unfortunately, your application for "${application.job_title || "Position"}" was not successful this time. Don't give up - keep applying!`,
       hired: `Congratulations! You've been hired for "${application.job_title || "Position"}". The employer will contact you with next steps.`,
     };
 

@@ -51,21 +51,21 @@ export function useNotifications({ userId }: UseNotificationsProps) {
     async (
       freelancerId: number,
       jobTitle: string,
-      status: "reviewed" | "shortlisted" | "rejected" | "hired",
+      status: "reviewed" | "shortlisted" | "declined" | "hired",
       jobId: number,
       rejectionMessage?: string
     ) => {
       const statusMessages = {
         reviewed: `Your application for "${jobTitle}" has been reviewed`,
         shortlisted: `Great news! You've been shortlisted for "${jobTitle}"`,
-        rejected: `Unfortunately, your application for "${jobTitle}" was not successful`,
+        declined: `Unfortunately, your application for "${jobTitle}" was not successful`,
         hired: `Congratulations! You've been hired for "${jobTitle}"`,
       };
 
       const priorities = {
         reviewed: "normal" as const,
         shortlisted: "high" as const,
-        rejected: "normal" as const,
+        declined: "normal" as const,
         hired: "urgent" as const,
       };
 

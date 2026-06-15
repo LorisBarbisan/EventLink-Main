@@ -242,7 +242,7 @@ export interface IStorage {
   getJobApplicationById(applicationId: number): Promise<JobApplication | undefined>;
   updateApplicationStatus(
     applicationId: number,
-    status: "applied" | "reviewed" | "shortlisted" | "rejected" | "hired",
+    status: "applied" | "reviewed" | "shortlisted" | "declined" | "hired",
     rejectionMessage?: string
   ): Promise<JobApplication>;
   updateInvitationResponse(
@@ -2090,7 +2090,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateApplicationStatus(
     applicationId: number,
-    status: "applied" | "reviewed" | "shortlisted" | "rejected" | "hired" | "invited" | "declined",
+    status: "applied" | "reviewed" | "shortlisted" | "declined" | "hired" | "invited" | "declined",
     rejectionMessage?: string
   ): Promise<JobApplication> {
     const updateData: any = {
@@ -2098,7 +2098,7 @@ export class DatabaseStorage implements IStorage {
       updated_at: sql`now()`,
     };
 
-    if (status === "rejected" && rejectionMessage) {
+    if (status === "declined" && rejectionMessage) {
       updateData.rejection_message = rejectionMessage;
     }
 
@@ -2650,7 +2650,7 @@ export class DatabaseStorage implements IStorage {
       moderation_status: attachment.moderation_status as
         | "pending"
         | "approved"
-        | "rejected"
+        | "declined"
         | "error"
         | null,
     };

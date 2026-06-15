@@ -139,7 +139,7 @@ export function applicationUpdateEmail(data: {
   const statusMessages: Record<string, { emoji: string; message: string }> = {
     reviewed: { emoji: "👀", message: "Your application is being reviewed" },
     shortlisted: { emoji: "⭐", message: "You have been shortlisted" },
-    rejected: { emoji: "📋", message: "Application status update" },
+    declined: { emoji: "📋", message: "Application status update" },
     hired: { emoji: "🎉", message: "Congratulations! You have been hired" },
   };
 

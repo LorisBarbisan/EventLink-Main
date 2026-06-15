@@ -261,30 +261,30 @@ export function InvoicePanel() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ["/api/fms/invoices"] });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/fms/invoices", data),
+    mutationFn: (data: any) => apiRequest(`/api/fms/invoices`, { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => { invalidate(); resetForm(); toast({ title: "Invoice created" }); },
     onError: () => toast({ title: "Failed to create invoice", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) =>
-      apiRequest("PUT", `/api/fms/invoices/${id}`, data),
+      apiRequest(`/api/fms/invoices/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     onSuccess: () => { invalidate(); resetForm(); toast({ title: "Invoice updated" }); },
     onError: () => toast({ title: "Failed to update invoice", variant: "destructive" }),
   });
 
   const sendMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("POST", `/api/fms/invoices/${id}/send`, {}),
+    mutationFn: (id: number) => apiRequest(`/api/fms/invoices/${id}/send`, { method: "POST" }),
     onSuccess: () => { invalidate(); toast({ title: "Invoice marked as sent" }); },
   });
 
   const paidMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("POST", `/api/fms/invoices/${id}/paid`, {}),
+    mutationFn: (id: number) => apiRequest(`/api/fms/invoices/${id}/paid`, { method: "POST" }),
     onSuccess: () => { invalidate(); toast({ title: "Invoice marked as paid" }); },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/fms/invoices/${id}`, {}),
+    mutationFn: (id: number) => apiRequest(`/api/fms/invoices/${id}`, { method: "DELETE" }),
     onSuccess: () => { invalidate(); toast({ title: "Invoice deleted" }); },
   });
 
@@ -295,8 +295,7 @@ export function InvoicePanel() {
   };
 
   const startEdit = async (invoice: Invoice) => {
-    const res = await apiRequest("GET", `/api/fms/invoices/${invoice.id}`, undefined);
-    const data = await res.json();
+    const data = await apiRequest(`/api/fms/invoices/${invoice.id}`);
     setForm(invoiceToForm(data.invoice, data.lines));
     setEditingId(invoice.id);
     setShowForm(true);

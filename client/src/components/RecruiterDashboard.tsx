@@ -95,7 +95,7 @@ export default function SimplifiedRecruiterDashboard() {
 
   const [appSearch, setAppSearch] = useState("");
   const [appStatusFilter, setAppStatusFilter] = useState<
-    "all" | "applied" | "hired" | "invited" | "rejected" | "declined"
+    "all" | "applied" | "hired" | "invited" | "declined"
   >("all");
 
   // Get badge counts for tabs
@@ -656,7 +656,7 @@ export default function SimplifiedRecruiterDashboard() {
   // Simplified notification indicators
   const hasNewApplications = applications.some((app: JobApplication) => app.status === "pending");
   const hasNewJobUpdates = applications.some(
-    (app: JobApplication) => app.status === "rejected" || app.status === "hired"
+    (app: JobApplication) => app.status === "declined" || app.status === "hired"
   );
 
   return (
@@ -1183,7 +1183,7 @@ export default function SimplifiedRecruiterDashboard() {
                               <TableCell className="py-2 text-sm">{app.freelancer_title || "-"}</TableCell>
                               <TableCell className="py-2">
                                 <Badge
-                                  variant={app.status === "hired" ? "default" : app.status === "rejected" ? "destructive" : "secondary"}
+                                  variant={app.status === "hired" ? "default" : app.status === "declined" ? "destructive" : "secondary"}
                                   className={app.status === "hired" ? "bg-green-600 hover:bg-green-700" : ""}
                                 >
                                   {app.status}
@@ -1246,7 +1246,7 @@ export default function SimplifiedRecruiterDashboard() {
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              {(["all", "applied", "invited", "hired", "rejected", "declined"] as const).map(
+              {(["all", "applied", "invited", "hired", "declined"] as const).map(
                 (s) => (
                   <Button
                     key={s}

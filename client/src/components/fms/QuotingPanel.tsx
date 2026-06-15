@@ -291,25 +291,25 @@ export function QuotingPanel() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ["/api/fms/quotes"] });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/fms/quotes", data),
+    mutationFn: (data: any) => apiRequest(`/api/fms/quotes`, { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => { invalidate(); resetForm(); toast({ title: "Quote created" }); },
     onError: () => toast({ title: "Failed to create quote", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) =>
-      apiRequest("PUT", `/api/fms/quotes/${id}`, data),
+      apiRequest(`/api/fms/quotes/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     onSuccess: () => { invalidate(); resetForm(); toast({ title: "Quote updated" }); },
     onError: () => toast({ title: "Failed to update quote", variant: "destructive" }),
   });
 
   const sendMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("POST", `/api/fms/quotes/${id}/send`, {}),
+    mutationFn: (id: number) => apiRequest(`/api/fms/quotes/${id}/send`, { method: "POST" }),
     onSuccess: () => { invalidate(); toast({ title: "Quote marked as sent" }); },
   });
 
   const convertMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("POST", `/api/fms/quotes/${id}/to-invoice`, {}),
+    mutationFn: (id: number) => apiRequest(`/api/fms/quotes/${id}/to-invoice`, { method: "POST" }),
     onSuccess: () => {
       invalidate();
       qc.invalidateQueries({ queryKey: ["/api/fms/invoices"] });
@@ -319,7 +319,7 @@ export function QuotingPanel() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/fms/quotes/${id}`, {}),
+    mutationFn: (id: number) => apiRequest(`/api/fms/quotes/${id}`, { method: "DELETE" }),
     onSuccess: () => { invalidate(); toast({ title: "Quote deleted" }); },
   });
 
@@ -330,8 +330,7 @@ export function QuotingPanel() {
   };
 
   const startEdit = async (quote: Quote) => {
-    const res = await apiRequest("GET", `/api/fms/quotes/${quote.id}`, undefined);
-    const data = await res.json();
+    const data = await apiRequest(`/api/fms/quotes/${quote.id}`);
     setForm(quoteToForm(data.quote, data.lines));
     setEditingId(quote.id);
     setShowForm(true);

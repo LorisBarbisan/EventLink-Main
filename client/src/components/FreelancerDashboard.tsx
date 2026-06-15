@@ -339,7 +339,7 @@ export default function SimplifiedFreelancerDashboard() {
                     </div>
                     <div className="text-2xl font-bold">
                       {
-                        jobApplications.filter((app: JobApplication) => app.status === "rejected")
+                        jobApplications.filter((app: JobApplication) => app.status === "declined")
                           .length
                       }
                     </div>

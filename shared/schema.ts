@@ -227,7 +227,7 @@ export const job_applications = pgTable("job_applications", {
   status: text("status")
     .default("applied")
     .$type<
-      "applied" | "reviewed" | "shortlisted" | "rejected" | "hired" | "invited" | "declined"
+      "applied" | "reviewed" | "shortlisted" | "hired" | "invited" | "declined"
     >(),
   cover_letter: text("cover_letter"),
   rejection_message: text("rejection_message"), // Message explaining rejection (recruiter -> freelancer)

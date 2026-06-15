@@ -1747,7 +1747,7 @@ function AdminDashboardContent() {
                                             variant={
                                               app.status === "hired"
                                                 ? "default"
-                                                : app.status === "rejected"
+                                                : app.status === "declined"
                                                   ? "destructive"
                                                   : "secondary"
                                             }

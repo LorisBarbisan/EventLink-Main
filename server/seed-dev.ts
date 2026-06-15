@@ -567,7 +567,7 @@ const app8  = await apply(4, 7,  "hired", "IRATA Level 2. Festival build is my b
 const app9  = await apply(7, 8,  "hired", "DiGiCo SD5 experienced, Shure and Sennheiser RF is my world. Available for full tour.");
 const app10 = await apply(8, 9,  "hired", "PM with outdoor brand activation experience. £180k budget is very manageable — let's discuss.");
 
-// Active jobs — mix of applied, shortlisted, rejected
+// Active jobs — mix of applied, shortlisted, declined
 const app11 = await apply(0, 10, "shortlisted", "Available. L-Acoustics Kiva II is familiar territory.");
 const app12 = await apply(7, 10, "applied",     "Very experienced with speech reinforcement and small PA setups.");
 const app13 = await apply(1, 11, "shortlisted", "grandMA3 ultra-light — use it regularly. Very comfortable with gala programming.");
@@ -577,7 +577,7 @@ const app16 = await apply(10, 14,"applied",     "GV Kayenne daily driver. Experi
 const app17 = await apply(8, 15, "applied",     "Festival PM with outdoor experience. 8,000 cap is my sweet spot.");
 const app18 = await apply(4, 16, "shortlisted", "IRATA Level 2. ExCeL London — I've rigged there multiple times.");
 const app19 = await apply(7, 17, "applied",     "Club tour monitor experience. SD11 in-house venues — easy.");
-const app20 = await apply(0, 10, "rejected",    "Available for the date but less experienced with speech-focused shows.");
+const app20 = await apply(0, 10, "declined",    "Available for the date but less experienced with speech-focused shows.");
 
 // Some pending applications on future jobs
 await apply(9, 20,  "applied", "Senior producer with £250k+ brand launch experience. NDA is fine.");
@@ -1207,7 +1207,7 @@ ALL PASSWORDS: Password123!
 WHAT'S BEEN SEEDED:
   24 jobs (past, active, future)
   18 bookings (all statuses: completed, confirmed, briefed, cancelled, enquired)
-  23 applications (hired, shortlisted, applied, rejected)
+  23 applications (hired, shortlisted, applied, declined)
   2 event briefs (one acknowledged, one sent)
   10 ratings with written reviews
   5 conversations with messages
