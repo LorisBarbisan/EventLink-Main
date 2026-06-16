@@ -4,6 +4,8 @@ import { sendEmail } from "../utils/emailService";
 import { getOrigin } from "../utils/auth.util";
 import crypto from "crypto";
 
+const FRONTEND_BASE = process.env.FRONTEND_URL || "https://app.eventlink.one";
+
 const HIGH_TRUST_DOMAINS = [
   "aeg.com", "livenation.com", "bbc.co.uk", "itv.com", "sky.com",
   "prg.com", "neg.earth", "sseaudio.com", "whitelight.ltd.uk", "starlightdesign.com",
@@ -174,7 +176,7 @@ export async function submitReference(req: Request, res: Response) {
 
     if (referee_email && verification_type !== "eventlink_member") {
       try {
-        const verifyUrl = `https://eventlink.one/api/references/verify-email?token=${verificationToken}`;
+        const verifyUrl = `${FRONTEND_BASE}/api/references/verify-email?token=${verificationToken}`;
         await sendEmail({
           to: referee_email,
           subject: `Verify your reference for ${freelancer.firstName || "a freelancer"} on EventLink`,
@@ -241,7 +243,7 @@ export async function submitReference(req: Request, res: Response) {
                   Verification status: <strong>${verificationLabel}</strong>
                 </p>
                 ${publicBadge}
-                <a href="https://eventlink.one/profile/${freelancer.userId}"
+                <a href="${FRONTEND_BASE}/profile/${freelancer.userId}"
                    style="display:inline-block;background:linear-gradient(135deg,#D8690E,#f59e0b);color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:8px">
                   View My Profile
                 </a>
@@ -555,7 +557,7 @@ export async function createReferenceRequest(req: Request, res: Response) {
     });
 
     try {
-      const referenceUrl = `https://eventlink.one/reference/${token}`;
+      const referenceUrl = `${FRONTEND_BASE}/reference/${token}`;
       const freelancerName = [user.first_name, user.last_name].filter(Boolean).join(" ") || "A colleague";
       await sendEmail({
         to: referee_email,
