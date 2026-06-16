@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import sharp from "sharp";
 import { canManageTeam, getEmployerCompanyId } from "../utils/team.util";
+import { isLocalPath, resolveLocalPath } from "../utils/local-storage-fallback";
 
 /** Company owner or team admin may create/update recruiter_profiles (keyed by owner user_id). */
 function canWriteRecruiterProfile(req: Request, profileUserId: number): boolean {
@@ -55,7 +56,6 @@ export async function getProfilePhoto(req: Request, res: Response) {
     }
 
     // If it's a base64 data URL, decode, convert to JPEG, and serve
-    // Always convert to JPEG for maximum compatibility (WhatsApp, etc. don't support WebP)
     if (photoUrl.startsWith("data:")) {
       const match = photoUrl.match(/^data:([^;]+);base64,(.+)$/);
       if (!match) return res.status(400).end();
@@ -66,6 +66,21 @@ export async function getProfilePhoto(req: Request, res: Response) {
       return res.send(jpegData);
     }
 
+    // If it's a local disk file, read and serve it
+    if (isLocalPath(photoUrl)) {
+      const { promises: fs } = await import("fs");
+      const filePath = resolveLocalPath(photoUrl);
+      try {
+        const fileData = await fs.readFile(filePath);
+        const jpegData = await sharp(fileData).jpeg({ quality: 85 }).toBuffer();
+        res.set("Content-Type", "image/jpeg");
+        res.set("Cache-Control", "public, max-age=3600");
+        return res.send(jpegData);
+      } catch {
+        return res.status(404).end();
+      }
+    }
+
     return res.status(404).end();
   } catch (error) {
     console.error("Profile photo error:", error);
@@ -73,17 +88,20 @@ export async function getProfilePhoto(req: Request, res: Response) {
   }
 }
 
-// Get freelancer profile
+// Get freelancer profile — accepts numeric userId OR a slug string
 export async function getFreelancerProfile(req: Request, res: Response) {
   try {
-    const userId = parseInt(req.params.userId);
-    const profile = await storage.getFreelancerProfile(userId);
+    const param = req.params.userId;
+    const userId = parseInt(param, 10);
+
+    const profile = isNaN(userId)
+      ? await storage.getFreelancerProfileBySlug(param)
+      : await storage.getFreelancerProfile(userId);
 
     if (!profile) {
       return res.status(404).json({ error: "Freelancer profile not found" });
     }
 
-    // Prevent caching to ensure fresh profile data
     res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     res.set("Pragma", "no-cache");
     res.json(profile);

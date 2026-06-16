@@ -54,6 +54,8 @@ import {
   Bookmark,
   Briefcase,
   Calendar,
+  Check,
+  Copy,
   Download,
   ExternalLink,
   Flag,
@@ -63,6 +65,7 @@ import {
   MapPin,
   MessageCircle,
   Quote,
+  Share2,
   ShieldCheck,
   Star,
   User,
@@ -95,6 +98,7 @@ interface FreelancerProfile {
   website_url: string;
   availability_status: "available" | "busy" | "unavailable";
   profile_photo_url?: string;
+  slug?: string | null;
   cv_file_url?: string;
   cv_file_name?: string;
   cv_file_type?: string;
@@ -475,8 +479,28 @@ export default function Profile() {
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [profileDataLoaded, setProfileDataLoaded] = useState(false);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const { toast } = useToast();
+
+  const getProfileUrl = () => {
+    const base = window.location.origin;
+    if (freelancerProfile?.slug) return `${base}/profile/${freelancerProfile.slug}`;
+    if (freelancerProfile?.user_id) return `${base}/profile/${freelancerProfile.user_id}`;
+    return window.location.href;
+  };
+
+  const handleShareProfile = async () => {
+    const url = getProfileUrl();
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      toast({ title: "Link copied!", description: "Profile link copied to clipboard." });
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      toast({ title: "Copy failed", description: "Please copy the URL from your browser.", variant: "destructive" });
+    }
+  };
 
   const isRecruiter = user?.role === "recruiter" || user?.role === "admin";
   const profileUserId = userId ? parseInt(userId, 10) : 0;
@@ -672,6 +696,7 @@ export default function Profile() {
               website_url: data.website_url || "",
               availability_status: data.availability_status || "available",
               profile_photo_url: data.profile_photo_url || "",
+              slug: data.slug || null,
               cv_file_url: data.cv_file_url || "",
               cv_file_name: data.cv_file_name || "",
               cv_file_type: data.cv_file_type || "",
@@ -724,20 +749,52 @@ export default function Profile() {
     }
   };
 
-  const fetchOtherProfile = async (targetUserId: string) => {
+  const fetchOtherProfile = async (targetParam: string) => {
     try {
-      // First get the user basic info to determine their role
-      const userData = await apiRequest(`/api/users/${targetUserId}`);
+      const isNumeric = /^\d+$/.test(targetParam);
+
+      // For slugs (non-numeric), fetch the freelancer profile first to get user_id
+      let resolvedUserId = targetParam;
+      if (!isNumeric) {
+        const profileData = await apiRequest(`/api/freelancer/${targetParam}`);
+        if (!profileData) throw new Error("Profile not found");
+        resolvedUserId = profileData.user_id.toString();
+        setFreelancerProfile({
+          id: profileData.id,
+          user_id: profileData.user_id,
+          first_name: profileData.first_name || "",
+          last_name: profileData.last_name || "",
+          title: profileData.title || "",
+          bio: profileData.bio || "",
+          location: profileData.location || "",
+          superpower: profileData.superpower || "",
+          experience_years: profileData.experience_years || null,
+          skills: profileData.skills || [],
+          portfolio_url: profileData.portfolio_url || "",
+          linkedin_url: profileData.linkedin_url || "",
+          website_url: profileData.website_url || "",
+          availability_status: profileData.availability_status || "available",
+          profile_photo_url: profileData.profile_photo_url || "",
+          slug: profileData.slug || null,
+          cv_file_url: profileData.cv_file_url || "",
+          cv_file_name: profileData.cv_file_name || "",
+          cv_file_type: profileData.cv_file_type || "",
+          cv_file_size: profileData.cv_file_size || null,
+        });
+      }
+
+      // Get the user basic info to determine role
+      const userData = await apiRequest(`/api/users/${resolvedUserId}`);
       const userProfile: Profile = {
-        id: targetUserId,
+        id: resolvedUserId,
         role: userData.role as "freelancer" | "recruiter",
         email: userData.email,
       };
       setProfile(userProfile);
 
-      if (userProfile.role === "freelancer") {
+      if (userProfile.role === "freelancer" && isNumeric) {
         try {
-          const data = await apiRequest(`/api/freelancer/${targetUserId}`);
+          const data = await apiRequest(`/api/freelancer/${resolvedUserId}`);
           if (data) {
             setFreelancerProfile({
               id: data.id,
@@ -755,6 +812,7 @@ export default function Profile() {
               website_url: data.website_url || "",
               availability_status: data.availability_status || "available",
               profile_photo_url: data.profile_photo_url || "",
+              slug: data.slug || null,
               cv_file_url: data.cv_file_url || "",
               cv_file_name: data.cv_file_name || "",
               cv_file_type: data.cv_file_type || "",
@@ -935,6 +993,23 @@ export default function Profile() {
     <Layout>
       <div className="container mx-auto px-4 py-8">
         <div className="mx-auto max-w-4xl space-y-6">
+          {/* Own profile — shareable URL banner */}
+          {isOwnProfile && freelancerProfile && (
+            <div className="flex flex-col items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">Your public profile link</p>
+                <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={handleShareProfile} className="shrink-0">
+                {linkCopied ? (
+                  <><Check className="mr-2 h-3.5 w-3.5 text-green-600" />Copied!</>
+                ) : (
+                  <><Copy className="mr-2 h-3.5 w-3.5" />Copy Link</>
+                )}
+              </Button>
+            </div>
+          )}
+
           {/* Profile Header */}
           <Card>
             <CardContent className="p-8">
@@ -946,12 +1021,12 @@ export default function Profile() {
                   <div className="bg-gradient-primary flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-lg ring-4 ring-background">
                     {freelancerProfile?.profile_photo_url &&
                     freelancerProfile.profile_photo_url.trim() !== '' &&
-                    freelancerProfile.profile_photo_url !== 'null' &&
-                    freelancerProfile.profile_photo_url.startsWith('data:') ? (
+                    freelancerProfile.profile_photo_url !== 'null' ? (
                       <img
-                        src={freelancerProfile.profile_photo_url}
+                        src={`/api/profile-photo/${freelancerProfile.user_id}`}
                         alt="Profile"
                         className="h-full w-full bg-white object-cover"
+                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                       />
                     ) : (
                       <User className="h-16 w-16 text-white" />
@@ -965,15 +1040,28 @@ export default function Profile() {
                           {freelancerProfile?.first_name}{' '}
                           {freelancerProfile?.last_name}
                         </h1>
-                        {isOwnProfile && (
+                        <div className="flex flex-wrap gap-2">
+                          {isOwnProfile && (
+                            <Button
+                              variant="outline"
+                              onClick={() => setLocation('/dashboard')}
+                              className="w-full sm:w-auto"
+                            >
+                              Edit Profile
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
-                            onClick={() => setLocation('/dashboard')}
+                            onClick={handleShareProfile}
                             className="w-full sm:w-auto"
                           >
-                            Edit Profile
+                            {linkCopied ? (
+                              <><Check className="mr-2 h-4 w-4 text-green-600" />Copied!</>
+                            ) : (
+                              <><Share2 className="mr-2 h-4 w-4" />Share Profile</>
+                            )}
                           </Button>
-                        )}
+                        </div>
                       </div>
                       <p className="mb-2 text-xl font-semibold text-primary">
                         {freelancerProfile?.title}

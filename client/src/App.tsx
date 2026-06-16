@@ -67,6 +67,8 @@ function AppRouter() {
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/profile" component={Profile} />
           <Route path="/profile/:userId" component={Profile} />
+          {/* Slug-based profile URLs e.g. /u/james-smith-sound-engineer */}
+          <Route path="/u/:userId" component={Profile} />
           <Route path="/settings" component={Settings} />
           <Route path="/notification-settings" component={NotificationSettings} />
           <Route path="/jobs/:id" component={JobDetail} />
