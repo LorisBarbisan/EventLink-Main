@@ -1,5 +1,6 @@
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { ProfileQRCode } from "@/components/ProfileQRCode";
+import { VanityUrlEditor } from "@/components/VanityUrlEditor";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
 import { MessageModal } from "@/components/MessageModal";
@@ -100,6 +101,7 @@ interface FreelancerProfile {
   availability_status: "available" | "busy" | "unavailable";
   profile_photo_url?: string;
   slug?: string | null;
+  custom_slug?: string | null;
   cv_file_url?: string;
   cv_file_name?: string;
   cv_file_type?: string;
@@ -486,6 +488,7 @@ export default function Profile() {
 
   const getProfileUrl = () => {
     const base = window.location.origin;
+    if (freelancerProfile?.custom_slug) return `${base}/profile/${freelancerProfile.custom_slug}`;
     if (freelancerProfile?.slug) return `${base}/profile/${freelancerProfile.slug}`;
     if (freelancerProfile?.user_id) return `${base}/profile/${freelancerProfile.user_id}`;
     return window.location.href;
@@ -698,6 +701,7 @@ export default function Profile() {
               availability_status: data.availability_status || "available",
               profile_photo_url: data.profile_photo_url || "",
               slug: data.slug || null,
+              custom_slug: data.custom_slug || null,
               cv_file_url: data.cv_file_url || "",
               cv_file_name: data.cv_file_name || "",
               cv_file_type: data.cv_file_type || "",
@@ -814,6 +818,7 @@ export default function Profile() {
               availability_status: data.availability_status || "available",
               profile_photo_url: data.profile_photo_url || "",
               slug: data.slug || null,
+              custom_slug: data.custom_slug || null,
               cv_file_url: data.cv_file_url || "",
               cv_file_name: data.cv_file_name || "",
               cv_file_type: data.cv_file_type || "",
@@ -1446,6 +1451,15 @@ export default function Profile() {
               </CardContent>
             </Card>
           )}
+          {/* Vanity URL editor — own freelancer profile only */}
+          {isOwnProfile && freelancerProfile && (
+            <VanityUrlEditor
+              userId={freelancerProfile.user_id}
+              currentCustomSlug={freelancerProfile.custom_slug}
+              currentSlug={freelancerProfile.slug}
+            />
+          )}
+
           {/* QR Code — own freelancer profile only */}
           {isOwnProfile && freelancerProfile && (
             <ProfileQRCode

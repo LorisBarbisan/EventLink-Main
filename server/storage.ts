@@ -150,6 +150,8 @@ export interface IStorage {
     userId: number,
     profile: Partial<InsertFreelancerProfile>
   ): Promise<FreelancerProfile | undefined>;
+  checkSlugAvailability(slug: string, excludeUserId?: number): Promise<{ available: boolean; reason?: string }>;
+  setFreelancerCustomSlug(userId: number, customSlug: string | null): Promise<FreelancerProfile | undefined>;
 
   // Recruiter profile management
   getRecruiterProfile(userId: number): Promise<RecruiterProfile | undefined>;
@@ -966,6 +968,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getFreelancerProfileBySlug(slug: string): Promise<FreelancerProfile | undefined> {
+    // Check custom_slug first (user-chosen vanity URL), then fall back to auto-generated slug
+    const byCustom = await db
+      .select()
+      .from(freelancer_profiles)
+      .where(eq((freelancer_profiles as any).custom_slug, slug))
+      .limit(1);
+    if (byCustom[0]) return byCustom[0];
     const result = await db
       .select()
       .from(freelancer_profiles)
@@ -1084,6 +1093,56 @@ export class DatabaseStorage implements IStorage {
       return createResult[0];
     }
 
+    return result[0];
+  }
+
+  async checkSlugAvailability(slug: string, excludeUserId?: number): Promise<{ available: boolean; reason?: string }> {
+    const RESERVED = new Set([
+      "profile", "jobs", "dashboard", "messages", "settings", "admin",
+      "login", "register", "signup", "api", "u", "auth", "logout",
+      "freelancers", "recruiters", "search", "help", "about", "terms",
+      "privacy", "pricing", "upgrade", "pro",
+    ]);
+    if (RESERVED.has(slug)) return { available: false, reason: "This username is reserved." };
+
+    // Check freelancer custom_slug
+    const fcRows = await db
+      .select({ user_id: freelancer_profiles.user_id })
+      .from(freelancer_profiles)
+      .where(eq((freelancer_profiles as any).custom_slug, slug))
+      .limit(1);
+    if (fcRows.length > 0 && fcRows[0].user_id !== excludeUserId)
+      return { available: false, reason: "This URL is already taken." };
+
+    // Check freelancer auto-slug
+    const fsRows = await db
+      .select({ user_id: freelancer_profiles.user_id })
+      .from(freelancer_profiles)
+      .where(eq(freelancer_profiles.slug, slug))
+      .limit(1);
+    if (fsRows.length > 0 && fsRows[0].user_id !== excludeUserId)
+      return { available: false, reason: "This URL is already taken." };
+
+    // Check recruiter slug
+    const rrRows = await db
+      .select({ user_id: recruiter_profiles.user_id })
+      .from(recruiter_profiles)
+      .where(eq(recruiter_profiles.slug, slug))
+      .limit(1);
+    if (rrRows.length > 0 && rrRows[0].user_id !== excludeUserId)
+      return { available: false, reason: "This URL is already taken." };
+
+    return { available: true };
+  }
+
+  async setFreelancerCustomSlug(userId: number, customSlug: string | null): Promise<FreelancerProfile | undefined> {
+    const cacheKey = `freelancer_profile:${userId}`;
+    cache.delete(cacheKey);
+    const result = await db
+      .update(freelancer_profiles)
+      .set({ custom_slug: customSlug, updated_at: new Date() } as any)
+      .where(eq(freelancer_profiles.user_id, userId))
+      .returning();
     return result[0];
   }
 

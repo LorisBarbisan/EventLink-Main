@@ -11,8 +11,9 @@ export async function getProfileQR(req: Request, res: Response) {
     }
 
     const profile = await storage.getFreelancerProfile(userId);
-    const profileUrl = profile?.slug
-      ? `${FRONTEND_BASE}/profile/${profile.slug}`
+    const effectiveSlug = (profile as any)?.custom_slug || profile?.slug;
+    const profileUrl = effectiveSlug
+      ? `${FRONTEND_BASE}/profile/${effectiveSlug}`
       : `${FRONTEND_BASE}/profile/${userId}`;
 
     // Dynamic import so the server still starts even if qrcode isn't installed yet

@@ -111,6 +111,7 @@ export const freelancer_profiles = pgTable(
     cv_file_size: integer("cv_file_size"),
     reference_token: text("reference_token"), // UUID for public reference request link
     slug: text("slug"), // SEO-friendly URL slug e.g. james-harris-sound-engineer
+    custom_slug: text("custom_slug"), // User-chosen vanity URL e.g. john-smith
     // Structured CV-derived fields (confirmed by freelancer from CV parsing)
     work_history: jsonb("work_history"), // JSON array of {jobTitle, company, dates, details}
     education_history: jsonb("education_history"), // JSON array of {qualification, institution, dates}
