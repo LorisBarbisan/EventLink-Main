@@ -28,6 +28,7 @@ import { registerProfileRoutes } from "./api/routes/profile.route.js";
 import { registerRatingsRoutes } from "./api/routes/rating.route.js";
 import { registerSeoRoutes } from "./api/routes/seo.route.js";
 import { registerSavedFreelancerRoutes } from "./api/routes/saved-freelancers.route.js";
+import { registerQRRoutes } from "./api/routes/qr.route.js";
 import referenceRouter from "./api/routes/reference.route.js";
 import bookingRouter from "./api/routes/booking.route.js";
 import teamRouter from "./api/routes/team.route.js";
@@ -247,6 +248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register all domain-specific routes
   registerAuthRoutes(app);
   registerProfileRoutes(app);
+  registerQRRoutes(app);
   registerJobRoutes(app);
   registerApplicationRoutes(app);
   registerMessagingRoutes(app);

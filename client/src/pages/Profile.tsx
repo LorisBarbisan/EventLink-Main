@@ -1,4 +1,5 @@
 import { DocumentUploader } from "@/components/DocumentUploader";
+import { ProfileQRCode } from "@/components/ProfileQRCode";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
 import { MessageModal } from "@/components/MessageModal";
@@ -1445,6 +1446,14 @@ export default function Profile() {
               </CardContent>
             </Card>
           )}
+          {/* QR Code — own freelancer profile only */}
+          {isOwnProfile && freelancerProfile && (
+            <ProfileQRCode
+              userId={freelancerProfile.user_id}
+              profileUrl={getProfileUrl()}
+            />
+          )}
+
           {/* Active Job Openings (Recruiter profiles only) */}
           {recruiterProfile && recruiterJobs.length > 0 && (
             <Card>
