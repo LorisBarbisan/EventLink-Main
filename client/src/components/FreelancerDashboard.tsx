@@ -12,14 +12,16 @@ import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import type { FreelancerFormData, JobApplication } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, BookOpen, Briefcase, Building2, CheckCircle, Clock, Mail, Send, ShieldCheck, Star, X } from "lucide-react";
+import { AlertCircle, BookOpen, Briefcase, Building2, CheckCircle, Check, Clock, Copy, Mail, Send, Share2, ShieldCheck, Star, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
 import { DocumentUploader } from "./DocumentUploader";
 import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
+import { ProfileQRCode } from "./ProfileQRCode";
 import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
+import { VanityUrlEditor } from "./VanityUrlEditor";
 
 const RATING_LABELS: Record<string, { label: string; stars: number }> = {
   excellent: { label: "Excellent", stars: 5 },
@@ -34,6 +36,8 @@ export default function SimplifiedFreelancerDashboard() {
 
   // Get rating data for current user
   const { data: averageRating } = useFreelancerAverageRating(user?.id || 0);
+
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Check URL parameters for initial tab and react to location changes
   const [location] = useLocation();
@@ -174,6 +178,24 @@ export default function SimplifiedFreelancerDashboard() {
     return <div>Please log in to access the dashboard.</div>;
   }
 
+  const getProfileUrl = () => {
+    const base = window.location.origin;
+    if (profile?.custom_slug) return `${base}/profile/${profile.custom_slug}`;
+    if (profile?.slug) return `${base}/profile/${profile.slug}`;
+    return `${base}/profile/${user.id}`;
+  };
+
+  const handleShareProfile = async () => {
+    try {
+      await navigator.clipboard.writeText(getProfileUrl());
+      setLinkCopied(true);
+      toast({ title: "Link copied!", description: "Your profile link is in the clipboard." });
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      toast({ title: "Copy failed", variant: "destructive" });
+    }
+  };
+
   // Simplified notification check
   const hasNewJobUpdates = false;
 
@@ -184,6 +206,28 @@ export default function SimplifiedFreelancerDashboard() {
         <p className="text-sm text-muted-foreground sm:text-base">
           Manage your profile, applications, and messages
         </p>
+      </div>
+
+      {/* Persistent share bar — visible on every tab */}
+      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary">Your public profile</p>
+          <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <Button size="sm" variant="outline" onClick={handleShareProfile}>
+            {linkCopied ? (
+              <><Check className="mr-1.5 h-3.5 w-3.5 text-green-600" />Copied!</>
+            ) : (
+              <><Copy className="mr-1.5 h-3.5 w-3.5" />Copy Link</>
+            )}
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <a href={getProfileUrl()} target="_blank" rel="noopener noreferrer">
+              <Share2 className="mr-1.5 h-3.5 w-3.5" />View Profile
+            </a>
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
@@ -280,6 +324,21 @@ export default function SimplifiedFreelancerDashboard() {
           {user?.id && (
             <div className="mt-6">
               <DocumentUploader userId={user.id} isOwner={true} viewerRole="freelancer" />
+            </div>
+          )}
+
+          {/* Vanity URL + QR Code */}
+          {user?.id && (
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
+              <VanityUrlEditor
+                userId={user.id}
+                currentCustomSlug={profile?.custom_slug}
+                currentSlug={profile?.slug}
+              />
+              <ProfileQRCode
+                userId={user.id}
+                profileUrl={getProfileUrl()}
+              />
             </div>
           )}
         </TabsContent>
