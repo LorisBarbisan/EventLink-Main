@@ -42,6 +42,7 @@ interface DocumentUploaderProps {
   userId: number;
   isOwner: boolean;
   viewerRole?: "freelancer" | "recruiter" | "admin";
+  publicToken?: string; // Reference token from share URL — grants document access without sign-in
 }
 
 const DOCUMENT_TYPE_LABELS: Record<string, string> = {
@@ -76,7 +77,7 @@ const DOCUMENT_BUTTON_LABELS: Record<string, string> = {
 const MAX_DOCUMENTS = 9;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUploaderProps) {
+export function DocumentUploader({ userId, isOwner, viewerRole, publicToken }: DocumentUploaderProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [selectedType, setSelectedType] = useState<string>("");
@@ -86,7 +87,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
   const privacyConfirmedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isSignedIn = !!viewerRole;
+  const isSignedIn = !!viewerRole || !!publicToken;
 
   const {
     data: documents = [],
@@ -254,11 +255,12 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
 
   const handleDownload = async (document: Document) => {
     try {
-      const token = localStorage.getItem("auth_token");
-      const response = await fetch(`/api/documents/${document.id}/download`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const authToken = localStorage.getItem("auth_token");
+      const url = publicToken && !authToken
+        ? `/api/documents/${document.id}/download?pt=${encodeURIComponent(publicToken)}`
+        : `/api/documents/${document.id}/download`;
+      const response = await fetch(url, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
       });
       if (response.ok) {
         const data = await response.json();

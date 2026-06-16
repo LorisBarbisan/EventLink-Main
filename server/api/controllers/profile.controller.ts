@@ -102,9 +102,17 @@ export async function getFreelancerProfile(req: Request, res: Response) {
       return res.status(404).json({ error: "Freelancer profile not found" });
     }
 
+    // Include reference_token only for the profile owner — it's used to generate
+    // scoped share links that grant public document access for this specific profile.
+    const requestingUserId = (req as any).user?.id;
+    const isOwner = requestingUserId === profile.user_id;
+    const responseProfile = isOwner
+      ? profile
+      : { ...profile, reference_token: undefined };
+
     res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     res.set("Pragma", "no-cache");
-    res.json(profile);
+    res.json(responseProfile);
   } catch (error) {
     console.error("Get freelancer profile error:", error);
     res.status(500).json({ error: "Internal server error" });

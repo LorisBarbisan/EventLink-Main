@@ -102,6 +102,7 @@ interface FreelancerProfile {
   profile_photo_url?: string;
   slug?: string | null;
   custom_slug?: string | null;
+  reference_token?: string | null;
   cv_file_url?: string;
   cv_file_name?: string;
   cv_file_type?: string;
@@ -474,6 +475,7 @@ function ReferencesSection({ freelancerId, currentUser }: { freelancerId: number
 export default function Profile() {
   const [, setLocation] = useLocation();
   const { userId } = useParams();
+  const publicToken = new URLSearchParams(window.location.search).get("pt") ?? undefined;
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [freelancerProfile, setFreelancerProfile] = useState<FreelancerProfile | null>(null);
@@ -486,16 +488,20 @@ export default function Profile() {
 
   const { toast } = useToast();
 
-  const getProfileUrl = () => {
+  const getProfileUrl = (includeToken = false) => {
     const base = window.location.origin;
-    if (freelancerProfile?.custom_slug) return `${base}/profile/${freelancerProfile.custom_slug}`;
-    if (freelancerProfile?.slug) return `${base}/profile/${freelancerProfile.slug}`;
-    if (freelancerProfile?.user_id) return `${base}/profile/${freelancerProfile.user_id}`;
-    return window.location.href;
+    const slug = freelancerProfile?.custom_slug || freelancerProfile?.slug;
+    const path = slug
+      ? `${base}/profile/${slug}`
+      : `${base}/profile/${freelancerProfile?.user_id ?? ""}`;
+    if (includeToken && freelancerProfile?.reference_token) {
+      return `${path}?pt=${encodeURIComponent(freelancerProfile.reference_token)}`;
+    }
+    return path;
   };
 
   const handleShareProfile = async () => {
-    const url = getProfileUrl();
+    const url = getProfileUrl(true); // include ?pt= token for own profile
     try {
       await navigator.clipboard.writeText(url);
       setLinkCopied(true);
@@ -702,6 +708,7 @@ export default function Profile() {
               profile_photo_url: data.profile_photo_url || "",
               slug: data.slug || null,
               custom_slug: data.custom_slug || null,
+              reference_token: data.reference_token || null,
               cv_file_url: data.cv_file_url || "",
               cv_file_name: data.cv_file_name || "",
               cv_file_type: data.cv_file_type || "",
@@ -781,6 +788,8 @@ export default function Profile() {
           availability_status: profileData.availability_status || "available",
           profile_photo_url: profileData.profile_photo_url || "",
           slug: profileData.slug || null,
+          custom_slug: profileData.custom_slug || null,
+          reference_token: profileData.reference_token || null,
           cv_file_url: profileData.cv_file_url || "",
           cv_file_name: profileData.cv_file_name || "",
           cv_file_type: profileData.cv_file_type || "",
@@ -819,6 +828,7 @@ export default function Profile() {
               profile_photo_url: data.profile_photo_url || "",
               slug: data.slug || null,
               custom_slug: data.custom_slug || null,
+              reference_token: data.reference_token || null,
               cv_file_url: data.cv_file_url || "",
               cv_file_name: data.cv_file_name || "",
               cv_file_type: data.cv_file_type || "",
@@ -1310,6 +1320,7 @@ export default function Profile() {
                 userId={freelancerProfile?.user_id || 0}
                 isOwner={isOwnProfile}
                 viewerRole={user?.role as 'freelancer' | 'recruiter' | 'admin'}
+                publicToken={!user ? publicToken : undefined}
               />
             </div>
           )}

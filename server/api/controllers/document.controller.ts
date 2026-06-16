@@ -160,20 +160,28 @@ export async function downloadDocument(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid document ID" });
     }
 
-    if (!(req as any).user) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
     const document = await storage.getFreelancerDocumentById(documentId);
     if (!document) {
       return res.status(404).json({ error: "Document not found" });
     }
 
-    const userRole = (req as any).user.role;
-    const userId = (req as any).user.id;
+    const requestingUser = (req as any).user;
+    const publicToken = req.query.pt as string | undefined;
 
-    if (userRole === "freelancer" && document.freelancer_id !== userId) {
-      return res.status(403).json({ error: "Not authorized to access this document" });
+    if (!requestingUser) {
+      // Allow access if caller provides the owner's public profile token
+      if (!publicToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const ownerProfile = await storage.getFreelancerProfile(document.freelancer_id);
+      if (!ownerProfile?.reference_token || ownerProfile.reference_token !== publicToken) {
+        return res.status(403).json({ error: "Invalid or missing access token" });
+      }
+    } else {
+      // Signed-in user: freelancers can only access their own documents
+      if (requestingUser.role === "freelancer" && document.freelancer_id !== requestingUser.id) {
+        return res.status(403).json({ error: "Not authorized to access this document" });
+      }
     }
 
     try {

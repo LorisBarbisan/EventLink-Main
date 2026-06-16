@@ -178,16 +178,19 @@ export default function SimplifiedFreelancerDashboard() {
     return <div>Please log in to access the dashboard.</div>;
   }
 
-  const getProfileUrl = () => {
+  const getProfileUrl = (includeToken = false) => {
     const base = window.location.origin;
-    if (profile?.custom_slug) return `${base}/profile/${profile.custom_slug}`;
-    if (profile?.slug) return `${base}/profile/${profile.slug}`;
-    return `${base}/profile/${user.id}`;
+    const slug = profile?.custom_slug || profile?.slug;
+    const path = slug ? `${base}/profile/${slug}` : `${base}/profile/${user.id}`;
+    if (includeToken && (profile as any)?.reference_token) {
+      return `${path}?pt=${encodeURIComponent((profile as any).reference_token)}`;
+    }
+    return path;
   };
 
   const handleShareProfile = async () => {
     try {
-      await navigator.clipboard.writeText(getProfileUrl());
+      await navigator.clipboard.writeText(getProfileUrl(true));
       setLinkCopied(true);
       toast({ title: "Link copied!", description: "Your profile link is in the clipboard." });
       setTimeout(() => setLinkCopied(false), 2000);
@@ -223,7 +226,7 @@ export default function SimplifiedFreelancerDashboard() {
             )}
           </Button>
           <Button size="sm" variant="outline" asChild>
-            <a href={getProfileUrl()} target="_blank" rel="noopener noreferrer">
+            <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
               <Share2 className="mr-1.5 h-3.5 w-3.5" />View Profile
             </a>
           </Button>
