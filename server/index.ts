@@ -210,7 +210,7 @@ app.use((req, res, next) => {
   // OG tag middleware for social media crawlers (must be before Vite catch-all)
   app.use(ogTagMiddleware);
 
-  const server = await registerRoutes(app);
+  const { httpServer: server, wss } = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -233,7 +233,37 @@ app.use((req, res, next) => {
   }
 
   const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
-  const host = process.env.NODE_ENV === "production" ? "0.0.0.0" : "0.0.0.0";
+  const host = "0.0.0.0";
+
+  // Graceful shutdown: close WebSocket server then HTTP server
+  const shutdown = (signal: string) => {
+    log(`${signal} received — shutting down gracefully`);
+    wss.close(() => log("WebSocket server closed"));
+    server.close(() => {
+      log("HTTP server closed");
+      process.exit(0);
+    });
+
+    // Give in-flight requests 10 s to finish before forcing exit
+    setTimeout(() => {
+      console.error("Shutdown timeout — forcing exit");
+      process.exit(1);
+    }, 10_000).unref();
+  };
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT",  () => shutdown("SIGINT"));
+
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`Port ${port} is already in use. Is another instance running?`);
+      process.exit(1);
+    } else {
+      console.error("HTTP server error:", err);
+      process.exit(1);
+    }
+  });
+
   server.listen(port, host, async () => {
     log(`serving on port ${port} (host: ${host})`);
 

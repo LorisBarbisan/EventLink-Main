@@ -37,7 +37,7 @@ import jobDocumentRouter from "./api/routes/job-document.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { wsService } from "./api/websocket/websocketService";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<{ httpServer: Server; wss: WebSocketServer }> {
   // Add performance monitoring middleware
   app.use(performanceMonitor.middleware());
 
@@ -690,5 +690,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  return httpServer;
+  return { httpServer, wss };
 }
