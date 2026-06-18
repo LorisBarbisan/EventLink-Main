@@ -1,6 +1,4 @@
 import { DocumentUploader } from "@/components/DocumentUploader";
-import { ProfileQRCode } from "@/components/ProfileQRCode";
-import { VanityUrlEditor } from "@/components/VanityUrlEditor";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
 import { MessageModal } from "@/components/MessageModal";
@@ -1461,22 +1459,6 @@ export default function Profile() {
                 </div>
               </CardContent>
             </Card>
-          )}
-          {/* Vanity URL editor — own freelancer profile only */}
-          {isOwnProfile && freelancerProfile && (
-            <VanityUrlEditor
-              userId={freelancerProfile.user_id}
-              currentCustomSlug={freelancerProfile.custom_slug}
-              currentSlug={freelancerProfile.slug}
-            />
-          )}
-
-          {/* QR Code — own freelancer profile only */}
-          {isOwnProfile && freelancerProfile && (
-            <ProfileQRCode
-              userId={freelancerProfile.user_id}
-              profileUrl={getProfileUrl()}
-            />
           )}
 
           {/* Active Job Openings (Recruiter profiles only) */}

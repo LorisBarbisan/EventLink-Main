@@ -19,9 +19,7 @@ import { ApplicationCard } from "./ApplicationCard";
 import { DocumentUploader } from "./DocumentUploader";
 import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
-import { ProfileQRCode } from "./ProfileQRCode";
 import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
-import { VanityUrlEditor } from "./VanityUrlEditor";
 
 const RATING_LABELS: Record<string, { label: string; stars: number }> = {
   excellent: { label: "Excellent", stars: 5 },
@@ -330,20 +328,6 @@ export default function SimplifiedFreelancerDashboard() {
             </div>
           )}
 
-          {/* Vanity URL + QR Code */}
-          {user?.id && (
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
-              <VanityUrlEditor
-                userId={user.id}
-                currentCustomSlug={profile?.custom_slug}
-                currentSlug={profile?.slug}
-              />
-              <ProfileQRCode
-                userId={user.id}
-                profileUrl={getProfileUrl()}
-              />
-            </div>
-          )}
         </TabsContent>
 
         {/* Jobs/Applications Tab */}
