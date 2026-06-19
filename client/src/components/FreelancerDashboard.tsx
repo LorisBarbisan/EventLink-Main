@@ -226,24 +226,22 @@ export default function SimplifiedFreelancerDashboard() {
       </div>
 
       {/* Persistent share bar — visible on every tab */}
-      <div
-        className="mb-4 flex flex-col gap-2 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-        style={{
-          borderColor: "hsl(var(--accent) / 0.3)",
-          backgroundColor: "hsl(var(--accent) / 0.12)",
-        }}
-      >
+      <div className="bg-gradient-accent mb-4 flex flex-col gap-2 rounded-xl border-0 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent-foreground/70">
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/80">
             Your public profile
           </p>
-          <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
+          <p className="truncate text-sm text-white/70">{getProfileUrl()}</p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Button size="sm" variant="outline" onClick={handleShareProfile}>
+          <Button
+            size="sm"
+            className="border-0 bg-amber-50 text-amber-900 hover:bg-amber-100"
+            onClick={handleShareProfile}
+          >
             {linkCopied ? (
               <>
-                <Check className="mr-1.5 h-3.5 w-3.5 text-green-600" />
+                <Check className="mr-1.5 h-3.5 w-3.5 text-green-700" />
                 Copied!
               </>
             ) : (
@@ -253,7 +251,11 @@ export default function SimplifiedFreelancerDashboard() {
               </>
             )}
           </Button>
-          <Button size="sm" variant="outline" asChild>
+          <Button
+            size="sm"
+            className="border-0 bg-amber-50 text-amber-900 hover:bg-amber-100"
+            asChild
+          >
             <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
               <Share2 className="mr-1.5 h-3.5 w-3.5" />
               View Profile
