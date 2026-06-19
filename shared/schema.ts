@@ -57,6 +57,10 @@ export const users = pgTable(
     job_alert_frequency_preference: text("job_alert_frequency_preference")
       .default("instant")
       .$type<"instant" | "weekly" | "none">(), // 'instant' = include in batch, 'none' = no automated emails
+    subscription_tier: text("subscription_tier").default("free").$type<"free" | "pro">(),
+    subscription_expires_at: timestamp("subscription_expires_at", { withTimezone: true }),
+    stripe_customer_id: text("stripe_customer_id"),
+    stripe_subscription_id: text("stripe_subscription_id"),
   },
   (table) => ({
     statusCheck: check(

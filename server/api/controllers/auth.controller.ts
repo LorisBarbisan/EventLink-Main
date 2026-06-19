@@ -15,7 +15,11 @@ import {
   isTokenBlacklisted,
   verifyJWTToken,
 } from "../utils/auth.util";
-import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from "../utils/emailService";
+import {
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+  sendWelcomeEmail,
+} from "../utils/emailService";
 import { resolveTeamContextForUser } from "../utils/team.util";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "eventlink-secret-key";
@@ -30,11 +34,9 @@ function generatePendingOAuthToken(data: {
   provider_id: string;
   profile_photo_url: string;
 }): string {
-  return jwt.sign(
-    { ...data, purpose: "oauth_pending_registration" },
-    OAUTH_PENDING_SECRET,
-    { expiresIn: OAUTH_PENDING_EXPIRY }
-  );
+  return jwt.sign({ ...data, purpose: "oauth_pending_registration" }, OAUTH_PENDING_SECRET, {
+    expiresIn: OAUTH_PENDING_EXPIRY,
+  });
 }
 
 function verifyPendingOAuthToken(token: string): {
@@ -134,16 +136,14 @@ export async function handleGoogleCallback(req: Request, res: Response) {
     const lastName = userInfo.family_name || "";
     const picture = userInfo.picture || "";
 
-    // Parse role from state
-    let selectedRole: "freelancer" | "recruiter" = "freelancer";
+    // Parse role from state (reserved for future use)
     try {
       if (state) {
-        const decoded = JSON.parse(Buffer.from(state, "base64").toString());
-        if (decoded.role === "recruiter" || decoded.role === "freelancer") {
-          selectedRole = decoded.role;
-        }
+        JSON.parse(Buffer.from(state, "base64").toString());
       }
-    } catch {}
+    } catch {
+      // ignore malformed state
+    }
 
     // Step 3: Find or create user
     let user = await storage.getUserBySocialProvider("google", googleId);
@@ -207,6 +207,7 @@ export async function handleGoogleCallback(req: Request, res: Response) {
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
         auth_provider: userWithRole.auth_provider || "email",
+        subscription_tier: userWithRole.subscription_tier || "free",
       })
     )}`;
 
@@ -280,7 +281,8 @@ export function handleFacebookCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
+          subscription_tier: userWithRole.subscription_tier || "free",
         })
       )}`;
 
@@ -355,7 +357,8 @@ export function handleAppleCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
+          subscription_tier: userWithRole.subscription_tier || "free",
         })
       )}`;
 
@@ -400,7 +403,9 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
           profile_photo_url: user.profile_photo_url,
         });
         const redirectUrl = `${frontendUrl}/auth#needs_role=true&pending_token=${encodeURIComponent(pendingToken)}`;
-        console.log("LinkedIn OAuth new user — redirecting to role selection:", { email: user.email });
+        console.log("LinkedIn OAuth new user — redirecting to role selection:", {
+          email: user.email,
+        });
         return res.redirect(redirectUrl);
       }
 
@@ -440,7 +445,8 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
+          subscription_tier: userWithRole.subscription_tier || "free",
         })
       )}`;
 
@@ -471,10 +477,13 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
     // Verify the server-signed pending OAuth token
     const oauthData = verifyPendingOAuthToken(pending_token);
     if (!oauthData) {
-      return res.status(401).json({ error: "Invalid or expired registration token. Please sign in again." });
+      return res
+        .status(401)
+        .json({ error: "Invalid or expired registration token. Please sign in again." });
     }
 
-    const { email, first_name, last_name, auth_provider, provider_id, profile_photo_url } = oauthData;
+    const { email, first_name, last_name, auth_provider, provider_id, profile_photo_url } =
+      oauthData;
 
     if (!["google", "linkedin", "facebook"].includes(auth_provider)) {
       return res.status(400).json({ error: "Invalid auth provider" });
@@ -484,7 +493,9 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
     const existingUser = await storage.getUserBySocialProvider(auth_provider as any, provider_id);
     if (existingUser) {
       if (existingUser.status === "deactivated") {
-        return res.status(403).json({ error: "Your account has been deactivated. Please contact support." });
+        return res
+          .status(403)
+          .json({ error: "Your account has been deactivated. Please contact support." });
       }
       const userWithRole = computeUserRole(existingUser);
       const jwtToken = generateJWTToken(userWithRole);
@@ -497,7 +508,8 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
+          subscription_tier: userWithRole.subscription_tier || "free",
         },
       });
     }
@@ -505,9 +517,16 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
     const existingEmailUser = await storage.getUserByEmail(email);
     if (existingEmailUser) {
       if (existingEmailUser.status === "deactivated") {
-        return res.status(403).json({ error: "Your account has been deactivated. Please contact support." });
+        return res
+          .status(403)
+          .json({ error: "Your account has been deactivated. Please contact support." });
       }
-      await storage.linkSocialProvider(existingEmailUser.id, auth_provider as any, provider_id, profile_photo_url);
+      await storage.linkSocialProvider(
+        existingEmailUser.id,
+        auth_provider as any,
+        provider_id,
+        profile_photo_url
+      );
       await storage.updateUserLastLogin(existingEmailUser.id, auth_provider as any);
       const userWithRole = computeUserRole(existingEmailUser);
       const jwtToken = generateJWTToken(userWithRole);
@@ -520,13 +539,18 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
+          subscription_tier: userWithRole.subscription_tier || "free",
         },
       });
     }
 
-    const providerIdField = auth_provider === "google" ? "google_id" :
-      auth_provider === "linkedin" ? "linkedin_id" : "facebook_id";
+    const providerIdField =
+      auth_provider === "google"
+        ? "google_id"
+        : auth_provider === "linkedin"
+          ? "linkedin_id"
+          : "facebook_id";
 
     const newUser = await storage.createSocialUser({
       email,
@@ -550,7 +574,7 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
       unsubscribeToken: newUser.unsubscribe_token ?? null,
       welcomeEmailSent: newUser.welcome_email_sent ?? false,
       marketingOptOut: newUser.marketing_emails_opt_out ?? false,
-    }).catch(err => console.error("Welcome email error (OAuth):", err));
+    }).catch((err) => console.error("Welcome email error (OAuth):", err));
 
     const userWithRole = computeUserRole(newUser);
     const jwtToken = generateJWTToken(userWithRole);
@@ -572,6 +596,7 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
         auth_provider: userWithRole.auth_provider || "email",
+        subscription_tier: userWithRole.subscription_tier || "free",
       },
     });
   } catch (error) {
@@ -650,6 +675,7 @@ export async function getSession(req: Request, res: Response) {
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
         auth_provider: userWithRole.auth_provider || "email",
+        subscription_tier: userWithRole.subscription_tier || "free",
         profile_photo_url: profilePhotoUrl,
         companyId,
         teamRole,
@@ -674,9 +700,8 @@ export async function signup(req: Request, res: Response) {
     }
 
     const { email, password, first_name, last_name, role } = result.data;
-    const company_name = typeof req.body?.company_name === "string"
-      ? req.body.company_name.trim()
-      : "";
+    const company_name =
+      typeof req.body?.company_name === "string" ? req.body.company_name.trim() : "";
 
     if (!first_name || !first_name.trim()) {
       return res.status(400).json({ error: "Name is required" });
@@ -751,7 +776,7 @@ export async function signup(req: Request, res: Response) {
       unsubscribeToken: user.unsubscribe_token ?? null,
       welcomeEmailSent: user.welcome_email_sent ?? false,
       marketingOptOut: user.marketing_emails_opt_out ?? false,
-    }).catch(err => console.error("Welcome email error:", err));
+    }).catch((err) => console.error("Welcome email error:", err));
 
     // Apply role computation
     const userWithRole = computeUserRole(user);
@@ -766,6 +791,7 @@ export async function signup(req: Request, res: Response) {
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
         auth_provider: userWithRole.auth_provider || "email",
+        subscription_tier: userWithRole.subscription_tier || "free",
       },
     });
   } catch (error) {
@@ -815,10 +841,7 @@ export async function signin(req: Request, res: Response) {
         .select({ id: teamMembers.id })
         .from(teamMembers)
         .where(
-          and(
-            eq(teamMembers.invitedEmail, normalizedEmail),
-            eq(teamMembers.inviteAccepted, false)
-          )
+          and(eq(teamMembers.invitedEmail, normalizedEmail), eq(teamMembers.inviteAccepted, false))
         )
         .limit(1);
 
@@ -1179,6 +1202,7 @@ export async function updateAccount(req: Request, res: Response) {
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
         auth_provider: userWithRole.auth_provider || "email",
+        subscription_tier: userWithRole.subscription_tier || "free",
       },
     });
   } catch (error) {
@@ -1258,7 +1282,7 @@ export async function getAdminDiagnostics(req: Request, res: Response) {
     }
 
     const adminEmails = process.env.ADMIN_EMAILS
-      ? process.env.ADMIN_EMAILS.split(",").map(email => email.trim().toLowerCase())
+      ? process.env.ADMIN_EMAILS.split(",").map((email) => email.trim().toLowerCase())
       : [];
 
     const diagnostics = {
