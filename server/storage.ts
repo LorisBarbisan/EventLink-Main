@@ -616,6 +616,8 @@ export interface IStorage {
   setJobNotificationSentAt(jobId: number): Promise<void>;
   setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void>;
 
+  updateSubscriptionTier(userId: number, tier: "free" | "pro"): Promise<User | undefined>;
+
   // Portfolio posts
   getPortfolioPosts(userId: number): Promise<import("@shared/schema").PortfolioPost[]>;
   createPortfolioPost(
@@ -5440,6 +5442,15 @@ export class DatabaseStorage implements IStorage {
       members: membersList,
       jobs: enrichedJobs,
     };
+  }
+
+  async updateSubscriptionTier(userId: number, tier: "free" | "pro"): Promise<User | undefined> {
+    const result = await db
+      .update(users)
+      .set({ subscription_tier: tier })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
   }
 
   // Portfolio posts

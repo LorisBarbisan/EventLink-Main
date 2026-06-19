@@ -25,6 +25,7 @@ import {
   sendContactReply,
   updateFeedbackStatus,
   updateUserStatus,
+  updateUserSubscription,
 } from "../controllers/admin.controller";
 import { requireAdminAuth } from "../middleware/admin.middleware";
 
@@ -76,6 +77,7 @@ export function registerAdminRoutes(app: Express) {
 
   // Update user status (admin only)
   app.patch("/api/admin/users/:id/status", requireAdminAuth, updateUserStatus);
+  app.patch("/api/admin/users/:id/subscription", requireAdminAuth, updateUserSubscription);
 
   // Hard delete a user account (admin only)
   app.delete("/api/admin/users/:id", requireAdminAuth, adminDeleteUser);

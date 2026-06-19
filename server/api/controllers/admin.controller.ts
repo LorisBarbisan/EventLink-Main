@@ -133,7 +133,7 @@ export async function sendContactReply(req: Request, res: Response) {
 
     // Get the contact message
     const messages = await storage.getAllContactMessages();
-    const message = messages.find(m => m.id === messageId);
+    const message = messages.find((m) => m.id === messageId);
 
     if (!message) {
       return res.status(404).json({ error: "Contact message not found" });
@@ -188,7 +188,15 @@ export async function getAdminJobs(req: Request, res: Response) {
     const sortBy = (req.query.sortBy as string) || "created_at";
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
 
-    const { jobs, total } = await storage.getAdminJobs(page, limit, search, status, type, sortBy, sortOrder);
+    const { jobs, total } = await storage.getAdminJobs(
+      page,
+      limit,
+      search,
+      status,
+      type,
+      sortBy,
+      sortOrder
+    );
 
     res.json({
       jobs,
@@ -232,7 +240,16 @@ export async function getAllUsers(req: Request, res: Response) {
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
     const profileStatus = (req.query.profileStatus as string) || undefined;
 
-    const { users, total } = await storage.getAllUsers(page, limit, search, role, status, sortBy, sortOrder, profileStatus);
+    const { users, total } = await storage.getAllUsers(
+      page,
+      limit,
+      search,
+      role,
+      status,
+      sortBy,
+      sortOrder,
+      profileStatus
+    );
 
     // Remove sensitive information
     const safeUsers = users.map((user: any) => {
@@ -492,7 +509,7 @@ export async function bootstrapCreateFirstAdmin(req: Request, res: Response) {
 
     // Check if any admins already exist (to prevent abuse)
     const existingAdmins = await storage.getAdminUsers();
-    const realAdmins = existingAdmins.filter(admin => admin.role === "admin");
+    const realAdmins = existingAdmins.filter((admin) => admin.role === "admin");
 
     if (realAdmins.length > 0) {
       return res.status(400).json({
@@ -592,7 +609,8 @@ export async function getNotifyFreelancersPreview(req: Request, res: Response) {
 
     const job = await storage.getJobById(jobId);
     if (!job) return res.status(404).json({ error: "Job not found" });
-    if (job.status !== "active") return res.status(400).json({ error: "Job must be active to notify freelancers" });
+    if (job.status !== "active")
+      return res.status(400).json({ error: "Job must be active to notify freelancers" });
 
     const matching = await storage.getFreelancersMatchingJob(job);
 
@@ -622,7 +640,8 @@ export async function notifyFreelancersForJob(req: Request, res: Response) {
 
     const job = await storage.getJobById(jobId);
     if (!job) return res.status(404).json({ error: "Job not found" });
-    if (job.status !== "active") return res.status(400).json({ error: "Job must be active to notify freelancers" });
+    if (job.status !== "active")
+      return res.status(400).json({ error: "Job must be active to notify freelancers" });
 
     const lastNotifiedAt = (job as any).last_notified_at;
     const force = req.body?.force === true;
@@ -644,12 +663,16 @@ export async function notifyFreelancersForJob(req: Request, res: Response) {
 
     const eventDate = job.event_date
       ? new Date(job.event_date).toLocaleDateString("en-GB", {
-          weekday: "short", year: "numeric", month: "short", day: "numeric",
+          weekday: "short",
+          year: "numeric",
+          month: "short",
+          day: "numeric",
         })
       : "Date TBC";
 
     const descriptionPreview = job.description
-      ? job.description.slice(0, 150).replace(/\s+\S*$/, "") + (job.description.length > 150 ? "…" : "")
+      ? job.description.slice(0, 150).replace(/\s+\S*$/, "") +
+        (job.description.length > 150 ? "…" : "")
       : "";
 
     // Update timestamp immediately so double-clicks don't send twice
@@ -683,13 +706,19 @@ export async function notifyFreelancersForJob(req: Request, res: Response) {
         }
       }
       // Set notification timestamps so frequency cap works across manual + automated sends
-      await storage.setManualNotificationTimestamps(jobId, notifiedUserIds).catch(err =>
-        console.error("Failed to set manual notification timestamps:", err)
+      await storage
+        .setManualNotificationTimestamps(jobId, notifiedUserIds)
+        .catch((err) => console.error("Failed to set manual notification timestamps:", err));
+      console.log(
+        `✅ Notify Freelancers: sent ${sent}/${matching.length} emails for job ${jobId} "${job.title}"`
       );
-      console.log(`✅ Notify Freelancers: sent ${sent}/${matching.length} emails for job ${jobId} "${job.title}"`);
     })();
 
-    res.json({ success: true, count: matching.length, message: `Notification sent to ${matching.length} freelancer${matching.length === 1 ? "" : "s"}` });
+    res.json({
+      success: true,
+      count: matching.length,
+      message: `Notification sent to ${matching.length} freelancer${matching.length === 1 ? "" : "s"}`,
+    });
   } catch (error) {
     console.error("Notify freelancers error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -768,24 +797,38 @@ export async function exportAdminXLSX(req: Request, res: Response) {
     wb.created = new Date();
 
     // Sheet 1 — Overview
-    addSheet(wb, "Overview", ["Metric", "Value"], [
-      ["Total Users", analytics.users.total],
-      ["Active Users", analytics.users.active],
-      ["New Users This Month", analytics.users.thisMonth],
-      ["Total Jobs", analytics.jobs.total],
-      ["Active Jobs", analytics.jobs.active],
-      ["New Jobs This Month", analytics.jobs.thisMonth],
-      ["Pending Feedback", analytics.feedback.pending],
-      ["Total Applications", analytics.applications.total],
-      ["Hired Applications", analytics.applications.hired],
-      ["Applications This Month", analytics.applications.thisMonth],
-    ]);
+    addSheet(
+      wb,
+      "Overview",
+      ["Metric", "Value"],
+      [
+        ["Total Users", analytics.users.total],
+        ["Active Users", analytics.users.active],
+        ["New Users This Month", analytics.users.thisMonth],
+        ["Total Jobs", analytics.jobs.total],
+        ["Active Jobs", analytics.jobs.active],
+        ["New Jobs This Month", analytics.jobs.thisMonth],
+        ["Pending Feedback", analytics.feedback.pending],
+        ["Total Applications", analytics.applications.total],
+        ["Hired Applications", analytics.applications.hired],
+        ["Applications This Month", analytics.applications.thisMonth],
+      ]
+    );
 
     // Sheet 2 — Users
     addSheet(
       wb,
       "Users",
-      ["ID", "Full Name", "Email", "Role", "Status", "Email Verified", "Join Date", "Profile Status"],
+      [
+        "ID",
+        "Full Name",
+        "Email",
+        "Role",
+        "Status",
+        "Email Verified",
+        "Join Date",
+        "Profile Status",
+      ],
       (usersResult.users || []).map((u: any) => [
         u.id,
         `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim(),
@@ -802,7 +845,19 @@ export async function exportAdminXLSX(req: Request, res: Response) {
     addSheet(
       wb,
       "Jobs",
-      ["ID", "Title", "Company", "Location", "Status", "Type", "Applications", "Hired", "Posted By", "Poster Email", "Created Date"],
+      [
+        "ID",
+        "Title",
+        "Company",
+        "Location",
+        "Status",
+        "Type",
+        "Applications",
+        "Hired",
+        "Posted By",
+        "Poster Email",
+        "Created Date",
+      ],
       (jobsResult.jobs || []).map((j: any) => [
         j.id,
         j.title ?? "",
@@ -855,7 +910,17 @@ export async function exportAdminXLSX(req: Request, res: Response) {
     addSheet(
       wb,
       "Ratings",
-      ["ID", "Rating", "Comment", "Status", "Flagged", "Employer Email", "Job Title", "Admin Notes", "Created Date"],
+      [
+        "ID",
+        "Rating",
+        "Comment",
+        "Status",
+        "Flagged",
+        "Employer Email",
+        "Job Title",
+        "Admin Notes",
+        "Created Date",
+      ],
       (ratingsAll || []).map((r: any) => [
         r.id,
         r.overall_rating ?? "",
@@ -885,7 +950,10 @@ export async function exportAdminXLSX(req: Request, res: Response) {
     );
 
     const filename = `eventlink_admin_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     await wb.xlsx.write(res);
     res.end();
@@ -910,19 +978,42 @@ export async function sendBulkMessages(req: Request, res: Response) {
 
     if (Array.isArray(userIds) && userIds.length > 0) {
       // Specific user IDs were provided — fetch only those users
-      const { users } = await storage.getAllUsers(1, 100000, undefined, undefined, undefined, "created_at", "desc", undefined);
-      recipients = users.filter(u => userIds.includes(u.id) && u.id !== adminUser.id && u.role !== "admin");
+      const { users } = await storage.getAllUsers(
+        1,
+        100000,
+        undefined,
+        undefined,
+        undefined,
+        "created_at",
+        "desc",
+        undefined
+      );
+      recipients = users.filter(
+        (u) => userIds.includes(u.id) && u.id !== adminUser.id && u.role !== "admin"
+      );
     } else {
       const search = filters?.search || undefined;
       const role = filters?.role && filters.role !== "all" ? filters.role : undefined;
       const status = filters?.status && filters.status !== "all" ? filters.status : undefined;
-      const profileStatus = filters?.profileStatus && filters.profileStatus !== "all" ? filters.profileStatus : undefined;
+      const profileStatus =
+        filters?.profileStatus && filters.profileStatus !== "all"
+          ? filters.profileStatus
+          : undefined;
 
       // Fetch all matching users (no pagination cap)
-      const { users } = await storage.getAllUsers(1, 100000, search, role, status, "created_at", "desc", profileStatus);
+      const { users } = await storage.getAllUsers(
+        1,
+        100000,
+        search,
+        role,
+        status,
+        "created_at",
+        "desc",
+        profileStatus
+      );
 
       // Never message admins or the sender
-      recipients = users.filter(u => u.id !== adminUser.id && u.role !== "admin");
+      recipients = users.filter((u) => u.id !== adminUser.id && u.role !== "admin");
     }
 
     let sent = 0;
@@ -970,7 +1061,10 @@ export async function sendBulkMessages(req: Request, res: Response) {
             senderName: adminName,
             messagePreview,
             conversationId: conversation.id,
-            emailSubject: typeof emailSubject === "string" && emailSubject.trim() ? emailSubject.trim() : undefined,
+            emailSubject:
+              typeof emailSubject === "string" && emailSubject.trim()
+                ? emailSubject.trim()
+                : undefined,
           })
           .catch((err: any) =>
             console.error(`Bulk message email failed for user ${recipient.id}:`, err)
@@ -1059,10 +1153,7 @@ export async function adminLinkTeamMember(req: Request, res: Response) {
       return res.status(404).json({ error: "One or both accounts not found" });
     }
 
-    const [existing] = await db
-      .select()
-      .from(teamMembers)
-      .where(eq(teamMembers.userId, userId));
+    const [existing] = await db.select().from(teamMembers).where(eq(teamMembers.userId, userId));
 
     if (existing) {
       return res.status(409).json({
@@ -1084,9 +1175,7 @@ export async function adminLinkTeamMember(req: Request, res: Response) {
       })
       .returning();
 
-    console.log(
-      `Admin linked user ${userId} (${member.email}) to company ${companyId} as ${role}`
-    );
+    console.log(`Admin linked user ${userId} (${member.email}) to company ${companyId} as ${role}`);
 
     return res.status(201).json({
       success: true,
@@ -1095,6 +1184,25 @@ export async function adminLinkTeamMember(req: Request, res: Response) {
     });
   } catch (error) {
     console.error("adminLinkTeamMember error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+export async function updateUserSubscription(req: Request, res: Response) {
+  try {
+    const userId = parseInt(req.params.id);
+    const { tier } = req.body;
+    if (isNaN(userId)) return res.status(400).json({ error: "Invalid user ID" });
+    if (!["free", "pro"].includes(tier)) return res.status(400).json({ error: "Invalid tier" });
+    const updated = await storage.updateSubscriptionTier(userId, tier as "free" | "pro");
+    if (!updated) return res.status(404).json({ error: "User not found" });
+    return res.json({
+      id: updated.id,
+      email: updated.email,
+      subscription_tier: updated.subscription_tier,
+    });
+  } catch (error) {
+    console.error("updateUserSubscription error:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 }
