@@ -226,7 +226,10 @@ export default function SimplifiedFreelancerDashboard() {
       </div>
 
       {/* Persistent share bar — visible on every tab */}
-      <div className="bg-gradient-accent mb-4 flex flex-col gap-2 rounded-xl border-0 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        className="mb-4 flex flex-col gap-2 rounded-xl border-0 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        style={{ background: "linear-gradient(135deg, hsl(270 95% 70%), hsl(270 95% 85%))" }}
+      >
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-white/80">
             Your public profile
