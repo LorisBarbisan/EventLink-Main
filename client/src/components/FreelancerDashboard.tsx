@@ -227,12 +227,7 @@ export default function SimplifiedFreelancerDashboard() {
 
       {/* Persistent share bar — visible on every tab */}
       <div className="mb-4 flex flex-col gap-2 rounded-xl border-0 bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-white/80">
-            Your public profile
-          </p>
-          <p className="truncate text-sm text-white/70">{getProfileUrl()}</p>
-        </div>
+        <p className="text-base font-semibold text-white">Your public profile</p>
         <div className="flex shrink-0 gap-2">
           <Button
             size="sm"
@@ -261,7 +256,11 @@ export default function SimplifiedFreelancerDashboard() {
               View Profile
             </a>
           </Button>
-          <Button size="sm" onClick={() => setQrOpen(true)}>
+          <Button
+            size="sm"
+            className="border-0 bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
+            onClick={() => setQrOpen(true)}
+          >
             <QrCode className="mr-1.5 h-3.5 w-3.5" />
             QR Code
           </Button>
