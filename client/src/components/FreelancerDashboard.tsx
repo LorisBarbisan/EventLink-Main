@@ -227,16 +227,16 @@ export default function SimplifiedFreelancerDashboard() {
 
       {/* Persistent share bar — visible on every tab */}
       <div className="mb-4 flex flex-col gap-2 rounded-xl border-0 bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-base font-semibold text-white">Your public profile</p>
+        <p className="text-base font-bold text-white">Your Digital Business Card</p>
         <div className="flex shrink-0 gap-2">
           <Button
             size="sm"
-            className="border-0 bg-amber-50 text-amber-900 hover:bg-amber-100"
+            className="border border-white/40 bg-white/20 text-white backdrop-blur-sm hover:bg-white/30"
             onClick={handleShareProfile}
           >
             {linkCopied ? (
               <>
-                <Check className="mr-1.5 h-3.5 w-3.5 text-green-700" />
+                <Check className="mr-1.5 h-3.5 w-3.5" />
                 Copied!
               </>
             ) : (
@@ -248,7 +248,7 @@ export default function SimplifiedFreelancerDashboard() {
           </Button>
           <Button
             size="sm"
-            className="border-0 bg-amber-50 text-amber-900 hover:bg-amber-100"
+            className="border border-white/40 bg-white/20 text-white backdrop-blur-sm hover:bg-white/30"
             asChild
           >
             <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
