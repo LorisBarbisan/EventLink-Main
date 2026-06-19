@@ -10,12 +10,17 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { getEffectiveCompanyId, isManagerTeamMember } from "@/lib/employerContext";
-import { Bell, LogOut, Settings, Star, User, UserCircle } from "lucide-react";
+import { Bell, CreditCard, LogOut, Settings, Star, User, UserCircle } from "lucide-react";
 import { useLocation } from "wouter";
 
 export const UserMenu = () => {
   const [, setLocation] = useLocation();
   const { user, signOut } = useAuth();
+
+  const userType = user?.role === "freelancer" ? "freelancer" : "recruiter";
+  const profileUserId =
+    user?.role === "recruiter" && user ? getEffectiveCompanyId(user) : user?.id || 0;
+  const { profile } = useProfile({ userType, userId: profileUserId });
 
   if (!user) return null;
 
@@ -23,14 +28,6 @@ export const UserMenu = () => {
     user.role === "freelancer" ||
     user.role === "admin" ||
     (user.role === "recruiter" && !isManagerTeamMember(user));
-
-  // Get profile data based on user role
-  const userType = user?.role === "freelancer" ? "freelancer" : "recruiter";
-  const profileUserId =
-    user?.role === "recruiter" && user
-      ? getEffectiveCompanyId(user)
-      : user?.id || 0;
-  const { profile } = useProfile({ userType, userId: profileUserId });
 
   // Get display name based on user account data
   const getDisplayName = () => {
@@ -61,7 +58,7 @@ export const UserMenu = () => {
 
     // Fallback to clean email-based name
     const emailName = user.email.split("@")[0];
-    return emailName.replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+    return emailName.replace(/[._]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   const getInitials = () => {
@@ -102,10 +99,10 @@ export const UserMenu = () => {
     const name = user.email
       .split("@")[0]
       .replace(/[._]/g, " ")
-      .replace(/\b\w/g, l => l.toUpperCase());
+      .replace(/\b\w/g, (l) => l.toUpperCase());
     return name
       .split(" ")
-      .map(word => word[0])
+      .map((word) => word[0])
       .join("")
       .slice(0, 2)
       .toUpperCase();
@@ -114,8 +111,7 @@ export const UserMenu = () => {
   const getAvatarUrl = (): string | undefined => {
     if (!profile) return undefined;
     const p = profile as any;
-    const url =
-      user.role === "recruiter" ? p.company_logo_url : p.profile_photo_url;
+    const url = user.role === "recruiter" ? p.company_logo_url : p.profile_photo_url;
     if (url && typeof url === "string" && url.trim() !== "" && url !== "null") {
       return url;
     }
@@ -178,6 +174,11 @@ export const UserMenu = () => {
             Admin Dashboard
           </DropdownMenuItem>
         )}
+
+        <DropdownMenuItem onClick={() => setLocation("/billing")} data-testid="menu-billing">
+          <CreditCard className="mr-2 h-4 w-4" />
+          Billing &amp; Plans
+        </DropdownMenuItem>
 
         <DropdownMenuItem onClick={() => setLocation("/settings")} data-testid="menu-settings">
           <Settings className="mr-2 h-4 w-4" />
