@@ -106,9 +106,7 @@ export async function getFreelancerProfile(req: Request, res: Response) {
     // scoped share links that grant public document access for this specific profile.
     const requestingUserId = (req as any).user?.id;
     const isOwner = requestingUserId === profile.user_id;
-    const responseProfile = isOwner
-      ? profile
-      : { ...profile, reference_token: undefined };
+    const responseProfile = isOwner ? profile : { ...profile, reference_token: undefined };
 
     res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     res.set("Pragma", "no-cache");
@@ -276,11 +274,12 @@ export async function getAllFreelancers(req: Request, res: Response) {
 // Search freelancers with filters and pagination
 export async function searchFreelancers(req: Request, res: Response) {
   try {
-    const { keyword, location, page, limit } = req.query;
+    const { keyword, location, country, page, limit } = req.query;
 
     const filters = {
       keyword: keyword as string | undefined,
       location: location as string | undefined,
+      country: country as string | undefined,
       page: page ? parseInt(page as string) : 1,
       limit: limit ? parseInt(limit as string) : 20,
     };

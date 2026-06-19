@@ -17,6 +17,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { UKLocationInput } from "@/components/ui/uk-location-input";
+import { COUNTRIES } from "@/lib/countries";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { usePersistentState } from "@/hooks/usePersistentState";
@@ -97,6 +98,7 @@ export function ProfileForm({
           superpower: freelancerProfile?.superpower || "",
           bio: freelancerProfile?.bio || "",
           location: freelancerProfile?.location || "",
+          country: (freelancerProfile as any)?.country || "",
           experience_years: freelancerProfile?.experience_years?.toString() || "",
           skills: freelancerProfile?.skills || [],
           portfolio_url: freelancerProfile?.portfolio_url || "",
@@ -112,6 +114,7 @@ export function ProfileForm({
           contact_name: recruiterProfile?.contact_name || "",
           company_type: recruiterProfile?.company_type || "",
           location: recruiterProfile?.location || "",
+          country: (recruiterProfile as any)?.country || "",
           description: recruiterProfile?.description || "",
           website_url: recruiterProfile?.website_url || "",
           linkedin_url: recruiterProfile?.linkedin_url || "",
@@ -235,9 +238,7 @@ export function ProfileForm({
       <Card>
         <CardHeader>
           <CardTitle>Company Profile</CardTitle>
-          <CardDescription>
-            The company profile has not been set up yet.
-          </CardDescription>
+          <CardDescription>The company profile has not been set up yet.</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
@@ -668,15 +669,35 @@ function FreelancerFormFields({
         />
       </div>
 
-      <div>
-        <UKLocationInput
-          id="location"
-          label="Location *"
-          value={formData.location}
-          onChange={onLocationChange}
-          placeholder="Start typing a UK location..."
-          data-testid="input-location"
-        />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="country">Country</Label>
+          <Select
+            value={(formData as any).country || ""}
+            onValueChange={(v) => onInputChange("country", v)}
+          >
+            <SelectTrigger id="country" data-testid="select-country">
+              <SelectValue placeholder="Select country..." />
+            </SelectTrigger>
+            <SelectContent>
+              {COUNTRIES.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <UKLocationInput
+            id="location"
+            label="City"
+            value={formData.location}
+            onChange={onLocationChange}
+            placeholder="Start typing your city..."
+            data-testid="input-location"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
@@ -901,12 +922,30 @@ function RecruiterFormFields({
           </Select>
         </div>
         <div>
+          <Label htmlFor="country">Country</Label>
+          <Select
+            value={(formData as any).country || ""}
+            onValueChange={(v) => onInputChange("country", v)}
+          >
+            <SelectTrigger id="country" data-testid="select-country-recruiter">
+              <SelectValue placeholder="Select country..." />
+            </SelectTrigger>
+            <SelectContent>
+              {COUNTRIES.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
           <UKLocationInput
             id="location"
-            label="Location"
+            label="City"
             value={formData.location}
             onChange={onLocationChange}
-            placeholder="Start typing a UK location..."
+            placeholder="Start typing your city..."
             data-testid="input-location"
           />
         </div>
