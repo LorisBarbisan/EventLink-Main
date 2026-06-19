@@ -226,9 +226,15 @@ export default function SimplifiedFreelancerDashboard() {
       </div>
 
       {/* Persistent share bar — visible on every tab */}
-      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        className="mb-4 flex flex-col gap-2 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        style={{
+          borderColor: "hsl(var(--accent) / 0.3)",
+          backgroundColor: "hsl(var(--accent) / 0.12)",
+        }}
+      >
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+          <p className="text-xs font-semibold uppercase tracking-wide text-accent-foreground/70">
             Your public profile
           </p>
           <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
@@ -253,7 +259,7 @@ export default function SimplifiedFreelancerDashboard() {
               View Profile
             </a>
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setQrOpen(true)}>
+          <Button size="sm" onClick={() => setQrOpen(true)}>
             <QrCode className="mr-1.5 h-3.5 w-3.5" />
             QR Code
           </Button>
@@ -269,7 +275,7 @@ export default function SimplifiedFreelancerDashboard() {
               Your QR Code
             </DialogTitle>
           </DialogHeader>
-          {user?.id && <ProfileQRCode userId={user.id} profileUrl={getProfileUrl()} />}
+          {user?.id && <ProfileQRCode userId={user.id} profileUrl={getProfileUrl()} modal />}
         </DialogContent>
       </Dialog>
 
