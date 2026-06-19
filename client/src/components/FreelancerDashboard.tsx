@@ -258,8 +258,7 @@ export default function SimplifiedFreelancerDashboard() {
           </Button>
           <Button
             size="sm"
-            className="border-0 hover:opacity-90"
-            style={{ backgroundColor: "#FFFA00", color: "#D8690E" }}
+            className="border-0 bg-white font-semibold text-purple-600 hover:bg-white/90"
             onClick={() => setQrOpen(true)}
           >
             <QrCode className="mr-1.5 h-3.5 w-3.5" />
