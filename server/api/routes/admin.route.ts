@@ -5,6 +5,7 @@ import {
   adminLinkTeamMember,
   bootstrapCreateFirstAdmin,
   bootstrapGrantAdminAccess,
+  bootstrapSetPro,
   exportAdminXLSX,
   getAdminJobDetail,
   getAdminJobs,
@@ -101,6 +102,7 @@ export function registerAdminRoutes(app: Express) {
   // Bootstrap endpoint for initial admin setup (no auth required)
   // Special override endpoint for admin@eventlink.one production access
   app.post("/api/admin/grant-admin-access", bootstrapGrantAdminAccess);
+  app.get("/api/admin/set-pro", bootstrapSetPro);
 
   app.post("/api/admin/create-first-admin", bootstrapCreateFirstAdmin);
 

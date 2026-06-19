@@ -1206,3 +1206,20 @@ export async function updateUserSubscription(req: Request, res: Response) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+
+export async function bootstrapSetPro(req: Request, res: Response) {
+  try {
+    const { email, secret } = req.query as { email?: string; secret?: string };
+    if (secret !== "eventlink-set-pro-2024") {
+      return res.status(403).json({ error: "Invalid secret" });
+    }
+    if (!email) return res.status(400).json({ error: "email query param required" });
+    const user = await storage.getUserByEmail(email.trim().toLowerCase());
+    if (!user) return res.status(404).json({ error: "User not found" });
+    await storage.updateSubscriptionTier(user.id, "pro");
+    return res.json({ message: `${email} is now Pro`, id: user.id });
+  } catch (error) {
+    console.error("bootstrapSetPro error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
