@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MyJobs from "@/pages/freelancer/MyJobs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsPro } from "@/hooks/useIsPro";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
@@ -21,6 +22,7 @@ import {
   Check,
   Clock,
   Copy,
+  ImagePlus,
   Mail,
   QrCode,
   Send,
@@ -28,6 +30,7 @@ import {
   ShieldCheck,
   Star,
   X,
+  Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -38,6 +41,7 @@ import { ProfileForm } from "./ProfileForm";
 import { ProfileQRCode } from "./ProfileQRCode";
 import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
 import { VanityUrlEditor } from "./VanityUrlEditor";
+import { FreelancerPortfolio } from "./FreelancerPortfolio";
 
 const RATING_LABELS: Record<string, { label: string; stars: number }> = {
   excellent: { label: "Excellent", stars: 5 },
@@ -47,6 +51,7 @@ const RATING_LABELS: Record<string, { label: string; stars: number }> = {
 
 export default function SimplifiedFreelancerDashboard() {
   const { user } = useAuth();
+  const isPro = useIsPro();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -218,11 +223,29 @@ export default function SimplifiedFreelancerDashboard() {
 
   return (
     <div className="container mx-auto min-w-0 max-w-full px-1 py-4 sm:px-6 sm:py-6">
-      <div className="mb-4 px-3 sm:px-0">
-        <h1 className="text-2xl font-bold sm:text-3xl">Freelancer Dashboard</h1>
-        <p className="text-sm text-muted-foreground sm:text-base">
-          Manage your profile, applications, and messages
-        </p>
+      <div className="mb-4 flex items-start justify-between px-3 sm:px-0">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold sm:text-3xl">Freelancer Dashboard</h1>
+            {isPro ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-0.5 text-xs font-semibold text-white shadow">
+                <Zap className="h-3 w-3 fill-white" />
+                Pro
+              </span>
+            ) : (
+              <a
+                href="/billing"
+                className="inline-flex items-center gap-1 rounded-full border border-purple-300 px-3 py-0.5 text-xs font-medium text-purple-600 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-900/20"
+              >
+                <Zap className="h-3 w-3" />
+                Upgrade to Pro
+              </a>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground sm:text-base">
+            Manage your profile, applications, and messages
+          </p>
+        </div>
       </div>
 
       {/* Persistent share bar — visible on every tab */}
@@ -281,7 +304,9 @@ export default function SimplifiedFreelancerDashboard() {
       </Dialog>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
+        <TabsList
+          className={`grid w-full ${isPro ? "grid-cols-3 md:grid-cols-6" : "grid-cols-3 md:grid-cols-5"}`}
+        >
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
             My Applications
@@ -299,6 +324,12 @@ export default function SimplifiedFreelancerDashboard() {
             <ShieldCheck className="h-4 w-4" />
             References
           </TabsTrigger>
+          {isPro && (
+            <TabsTrigger value="portfolio" className="gap-2">
+              <ImagePlus className="h-4 w-4" />
+              Portfolio
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Profile Tab */}
@@ -510,6 +541,13 @@ export default function SimplifiedFreelancerDashboard() {
         <TabsContent value="references" className="space-y-6">
           <ReferenceRequestsSection userId={user.id} />
         </TabsContent>
+
+        {/* Portfolio Tab — Pro only */}
+        {isPro && (
+          <TabsContent value="portfolio" className="space-y-6">
+            <FreelancerPortfolio userId={user.id} editable />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

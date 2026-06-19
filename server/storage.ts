@@ -67,6 +67,9 @@ import {
   reference_reports,
   teamMembers,
   type User,
+  portfolio_posts,
+  type PortfolioPost,
+  type InsertPortfolioPost,
 } from "@shared/schema";
 import {
   and,
@@ -612,6 +615,17 @@ export interface IStorage {
   }>;
   setJobNotificationSentAt(jobId: number): Promise<void>;
   setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void>;
+
+  // Portfolio posts
+  getPortfolioPosts(userId: number): Promise<import("@shared/schema").PortfolioPost[]>;
+  createPortfolioPost(
+    data: import("@shared/schema").InsertPortfolioPost
+  ): Promise<import("@shared/schema").PortfolioPost>;
+  updatePortfolioPost(
+    id: number,
+    data: Partial<import("@shared/schema").InsertPortfolioPost>
+  ): Promise<import("@shared/schema").PortfolioPost | undefined>;
+  deletePortfolioPost(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5426,6 +5440,37 @@ export class DatabaseStorage implements IStorage {
       members: membersList,
       jobs: enrichedJobs,
     };
+  }
+
+  // Portfolio posts
+  async getPortfolioPosts(userId: number): Promise<PortfolioPost[]> {
+    return db
+      .select()
+      .from(portfolio_posts)
+      .where(eq(portfolio_posts.user_id, userId))
+      .orderBy(desc(portfolio_posts.created_at));
+  }
+
+  async createPortfolioPost(data: InsertPortfolioPost): Promise<PortfolioPost> {
+    const result = await db.insert(portfolio_posts).values(data).returning();
+    if (!result[0]) throw new Error("Failed to create portfolio post");
+    return result[0];
+  }
+
+  async updatePortfolioPost(
+    id: number,
+    data: Partial<InsertPortfolioPost>
+  ): Promise<PortfolioPost | undefined> {
+    const result = await db
+      .update(portfolio_posts)
+      .set({ ...data, updated_at: new Date() })
+      .where(eq(portfolio_posts.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deletePortfolioPost(id: number): Promise<void> {
+    await db.delete(portfolio_posts).where(eq(portfolio_posts.id, id));
   }
 }
 

@@ -1146,3 +1146,26 @@ export const jobDocuments = pgTable(
 
 export type JobDocument = typeof jobDocuments.$inferSelect;
 export type InsertJobDocument = typeof jobDocuments.$inferInsert;
+
+export const portfolio_posts = pgTable(
+  "portfolio_posts",
+  {
+    id: serial("id").primaryKey(),
+    user_id: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull().$type<"photo" | "video" | "blog">(),
+    title: text("title"),
+    body: text("body"),
+    media_url: text("media_url"),
+    thumbnail_url: text("thumbnail_url"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdIdx: index("portfolio_posts_user_id_idx").on(table.user_id),
+  })
+);
+
+export type PortfolioPost = typeof portfolio_posts.$inferSelect;
+export type InsertPortfolioPost = typeof portfolio_posts.$inferInsert;

@@ -34,10 +34,13 @@ import referenceRouter from "./api/routes/reference.route.js";
 import bookingRouter from "./api/routes/booking.route.js";
 import teamRouter from "./api/routes/team.route.js";
 import jobDocumentRouter from "./api/routes/job-document.route.js";
+import { registerPortfolioRoutes } from "./api/routes/portfolio.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { wsService } from "./api/websocket/websocketService";
 
-export async function registerRoutes(app: Express): Promise<{ httpServer: Server; wss: WebSocketServer }> {
+export async function registerRoutes(
+  app: Express
+): Promise<{ httpServer: Server; wss: WebSocketServer }> {
   // Add performance monitoring middleware
   app.use(performanceMonitor.middleware());
 
@@ -68,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<{ httpServer: Server
         if (!origin) return callback(null, true);
 
         // Check if origin matches allowed patterns
-        const isAllowed = allowedOrigins.some(pattern => {
+        const isAllowed = allowedOrigins.some((pattern) => {
           if (typeof pattern === "string") {
             return origin === pattern;
           }
@@ -249,6 +252,7 @@ export async function registerRoutes(app: Express): Promise<{ httpServer: Server
   // Register all domain-specific routes
   registerAuthRoutes(app);
   registerProfileRoutes(app);
+  registerPortfolioRoutes(app);
   registerQRRoutes(app);
   registerSlugRoutes(app);
   registerJobRoutes(app);
@@ -354,7 +358,7 @@ export async function registerRoutes(app: Express): Promise<{ httpServer: Server
       const locations = searchLocalLocations(query);
 
       // Transform to expected UKLocation format
-      const formattedLocations = locations.map(location => ({
+      const formattedLocations = locations.map((location) => ({
         display_name: `${location.formatted}, United Kingdom`,
         name: location.name,
         county: location.county,
@@ -682,7 +686,7 @@ export async function registerRoutes(app: Express): Promise<{ httpServer: Server
       }
     });
 
-    ws.on("error", error => {
+    ws.on("error", (error) => {
       console.error("WebSocket error:", error);
       if (userId) {
         activeConnections.delete(userId);
