@@ -349,7 +349,11 @@ function PostForm({
   );
 }
 
-export function FreelancerPortfolio({ userId, editable = false }: FreelancerPortfolioProps) {
+export function FreelancerPortfolio({
+  userId,
+  editable = false,
+  hideWhenEmpty = false,
+}: FreelancerPortfolioProps & { hideWhenEmpty?: boolean }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -371,6 +375,8 @@ export function FreelancerPortfolio({ userId, editable = false }: FreelancerPort
   });
 
   const filtered = filterType === "all" ? posts : posts.filter((p) => p.type === filterType);
+
+  if (hideWhenEmpty && !isLoading && posts.length === 0) return null;
 
   const openNew = () => {
     setEditing(undefined);
