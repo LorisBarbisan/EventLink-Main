@@ -932,10 +932,15 @@ export default function SimplifiedRecruiterDashboard() {
                           </div>
                         </div>
 
-                        {freelancer.location && (
+                        {(freelancer.location || freelancer.country) && (
                           <div className="mb-2 flex items-center gap-1 text-xs text-muted-foreground">
                             <MapPin className="h-3 w-3" />
-                            {freelancer.location}
+                            {[
+                              freelancer.location,
+                              freelancer.country || (freelancer.location ? "United Kingdom" : ""),
+                            ]
+                              .filter(Boolean)
+                              .join(", ")}
                           </div>
                         )}
 

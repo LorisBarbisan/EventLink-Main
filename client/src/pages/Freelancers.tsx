@@ -451,7 +451,12 @@ export default function Freelancers() {
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <MapPin className="h-3 w-3" />
                             <span>
-                              {[freelancer.location, freelancer.country].filter(Boolean).join(", ")}
+                              {[
+                                freelancer.location,
+                                freelancer.country || (freelancer.location ? "United Kingdom" : ""),
+                              ]
+                                .filter(Boolean)
+                                .join(", ")}
                             </span>
                           </div>
                         )}
