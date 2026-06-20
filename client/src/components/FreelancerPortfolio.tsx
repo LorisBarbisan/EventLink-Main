@@ -63,17 +63,20 @@ function PostCard({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const TYPE_HEADER: Record<PostType, { gradient: string; icon: React.ReactNode }> = {
+  const TYPE_HEADER: Record<PostType, { bg: string; icon: React.ReactNode; badge: string }> = {
     photo: {
-      gradient: "from-blue-400 to-cyan-500",
+      bg: "bg-blue-500",
+      badge: "bg-blue-500",
       icon: <ImagePlus className="h-8 w-8 text-white/80" />,
     },
     video: {
-      gradient: "from-orange-400 to-red-500",
+      bg: "bg-orange-500",
+      badge: "bg-orange-500",
       icon: <Film className="h-8 w-8 text-white/80" />,
     },
     blog: {
-      gradient: "from-purple-500 to-pink-500",
+      bg: "bg-[#0d1f3c]",
+      badge: "bg-[#0d1f3c]",
       icon: <FileText className="h-8 w-8 text-white/80" />,
     },
   };
@@ -81,9 +84,9 @@ function PostCard({
   const header = TYPE_HEADER[post.type];
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-visible">
       {/* Header area — always shown, colour-coded by type */}
-      <div className="relative">
+      <div className="relative overflow-hidden rounded-t-xl">
         {post.type === "photo" && post.media_url ? (
           <div className="aspect-video">
             <img
@@ -102,15 +105,11 @@ function PostCard({
             />
           </div>
         ) : (
-          <div
-            className={`flex h-24 items-center justify-center bg-gradient-to-br ${header.gradient}`}
-          >
-            {header.icon}
-          </div>
+          <div className={`flex h-24 items-center justify-center ${header.bg}`}>{header.icon}</div>
         )}
         {/* Type badge overlay */}
         <span
-          className={`absolute left-2 top-2 flex items-center gap-1 rounded-full bg-gradient-to-r ${header.gradient} px-2 py-0.5 text-xs font-semibold text-white shadow`}
+          className={`absolute left-2 top-2 flex items-center gap-1 rounded-full ${header.badge} px-2 py-0.5 text-xs font-semibold text-white shadow`}
         >
           {TYPE_LABELS[post.type]}
         </span>
@@ -135,7 +134,7 @@ function PostCard({
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
               {menuOpen && (
-                <div className="absolute right-0 top-8 z-10 w-32 rounded-md border bg-popover py-1 shadow-lg">
+                <div className="absolute right-0 top-8 z-50 w-32 rounded-md border bg-popover py-1 shadow-lg">
                   <button
                     className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted"
                     onClick={() => {
@@ -210,26 +209,20 @@ function PostForm({
     onError: () => toast({ title: "Something went wrong", variant: "destructive" }),
   });
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/portfolio/upload", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (data.url) setMediaUrl(data.url);
-      else throw new Error("No URL returned");
-    } catch {
-      toast({ title: "Upload failed", variant: "destructive" });
-    } finally {
+    const reader = new FileReader();
+    reader.onload = () => {
+      setMediaUrl(reader.result as string);
       setUploading(false);
-    }
+    };
+    reader.onerror = () => {
+      toast({ title: "Could not read file", variant: "destructive" });
+      setUploading(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
