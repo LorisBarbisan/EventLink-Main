@@ -63,41 +63,62 @@ function PostCard({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const TYPE_HEADER: Record<PostType, { gradient: string; icon: React.ReactNode }> = {
+    photo: {
+      gradient: "from-blue-400 to-cyan-500",
+      icon: <ImagePlus className="h-8 w-8 text-white/80" />,
+    },
+    video: {
+      gradient: "from-orange-400 to-red-500",
+      icon: <Film className="h-8 w-8 text-white/80" />,
+    },
+    blog: {
+      gradient: "from-purple-500 to-pink-500",
+      icon: <FileText className="h-8 w-8 text-white/80" />,
+    },
+  };
+
+  const header = TYPE_HEADER[post.type];
+
   return (
     <Card className="overflow-hidden">
-      {/* Media area */}
-      {post.type !== "blog" && post.media_url && (
-        <div className="relative aspect-video bg-muted">
-          {post.type === "photo" ? (
+      {/* Header area — always shown, colour-coded by type */}
+      <div className="relative">
+        {post.type === "photo" && post.media_url ? (
+          <div className="aspect-video">
             <img
               src={post.media_url}
               alt={post.title || "Portfolio photo"}
               className="h-full w-full object-cover"
             />
-          ) : (
+          </div>
+        ) : post.type === "video" && post.media_url ? (
+          <div className="aspect-video">
             <video
               src={post.media_url}
               controls
               className="h-full w-full object-cover"
               poster={post.thumbnail_url || undefined}
             />
-          )}
-        </div>
-      )}
-
-      {post.type === "blog" && (
-        <div className="flex h-24 items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
-          <FileText className="h-10 w-10 text-purple-300" />
-        </div>
-      )}
+          </div>
+        ) : (
+          <div
+            className={`flex h-24 items-center justify-center bg-gradient-to-br ${header.gradient}`}
+          >
+            {header.icon}
+          </div>
+        )}
+        {/* Type badge overlay */}
+        <span
+          className={`absolute left-2 top-2 flex items-center gap-1 rounded-full bg-gradient-to-r ${header.gradient} px-2 py-0.5 text-xs font-semibold text-white shadow`}
+        >
+          {TYPE_LABELS[post.type]}
+        </span>
+      </div>
 
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-              {TYPE_ICONS[post.type]}
-              {TYPE_LABELS[post.type]}
-            </div>
             {post.title && <p className="truncate font-semibold leading-tight">{post.title}</p>}
             {post.body && (
               <p className="mt-1 line-clamp-3 text-sm text-muted-foreground">{post.body}</p>

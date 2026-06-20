@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { storage } from "server/storage";
 
 const ADMIN_EMAILS = process.env.ADMIN_EMAILS
-  ? process.env.ADMIN_EMAILS.split(",").map(email => email.trim().toLowerCase())
+  ? process.env.ADMIN_EMAILS.split(",").map((email) => email.trim().toLowerCase())
   : [];
 
 // TODO: Export these from auth.ts to avoid duplication
@@ -17,6 +17,7 @@ export const generateJWTToken = (user: any) => {
       id: userWithRole.id,
       email: userWithRole.email,
       role: userWithRole.role,
+      subscription_tier: userWithRole.subscription_tier || "free",
     },
     JWT_SECRET,
     { expiresIn: "24h" }
@@ -73,7 +74,7 @@ export const computeUserRole = (user: any) => {
       .then(() => {
         console.log(`✅ Updated ${user.email} to admin role in database`);
       })
-      .catch(error => {
+      .catch((error) => {
         console.error(`❌ Failed to update admin role for ${user.email}:`, error);
       });
   }
