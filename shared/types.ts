@@ -73,6 +73,8 @@ export interface Job {
   title: string;
   company: string;
   location: string;
+  country?: string;
+  currency?: string;
   type: string;
   rate: string;
   description: string;
@@ -163,6 +165,8 @@ export interface RecruiterFormData {
 export interface JobFormData {
   title: string;
   location: string;
+  country?: string;
+  currency?: string;
   rate: string;
   description: string;
   event_date: string; // Start date (mandatory)

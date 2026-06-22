@@ -2008,6 +2008,8 @@ export class DatabaseStorage implements IStorage {
     if (job.title !== undefined) updateData.title = job.title;
     if (job.company !== undefined) updateData.company = job.company;
     if (job.location !== undefined) updateData.location = job.location;
+    if ((job as any).country !== undefined) updateData.country = (job as any).country;
+    if ((job as any).currency !== undefined) updateData.currency = (job as any).currency;
     if (job.type !== undefined) updateData.type = job.type;
     if (job.rate !== undefined) updateData.rate = job.rate;
     if (job.description !== undefined) updateData.description = job.description;

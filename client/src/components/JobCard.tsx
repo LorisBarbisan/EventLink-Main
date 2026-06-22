@@ -100,7 +100,7 @@ export function JobCard({
   const [docType, setDocType] = useState("function_sheet");
   const [customDocName, setCustomDocName] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [showDocuments, setShowDocuments] = useState(false);
+  const [showDocuments] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
 
   const { data: rawDocuments } = useQuery<any[]>({
@@ -114,12 +114,26 @@ export function JobCard({
     if (!file) return;
     e.target.value = "";
     if (file.size > 10 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Maximum file size is 10 MB. Please choose a smaller file.", variant: "destructive" });
+      toast({
+        title: "File too large",
+        description: "Maximum file size is 10 MB. Please choose a smaller file.",
+        variant: "destructive",
+      });
       return;
     }
-    const allowed = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
+    const allowed = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ];
     if (!allowed.includes(file.type)) {
-      toast({ title: "File type not supported", description: "Only PDF, Word (.doc/.docx), and Excel (.xls/.xlsx) files are allowed.", variant: "destructive" });
+      toast({
+        title: "File type not supported",
+        description: "Only PDF, Word (.doc/.docx), and Excel (.xls/.xlsx) files are allowed.",
+        variant: "destructive",
+      });
       return;
     }
     setPendingFile(file);
@@ -131,9 +145,8 @@ export function JobCard({
     setShowUploadWarning(false);
     setUploading(true);
     try {
-      const effectiveDocType = docType === "other" && customDocName.trim()
-        ? customDocName.trim()
-        : docType;
+      const effectiveDocType =
+        docType === "other" && customDocName.trim() ? customDocName.trim() : docType;
 
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -164,20 +177,15 @@ export function JobCard({
       toast({ title: "Document uploaded", description: pendingFile.name });
       setCustomDocName("");
     } catch (err: any) {
-      toast({ title: "Upload failed", description: err?.message || "Please try again", variant: "destructive" });
+      toast({
+        title: "Upload failed",
+        description: err?.message || "Please try again",
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
       setPendingFile(null);
     }
-  };
-
-  const deleteDocument = async (docId: number) => {
-    const token = localStorage.getItem("auth_token");
-    await fetch(`/api/job/${job.id}/documents/${docId}`, {
-      method: "DELETE",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    queryClient.invalidateQueries({ queryKey: [`/api/job/${job.id}/documents`] });
   };
 
   const formatDuration = (job: Job): string | null => {
@@ -233,9 +241,9 @@ export function JobCard({
   return (
     <Card>
       <CardContent className="p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
               <h3
                 className={`text-lg font-semibold ${onViewDetail ? "cursor-pointer hover:text-primary hover:underline" : ""}`}
                 onClick={() => onViewDetail?.(job.id)}
@@ -243,37 +251,37 @@ export function JobCard({
                 {job.title}
               </h3>
               {isPosted && (
-                <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-green-200">
-                  <Eye className="w-3 h-3 mr-1" />
+                <Badge className="border-green-200 bg-green-100 text-green-800 hover:bg-green-200">
+                  <Eye className="mr-1 h-3 w-3" />
                   Posted
                 </Badge>
               )}
               {isUnposted && (
-                <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200">
-                  <Lock className="w-3 h-3 mr-1" />
+                <Badge className="border-amber-200 bg-amber-100 text-amber-800 hover:bg-amber-200">
+                  <Lock className="mr-1 h-3 w-3" />
                   Unposted
                 </Badge>
               )}
               {isClosed && (
-                <Badge className="bg-red-100 text-red-800 hover:bg-red-200 border-red-200">
-                  <XCircle className="w-3 h-3 mr-1" />
+                <Badge className="border-red-200 bg-red-100 text-red-800 hover:bg-red-200">
+                  <XCircle className="mr-1 h-3 w-3" />
                   Closed
                 </Badge>
               )}
               {!isClosed && (
-                <Badge variant="outline" className="text-blue-700 border-blue-300">
+                <Badge variant="outline" className="border-blue-300 text-blue-700">
                   Open
                 </Badge>
               )}
               {invitedCount > 0 && (
                 <Badge
                   variant="outline"
-                  className={`text-blue-600 border-blue-200 bg-blue-50 ${
+                  className={`border-blue-200 bg-blue-50 text-blue-600 ${
                     onViewInvited ? "cursor-pointer hover:bg-blue-100" : ""
                   }`}
                   onClick={() => onViewInvited?.(job.id)}
                 >
-                  <UserPlus className="w-3 h-3 mr-1" />
+                  <UserPlus className="mr-1 h-3 w-3" />
                   {invitedCount} invited
                 </Badge>
               )}
@@ -284,35 +292,38 @@ export function JobCard({
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-muted-foreground mb-3">
+            <div className="mb-3 grid grid-cols-1 gap-4 text-sm text-muted-foreground md:grid-cols-2 lg:grid-cols-4">
               <div className="flex items-center gap-1">
-                <MapPin className="w-4 h-4" />
-                {job.location}
+                <MapPin className="h-4 w-4" />
+                {[job.location, (job as any).country].filter(Boolean).join(", ")}
               </div>
               <div className="flex items-center gap-1">
-                <PoundSterling className="w-4 h-4" />
+                <PoundSterling className="h-4 w-4" />
+                {(job as any).currency && (job as any).currency !== "GBP"
+                  ? `${(job as any).currency} `
+                  : ""}
                 {job.rate}
               </div>
               {job.event_date && (
                 <div className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
+                  <Calendar className="h-4 w-4" />
                   {new Date(job.event_date).toLocaleDateString()}
                   {job.end_date && ` - ${new Date(job.end_date).toLocaleDateString()}`}
                 </div>
               )}
               {formatDuration(job) && (
                 <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
+                  <Clock className="h-4 w-4" />
                   {formatDuration(job)}
                 </div>
               )}
             </div>
 
-            <p className="text-sm text-muted-foreground mb-2">{job.description}</p>
+            <p className="mb-2 text-sm text-muted-foreground">{job.description}</p>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1 text-sm">
-                <Users className="w-4 h-4" />
+                <Users className="h-4 w-4" />
                 <span>
                   {applicantCount} {applicantCount === 1 ? "applicant" : "applicants"}
                 </span>
@@ -327,13 +338,15 @@ export function JobCard({
                 >
                   {isExpanded ? (
                     <>
-                      <ChevronUp className="w-4 h-4 mr-1" />
+                      <ChevronUp className="mr-1 h-4 w-4" />
                       Hide Details
                     </>
                   ) : (
                     <>
-                      <ChevronDown className="w-4 h-4 mr-1" />
-                      {hiredApplicants.length > 0 ? `View Hired (${hiredApplicants.length})` : "View Details"}
+                      <ChevronDown className="mr-1 h-4 w-4" />
+                      {hiredApplicants.length > 0
+                        ? `View Hired (${hiredApplicants.length})`
+                        : "View Details"}
                     </>
                   )}
                 </Button>
@@ -341,17 +354,17 @@ export function JobCard({
             </div>
           </div>
 
-          <div className="flex flex-row gap-2 sm:ml-4 w-full sm:w-auto justify-end sm:justify-start flex-wrap">
+          <div className="flex w-full flex-row flex-wrap justify-end gap-2 sm:ml-4 sm:w-auto sm:justify-start">
             {isClosed && (
-              <span className="text-xs text-red-600 font-medium self-center mr-2">Closed</span>
+              <span className="mr-2 self-center text-xs font-medium text-red-600">Closed</span>
             )}
 
             {/* 1. Post / Unpost */}
             {isUnposted && onPublish && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
-                    <Send className="w-4 h-4 mr-2" />
+                  <Button size="sm" className="bg-green-600 text-white hover:bg-green-700">
+                    <Send className="mr-2 h-4 w-4" />
                     Post
                   </Button>
                 </AlertDialogTrigger>
@@ -359,12 +372,16 @@ export function JobCard({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Post Job</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will make &quot;{job.title}&quot; visible to all freelancers on the Find Jobs page. Are you sure?
+                      This will make &quot;{job.title}&quot; visible to all freelancers on the Find
+                      Jobs page. Are you sure?
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction className="bg-green-600 hover:bg-green-700" onClick={() => onPublish(job.id)}>
+                    <AlertDialogAction
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => onPublish(job.id)}
+                    >
                       Post Job
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -374,8 +391,12 @@ export function JobCard({
             {isPosted && onUnpublish && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-amber-700 border-amber-200 hover:bg-amber-50 hover:text-amber-800">
-                    <EyeOff className="w-4 h-4 mr-2" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+                  >
+                    <EyeOff className="mr-2 h-4 w-4" />
                     Unpost
                   </Button>
                 </AlertDialogTrigger>
@@ -383,12 +404,16 @@ export function JobCard({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Unpost Job</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will remove &quot;{job.title}&quot; from the public Find Jobs page. Freelancers will only be able to access it via invitation. Are you sure?
+                      This will remove &quot;{job.title}&quot; from the public Find Jobs page.
+                      Freelancers will only be able to access it via invitation. Are you sure?
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction className="bg-amber-600 hover:bg-amber-700" onClick={() => onUnpublish(job.id)}>
+                    <AlertDialogAction
+                      className="bg-amber-600 hover:bg-amber-700"
+                      onClick={() => onUnpublish(job.id)}
+                    >
                       Unpost Job
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -401,10 +426,10 @@ export function JobCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                 onClick={() => onInvite(job.id)}
               >
-                <UserPlus className="w-4 h-4 mr-2" />
+                <UserPlus className="mr-2 h-4 w-4" />
                 Invite
               </Button>
             )}
@@ -418,10 +443,10 @@ export function JobCard({
                 className="text-gray-600"
                 title="Job Documents"
               >
-                <span className="text-sm mr-1.5">📎</span>
+                <span className="mr-1.5 text-sm">📎</span>
                 <span className="hidden sm:inline">Docs</span>
                 {documents.length > 0 && (
-                  <span className="ml-1 text-xs bg-orange-100 text-orange-700 rounded-full px-1.5 py-0.5 font-medium">
+                  <span className="ml-1 rounded-full bg-orange-100 px-1.5 py-0.5 text-xs font-medium text-orange-700">
                     {documents.length}
                   </span>
                 )}
@@ -440,7 +465,7 @@ export function JobCard({
                 title="Create a new job pre-filled with this job's details"
                 className="hidden sm:flex"
               >
-                <Copy className="w-4 h-4 mr-2" />
+                <Copy className="mr-2 h-4 w-4" />
                 Create similar
               </Button>
             )}
@@ -452,7 +477,7 @@ export function JobCard({
                 title="Create similar job"
                 className="sm:hidden"
               >
-                <Copy className="w-4 h-4" />
+                <Copy className="h-4 w-4" />
               </Button>
             )}
 
@@ -464,7 +489,7 @@ export function JobCard({
                 onClick={() => onEdit(job.id)}
                 data-testid={`button-edit-job-${job.id}`}
               >
-                <Edit className="w-4 h-4" />
+                <Edit className="h-4 w-4" />
               </Button>
             )}
 
@@ -472,8 +497,12 @@ export function JobCard({
             {!isClosed && onClose && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
-                    <XCircle className="w-4 h-4 mr-2" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
                     Close
                   </Button>
                 </AlertDialogTrigger>
@@ -481,7 +510,9 @@ export function JobCard({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Close Job</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Closing &quot;{job.title}&quot; will stop all new applications and disable invitations. The job will remain visible in your dashboard. This action cannot be undone. Are you sure?
+                      Closing &quot;{job.title}&quot; will stop all new applications and disable
+                      invitations. The job will remain visible in your dashboard. This action cannot
+                      be undone. Are you sure?
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -499,8 +530,12 @@ export function JobCard({
             {isClosed && onReopen && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-green-700 border-green-200 hover:bg-green-50 hover:text-green-800">
-                    <RotateCcw className="w-4 h-4 mr-2" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
                     Reopen
                   </Button>
                 </AlertDialogTrigger>
@@ -508,12 +543,16 @@ export function JobCard({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Reopen Job</AlertDialogTitle>
                     <AlertDialogDescription>
-                      &quot;{job.title}&quot; will be reopened as an unposted draft. It won't be visible to freelancers until you post it manually. You can edit it before posting.
+                      &quot;{job.title}&quot; will be reopened as an unposted draft. It won&apos;t
+                      be visible to freelancers until you post it manually. You can edit it before
+                      posting.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => onReopen(job.id)}>Reopen Job</AlertDialogAction>
+                    <AlertDialogAction onClick={() => onReopen(job.id)}>
+                      Reopen Job
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
@@ -524,14 +563,15 @@ export function JobCard({
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" size="sm" data-testid={`button-delete-job-${job.id}`}>
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Job Posting</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Are you sure you want to delete &quot;{job.title}&quot;? This action cannot be undone.
+                      Are you sure you want to delete &quot;{job.title}&quot;? This action cannot be
+                      undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -551,37 +591,50 @@ export function JobCard({
 
         {/* Upload warning modal */}
         {showUploadWarning && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8">
-              <div className="text-4xl mb-4 text-center">📋</div>
-              <h2 className="text-xl font-bold text-gray-900 mb-3 text-center">Before you upload</h2>
-              <p className="text-gray-600 text-sm leading-relaxed mb-4 text-center">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
+              <div className="mb-4 text-center text-4xl">📋</div>
+              <h2 className="mb-3 text-center text-xl font-bold text-gray-900">
+                Before you upload
+              </h2>
+              <p className="mb-4 text-center text-sm leading-relaxed text-gray-600">
                 Once a freelancer is hired for this job, they will be able to view and download all
                 documents you attach to it.
               </p>
-              <p className="text-gray-500 text-sm leading-relaxed mb-4 text-center">
+              <p className="mb-4 text-center text-sm leading-relaxed text-gray-500">
                 Make sure the file does not contain any sensitive information you would not want the
                 hired technician to see.
               </p>
-              <div className="flex items-center justify-center gap-1.5 mb-5 text-xs text-gray-400">
-                <span className="inline-flex items-center gap-1 bg-gray-100 rounded px-2 py-0.5">PDF</span>
-                <span className="inline-flex items-center gap-1 bg-gray-100 rounded px-2 py-0.5">Word</span>
-                <span className="inline-flex items-center gap-1 bg-gray-100 rounded px-2 py-0.5">Excel</span>
+              <div className="mb-5 flex items-center justify-center gap-1.5 text-xs text-gray-400">
+                <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5">
+                  PDF
+                </span>
+                <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5">
+                  Word
+                </span>
+                <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5">
+                  Excel
+                </span>
                 <span className="text-gray-300">·</span>
                 <span>Max 10 MB</span>
               </div>
               {pendingFile && (
-                <div className="mb-4 text-xs text-gray-500 text-center truncate">
+                <div className="mb-4 truncate text-center text-xs text-gray-500">
                   <span className="font-medium text-gray-700">{pendingFile.name}</span>
                   <span className="ml-1">({(pendingFile.size / 1024 / 1024).toFixed(1)} MB)</span>
                 </div>
               )}
               <div className="mb-5">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Document type</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Document type
+                </label>
                 <select
                   value={docType}
-                  onChange={e => { setDocType(e.target.value); setCustomDocName(""); }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  onChange={(e) => {
+                    setDocType(e.target.value);
+                    setCustomDocName("");
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 >
                   <option value="function_sheet">Function Sheet</option>
                   <option value="purchase_order">Purchase Order</option>
@@ -590,15 +643,16 @@ export function JobCard({
               </div>
               {docType === "other" && (
                 <div className="mb-5">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Document name <span className="text-gray-400 font-normal">(e.g. NDA, Risk Assessment)</span>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Document name{" "}
+                    <span className="font-normal text-gray-400">(e.g. NDA, Risk Assessment)</span>
                   </label>
                   <input
                     type="text"
                     value={customDocName}
-                    onChange={e => setCustomDocName(e.target.value)}
+                    onChange={(e) => setCustomDocName(e.target.value)}
                     placeholder="Enter document name..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
                     maxLength={60}
                   />
                 </div>
@@ -607,13 +661,16 @@ export function JobCard({
                 <button
                   onClick={confirmUpload}
                   disabled={uploading}
-                  className="flex-1 py-3 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                  className="flex-1 rounded-xl bg-orange-600 py-3 font-semibold text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
                 >
                   {uploading ? "Uploading..." : "Upload"}
                 </button>
                 <button
-                  onClick={() => { setShowUploadWarning(false); setPendingFile(null); }}
-                  className="flex-1 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+                  onClick={() => {
+                    setShowUploadWarning(false);
+                    setPendingFile(null);
+                  }}
+                  className="flex-1 rounded-xl border border-gray-300 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
                 >
                   Cancel
                 </button>
@@ -623,23 +680,25 @@ export function JobCard({
         )}
 
         {showHiredSection && isExpanded && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <h4 className="font-medium mb-3 flex items-center gap-2">
-              <User className="w-4 h-4" />
+          <div className="mt-4 border-t border-border pt-4">
+            <h4 className="mb-3 flex items-center gap-2 font-medium">
+              <User className="h-4 w-4" />
               Hired Freelancers
             </h4>
             {hiredApplicants.length === 0 && (
-              <p className="text-sm text-muted-foreground italic">No freelancers were hired for this job.</p>
+              <p className="text-sm italic text-muted-foreground">
+                No freelancers were hired for this job.
+              </p>
             )}
             <div className="space-y-3">
-              {hiredApplicants.map(applicant => (
+              {hiredApplicants.map((applicant) => (
                 <div
                   key={applicant.id}
-                  className="flex flex-col p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800"
+                  className="flex flex-col rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20"
                 >
-                  <div className="flex items-center justify-between w-full">
+                  <div className="flex w-full items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-green-600 text-white rounded-full flex items-center justify-center font-medium">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 font-medium text-white">
                         {applicant.freelancer_profile?.first_name?.[0] || "F"}
                         {applicant.freelancer_profile?.last_name?.[0] || ""}
                       </div>
@@ -664,7 +723,7 @@ export function JobCard({
                         onClick={() => handleProfileView(applicant.freelancer_id)}
                         data-testid={`button-view-freelancer-${applicant.freelancer_id}`}
                       >
-                        <Eye className="w-3 h-3 mr-1" />
+                        <Eye className="mr-1 h-3 w-3" />
                         View Profile
                       </Button>
                       <Button
@@ -673,12 +732,12 @@ export function JobCard({
                         onClick={() => handleMessageFreelancer(applicant)}
                         data-testid={`button-message-freelancer-${applicant.freelancer_id}`}
                       >
-                        <MessageCircle className="w-3 h-3 mr-1" />
+                        <MessageCircle className="mr-1 h-3 w-3" />
                         Message
                       </Button>
                       {(applicant as any).rating ? (
-                        <div className="flex items-center gap-1 text-yellow-600 font-medium px-3 border border-transparent">
-                          <Star className="w-3 h-3 fill-current" />
+                        <div className="flex items-center gap-1 border border-transparent px-3 font-medium text-yellow-600">
+                          <Star className="h-3 w-3 fill-current" />
                           <span>{(applicant as any).rating}/5</span>
                         </div>
                       ) : (
@@ -689,7 +748,7 @@ export function JobCard({
                           data-testid={`button-rate-freelancer-${applicant.freelancer_id}`}
                           className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                         >
-                          <Star className="w-3 h-3 mr-1" />
+                          <Star className="mr-1 h-3 w-3" />
                           Rate
                         </Button>
                       )}
@@ -698,11 +757,11 @@ export function JobCard({
 
                   {(applicant as any).review && (
                     <div className="mt-2 flex flex-col items-end">
-                      <div className="text-right max-w-md">
-                        <span className="text-xs font-semibold text-muted-foreground mr-1">
+                      <div className="max-w-md text-right">
+                        <span className="mr-1 text-xs font-semibold text-muted-foreground">
                           Review:
                         </span>
-                        <span className="text-sm text-muted-foreground italic">
+                        <span className="text-sm italic text-muted-foreground">
                           &quot;{(applicant as any).review}&quot;
                         </span>
                       </div>
@@ -737,7 +796,6 @@ export function JobCard({
           }}
           isUploading={uploading}
         />
-
       </CardContent>
 
       {selectedFreelancer && (

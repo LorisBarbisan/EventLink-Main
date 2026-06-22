@@ -157,6 +157,8 @@ export const jobs = pgTable("jobs", {
   title: text("title").notNull(),
   company: text("company").notNull(),
   location: text("location").notNull(),
+  country: text("country"),
+  currency: text("currency").default("GBP"),
   type: text("type")
     .notNull()
     .$type<"full-time" | "part-time" | "contract" | "temporary" | "freelance" | "external">(),
