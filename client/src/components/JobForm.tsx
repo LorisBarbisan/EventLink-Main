@@ -24,7 +24,7 @@ const CURRENCIES = [
   { code: "EUR", symbol: "€", label: "EUR (€)" },
   { code: "AUD", symbol: "A$", label: "AUD (A$)" },
   { code: "CAD", symbol: "C$", label: "CAD (C$)" },
-  { code: "CHF", symbol: "Fr", label: "CHF (Fr)" },
+  { code: "ZAR", symbol: "R", label: "ZAR (R)" },
   { code: "SEK", symbol: "kr", label: "SEK (kr)" },
   { code: "NOK", symbol: "kr", label: "NOK (kr)" },
   { code: "DKK", symbol: "kr", label: "DKK (kr)" },
