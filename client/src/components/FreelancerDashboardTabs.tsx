@@ -249,6 +249,14 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
         "Saving profile with photo URL length:",
         payload.profile_photo_url ? payload.profile_photo_url.length : 0
       );
+      console.log(
+        "[SAVE] hasProfile:",
+        hasProfile,
+        "| country:",
+        payload.country,
+        "| userId:",
+        profile.id
+      );
 
       if (hasProfile) {
         await apiRequest(`/api/freelancer/${profile.id}`, {
