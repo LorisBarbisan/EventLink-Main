@@ -9,6 +9,7 @@ const selectedFieldsSchema = z.object({
   skills: z.boolean().optional().default(false),
   bio: z.boolean().optional().default(false),
   location: z.boolean().optional().default(false),
+  country: z.boolean().optional().default(false),
   experienceYears: z.boolean().optional().default(false),
   workHistory: z.boolean().optional().default(false),
   education: z.boolean().optional().default(false),
@@ -33,14 +34,16 @@ export async function triggerCVParsing(req: Request, res: Response) {
       if (staleMs < 5 * 60 * 1000) {
         return res.status(409).json({ error: "CV parsing is already in progress" });
       }
-      console.warn(`⚠️ Stale parsing for user ${userId} (${Math.floor(staleMs / 1000)}s old), force-resetting`);
+      console.warn(
+        `⚠️ Stale parsing for user ${userId} (${Math.floor(staleMs / 1000)}s old), force-resetting`
+      );
     }
 
     const contentType = profile.cv_file_type || undefined;
 
     await cvParserService.initParsingStatus(userId, profile.cv_file_url);
 
-    cvParserService.parseCV(userId, profile.cv_file_url, contentType).catch(err => {
+    cvParserService.parseCV(userId, profile.cv_file_url, contentType).catch((err) => {
       console.error(`Background CV parsing failed for user ${userId}:`, err);
     });
 
@@ -66,34 +69,50 @@ export async function getCVParsingStatus(req: Request, res: Response) {
 
     let workHistory = null;
     if (parsedData.extracted_work_history) {
-      try { workHistory = JSON.parse(parsedData.extracted_work_history); } catch {}
+      try {
+        workHistory = JSON.parse(parsedData.extracted_work_history);
+      } catch {
+        /* ignore parse errors */
+      }
     }
 
     let education = null;
     if (parsedData.extracted_education) {
-      try { education = JSON.parse(parsedData.extracted_education); } catch {}
+      try {
+        education = JSON.parse(parsedData.extracted_education);
+      } catch {
+        /* ignore parse errors */
+      }
     }
 
     let confidenceData = null;
     if ((parsedData as any).confidence_data) {
-      try { confidenceData = JSON.parse((parsedData as any).confidence_data); } catch {}
+      try {
+        confidenceData = JSON.parse((parsedData as any).confidence_data);
+      } catch {
+        /* ignore parse errors */
+      }
     }
 
     res.json({
       status: parsedData.status,
       errorMessage: parsedData.error_message,
-      extractedData: parsedData.status === "completed" ? {
-        fullName: parsedData.extracted_full_name,
-        title: parsedData.extracted_title,
-        skills: parsedData.extracted_skills,
-        bio: parsedData.extracted_bio,
-        location: parsedData.extracted_location,
-        experienceYears: parsedData.extracted_experience_years,
-        workHistory,
-        education,
-        certifications: parsedData.extracted_certifications,
-        confidenceData,
-      } : null,
+      extractedData:
+        parsedData.status === "completed"
+          ? {
+              fullName: parsedData.extracted_full_name,
+              title: parsedData.extracted_title,
+              skills: parsedData.extracted_skills,
+              bio: parsedData.extracted_bio,
+              location: parsedData.extracted_location,
+              country: parsedData.extracted_country,
+              experienceYears: parsedData.extracted_experience_years,
+              workHistory,
+              education,
+              certifications: parsedData.extracted_certifications,
+              confidenceData,
+            }
+          : null,
       parsedAt: parsedData.parsed_at,
       confirmedAt: parsedData.confirmed_at,
     });
@@ -147,6 +166,10 @@ export async function confirmCVData(req: Request, res: Response) {
 
     if (selectedFields.location && parsedData.extracted_location) {
       profileUpdates.location = parsedData.extracted_location;
+    }
+
+    if (selectedFields.country && parsedData.extracted_country) {
+      profileUpdates.country = parsedData.extracted_country;
     }
 
     if (selectedFields.experienceYears && parsedData.extracted_experience_years) {
@@ -237,13 +260,15 @@ export async function reparseCV(req: Request, res: Response) {
       if (staleMs < 5 * 60 * 1000) {
         return res.status(409).json({ error: "CV parsing is already in progress" });
       }
-      console.warn(`⚠️ Stale parsing for user ${userId} (${Math.floor(staleMs / 1000)}s old), force-resetting`);
+      console.warn(
+        `⚠️ Stale parsing for user ${userId} (${Math.floor(staleMs / 1000)}s old), force-resetting`
+      );
     }
 
     await cvParserService.initParsingStatus(userId, profile.cv_file_url);
 
     const contentType = profile.cv_file_type || undefined;
-    cvParserService.parseCV(userId, profile.cv_file_url, contentType).catch(err => {
+    cvParserService.parseCV(userId, profile.cv_file_url, contentType).catch((err) => {
       console.error(`Background CV parsing failed for user ${userId}:`, err);
     });
 

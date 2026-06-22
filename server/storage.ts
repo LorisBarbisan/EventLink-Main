@@ -57,7 +57,6 @@ import {
   type RatingRequest,
   type RecruiterProfile,
   type SavedFreelancer,
-  type InsertSavedFreelancer,
   type FreelancerReference,
   type InsertFreelancerReference,
   type ReferenceRequest,
@@ -67,7 +66,6 @@ import {
   reference_requests,
   reference_reports,
   teamMembers,
-  type TeamMember,
   type User,
 } from "@shared/schema";
 import {
@@ -150,8 +148,14 @@ export interface IStorage {
     userId: number,
     profile: Partial<InsertFreelancerProfile>
   ): Promise<FreelancerProfile | undefined>;
-  checkSlugAvailability(slug: string, excludeUserId?: number): Promise<{ available: boolean; reason?: string }>;
-  setFreelancerCustomSlug(userId: number, customSlug: string | null): Promise<FreelancerProfile | undefined>;
+  checkSlugAvailability(
+    slug: string,
+    excludeUserId?: number
+  ): Promise<{ available: boolean; reason?: string }>;
+  setFreelancerCustomSlug(
+    userId: number,
+    customSlug: string | null
+  ): Promise<FreelancerProfile | undefined>;
 
   // Recruiter profile management
   getRecruiterProfile(userId: number): Promise<RecruiterProfile | undefined>;
@@ -189,7 +193,15 @@ export interface IStorage {
   }): Promise<Job[]>;
 
   // Job notification
-  getFreelancersMatchingJob(job: Job): Promise<{ userId: number; email: string; firstName: string | null; location: string | null; title: string | null }[]>;
+  getFreelancersMatchingJob(job: Job): Promise<
+    {
+      userId: number;
+      email: string;
+      firstName: string | null;
+      location: string | null;
+      title: string | null;
+    }[]
+  >;
   updateJobLastNotifiedAt(jobId: number): Promise<void>;
 
   // External job management
@@ -208,13 +220,32 @@ export interface IStorage {
     sortBy?: string,
     sortOrder?: "asc" | "desc"
   ): Promise<{
-    jobs: (Job & { application_count: number; hired_count: number; closure_email_count: number; recruiter_email?: string; recruiter_name?: string })[];
+    jobs: (Job & {
+      application_count: number;
+      hired_count: number;
+      closure_email_count: number;
+      recruiter_email?: string;
+      recruiter_name?: string;
+    })[];
     total: number;
   }>;
 
   getAdminJobDetail(jobId: number): Promise<{
-    job: Job & { recruiter_email?: string; recruiter_name?: string; application_count: number; hired_count: number };
-    applications: { id: number; freelancer_id: number; status: string; applied_at: Date; freelancer_name: string; freelancer_email: string; freelancer_title?: string | null }[];
+    job: Job & {
+      recruiter_email?: string;
+      recruiter_name?: string;
+      application_count: number;
+      hired_count: number;
+    };
+    applications: {
+      id: number;
+      freelancer_id: number;
+      status: string;
+      applied_at: Date;
+      freelancer_name: string;
+      freelancer_email: string;
+      freelancer_title?: string | null;
+    }[];
   } | null>;
 
   // Get all freelancer profiles for listings
@@ -371,7 +402,11 @@ export interface IStorage {
   updateUserStatus(userId: number, status: string): Promise<User>;
 
   // Admin Teams management
-  getAdminTeams(page: number, limit: number, search?: string): Promise<{
+  getAdminTeams(
+    page: number,
+    limit: number,
+    search?: string
+  ): Promise<{
     teams: Array<{
       company_user_id: number;
       company_name: string | null;
@@ -501,26 +536,52 @@ export interface IStorage {
   saveFreelancer(recruiterId: number, freelancerId: number): Promise<SavedFreelancer>;
   unsaveFreelancer(recruiterId: number, freelancerId: number): Promise<void>;
   getSavedFreelancerIds(recruiterId: number): Promise<number[]>;
-  getMyCrewFreelancers(recruiterId: number, filters?: {
-    keyword?: string;
-    location?: string;
-    tab?: "all" | "saved" | "worked";
-  }): Promise<Array<FreelancerProfile & { isSaved: boolean; isWorkedWith: boolean; average_rating?: number; user_email?: string }>>;
+  getMyCrewFreelancers(
+    recruiterId: number,
+    filters?: {
+      keyword?: string;
+      location?: string;
+      tab?: "all" | "saved" | "worked";
+    }
+  ): Promise<
+    Array<
+      FreelancerProfile & {
+        isSaved: boolean;
+        isWorkedWith: boolean;
+        average_rating?: number;
+        user_email?: string;
+      }
+    >
+  >;
 
   // Freelancer references (reputation system)
   getOrCreateReferenceToken(userId: number): Promise<string>;
-  getFreelancerByReferenceToken(token: string): Promise<{ userId: number; firstName: string | null; lastName: string | null } | undefined>;
-  createFreelancerReference(data: InsertFreelancerReference & { badge_result: string; is_flagged: boolean; [key: string]: any }): Promise<FreelancerReference>;
+  getFreelancerByReferenceToken(
+    token: string
+  ): Promise<{ userId: number; firstName: string | null; lastName: string | null } | undefined>;
+  createFreelancerReference(
+    data: InsertFreelancerReference & {
+      badge_result: string;
+      is_flagged: boolean;
+      [key: string]: any;
+    }
+  ): Promise<FreelancerReference>;
   getPublicReferences(freelancerId: number): Promise<FreelancerReference[]>;
   getReferenceById(id: number): Promise<FreelancerReference | undefined>;
-  updateReferenceVerification(id: number, data: Partial<FreelancerReference>): Promise<FreelancerReference | undefined>;
+  updateReferenceVerification(
+    id: number,
+    data: Partial<FreelancerReference>
+  ): Promise<FreelancerReference | undefined>;
   getRecentReferencesByEmail(email: string, hoursBack: number): Promise<FreelancerReference[]>;
 
   // Reference requests
   createReferenceRequest(data: InsertReferenceRequest): Promise<ReferenceRequest>;
   getReferenceRequests(freelancerId: number): Promise<ReferenceRequest[]>;
   getReferenceRequestById(id: number): Promise<ReferenceRequest | undefined>;
-  updateReferenceRequest(id: number, data: Partial<ReferenceRequest>): Promise<ReferenceRequest | undefined>;
+  updateReferenceRequest(
+    id: number,
+    data: Partial<ReferenceRequest>
+  ): Promise<ReferenceRequest | undefined>;
   getPendingReminders(daysSinceRequest: number): Promise<ReferenceRequest[]>;
 
   // Reference reports
@@ -532,10 +593,22 @@ export interface IStorage {
 
   // Batch notification methods
   getJobsForBatchWindow(window: "morning" | "afternoon"): Promise<Job[]>;
-  updateJobBatchNotification(jobId: number, batchWindow: string | null, sentAt: Date | null): Promise<void>;
-  updateJobUrgencyAndBatch(jobId: number, isUrgent: boolean, batchWindow: string | null): Promise<void>;
+  updateJobBatchNotification(
+    jobId: number,
+    batchWindow: string | null,
+    sentAt: Date | null
+  ): Promise<void>;
+  updateJobUrgencyAndBatch(
+    jobId: number,
+    isUrgent: boolean,
+    batchWindow: string | null
+  ): Promise<void>;
   updateFreelancerLastJobAlertSent(userId: number): Promise<void>;
-  getFreelancerJobAlertPrefs(userId: number): Promise<{ jobAlertsOptOut: boolean; lastJobAlertSentAt: Date | null; jobAlertFrequencyPreference: string }>;
+  getFreelancerJobAlertPrefs(userId: number): Promise<{
+    jobAlertsOptOut: boolean;
+    lastJobAlertSentAt: Date | null;
+    jobAlertFrequencyPreference: string;
+  }>;
   setJobNotificationSentAt(jobId: number): Promise<void>;
   setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void>;
 }
@@ -739,7 +812,11 @@ export class DatabaseStorage implements IStorage {
         break;
     }
 
-    const result = await db.select().from(users).where(and(condition, isNull(users.deleted_at))).limit(1);
+    const result = await db
+      .select()
+      .from(users)
+      .where(and(condition, isNull(users.deleted_at)))
+      .limit(1);
     if (result[0]) {
       cache.set(cacheKey, result[0], 300);
     }
@@ -788,11 +865,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUnsubscribeToken(token: string): Promise<User | undefined> {
-    const result = await db
-      .select()
-      .from(users)
-      .where(eq(users.unsubscribe_token, token))
-      .limit(1);
+    const result = await db.select().from(users).where(eq(users.unsubscribe_token, token)).limit(1);
     return result[0];
   }
 
@@ -868,7 +941,7 @@ export class DatabaseStorage implements IStorage {
 
   async setPasswordResetToken(email: string, token: string, expires: Date): Promise<boolean> {
     try {
-      const result = await db
+      await db
         .update(users)
         .set({
           password_reset_token: token,
@@ -984,11 +1057,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createFreelancerProfile(profile: InsertFreelancerProfile): Promise<FreelancerProfile> {
-    const { generateFreelancerSlug, makeFreelancerSlugUnique } = await import("./api/utils/slugify.js");
+    const { generateFreelancerSlug, makeFreelancerSlugUnique } = await import(
+      "./api/utils/slugify.js"
+    );
     const baseSlug = generateFreelancerSlug(profile.first_name, profile.last_name, profile.title);
     const slug = baseSlug
       ? await makeFreelancerSlugUnique(baseSlug, async (s) => {
-          const existing = await db.select().from(freelancer_profiles).where(eq(freelancer_profiles.slug, s)).limit(1);
+          const existing = await db
+            .select()
+            .from(freelancer_profiles)
+            .where(eq(freelancer_profiles.slug, s))
+            .limit(1);
           return existing.length > 0;
         })
       : null;
@@ -1001,6 +1080,7 @@ export class DatabaseStorage implements IStorage {
       superpower: profile.superpower,
       bio: profile.bio,
       location: profile.location,
+      country: profile.country,
       experience_years: profile.experience_years,
       skills: profile.skills,
       portfolio_url: profile.portfolio_url,
@@ -1031,6 +1111,7 @@ export class DatabaseStorage implements IStorage {
     if (profile.superpower !== undefined) updateData.superpower = profile.superpower;
     if (profile.bio !== undefined) updateData.bio = profile.bio;
     if (profile.location !== undefined) updateData.location = profile.location;
+    if (profile.country !== undefined) updateData.country = profile.country;
     if (profile.experience_years !== undefined)
       updateData.experience_years = profile.experience_years;
     if (profile.skills !== undefined) updateData.skills = profile.skills;
@@ -1057,9 +1138,12 @@ export class DatabaseStorage implements IStorage {
     if (profile.cv_file_size !== undefined) updateData.cv_file_size = profile.cv_file_size;
 
     // CV-derived structured fields
-    if ((profile as any).work_history !== undefined) updateData.work_history = (profile as any).work_history;
-    if ((profile as any).education_history !== undefined) updateData.education_history = (profile as any).education_history;
-    if ((profile as any).certifications !== undefined) updateData.certifications = (profile as any).certifications;
+    if ((profile as any).work_history !== undefined)
+      updateData.work_history = (profile as any).work_history;
+    if ((profile as any).education_history !== undefined)
+      updateData.education_history = (profile as any).education_history;
+    if ((profile as any).certifications !== undefined)
+      updateData.certifications = (profile as any).certifications;
 
     const result = await db
       .update(freelancer_profiles)
@@ -1096,12 +1180,34 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async checkSlugAvailability(slug: string, excludeUserId?: number): Promise<{ available: boolean; reason?: string }> {
+  async checkSlugAvailability(
+    slug: string,
+    excludeUserId?: number
+  ): Promise<{ available: boolean; reason?: string }> {
     const RESERVED = new Set([
-      "profile", "jobs", "dashboard", "messages", "settings", "admin",
-      "login", "register", "signup", "api", "u", "auth", "logout",
-      "freelancers", "recruiters", "search", "help", "about", "terms",
-      "privacy", "pricing", "upgrade", "pro",
+      "profile",
+      "jobs",
+      "dashboard",
+      "messages",
+      "settings",
+      "admin",
+      "login",
+      "register",
+      "signup",
+      "api",
+      "u",
+      "auth",
+      "logout",
+      "freelancers",
+      "recruiters",
+      "search",
+      "help",
+      "about",
+      "terms",
+      "privacy",
+      "pricing",
+      "upgrade",
+      "pro",
     ]);
     if (RESERVED.has(slug)) return { available: false, reason: "This username is reserved." };
 
@@ -1135,7 +1241,10 @@ export class DatabaseStorage implements IStorage {
     return { available: true };
   }
 
-  async setFreelancerCustomSlug(userId: number, customSlug: string | null): Promise<FreelancerProfile | undefined> {
+  async setFreelancerCustomSlug(
+    userId: number,
+    customSlug: string | null
+  ): Promise<FreelancerProfile | undefined> {
     const cacheKey = `freelancer_profile:${userId}`;
     cache.delete(cacheKey);
     const result = await db
@@ -1165,7 +1274,9 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getAllRecruiterProfilesWithUser(): Promise<Array<{ profile: RecruiterProfile; user: User }>> {
+  async getAllRecruiterProfilesWithUser(): Promise<
+    Array<{ profile: RecruiterProfile; user: User }>
+  > {
     const result = await db
       .select({ profile: recruiter_profiles, user: users })
       .from(recruiter_profiles)
@@ -1181,11 +1292,22 @@ export class DatabaseStorage implements IStorage {
     if (baseSlug) {
       let counter = 2;
       slug = baseSlug;
-      while ((await db.select().from(recruiter_profiles).where(eq(recruiter_profiles.slug, slug)).limit(1)).length > 0) {
+      while (
+        (
+          await db
+            .select()
+            .from(recruiter_profiles)
+            .where(eq(recruiter_profiles.slug, slug))
+            .limit(1)
+        ).length > 0
+      ) {
         slug = `${baseSlug}-${counter++}`;
       }
     }
-    const result = await db.insert(recruiter_profiles).values({ ...profile, slug } as any).returning();
+    const result = await db
+      .insert(recruiter_profiles)
+      .values({ ...profile, slug } as any)
+      .returning();
     return result[0];
   }
 
@@ -1200,6 +1322,7 @@ export class DatabaseStorage implements IStorage {
     if (profile.contact_name !== undefined) updateData.contact_name = profile.contact_name;
     if (profile.company_type !== undefined) updateData.company_type = profile.company_type;
     if (profile.location !== undefined) updateData.location = profile.location;
+    if (profile.country !== undefined) updateData.country = profile.country;
     if (profile.description !== undefined) updateData.description = profile.description;
     if (profile.website_url !== undefined) updateData.website_url = profile.website_url;
     if (profile.linkedin_url !== undefined) updateData.linkedin_url = profile.linkedin_url;
@@ -1227,6 +1350,7 @@ export class DatabaseStorage implements IStorage {
         superpower: freelancer_profiles.superpower,
         bio: freelancer_profiles.bio,
         location: freelancer_profiles.location,
+        country: freelancer_profiles.country,
         experience_years: freelancer_profiles.experience_years,
         skills: freelancer_profiles.skills,
         portfolio_url: freelancer_profiles.portfolio_url,
@@ -1273,6 +1397,7 @@ export class DatabaseStorage implements IStorage {
         contact_name: recruiter_profiles.contact_name,
         company_type: recruiter_profiles.company_type,
         location: recruiter_profiles.location,
+        country: recruiter_profiles.country,
         description: recruiter_profiles.description,
         website_url: recruiter_profiles.website_url,
         linkedin_url: recruiter_profiles.linkedin_url,
@@ -1328,6 +1453,7 @@ export class DatabaseStorage implements IStorage {
           superpower: freelancer_profiles.superpower,
           bio: freelancer_profiles.bio,
           location: freelancer_profiles.location,
+          country: freelancer_profiles.country,
           experience_years: freelancer_profiles.experience_years,
           skills: freelancer_profiles.skills,
           portfolio_url: freelancer_profiles.portfolio_url,
@@ -1407,6 +1533,7 @@ export class DatabaseStorage implements IStorage {
           superpower: freelancer_profiles.superpower,
           bio: freelancer_profiles.bio,
           location: freelancer_profiles.location,
+          country: freelancer_profiles.country,
           experience_years: freelancer_profiles.experience_years,
           skills: freelancer_profiles.skills,
           portfolio_url: freelancer_profiles.portfolio_url,
@@ -1519,7 +1646,13 @@ export class DatabaseStorage implements IStorage {
     sortBy?: string,
     sortOrder?: "asc" | "desc"
   ): Promise<{
-    jobs: (Job & { application_count: number; hired_count: number; closure_email_count: number; recruiter_email?: string; recruiter_name?: string })[];
+    jobs: (Job & {
+      application_count: number;
+      hired_count: number;
+      closure_email_count: number;
+      recruiter_email?: string;
+      recruiter_name?: string;
+    })[];
     total: number;
   }> {
     const offset = (page - 1) * limit;
@@ -1554,10 +1687,7 @@ export class DatabaseStorage implements IStorage {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const [countResult] = await db
-      .select({ count: count() })
-      .from(jobs)
-      .where(whereClause);
+    const [countResult] = await db.select({ count: count() }).from(jobs).where(whereClause);
     const total = countResult.count;
 
     let jobRows;
@@ -1578,7 +1708,7 @@ export class DatabaseStorage implements IStorage {
         .orderBy(orderDir, asc(joinCol))
         .limit(limit)
         .offset(offset)
-        .then(rows => rows.map(r => r.job));
+        .then((rows) => rows.map((r) => r.job));
     } else {
       const sortColumn = (() => {
         switch (sortBy) {
@@ -1602,7 +1732,8 @@ export class DatabaseStorage implements IStorage {
     }
 
     const jobIds = jobRows.map((j) => j.id);
-    let appCounts: Map<number, { total: number; hired: number; closureEmailCount: number }> = new Map();
+    const appCounts: Map<number, { total: number; hired: number; closureEmailCount: number }> =
+      new Map();
 
     if (jobIds.length > 0) {
       const appStats = await db
@@ -1628,7 +1759,7 @@ export class DatabaseStorage implements IStorage {
     const recruiterIds = jobRows
       .map((j) => j.recruiter_id)
       .filter((id): id is number => id !== null);
-    let recruiterMap: Map<number, { email: string; name: string }> = new Map();
+    const recruiterMap: Map<number, { email: string; name: string }> = new Map();
 
     if (recruiterIds.length > 0) {
       const uniqueIds = Array.from(new Set(recruiterIds));
@@ -1667,8 +1798,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAdminJobDetail(jobId: number): Promise<{
-    job: Job & { recruiter_email?: string; recruiter_name?: string; application_count: number; hired_count: number };
-    applications: { id: number; freelancer_id: number; status: string; applied_at: Date; freelancer_name: string; freelancer_email: string; freelancer_title?: string | null }[];
+    job: Job & {
+      recruiter_email?: string;
+      recruiter_name?: string;
+      application_count: number;
+      hired_count: number;
+    };
+    applications: {
+      id: number;
+      freelancer_id: number;
+      status: string;
+      applied_at: Date;
+      freelancer_name: string;
+      freelancer_email: string;
+      freelancer_title?: string | null;
+    }[];
   } | null> {
     const [job] = await db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1);
     if (!job) return null;
@@ -1683,7 +1827,8 @@ export class DatabaseStorage implements IStorage {
         .limit(1);
       if (recruiter) {
         recruiter_email = recruiter.email;
-        recruiter_name = [recruiter.first_name, recruiter.last_name].filter(Boolean).join(" ") || recruiter.email;
+        recruiter_name =
+          [recruiter.first_name, recruiter.last_name].filter(Boolean).join(" ") || recruiter.email;
       }
     }
 
@@ -1700,25 +1845,35 @@ export class DatabaseStorage implements IStorage {
       })
       .from(job_applications)
       .leftJoin(users, eq(job_applications.freelancer_id, users.id))
-      .leftJoin(freelancer_profiles, eq(job_applications.freelancer_id, freelancer_profiles.user_id))
+      .leftJoin(
+        freelancer_profiles,
+        eq(job_applications.freelancer_id, freelancer_profiles.user_id)
+      )
       .where(eq(job_applications.job_id, jobId))
       .orderBy(desc(job_applications.applied_at));
 
     const totalApps = appRows.length;
-    const hiredCount = appRows.filter(a => a.status === "hired").length;
+    const hiredCount = appRows.filter((a) => a.status === "hired").length;
 
-    const applications = appRows.map(a => ({
+    const applications = appRows.map((a) => ({
       id: a.id,
       freelancer_id: a.freelancer_id,
       status: a.status || "applied",
       applied_at: a.applied_at,
-      freelancer_name: [a.first_name, a.last_name].filter(Boolean).join(" ") || a.email || "Unknown",
+      freelancer_name:
+        [a.first_name, a.last_name].filter(Boolean).join(" ") || a.email || "Unknown",
       freelancer_email: a.email || "",
       freelancer_title: a.title,
     }));
 
     return {
-      job: { ...job, recruiter_email, recruiter_name, application_count: totalApps, hired_count: hiredCount },
+      job: {
+        ...job,
+        recruiter_email,
+        recruiter_name,
+        application_count: totalApps,
+        hired_count: hiredCount,
+      },
       applications,
     };
   }
@@ -1756,7 +1911,9 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
     if (result.length > 0) {
-      console.log(`Auto-closed ${result.length} expired job(s): ${result.map(j => j.id).join(", ")}`);
+      console.log(
+        `Auto-closed ${result.length} expired job(s): ${result.map((j) => j.id).join(", ")}`
+      );
     }
     return result.length;
   }
@@ -1778,7 +1935,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
       .where(and(ilike(freelancer_profiles.title, `%${role}%`), isNull(users.deleted_at)))
       .limit(limit);
-    return result.map(r => r.fp);
+    return result.map((r) => r.fp);
   }
 
   async getFreelancersByLocation(city: string, limit = 20): Promise<FreelancerProfile[]> {
@@ -1788,7 +1945,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
       .where(and(ilike(freelancer_profiles.location, `%${city}%`), isNull(users.deleted_at)))
       .limit(limit);
-    return result.map(r => r.fp);
+    return result.map((r) => r.fp);
   }
 
   async getJobsByRole(role: string, limit = 20): Promise<Job[]> {
@@ -1834,7 +1991,10 @@ export class DatabaseStorage implements IStorage {
       ...job,
       posted_by_user_id: job.posted_by_user_id ?? job.recruiter_id ?? null,
     };
-    const inserted = await db.insert(jobs).values([jobToInsert as any]).returning();
+    const inserted = await db
+      .insert(jobs)
+      .values([jobToInsert as any])
+      .returning();
     const newJob = inserted[0];
     const slug = generateJobSlug(newJob.title, newJob.location, newJob.id);
     const updated = await db.update(jobs).set({ slug }).where(eq(jobs.id, newJob.id)).returning();
@@ -1872,7 +2032,15 @@ export class DatabaseStorage implements IStorage {
     cache.clear();
   }
 
-  async getFreelancersMatchingJob(job: Job): Promise<{ userId: number; email: string; firstName: string | null; location: string | null; title: string | null }[]> {
+  async getFreelancersMatchingJob(job: Job): Promise<
+    {
+      userId: number;
+      email: string;
+      firstName: string | null;
+      location: string | null;
+      title: string | null;
+    }[]
+  > {
     // Get all active, email-verified freelancers with a profile
     const rows = await db
       .select({
@@ -1893,19 +2061,31 @@ export class DatabaseStorage implements IStorage {
       );
 
     // Extract meaningful keywords from job title and location
-    const stopWords = new Set(["and", "or", "the", "a", "an", "in", "at", "of", "for", "to", "with"]);
+    const stopWords = new Set([
+      "and",
+      "or",
+      "the",
+      "a",
+      "an",
+      "in",
+      "at",
+      "of",
+      "for",
+      "to",
+      "with",
+    ]);
     const jobTitleWords = job.title
       .toLowerCase()
-      .split(/[\s\-\/,]+/)
-      .filter(w => w.length > 2 && !stopWords.has(w));
+      .split(/[\s\-/,]+/)
+      .filter((w) => w.length > 2 && !stopWords.has(w));
     const jobLocationNorm = (job.location || "").toLowerCase();
 
-    return rows.filter(row => {
+    return rows.filter((row) => {
       const freelancerTitleNorm = (row.title || "").toLowerCase();
       const freelancerLocationNorm = (row.location || "").toLowerCase();
 
       // Role match: any job title keyword appears in freelancer's title
-      const roleMatch = jobTitleWords.some(w => freelancerTitleNorm.includes(w));
+      const roleMatch = jobTitleWords.some((w) => freelancerTitleNorm.includes(w));
 
       // Location match: job location contains freelancer's location city, or vice versa
       const locationMatch =
@@ -1952,9 +2132,7 @@ export class DatabaseStorage implements IStorage {
 
       // Exclude jobs whose event_date has passed
       const today = new Date().toISOString().split("T")[0];
-      conditions.push(
-        or(isNull(jobs.event_date), sql`${jobs.event_date}::date > ${today}::date`)
-      );
+      conditions.push(or(isNull(jobs.event_date), sql`${jobs.event_date}::date > ${today}::date`));
 
       // Keyword search: title, description, or company (case-insensitive)
       if (keyword && keyword.trim()) {
@@ -2178,6 +2356,7 @@ export class DatabaseStorage implements IStorage {
           superpower: freelancer_profiles.superpower,
           bio: freelancer_profiles.bio,
           location: freelancer_profiles.location,
+          country: freelancer_profiles.country,
           experience_years: freelancer_profiles.experience_years,
           skills: freelancer_profiles.skills,
           portfolio_url: freelancer_profiles.portfolio_url,
@@ -3028,10 +3207,16 @@ export class DatabaseStorage implements IStorage {
         ),
 
       // Applications count
-      db.select({ count: sql<number>`count(*)::int` }).from(notifications).where(applicationsWhere),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(notifications)
+        .where(applicationsWhere),
 
       // Jobs count
-      db.select({ count: sql<number>`count(*)::int` }).from(notifications).where(jobsWhere),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(notifications)
+        .where(jobsWhere),
 
       // Ratings count
       db
@@ -4575,20 +4760,29 @@ export class DatabaseStorage implements IStorage {
     const existing = await db
       .select()
       .from(saved_freelancers)
-      .where(and(
-        eq(saved_freelancers.recruiter_id, recruiterId),
-        eq(saved_freelancers.freelancer_id, freelancerId)
-      ));
+      .where(
+        and(
+          eq(saved_freelancers.recruiter_id, recruiterId),
+          eq(saved_freelancers.freelancer_id, freelancerId)
+        )
+      );
     if (existing.length > 0) return existing[0];
-    const result = await db.insert(saved_freelancers).values({ recruiter_id: recruiterId, freelancer_id: freelancerId }).returning();
+    const result = await db
+      .insert(saved_freelancers)
+      .values({ recruiter_id: recruiterId, freelancer_id: freelancerId })
+      .returning();
     return result[0];
   }
 
   async unsaveFreelancer(recruiterId: number, freelancerId: number): Promise<void> {
-    await db.delete(saved_freelancers).where(and(
-      eq(saved_freelancers.recruiter_id, recruiterId),
-      eq(saved_freelancers.freelancer_id, freelancerId)
-    ));
+    await db
+      .delete(saved_freelancers)
+      .where(
+        and(
+          eq(saved_freelancers.recruiter_id, recruiterId),
+          eq(saved_freelancers.freelancer_id, freelancerId)
+        )
+      );
   }
 
   async getSavedFreelancerIds(recruiterId: number): Promise<number[]> {
@@ -4596,25 +4790,34 @@ export class DatabaseStorage implements IStorage {
       .select({ freelancer_id: saved_freelancers.freelancer_id })
       .from(saved_freelancers)
       .where(eq(saved_freelancers.recruiter_id, recruiterId));
-    return result.map(r => r.freelancer_id);
+    return result.map((r) => r.freelancer_id);
   }
 
-  async getMyCrewFreelancers(recruiterId: number, filters?: {
-    keyword?: string;
-    location?: string;
-    tab?: "all" | "saved" | "worked";
-  }): Promise<Array<FreelancerProfile & { isSaved: boolean; isWorkedWith: boolean; average_rating?: number; user_email?: string }>> {
+  async getMyCrewFreelancers(
+    recruiterId: number,
+    filters?: {
+      keyword?: string;
+      location?: string;
+      tab?: "all" | "saved" | "worked";
+    }
+  ): Promise<
+    Array<
+      FreelancerProfile & {
+        isSaved: boolean;
+        isWorkedWith: boolean;
+        average_rating?: number;
+        user_email?: string;
+      }
+    >
+  > {
     const savedIds = await this.getSavedFreelancerIds(recruiterId);
 
     const workedWithRows = await db
       .selectDistinct({ freelancer_id: job_applications.freelancer_id })
       .from(job_applications)
       .innerJoin(jobs, eq(jobs.id, job_applications.job_id))
-      .where(and(
-        eq(jobs.recruiter_id, recruiterId),
-        eq(job_applications.status, "hired")
-      ));
-    const workedWithIds = workedWithRows.map(r => r.freelancer_id);
+      .where(and(eq(jobs.recruiter_id, recruiterId), eq(job_applications.status, "hired")));
+    const workedWithIds = workedWithRows.map((r) => r.freelancer_id);
 
     const allIds = [...new Set([...savedIds, ...workedWithIds])];
     if (allIds.length === 0) return [];
@@ -4650,7 +4853,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(freelancer_profiles.id));
 
-    return profiles.map(row => ({
+    return profiles.map((row) => ({
       ...row.profile,
       isSaved: savedIds.includes(row.profile.user_id),
       isWorkedWith: workedWithIds.includes(row.profile.user_id),
@@ -4667,58 +4870,84 @@ export class DatabaseStorage implements IStorage {
     if (profile.reference_token) return profile.reference_token;
     const { randomUUID } = await import("crypto");
     const token = randomUUID();
-    await db.update(freelancer_profiles)
+    await db
+      .update(freelancer_profiles)
       .set({ reference_token: token })
       .where(eq(freelancer_profiles.user_id, userId));
     return token;
   }
 
-  async getFreelancerByReferenceToken(token: string): Promise<{ userId: number; firstName: string | null; lastName: string | null } | undefined> {
-    const rows = await db.select({
-      userId: freelancer_profiles.user_id,
-      firstName: freelancer_profiles.first_name,
-      lastName: freelancer_profiles.last_name,
-    })
+  async getFreelancerByReferenceToken(
+    token: string
+  ): Promise<{ userId: number; firstName: string | null; lastName: string | null } | undefined> {
+    const rows = await db
+      .select({
+        userId: freelancer_profiles.user_id,
+        firstName: freelancer_profiles.first_name,
+        lastName: freelancer_profiles.last_name,
+      })
       .from(freelancer_profiles)
       .where(eq(freelancer_profiles.reference_token, token))
       .limit(1);
     return rows[0];
   }
 
-  async createFreelancerReference(data: InsertFreelancerReference & { badge_result: string; is_flagged: boolean }): Promise<FreelancerReference> {
+  async createFreelancerReference(
+    data: InsertFreelancerReference & { badge_result: string; is_flagged: boolean }
+  ): Promise<FreelancerReference> {
     const rows = await db.insert(freelancer_references).values(data).returning();
     return rows[0];
   }
 
   async getPublicReferences(freelancerId: number): Promise<FreelancerReference[]> {
-    return db.select()
+    return db
+      .select()
       .from(freelancer_references)
-      .where(and(
-        eq(freelancer_references.freelancer_id, freelancerId),
-        eq(freelancer_references.is_flagged, false),
-        sql`${freelancer_references.badge_result} != 'flagged'`
-      ))
+      .where(
+        and(
+          eq(freelancer_references.freelancer_id, freelancerId),
+          eq(freelancer_references.is_flagged, false),
+          sql`${freelancer_references.badge_result} != 'flagged'`
+        )
+      )
       .orderBy(desc(freelancer_references.created_at));
   }
 
   async getReferenceById(id: number): Promise<FreelancerReference | undefined> {
-    const rows = await db.select().from(freelancer_references).where(eq(freelancer_references.id, id)).limit(1);
-    return rows[0];
-  }
-
-  async updateReferenceVerification(id: number, data: Partial<FreelancerReference>): Promise<FreelancerReference | undefined> {
-    const rows = await db.update(freelancer_references).set(data).where(eq(freelancer_references.id, id)).returning();
-    return rows[0];
-  }
-
-  async getRecentReferencesByEmail(email: string, hoursBack: number): Promise<FreelancerReference[]> {
-    const cutoff = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
-    return db.select()
+    const rows = await db
+      .select()
       .from(freelancer_references)
-      .where(and(
-        eq(freelancer_references.referee_email, email),
-        gte(freelancer_references.created_at, cutoff)
-      ));
+      .where(eq(freelancer_references.id, id))
+      .limit(1);
+    return rows[0];
+  }
+
+  async updateReferenceVerification(
+    id: number,
+    data: Partial<FreelancerReference>
+  ): Promise<FreelancerReference | undefined> {
+    const rows = await db
+      .update(freelancer_references)
+      .set(data)
+      .where(eq(freelancer_references.id, id))
+      .returning();
+    return rows[0];
+  }
+
+  async getRecentReferencesByEmail(
+    email: string,
+    hoursBack: number
+  ): Promise<FreelancerReference[]> {
+    const cutoff = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
+    return db
+      .select()
+      .from(freelancer_references)
+      .where(
+        and(
+          eq(freelancer_references.referee_email, email),
+          gte(freelancer_references.created_at, cutoff)
+        )
+      );
   }
 
   async createReferenceRequest(data: InsertReferenceRequest): Promise<ReferenceRequest> {
@@ -4727,31 +4956,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReferenceRequests(freelancerId: number): Promise<ReferenceRequest[]> {
-    return db.select()
+    return db
+      .select()
       .from(reference_requests)
       .where(eq(reference_requests.freelancer_id, freelancerId))
       .orderBy(desc(reference_requests.created_at));
   }
 
   async getReferenceRequestById(id: number): Promise<ReferenceRequest | undefined> {
-    const rows = await db.select().from(reference_requests).where(eq(reference_requests.id, id)).limit(1);
+    const rows = await db
+      .select()
+      .from(reference_requests)
+      .where(eq(reference_requests.id, id))
+      .limit(1);
     return rows[0];
   }
 
-  async updateReferenceRequest(id: number, data: Partial<ReferenceRequest>): Promise<ReferenceRequest | undefined> {
-    const rows = await db.update(reference_requests).set(data).where(eq(reference_requests.id, id)).returning();
+  async updateReferenceRequest(
+    id: number,
+    data: Partial<ReferenceRequest>
+  ): Promise<ReferenceRequest | undefined> {
+    const rows = await db
+      .update(reference_requests)
+      .set(data)
+      .where(eq(reference_requests.id, id))
+      .returning();
     return rows[0];
   }
 
   async getPendingReminders(daysSinceRequest: number): Promise<ReferenceRequest[]> {
     const cutoff = new Date(Date.now() - daysSinceRequest * 24 * 60 * 60 * 1000);
-    return db.select()
+    return db
+      .select()
       .from(reference_requests)
-      .where(and(
-        eq(reference_requests.status, "pending"),
-        eq(reference_requests.reminder_sent, false),
-        sql`${reference_requests.created_at} <= ${cutoff}`
-      ));
+      .where(
+        and(
+          eq(reference_requests.status, "pending"),
+          eq(reference_requests.reminder_sent, false),
+          sql`${reference_requests.created_at} <= ${cutoff}`
+        )
+      );
   }
 
   async createReferenceReport(data: InsertReferenceReport): Promise<ReferenceReport> {
@@ -4760,14 +5004,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReferenceReports(referenceId: number): Promise<ReferenceReport[]> {
-    return db.select()
+    return db
+      .select()
       .from(reference_reports)
       .where(eq(reference_reports.reference_id, referenceId))
       .orderBy(desc(reference_reports.created_at));
   }
 
   async getJobsForBatchWindow(window: "morning" | "afternoon"): Promise<Job[]> {
-    return db.select()
+    return db
+      .select()
       .from(jobs)
       .where(
         and(
@@ -4779,8 +5025,13 @@ export class DatabaseStorage implements IStorage {
       );
   }
 
-  async updateJobBatchNotification(jobId: number, batchWindow: string | null, sentAt: Date | null): Promise<void> {
-    await db.update(jobs)
+  async updateJobBatchNotification(
+    jobId: number,
+    batchWindow: string | null,
+    sentAt: Date | null
+  ): Promise<void> {
+    await db
+      .update(jobs)
       .set({
         notification_batch_window: batchWindow as any,
         notification_sent_at: sentAt as any,
@@ -4789,8 +5040,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(jobs.id, jobId));
   }
 
-  async updateJobUrgencyAndBatch(jobId: number, isUrgent: boolean, batchWindow: string | null): Promise<void> {
-    await db.update(jobs)
+  async updateJobUrgencyAndBatch(
+    jobId: number,
+    isUrgent: boolean,
+    batchWindow: string | null
+  ): Promise<void> {
+    await db
+      .update(jobs)
       .set({
         is_urgent: isUrgent as any,
         notification_batch_window: batchWindow as any,
@@ -4800,20 +5056,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateFreelancerLastJobAlertSent(userId: number): Promise<void> {
-    await db.update(users)
+    await db
+      .update(users)
       .set({ last_job_alert_sent_at: new Date() as any, updated_at: new Date() })
       .where(eq(users.id, userId));
   }
 
-  async getFreelancerJobAlertPrefs(userId: number): Promise<{ jobAlertsOptOut: boolean; lastJobAlertSentAt: Date | null; jobAlertFrequencyPreference: string }> {
-    const result = await db.select({
-      jobAlertsOptOut: users.job_alerts_opt_out,
-      lastJobAlertSentAt: users.last_job_alert_sent_at,
-      jobAlertFrequencyPreference: users.job_alert_frequency_preference,
-    }).from(users).where(eq(users.id, userId)).limit(1);
+  async getFreelancerJobAlertPrefs(userId: number): Promise<{
+    jobAlertsOptOut: boolean;
+    lastJobAlertSentAt: Date | null;
+    jobAlertFrequencyPreference: string;
+  }> {
+    const result = await db
+      .select({
+        jobAlertsOptOut: users.job_alerts_opt_out,
+        lastJobAlertSentAt: users.last_job_alert_sent_at,
+        jobAlertFrequencyPreference: users.job_alert_frequency_preference,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
 
     if (!result[0]) {
-      return { jobAlertsOptOut: false, lastJobAlertSentAt: null, jobAlertFrequencyPreference: "instant" };
+      return {
+        jobAlertsOptOut: false,
+        lastJobAlertSentAt: null,
+        jobAlertFrequencyPreference: "instant",
+      };
     }
     return {
       jobAlertsOptOut: result[0].jobAlertsOptOut ?? false,
@@ -4823,7 +5092,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async setJobNotificationSentAt(jobId: number): Promise<void> {
-    await db.update(jobs)
+    await db
+      .update(jobs)
       .set({
         notification_sent_at: new Date() as any,
         notification_batch_window: null as any,
@@ -4834,18 +5104,24 @@ export class DatabaseStorage implements IStorage {
 
   async setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void> {
     const now = new Date();
-    await db.update(jobs)
+    await db
+      .update(jobs)
       .set({ notification_sent_at: now as any, last_notified_at: now, updated_at: now })
       .where(eq(jobs.id, jobId));
 
     if (freelancerUserIds.length > 0) {
-      await db.update(users)
+      await db
+        .update(users)
         .set({ last_job_alert_sent_at: now as any, updated_at: now })
         .where(inArray(users.id, freelancerUserIds));
     }
   }
 
-  async getAdminTeams(page: number, limit: number, search?: string): Promise<{
+  async getAdminTeams(
+    page: number,
+    limit: number,
+    search?: string
+  ): Promise<{
     teams: Array<{
       company_user_id: number;
       company_name: string | null;
@@ -5103,9 +5379,7 @@ export class DatabaseStorage implements IStorage {
 
     const memberCount = memberRows.filter((m) => m.invite_accepted).length;
     const pendingCount = memberRows.filter((m) => !m.invite_accepted).length;
-    const activeJobs = jobRows.filter(
-      (j) => j.status === "active" || j.status === "paused"
-    ).length;
+    const activeJobs = jobRows.filter((j) => j.status === "active" || j.status === "paused").length;
     const closedJobs = jobRows.filter((j) => j.status === "closed").length;
     const totalHired = jobRows.reduce((sum, j) => {
       const app = appMap.get(j.id);

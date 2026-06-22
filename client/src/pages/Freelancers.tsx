@@ -5,11 +5,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { UKLocationInput } from "@/components/ui/uk-location-input";
+import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bookmark, ChevronLeft, ChevronRight, Loader2, MapPin, Search, Star, User } from "lucide-react";
+import {
+  Bookmark,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  MapPin,
+  Search,
+  Star,
+  User,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -111,7 +120,8 @@ export default function Freelancers() {
     name: `${profile.first_name || ""} ${profile.last_name || ""}`.trim(),
     title: profile.title || "Event Professional",
     superpower: profile.superpower,
-    location: profile.location || "UK",
+    location: profile.location || "",
+    country: profile.country || "",
     experience: profile.experience_years
       ? `${profile.experience_years} years`
       : "Experience not specified",
@@ -137,10 +147,10 @@ export default function Freelancers() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-4">
+          <h1 className="mb-4 text-4xl font-bold">
             <span className="text-primary">Find</span> <span className="text-accent">Crew</span>
           </h1>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-lg text-muted-foreground">
             Connect with skilled technical professionals for your events. Browse profiles and hire
             the best crew for your projects.
           </p>
@@ -155,21 +165,21 @@ export default function Freelancers() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="md:col-span-2">
                 <Input
                   placeholder="Search freelancers, skills, or specializations..."
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full"
                   data-testid="input-search-freelancers"
                 />
               </div>
               <div>
-                <UKLocationInput
-                  placeholder="Filter by UK location..."
+                <GlobalLocationInput
+                  placeholder="Filter by location..."
                   value={locationFilter}
-                  onChange={value => setLocationFilter(value)}
+                  onChange={(value) => setLocationFilter(value)}
                   data-testid="input-location-filter"
                 />
               </div>
@@ -190,7 +200,7 @@ export default function Freelancers() {
                 <>
                   {totalResults} Freelancer{totalResults !== 1 ? "s" : ""} Found
                   {totalResults > 0 && (
-                    <span className="text-sm font-normal text-muted-foreground ml-2">
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
                       (Page {currentPage} of {totalPages})
                     </span>
                   )}
@@ -201,12 +211,12 @@ export default function Freelancers() {
 
           {/* Error State */}
           {error && (
-            <Card className="p-8 text-center border-red-200 bg-red-50">
+            <Card className="border-red-200 bg-red-50 p-8 text-center">
               <CardContent>
                 <div className="space-y-4">
-                  <div className="text-red-600 text-4xl">⚠️</div>
+                  <div className="text-4xl text-red-600">⚠️</div>
                   <h3 className="text-xl font-semibold text-red-900">Search Error</h3>
-                  <p className="text-red-700 max-w-md mx-auto">
+                  <p className="mx-auto max-w-md text-red-700">
                     We encountered an error while searching for freelancers. Please try again in a
                     moment.
                   </p>
@@ -228,14 +238,14 @@ export default function Freelancers() {
             <Card className="p-8 text-center">
               <CardContent>
                 <div className="space-y-4">
-                  <User className="h-12 w-12 text-muted-foreground mx-auto" />
+                  <User className="mx-auto h-12 w-12 text-muted-foreground" />
                   <h3 className="text-xl font-semibold">No Freelancers Found</h3>
-                  <p className="text-muted-foreground max-w-md mx-auto">
+                  <p className="mx-auto max-w-md text-muted-foreground">
                     {searchQuery || locationFilter
                       ? `No freelancers match your search criteria. Try adjusting your filters or search terms.`
                       : `There are currently no freelancer profiles available. Freelancers need to complete their profiles before appearing in search results.`}
                   </p>
-                  <div className="pt-4 flex gap-4 justify-center">
+                  <div className="flex justify-center gap-4 pt-4">
                     {(searchQuery || locationFilter) && (
                       <Button
                         variant="outline"
@@ -264,8 +274,8 @@ export default function Freelancers() {
           {!isLoading && !error && totalPages > 1 && (
             <Card className="mb-4">
               <CardContent className="py-4">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="text-sm text-muted-foreground text-center sm:text-left">
+                <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+                  <div className="text-center text-sm text-muted-foreground sm:text-left">
                     Showing {(currentPage - 1) * 20 + 1} –{" "}
                     {Math.min(currentPage * 20, totalResults)} of {totalResults} results
                   </div>
@@ -273,19 +283,19 @@ export default function Freelancers() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(p => p - 1)}
+                      onClick={() => setCurrentPage((p) => p - 1)}
                       disabled={!hasPrevPage}
                       className="hidden sm:flex"
                     >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      <ChevronLeft className="mr-1 h-4 w-4" />
                       Previous
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(p => p - 1)}
+                      onClick={() => setCurrentPage((p) => p - 1)}
                       disabled={!hasPrevPage}
-                      className="sm:hidden w-10 px-0"
+                      className="w-10 px-0 sm:hidden"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
@@ -317,19 +327,19 @@ export default function Freelancers() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(p => p + 1)}
+                      onClick={() => setCurrentPage((p) => p + 1)}
                       disabled={!hasNextPage}
                       className="hidden sm:flex"
                     >
                       Next
-                      <ChevronRight className="h-4 w-4 ml-1" />
+                      <ChevronRight className="ml-1 h-4 w-4" />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setCurrentPage(p => p + 1)}
+                      onClick={() => setCurrentPage((p) => p + 1)}
                       disabled={!hasNextPage}
-                      className="sm:hidden w-10 px-0"
+                      className="w-10 px-0 sm:hidden"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>
@@ -340,20 +350,20 @@ export default function Freelancers() {
           )}
 
           {/* Freelancers Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {transformedFreelancers.map((freelancer: any) => (
               <Card
                 key={freelancer.id}
-                className={`hover:shadow-lg transition-shadow border-l-4 border-l-accent ${
+                className={`border-l-4 border-l-accent transition-shadow hover:shadow-lg ${
                   highlightedFreelancer && freelancer.id === `real-${highlightedFreelancer}`
-                    ? "ring-2 ring-blue-500 bg-blue-50"
+                    ? "bg-blue-50 ring-2 ring-blue-500"
                     : ""
                 }`}
                 data-testid={`freelancer-card-${freelancer.id}`}
               >
                 <CardHeader>
                   <div className="flex items-start gap-4">
-                    <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center text-2xl overflow-hidden">
+                    <div className="bg-gradient-primary flex h-16 w-16 items-center justify-center overflow-hidden rounded-full text-2xl">
                       {freelancer.avatar &&
                       (freelancer.avatar.startsWith("data:image/") ||
                         freelancer.avatar.startsWith("https://") ||
@@ -361,11 +371,11 @@ export default function Freelancers() {
                         <img
                           src={freelancer.avatar}
                           alt={`${freelancer.name} profile photo`}
-                          className="w-full h-full bg-white object-cover rounded-full"
+                          className="h-full w-full rounded-full bg-white object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full bg-blue-600 rounded-full flex items-center justify-center">
-                          <span className="text-white font-bold text-lg">
+                        <div className="flex h-full w-full items-center justify-center rounded-full bg-blue-600">
+                          <span className="text-lg font-bold text-white">
                             {freelancer.name
                               .split(" ")
                               .map((n: string) => n[0])
@@ -376,21 +386,21 @@ export default function Freelancers() {
                     </div>
                     <div className="flex-1">
                       <CardTitle className="text-xl">{freelancer.name}</CardTitle>
-                      <p className="text-muted-foreground font-medium">{freelancer.title}</p>
+                      <p className="font-medium text-muted-foreground">{freelancer.title}</p>
                       {freelancer.superpower && (
-                        <div className="flex flex-col items-start sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
+                        <div className="mt-1 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
                           <span className="text-sm font-medium text-muted-foreground">
                             Superpower:
                           </span>
-                          <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 border-0 max-w-full truncate whitespace-normal h-auto py-1 px-3">
+                          <Badge className="h-auto max-w-full truncate whitespace-normal border-0 bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-1 hover:from-purple-600 hover:to-pink-600">
                             ⚡ {freelancer.superpower}
                           </Badge>
                         </div>
                       )}
-                      <div className="flex flex-wrap items-center gap-2 mt-2 text-sm">
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                         {freelancer.rating > 0 && (
                           <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                            <Star className="h-4 w-4 fill-current text-yellow-500" />
                             <span>{freelancer.rating.toFixed(1)}</span>
                           </div>
                         )}
@@ -408,10 +418,14 @@ export default function Freelancers() {
                         </Badge>
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <MapPin className="h-3 w-3" />
-                          <span>{freelancer.location}</span>
+                          <span>
+                            {[freelancer.location, freelancer.country].filter(Boolean).join(", ")}
+                          </span>
                         </div>
                       </div>
-                      <CompactReferenceBadge freelancerId={parseInt(freelancer.id.replace("real-", ""), 10)} />
+                      <CompactReferenceBadge
+                        freelancerId={parseInt(freelancer.id.replace("real-", ""), 10)}
+                      />
                     </div>
                   </div>
                 </CardHeader>
@@ -447,28 +461,29 @@ export default function Freelancers() {
                     >
                       View Profile
                     </Button>
-                    {isRecruiter && (() => {
-                      const freelancerUserId = parseInt(freelancer.id.replace("real-", ""), 10);
-                      const isSaved = savedIds.includes(freelancerUserId);
-                      return (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={`h-8 w-8 ml-auto ${isSaved ? "text-orange-500" : "text-muted-foreground"}`}
-                          onClick={() => {
-                            if (isSaved) {
-                              unsaveMutation.mutate(freelancerUserId);
-                            } else {
-                              saveMutation.mutate(freelancerUserId);
-                            }
-                          }}
-                          disabled={saveMutation.isPending || unsaveMutation.isPending}
-                          title={isSaved ? "Remove from My Crew" : "Save to My Crew"}
-                        >
-                          <Bookmark className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
-                        </Button>
-                      );
-                    })()}
+                    {isRecruiter &&
+                      (() => {
+                        const freelancerUserId = parseInt(freelancer.id.replace("real-", ""), 10);
+                        const isSaved = savedIds.includes(freelancerUserId);
+                        return (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`ml-auto h-8 w-8 ${isSaved ? "text-orange-500" : "text-muted-foreground"}`}
+                            onClick={() => {
+                              if (isSaved) {
+                                unsaveMutation.mutate(freelancerUserId);
+                              } else {
+                                saveMutation.mutate(freelancerUserId);
+                              }
+                            }}
+                            disabled={saveMutation.isPending || unsaveMutation.isPending}
+                            title={isSaved ? "Remove from My Crew" : "Save to My Crew"}
+                          >
+                            <Bookmark className={`h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
+                          </Button>
+                        );
+                      })()}
                   </div>
                 </CardContent>
               </Card>
@@ -479,8 +494,8 @@ export default function Freelancers() {
           {!isLoading && !error && totalPages > 1 && (
             <Card className="mt-8">
               <CardContent className="py-4">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="text-sm text-muted-foreground text-center sm:text-left">
+                <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+                  <div className="text-center text-sm text-muted-foreground sm:text-left">
                     Showing {(currentPage - 1) * 20 + 1} -{" "}
                     {Math.min(currentPage * 20, totalResults)} of {totalResults} results
                   </div>
@@ -493,7 +508,7 @@ export default function Freelancers() {
                       data-testid="button-prev-page"
                       className="hidden sm:flex"
                     >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      <ChevronLeft className="mr-1 h-4 w-4" />
                       Previous
                     </Button>
                     <Button
@@ -502,7 +517,7 @@ export default function Freelancers() {
                       onClick={() => goToPage(currentPage - 1)}
                       disabled={!hasPrevPage}
                       data-testid="button-prev-page-mobile"
-                      className="sm:hidden w-10 px-0"
+                      className="w-10 px-0 sm:hidden"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
@@ -542,7 +557,7 @@ export default function Freelancers() {
                       className="hidden sm:flex"
                     >
                       Next
-                      <ChevronRight className="h-4 w-4 ml-1" />
+                      <ChevronRight className="ml-1 h-4 w-4" />
                     </Button>
                     <Button
                       variant="outline"
@@ -550,7 +565,7 @@ export default function Freelancers() {
                       onClick={() => goToPage(currentPage + 1)}
                       disabled={!hasNextPage}
                       data-testid="button-next-page-mobile"
-                      className="sm:hidden w-10 px-0"
+                      className="w-10 px-0 sm:hidden"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>

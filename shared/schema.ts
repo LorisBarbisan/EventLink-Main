@@ -54,9 +54,11 @@ export const users = pgTable(
     unsubscribe_token: text("unsubscribe_token"),
     job_alerts_opt_out: boolean("job_alerts_opt_out").default(false), // Freelancer has unsubscribed from job alert emails
     last_job_alert_sent_at: timestamp("last_job_alert_sent_at", { withTimezone: true }), // Timestamp of last job alert email sent
-    job_alert_frequency_preference: text("job_alert_frequency_preference").default("instant").$type<"instant" | "weekly" | "none">(), // 'instant' = include in batch, 'none' = no automated emails
+    job_alert_frequency_preference: text("job_alert_frequency_preference")
+      .default("instant")
+      .$type<"instant" | "weekly" | "none">(), // 'instant' = include in batch, 'none' = no automated emails
   },
-  table => ({
+  (table) => ({
     statusCheck: check(
       "users_status_check",
       sql`${table.status} IN ('pending', 'active', 'deactivated')`
@@ -77,7 +79,7 @@ export const user_sessions = pgTable(
     sess: json("sess").notNull(),
     expire: timestamp("expire", { precision: 6, withTimezone: false }).notNull(),
   },
-  table => ({
+  (table) => ({
     pk: primaryKey({ name: "session_pkey", columns: [table.sid] }),
     expireIdx: index("IDX_session_expire").on(table.expire),
   })
@@ -96,6 +98,7 @@ export const freelancer_profiles = pgTable(
     superpower: text("superpower"), // Short standout skill (e.g. "vMix Operator")
     bio: text("bio"),
     location: text("location"),
+    country: text("country"),
     experience_years: integer("experience_years"),
     skills: text("skills").array(),
     portfolio_url: text("portfolio_url"),
@@ -119,7 +122,7 @@ export const freelancer_profiles = pgTable(
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     titleIdx: index("freelancer_profiles_title_idx").on(table.title),
     locationIdx: index("freelancer_profiles_location_idx").on(table.location),
     availabilityIdx: index("freelancer_profiles_availability_idx").on(table.availability_status),
@@ -135,6 +138,7 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
   contact_name: text("contact_name"),
   company_type: text("company_type"),
   location: text("location"),
+  country: text("country"),
   description: text("description"),
   website_url: text("website_url"),
   linkedin_url: text("linkedin_url"),
@@ -174,7 +178,9 @@ export const jobs = pgTable("jobs", {
   posted_date: text("posted_date"), // Original posting date from external source
   slug: text("slug"), // SEO-friendly URL slug e.g. sound-engineer-london-4821
   last_notified_at: timestamp("last_notified_at", { withTimezone: true }), // When admin last sent "Notify Freelancers" for this job
-  notification_batch_window: text("notification_batch_window").$type<"morning" | "afternoon" | null>(), // Batch window assignment; cleared after send
+  notification_batch_window: text("notification_batch_window").$type<
+    "morning" | "afternoon" | null
+  >(), // Batch window assignment; cleared after send
   notification_sent_at: timestamp("notification_sent_at", { withTimezone: true }), // When automated batch notification was sent
   is_urgent: boolean("is_urgent").default(false), // true when event date is within 48h of publication
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -341,7 +347,7 @@ export const ratings = pgTable(
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     statusCheck: check(
       "ratings_status_check",
       sql`${table.status} IN ('active', 'flagged', 'removed')`
@@ -409,7 +415,7 @@ export const insertFreelancerProfileSchema = createInsertSchema(freelancer_profi
     hourly_rate: z
       .number()
       .nullable()
-      .transform(val => (val ? val.toString() : null)),
+      .transform((val) => (val ? val.toString() : null)),
   });
 
 export const insertRecruiterProfileSchema = createInsertSchema(recruiter_profiles)
@@ -528,7 +534,7 @@ export const feedback = pgTable(
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     resolved_at: timestamp("resolved_at", { withTimezone: true }),
   },
-  table => ({
+  (table) => ({
     createdAtIdx: index("feedback_created_at_idx").on(table.created_at),
   })
 );
@@ -546,7 +552,7 @@ export const contact_messages = pgTable(
     user_agent: text("user_agent"), // Browser/device information
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     createdAtIdx: index("contact_messages_created_at_idx").on(table.created_at),
   })
 );
@@ -631,6 +637,7 @@ export const cv_parsed_data = pgTable("cv_parsed_data", {
   extracted_skills: text("extracted_skills").array(), // Array of skills
   extracted_bio: text("extracted_bio"),
   extracted_location: text("extracted_location"),
+  extracted_country: text("extracted_country"),
   extracted_experience_years: integer("extracted_experience_years"),
   extracted_education: text("extracted_education"), // JSON string for education history
   extracted_work_history: text("extracted_work_history"), // JSON string for work experience
@@ -739,12 +746,14 @@ export const job_link_views = pgTable(
     job_id: integer("job_id")
       .notNull()
       .references(() => jobs.id, { onDelete: "cascade" }),
-    source: text("source").$type<"direct" | "linkedin" | "whatsapp" | "email" | "facebook" | "twitter" | "copy" | "other">(),
+    source: text("source").$type<
+      "direct" | "linkedin" | "whatsapp" | "email" | "facebook" | "twitter" | "copy" | "other"
+    >(),
     referrer: text("referrer"),
     user_agent: text("user_agent"),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     jobIdIdx: index("job_link_views_job_id_idx").on(table.job_id),
     createdAtIdx: index("job_link_views_created_at_idx").on(table.created_at),
   })
@@ -788,7 +797,7 @@ export const freelancer_documents = pgTable(
     file_type: text("file_type").notNull(),
     uploaded_at: timestamp("uploaded_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     freelancerIdx: index("freelancer_documents_freelancer_idx").on(table.freelancer_id),
   })
 );
@@ -862,9 +871,12 @@ export const saved_freelancers = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     recruiterIdx: index("saved_freelancers_recruiter_idx").on(table.recruiter_id),
-    uniquePair: index("saved_freelancers_unique_pair_idx").on(table.recruiter_id, table.freelancer_id),
+    uniquePair: index("saved_freelancers_unique_pair_idx").on(
+      table.recruiter_id,
+      table.freelancer_id
+    ),
   })
 );
 
@@ -888,11 +900,18 @@ export const freelancer_references = pgTable("freelancer_references", {
   referee_role: text("referee_role"),
   q1_confirmed: boolean("q1_confirmed").notNull(),
   q2_rating: text("q2_rating").$type<"excellent" | "good" | "mixed" | "prefer_not_to_say">(),
-  q3_would_work_again: text("q3_would_work_again").$type<"absolutely" | "yes" | "unlikely" | "prefer_not_to_say">(),
+  q3_would_work_again: text("q3_would_work_again").$type<
+    "absolutely" | "yes" | "unlikely" | "prefer_not_to_say"
+  >(),
   comment: text("comment"),
-  badge_result: text("badge_result").$type<"highly_recommended" | "recommended" | "verified_private" | "work_history_confirmed" | "flagged">(),
+  badge_result: text("badge_result").$type<
+    "highly_recommended" | "recommended" | "verified_private" | "work_history_confirmed" | "flagged"
+  >(),
   is_flagged: boolean("is_flagged").default(false).notNull(),
-  verification_type: text("verification_type").$type<"none" | "email" | "linkedin" | "eventlink_member">().default("none").notNull(),
+  verification_type: text("verification_type")
+    .$type<"none" | "email" | "linkedin" | "eventlink_member">()
+    .default("none")
+    .notNull(),
   verified_email: text("verified_email"),
   email_domain: text("email_domain"),
   domain_trust_level: text("domain_trust_level").$type<"high" | "medium" | "low">(),
@@ -935,7 +954,10 @@ export const reference_requests = pgTable("reference_requests", {
     .references(() => users.id, { onDelete: "cascade" }),
   referee_email: text("referee_email").notNull(),
   referee_name: text("referee_name"),
-  status: text("status").$type<"pending" | "completed" | "cancelled">().default("pending").notNull(),
+  status: text("status")
+    .$type<"pending" | "completed" | "cancelled">()
+    .default("pending")
+    .notNull(),
   reminder_sent: boolean("reminder_sent").default(false).notNull(),
   reminder_sent_at: timestamp("reminder_sent_at", { withTimezone: true }),
   reference_id: integer("reference_id").references(() => freelancer_references.id),
@@ -1004,7 +1026,7 @@ export const bookings = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     jobFreelancerUnique: unique("bookings_job_freelancer_unique").on(
       table.jobId,
       table.freelancerId
@@ -1031,7 +1053,7 @@ export const bookingStatusHistory = pgTable(
     note: text("note"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     bookingIdIdx: index("booking_history_booking_id_idx").on(table.bookingId),
   })
 );
@@ -1081,7 +1103,7 @@ export const teamMembers = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     userUnique: unique("team_members_user_unique").on(table.userId),
     companyIdIdx: index("team_members_company_id_idx").on(table.companyId),
     userIdIdx: index("team_members_user_id_idx").on(table.userId),
@@ -1113,7 +1135,7 @@ export const jobDocuments = pgTable(
     documentType: text("document_type").notNull().default("other"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     jobIdIdx: index("job_documents_job_id_idx").on(table.jobId),
     uploadedByIdx: index("job_documents_uploaded_by_idx").on(table.uploadedByUserId),
   })
