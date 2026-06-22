@@ -1,6 +1,4 @@
 import { DocumentUploader } from "@/components/DocumentUploader";
-import { ProfileQRCode } from "@/components/ProfileQRCode";
-import { VanityUrlEditor } from "@/components/VanityUrlEditor";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
 import { MessageModal } from "@/components/MessageModal";
@@ -34,7 +32,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { FreelancerPortfolio } from "@/components/FreelancerPortfolio";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -1278,17 +1275,6 @@ export default function Profile() {
             <ReferencesSection freelancerId={freelancerProfile?.user_id || 0} currentUser={user} />
           )}
 
-          {/* Portfolio Section (Freelancers only) */}
-          {freelancerProfile?.user_id && (
-            <div className="rounded-xl border bg-card p-6 shadow-sm">
-              <FreelancerPortfolio
-                userId={freelancerProfile.user_id}
-                editable={false}
-                hideWhenEmpty
-              />
-            </div>
-          )}
-
           {/* Links Section */}
           {(() => {
             const showFreelancerProfile =
@@ -1396,19 +1382,6 @@ export default function Profile() {
                 </div>
               </CardContent>
             </Card>
-          )}
-          {/* Vanity URL editor — own freelancer profile only */}
-          {isOwnProfile && freelancerProfile && (
-            <VanityUrlEditor
-              userId={freelancerProfile.user_id}
-              currentCustomSlug={freelancerProfile.custom_slug}
-              currentSlug={freelancerProfile.slug}
-            />
-          )}
-
-          {/* QR Code — own freelancer profile only */}
-          {isOwnProfile && freelancerProfile && (
-            <ProfileQRCode userId={freelancerProfile.user_id} profileUrl={getProfileUrl()} />
           )}
 
           {/* Active Job Openings (Recruiter profiles only) */}

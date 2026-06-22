@@ -13,7 +13,6 @@ import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import type { FreelancerFormData, JobApplication } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertCircle,
   Briefcase,
@@ -22,9 +21,7 @@ import {
   Check,
   Clock,
   Copy,
-  ImagePlus,
   Mail,
-  QrCode,
   Send,
   Share2,
   ShieldCheck,
@@ -38,10 +35,7 @@ import { ApplicationCard } from "./ApplicationCard";
 import { DocumentUploader } from "./DocumentUploader";
 import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
-import { ProfileQRCode } from "./ProfileQRCode";
 import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
-import { VanityUrlEditor } from "./VanityUrlEditor";
-import { FreelancerPortfolio } from "./FreelancerPortfolio";
 
 const RATING_LABELS: Record<string, { label: string; stars: number }> = {
   excellent: { label: "Excellent", stars: 5 },
@@ -59,7 +53,6 @@ export default function SimplifiedFreelancerDashboard() {
   const { data: averageRating } = useFreelancerAverageRating(user?.id || 0);
 
   const [linkCopied, setLinkCopied] = useState(false);
-  const [qrOpen, setQrOpen] = useState(false);
 
   // Check URL parameters for initial tab and react to location changes
   const [location] = useLocation();
@@ -221,45 +214,43 @@ export default function SimplifiedFreelancerDashboard() {
     }
   };
 
+  // Simplified notification check
   return (
     <div className="container mx-auto min-w-0 max-w-full px-1 py-4 sm:px-6 sm:py-6">
-      <div className="mb-4 flex items-start justify-between px-3 sm:px-0">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold sm:text-3xl">Freelancer Dashboard</h1>
-            {isPro ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-0.5 text-xs font-semibold text-white shadow">
-                <Zap className="h-3 w-3 fill-white" />
-                Pro
-              </span>
-            ) : (
-              <a
-                href="/billing"
-                className="inline-flex items-center gap-1 rounded-full border border-purple-300 px-3 py-0.5 text-xs font-medium text-purple-600 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-900/20"
-              >
-                <Zap className="h-3 w-3" />
-                Upgrade to Pro
-              </a>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground sm:text-base">
-            Manage your profile, applications, and messages
-          </p>
+      <div className="mb-4 px-3 sm:px-0">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold sm:text-3xl">Freelancer Dashboard</h1>
+          {isPro ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-0.5 text-xs font-semibold text-white shadow">
+              <Zap className="h-3 w-3 fill-white" /> Pro
+            </span>
+          ) : (
+            <a
+              href="/billing"
+              className="inline-flex items-center gap-1 rounded-full border border-purple-300 px-3 py-0.5 text-xs font-medium text-purple-600 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-900/20"
+            >
+              <Zap className="h-3 w-3" /> Upgrade to Pro
+            </a>
+          )}
         </div>
+        <p className="text-sm text-muted-foreground sm:text-base">
+          Manage your profile, applications, and messages
+        </p>
       </div>
 
       {/* Persistent share bar — visible on every tab */}
-      <div className="mb-4 flex flex-col gap-2 rounded-xl border-0 bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-base font-bold text-white">Your Digital Business Card</p>
+      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+            Your public profile
+          </p>
+          <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
+        </div>
         <div className="flex shrink-0 gap-2">
-          <Button
-            size="sm"
-            className="border border-white/40 bg-white/20 text-white backdrop-blur-sm hover:bg-white/30"
-            onClick={handleShareProfile}
-          >
+          <Button size="sm" variant="outline" onClick={handleShareProfile}>
             {linkCopied ? (
               <>
-                <Check className="mr-1.5 h-3.5 w-3.5" />
+                <Check className="mr-1.5 h-3.5 w-3.5 text-green-600" />
                 Copied!
               </>
             ) : (
@@ -269,44 +260,17 @@ export default function SimplifiedFreelancerDashboard() {
               </>
             )}
           </Button>
-          <Button
-            size="sm"
-            className="border border-white/40 bg-white/20 text-white backdrop-blur-sm hover:bg-white/30"
-            asChild
-          >
+          <Button size="sm" variant="outline" asChild>
             <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
               <Share2 className="mr-1.5 h-3.5 w-3.5" />
               View Profile
             </a>
           </Button>
-          <Button
-            size="sm"
-            className="border-0 bg-white font-semibold text-purple-600 hover:bg-white/90"
-            onClick={() => setQrOpen(true)}
-          >
-            <QrCode className="mr-1.5 h-3.5 w-3.5" />
-            QR Code
-          </Button>
         </div>
       </div>
 
-      {/* QR Code modal */}
-      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <QrCode className="h-5 w-5" />
-              Your QR Code
-            </DialogTitle>
-          </DialogHeader>
-          {user?.id && <ProfileQRCode userId={user.id} profileUrl={getProfileUrl()} modal />}
-        </DialogContent>
-      </Dialog>
-
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList
-          className={`grid w-full ${isPro ? "grid-cols-3 md:grid-cols-6" : "grid-cols-3 md:grid-cols-5"}`}
-        >
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
             My Applications
@@ -324,12 +288,6 @@ export default function SimplifiedFreelancerDashboard() {
             <ShieldCheck className="h-4 w-4" />
             References
           </TabsTrigger>
-          {isPro && (
-            <TabsTrigger value="portfolio" className="gap-2">
-              <ImagePlus className="h-4 w-4" />
-              Portfolio
-            </TabsTrigger>
-          )}
         </TabsList>
 
         {/* Profile Tab */}
@@ -356,7 +314,6 @@ export default function SimplifiedFreelancerDashboard() {
                     bio: freelancerData.bio,
                     superpower: freelancerData.superpower,
                     location: freelancerData.location,
-                    country: (freelancerData as any).country,
                     skills: freelancerData.skills,
                     portfolio_url: freelancerData.portfolio_url,
                     linkedin_url: freelancerData.linkedin_url,
@@ -406,17 +363,6 @@ export default function SimplifiedFreelancerDashboard() {
           {user?.id && (
             <div className="mt-6">
               <DocumentUploader userId={user.id} isOwner={true} viewerRole="freelancer" />
-            </div>
-          )}
-
-          {/* Vanity URL */}
-          {user?.id && (
-            <div className="mt-6">
-              <VanityUrlEditor
-                userId={user.id}
-                currentCustomSlug={profile?.custom_slug}
-                currentSlug={profile?.slug}
-              />
             </div>
           )}
         </TabsContent>
@@ -541,13 +487,6 @@ export default function SimplifiedFreelancerDashboard() {
         <TabsContent value="references" className="space-y-6">
           <ReferenceRequestsSection userId={user.id} />
         </TabsContent>
-
-        {/* Portfolio Tab — Pro only */}
-        {isPro && (
-          <TabsContent value="portfolio" className="space-y-6">
-            <FreelancerPortfolio userId={user.id} editable />
-          </TabsContent>
-        )}
       </Tabs>
     </div>
   );
@@ -837,7 +776,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
                         </div>
                         {ref.comment && (
                           <p className="mt-1 line-clamp-2 text-sm italic text-muted-foreground">
-                            &quot;{ref.comment}&quot;
+                            &ldquo;{ref.comment}&rdquo;
                           </p>
                         )}
                         <div className="mt-2 flex flex-wrap items-center gap-2">
