@@ -35,7 +35,9 @@ import jobDocumentRouter from "./api/routes/job-document.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { wsService } from "./api/websocket/websocketService";
 
-export async function registerRoutes(app: Express): Promise<{ httpServer: Server; wss: WebSocketServer }> {
+export async function registerRoutes(
+  app: Express
+): Promise<{ httpServer: Server; wss: WebSocketServer }> {
   // Add performance monitoring middleware
   app.use(performanceMonitor.middleware());
 
@@ -66,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<{ httpServer: Server
         if (!origin) return callback(null, true);
 
         // Check if origin matches allowed patterns
-        const isAllowed = allowedOrigins.some(pattern => {
+        const isAllowed = allowedOrigins.some((pattern) => {
           if (typeof pattern === "string") {
             return origin === pattern;
           }
@@ -334,10 +336,10 @@ export async function registerRoutes(app: Express): Promise<{ httpServer: Server
     return res.json([]);
   });
 
-  // Location search endpoint
+  // Location search endpoint — global via Nominatim, falls back to local UK dataset
   app.get("/api/locations/search", async (req, res) => {
     try {
-      const { query } = req.query;
+      const { query, countryCode } = req.query;
 
       if (!query || typeof query !== "string") {
         return res.status(400).json({ error: "Query parameter is required" });
@@ -347,22 +349,74 @@ export async function registerRoutes(app: Express): Promise<{ httpServer: Server
         return res.json([]);
       }
 
-      const locations = searchLocalLocations(query);
+      // Try Nominatim first for global results
+      try {
+        const params = new URLSearchParams({
+          q: query,
+          format: "json",
+          addressdetails: "1",
+          limit: "8",
+          "accept-language": "en",
+        });
+        if (countryCode && typeof countryCode === "string") {
+          params.set("countrycodes", countryCode.toLowerCase());
+        }
+        const nominatimUrl = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
+        const nominatimRes = await fetch(nominatimUrl, {
+          headers: { "User-Agent": "EventLink/1.0 (eventlink.one)" },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (nominatimRes.ok) {
+          const data: any[] = await nominatimRes.json();
+          const formatted = data
+            .filter(
+              (r) =>
+                ["city", "town", "village", "suburb", "county", "state", "municipality"].includes(
+                  r.type
+                ) ||
+                r.class === "place" ||
+                r.class === "boundary"
+            )
+            .map((r) => {
+              const addr = r.address || {};
+              const city =
+                addr.city ||
+                addr.town ||
+                addr.village ||
+                addr.suburb ||
+                addr.municipality ||
+                addr.county ||
+                r.name;
+              const country = addr.country || "";
+              const display = [city, country].filter(Boolean).join(", ");
+              return {
+                display_name: display,
+                name: city,
+                country,
+                country_code: addr.country_code?.toUpperCase() || "",
+                formatted: display,
+                lat: r.lat,
+                lon: r.lon,
+              };
+            })
+            .filter((r, i, arr) => arr.findIndex((x) => x.display_name === r.display_name) === i);
+          return res.json(formatted);
+        }
+      } catch {
+        // fall through to local dataset
+      }
 
-      // Transform to expected UKLocation format
-      const formattedLocations = locations.map(location => ({
+      // Fallback: local UK dataset
+      const locations = searchLocalLocations(query);
+      const formattedLocations = locations.map((location) => ({
         display_name: `${location.formatted}, United Kingdom`,
         name: location.name,
-        county: location.county,
-        postcode: "",
-        city: location.name,
-        town: location.type === "town" ? location.name : undefined,
-        village: location.type === "village" ? location.name : undefined,
+        country: "United Kingdom",
+        country_code: "GB",
         formatted: location.formatted,
-        lat: "51.5074", // Default coordinates - London area
+        lat: "51.5074",
         lon: "-0.1278",
       }));
-
       res.json(formattedLocations);
     } catch (error) {
       console.error("Location search error:", error);
@@ -678,7 +732,7 @@ export async function registerRoutes(app: Express): Promise<{ httpServer: Server
       }
     });
 
-    ws.on("error", error => {
+    ws.on("error", (error) => {
       console.error("WebSocket error:", error);
       if (userId) {
         activeConnections.delete(userId);

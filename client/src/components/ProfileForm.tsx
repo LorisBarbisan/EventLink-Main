@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { UKLocationInput } from "@/components/ui/uk-location-input";
+import { CountrySelect } from "@/components/ui/country-select";
+import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { usePersistentState } from "@/hooks/usePersistentState";
@@ -97,6 +98,7 @@ export function ProfileForm({
           superpower: freelancerProfile?.superpower || "",
           bio: freelancerProfile?.bio || "",
           location: freelancerProfile?.location || "",
+          country: freelancerProfile?.country || "",
           experience_years: freelancerProfile?.experience_years?.toString() || "",
           skills: freelancerProfile?.skills || [],
           portfolio_url: freelancerProfile?.portfolio_url || "",
@@ -112,6 +114,7 @@ export function ProfileForm({
           contact_name: recruiterProfile?.contact_name || "",
           company_type: recruiterProfile?.company_type || "",
           location: recruiterProfile?.location || "",
+          country: recruiterProfile?.country || "",
           description: recruiterProfile?.description || "",
           website_url: recruiterProfile?.website_url || "",
           linkedin_url: recruiterProfile?.linkedin_url || "",
@@ -196,7 +199,8 @@ export function ProfileForm({
         fd.first_name?.trim() &&
         fd.last_name?.trim() &&
         fd.title?.trim() &&
-        fd.location?.trim()
+        fd.location?.trim() &&
+        fd.country?.trim()
       );
     })();
 
@@ -208,6 +212,7 @@ export function ProfileForm({
       if (!fd.last_name?.trim()) missing.push("Last Name");
       if (!fd.title?.trim()) missing.push("Professional Title");
       if (!fd.location?.trim()) missing.push("Location");
+      if (!fd.country?.trim()) missing.push("Country");
       if (missing.length > 0) {
         toast({
           title: "Required fields missing",
@@ -235,9 +240,7 @@ export function ProfileForm({
       <Card>
         <CardHeader>
           <CardTitle>Company Profile</CardTitle>
-          <CardDescription>
-            The company profile has not been set up yet.
-          </CardDescription>
+          <CardDescription>The company profile has not been set up yet.</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
@@ -668,14 +671,24 @@ function FreelancerFormFields({
         />
       </div>
 
-      <div>
-        <UKLocationInput
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <Label htmlFor="country">Country *</Label>
+          <CountrySelect
+            id="country"
+            value={formData.country}
+            onChange={(v) => onInputChange("country", v)}
+            required
+          />
+        </div>
+        <GlobalLocationInput
           id="location"
-          label="Location *"
+          label="City / Location *"
           value={formData.location}
           onChange={onLocationChange}
-          placeholder="Start typing a UK location..."
+          placeholder="Start typing a city..."
           data-testid="input-location"
+          required
         />
       </div>
 
@@ -901,15 +914,24 @@ function RecruiterFormFields({
           </Select>
         </div>
         <div>
-          <UKLocationInput
+          <GlobalLocationInput
             id="location"
-            label="Location"
+            label="City / Location"
             value={formData.location}
             onChange={onLocationChange}
-            placeholder="Start typing a UK location..."
+            placeholder="Start typing a city..."
             data-testid="input-location"
           />
         </div>
+      </div>
+
+      <div>
+        <Label htmlFor="country">Country</Label>
+        <CountrySelect
+          id="country"
+          value={formData.country}
+          onChange={(v) => onInputChange("country", v)}
+        />
       </div>
 
       <div>

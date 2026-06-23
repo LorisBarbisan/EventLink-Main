@@ -12,7 +12,21 @@ import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import type { FreelancerFormData, JobApplication } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, BookOpen, Briefcase, Building2, CheckCircle, Check, Clock, Copy, Mail, Send, Share2, ShieldCheck, Star, X } from "lucide-react";
+import {
+  AlertCircle,
+  Briefcase,
+  Building2,
+  CheckCircle,
+  Check,
+  Clock,
+  Copy,
+  Mail,
+  Send,
+  Share2,
+  ShieldCheck,
+  Star,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
@@ -138,15 +152,6 @@ export default function SimplifiedFreelancerDashboard() {
     enabled: !!user?.id,
   });
 
-  // Fetch unread message count with optimized polling
-  const { data: unreadCount } = useQuery({
-    queryKey: ["/api/messages/unread-count", user?.id],
-    queryFn: () => apiRequest(`/api/messages/unread-count?userId=${user?.id}`),
-    refetchInterval: activeTab === "messages" ? 15000 : 30000, // Poll faster only when on messages tab
-    refetchIntervalInBackground: false, // Stop when tab is inactive
-    enabled: !!user?.id,
-  });
-
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
 
@@ -198,10 +203,8 @@ export default function SimplifiedFreelancerDashboard() {
   };
 
   // Simplified notification check
-  const hasNewJobUpdates = false;
-
   return (
-    <div className="container mx-auto max-w-full min-w-0 px-1 py-4 sm:px-6 sm:py-6">
+    <div className="container mx-auto min-w-0 max-w-full px-1 py-4 sm:px-6 sm:py-6">
       <div className="mb-4 px-3 sm:px-0">
         <h1 className="text-2xl font-bold sm:text-3xl">Freelancer Dashboard</h1>
         <p className="text-sm text-muted-foreground sm:text-base">
@@ -212,20 +215,29 @@ export default function SimplifiedFreelancerDashboard() {
       {/* Persistent share bar — visible on every tab */}
       <div className="mb-4 flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-primary">Your public profile</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+            Your public profile
+          </p>
           <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
         </div>
         <div className="flex shrink-0 gap-2">
           <Button size="sm" variant="outline" onClick={handleShareProfile}>
             {linkCopied ? (
-              <><Check className="mr-1.5 h-3.5 w-3.5 text-green-600" />Copied!</>
+              <>
+                <Check className="mr-1.5 h-3.5 w-3.5 text-green-600" />
+                Copied!
+              </>
             ) : (
-              <><Copy className="mr-1.5 h-3.5 w-3.5" />Copy Link</>
+              <>
+                <Copy className="mr-1.5 h-3.5 w-3.5" />
+                Copy Link
+              </>
             )}
           </Button>
           <Button size="sm" variant="outline" asChild>
             <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
-              <Share2 className="mr-1.5 h-3.5 w-3.5" />View Profile
+              <Share2 className="mr-1.5 h-3.5 w-3.5" />
+              View Profile
             </a>
           </Button>
         </div>
@@ -276,6 +288,7 @@ export default function SimplifiedFreelancerDashboard() {
                     bio: freelancerData.bio,
                     superpower: freelancerData.superpower,
                     location: freelancerData.location,
+                    country: freelancerData.country,
                     skills: freelancerData.skills,
                     portfolio_url: freelancerData.portfolio_url,
                     linkedin_url: freelancerData.linkedin_url,
@@ -327,7 +340,6 @@ export default function SimplifiedFreelancerDashboard() {
               <DocumentUploader userId={user.id} isOwner={true} viewerRole="freelancer" />
             </div>
           )}
-
         </TabsContent>
 
         {/* Jobs/Applications Tab */}
@@ -488,7 +500,11 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
       qc.invalidateQueries({ queryKey: ["/api/references/requests"] });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message || "Failed to send request", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err.message || "Failed to send request",
+        variant: "destructive",
+      });
     },
   });
 
@@ -511,7 +527,11 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
       qc.invalidateQueries({ queryKey: ["/api/references/requests"] });
     },
     onError: (err: any) => {
-      toast({ title: "Error", description: err.message || "Could not send reminder", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err.message || "Could not send reminder",
+        variant: "destructive",
+      });
     },
   });
 
@@ -533,7 +553,9 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">My References</h2>
-        <p className="text-muted-foreground">Request and track professional references from past employers</p>
+        <p className="text-muted-foreground">
+          Request and track professional references from past employers
+        </p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -559,7 +581,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Send className="h-5 w-5" />
             Send Reference Request
           </CardTitle>
@@ -567,34 +589,40 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
         <CardContent>
           <div className="space-y-3">
             <div>
-              <Label className="text-sm">Referee's email <span className="text-red-500">*</span></Label>
+              <Label className="text-sm">
+                Referee&apos;s email <span className="text-red-500">*</span>
+              </Label>
               <Input
                 type="email"
                 value={newEmail}
-                onChange={e => setNewEmail(e.target.value)}
+                onChange={(e) => setNewEmail(e.target.value)}
                 placeholder="e.g. manager@company.com"
               />
             </div>
             <div>
-              <Label className="text-sm">Referee's name <span className="text-gray-400 text-xs">(Optional)</span></Label>
+              <Label className="text-sm">
+                Referee&apos;s name <span className="text-xs text-gray-400">(Optional)</span>
+              </Label>
               <Input
                 value={newName}
-                onChange={e => setNewName(e.target.value)}
+                onChange={(e) => setNewName(e.target.value)}
                 placeholder="e.g. Sarah Johnson"
               />
             </div>
             <Button
               onClick={() => createRequestMutation.mutate()}
               disabled={!newEmail.trim() || createRequestMutation.isPending}
-              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
+              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600"
             >
               {createRequestMutation.isPending ? "Sending..." : "Send Reference Request"}
             </Button>
           </div>
 
           {tokenData?.url && (
-            <div className="mt-4 pt-4 border-t">
-              <p className="text-xs text-muted-foreground mb-2">Or share your reference link directly:</p>
+            <div className="mt-4 border-t pt-4">
+              <p className="mb-2 text-xs text-muted-foreground">
+                Or share your reference link directly:
+              </p>
               <div className="flex gap-2">
                 <Input readOnly value={tokenData.url} className="text-xs" />
                 <Button
@@ -614,7 +642,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
       </Card>
 
       {isLoading ? (
-        <div className="text-center text-muted-foreground p-4">Loading requests...</div>
+        <div className="p-4 text-center text-muted-foreground">Loading requests...</div>
       ) : requests.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
@@ -633,26 +661,26 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm">{req.referee_name || req.referee_email}</p>
+                      <p className="text-sm font-medium">{req.referee_name || req.referee_email}</p>
                       {req.status === "completed" && (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-300">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
                           <CheckCircle className="h-3 w-3" /> Completed
                         </span>
                       )}
                       {req.status === "pending" && (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
                           <Clock className="h-3 w-3" /> Pending
                         </span>
                       )}
                       {req.status === "cancelled" && (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-300">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
                           <X className="h-3 w-3" /> Cancelled
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{req.referee_email}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{req.referee_email}</p>
                     {req.reminder_sent && (
-                      <p className="text-xs text-muted-foreground mt-0.5">Reminder sent</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">Reminder sent</p>
                     )}
                   </div>
                   {req.status === "pending" && (
@@ -685,15 +713,17 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
         </div>
       )}
 
-      <div className="pt-4 border-t">
-        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+      <div className="border-t pt-4">
+        <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold">
           <ShieldCheck className="h-5 w-5 text-green-600" />
           Received References
         </h3>
         {receivedRefs.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-center">
-              <p className="text-muted-foreground text-sm">No references received yet. Send requests above to start building your reputation.</p>
+              <p className="text-sm text-muted-foreground">
+                No references received yet. Send requests above to start building your reputation.
+              </p>
             </CardContent>
           </Card>
         ) : (
@@ -705,31 +735,37 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
                 <Card key={ref.id}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
                           {ref.referee_organisation && (
-                            <span className="font-medium text-sm flex items-center gap-1">
+                            <span className="flex items-center gap-1 text-sm font-medium">
                               <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
                               {ref.referee_organisation}
                             </span>
                           )}
                           {ref.referee_name && (
-                            <span className="text-xs text-muted-foreground">— {ref.referee_name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              — {ref.referee_name}
+                            </span>
                           )}
                         </div>
                         {ref.comment && (
-                          <p className="text-sm text-muted-foreground mt-1 italic line-clamp-2">"{ref.comment}"</p>
+                          <p className="mt-1 line-clamp-2 text-sm italic text-muted-foreground">
+                            &quot;{ref.comment}&quot;
+                          </p>
                         )}
-                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           {badge && (
-                            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${badge.colour}`}>
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${badge.colour}`}
+                            >
                               {badge.icon} {badge.label}
                             </span>
                           )}
                           <VerificationBadge reference={ref} />
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="shrink-0 text-right">
                         {rating && (
                           <div className="flex items-center gap-1">
                             {Array.from({ length: rating.stars }).map((_, i) => (
@@ -741,8 +777,12 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
                           </div>
                         )}
                         {ref.created_at && (
-                          <p className="text-[11px] text-muted-foreground mt-1">
-                            {new Date(ref.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {new Date(ref.created_at).toLocaleDateString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
                           </p>
                         )}
                       </div>

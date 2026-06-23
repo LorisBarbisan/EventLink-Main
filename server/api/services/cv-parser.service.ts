@@ -23,6 +23,7 @@ export interface ParsedCVData {
   skills?: string[];
   bio?: string;
   location?: string;
+  country?: string;
   experienceYears?: number;
   workHistory?: WorkHistoryEntry[];
   education?: EducationEntry[];
@@ -40,12 +41,19 @@ export class CVParserService {
   async parseCV(userId: number, cvFileUrl: string, contentType?: string): Promise<ParsedCVData> {
     const PARSE_TIMEOUT_MS = 3 * 60 * 1000;
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`CV parsing timed out after 3 minutes for user ${userId}`)), PARSE_TIMEOUT_MS)
+      setTimeout(
+        () => reject(new Error(`CV parsing timed out after 3 minutes for user ${userId}`)),
+        PARSE_TIMEOUT_MS
+      )
     );
     return Promise.race([this._parseCV(userId, cvFileUrl, contentType), timeoutPromise]);
   }
 
-  private async _parseCV(userId: number, cvFileUrl: string, contentType?: string): Promise<ParsedCVData> {
+  private async _parseCV(
+    userId: number,
+    cvFileUrl: string,
+    contentType?: string
+  ): Promise<ParsedCVData> {
     console.log(`🔍 Starting multi-stage CV pipeline for user ${userId}, file: ${cvFileUrl}`);
     // NOTE: initParsingStatus is always called before _parseCV by all callers,
     // so no need to call updateParsingStatus("parsing") again here — that would
@@ -55,7 +63,9 @@ export class CVParserService {
       // ── Stage B: Text extraction ────────────────────────────────────────────
       console.log("📄 Stage B: Text extraction");
       const extracted = await cvTextExtractionService.extractFromUrl(cvFileUrl, contentType);
-      console.log(`📄 Extracted ${extracted.cleanText.length} chars, ${extracted.lines.length} lines`);
+      console.log(
+        `📄 Extracted ${extracted.cleanText.length} chars, ${extracted.lines.length} lines`
+      );
 
       // ── Stage C: Section detection ──────────────────────────────────────────
       console.log("🗂️ Stage C: Section detection");
@@ -72,14 +82,20 @@ export class CVParserService {
       if (openAiKey) {
         rawFields = await cvFieldExtractionService.extractAllFields(sections, extracted.cleanText);
       } else {
-        console.warn("⚠️ OpenAI not configured (set OPENAI_API_KEY secret), using empty raw fields");
+        console.warn(
+          "⚠️ OpenAI not configured (set OPENAI_API_KEY secret), using empty raw fields"
+        );
         rawFields = {};
       }
 
       // ── Stage E: Normalisation and validation ───────────────────────────────
       console.log("✅ Stage E: Normalisation and validation");
       const normalised = cvNormalizationService.normalizeAll(rawFields);
-      console.log(`✅ Normalised fields: ${Object.keys(normalised).filter(k => (normalised as any)[k] !== undefined).join(", ")}`);
+      console.log(
+        `✅ Normalised fields: ${Object.keys(normalised)
+          .filter((k) => (normalised as any)[k] !== undefined)
+          .join(", ")}`
+      );
 
       // ── Build ParsedCVData (only high-confidence fields) ───────────────────
       const CONFIDENCE_THRESHOLD = 0.55;
@@ -89,7 +105,9 @@ export class CVParserService {
       for (const [field, scored] of Object.entries(normalised) as [keyof NormalizedFields, any][]) {
         if (!scored) continue;
         if (typeof scored.confidence === "number" && scored.confidence < CONFIDENCE_THRESHOLD) {
-          console.log(`🔻 Field "${field}" below confidence threshold (${scored.confidence.toFixed(2)}), omitting`);
+          console.log(
+            `🔻 Field "${field}" below confidence threshold (${scored.confidence.toFixed(2)}), omitting`
+          );
           continue;
         }
         (parsedData as any)[field] = scored.value;
@@ -111,7 +129,10 @@ export class CVParserService {
         const years = this.calculateExperienceYears(parsedData.workHistory);
         if (years > 0) {
           parsedData.experienceYears = years;
-          confidenceData.experienceYears = { confidence: 0.75, source: "calculated_from_work_history" };
+          confidenceData.experienceYears = {
+            confidence: 0.75,
+            source: "calculated_from_work_history",
+          };
           console.log(`🔄 Calculated ${years} years experience from work history dates`);
         }
       }
@@ -121,9 +142,21 @@ export class CVParserService {
         Object.entries(sections).filter(([, v]) => v.trim().length > 0)
       );
 
-      console.log(`📊 Final fields: ${Object.keys(parsedData).filter(k => k !== "confidenceData" && k !== "sectionData" && (parsedData as any)[k] !== undefined).join(", ")}`);
+      console.log(
+        `📊 Final fields: ${Object.keys(parsedData)
+          .filter(
+            (k) =>
+              k !== "confidenceData" && k !== "sectionData" && (parsedData as any)[k] !== undefined
+          )
+          .join(", ")}`
+      );
 
-      const saved = await this.saveParsedData(userId, parsedData, cvFileUrl, sections as Record<string, string>);
+      const saved = await this.saveParsedData(
+        userId,
+        parsedData,
+        cvFileUrl,
+        sections as Record<string, string>
+      );
 
       // Only broadcast if we actually persisted results (not a stale/superseded parse)
       if (saved) {
@@ -135,6 +168,7 @@ export class CVParserService {
             skills: parsedData.skills,
             bio: parsedData.bio,
             location: parsedData.location,
+            country: parsedData.country,
             experienceYears: parsedData.experienceYears,
             workHistory: parsedData.workHistory,
             education: parsedData.education,
@@ -149,8 +183,14 @@ export class CVParserService {
       return parsedData;
     } catch (error) {
       console.error(`❌ CV parsing pipeline error for user ${userId}:`, error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error during CV parsing";
-      const failedUpdated = await this.updateParsingStatus(userId, "failed", cvFileUrl, errorMessage);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error during CV parsing";
+      const failedUpdated = await this.updateParsingStatus(
+        userId,
+        "failed",
+        cvFileUrl,
+        errorMessage
+      );
 
       // Only broadcast "failed" if this parse is still the active one (not superseded)
       if (failedUpdated) {
@@ -184,9 +224,7 @@ export class CVParserService {
       const monthMatch = entry.dates.match(
         /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*(19|20)\d{2}/i
       );
-      const startMonth = monthMatch
-        ? new Date(`${monthMatch[1]} 1, ${startYear}`).getMonth()
-        : 0;
+      const startMonth = monthMatch ? new Date(`${monthMatch[1]} 1, ${startYear}`).getMonth() : 0;
       const startDate = new Date(startYear, startMonth);
 
       if (!earliestStart || startDate < earliestStart) {
@@ -214,10 +252,7 @@ export class CVParserService {
     if (existing) {
       // Guard against stale parses (for a superseded CV file) from writing terminal states.
       // "parsing" updates are allowed (initParsingStatus legitimately changes the active URL).
-      if (
-        existing.cv_file_url !== cvFileUrl &&
-        (status === "completed" || status === "failed")
-      ) {
+      if (existing.cv_file_url !== cvFileUrl && (status === "completed" || status === "failed")) {
         console.log(`⚠️ Stale ${status} update for user ${userId} (old CV file), ignoring`);
         return false;
       }
@@ -258,6 +293,7 @@ export class CVParserService {
       extracted_skills: data.skills || null,
       extracted_bio: data.bio || null,
       extracted_location: data.location || null,
+      extracted_country: data.country || null,
       extracted_experience_years: data.experienceYears || null,
       extracted_education: data.education ? JSON.stringify(data.education) : null,
       extracted_work_history: data.workHistory ? JSON.stringify(data.workHistory) : null,

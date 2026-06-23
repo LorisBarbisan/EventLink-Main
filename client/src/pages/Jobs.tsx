@@ -3,7 +3,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -227,7 +234,11 @@ export default function Jobs() {
       return;
     }
     if (!currentUser || !currentUser.id) {
-      toast({ title: "Login required", description: "Please log in to apply for jobs.", variant: "destructive" });
+      toast({
+        title: "Login required",
+        description: "Please log in to apply for jobs.",
+        variant: "destructive",
+      });
       setLocation("/auth");
       return;
     }
@@ -254,10 +265,10 @@ export default function Jobs() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-4 sm:text-4xl">
+          <h1 className="mb-4 text-3xl font-bold sm:text-4xl">
             <span className="text-primary">Find</span> <span className="text-accent">Jobs</span>
           </h1>
-          <p className="text-muted-foreground text-base sm:text-lg">
+          <p className="text-base text-muted-foreground sm:text-lg">
             Discover exciting opportunities in the events industry. Connect with top companies
             looking for technical crew.
           </p>
@@ -273,12 +284,12 @@ export default function Jobs() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <Input
                     placeholder="Search jobs, companies, or skills..."
                     value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full"
                     data-testid="input-search-jobs"
                   />
@@ -287,18 +298,18 @@ export default function Jobs() {
                   <UKLocationInput
                     placeholder="Filter by UK location..."
                     value={locationFilter}
-                    onChange={value => setLocationFilter(value)}
+                    onChange={(value) => setLocationFilter(value)}
                     data-testid="input-location-filter"
                   />
                 </div>
               </div>
 
               {/* Date Range Filter */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <Popover
                     open={fromDateOpen}
-                    onOpenChange={open => {
+                    onOpenChange={(open) => {
                       setFromDateOpen(open);
                       if (open) setToDateOpen(false); // Close the other popover
                     }}
@@ -317,7 +328,7 @@ export default function Jobs() {
                       <Calendar
                         mode="single"
                         selected={dateFrom}
-                        onSelect={date => {
+                        onSelect={(date) => {
                           setDateFrom(date);
                           setFromDateOpen(false); // Close popover after selection
                         }}
@@ -329,7 +340,7 @@ export default function Jobs() {
                 <div>
                   <Popover
                     open={toDateOpen}
-                    onOpenChange={open => {
+                    onOpenChange={(open) => {
                       setToDateOpen(open);
                       if (open) setFromDateOpen(false); // Close the other popover
                     }}
@@ -348,12 +359,12 @@ export default function Jobs() {
                       <Calendar
                         mode="single"
                         selected={dateTo}
-                        onSelect={date => {
+                        onSelect={(date) => {
                           setDateTo(date);
                           setToDateOpen(false); // Close popover after selection
                         }}
                         initialFocus
-                        disabled={date => (dateFrom ? date < dateFrom : false)}
+                        disabled={(date) => (dateFrom ? date < dateFrom : false)}
                       />
                     </PopoverContent>
                   </Popover>
@@ -376,7 +387,7 @@ export default function Jobs() {
                     className="flex items-center gap-2"
                     data-testid="button-clear-filters"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="h-4 w-4" />
                     Clear All Filters
                   </Button>
                 </div>
@@ -403,9 +414,9 @@ export default function Jobs() {
           {filteredJobs.length === 0 && !isLoading && (
             <Card>
               <CardContent className="p-8 text-center">
-                <Search className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No jobs match your search</h3>
-                <p className="text-muted-foreground mb-4">
+                <Search className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 className="mb-2 text-lg font-medium">No jobs match your search</h3>
+                <p className="mb-4 text-muted-foreground">
                   Try adjusting your search criteria or removing some filters.
                 </p>
                 {(searchQuery || locationFilter) && (
@@ -418,7 +429,7 @@ export default function Jobs() {
                     }}
                     className="flex items-center gap-2"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="h-4 w-4" />
                     Clear All Filters
                   </Button>
                 )}
@@ -440,7 +451,7 @@ export default function Jobs() {
                   {currentJobs.map((job: any) => (
                     <Card
                       key={job.id}
-                      className={`transition-shadow border-l-4 ${job.status === "closed" ? "opacity-70 border-l-muted" : !job.external_source ? "hover:shadow-lg border-l-primary" : "hover:shadow-lg border-l-muted"}`}
+                      className={`border-l-4 transition-shadow ${job.status === "closed" ? "border-l-muted opacity-70" : !job.external_source ? "border-l-primary hover:shadow-lg" : "border-l-muted hover:shadow-lg"}`}
                     >
                       <CardHeader>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -451,22 +462,25 @@ export default function Jobs() {
                                 onClick={() =>
                                   window.open(`/profile/${job.recruiter_id}`, "_blank")
                                 }
-                                className="text-muted-foreground font-medium hover:text-primary hover:underline cursor-pointer text-left transition-colors"
+                                className="cursor-pointer text-left font-medium text-muted-foreground transition-colors hover:text-primary hover:underline"
                                 data-testid={`link-company-${job.id}`}
                               >
                                 {job.company}
                               </button>
                             ) : (
-                              <p className="text-muted-foreground font-medium">{job.company}</p>
+                              <p className="font-medium text-muted-foreground">{job.company}</p>
                             )}
                           </div>
-                          <div className="flex flex-col gap-2 items-start sm:items-end">
+                          <div className="flex flex-col items-start gap-2 sm:items-end">
                             {job.status === "closed" ? (
-                              <Badge variant="outline" className="text-xs text-muted-foreground border-muted-foreground/40">
+                              <Badge
+                                variant="outline"
+                                className="border-muted-foreground/40 text-xs text-muted-foreground"
+                              >
                                 Closed
                               </Badge>
                             ) : !job.external_source ? (
-                              <Badge className="bg-gradient-to-r from-[#D8690E] to-[#E97B24] text-white font-semibold">
+                              <Badge className="bg-gradient-to-r from-[#D8690E] to-[#E97B24] font-semibold text-white">
                                 EventLink Opportunity
                               </Badge>
                             ) : (
@@ -481,14 +495,23 @@ export default function Jobs() {
                         <div className="space-y-4">
                           <p className="text-muted-foreground">{job.description}</p>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 md:grid-cols-4">
                             <div className="flex items-center gap-2">
                               <MapPin className="h-4 w-4 text-muted-foreground" />
-                              <span>{job.location}</span>
+                              <span>
+                                {[(job as any).location, (job as any).country]
+                                  .filter(Boolean)
+                                  .join(", ")}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <PoundSterling className="h-4 w-4 text-muted-foreground" />
-                              <span>{job.rate}</span>
+                              <span>
+                                {(job as any).currency && (job as any).currency !== "GBP"
+                                  ? `${(job as any).currency} `
+                                  : ""}
+                                {job.rate}
+                              </span>
                             </div>
                             {job.event_date && (
                               <div className="flex items-center gap-2 font-medium text-primary">
@@ -530,9 +553,9 @@ export default function Jobs() {
 
                           {/* Expanded details - shown when expanded */}
                           {expandedJobId === job.id.toString() && (
-                            <div className="border-t pt-4 space-y-4">
+                            <div className="space-y-4 border-t pt-4">
                               {job.contract_type && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
                                   <div className="flex items-center gap-2">
                                     <Clock className="h-4 w-4 text-muted-foreground" />
                                     <span>Contract Type: {job.contract_type}</span>
@@ -548,15 +571,15 @@ export default function Jobs() {
 
                               {/* Additional job details */}
                               <div>
-                                <h4 className="font-medium mb-2">Full Description:</h4>
-                                <p className="text-muted-foreground text-sm whitespace-pre-wrap">
+                                <h4 className="mb-2 font-medium">Full Description:</h4>
+                                <p className="whitespace-pre-wrap text-sm text-muted-foreground">
                                   {job.description}
                                 </p>
                               </div>
 
                               {job.skills && job.skills.length > 0 && (
                                 <div>
-                                  <h4 className="font-medium mb-2">Required Skills:</h4>
+                                  <h4 className="mb-2 font-medium">Required Skills:</h4>
                                   <div className="flex flex-wrap gap-2">
                                     {job.skills.map((skill: string, index: number) => (
                                       <Badge key={index} variant="outline" className="text-xs">
@@ -571,7 +594,11 @@ export default function Jobs() {
 
                           <div className="flex gap-3 pt-4">
                             {job.status === "closed" ? (
-                              <Button disabled variant="outline" className="cursor-not-allowed opacity-50">
+                              <Button
+                                disabled
+                                variant="outline"
+                                className="cursor-not-allowed opacity-50"
+                              >
                                 Applications Closed
                               </Button>
                             ) : job.external_url ? (
@@ -603,9 +630,9 @@ export default function Jobs() {
                               data-testid={`button-expand-${job.id}`}
                             >
                               {expandedJobId === job.id.toString() ? (
-                                <ChevronUp className="w-4 h-4 mr-1" />
+                                <ChevronUp className="mr-1 h-4 w-4" />
                               ) : (
-                                <ChevronDown className="w-4 h-4 mr-1" />
+                                <ChevronDown className="mr-1 h-4 w-4" />
                               )}
                               {expandedJobId === job.id.toString()
                                 ? "Less Details"
@@ -628,10 +655,10 @@ export default function Jobs() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                           disabled={currentPage === 1}
                         >
-                          <ChevronLeft className="w-4 h-4" />
+                          <ChevronLeft className="h-4 w-4" />
                           Previous
                         </Button>
 
@@ -639,7 +666,7 @@ export default function Jobs() {
                         <div className="flex gap-1">
                           {Array.from({ length: totalPages }, (_, i) => i + 1)
                             .filter(
-                              pageNum =>
+                              (pageNum) =>
                                 pageNum === 1 ||
                                 pageNum === totalPages ||
                                 Math.abs(pageNum - currentPage) <= 1
@@ -653,7 +680,7 @@ export default function Jobs() {
                                   variant={currentPage === pageNum ? "default" : "outline"}
                                   size="sm"
                                   onClick={() => setCurrentPage(pageNum)}
-                                  className="w-8 h-8 p-0"
+                                  className="h-8 w-8 p-0"
                                 >
                                   {pageNum}
                                 </Button>
@@ -664,11 +691,11 @@ export default function Jobs() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                           disabled={currentPage === totalPages}
                         >
                           Next
-                          <ChevronRight className="w-4 h-4" />
+                          <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
@@ -679,36 +706,52 @@ export default function Jobs() {
         </div>
       </div>
       {/* Apply modal */}
-      <Dialog open={!!applyModalJob} onOpenChange={open => { if (!open) { setApplyModalJob(null); setCoverLetter(""); } }}>
+      <Dialog
+        open={!!applyModalJob}
+        onOpenChange={(open) => {
+          if (!open) {
+            setApplyModalJob(null);
+            setCoverLetter("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Apply for this job</DialogTitle>
-            <DialogDescription className="truncate">
-              {applyModalJob?.title}
-            </DialogDescription>
+            <DialogDescription className="truncate">{applyModalJob?.title}</DialogDescription>
           </DialogHeader>
           <div className="py-2">
-            <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-              Note <span className="text-muted-foreground font-normal">(optional)</span>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Note <span className="font-normal text-muted-foreground">(optional)</span>
             </label>
             <Textarea
               placeholder="Add a short note to the employer — introduce yourself, highlight relevant experience, or ask a question..."
               value={coverLetter}
-              onChange={e => setCoverLetter(e.target.value)}
+              onChange={(e) => setCoverLetter(e.target.value)}
               rows={5}
               maxLength={1000}
               className="resize-none"
             />
-            <p className="text-xs text-muted-foreground mt-1 text-right">{coverLetter.length}/1000</p>
+            <p className="mt-1 text-right text-xs text-muted-foreground">
+              {coverLetter.length}/1000
+            </p>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setApplyModalJob(null); setCoverLetter(""); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setApplyModalJob(null);
+                setCoverLetter("");
+              }}
+            >
               Cancel
             </Button>
             <Button
-              onClick={() => applyToJobMutation.mutate({ jobId: applyModalJob.id, note: coverLetter })}
+              onClick={() =>
+                applyToJobMutation.mutate({ jobId: applyModalJob.id, note: coverLetter })
+              }
               disabled={applyToJobMutation.isPending}
-              className="bg-orange-600 hover:bg-orange-700 text-white"
+              className="bg-orange-600 text-white hover:bg-orange-700"
             >
               {applyToJobMutation.isPending ? "Sending..." : "Submit Application"}
             </Button>

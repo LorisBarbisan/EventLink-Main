@@ -1,15 +1,36 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { CountrySelect } from "@/components/ui/country-select";
+import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { UKLocationInput } from "@/components/ui/uk-location-input";
 import { usePersistentState } from "@/hooks/usePersistentState";
 import type { JobFormData } from "@shared/types";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
+
+const CURRENCIES = [
+  { code: "GBP", symbol: "£", label: "GBP (£)" },
+  { code: "USD", symbol: "$", label: "USD ($)" },
+  { code: "EUR", symbol: "€", label: "EUR (€)" },
+  { code: "AUD", symbol: "A$", label: "AUD (A$)" },
+  { code: "CAD", symbol: "C$", label: "CAD (C$)" },
+  { code: "ZAR", symbol: "R", label: "ZAR (R)" },
+  { code: "SEK", symbol: "kr", label: "SEK (kr)" },
+  { code: "NOK", symbol: "kr", label: "NOK (kr)" },
+  { code: "DKK", symbol: "kr", label: "DKK (kr)" },
+  { code: "JPY", symbol: "¥", label: "JPY (¥)" },
+  { code: "AED", symbol: "د.إ", label: "AED (د.إ)" },
+];
 
 interface JobFormProps {
   initialData?: any;
@@ -26,17 +47,20 @@ export function JobForm({
   isSubmitting,
   isEditing = false,
 }: JobFormProps) {
-  const persistenceKey = isEditing && initialData?.id
-    ? `job_edit_${initialData.id}`
-    : !isEditing && initialData?.id
-      ? `job_duplicate_${initialData.id}`
-      : "job_new";
+  const persistenceKey =
+    isEditing && initialData?.id
+      ? `job_edit_${initialData.id}`
+      : !isEditing && initialData?.id
+        ? `job_duplicate_${initialData.id}`
+        : "job_new";
 
   const [formData, setFormData, clearFormData, isDirty] = usePersistentState<JobFormData>(
     persistenceKey,
     {
       title: initialData?.title || "",
       location: initialData?.location || "",
+      country: initialData?.country || "",
+      currency: initialData?.currency || "GBP",
       rate: initialData?.rate || "",
       description: initialData?.description || "",
       event_date: initialData?.event_date || "",
@@ -47,33 +71,26 @@ export function JobForm({
   );
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const hasAdditionalDetails = !!(initialData?.end_date || initialData?.start_time || initialData?.end_time || initialData?.description);
+  const hasAdditionalDetails = !!(
+    initialData?.end_date ||
+    initialData?.start_time ||
+    initialData?.end_time ||
+    initialData?.description
+  );
   const [showAdditional, setShowAdditional] = useState(hasAdditionalDetails);
 
   const handleInputChange = (field: keyof JobFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleLocationChange = (value: string, _locationData?: any) => {
-    setFormData((prev) => ({ ...prev, location: value }));
-  };
-
   const handleSubmit = (status: "active" | "private") => {
     onSubmit(formData, status);
-    if (!isEditing) {
-      clearFormData();
-    } else {
-      clearFormData();
-    }
+    clearFormData();
   };
 
-  const isValid =
-    formData.title &&
-    formData.location &&
-    formData.rate &&
-    formData.event_date;
+  const currencySymbol = CURRENCIES.find((c) => c.code === formData.currency)?.symbol || "£";
 
-  const hasOptionalData = formData.end_date || formData.start_time || formData.end_time || formData.description;
+  const isValid = formData.title && formData.location && formData.rate && formData.event_date;
 
   return (
     <Card>
@@ -114,20 +131,48 @@ export function JobForm({
             />
           </div>
           <div>
-            <UKLocationInput
-              id="job-location"
-              label="Location *"
-              value={formData.location}
-              onChange={handleLocationChange}
-              placeholder="Start typing a UK location..."
-              data-testid="input-job-location"
+            <Label htmlFor="country">Country</Label>
+            <CountrySelect
+              id="country"
+              value={formData.country || ""}
+              onChange={(v) => handleInputChange("country", v)}
+              placeholder="Select country..."
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <GlobalLocationInput
+            id="job-location"
+            label="City / Location *"
+            value={formData.location}
+            onChange={(v) => handleInputChange("location", v)}
+            placeholder="Start typing a city..."
+            data-testid="input-job-location"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
-            <Label htmlFor="job-rate">Rate * (£)</Label>
+            <Label htmlFor="job-currency">Currency</Label>
+            <Select
+              value={formData.currency || "GBP"}
+              onValueChange={(v) => handleInputChange("currency", v)}
+            >
+              <SelectTrigger id="job-currency">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="job-rate">Rate * ({currencySymbol})</Label>
             <Input
               id="job-rate"
               value={formData.rate}
@@ -153,7 +198,11 @@ export function JobForm({
           onClick={() => setShowAdditional(!showAdditional)}
           className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
         >
-          {showAdditional ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          {showAdditional ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
           Additional Details (optional)
         </button>
 
@@ -214,7 +263,11 @@ export function JobForm({
             onClick={() => handleSubmit("private")}
             disabled={isSubmitting || !isValid}
             data-testid="button-post-job"
-            className={isValid ? "bg-gradient-primary text-white hover:bg-primary-hover font-semibold" : "opacity-40"}
+            className={
+              isValid
+                ? "bg-gradient-primary hover:bg-primary-hover font-semibold text-white"
+                : "opacity-40"
+            }
           >
             {isSubmitting ? "Creating..." : isEditing ? "Update Job" : "Create Job"}
           </Button>
