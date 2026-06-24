@@ -285,6 +285,14 @@ export default function SimplifiedFreelancerDashboard() {
                 View Profile
               </a>
             </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowQrModal(true)}
+              className="border-0 bg-white/20 text-white hover:bg-white/30"
+            >
+              <QrCode className="mr-1.5 h-3.5 w-3.5" />
+              QR Code
+            </Button>
           </div>
         </div>
       ) : (
@@ -538,23 +546,6 @@ export default function SimplifiedFreelancerDashboard() {
           <ReferenceRequestsSection userId={user.id} />
         </TabsContent>
       </Tabs>
-
-      {/* Pro QR code section */}
-      {isPro && (
-        <div className="mt-6 flex flex-col items-center gap-3 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 p-4 dark:border-purple-800 dark:from-purple-950/30 dark:to-pink-950/30">
-          <p className="text-sm font-semibold text-purple-700 dark:text-purple-300">
-            Share your profile with a QR code
-          </p>
-          <Button
-            onClick={() => setShowQrModal(true)}
-            variant="outline"
-            className="border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300"
-          >
-            <QrCode className="mr-2 h-4 w-4" />
-            Show QR Code
-          </Button>
-        </div>
-      )}
 
       <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
         <DialogContent className="max-w-sm">

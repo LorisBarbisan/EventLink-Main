@@ -508,20 +508,20 @@ export default function FreelancerCard() {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 10,
+          gap: 12,
           background: C.bg2,
           border: `1px solid ${C.border}`,
-          borderRadius: 10,
-          padding: "10px 11px",
-          marginBottom: 7,
+          borderRadius: 12,
+          padding: "13px 14px",
+          marginBottom: 9,
           cursor: "pointer",
         }}
       >
         <div
           style={{
-            width: 30,
-            height: 30,
-            borderRadius: 8,
+            width: 38,
+            height: 38,
+            borderRadius: 10,
             background: iconBg,
             display: "flex",
             alignItems: "center",
@@ -531,11 +531,11 @@ export default function FreelancerCard() {
         >
           {icon}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>{label}</span>
-          <span style={{ fontSize: 10, color: "#888" }}>{sub}</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{label}</span>
+          <span style={{ fontSize: 11, color: "#888" }}>{sub}</span>
         </div>
-        <ChevronRight style={{ marginLeft: "auto", width: 13, height: 13, color: "#bbb" }} />
+        <ChevronRight style={{ marginLeft: "auto", width: 15, height: 15, color: "#bbb" }} />
       </div>
     );
   }
@@ -696,66 +696,66 @@ export default function FreelancerCard() {
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
-                      padding: "16px 14px 12px",
+                      padding: "24px 20px 16px",
                     }}
                   >
                     <div
                       style={{
-                        width: 14,
-                        height: 14,
+                        width: 16,
+                        height: 16,
                         borderRadius: "50%",
                         border: "1.5px solid #ccc",
                         background: C.bg3,
-                        marginBottom: 10,
+                        marginBottom: 16,
                       }}
                     />
-                    <div style={{ marginBottom: 8 }}>
-                      <Avatar size={64} />
+                    <div style={{ marginBottom: 14 }}>
+                      <Avatar size={96} />
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#111", marginBottom: 1 }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: "#111", marginBottom: 4 }}>
                       {fullName}
                     </div>
-                    <div style={{ fontSize: 11, color: "#777", marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, color: "#777", marginBottom: 12 }}>
                       {freelancer.title || "Freelancer"}
                     </div>
                     <RatingPill />
                     <div
-                      style={{ width: "100%", height: 1, background: "#f0f0f4", margin: "8px 0" }}
+                      style={{ width: "100%", height: 1, background: "#f0f0f4", margin: "12px 0" }}
                     />
                     <VerifiedBadge />
                     <div
                       style={{
                         display: "flex",
                         flexWrap: "wrap",
-                        gap: 4,
+                        gap: 5,
                         justifyContent: "center",
-                        margin: "8px 0",
+                        margin: "12px 0",
                       }}
                     >
-                      {skills.slice(0, 5).map((s) => (
-                        <SkillPill key={s} label={s} />
+                      {skills.slice(0, 6).map((s) => (
+                        <SkillPill key={s} label={s} style={{ fontSize: 11, padding: "3px 9px" }} />
                       ))}
                     </div>
                     <div
                       style={{
                         marginTop: "auto",
-                        fontSize: 10,
+                        fontSize: 12,
                         color: "#aaa",
                         display: "flex",
                         alignItems: "center",
-                        gap: 3,
+                        gap: 4,
                       }}
                     >
-                      <MapPin style={{ width: 11, height: 11 }} />{" "}
+                      <MapPin style={{ width: 13, height: 13 }} />{" "}
                       {[freelancer.location, freelancer.country].filter(Boolean).join(", ") || "–"}
                     </div>
                     <div
                       style={{
-                        fontSize: 11,
+                        fontSize: 13,
                         fontWeight: 700,
                         color: C.orange,
                         letterSpacing: "-0.3px",
-                        marginTop: 5,
+                        marginTop: 8,
                       }}
                     >
                       EventLink
@@ -778,21 +778,21 @@ export default function FreelancerCard() {
                     {/* Main back content */}
                     <div
                       style={{
-                        padding: "14px 12px",
+                        padding: "18px 16px",
                         height: "100%",
                         display: "flex",
                         flexDirection: "column",
                       }}
                     >
                       <div
-                        style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}
                       >
-                        <Avatar size={32} />
+                        <Avatar size={44} />
                         <div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: "#111" }}>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
                             {fullName}
                           </div>
-                          <div style={{ fontSize: 10, color: "#888" }}>
+                          <div style={{ fontSize: 12, color: "#888" }}>
                             {freelancer.title || "Freelancer"}
                           </div>
                         </div>
@@ -800,28 +800,28 @@ export default function FreelancerCard() {
 
                       <SectionBtn
                         id="about"
-                        icon={<User style={{ width: 15, height: 15, color: C.orange }} />}
+                        icon={<User style={{ width: 18, height: 18, color: C.orange }} />}
                         iconBg={C.orangeLight}
                         label="About"
                         sub="Overview & intro"
                       />
                       <SectionBtn
                         id="credentials"
-                        icon={<ShieldCheck style={{ width: 15, height: 15, color: C.success }} />}
+                        icon={<ShieldCheck style={{ width: 18, height: 18, color: C.success }} />}
                         iconBg={C.successLight}
                         label="Credentials"
                         sub="Verified & endorsed"
                       />
                       <SectionBtn
                         id="portfolio"
-                        icon={<LayoutGrid style={{ width: 15, height: 15, color: C.purple }} />}
+                        icon={<LayoutGrid style={{ width: 18, height: 18, color: C.purple }} />}
                         iconBg={C.purpleLight}
                         label="Portfolio"
                         sub="Photos, reels & blog"
                       />
                       <SectionBtn
                         id="files"
-                        icon={<FileText style={{ width: 15, height: 15, color: "#7060c0" }} />}
+                        icon={<FileText style={{ width: 18, height: 18, color: "#7060c0" }} />}
                         iconBg="#f0f0f8"
                         label="Files"
                         sub="CV & documents"
@@ -831,7 +831,7 @@ export default function FreelancerCard() {
                       <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 10 }}>
                         {[
                           {
-                            icon: <Share2 style={{ width: 14, height: 14 }} />,
+                            icon: <Share2 style={{ width: 17, height: 17 }} />,
                             label: "Share",
                             primary: true,
                             onClick: (e: React.MouseEvent) => {
@@ -840,7 +840,7 @@ export default function FreelancerCard() {
                             },
                           },
                           {
-                            icon: <span style={{ fontSize: 14 }}>💳</span>,
+                            icon: <span style={{ fontSize: 17 }}>💳</span>,
                             label: "Wallet",
                             primary: false,
                             onClick: (e: React.MouseEvent) => {
@@ -854,17 +854,17 @@ export default function FreelancerCard() {
                             onClick={btn.onClick}
                             style={{
                               flex: 1,
-                              padding: "8px 4px",
+                              padding: "11px 4px",
                               border: `1px solid ${C.border2}`,
                               background: btn.primary ? C.orange : C.bg2,
-                              borderRadius: 8,
-                              fontSize: 10,
+                              borderRadius: 10,
+                              fontSize: 12,
                               color: btn.primary ? "#fff" : "#444",
                               display: "flex",
                               flexDirection: "column",
                               alignItems: "center",
-                              gap: 3,
-                              fontWeight: 500,
+                              gap: 4,
+                              fontWeight: 600,
                               cursor: "pointer",
                             }}
                           >
@@ -878,21 +878,21 @@ export default function FreelancerCard() {
                           onClick={(e) => e.stopPropagation()}
                           style={{
                             flex: 1,
-                            padding: "8px 4px",
+                            padding: "11px 4px",
                             border: `1px solid ${C.border2}`,
                             background: C.bg2,
-                            borderRadius: 8,
-                            fontSize: 10,
+                            borderRadius: 10,
+                            fontSize: 12,
                             color: "#444",
                             display: "flex",
                             flexDirection: "column",
                             alignItems: "center",
-                            gap: 3,
-                            fontWeight: 500,
+                            gap: 4,
+                            fontWeight: 600,
                             textDecoration: "none",
                           }}
                         >
-                          <Globe style={{ width: 14, height: 14 }} /> Profile
+                          <Globe style={{ width: 17, height: 17 }} /> Profile
                         </a>
                       </div>
                     </div>
@@ -1119,7 +1119,7 @@ export default function FreelancerCard() {
                       {isVerified && (
                         <DRow
                           iconBg={C.successLight}
-                          icon={<ShieldCheck style={{ width: 15, height: 15, color: C.success }} />}
+                          icon={<ShieldCheck style={{ width: 18, height: 18, color: C.success }} />}
                           label="EventLink verified"
                           sub={`${(references as any[]).length} reference${(references as any[]).length !== 1 ? "s" : ""} received`}
                         />
