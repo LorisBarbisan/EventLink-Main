@@ -34,6 +34,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsPro } from "@/hooks/useIsPro";
+import QRCode from "qrcode";
 import {
   useFreelancerAverageRating,
   useFreelancerRatings,
@@ -56,6 +58,7 @@ import {
   Linkedin,
   MapPin,
   MessageCircle,
+  QrCode,
   Quote,
   Share2,
   ShieldCheck,
@@ -423,6 +426,7 @@ export default function Profile() {
   const { userId } = useParams();
   const publicToken = new URLSearchParams(window.location.search).get("pt") ?? undefined;
   const { user, loading: authLoading } = useAuth();
+  const isPro = useIsPro();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [freelancerProfile, setFreelancerProfile] = useState<FreelancerProfile | null>(null);
   const [recruiterProfile, setRecruiterProfile] = useState<RecruiterProfile | null>(null);
@@ -431,6 +435,8 @@ export default function Profile() {
   const [profileDataLoaded, setProfileDataLoaded] = useState(false);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   const { toast } = useToast();
 
@@ -563,6 +569,20 @@ export default function Profile() {
 
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showStandaloneRatingDialog, setShowStandaloneRatingDialog] = useState(false);
+
+  // Generate QR code when Pro modal opens
+  useEffect(() => {
+    if (showQrModal && freelancerProfile) {
+      const base = window.location.origin;
+      const slug = freelancerProfile.custom_slug || freelancerProfile.slug;
+      const token = freelancerProfile.reference_token;
+      const path = slug
+        ? `${base}/profile/${slug}`
+        : `${base}/profile/${freelancerProfile.user_id}`;
+      const url = token ? `${path}?pt=${encodeURIComponent(token)}` : path;
+      QRCode.toDataURL(url, { width: 256 }).then(setQrDataUrl);
+    }
+  }, [showQrModal, freelancerProfile]);
 
   // Handle "Invite to Rate" deep link action
   useEffect(() => {
@@ -957,29 +977,72 @@ export default function Profile() {
       <div className="container mx-auto px-4 py-8">
         <div className="mx-auto max-w-4xl space-y-6">
           {/* Own profile — shareable URL banner */}
-          {isOwnProfile && freelancerProfile && (
-            <div className="flex flex-col items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                  Your public profile link
-                </p>
-                <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
+          {isOwnProfile &&
+            freelancerProfile &&
+            (isPro ? (
+              <div className="flex flex-col gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 px-4 py-3 shadow-md sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-white/80">
+                    Your public profile link
+                  </p>
+                  <p className="truncate text-sm text-white/90">{getProfileUrl()}</p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleShareProfile}
+                    className="border-0 bg-white/20 text-white hover:bg-white/30"
+                  >
+                    {linkCopied ? (
+                      <>
+                        <Check className="mr-2 h-3.5 w-3.5" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="mr-2 h-3.5 w-3.5" />
+                        Copy Link
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowQrModal(true)}
+                    className="border-0 bg-white/20 text-white hover:bg-white/30"
+                  >
+                    <QrCode className="mr-2 h-3.5 w-3.5" />
+                    QR Code
+                  </Button>
+                </div>
               </div>
-              <Button size="sm" variant="outline" onClick={handleShareProfile} className="shrink-0">
-                {linkCopied ? (
-                  <>
-                    <Check className="mr-2 h-3.5 w-3.5 text-green-600" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-2 h-3.5 w-3.5" />
-                    Copy Link
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                    Your public profile link
+                  </p>
+                  <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleShareProfile}
+                  className="shrink-0"
+                >
+                  {linkCopied ? (
+                    <>
+                      <Check className="mr-2 h-3.5 w-3.5 text-green-600" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="mr-2 h-3.5 w-3.5" />
+                      Copy Link
+                    </>
+                  )}
+                </Button>
+              </div>
+            ))}
 
           {/* Profile Header */}
           <Card>
@@ -1470,6 +1533,31 @@ export default function Profile() {
           freelancerName={`${freelancerProfile.first_name} ${freelancerProfile.last_name}`}
           recruiterId={user.id}
         />
+      )}
+
+      {isPro && freelancerProfile && (
+        <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <QrCode className="h-5 w-5 text-purple-600" />
+                Scan to view profile
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-4">
+              {qrDataUrl ? (
+                <img src={qrDataUrl} alt="Profile QR code" className="h-56 w-56 rounded-lg" />
+              ) : (
+                <div className="flex h-56 w-56 items-center justify-center rounded-lg bg-muted">
+                  <p className="text-sm text-muted-foreground">Generating...</p>
+                </div>
+              )}
+              <p className="max-w-[220px] break-all text-center text-xs text-muted-foreground">
+                {getProfileUrl()}
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </Layout>
   );

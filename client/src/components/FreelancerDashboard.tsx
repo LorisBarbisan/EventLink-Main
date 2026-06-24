@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TabBadge } from "@/components/ui/tab-badge";
@@ -22,6 +23,7 @@ import {
   Clock,
   Copy,
   Mail,
+  QrCode,
   Send,
   Share2,
   ShieldCheck,
@@ -29,6 +31,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
@@ -53,6 +56,8 @@ export default function SimplifiedFreelancerDashboard() {
   const { data: averageRating } = useFreelancerAverageRating(user?.id || 0);
 
   const [linkCopied, setLinkCopied] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   // Check URL parameters for initial tab and react to location changes
   const [location] = useLocation();
@@ -144,6 +149,18 @@ export default function SimplifiedFreelancerDashboard() {
   });
   if (!profileQueryLoading) profileHasEverLoaded.current = true;
   const profileLoading = profileQueryLoading && !profileHasEverLoaded.current;
+
+  // Generate QR code when Pro modal opens
+  useEffect(() => {
+    if (showQrModal && user) {
+      const base = window.location.origin;
+      const slug = (profile as any)?.custom_slug || (profile as any)?.slug;
+      const token = (profile as any)?.reference_token;
+      const path = slug ? `${base}/profile/${slug}` : `${base}/profile/${user.id}`;
+      const url = token ? `${path}?pt=${encodeURIComponent(token)}` : path;
+      QRCode.toDataURL(url, { width: 256 }).then(setQrDataUrl);
+    }
+  }, [showQrModal, profile, user]);
 
   // Get user's job applications
   const { data: jobApplications = [], isLoading: applicationsLoading } = useQuery({
@@ -238,36 +255,72 @@ export default function SimplifiedFreelancerDashboard() {
         </p>
       </div>
 
-      {/* Persistent share bar — visible on every tab */}
-      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-            Your public profile
-          </p>
-          <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
+      {/* Persistent share bar — Pro: purple gradient; Free: neutral */}
+      {isPro ? (
+        <div className="mb-4 flex flex-col gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 px-4 py-3 shadow-md sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-white/80">
+              Your public profile
+            </p>
+            <p className="truncate text-sm text-white/90">{getProfileUrl()}</p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              size="sm"
+              onClick={handleShareProfile}
+              className="border-0 bg-white/20 text-white hover:bg-white/30"
+            >
+              {linkCopied ? (
+                <>
+                  <Check className="mr-1.5 h-3.5 w-3.5" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="mr-1.5 h-3.5 w-3.5" />
+                  Copy Link
+                </>
+              )}
+            </Button>
+            <Button size="sm" asChild className="border-0 bg-white/20 text-white hover:bg-white/30">
+              <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
+                <Share2 className="mr-1.5 h-3.5 w-3.5" />
+                View Profile
+              </a>
+            </Button>
+          </div>
         </div>
-        <div className="flex shrink-0 gap-2">
-          <Button size="sm" variant="outline" onClick={handleShareProfile}>
-            {linkCopied ? (
-              <>
-                <Check className="mr-1.5 h-3.5 w-3.5 text-green-600" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy className="mr-1.5 h-3.5 w-3.5" />
-                Copy Link
-              </>
-            )}
-          </Button>
-          <Button size="sm" variant="outline" asChild>
-            <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
-              <Share2 className="mr-1.5 h-3.5 w-3.5" />
-              View Profile
-            </a>
-          </Button>
+      ) : (
+        <div className="mb-4 flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+              Your public profile
+            </p>
+            <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button size="sm" variant="outline" onClick={handleShareProfile}>
+              {linkCopied ? (
+                <>
+                  <Check className="mr-1.5 h-3.5 w-3.5 text-green-600" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="mr-1.5 h-3.5 w-3.5" />
+                  Copy Link
+                </>
+              )}
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
+                <Share2 className="mr-1.5 h-3.5 w-3.5" />
+                View Profile
+              </a>
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
@@ -488,6 +541,46 @@ export default function SimplifiedFreelancerDashboard() {
           <ReferenceRequestsSection userId={user.id} />
         </TabsContent>
       </Tabs>
+
+      {/* Pro QR code section */}
+      {isPro && (
+        <div className="mt-6 flex flex-col items-center gap-3 rounded-xl border border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 p-4 dark:border-purple-800 dark:from-purple-950/30 dark:to-pink-950/30">
+          <p className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+            Share your profile with a QR code
+          </p>
+          <Button
+            onClick={() => setShowQrModal(true)}
+            variant="outline"
+            className="border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300"
+          >
+            <QrCode className="mr-2 h-4 w-4" />
+            Show QR Code
+          </Button>
+        </div>
+      )}
+
+      <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5 text-purple-600" />
+              Scan to view profile
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            {qrDataUrl ? (
+              <img src={qrDataUrl} alt="Profile QR code" className="h-56 w-56 rounded-lg" />
+            ) : (
+              <div className="flex h-56 w-56 items-center justify-center rounded-lg bg-muted">
+                <p className="text-sm text-muted-foreground">Generating...</p>
+              </div>
+            )}
+            <p className="max-w-[220px] break-all text-center text-xs text-muted-foreground">
+              {getProfileUrl()}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
