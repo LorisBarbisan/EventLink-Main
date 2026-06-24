@@ -123,6 +123,8 @@ export const freelancer_profiles = pgTable(
     work_history: jsonb("work_history"), // JSON array of {jobTitle, company, dates, details}
     education_history: jsonb("education_history"), // JSON array of {qualification, institution, dates}
     certifications: text("certifications").array(), // Array of certification names
+    phone: text("phone"), // Pro: contact phone shown on business card
+    contact_email: text("contact_email"), // Pro: contact email shown on business card (overrides account email)
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

@@ -835,6 +835,54 @@ export default function FreelancerCard() {
                       sub="CV & documents"
                     />
 
+                    {/* Pro contact details */}
+                    {(freelancer.phone || freelancer.contact_email) && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          padding: "8px 10px",
+                          background: C.bg2,
+                          borderRadius: 8,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 4,
+                        }}
+                      >
+                        {freelancer.phone && (
+                          <a
+                            href={`tel:${freelancer.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              fontSize: 12,
+                              color: "#444",
+                              textDecoration: "none",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <span style={{ fontSize: 14 }}>📞</span> {freelancer.phone}
+                          </a>
+                        )}
+                        {freelancer.contact_email && (
+                          <a
+                            href={`mailto:${freelancer.contact_email}`}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              fontSize: 12,
+                              color: "#444",
+                              textDecoration: "none",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <span style={{ fontSize: 14 }}>✉️</span> {freelancer.contact_email}
+                          </a>
+                        )}
+                      </div>
+                    )}
+
                     {/* Action bar */}
                     <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 10 }}>
                       {[
@@ -1020,6 +1068,49 @@ export default function FreelancerCard() {
               <div
                 style={{ width: "100%", height: 1, background: "#f0f0f4", margin: "6px 0 10px" }}
               />
+              {(freelancer.phone || freelancer.contact_email) && (
+                <div
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 5,
+                    marginBottom: 8,
+                  }}
+                >
+                  {freelancer.phone && (
+                    <a
+                      href={`tel:${freelancer.phone}`}
+                      style={{
+                        fontSize: 11,
+                        color: "#555",
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                      }}
+                    >
+                      <span style={{ fontSize: 13 }}>📞</span> {freelancer.phone}
+                    </a>
+                  )}
+                  {freelancer.contact_email && (
+                    <a
+                      href={`mailto:${freelancer.contact_email}`}
+                      style={{
+                        fontSize: 11,
+                        color: "#555",
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      <span style={{ fontSize: 13 }}>✉️</span> {freelancer.contact_email}
+                    </a>
+                  )}
+                </div>
+              )}
               <div
                 style={{
                   marginTop: "auto",

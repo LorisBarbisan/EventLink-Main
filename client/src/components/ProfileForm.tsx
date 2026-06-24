@@ -20,6 +20,7 @@ import { UKLocationInput } from "@/components/ui/uk-location-input";
 import { COUNTRIES } from "@/lib/countries";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsPro } from "@/hooks/useIsPro";
 import { usePersistentState } from "@/hooks/usePersistentState";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest } from "@/lib/queryClient";
@@ -106,6 +107,8 @@ export function ProfileForm({
           website_url: freelancerProfile?.website_url || "",
           availability_status: freelancerProfile?.availability_status || "available",
           profile_photo_url: freelancerProfile?.profile_photo_url || "",
+          phone: (freelancerProfile as any)?.phone || "",
+          contact_email: (freelancerProfile as any)?.contact_email || "",
         } as FreelancerFormData;
       } else {
         const recruiterProfile = profileData as RecruiterProfile | undefined;
@@ -580,6 +583,7 @@ function FreelancerFormFields({
   onSkillRemove: (skill: string) => void;
   onFieldsConfirmed?: (fields: Record<string, any>) => void;
 }) {
+  const isPro = useIsPro();
   return (
     <>
       {/* CV Upload Section - Moved to top with clear messaging */}
@@ -783,6 +787,39 @@ function FreelancerFormFields({
           />
         </div>
       </div>
+
+      {isPro && (
+        <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-950/20">
+          <p className="mb-3 text-sm font-medium text-purple-700 dark:text-purple-300">
+            Business Card Contact Details
+          </p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={formData.phone || ""}
+                onChange={(e) => onInputChange("phone", e.target.value)}
+                placeholder="+44 7911 123456"
+              />
+            </div>
+            <div>
+              <Label htmlFor="contact_email">Contact Email</Label>
+              <Input
+                id="contact_email"
+                type="email"
+                value={formData.contact_email || ""}
+                onChange={(e) => onInputChange("contact_email", e.target.value)}
+                placeholder="hello@yourname.com"
+              />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-purple-600 dark:text-purple-400">
+            These appear on the back of your shared business card.
+          </p>
+        </div>
+      )}
 
       <div>
         <ImageUpload

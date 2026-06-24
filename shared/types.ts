@@ -144,6 +144,8 @@ export interface FreelancerFormData {
   website_url: string;
   availability_status: "available" | "busy" | "unavailable";
   profile_photo_url: string;
+  phone?: string;
+  contact_email?: string;
 }
 
 export interface RecruiterFormData {
