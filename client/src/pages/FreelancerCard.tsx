@@ -3,13 +3,10 @@ import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
-import QRCode from "qrcode";
 import {
   Award,
   ChevronLeft,
   ChevronRight,
-  Copy,
-  Check,
   Download,
   FileText,
   LayoutGrid,
@@ -21,7 +18,7 @@ import {
   User,
   Globe,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 // Brand palette
@@ -50,12 +47,9 @@ export default function FreelancerCard() {
   const { user } = useAuth();
   const urlPt = new URLSearchParams(window.location.search).get("pt") ?? "";
 
-  const [view, setView] = useState<"card" | "wallet">("card");
   const [flipped, setFlipped] = useState(false);
   const [detail, setDetail] = useState<Detail>(null);
   const [rightTab, setRightTab] = useState<RightTab>("about");
-  const [copied, setCopied] = useState(false);
-  const [qrUrl, setQrUrl] = useState("");
 
   const { data: freelancer, isLoading } = useQuery({
     queryKey: ["/api/freelancer", userId],
@@ -101,29 +95,13 @@ export default function FreelancerCard() {
     return token ? `${url}?pt=${encodeURIComponent(token)}` : url;
   };
 
-  useEffect(() => {
-    if (view === "wallet" && uid) {
-      QRCode.toDataURL(cardShareUrl(), { width: 220 }).then(setQrUrl);
-    }
-  }, [view, uid]);
-
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(cardShareUrl());
-      setCopied(true);
       toast({ title: "Link copied!" });
-      setTimeout(() => setCopied(false), 2000);
     } catch {
       toast({ title: "Copy failed", variant: "destructive" });
     }
-  };
-
-  const downloadQR = async () => {
-    const url = qrUrl || (await QRCode.toDataURL(cardShareUrl(), { width: 400 }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${freelancer?.first_name || "profile"}-qr-code.png`;
-    a.click();
   };
 
   if (isLoading) {
@@ -169,8 +147,8 @@ export default function FreelancerCard() {
   const skills: string[] = Array.isArray(freelancer.skills) ? freelancer.skills : [];
   // Use the token from the URL (non-owners don't receive reference_token from the API)
   const pt = urlPt ? `?pt=${encodeURIComponent(urlPt)}` : "";
-  const tokenValid = !!freelancer.reference_token && urlPt === freelancer.reference_token;
-  const hasAccess = user?.role === "recruiter" || tokenValid;
+  // reference_token is stripped from the API for non-owners, so we trust the URL param presence
+  const hasAccess = user?.role === "recruiter" || urlPt.length > 0;
   const avail: string = freelancer.availability_status || "available";
   const availLabel =
     avail === "available" ? "Available now" : avail === "busy" ? "Busy" : "Unavailable";
@@ -673,924 +651,635 @@ export default function FreelancerCard() {
           padding: "12px 16px",
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
         }}
       >
         <span style={{ fontWeight: 700, color: C.orange, fontSize: 16, letterSpacing: "-0.3px" }}>
           EventLink
         </span>
-        <div style={{ display: "flex", gap: 4 }}>
-          {(["card", "wallet"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 20,
-                fontSize: 13,
-                fontWeight: 600,
-                border: "none",
-                cursor: "pointer",
-                background: view === v ? C.orange : "transparent",
-                color: view === v ? "white" : C.text2,
-              }}
-            >
-              {v === "card" ? "Card" : "Wallet"}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* ══════════════ CARD VIEW ══════════════ */}
-      {view === "card" && (
-        <>
-          {/* ── MOBILE (hidden on md+) ── */}
-          <div className="md:hidden">
+      <>
+        {/* ── MOBILE (hidden on md+) ── */}
+        <div className="md:hidden">
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              padding: "20px 16px 32px",
+            }}
+          >
+            {/* Card scene */}
             <div
+              onClick={() => {
+                if (!detail) setFlipped((f) => !f);
+              }}
               style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                padding: "20px 16px 32px",
+                width: "min(340px, calc(100vw - 32px))",
+                height: "min(566px, calc((100vw - 32px) * 1.665))",
+                perspective: 1000,
+                cursor: "pointer",
               }}
             >
-              {/* Card scene */}
               <div
-                onClick={() => {
-                  if (!detail) setFlipped((f) => !f);
-                }}
                 style={{
-                  width: "min(340px, calc(100vw - 32px))",
-                  height: "min(566px, calc((100vw - 32px) * 1.665))",
-                  perspective: 1000,
-                  cursor: "pointer",
+                  width: "100%",
+                  height: "100%",
+                  position: "relative",
+                  transformStyle: "preserve-3d",
+                  transition: "transform 0.6s cubic-bezier(.4,0,.2,1)",
+                  transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
                 }}
               >
+                {/* FRONT */}
                 <div
                   style={{
-                    width: "100%",
-                    height: "100%",
-                    position: "relative",
-                    transformStyle: "preserve-3d",
-                    transition: "transform 0.6s cubic-bezier(.4,0,.2,1)",
-                    transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                    position: "absolute",
+                    inset: 0,
+                    backfaceVisibility: "hidden",
+                    background: "#fff",
+                    border: "1px solid #e0e0e8",
+                    borderRadius: 18,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    padding: "24px 20px 16px",
                   }}
                 >
-                  {/* FRONT */}
                   <div
                     style={{
-                      position: "absolute",
-                      inset: 0,
-                      backfaceVisibility: "hidden",
-                      background: "#fff",
-                      border: "1px solid #e0e0e8",
-                      borderRadius: 18,
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      border: "1.5px solid #ccc",
+                      background: C.bg3,
+                      marginBottom: 16,
+                    }}
+                  />
+                  <div style={{ marginBottom: 14 }}>
+                    <Avatar size={96} />
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "#111", marginBottom: 4 }}>
+                    {fullName}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#777", marginBottom: 12 }}>
+                    {freelancer.title || "Freelancer"}
+                  </div>
+                  <RatingPill />
+                  <div
+                    style={{ width: "100%", height: 1, background: "#f0f0f4", margin: "12px 0" }}
+                  />
+                  <VerifiedBadge />
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 5,
+                      justifyContent: "center",
+                      margin: "12px 0",
+                    }}
+                  >
+                    {skills.slice(0, 6).map((s) => (
+                      <SkillPill key={s} label={s} style={{ fontSize: 11, padding: "3px 9px" }} />
+                    ))}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: "auto",
+                      fontSize: 12,
+                      color: "#aaa",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <MapPin style={{ width: 13, height: 13 }} />{" "}
+                    {[freelancer.location, freelancer.country].filter(Boolean).join(", ") || "–"}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: C.orange,
+                      letterSpacing: "-0.3px",
+                      marginTop: 8,
+                    }}
+                  >
+                    EventLink
+                  </div>
+                </div>
+
+                {/* BACK */}
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    backfaceVisibility: "hidden",
+                    background: "#fff",
+                    border: "1px solid #e0e0e8",
+                    borderRadius: 18,
+                    transform: "rotateY(180deg)",
+                    overflow: "hidden",
+                  }}
+                >
+                  {/* Main back content */}
+                  <div
+                    style={{
+                      padding: "18px 16px",
+                      height: "100%",
                       display: "flex",
                       flexDirection: "column",
-                      alignItems: "center",
-                      padding: "24px 20px 16px",
                     }}
                   >
                     <div
-                      style={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: "50%",
-                        border: "1.5px solid #ccc",
-                        background: C.bg3,
-                        marginBottom: 16,
-                      }}
-                    />
-                    <div style={{ marginBottom: 14 }}>
-                      <Avatar size={96} />
-                    </div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: "#111", marginBottom: 4 }}>
-                      {fullName}
-                    </div>
-                    <div style={{ fontSize: 13, color: "#777", marginBottom: 12 }}>
-                      {freelancer.title || "Freelancer"}
-                    </div>
-                    <RatingPill />
-                    <div
-                      style={{ width: "100%", height: 1, background: "#f0f0f4", margin: "12px 0" }}
-                    />
-                    <VerifiedBadge />
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 5,
-                        justifyContent: "center",
-                        margin: "12px 0",
-                      }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}
                     >
-                      {skills.slice(0, 6).map((s) => (
-                        <SkillPill key={s} label={s} style={{ fontSize: 11, padding: "3px 9px" }} />
-                      ))}
-                    </div>
-                    <div
-                      style={{
-                        marginTop: "auto",
-                        fontSize: 12,
-                        color: "#aaa",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                    >
-                      <MapPin style={{ width: 13, height: 13 }} />{" "}
-                      {[freelancer.location, freelancer.country].filter(Boolean).join(", ") || "–"}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: C.orange,
-                        letterSpacing: "-0.3px",
-                        marginTop: 8,
-                      }}
-                    >
-                      EventLink
-                    </div>
-                  </div>
-
-                  {/* BACK */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      backfaceVisibility: "hidden",
-                      background: "#fff",
-                      border: "1px solid #e0e0e8",
-                      borderRadius: 18,
-                      transform: "rotateY(180deg)",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {/* Main back content */}
-                    <div
-                      style={{
-                        padding: "18px 16px",
-                        height: "100%",
-                        display: "flex",
-                        flexDirection: "column",
-                      }}
-                    >
-                      <div
-                        style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}
-                      >
-                        <Avatar size={44} />
-                        <div>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
-                            {fullName}
-                          </div>
-                          <div style={{ fontSize: 12, color: "#888" }}>
-                            {freelancer.title || "Freelancer"}
-                          </div>
+                      <Avatar size={44} />
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
+                          {fullName}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#888" }}>
+                          {freelancer.title || "Freelancer"}
                         </div>
                       </div>
+                    </div>
 
-                      <SectionBtn
-                        id="about"
-                        icon={<User style={{ width: 18, height: 18, color: C.orange }} />}
-                        iconBg={C.orangeLight}
-                        label="About"
-                        sub="Overview & intro"
-                      />
-                      <SectionBtn
-                        id="credentials"
-                        icon={<ShieldCheck style={{ width: 18, height: 18, color: C.success }} />}
-                        iconBg={C.successLight}
-                        label="Credentials"
-                        sub="Verified & endorsed"
-                      />
-                      <SectionBtn
-                        id="portfolio"
-                        icon={<LayoutGrid style={{ width: 18, height: 18, color: C.purple }} />}
-                        iconBg={C.purpleLight}
-                        label="Portfolio"
-                        sub="Photos, reels & blog"
-                      />
-                      <SectionBtn
-                        id="files"
-                        icon={<FileText style={{ width: 18, height: 18, color: "#7060c0" }} />}
-                        iconBg="#f0f0f8"
-                        label="Files"
-                        sub="CV & documents"
-                      />
+                    <SectionBtn
+                      id="about"
+                      icon={<User style={{ width: 18, height: 18, color: C.orange }} />}
+                      iconBg={C.orangeLight}
+                      label="About"
+                      sub="Overview & intro"
+                    />
+                    <SectionBtn
+                      id="credentials"
+                      icon={<ShieldCheck style={{ width: 18, height: 18, color: C.success }} />}
+                      iconBg={C.successLight}
+                      label="Credentials"
+                      sub="Verified & endorsed"
+                    />
+                    <SectionBtn
+                      id="portfolio"
+                      icon={<LayoutGrid style={{ width: 18, height: 18, color: C.purple }} />}
+                      iconBg={C.purpleLight}
+                      label="Portfolio"
+                      sub="Photos, reels & blog"
+                    />
+                    <SectionBtn
+                      id="files"
+                      icon={<FileText style={{ width: 18, height: 18, color: "#7060c0" }} />}
+                      iconBg="#f0f0f8"
+                      label="Files"
+                      sub="CV & documents"
+                    />
 
-                      {/* Action bar */}
-                      <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 10 }}>
-                        {[
-                          {
-                            icon: <Share2 style={{ width: 17, height: 17 }} />,
-                            label: "Share",
-                            primary: true,
-                            onClick: (e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              copyLink();
-                            },
+                    {/* Action bar */}
+                    <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 10 }}>
+                      {[
+                        {
+                          icon: <Share2 style={{ width: 17, height: 17 }} />,
+                          label: "Share",
+                          primary: true,
+                          onClick: (e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            copyLink();
                           },
-                        ].map((btn) => (
-                          <button
-                            key={btn.label}
-                            onClick={btn.onClick}
-                            style={{
-                              flex: 1,
-                              padding: "11px 4px",
-                              border: `1px solid ${C.border2}`,
-                              background: btn.primary ? C.orange : C.bg2,
-                              borderRadius: 10,
-                              fontSize: 12,
-                              color: btn.primary ? "#fff" : "#444",
-                              display: "flex",
-                              flexDirection: "column",
-                              alignItems: "center",
-                              gap: 4,
-                              fontWeight: 600,
-                              cursor: "pointer",
-                            }}
-                          >
-                            {btn.icon} {btn.label}
-                          </button>
-                        ))}
-                        <a
-                          href={profileUrl()}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
+                        },
+                      ].map((btn) => (
+                        <button
+                          key={btn.label}
+                          onClick={btn.onClick}
                           style={{
                             flex: 1,
                             padding: "11px 4px",
                             border: `1px solid ${C.border2}`,
-                            background: C.bg2,
+                            background: btn.primary ? C.orange : C.bg2,
                             borderRadius: 10,
                             fontSize: 12,
-                            color: "#444",
+                            color: btn.primary ? "#fff" : "#444",
                             display: "flex",
                             flexDirection: "column",
                             alignItems: "center",
                             gap: 4,
                             fontWeight: 600,
-                            textDecoration: "none",
+                            cursor: "pointer",
                           }}
                         >
-                          <Globe style={{ width: 17, height: 17 }} /> Profile
-                        </a>
-                      </div>
-                    </div>
-
-                    {/* Sliding detail panels */}
-                    {DETAIL_PANELS.map((panelId) => (
-                      <div
-                        key={panelId}
+                          {btn.icon} {btn.label}
+                        </button>
+                      ))}
+                      <a
+                        href={profileUrl()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         style={{
-                          position: "absolute",
-                          inset: 0,
-                          background: "#fff",
-                          borderRadius: 18,
-                          padding: "12px 12px 10px",
-                          overflow: "hidden",
-                          transform: detail === panelId ? "translateX(0)" : "translateX(100%)",
-                          transition: "transform 0.3s ease",
+                          flex: 1,
+                          padding: "11px 4px",
+                          border: `1px solid ${C.border2}`,
+                          background: C.bg2,
+                          borderRadius: 10,
+                          fontSize: 12,
+                          color: "#444",
                           display: "flex",
                           flexDirection: "column",
+                          alignItems: "center",
+                          gap: 4,
+                          fontWeight: 600,
+                          textDecoration: "none",
                         }}
                       >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDetail(null);
-                          }}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            background: "none",
-                            border: "none",
-                            fontSize: 11,
-                            color: C.orange,
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            marginBottom: 10,
-                            padding: 0,
-                          }}
-                        >
-                          <ChevronLeft style={{ width: 13, height: 13 }} /> Back
-                        </button>
-                        <div
-                          style={{
-                            fontSize: 14,
-                            fontWeight: 700,
-                            color: "#111",
-                            marginBottom: 10,
-                            paddingBottom: 8,
-                            borderBottom: "1px solid #f0f0f4",
-                          }}
-                        >
-                          {panelId!.charAt(0).toUpperCase() + panelId!.slice(1)}
-                        </div>
-                        <div style={{ flex: 1, overflowY: "auto" }}>{renderDetail(panelId)}</div>
-                      </div>
-                    ))}
+                        <Globe style={{ width: 17, height: 17 }} /> Profile
+                      </a>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <p style={{ marginTop: 10, fontSize: 11, color: C.text3, textAlign: "center" }}>
-                {flipped ? "Tap a section to open · tap card to flip back" : "Tap card to flip"}
-              </p>
-            </div>
-          </div>
-
-          {/* ── DESKTOP (hidden on mobile) ── */}
-          <div className="hidden md:block">
-            <div
-              style={{
-                maxWidth: 760,
-                margin: "0 auto",
-                padding: "24px 20px",
-                display: "flex",
-                gap: 16,
-                minHeight: 420,
-              }}
-            >
-              {/* Left identity column */}
-              <div
-                style={{
-                  width: 210,
-                  flexShrink: 0,
-                  background: "#fff",
-                  border: `1px solid ${C.border2}`,
-                  borderRadius: 14,
-                  padding: "20px 14px",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                }}
-              >
-                <Avatar size={72} />
-                <div
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 700,
-                    color: "#111",
-                    margin: "10px 0 3px",
-                    textAlign: "center",
-                  }}
-                >
-                  {fullName}
-                </div>
-                <div style={{ fontSize: 12, color: "#888", marginBottom: 10, textAlign: "center" }}>
-                  {freelancer.title || "Freelancer"}
-                </div>
-                <RatingPill />
-                <div style={{ margin: "8px 0" }}>
-                  <VerifiedBadge />
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 4,
-                    justifyContent: "center",
-                    marginBottom: 12,
-                  }}
-                >
-                  {skills.slice(0, 6).map((s) => (
-                    <SkillPill key={s} label={s} />
-                  ))}
-                </div>
-                <div
-                  style={{ width: "100%", height: 1, background: "#f0f0f4", margin: "6px 0 10px" }}
-                />
-                <div
-                  style={{
-                    marginTop: "auto",
-                    fontSize: 10,
-                    color: "#bbb",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 3,
-                  }}
-                >
-                  <MapPin style={{ width: 11, height: 11 }} />{" "}
-                  {[freelancer.location, freelancer.country].filter(Boolean).join(", ") || "–"}
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: C.orange,
-                    letterSpacing: "-0.3px",
-                    marginTop: 8,
-                  }}
-                >
-                  EventLink
-                </div>
-              </div>
-
-              {/* Right tabbed panel */}
-              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-                {/* Tabs */}
-                <div
-                  style={{
-                    display: "flex",
-                    borderBottom: `1px solid ${C.border}`,
-                    marginBottom: 14,
-                  }}
-                >
-                  {(["about", "credentials", "portfolio", "files"] as RightTab[]).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setRightTab(tab)}
+                  {/* Sliding detail panels */}
+                  {DETAIL_PANELS.map((panelId) => (
+                    <div
+                      key={panelId}
                       style={{
-                        padding: "7px 14px",
-                        fontSize: 12,
-                        background: "none",
-                        border: "none",
-                        borderBottom: `2px solid ${rightTab === tab ? C.orange : "transparent"}`,
-                        cursor: "pointer",
-                        color: rightTab === tab ? C.orange : C.text2,
-                        fontWeight: rightTab === tab ? 700 : 500,
-                        marginBottom: -1,
+                        position: "absolute",
+                        inset: 0,
+                        background: "#fff",
+                        borderRadius: 18,
+                        padding: "12px 12px 10px",
+                        overflow: "hidden",
+                        transform: detail === panelId ? "translateX(0)" : "translateX(100%)",
+                        transition: "transform 0.3s ease",
+                        display: "flex",
+                        flexDirection: "column",
                       }}
                     >
-                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Tab content */}
-                <div>
-                  {rightTab === "about" && (
-                    <div>
-                      <p
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetail(null);
+                        }}
                         style={{
-                          fontSize: 13,
-                          color: C.text2,
-                          lineHeight: 1.7,
-                          paddingBottom: 12,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: "none",
+                          border: "none",
+                          fontSize: 11,
+                          color: C.orange,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          marginBottom: 10,
+                          padding: 0,
                         }}
                       >
-                        {freelancer.bio || "No bio available."}
-                      </p>
-                      <DRow
-                        iconBg={C.orangeLight}
-                        icon={<MapPin style={{ width: 15, height: 15, color: C.orange }} />}
-                        label={
-                          [freelancer.location, freelancer.country].filter(Boolean).join(", ") ||
-                          "–"
-                        }
-                        sub="Open to remote"
-                      />
-                      <DRow
-                        iconBg={C.successLight}
-                        icon={<User style={{ width: 15, height: 15, color: C.success }} />}
-                        label={availLabel}
-                        sub={
-                          freelancer.experience_years
-                            ? `${freelancer.experience_years} years experience`
-                            : undefined
-                        }
-                      />
+                        <ChevronLeft style={{ width: 13, height: 13 }} /> Back
+                      </button>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color: "#111",
+                          marginBottom: 10,
+                          paddingBottom: 8,
+                          borderBottom: "1px solid #f0f0f4",
+                        }}
+                      >
+                        {panelId!.charAt(0).toUpperCase() + panelId!.slice(1)}
+                      </div>
+                      <div style={{ flex: 1, overflowY: "auto" }}>{renderDetail(panelId)}</div>
                     </div>
-                  )}
-
-                  {rightTab === "credentials" && (
-                    <div>
-                      {isVerified && (
-                        <DRow
-                          iconBg={C.successLight}
-                          icon={<ShieldCheck style={{ width: 18, height: 18, color: C.success }} />}
-                          label="EventLink verified"
-                          sub={`${(references as any[]).length} reference${(references as any[]).length !== 1 ? "s" : ""} received`}
-                        />
-                      )}
-                      {(references as any[]).slice(0, 4).map((ref: any, i: number) => (
-                        <DRow
-                          key={ref.id ?? i}
-                          iconBg={C.purpleLight}
-                          icon={<Award style={{ width: 15, height: 15, color: C.purple }} />}
-                          label={ref.referee_name || "Reference"}
-                          sub={ref.referee_organisation || ref.badge_result?.replace(/_/g, " ")}
-                        />
-                      ))}
-                      {(references as any[]).length === 0 && !isVerified && (
-                        <p style={{ fontSize: 13, color: C.text3 }}>No credentials yet.</p>
-                      )}
-                    </div>
-                  )}
-
-                  {rightTab === "portfolio" && !hasAccess && (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "32px 16px",
-                        color: C.text3,
-                        textAlign: "center",
-                      }}
-                    >
-                      <Lock style={{ width: 24, height: 24, color: "#ccc" }} />
-                      <p style={{ fontSize: 13, margin: 0 }}>
-                        Portfolio is visible to signed-in employers or via shared link.
-                      </p>
-                    </div>
-                  )}
-                  {rightTab === "portfolio" && hasAccess && (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-                      {(portfolio as any[]).length === 0 && (
-                        <p style={{ fontSize: 13, color: C.text3, gridColumn: "1/-1" }}>
-                          No portfolio items yet.
-                        </p>
-                      )}
-                      {(portfolio as any[]).map((item: any) => {
-                        const emoji =
-                          item.type === "photo" ? "🖼️" : item.type === "video" ? "🎬" : "📝";
-                        const bg =
-                          item.type === "photo"
-                            ? "#fef3e8"
-                            : item.type === "video"
-                              ? C.purpleLight
-                              : "#edf7ed";
-                        const typeColor =
-                          item.type === "photo"
-                            ? C.orange
-                            : item.type === "video"
-                              ? C.purple
-                              : C.success;
-                        return (
-                          <div
-                            key={item.id}
-                            style={{
-                              border: `1px solid ${C.border}`,
-                              borderRadius: 8,
-                              overflow: "hidden",
-                            }}
-                          >
-                            {item.thumbnail_url ? (
-                              <img
-                                src={item.thumbnail_url}
-                                alt={item.title}
-                                style={{ width: "100%", height: 72, objectFit: "cover" }}
-                              />
-                            ) : (
-                              <div
-                                style={{
-                                  height: 72,
-                                  background: bg,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontSize: 28,
-                                }}
-                              >
-                                {emoji}
-                              </div>
-                            )}
-                            <div style={{ padding: "6px 8px" }}>
-                              <div
-                                style={{
-                                  fontSize: 9,
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.6px",
-                                  fontWeight: 700,
-                                  color: typeColor,
-                                  marginBottom: 2,
-                                }}
-                              >
-                                {item.type}
-                              </div>
-                              <div style={{ fontSize: 11, color: "#333", fontWeight: 500 }}>
-                                {item.title || "Untitled"}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {rightTab === "files" && !hasAccess && (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "32px 16px",
-                        color: C.text3,
-                        textAlign: "center",
-                      }}
-                    >
-                      <Lock style={{ width: 24, height: 24, color: "#ccc" }} />
-                      <p style={{ fontSize: 13, margin: 0 }}>
-                        Files are visible to signed-in employers or via shared link.
-                      </p>
-                    </div>
-                  )}
-                  {rightTab === "files" && hasAccess && (
-                    <div>
-                      {freelancer.cv_file_url && (
-                        <DRow
-                          iconBg="#fee2e2"
-                          icon={<FileText style={{ width: 15, height: 15, color: "#dc2626" }} />}
-                          label={freelancer.cv_file_name || "CV"}
-                          sub="CV"
-                          href={`/api/cv/download/${uid}${pt}`}
-                          action={<Download style={{ width: 14, height: 14, color: "#ccc" }} />}
-                        />
-                      )}
-                      {(documents as any[]).map((doc: any) => (
-                        <DRow
-                          key={doc.id}
-                          iconBg={C.purpleLight}
-                          icon={<FileText style={{ width: 15, height: 15, color: C.purple }} />}
-                          label={doc.file_name || doc.document_type || "Document"}
-                          sub={doc.document_type?.replace(/_/g, " ")}
-                          href={`/api/documents/${doc.id}/download${pt}`}
-                          action={<Download style={{ width: 14, height: 14, color: "#ccc" }} />}
-                        />
-                      ))}
-                      {!freelancer.cv_file_url && (documents as any[]).length === 0 && (
-                        <p style={{ fontSize: 13, color: C.text3 }}>No files available.</p>
-                      )}
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
             </div>
-          </div>
-        </>
-      )}
 
-      {/* ══════════════ WALLET VIEW ══════════════ */}
-      {view === "wallet" && (
-        <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 16px 40px" }}>
+            <p style={{ marginTop: 10, fontSize: 11, color: C.text3, textAlign: "center" }}>
+              {flipped ? "Tap a section to open · tap card to flip back" : "Tap card to flip"}
+            </p>
+          </div>
+        </div>
+
+        {/* ── DESKTOP (hidden on mobile) ── */}
+        <div className="hidden md:block">
           <div
             style={{
-              background: C.bg2,
-              borderRadius: 14,
-              padding: 20,
-              border: `1px solid ${C.border}`,
+              maxWidth: 760,
+              margin: "0 auto",
+              padding: "24px 20px",
+              display: "flex",
+              gap: 16,
+              minHeight: 420,
             }}
           >
+            {/* Left identity column */}
             <div
               style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: C.text2,
-                marginBottom: 14,
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-              }}
-            >
-              Digital pass preview
-            </div>
-
-            {/* Pass card */}
-            <div
-              style={{
+                width: 210,
+                flexShrink: 0,
                 background: "#fff",
-                borderRadius: 18,
-                padding: 18,
-                maxWidth: 360,
-                margin: "0 auto 18px",
-                border: "1px solid #e0e0e8",
-                overflow: "hidden",
-                position: "relative",
+                border: `1px solid ${C.border2}`,
+                borderRadius: 14,
+                padding: "20px 14px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
               }}
             >
+              <Avatar size={72} />
               <div
                 style={{
-                  position: "absolute",
-                  top: 0,
-                  right: 0,
-                  width: 160,
-                  height: "100%",
-                  background:
-                    "linear-gradient(135deg,rgba(120,80,220,0.07) 0%,rgba(255,140,0,0.06) 100%)",
-                  pointerEvents: "none",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: "#111",
+                  margin: "10px 0 3px",
+                  textAlign: "center",
                 }}
-              />
+              >
+                {fullName}
+              </div>
+              <div style={{ fontSize: 12, color: "#888", marginBottom: 10, textAlign: "center" }}>
+                {freelancer.title || "Freelancer"}
+              </div>
+              <RatingPill />
+              <div style={{ margin: "8px 0" }}>
+                <VerifiedBadge />
+              </div>
               <div
                 style={{
                   display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 14,
+                  flexWrap: "wrap",
+                  gap: 4,
+                  justifyContent: "center",
+                  marginBottom: 12,
                 }}
               >
-                <span style={{ fontSize: 14, fontWeight: 700, color: C.orange }}>EventLink</span>
-                <span style={{ fontSize: 10, color: "#bbb", fontWeight: 500 }}>
-                  Professional Pass
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-                <Avatar size={52} />
-                <div>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: "#111" }}>{fullName}</div>
-                  <div style={{ fontSize: 12, color: "#888", marginTop: 1 }}>
-                    {freelancer.title || "Freelancer"}
-                    {freelancer.location ? ` · ${freelancer.location}` : ""}
-                  </div>
-                  {avgRating && (
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        background: C.orangeLight,
-                        borderRadius: 20,
-                        padding: "2px 9px",
-                        fontSize: 10,
-                        fontWeight: 700,
-                        color: C.orange,
-                        marginTop: 4,
-                      }}
-                    >
-                      ★ {avgRating}
-                      {isVerified ? " · ✓ Verified" : ""}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 14 }}>
-                {skills.slice(0, 5).map((s) => (
-                  <SkillPill key={s} label={s} style={{ fontSize: 9, padding: "2px 8px" }} />
+                {skills.slice(0, 6).map((s) => (
+                  <SkillPill key={s} label={s} />
                 ))}
               </div>
               <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr 1fr",
-                  gap: 10,
-                  marginBottom: 14,
-                  paddingTop: 12,
-                  borderTop: "1px solid #f0f0f4",
-                }}
-              >
-                {[
-                  {
-                    label: "Rating",
-                    value: avgRating ? `★ ${avgRating}` : "–",
-                  },
-                  {
-                    label: "Available",
-                    value: avail === "available" ? "Now" : avail === "busy" ? "Busy" : "No",
-                  },
-                  { label: "Verified", value: isVerified ? "✓ Yes" : "–" },
-                ].map(({ label, value }) => (
-                  <div key={label}>
-                    <label
-                      style={{
-                        fontSize: 9,
-                        textTransform: "uppercase",
-                        color: "#bbb",
-                        letterSpacing: "0.8px",
-                        display: "block",
-                        marginBottom: 3,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {label}
-                    </label>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#222" }}>{value}</span>
-                  </div>
-                ))}
-              </div>
-              {/* Barcode strip */}
-              <div
-                style={{
-                  height: 42,
-                  background:
-                    "repeating-linear-gradient(90deg,rgba(0,0,0,0.04) 0px,rgba(0,0,0,0.04) 2px,transparent 2px,transparent 8px)",
-                  borderRadius: 6,
-                  border: "1px solid #eee",
-                }}
+                style={{ width: "100%", height: 1, background: "#f0f0f4", margin: "6px 0 10px" }}
               />
+              <div
+                style={{
+                  marginTop: "auto",
+                  fontSize: 10,
+                  color: "#bbb",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <MapPin style={{ width: 11, height: 11 }} />{" "}
+                {[freelancer.location, freelancer.country].filter(Boolean).join(", ") || "–"}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: C.orange,
+                  letterSpacing: "-0.3px",
+                  marginTop: 8,
+                }}
+              >
+                EventLink
+              </div>
             </div>
 
-            {/* QR code — only shown on desktop (on mobile you can't scan your own screen) */}
-            {qrUrl && (
-              <div className="hidden md:block" style={{ textAlign: "center", marginBottom: 16 }}>
-                <img
-                  src={qrUrl}
-                  alt="QR code"
-                  style={{ width: 120, height: 120, borderRadius: 8, border: "1px solid #eee" }}
-                />
-              </div>
-            )}
-
-            {/* Action rows */}
-            <div style={{ maxWidth: 360, margin: "0 auto" }}>
-              {/* Offline export */}
+            {/* Right tabbed panel */}
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+              {/* Tabs */}
               <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "#aaa",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.6px",
-                  margin: "14px 0 8px",
-                }}
-              >
-                Offline export
-              </div>
-              <div
-                onClick={downloadQR}
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "12px 14px",
-                  border: `1px solid ${C.border2}`,
-                  borderRadius: 8,
-                  marginBottom: 8,
-                  background: "#fff",
-                  cursor: "pointer",
+                  borderBottom: `1px solid ${C.border}`,
+                  marginBottom: 14,
                 }}
               >
-                <div
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 8,
-                    background: C.purpleLight,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Download style={{ width: 18, height: 18, color: C.purple }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>
-                    Download QR code
-                  </div>
-                  <div style={{ fontSize: 11, color: "#888", marginTop: 1 }}>
-                    Links to your live profile
-                  </div>
-                </div>
-                <Download style={{ marginLeft: "auto", width: 14, height: 14, color: "#ccc" }} />
-              </div>
-              <div
-                onClick={copyLink}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "12px 14px",
-                  border: `1px solid ${C.border2}`,
-                  borderRadius: 8,
-                  marginBottom: 8,
-                  background: "#fff",
-                  cursor: "pointer",
-                }}
-              >
-                <div
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 8,
-                    background: C.orangeLight,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Share2 style={{ width: 18, height: 18, color: C.orange }} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>
-                    Share profile link
-                  </div>
-                  <div
+                {(["about", "credentials", "portfolio", "files"] as RightTab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setRightTab(tab)}
                     style={{
-                      fontSize: 11,
-                      color: "#888",
-                      marginTop: 1,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      padding: "7px 14px",
+                      fontSize: 12,
+                      background: "none",
+                      border: "none",
+                      borderBottom: `2px solid ${rightTab === tab ? C.orange : "transparent"}`,
+                      cursor: "pointer",
+                      color: rightTab === tab ? C.orange : C.text2,
+                      fontWeight: rightTab === tab ? 700 : 500,
+                      marginBottom: -1,
                     }}
                   >
-                    {cardShareUrl()}
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab content */}
+              <div>
+                {rightTab === "about" && (
+                  <div>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        color: C.text2,
+                        lineHeight: 1.7,
+                        paddingBottom: 12,
+                      }}
+                    >
+                      {freelancer.bio || "No bio available."}
+                    </p>
+                    <DRow
+                      iconBg={C.orangeLight}
+                      icon={<MapPin style={{ width: 15, height: 15, color: C.orange }} />}
+                      label={
+                        [freelancer.location, freelancer.country].filter(Boolean).join(", ") || "–"
+                      }
+                      sub="Open to remote"
+                    />
+                    <DRow
+                      iconBg={C.successLight}
+                      icon={<User style={{ width: 15, height: 15, color: C.success }} />}
+                      label={availLabel}
+                      sub={
+                        freelancer.experience_years
+                          ? `${freelancer.experience_years} years experience`
+                          : undefined
+                      }
+                    />
                   </div>
-                </div>
-                {copied ? (
-                  <Check style={{ marginLeft: "auto", width: 14, height: 14, color: C.success }} />
-                ) : (
-                  <Copy style={{ marginLeft: "auto", width: 14, height: 14, color: "#ccc" }} />
+                )}
+
+                {rightTab === "credentials" && (
+                  <div>
+                    {isVerified && (
+                      <DRow
+                        iconBg={C.successLight}
+                        icon={<ShieldCheck style={{ width: 18, height: 18, color: C.success }} />}
+                        label="EventLink verified"
+                        sub={`${(references as any[]).length} reference${(references as any[]).length !== 1 ? "s" : ""} received`}
+                      />
+                    )}
+                    {(references as any[]).slice(0, 4).map((ref: any, i: number) => (
+                      <DRow
+                        key={ref.id ?? i}
+                        iconBg={C.purpleLight}
+                        icon={<Award style={{ width: 15, height: 15, color: C.purple }} />}
+                        label={ref.referee_name || "Reference"}
+                        sub={ref.referee_organisation || ref.badge_result?.replace(/_/g, " ")}
+                      />
+                    ))}
+                    {(references as any[]).length === 0 && !isVerified && (
+                      <p style={{ fontSize: 13, color: C.text3 }}>No credentials yet.</p>
+                    )}
+                  </div>
+                )}
+
+                {rightTab === "portfolio" && !hasAccess && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "32px 16px",
+                      color: C.text3,
+                      textAlign: "center",
+                    }}
+                  >
+                    <Lock style={{ width: 24, height: 24, color: "#ccc" }} />
+                    <p style={{ fontSize: 13, margin: 0 }}>
+                      Portfolio is visible to signed-in employers or via shared link.
+                    </p>
+                  </div>
+                )}
+                {rightTab === "portfolio" && hasAccess && (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+                    {(portfolio as any[]).length === 0 && (
+                      <p style={{ fontSize: 13, color: C.text3, gridColumn: "1/-1" }}>
+                        No portfolio items yet.
+                      </p>
+                    )}
+                    {(portfolio as any[]).map((item: any) => {
+                      const emoji =
+                        item.type === "photo" ? "🖼️" : item.type === "video" ? "🎬" : "📝";
+                      const bg =
+                        item.type === "photo"
+                          ? "#fef3e8"
+                          : item.type === "video"
+                            ? C.purpleLight
+                            : "#edf7ed";
+                      const typeColor =
+                        item.type === "photo"
+                          ? C.orange
+                          : item.type === "video"
+                            ? C.purple
+                            : C.success;
+                      return (
+                        <div
+                          key={item.id}
+                          style={{
+                            border: `1px solid ${C.border}`,
+                            borderRadius: 8,
+                            overflow: "hidden",
+                          }}
+                        >
+                          {item.thumbnail_url ? (
+                            <img
+                              src={item.thumbnail_url}
+                              alt={item.title}
+                              style={{ width: "100%", height: 72, objectFit: "cover" }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                height: 72,
+                                background: bg,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 28,
+                              }}
+                            >
+                              {emoji}
+                            </div>
+                          )}
+                          <div style={{ padding: "6px 8px" }}>
+                            <div
+                              style={{
+                                fontSize: 9,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.6px",
+                                fontWeight: 700,
+                                color: typeColor,
+                                marginBottom: 2,
+                              }}
+                            >
+                              {item.type}
+                            </div>
+                            <div style={{ fontSize: 11, color: "#333", fontWeight: 500 }}>
+                              {item.title || "Untitled"}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {rightTab === "files" && !hasAccess && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "32px 16px",
+                      color: C.text3,
+                      textAlign: "center",
+                    }}
+                  >
+                    <Lock style={{ width: 24, height: 24, color: "#ccc" }} />
+                    <p style={{ fontSize: 13, margin: 0 }}>
+                      Files are visible to signed-in employers or via shared link.
+                    </p>
+                  </div>
+                )}
+                {rightTab === "files" && hasAccess && (
+                  <div>
+                    {freelancer.cv_file_url && (
+                      <DRow
+                        iconBg="#fee2e2"
+                        icon={<FileText style={{ width: 15, height: 15, color: "#dc2626" }} />}
+                        label={freelancer.cv_file_name || "CV"}
+                        sub="CV"
+                        href={`/api/cv/download/${uid}${pt}`}
+                        action={<Download style={{ width: 14, height: 14, color: "#ccc" }} />}
+                      />
+                    )}
+                    {(documents as any[]).map((doc: any) => (
+                      <DRow
+                        key={doc.id}
+                        iconBg={C.purpleLight}
+                        icon={<FileText style={{ width: 15, height: 15, color: C.purple }} />}
+                        label={doc.file_name || doc.document_type || "Document"}
+                        sub={doc.document_type?.replace(/_/g, " ")}
+                        href={`/api/documents/${doc.id}/download${pt}`}
+                        action={<Download style={{ width: 14, height: 14, color: "#ccc" }} />}
+                      />
+                    ))}
+                    {!freelancer.cv_file_url && (documents as any[]).length === 0 && (
+                      <p style={{ fontSize: 13, color: C.text3 }}>No files available.</p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
           </div>
         </div>
-      )}
+      </>
     </div>
   );
 }
