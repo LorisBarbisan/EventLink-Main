@@ -1,5 +1,6 @@
 import { apiRequest } from "@/lib/queryClient";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
+import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import QRCode from "qrcode";
@@ -12,6 +13,7 @@ import {
   Download,
   FileText,
   LayoutGrid,
+  Lock,
   MapPin,
   Share2,
   ShieldCheck,
@@ -45,6 +47,8 @@ type RightTab = "about" | "credentials" | "portfolio" | "files";
 export default function FreelancerCard() {
   const { userId } = useParams();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const urlPt = new URLSearchParams(window.location.search).get("pt") ?? "";
 
   const [view, setView] = useState<"card" | "wallet">("card");
   const [flipped, setFlipped] = useState(false);
@@ -88,15 +92,23 @@ export default function FreelancerCard() {
     return slug ? `${base}/profile/${slug}` : `${base}/profile/${uid ?? userId}`;
   };
 
+  // Share URL = card page with token so recipient gets portfolio/files access
+  const cardShareUrl = () => {
+    const base = window.location.origin;
+    const token = freelancer?.reference_token;
+    const url = `${base}/card/${uid ?? userId}`;
+    return token ? `${url}?pt=${encodeURIComponent(token)}` : url;
+  };
+
   useEffect(() => {
     if (view === "wallet" && uid) {
-      QRCode.toDataURL(profileUrl(), { width: 220 }).then(setQrUrl);
+      QRCode.toDataURL(cardShareUrl(), { width: 220 }).then(setQrUrl);
     }
   }, [view, uid]);
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(profileUrl());
+      await navigator.clipboard.writeText(cardShareUrl());
       setCopied(true);
       toast({ title: "Link copied!" });
       setTimeout(() => setCopied(false), 2000);
@@ -106,7 +118,7 @@ export default function FreelancerCard() {
   };
 
   const downloadQR = async () => {
-    const url = qrUrl || (await QRCode.toDataURL(profileUrl(), { width: 400 }));
+    const url = qrUrl || (await QRCode.toDataURL(cardShareUrl(), { width: 400 }));
     const a = document.createElement("a");
     a.href = url;
     a.download = `${freelancer?.first_name || "profile"}-qr-code.png`;
@@ -157,6 +169,8 @@ export default function FreelancerCard() {
   const pt = freelancer.reference_token
     ? `?pt=${encodeURIComponent(freelancer.reference_token)}`
     : "";
+  const tokenValid = !!freelancer.reference_token && urlPt === freelancer.reference_token;
+  const hasAccess = user?.role === "recruiter" || tokenValid;
   const avail: string = freelancer.availability_status || "available";
   const availLabel =
     avail === "available" ? "Available now" : avail === "busy" ? "Busy" : "Unavailable";
@@ -356,6 +370,25 @@ export default function FreelancerCard() {
       );
     }
     if (type === "portfolio") {
+      if (!hasAccess)
+        return (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+              padding: "24px 12px",
+              color: C.text3,
+              textAlign: "center",
+            }}
+          >
+            <Lock style={{ width: 22, height: 22, color: "#ccc" }} />
+            <p style={{ fontSize: 12, margin: 0 }}>
+              Portfolio is visible to signed-in employers or via shared link.
+            </p>
+          </div>
+        );
       return (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
           {(portfolio as any[]).length === 0 && (
@@ -418,6 +451,25 @@ export default function FreelancerCard() {
       );
     }
     if (type === "files") {
+      if (!hasAccess)
+        return (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+              padding: "24px 12px",
+              color: C.text3,
+              textAlign: "center",
+            }}
+          >
+            <Lock style={{ width: 22, height: 22, color: "#ccc" }} />
+            <p style={{ fontSize: 12, margin: 0 }}>
+              Files are visible to signed-in employers or via shared link.
+            </p>
+          </div>
+        );
       type FileEntry = { name: string; sub: string; bg: string; iconColor: string; href: string };
       const files: FileEntry[] = [];
       if (freelancer.cv_file_url && freelancer.cv_file_name) {
@@ -1139,7 +1191,25 @@ export default function FreelancerCard() {
                     </div>
                   )}
 
-                  {rightTab === "portfolio" && (
+                  {rightTab === "portfolio" && !hasAccess && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "32px 16px",
+                        color: C.text3,
+                        textAlign: "center",
+                      }}
+                    >
+                      <Lock style={{ width: 24, height: 24, color: "#ccc" }} />
+                      <p style={{ fontSize: 13, margin: 0 }}>
+                        Portfolio is visible to signed-in employers or via shared link.
+                      </p>
+                    </div>
+                  )}
+                  {rightTab === "portfolio" && hasAccess && (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
                       {(portfolio as any[]).length === 0 && (
                         <p style={{ fontSize: 13, color: C.text3, gridColumn: "1/-1" }}>
@@ -1213,7 +1283,25 @@ export default function FreelancerCard() {
                     </div>
                   )}
 
-                  {rightTab === "files" && (
+                  {rightTab === "files" && !hasAccess && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "32px 16px",
+                        color: C.text3,
+                        textAlign: "center",
+                      }}
+                    >
+                      <Lock style={{ width: 24, height: 24, color: "#ccc" }} />
+                      <p style={{ fontSize: 13, margin: 0 }}>
+                        Files are visible to signed-in employers or via shared link.
+                      </p>
+                    </div>
+                  )}
+                  {rightTab === "files" && hasAccess && (
                     <div>
                       {freelancer.cv_file_url && (
                         <DRow
@@ -1499,7 +1587,7 @@ export default function FreelancerCard() {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {profileUrl()}
+                    {cardShareUrl()}
                   </div>
                 </div>
                 {copied ? (
