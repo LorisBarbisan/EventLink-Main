@@ -22,6 +22,7 @@ import {
   Check,
   Clock,
   Copy,
+  Download,
   Mail,
   QrCode,
   Send,
@@ -151,11 +152,18 @@ export default function SimplifiedFreelancerDashboard() {
   const profileLoading = profileQueryLoading && !profileHasEverLoaded.current;
 
   // Generate QR code when Pro modal opens
+  const cardShareUrl = user
+    ? (() => {
+        const base = window.location.origin;
+        const token = (profile as any)?.reference_token;
+        const url = `${base}/card/${user.id}`;
+        return token ? `${url}?pt=${encodeURIComponent(token)}` : url;
+      })()
+    : "";
+
   useEffect(() => {
     if (showQrModal && user) {
-      const base = window.location.origin;
-      const url = `${base}/card/${user.id}`;
-      QRCode.toDataURL(url, { width: 256 }).then(setQrDataUrl);
+      QRCode.toDataURL(cardShareUrl, { width: 256 }).then(setQrDataUrl);
     }
   }, [showQrModal, profile, user]);
 
@@ -557,15 +565,41 @@ export default function SimplifiedFreelancerDashboard() {
           </DialogHeader>
           <div className="flex flex-col items-center gap-4 py-4">
             {qrDataUrl ? (
-              <img src={qrDataUrl} alt="Profile QR code" className="h-56 w-56 rounded-lg" />
+              <a
+                href={cardShareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Click to open card"
+              >
+                <img
+                  src={qrDataUrl}
+                  alt="Profile QR code"
+                  className="h-56 w-56 cursor-pointer rounded-lg transition-opacity hover:opacity-80"
+                />
+              </a>
             ) : (
               <div className="flex h-56 w-56 items-center justify-center rounded-lg bg-muted">
                 <p className="text-sm text-muted-foreground">Generating...</p>
               </div>
             )}
             <p className="max-w-[220px] break-all text-center text-xs text-muted-foreground">
-              {getProfileUrl()}
+              {cardShareUrl}
             </p>
+            {qrDataUrl && (
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  const a = document.createElement("a");
+                  a.href = qrDataUrl;
+                  a.download = "eventlink-qr-code.png";
+                  a.click();
+                }}
+              >
+                <Download className="h-4 w-4" />
+                Download QR Code
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
