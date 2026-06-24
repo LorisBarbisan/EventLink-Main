@@ -574,12 +574,7 @@ export default function Profile() {
   useEffect(() => {
     if (showQrModal && freelancerProfile) {
       const base = window.location.origin;
-      const slug = freelancerProfile.custom_slug || freelancerProfile.slug;
-      const token = freelancerProfile.reference_token;
-      const path = slug
-        ? `${base}/profile/${slug}`
-        : `${base}/profile/${freelancerProfile.user_id}`;
-      const url = token ? `${path}?pt=${encodeURIComponent(token)}` : path;
+      const url = `${base}/card/${freelancerProfile.user_id}`;
       QRCode.toDataURL(url, { width: 256 }).then(setQrDataUrl);
     }
   }, [showQrModal, freelancerProfile]);

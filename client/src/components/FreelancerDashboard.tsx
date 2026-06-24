@@ -154,10 +154,7 @@ export default function SimplifiedFreelancerDashboard() {
   useEffect(() => {
     if (showQrModal && user) {
       const base = window.location.origin;
-      const slug = (profile as any)?.custom_slug || (profile as any)?.slug;
-      const token = (profile as any)?.reference_token;
-      const path = slug ? `${base}/profile/${slug}` : `${base}/profile/${user.id}`;
-      const url = token ? `${path}?pt=${encodeURIComponent(token)}` : path;
+      const url = `${base}/card/${user.id}`;
       QRCode.toDataURL(url, { width: 256 }).then(setQrDataUrl);
     }
   }, [showQrModal, profile, user]);

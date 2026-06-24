@@ -44,6 +44,7 @@ const MyJobs = lazy(() => import("./pages/freelancer/MyJobs"));
 const JoinTeam = lazy(() => import("./pages/JoinTeam"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Billing = lazy(() => import("./pages/Billing"));
+const FreelancerCard = lazy(() => import("./pages/FreelancerCard"));
 
 function PageLoader() {
   return (
@@ -91,6 +92,7 @@ function AppRouter() {
           <Route path="/join-team" component={JoinTeam} />
           <Route path="/privacy" component={PrivacyPolicy} />
           <Route path="/billing" component={Billing} />
+          <Route path="/card/:userId" component={FreelancerCard} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>
