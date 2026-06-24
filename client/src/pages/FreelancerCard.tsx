@@ -93,9 +93,10 @@ export default function FreelancerCard() {
   };
 
   // Share URL = card page with token so recipient gets portfolio/files access
+  // Falls back to urlPt so recipients can re-share (owner's token travels with the URL)
   const cardShareUrl = () => {
     const base = window.location.origin;
-    const token = freelancer?.reference_token;
+    const token = freelancer?.reference_token || urlPt;
     const url = `${base}/card/${uid ?? userId}`;
     return token ? `${url}?pt=${encodeURIComponent(token)}` : url;
   };
@@ -166,9 +167,8 @@ export default function FreelancerCard() {
     freelancer.profile_photo_url !== "null" &&
     freelancer.profile_photo_url.trim() !== "";
   const skills: string[] = Array.isArray(freelancer.skills) ? freelancer.skills : [];
-  const pt = freelancer.reference_token
-    ? `?pt=${encodeURIComponent(freelancer.reference_token)}`
-    : "";
+  // Use the token from the URL (non-owners don't receive reference_token from the API)
+  const pt = urlPt ? `?pt=${encodeURIComponent(urlPt)}` : "";
   const tokenValid = !!freelancer.reference_token && urlPt === freelancer.reference_token;
   const hasAccess = user?.role === "recruiter" || tokenValid;
   const avail: string = freelancer.availability_status || "available";
@@ -889,15 +889,6 @@ export default function FreelancerCard() {
                             onClick: (e: React.MouseEvent) => {
                               e.stopPropagation();
                               copyLink();
-                            },
-                          },
-                          {
-                            icon: <span style={{ fontSize: 17 }}>💳</span>,
-                            label: "Wallet",
-                            primary: false,
-                            onClick: (e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              setView("wallet");
                             },
                           },
                         ].map((btn) => (
