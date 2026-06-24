@@ -147,8 +147,8 @@ export default function FreelancerCard() {
   const skills: string[] = Array.isArray(freelancer.skills) ? freelancer.skills : [];
   // Use the token from the URL (non-owners don't receive reference_token from the API)
   const pt = urlPt ? `?pt=${encodeURIComponent(urlPt)}` : "";
-  // reference_token is stripped from the API for non-owners, so we trust the URL param presence
-  const hasAccess = user?.role === "recruiter" || urlPt.length > 0;
+  // Owner always has access; recruiters always have access; others need the ?pt= token
+  const hasAccess = user?.id === uid || user?.role === "recruiter" || urlPt.length > 0;
   const avail: string = freelancer.availability_status || "available";
   const availLabel =
     avail === "available" ? "Available now" : avail === "busy" ? "Busy" : "Unavailable";
