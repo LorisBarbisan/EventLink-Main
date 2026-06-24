@@ -154,6 +154,9 @@ export default function FreelancerCard() {
     freelancer.profile_photo_url !== "null" &&
     freelancer.profile_photo_url.trim() !== "";
   const skills: string[] = Array.isArray(freelancer.skills) ? freelancer.skills : [];
+  const pt = freelancer.reference_token
+    ? `?pt=${encodeURIComponent(freelancer.reference_token)}`
+    : "";
   const avail: string = freelancer.availability_status || "available";
   const availLabel =
     avail === "available" ? "Available now" : avail === "busy" ? "Busy" : "Unavailable";
@@ -423,7 +426,7 @@ export default function FreelancerCard() {
           sub: "CV",
           bg: "#fee2e2",
           iconColor: "#dc2626",
-          href: `/api/cv/download/${uid}`,
+          href: `/api/cv/download/${uid}${pt}`,
         });
       }
       (documents as any[]).forEach((doc: any) => {
@@ -432,7 +435,7 @@ export default function FreelancerCard() {
           sub: doc.document_type?.replace(/_/g, " ") || "",
           bg: C.purpleLight,
           iconColor: C.purple,
-          href: `/api/documents/${doc.id}/download`,
+          href: `/api/documents/${doc.id}/download${pt}`,
         });
       });
       return (
@@ -664,7 +667,12 @@ export default function FreelancerCard() {
                 onClick={() => {
                   if (!detail) setFlipped((f) => !f);
                 }}
-                style={{ width: 248, height: 414, perspective: 1000, cursor: "pointer" }}
+                style={{
+                  width: "min(340px, calc(100vw - 32px))",
+                  height: "min(566px, calc((100vw - 32px) * 1.665))",
+                  perspective: 1000,
+                  cursor: "pointer",
+                }}
               >
                 <div
                   style={{
@@ -1213,7 +1221,7 @@ export default function FreelancerCard() {
                           icon={<FileText style={{ width: 15, height: 15, color: "#dc2626" }} />}
                           label={freelancer.cv_file_name || "CV"}
                           sub="CV"
-                          href={`/api/cv/download/${uid}`}
+                          href={`/api/cv/download/${uid}${pt}`}
                           action={<Download style={{ width: 14, height: 14, color: "#ccc" }} />}
                         />
                       )}
@@ -1224,7 +1232,7 @@ export default function FreelancerCard() {
                           icon={<FileText style={{ width: 15, height: 15, color: C.purple }} />}
                           label={doc.file_name || doc.document_type || "Document"}
                           sub={doc.document_type?.replace(/_/g, " ")}
-                          href={`/api/documents/${doc.id}/download`}
+                          href={`/api/documents/${doc.id}/download${pt}`}
                           action={<Download style={{ width: 14, height: 14, color: "#ccc" }} />}
                         />
                       ))}
@@ -1387,9 +1395,9 @@ export default function FreelancerCard() {
               />
             </div>
 
-            {/* QR code */}
+            {/* QR code — only shown on desktop (on mobile you can't scan your own screen) */}
             {qrUrl && (
-              <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <div className="hidden md:block" style={{ textAlign: "center", marginBottom: 16 }}>
                 <img
                   src={qrUrl}
                   alt="QR code"
@@ -1418,13 +1426,13 @@ export default function FreelancerCard() {
                   emoji: "🍎",
                   bg: "#f3f4f6",
                   label: "Add to Apple Wallet",
-                  sub: "iPhone — tap and go",
+                  sub: "Coming soon",
                 },
                 {
                   emoji: "🤖",
                   bg: "#e8f5e9",
                   label: "Add to Google Wallet",
-                  sub: "Android — tap and go",
+                  sub: "Coming soon",
                 },
               ].map(({ emoji, bg, label, sub }) => (
                 <div
@@ -1434,11 +1442,12 @@ export default function FreelancerCard() {
                     alignItems: "center",
                     gap: 10,
                     padding: "12px 14px",
-                    border: `1px solid ${C.border2}`,
+                    border: `1px solid ${C.border}`,
                     borderRadius: 8,
                     marginBottom: 8,
-                    background: "#fff",
+                    background: "#fafafa",
                     cursor: "default",
+                    opacity: 0.6,
                   }}
                 >
                   <div
