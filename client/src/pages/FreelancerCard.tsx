@@ -450,9 +450,9 @@ export default function FreelancerCard() {
         );
       type FileEntry = { name: string; sub: string; bg: string; iconColor: string; href: string };
       const files: FileEntry[] = [];
-      if (freelancer.cv_file_url && freelancer.cv_file_name) {
+      if (freelancer.cv_file_url) {
         files.push({
-          name: freelancer.cv_file_name,
+          name: freelancer.cv_file_name || "CV",
           sub: "CV",
           bg: "#fee2e2",
           iconColor: "#dc2626",
@@ -461,7 +461,7 @@ export default function FreelancerCard() {
       }
       (documents as any[]).forEach((doc: any) => {
         files.push({
-          name: doc.file_name || doc.document_type || "Document",
+          name: doc.original_filename || doc.document_type || "Document",
           sub: doc.document_type?.replace(/_/g, " ") || "",
           bg: C.purpleLight,
           iconColor: C.purple,
@@ -1264,7 +1264,7 @@ export default function FreelancerCard() {
                         key={doc.id}
                         iconBg={C.purpleLight}
                         icon={<FileText style={{ width: 15, height: 15, color: C.purple }} />}
-                        label={doc.file_name || doc.document_type || "Document"}
+                        label={doc.original_filename || doc.document_type || "Document"}
                         sub={doc.document_type?.replace(/_/g, " ")}
                         href={`/api/documents/${doc.id}/download${pt}`}
                         action={<Download style={{ width: 14, height: 14, color: "#ccc" }} />}
