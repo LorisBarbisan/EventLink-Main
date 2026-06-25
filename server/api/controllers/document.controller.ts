@@ -1,16 +1,17 @@
 import { DOCUMENT_TYPES, insertFreelancerDocumentSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-import { ObjectStorageService, objectStorageClient } from "../utils/object-storage";
+import { ObjectStorageService } from "../utils/object-storage";
+import {
+  isLocalPath,
+  saveLocally,
+  deleteLocally,
+  readLocally,
+} from "../utils/local-storage-fallback";
 
 const MAX_DOCUMENTS = 9;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_FILE_TYPES = [
-  "application/pdf",
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-];
+const ALLOWED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
 
 export async function uploadDocument(req: Request, res: Response) {
   try {
@@ -18,7 +19,7 @@ export async function uploadDocument(req: Request, res: Response) {
       return res.status(403).json({ error: "Only freelancers can upload documents" });
     }
 
-    const { fileData, filename, fileSize, contentType, documentType, customTypeName } = req.body;
+    const { fileData, filename, contentType, documentType, customTypeName } = req.body;
 
     if (!fileData || !filename || !contentType || !documentType) {
       return res.status(400).json({
@@ -48,7 +49,7 @@ export async function uploadDocument(req: Request, res: Response) {
 
     const buffer = Buffer.from(fileData, "base64");
     const actualSize = buffer.length;
-    
+
     if (actualSize > MAX_FILE_SIZE) {
       return res.status(400).json({
         error: "File size must be less than 10MB",
@@ -66,47 +67,36 @@ export async function uploadDocument(req: Request, res: Response) {
     const fileExtension = filename.split(".").pop() || "pdf";
     const objectKey = `docs/${(req as any).user.id}/${randomUUID()}.${fileExtension}`;
 
-    // Upload file to storage using the same pattern as CV upload
-    const privateDir = process.env.PRIVATE_OBJECT_DIR;
-    if (!privateDir) {
-      throw new Error("PRIVATE_OBJECT_DIR not set");
-    }
+    console.log(`📤 Uploading document: objectKey=${objectKey}, size=${actualSize} bytes`);
 
-    const fullPath = `${privateDir}/${objectKey}`;
-
-    // Parse the path to get bucket name and object name
-    const pathParts = fullPath.startsWith("/") ? fullPath.split("/") : `/${fullPath}`.split("/");
-    if (pathParts.length < 3) {
-      throw new Error("Invalid storage path");
-    }
-    const bucketName = pathParts[1];
-    const objectName = pathParts.slice(2).join("/");
-
-    const bucket = objectStorageClient.bucket(bucketName);
-    const file = bucket.file(objectName);
-
-    console.log(
-      `📤 Uploading document to storage: bucket=${bucketName}, object=${objectName}, size=${actualSize} bytes`
-    );
-    
+    let storedPath: string = objectKey;
     try {
-      await file.save(buffer, {
-        contentType,
-        metadata: {
-          contentType,
-        },
+      const signedPutUrl = await ObjectStorageService.getUploadUrl(objectKey, contentType);
+      const uploadResponse = await fetch(signedPutUrl, {
+        method: "PUT",
+        body: buffer,
+        headers: { "Content-Type": contentType },
       });
-      console.log(`✅ Document uploaded to storage successfully: ${objectKey}`);
-    } catch (uploadError) {
-      console.error("❌ Object storage upload error:", uploadError);
-      throw new Error("Failed to upload document to storage");
+
+      if (!uploadResponse.ok) {
+        const errText = await uploadResponse.text().catch(() => "");
+        throw new Error(`Signed URL upload failed: ${uploadResponse.status} ${errText}`);
+      }
+
+      console.log(`✅ Document uploaded to object storage: ${objectKey}`);
+    } catch (uploadError: any) {
+      console.warn(
+        `⚠️  Object storage unavailable (${uploadError?.message}), falling back to local disk`
+      );
+      storedPath = await saveLocally(objectKey, buffer);
+      console.log(`✅ Document saved locally: ${storedPath}`);
     }
 
     const documentData = {
       freelancer_id: (req as any).user.id,
       document_type: documentType,
       custom_type_name: documentType === "Other" ? customTypeName?.trim() : null,
-      file_url: objectKey,
+      file_url: storedPath,
       original_filename: filename,
       file_size: actualSize,
       file_type: contentType,
@@ -116,7 +106,11 @@ export async function uploadDocument(req: Request, res: Response) {
     if (!validationResult.success) {
       // Cleanup uploaded file on validation failure
       try {
-        await file.delete();
+        if (isLocalPath(storedPath)) {
+          deleteLocally(storedPath);
+        } else {
+          await ObjectStorageService.deleteObject(storedPath);
+        }
       } catch (cleanupError) {
         console.error("Failed to cleanup uploaded file:", cleanupError);
       }
@@ -135,7 +129,9 @@ export async function uploadDocument(req: Request, res: Response) {
     });
   } catch (error) {
     console.error("❌ Upload document error:", error);
-    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to upload document" });
+    res
+      .status(500)
+      .json({ error: error instanceof Error ? error.message : "Failed to upload document" });
   }
 }
 
@@ -168,30 +164,45 @@ export async function downloadDocument(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid document ID" });
     }
 
-    if (!(req as any).user) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
     const document = await storage.getFreelancerDocumentById(documentId);
     if (!document) {
       return res.status(404).json({ error: "Document not found" });
     }
 
-    const userRole = (req as any).user.role;
-    const userId = (req as any).user.id;
+    const requestingUser = (req as any).user;
+    const publicToken = req.query.pt as string | undefined;
 
-    if (userRole === "freelancer" && document.freelancer_id !== userId) {
-      return res.status(403).json({ error: "Not authorized to access this document" });
+    if (!requestingUser) {
+      // Allow access if caller provides the owner's public profile token
+      if (!publicToken) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const ownerProfile = await storage.getFreelancerProfile(document.freelancer_id);
+      if (!ownerProfile?.reference_token || ownerProfile.reference_token !== publicToken) {
+        return res.status(403).json({ error: "Invalid or missing access token" });
+      }
+    } else {
+      // Signed-in user: freelancers can only access their own documents
+      if (requestingUser.role === "freelancer" && document.freelancer_id !== requestingUser.id) {
+        return res.status(403).json({ error: "Not authorized to access this document" });
+      }
     }
 
     try {
+      if (isLocalPath(document.file_url)) {
+        // File stored locally — stream it directly
+        const buffer = await readLocally(document.file_url);
+        res.setHeader("Content-Type", document.file_type || "application/octet-stream");
+        res.setHeader(
+          "Content-Disposition",
+          `inline; filename="${encodeURIComponent(document.original_filename || "document")}"`
+        );
+        return res.send(buffer);
+      }
+
       const downloadUrl = await ObjectStorageService.getDownloadUrl(document.file_url);
       console.log(`✅ Generated download URL for document: ${document.file_url}`);
-
-      res.json({
-        downloadUrl,
-        fileName: document.original_filename,
-      });
+      res.json({ downloadUrl, fileName: document.original_filename });
     } catch (objectError) {
       console.error(`❌ Failed to get download URL for ${document.file_url}:`, objectError);
       return res.status(404).json({ error: "Document file not found in storage" });
@@ -224,7 +235,11 @@ export async function deleteDocument(req: Request, res: Response) {
     }
 
     try {
-      await ObjectStorageService.deleteObject(document.file_url);
+      if (isLocalPath(document.file_url)) {
+        deleteLocally(document.file_url);
+      } else {
+        await ObjectStorageService.deleteObject(document.file_url);
+      }
     } catch (deleteError) {
       console.error("Object storage delete error:", deleteError);
     }

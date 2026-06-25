@@ -42,6 +42,7 @@ interface DocumentUploaderProps {
   userId: number;
   isOwner: boolean;
   viewerRole?: "freelancer" | "recruiter" | "admin";
+  publicToken?: string; // Reference token from share URL — grants document access without sign-in
 }
 
 const DOCUMENT_TYPE_LABELS: Record<string, string> = {
@@ -76,7 +77,12 @@ const DOCUMENT_BUTTON_LABELS: Record<string, string> = {
 const MAX_DOCUMENTS = 9;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUploaderProps) {
+export function DocumentUploader({
+  userId,
+  isOwner,
+  viewerRole,
+  publicToken,
+}: DocumentUploaderProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [selectedType, setSelectedType] = useState<string>("");
@@ -86,13 +92,9 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
   const privacyConfirmedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isSignedIn = !!viewerRole;
+  const isSignedIn = !!viewerRole || !!publicToken;
 
-  const {
-    data: documents = [],
-    isLoading,
-    isError,
-  } = useQuery<Document[]>({
+  const { data: documents = [], isLoading } = useQuery<Document[]>({
     queryKey: [`/api/documents/${userId}`],
     enabled: userId > 0,
   });
@@ -254,16 +256,34 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
 
   const handleDownload = async (document: Document) => {
     try {
-      const token = localStorage.getItem("auth_token");
-      const response = await fetch(`/api/documents/${document.id}/download`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const authToken = localStorage.getItem("auth_token");
+      const url =
+        publicToken && !authToken
+          ? `/api/documents/${document.id}/download?pt=${encodeURIComponent(publicToken)}`
+          : `/api/documents/${document.id}/download`;
+      const response = await fetch(url, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
       });
       if (response.ok) {
-        const data = await response.json();
-        if (data.downloadUrl) {
-          window.open(data.downloadUrl, "_blank");
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          const data = await response.json();
+          if (data.downloadUrl) {
+            window.open(data.downloadUrl, "_blank");
+          }
+        } else {
+          // Server streamed the file directly (local storage fallback)
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const a = Object.assign(document.createElement("a"), {
+            href: blobUrl,
+            download: document.original_filename || "document",
+            target: "_blank",
+          });
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
         }
       } else {
         toast({
@@ -338,8 +358,9 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
               <div>
                 <p className="font-semibold">Important</p>
                 <p className="mt-1">
-                  Documents uploaded here can be viewed by signed-in employers on EventLink.
-                  Please ensure you remove or conceal personal information such as your home address or other sensitive details before uploading.
+                  Documents uploaded here can be viewed by signed-in employers on EventLink. Please
+                  ensure you remove or conceal personal information such as your home address or
+                  other sensitive details before uploading.
                 </p>
               </div>
             </div>
@@ -470,8 +491,8 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
             {documents.map((doc) => (
               <Button
                 key={doc.id}
-                onClick={() => isSignedIn ? handleDownload(doc) : redirectToAuth()}
-                className="bg-gradient-primary hover:bg-primary-hover w-[140px] h-10 text-sm"
+                onClick={() => (isSignedIn ? handleDownload(doc) : redirectToAuth())}
+                className="bg-gradient-primary hover:bg-primary-hover h-10 w-[140px] text-sm"
               >
                 {doc.document_type === "Other" && doc.custom_type_name
                   ? doc.custom_type_name
@@ -494,9 +515,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
             <AlertDialogTitle>Before you upload</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p>
-                  Certificates uploaded to EventLink can be viewed by signed-in employers.
-                </p>
+                <p>Certificates uploaded to EventLink can be viewed by signed-in employers.</p>
                 <p>
                   Please make sure you have removed or concealed personal information, including:
                 </p>
@@ -507,7 +526,8 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
                   <li>Any other sensitive personal data</li>
                 </ul>
                 <p>
-                  EventLink can not conceal this information and recommends you hide it before uploading.
+                  EventLink can not conceal this information and recommends you hide it before
+                  uploading.
                 </p>
               </div>
             </AlertDialogDescription>
@@ -517,7 +537,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole }: DocumentUpload
             <AlertDialogAction
               onClick={() => {
                 privacyConfirmedRef.current = true;
-                fileInputRef.current?.click();
+                setTimeout(() => fileInputRef.current?.click(), 0);
               }}
             >
               I understand and wish to continue
@@ -553,9 +573,22 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
         },
       });
       if (response.ok) {
-        const data = await response.json();
-        if (data.downloadUrl) {
-          window.open(data.downloadUrl, "_blank");
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          const data = await response.json();
+          if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
+        } else {
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const a = Object.assign(document.createElement("a"), {
+            href: blobUrl,
+            download: document.original_filename || "document",
+            target: "_blank",
+          });
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
         }
       }
     } catch {
@@ -580,7 +613,7 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
             }
             handleDownload(doc);
           }}
-          className="bg-gradient-primary hover:bg-primary-hover w-[140px] h-10 text-sm"
+          className="bg-gradient-primary hover:bg-primary-hover h-10 w-[140px] text-sm"
         >
           {doc.document_type === "Other" && doc.custom_type_name
             ? doc.custom_type_name
