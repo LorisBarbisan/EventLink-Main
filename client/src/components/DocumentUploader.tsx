@@ -77,7 +77,12 @@ const DOCUMENT_BUTTON_LABELS: Record<string, string> = {
 const MAX_DOCUMENTS = 9;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-export function DocumentUploader({ userId, isOwner, viewerRole, publicToken }: DocumentUploaderProps) {
+export function DocumentUploader({
+  userId,
+  isOwner,
+  viewerRole,
+  publicToken,
+}: DocumentUploaderProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [selectedType, setSelectedType] = useState<string>("");
@@ -89,11 +94,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole, publicToken }: D
 
   const isSignedIn = !!viewerRole || !!publicToken;
 
-  const {
-    data: documents = [],
-    isLoading,
-    isError,
-  } = useQuery<Document[]>({
+  const { data: documents = [], isLoading } = useQuery<Document[]>({
     queryKey: [`/api/documents/${userId}`],
     enabled: userId > 0,
   });
@@ -256,23 +257,23 @@ export function DocumentUploader({ userId, isOwner, viewerRole, publicToken }: D
   const handleDownload = async (document: Document) => {
     try {
       const authToken = localStorage.getItem("auth_token");
-      const url = publicToken && !authToken
-        ? `/api/documents/${document.id}/download?pt=${encodeURIComponent(publicToken)}`
-        : `/api/documents/${document.id}/download`;
+      const url =
+        publicToken && !authToken
+          ? `/api/documents/${document.id}/download?pt=${encodeURIComponent(publicToken)}`
+          : `/api/documents/${document.id}/download`;
       const response = await fetch(url, {
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
       });
-      if (response.ok) {
+      if (!response.ok) throw new Error("Download failed");
+      const ct = response.headers.get("content-type") ?? "";
+      if (ct.includes("application/json")) {
         const data = await response.json();
-        if (data.downloadUrl) {
-          window.open(data.downloadUrl, "_blank");
-        }
+        if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
       } else {
-        toast({
-          title: "Download failed",
-          description: "Failed to download document. Please try again.",
-          variant: "destructive",
-        });
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank");
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
       }
     } catch {
       toast({
@@ -340,8 +341,9 @@ export function DocumentUploader({ userId, isOwner, viewerRole, publicToken }: D
               <div>
                 <p className="font-semibold">Important</p>
                 <p className="mt-1">
-                  Documents uploaded here can be viewed by signed-in employers on EventLink.
-                  Please ensure you remove or conceal personal information such as your home address or other sensitive details before uploading.
+                  Documents uploaded here can be viewed by signed-in employers on EventLink. Please
+                  ensure you remove or conceal personal information such as your home address or
+                  other sensitive details before uploading.
                 </p>
               </div>
             </div>
@@ -472,8 +474,8 @@ export function DocumentUploader({ userId, isOwner, viewerRole, publicToken }: D
             {documents.map((doc) => (
               <Button
                 key={doc.id}
-                onClick={() => isSignedIn ? handleDownload(doc) : redirectToAuth()}
-                className="bg-gradient-primary hover:bg-primary-hover w-[140px] h-10 text-sm"
+                onClick={() => (isSignedIn ? handleDownload(doc) : redirectToAuth())}
+                className="bg-gradient-primary hover:bg-primary-hover h-10 w-[140px] text-sm"
               >
                 {doc.document_type === "Other" && doc.custom_type_name
                   ? doc.custom_type_name
@@ -496,9 +498,7 @@ export function DocumentUploader({ userId, isOwner, viewerRole, publicToken }: D
             <AlertDialogTitle>Before you upload</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p>
-                  Certificates uploaded to EventLink can be viewed by signed-in employers.
-                </p>
+                <p>Certificates uploaded to EventLink can be viewed by signed-in employers.</p>
                 <p>
                   Please make sure you have removed or concealed personal information, including:
                 </p>
@@ -509,7 +509,8 @@ export function DocumentUploader({ userId, isOwner, viewerRole, publicToken }: D
                   <li>Any other sensitive personal data</li>
                 </ul>
                 <p>
-                  EventLink can not conceal this information and recommends you hide it before uploading.
+                  EventLink can not conceal this information and recommends you hide it before
+                  uploading.
                 </p>
               </div>
             </AlertDialogDescription>
@@ -550,15 +551,18 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
     try {
       const token = localStorage.getItem("auth_token");
       const response = await fetch(`/api/documents/${document.id}/download`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (response.ok) {
+      if (!response.ok) throw new Error("Download failed");
+      const ct = response.headers.get("content-type") ?? "";
+      if (ct.includes("application/json")) {
         const data = await response.json();
-        if (data.downloadUrl) {
-          window.open(data.downloadUrl, "_blank");
-        }
+        if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
+      } else {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
       }
     } catch {
       console.error("Failed to download document");
@@ -582,7 +586,7 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
             }
             handleDownload(doc);
           }}
-          className="bg-gradient-primary hover:bg-primary-hover w-[140px] h-10 text-sm"
+          className="bg-gradient-primary hover:bg-primary-hover h-10 w-[140px] text-sm"
         >
           {doc.document_type === "Other" && doc.custom_type_name
             ? doc.custom_type_name
