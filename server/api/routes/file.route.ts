@@ -18,7 +18,7 @@ import {
   getDocumentTypes,
   uploadDocument,
 } from "../controllers/document.controller";
-import { authenticateJWT } from "../middleware/auth.middleware";
+import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
 
 export function registerFileRoutes(app: Express) {
   // Upload CV - combined endpoint that receives base64 file data and uploads to storage
@@ -64,8 +64,8 @@ export function registerFileRoutes(app: Express) {
   // Get freelancer documents (public - visible to all viewers)
   app.get("/api/documents/:freelancerId", getDocuments);
 
-  // Download document — JWT required OR valid ?pt= public profile token
-  app.get("/api/documents/:documentId/download", downloadDocument);
+  // Download document — JWT optional (owner access) OR valid ?pt= public profile token
+  app.get("/api/documents/:documentId/download", authenticateOptionalJWT, downloadDocument);
 
   // Delete document
   app.delete("/api/documents/:documentId", authenticateJWT, deleteDocument);
