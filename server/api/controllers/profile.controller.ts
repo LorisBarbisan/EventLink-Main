@@ -111,8 +111,8 @@ export async function getFreelancerProfile(req: Request, res: Response) {
     let resolvedProfile = profile;
     if (isOwner && !profile.reference_token) {
       try {
-        await storage.getOrCreateReferenceToken(profile.user_id);
-        resolvedProfile = (await storage.getFreelancerProfile(profile.user_id)) ?? profile;
+        const token = await storage.getOrCreateReferenceToken(profile.user_id);
+        resolvedProfile = { ...profile, reference_token: token };
       } catch {
         // non-fatal: profile still returned without token
       }
