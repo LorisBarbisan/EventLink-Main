@@ -151,21 +151,18 @@ export default function SimplifiedFreelancerDashboard() {
   if (!profileQueryLoading) profileHasEverLoaded.current = true;
   const profileLoading = profileQueryLoading && !profileHasEverLoaded.current;
 
-  // Generate QR code when Pro modal opens
-  const cardShareUrl = user
-    ? (() => {
-        const base = window.location.origin;
-        const token = (profile as any)?.reference_token;
-        const url = `${base}/card/${user.id}`;
-        return token ? `${url}?pt=${encodeURIComponent(token)}` : url;
-      })()
-    : "";
+  const [cardShareUrl, setCardShareUrl] = useState("");
 
   useEffect(() => {
-    if (showQrModal && user) {
-      QRCode.toDataURL(cardShareUrl, { width: 256 }).then(setQrDataUrl);
-    }
-  }, [showQrModal, profile, user]);
+    if (!showQrModal || !user) return;
+    apiRequest("/api/freelancer/card-token")
+      .then((data: { token: string }) => {
+        const url = `${window.location.origin}/card/${user.id}?pt=${encodeURIComponent(data.token)}`;
+        setCardShareUrl(url);
+        return QRCode.toDataURL(url, { width: 256 });
+      })
+      .then(setQrDataUrl);
+  }, [showQrModal, user]);
 
   // Get user's job applications
   const { data: jobApplications = [], isLoading: applicationsLoading } = useQuery({

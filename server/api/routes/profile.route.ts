@@ -4,6 +4,7 @@ import {
   createRecruiterProfile,
   getAllFreelancers,
   getAllRecruiterProfiles,
+  getCardToken,
   getFreelancerProfile,
   getProfilePhoto,
   getRecruiterProfile,
@@ -21,6 +22,9 @@ export function registerProfileRoutes(app: Express) {
 
   // Serve freelancer profile photo as a real image (used by OG tags for social previews)
   app.get("/api/profile-photo/:userId", getProfilePhoto);
+
+  // Get/create card share token for the authenticated freelancer (must be before /:userId)
+  app.get("/api/freelancer/card-token", authenticateJWT, getCardToken);
 
   // Get freelancer profile
   app.get("/api/freelancer/:userId", getFreelancerProfile);

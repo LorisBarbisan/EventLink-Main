@@ -325,3 +325,16 @@ export async function getAllRecruiterProfiles(req: Request, res: Response) {
     res.status(500).json({ error: "Internal server error" });
   }
 }
+
+// Get (or create) the reference token for the authenticated freelancer's card share link
+export async function getCardToken(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    const token = await storage.getOrCreateReferenceToken(userId);
+    res.json({ token });
+  } catch (error) {
+    console.error("Get card token error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
