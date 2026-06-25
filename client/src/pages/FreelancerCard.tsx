@@ -51,6 +51,15 @@ export default function FreelancerCard() {
   const [detail, setDetail] = useState<Detail>(null);
   const [rightTab, setRightTab] = useState<RightTab>("about");
 
+  const openFile = async (apiUrl: string) => {
+    try {
+      const data = await apiRequest(apiUrl);
+      if (data?.downloadUrl) window.open(data.downloadUrl, "_blank");
+    } catch {
+      toast({ title: "Could not open file", variant: "destructive" });
+    }
+  };
+
   const { data: freelancer, isLoading } = useQuery({
     queryKey: ["/api/freelancer", userId],
     queryFn: () => apiRequest(`/api/freelancer/${userId}`),
@@ -448,24 +457,31 @@ export default function FreelancerCard() {
             </p>
           </div>
         );
-      type FileEntry = { name: string; sub: string; bg: string; iconColor: string; href: string };
+      type FileEntry = {
+        name: string;
+        bg: string;
+        iconColor: string;
+        href?: string;
+        onClick?: () => void;
+      };
       const files: FileEntry[] = [];
       if (freelancer.cv_file_url) {
         files.push({
-          name: freelancer.cv_file_name || "CV",
-          sub: "CV",
+          name: "CV",
           bg: "#fee2e2",
           iconColor: "#dc2626",
           href: `/api/cv/download/${uid}${pt}`,
         });
       }
       (documents as any[]).forEach((doc: any) => {
+        const label =
+          doc.custom_type_name ||
+          (doc.document_type ? doc.document_type.replace(/_/g, " ") : "Document");
         files.push({
-          name: doc.original_filename || doc.document_type || "Document",
-          sub: doc.document_type?.replace(/_/g, " ") || "",
+          name: label.charAt(0).toUpperCase() + label.slice(1),
           bg: C.purpleLight,
           iconColor: C.purple,
-          href: `/api/documents/${doc.id}/download${pt}`,
+          onClick: () => openFile(`/api/documents/${doc.id}/download${pt}`),
         });
       });
       return (
@@ -474,18 +490,16 @@ export default function FreelancerCard() {
             <p style={{ fontSize: 12, color: C.text3 }}>No files available.</p>
           )}
           {files.map((f, i) => (
-            <a
+            <div
               key={i}
-              href={f.href}
-              target="_blank"
-              rel="noopener noreferrer"
+              onClick={f.onClick ?? (() => f.href && window.open(f.href, "_blank"))}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
                 padding: "8px 0",
                 borderBottom: "1px solid #f4f4f8",
-                textDecoration: "none",
+                cursor: "pointer",
               }}
             >
               <div
@@ -504,10 +518,9 @@ export default function FreelancerCard() {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "#111" }}>{f.name}</div>
-                {f.sub && <div style={{ fontSize: 10, color: "#999" }}>{f.sub}</div>}
               </div>
               <Download style={{ width: 13, height: 13, color: "#bbb" }} />
-            </a>
+            </div>
           ))}
         </div>
       );
@@ -577,6 +590,7 @@ export default function FreelancerCard() {
     label,
     sub,
     href,
+    onClick,
     action,
   }: {
     iconBg: string;
@@ -584,6 +598,7 @@ export default function FreelancerCard() {
     label: string;
     sub?: string;
     href?: string;
+    onClick?: () => void;
     action?: React.ReactNode;
   }) {
     const inner = (
@@ -629,6 +644,12 @@ export default function FreelancerCard() {
         >
           {inner}
         </a>
+      );
+    if (onClick)
+      return (
+        <div style={{ ...row, cursor: "pointer" }} onClick={onClick}>
+          {inner}
+        </div>
       );
     return <div style={row}>{inner}</div>;
   }
@@ -1344,23 +1365,27 @@ export default function FreelancerCard() {
                       <DRow
                         iconBg="#fee2e2"
                         icon={<FileText style={{ width: 15, height: 15, color: "#dc2626" }} />}
-                        label={freelancer.cv_file_name || "CV"}
-                        sub="CV"
+                        label="CV"
                         href={`/api/cv/download/${uid}${pt}`}
                         action={<Download style={{ width: 14, height: 14, color: "#ccc" }} />}
                       />
                     )}
-                    {(documents as any[]).map((doc: any) => (
-                      <DRow
-                        key={doc.id}
-                        iconBg={C.purpleLight}
-                        icon={<FileText style={{ width: 15, height: 15, color: C.purple }} />}
-                        label={doc.original_filename || doc.document_type || "Document"}
-                        sub={doc.document_type?.replace(/_/g, " ")}
-                        href={`/api/documents/${doc.id}/download${pt}`}
-                        action={<Download style={{ width: 14, height: 14, color: "#ccc" }} />}
-                      />
-                    ))}
+                    {(documents as any[]).map((doc: any) => {
+                      const raw =
+                        doc.custom_type_name ||
+                        (doc.document_type ? doc.document_type.replace(/_/g, " ") : "Document");
+                      const label = raw.charAt(0).toUpperCase() + raw.slice(1);
+                      return (
+                        <DRow
+                          key={doc.id}
+                          iconBg={C.purpleLight}
+                          icon={<FileText style={{ width: 15, height: 15, color: C.purple }} />}
+                          label={label}
+                          onClick={() => openFile(`/api/documents/${doc.id}/download${pt}`)}
+                          action={<Download style={{ width: 14, height: 14, color: "#ccc" }} />}
+                        />
+                      );
+                    })}
                     {!freelancer.cv_file_url && (documents as any[]).length === 0 && (
                       <p style={{ fontSize: 13, color: C.text3 }}>No files available.</p>
                     )}
