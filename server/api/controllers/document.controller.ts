@@ -6,12 +6,7 @@ import { isLocalPath, saveLocally, deleteLocally } from "../utils/local-storage-
 
 const MAX_DOCUMENTS = 9;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_FILE_TYPES = [
-  "application/pdf",
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-];
+const ALLOWED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
 
 export async function uploadDocument(req: Request, res: Response) {
   try {
@@ -19,7 +14,7 @@ export async function uploadDocument(req: Request, res: Response) {
       return res.status(403).json({ error: "Only freelancers can upload documents" });
     }
 
-    const { fileData, filename, fileSize, contentType, documentType, customTypeName } = req.body;
+    const { fileData, filename, contentType, documentType, customTypeName } = req.body;
 
     if (!fileData || !filename || !contentType || !documentType) {
       return res.status(400).json({
@@ -49,7 +44,7 @@ export async function uploadDocument(req: Request, res: Response) {
 
     const buffer = Buffer.from(fileData, "base64");
     const actualSize = buffer.length;
-    
+
     if (actualSize > MAX_FILE_SIZE) {
       return res.status(400).json({
         error: "File size must be less than 10MB",
@@ -85,7 +80,9 @@ export async function uploadDocument(req: Request, res: Response) {
 
       console.log(`✅ Document uploaded to object storage: ${objectKey}`);
     } catch (uploadError: any) {
-      console.warn(`⚠️  Object storage unavailable (${uploadError?.message}), falling back to local disk`);
+      console.warn(
+        `⚠️  Object storage unavailable (${uploadError?.message}), falling back to local disk`
+      );
       storedPath = await saveLocally(objectKey, buffer);
       console.log(`✅ Document saved locally: ${storedPath}`);
     }
@@ -127,7 +124,9 @@ export async function uploadDocument(req: Request, res: Response) {
     });
   } catch (error) {
     console.error("❌ Upload document error:", error);
-    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to upload document" });
+    res
+      .status(500)
+      .json({ error: error instanceof Error ? error.message : "Failed to upload document" });
   }
 }
 
@@ -187,6 +186,11 @@ export async function downloadDocument(req: Request, res: Response) {
     try {
       const downloadUrl = await ObjectStorageService.getDownloadUrl(document.file_url);
       console.log(`✅ Generated download URL for document: ${document.file_url}`);
+
+      // ?open=1 → redirect directly so plain <a href> links work without popup blocking
+      if (req.query.open === "1") {
+        return res.redirect(302, downloadUrl);
+      }
 
       res.json({
         downloadUrl,

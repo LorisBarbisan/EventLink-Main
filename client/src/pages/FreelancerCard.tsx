@@ -51,15 +51,6 @@ export default function FreelancerCard() {
   const [detail, setDetail] = useState<Detail>(null);
   const [rightTab, setRightTab] = useState<RightTab>("about");
 
-  const openFile = async (apiUrl: string) => {
-    try {
-      const data = await apiRequest(apiUrl);
-      if (data?.downloadUrl) window.open(data.downloadUrl, "_blank");
-    } catch {
-      toast({ title: "Could not open file", variant: "destructive" });
-    }
-  };
-
   const { data: freelancer, isLoading } = useQuery({
     queryKey: ["/api/freelancer", userId],
     queryFn: () => apiRequest(`/api/freelancer/${userId}`),
@@ -156,6 +147,10 @@ export default function FreelancerCard() {
   const skills: string[] = Array.isArray(freelancer.skills) ? freelancer.skills : [];
   // Use the token from the URL (non-owners don't receive reference_token from the API)
   const pt = urlPt ? `?pt=${encodeURIComponent(urlPt)}` : "";
+  const docUrl = (id: number) =>
+    urlPt
+      ? `/api/documents/${id}/download?open=1&pt=${encodeURIComponent(urlPt)}`
+      : `/api/documents/${id}/download?open=1`;
   // Owner always has access; recruiters always have access; others need the ?pt= token
   const hasAccess = user?.id === uid || user?.role === "recruiter" || urlPt.length > 0;
   const avail: string = freelancer.availability_status || "available";
@@ -457,13 +452,7 @@ export default function FreelancerCard() {
             </p>
           </div>
         );
-      type FileEntry = {
-        name: string;
-        bg: string;
-        iconColor: string;
-        href?: string;
-        onClick?: () => void;
-      };
+      type FileEntry = { name: string; bg: string; iconColor: string; href: string };
       const files: FileEntry[] = [];
       if (freelancer.cv_file_url) {
         files.push({
@@ -481,7 +470,7 @@ export default function FreelancerCard() {
           name: label.charAt(0).toUpperCase() + label.slice(1),
           bg: C.purpleLight,
           iconColor: C.purple,
-          onClick: () => openFile(`/api/documents/${doc.id}/download${pt}`),
+          href: docUrl(doc.id),
         });
       });
       return (
@@ -490,16 +479,18 @@ export default function FreelancerCard() {
             <p style={{ fontSize: 12, color: C.text3 }}>No files available.</p>
           )}
           {files.map((f, i) => (
-            <div
+            <a
               key={i}
-              onClick={f.onClick ?? (() => f.href && window.open(f.href, "_blank"))}
+              href={f.href}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
                 padding: "8px 0",
                 borderBottom: "1px solid #f4f4f8",
-                cursor: "pointer",
+                textDecoration: "none",
               }}
             >
               <div
@@ -520,7 +511,7 @@ export default function FreelancerCard() {
                 <div style={{ fontSize: 11, fontWeight: 600, color: "#111" }}>{f.name}</div>
               </div>
               <Download style={{ width: 13, height: 13, color: "#bbb" }} />
-            </div>
+            </a>
           ))}
         </div>
       );
@@ -1381,7 +1372,7 @@ export default function FreelancerCard() {
                           iconBg={C.purpleLight}
                           icon={<FileText style={{ width: 15, height: 15, color: C.purple }} />}
                           label={label}
-                          onClick={() => openFile(`/api/documents/${doc.id}/download${pt}`)}
+                          href={docUrl(doc.id)}
                           action={<Download style={{ width: 14, height: 14, color: "#ccc" }} />}
                         />
                       );
