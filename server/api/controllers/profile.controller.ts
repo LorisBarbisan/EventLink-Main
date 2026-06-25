@@ -106,7 +106,21 @@ export async function getFreelancerProfile(req: Request, res: Response) {
     // scoped share links that grant public document access for this specific profile.
     const requestingUserId = (req as any).user?.id;
     const isOwner = requestingUserId === profile.user_id;
-    const responseProfile = isOwner ? profile : { ...profile, reference_token: undefined };
+
+    // Ensure the owner always has a reference token so share/QR links work
+    let resolvedProfile = profile;
+    if (isOwner && !profile.reference_token) {
+      try {
+        await storage.getOrCreateReferenceToken(profile.user_id);
+        resolvedProfile = (await storage.getFreelancerProfile(profile.user_id)) ?? profile;
+      } catch {
+        // non-fatal: profile still returned without token
+      }
+    }
+
+    const responseProfile = isOwner
+      ? resolvedProfile
+      : { ...resolvedProfile, reference_token: undefined };
 
     res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     res.set("Pragma", "no-cache");
