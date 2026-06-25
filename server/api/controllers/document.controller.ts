@@ -172,25 +172,28 @@ export async function downloadDocument(req: Request, res: Response) {
     const requestingUser = (req as any).user;
     const publicToken = req.query.pt as string | undefined;
 
+    console.log(`📥 Download request: docId=${documentId}, file_url=${document.file_url}, user=${requestingUser?.id ?? "guest"}, role=${requestingUser?.role ?? "none"}`);
+
     if (!requestingUser) {
-      // Allow access if caller provides the owner's public profile token
       if (!publicToken) {
+        console.log(`❌ Download rejected: no user, no public token`);
         return res.status(401).json({ error: "Not authenticated" });
       }
       const ownerProfile = await storage.getFreelancerProfile(document.freelancer_id);
       if (!ownerProfile?.reference_token || ownerProfile.reference_token !== publicToken) {
+        console.log(`❌ Download rejected: invalid public token`);
         return res.status(403).json({ error: "Invalid or missing access token" });
       }
     } else {
-      // Signed-in user: freelancers can only access their own documents
       if (requestingUser.role === "freelancer" && document.freelancer_id !== requestingUser.id) {
+        console.log(`❌ Download rejected: freelancer ${requestingUser.id} cannot access doc owned by ${document.freelancer_id}`);
         return res.status(403).json({ error: "Not authorized to access this document" });
       }
     }
 
     try {
       if (isLocalPath(document.file_url)) {
-        // File stored locally — stream it directly
+        console.log(`📂 Serving local file: ${document.file_url}`);
         const buffer = await readLocally(document.file_url);
         res.setHeader("Content-Type", document.file_type || "application/octet-stream");
         res.setHeader(
@@ -200,12 +203,13 @@ export async function downloadDocument(req: Request, res: Response) {
         return res.send(buffer);
       }
 
+      console.log(`☁️  Getting signed download URL for: ${document.file_url}`);
       const downloadUrl = await ObjectStorageService.getDownloadUrl(document.file_url);
       console.log(`✅ Generated download URL for document: ${document.file_url}`);
       res.json({ downloadUrl, fileName: document.original_filename });
-    } catch (objectError) {
-      console.error(`❌ Failed to get download URL for ${document.file_url}:`, objectError);
-      return res.status(404).json({ error: "Document file not found in storage" });
+    } catch (objectError: any) {
+      console.error(`❌ Failed to serve document ${document.file_url}:`, objectError?.message ?? objectError);
+      return res.status(404).json({ error: `Document file not found: ${objectError?.message ?? "storage error"}` });
     }
   } catch (error) {
     console.error("Download document error:", error);

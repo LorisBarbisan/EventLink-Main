@@ -286,16 +286,23 @@ export function DocumentUploader({
           setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
         }
       } else {
+        let errMsg = `HTTP ${response.status}`;
+        try {
+          const errData = await response.json();
+          errMsg = errData.error || errMsg;
+        } catch { /* not json */ }
+        console.error("Document download error:", errMsg);
         toast({
           title: "Download failed",
-          description: "Failed to download document. Please try again.",
+          description: errMsg,
           variant: "destructive",
         });
       }
-    } catch {
+    } catch (err) {
+      console.error("Document download exception:", err);
       toast({
         title: "Download failed",
-        description: "Failed to download document. Please try again.",
+        description: err instanceof Error ? err.message : "Network error",
         variant: "destructive",
       });
     }
@@ -590,9 +597,14 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
           document.body.removeChild(a);
           setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
         }
+      } else {
+        let errMsg = `HTTP ${response.status}`;
+        try { const e = await response.json(); errMsg = e.error || errMsg; } catch { /* not json */ }
+        console.error("Document download error:", errMsg);
+        alert(`Could not open document: ${errMsg}`);
       }
-    } catch {
-      console.error("Failed to download document");
+    } catch (err) {
+      console.error("Failed to download document", err);
     }
   };
 
