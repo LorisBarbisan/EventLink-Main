@@ -2,7 +2,12 @@ import { DOCUMENT_TYPES, insertFreelancerDocumentSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { ObjectStorageService } from "../utils/object-storage";
-import { isLocalPath, saveLocally, deleteLocally } from "../utils/local-storage-fallback";
+import {
+  isLocalPath,
+  saveLocally,
+  deleteLocally,
+  readLocally,
+} from "../utils/local-storage-fallback";
 
 const MAX_DOCUMENTS = 9;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -184,6 +189,16 @@ export async function downloadDocument(req: Request, res: Response) {
     }
 
     try {
+      if (isLocalPath(document.file_url)) {
+        const buffer = await readLocally(document.file_url);
+        res.set({
+          "Content-Type": document.file_type || "application/octet-stream",
+          "Content-Disposition": `inline; filename="${encodeURIComponent(document.original_filename)}"`,
+          "Cache-Control": "private, no-store",
+        });
+        return res.send(buffer);
+      }
+
       const downloadUrl = await ObjectStorageService.getDownloadUrl(document.file_url);
       console.log(`✅ Generated download URL for document: ${document.file_url}`);
 
