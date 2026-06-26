@@ -34,18 +34,7 @@ export async function uploadCV(req: Request, res: Response) {
     // Try object storage first; fall back to local disk if unavailable
     let storedPath: string = objectKey;
     try {
-      const signedPutUrl = await ObjectStorageService.getUploadUrl(objectKey, contentType);
-      const uploadResponse = await fetch(signedPutUrl, {
-        method: "PUT",
-        body: buffer,
-        headers: { "Content-Type": contentType },
-      });
-
-      if (!uploadResponse.ok) {
-        const errText = await uploadResponse.text().catch(() => "");
-        throw new Error(`Signed URL upload failed: ${uploadResponse.status} ${errText}`);
-      }
-
+      await ObjectStorageService.uploadBuffer(objectKey, contentType, buffer);
       console.log(`✅ CV uploaded to object storage: ${objectKey}`);
     } catch (uploadError: any) {
       console.warn(
