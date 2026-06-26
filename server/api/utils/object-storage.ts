@@ -18,9 +18,14 @@ function getR2Client(): S3Client {
     throw new Error("R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY must be set");
   }
 
+  const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
+  console.log(
+    `🔧 R2 endpoint: ${endpoint}, bucket: ${process.env.R2_BUCKET_NAME}, keyId length: ${accessKeyId.length}`
+  );
+
   return new S3Client({
     region: "auto",
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    endpoint,
     credentials: { accessKeyId, secretAccessKey },
     forcePathStyle: true,
   });
