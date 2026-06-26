@@ -19,9 +19,6 @@ function getR2Client(): S3Client {
   }
 
   const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
-  console.log(
-    `🔧 R2 endpoint: ${endpoint}, bucket: ${process.env.R2_BUCKET_NAME}, keyId length: ${accessKeyId.length}`
-  );
 
   return new S3Client({
     region: "auto",
