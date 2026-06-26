@@ -2,8 +2,13 @@ import { insertMessageAttachmentSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { cvParserService } from "../services/cv-parser.service";
 import { storage } from "../../storage";
-import { ObjectNotFoundError, ObjectStorageService } from "../utils/object-storage";
-import { isLocalPath, saveLocally, deleteLocally, readLocally } from "../utils/local-storage-fallback";
+import { ObjectStorageService } from "../utils/object-storage";
+import {
+  isLocalPath,
+  saveLocally,
+  deleteLocally,
+  readLocally,
+} from "../utils/local-storage-fallback";
 
 // Upload CV - combined endpoint that receives base64 file data and uploads to storage
 export async function uploadCV(req: Request, res: Response) {
@@ -29,9 +34,6 @@ export async function uploadCV(req: Request, res: Response) {
     // Try object storage first; fall back to local disk if unavailable
     let storedPath: string = objectKey;
     try {
-      const privateDir = process.env.PRIVATE_OBJECT_DIR;
-      if (!privateDir) throw new Error("PRIVATE_OBJECT_DIR not set");
-
       const signedPutUrl = await ObjectStorageService.getUploadUrl(objectKey, contentType);
       const uploadResponse = await fetch(signedPutUrl, {
         method: "PUT",
@@ -46,7 +48,9 @@ export async function uploadCV(req: Request, res: Response) {
 
       console.log(`✅ CV uploaded to object storage: ${objectKey}`);
     } catch (uploadError: any) {
-      console.warn(`⚠️  Object storage unavailable (${uploadError?.message}), falling back to local disk`);
+      console.warn(
+        `⚠️  Object storage unavailable (${uploadError?.message}), falling back to local disk`
+      );
       storedPath = await saveLocally(objectKey, buffer);
       console.log(`✅ CV saved locally: ${storedPath}`);
     }
@@ -73,7 +77,7 @@ export async function uploadCV(req: Request, res: Response) {
     });
 
     // Trigger CV parsing in the background (async, non-blocking)
-    cvParserService.parseCV(userId, storedPath, contentType).catch(err => {
+    cvParserService.parseCV(userId, storedPath, contentType).catch((err) => {
       console.error(`Background CV parsing failed for user ${userId}:`, err);
     });
   } catch (error) {
@@ -200,7 +204,9 @@ export async function downloadCV(req: Request, res: Response) {
           if (!res.headersSent) res.status(500).json({ error: "Error streaming CV file" });
         });
         nodeStream.pipe(res);
-        console.log(`✅ Streaming CV from object storage for freelancer ${freelancerId}: ${fileName}`);
+        console.log(
+          `✅ Streaming CV from object storage for freelancer ${freelancerId}: ${fileName}`
+        );
       }
     } catch (objectError) {
       console.error(`❌ Failed to serve CV for ${profile.cv_file_url}:`, objectError);
@@ -303,7 +309,7 @@ export async function addAttachmentToMessage(req: Request, res: Response) {
     }
 
     const conversations = await storage.getConversationsByUserId((req as any).user.id);
-    const hasAccess = conversations.some(c => c.id === message.conversation_id);
+    const hasAccess = conversations.some((c) => c.id === message.conversation_id);
 
     if (!hasAccess && message.sender_id !== (req as any).user.id) {
       return res.status(403).json({ error: "Access denied" });
@@ -365,7 +371,7 @@ export async function getMessageAttachments(req: Request, res: Response) {
     }
 
     const conversations = await storage.getConversationsByUserId((req as any).user.id);
-    const hasAccess = conversations.some(c => c.id === message.conversation_id);
+    const hasAccess = conversations.some((c) => c.id === message.conversation_id);
 
     if (!hasAccess) {
       return res.status(403).json({ error: "Access denied" });
@@ -404,7 +410,7 @@ export async function downloadAttachment(req: Request, res: Response) {
     }
 
     const conversations = await storage.getConversationsByUserId((req as any).user.id);
-    const hasAccess = conversations.some(c => c.id === message.conversation_id);
+    const hasAccess = conversations.some((c) => c.id === message.conversation_id);
 
     if (!hasAccess) {
       return res.status(403).json({ error: "Access denied" });
