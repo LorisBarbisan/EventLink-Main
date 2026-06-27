@@ -271,6 +271,12 @@ export function DocumentUploader({
         const blob = new Blob([arrayBuffer], { type: mimeType });
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, "_blank");
+      } else if (response.status === 401 || response.status === 403) {
+        toast({
+          title: "Access denied",
+          description: "You are not authorised to download this file.",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Download failed",
@@ -542,6 +548,7 @@ interface DocumentBadgesProps {
 }
 
 export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBadgesProps) {
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const isSignedIn = !!viewerRole || !!isOwner;
 
@@ -565,6 +572,12 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
         const blob = new Blob([arrayBuffer], { type: mimeType });
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, "_blank");
+      } else if (response.status === 401 || response.status === 403) {
+        toast({
+          title: "Access denied",
+          description: "You are not authorised to download this file.",
+          variant: "destructive",
+        });
       }
     } catch {
       console.error("Failed to download document");
