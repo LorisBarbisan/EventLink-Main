@@ -65,7 +65,7 @@ export function registerFileRoutes(app: Express) {
   app.get("/api/documents/:freelancerId", getDocuments);
 
   // Download document — JWT required OR valid ?pt= public profile token
-  app.get("/api/documents/:documentId/download", downloadDocument);
+  app.get("/api/documents/:documentId/download", authenticateOptionalJWT, downloadDocument);
 
   // Delete document
   app.delete("/api/documents/:documentId", authenticateJWT, deleteDocument);
