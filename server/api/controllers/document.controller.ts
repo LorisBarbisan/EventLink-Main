@@ -173,15 +173,20 @@ export async function downloadDocument(req: Request, res: Response) {
     }
 
     try {
-      const downloadUrl = await ObjectStorageService.getDownloadUrl(document.file_url);
-      console.log(`✅ Generated download URL for document: ${document.file_url}`);
+      const fileName = document.original_filename || "document";
+      const contentType = document.file_type || "application/octet-stream";
 
-      res.json({
-        downloadUrl,
-        fileName: document.original_filename,
+      res.set({
+        "Content-Type": contentType,
+        "Content-Disposition": `inline; filename="${encodeURIComponent(fileName)}"`,
+        "Cache-Control": "private, no-store",
       });
+
+      const buffer = await ObjectStorageService.downloadObjectBuffer(document.file_url);
+      res.send(buffer);
+      console.log(`✅ Served document from object storage: ${document.file_url}`);
     } catch (objectError) {
-      console.error(`❌ Failed to get download URL for ${document.file_url}:`, objectError);
+      console.error(`❌ Failed to serve document for ${document.file_url}:`, objectError);
       return res.status(404).json({ error: "Document file not found in storage" });
     }
   } catch (error) {
