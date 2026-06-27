@@ -16,10 +16,10 @@ dotenv.config();
 
 const app = express();
 
-// CRITICAL: Enable trust proxy for production deployment behind reverse proxy (Replit)
+// CRITICAL: Enable trust proxy for production deployment behind reverse proxy (Railway)
 // This fixes rate limiting and IP detection issues in production
 if (process.env.NODE_ENV === "production") {
-  app.set("trust proxy", 1); // Trust first proxy (Replit's reverse proxy)
+  app.set("trust proxy", true); // Trust Railway's reverse proxy chain
   console.log("✅ Trust proxy enabled for production");
 } else {
   // More specific trust proxy for development to avoid rate limiting warnings
@@ -204,7 +204,7 @@ app.use((req, res, next) => {
   // Reconcile admin users on startup
   await reconcileAdminUsers();
   await seedProductionJobs();
-  backfillSlugs().catch(err => console.error("Slug backfill failed:", err));
+  backfillSlugs().catch((err) => console.error("Slug backfill failed:", err));
   registerJobNotificationScheduler();
 
   // OG tag middleware for social media crawlers (must be before Vite catch-all)
@@ -252,7 +252,7 @@ app.use((req, res, next) => {
   };
 
   process.on("SIGTERM", () => shutdown("SIGTERM"));
-  process.on("SIGINT",  () => shutdown("SIGINT"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 
   server.on("error", (err: NodeJS.ErrnoException) => {
     if (err.code === "EADDRINUSE") {
@@ -274,12 +274,15 @@ app.use((req, res, next) => {
       console.error("Failed to close expired jobs on startup:", err);
     }
 
-    setInterval(async () => {
-      try {
-        await storage.closeExpiredJobs();
-      } catch (err) {
-        console.error("Periodic job expiry check failed:", err);
-      }
-    }, 60 * 60 * 1000);
+    setInterval(
+      async () => {
+        try {
+          await storage.closeExpiredJobs();
+        } catch (err) {
+          console.error("Periodic job expiry check failed:", err);
+        }
+      },
+      60 * 60 * 1000
+    );
   });
 })();
