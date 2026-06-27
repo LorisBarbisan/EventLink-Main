@@ -629,18 +629,17 @@ export default function Profile() {
         throw new Error(errorData.error || "Failed to download CV");
       }
 
-      const blob = await response.blob();
+      const arrayBuffer = await response.arrayBuffer();
+      const mimeType =
+        response.headers.get("Content-Type") ||
+        cvProfile.cv_file_type ||
+        "application/octet-stream";
+      const blob = new Blob([arrayBuffer], { type: mimeType });
       const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = cvProfile.cv_file_name || "CV.pdf";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
+      window.open(blobUrl, "_blank");
       toast({
         title: "Success",
-        description: "CV downloaded",
+        description: "CV opened in new tab",
       });
     } catch (error) {
       console.error("Error downloading CV:", error);
