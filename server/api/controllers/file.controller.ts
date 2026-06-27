@@ -175,27 +175,10 @@ export async function downloadCV(req: Request, res: Response) {
         res.send(buffer);
         console.log(`✅ Served CV from local disk for freelancer ${freelancerId}: ${fileName}`);
       } else {
-        // Object storage via signed GET URL
-        const signedGetUrl = await ObjectStorageService.getDownloadUrl(profile.cv_file_url);
-        const storageRes = await fetch(signedGetUrl);
-
-        if (!storageRes.ok) {
-          if (storageRes.status === 404) {
-            return res.status(404).json({ error: "CV file not found in storage" });
-          }
-          throw new Error(`Storage fetch failed: ${storageRes.status}`);
-        }
-
-        const { Readable } = await import("stream");
-        const nodeStream = Readable.fromWeb(storageRes.body as any);
-        nodeStream.on("error", (err: Error) => {
-          console.error(`❌ Stream error for CV ${profile.cv_file_url}:`, err);
-          if (!res.headersSent) res.status(500).json({ error: "Error streaming CV file" });
-        });
-        nodeStream.pipe(res);
-        console.log(
-          `✅ Streaming CV from object storage for freelancer ${freelancerId}: ${fileName}`
-        );
+        // Stream directly from object storage via SDK
+        const buffer = await ObjectStorageService.downloadObjectBuffer(profile.cv_file_url);
+        res.send(buffer);
+        console.log(`✅ Served CV from object storage for freelancer ${freelancerId}: ${fileName}`);
       }
     } catch (objectError) {
       console.error(`❌ Failed to serve CV for ${profile.cv_file_url}:`, objectError);
