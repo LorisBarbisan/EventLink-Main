@@ -1156,7 +1156,7 @@ export const portfolio_posts = pgTable(
     user_id: integer("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    type: text("type").notNull().$type<"photo" | "video" | "blog">(),
+    type: text("type").notNull().$type<"photo" | "video" | "blog" | "link">(),
     title: text("title"),
     body: text("body"),
     media_url: text("media_url"),

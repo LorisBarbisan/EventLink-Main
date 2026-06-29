@@ -20,7 +20,7 @@ export async function createPortfolioPost(req: Request, res: Response) {
     return res.status(403).json({ error: "Portfolio requires Pro subscription" });
   }
   const { type, title, body, media_url } = req.body;
-  if (!type || !["photo", "video", "blog"].includes(type)) {
+  if (!type || !["photo", "video", "blog", "link"].includes(type)) {
     return res.status(400).json({ error: "Invalid post type" });
   }
   const post = await storage.createPortfolioPost({
