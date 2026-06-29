@@ -689,7 +689,7 @@ export default function FreelancerCard() {
               }}
               style={{
                 width: "min(340px, calc(100vw - 32px))",
-                height: "min(566px, calc((100vw - 32px) * 1.665))",
+                height: "min(calc(100dvh - 120px), calc((100vw - 32px) * 1.9))",
                 perspective: 1000,
                 cursor: "pointer",
               }}
@@ -743,19 +743,53 @@ export default function FreelancerCard() {
                     style={{ width: "100%", height: 1, background: "#f0f0f4", margin: "12px 0" }}
                   />
                   <VerifiedBadge />
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 5,
-                      justifyContent: "center",
-                      margin: "12px 0",
-                    }}
-                  >
-                    {skills.slice(0, 6).map((s) => (
-                      <SkillPill key={s} label={s} style={{ fontSize: 11, padding: "3px 9px" }} />
-                    ))}
-                  </div>
+                  {(freelancer.phone || freelancer.contact_email) && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 8,
+                        margin: "14px 0",
+                        width: "100%",
+                      }}
+                    >
+                      {freelancer.phone && (
+                        <a
+                          href={`tel:${freelancer.phone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            fontSize: 14,
+                            color: "#333",
+                            textDecoration: "none",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 7,
+                            fontWeight: 500,
+                          }}
+                        >
+                          <span style={{ fontSize: 16 }}>📞</span> {freelancer.phone}
+                        </a>
+                      )}
+                      {freelancer.contact_email && (
+                        <a
+                          href={`mailto:${freelancer.contact_email}`}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            fontSize: 13,
+                            color: "#333",
+                            textDecoration: "none",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 7,
+                            fontWeight: 500,
+                          }}
+                        >
+                          <span style={{ fontSize: 16 }}>✉️</span> {freelancer.contact_email}
+                        </a>
+                      )}
+                    </div>
+                  )}
                   <div
                     style={{
                       marginTop: "auto",
