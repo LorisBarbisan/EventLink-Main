@@ -50,6 +50,7 @@ export default function FreelancerCard() {
   const [flipped, setFlipped] = useState(false);
   const [detail, setDetail] = useState<Detail>(null);
   const [rightTab, setRightTab] = useState<RightTab>("about");
+  const [darkMode, setDarkMode] = useState(false);
 
   const { data: freelancer, isLoading } = useQuery({
     queryKey: ["/api/freelancer", userId],
@@ -543,8 +544,8 @@ export default function FreelancerCard() {
           display: "flex",
           alignItems: "center",
           gap: 12,
-          background: C.bg2,
-          border: `1px solid ${C.border}`,
+          background: DM.cardBg2,
+          border: `1px solid ${DM.cardBorder}`,
           borderRadius: 12,
           padding: "13px 14px",
           marginBottom: 9,
@@ -566,10 +567,10 @@ export default function FreelancerCard() {
           {icon}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{label}</span>
-          <span style={{ fontSize: 11, color: "#888" }}>{sub}</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: DM.text1 }}>{label}</span>
+          <span style={{ fontSize: 11, color: DM.text2 }}>{sub}</span>
         </div>
-        <ChevronRight style={{ marginLeft: "auto", width: 15, height: 15, color: "#bbb" }} />
+        <ChevronRight style={{ marginLeft: "auto", width: 15, height: 15, color: DM.text3 }} />
       </div>
     );
   }
@@ -609,8 +610,8 @@ export default function FreelancerCard() {
           {icon}
         </div>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>{label}</div>
-          {sub && <div style={{ fontSize: 11, color: "#888", marginTop: 1 }}>{sub}</div>}
+          <div style={{ fontSize: 13, fontWeight: 600, color: DM.text1 }}>{label}</div>
+          {sub && <div style={{ fontSize: 11, color: DM.text2, marginTop: 1 }}>{sub}</div>}
         </div>
         {action && <span style={{ marginLeft: "auto" }}>{action}</span>}
       </>
@@ -620,10 +621,10 @@ export default function FreelancerCard() {
       alignItems: "center",
       gap: 10,
       padding: "10px 12px",
-      border: `1px solid ${C.border}`,
+      border: `1px solid ${DM.cardBorder}`,
       borderRadius: 8,
       marginBottom: 8,
-      background: C.bg2,
+      background: DM.cardBg2,
     } as React.CSSProperties;
     if (href)
       return (
@@ -647,10 +648,43 @@ export default function FreelancerCard() {
 
   const DETAIL_PANELS: Detail[] = ["about", "credentials", "portfolio", "files"];
 
+  // Dark mode theme overrides
+  const DM = darkMode
+    ? {
+        pageBg: "#111",
+        cardBg: "#1c1c1e",
+        cardBg2: "#2c2c2e",
+        cardBorder: "rgba(255,255,255,0.10)",
+        divider: "rgba(255,255,255,0.08)",
+        text1: "#f5f5f7",
+        text2: "#a1a1a6",
+        text3: "#6e6e73",
+        headerBg: "#1c1c1e",
+        headerBorder: "rgba(255,255,255,0.08)",
+        rowBg: "#2c2c2e",
+        pillBg: "#2c2c2e",
+        pillText: "#f5f5f7",
+      }
+    : {
+        pageBg: C.bg3,
+        cardBg: "#fff",
+        cardBg2: C.bg2,
+        cardBorder: "#e0e0e8",
+        divider: "#f0f0f4",
+        text1: "#111",
+        text2: C.text2,
+        text3: C.text3,
+        headerBg: "white",
+        headerBorder: C.border,
+        rowBg: "#fff",
+        pillBg: C.bg3,
+        pillText: "#333",
+      };
+
   return (
     <div
       style={{
-        background: C.bg3,
+        background: DM.pageBg,
         minHeight: "100vh",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
@@ -658,16 +692,32 @@ export default function FreelancerCard() {
       {/* ── HEADER ── */}
       <div
         style={{
-          background: "white",
-          borderBottom: `1px solid ${C.border}`,
+          background: DM.headerBg,
+          borderBottom: `1px solid ${DM.headerBorder}`,
           padding: "12px 16px",
           display: "flex",
           alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
         <span style={{ fontWeight: 700, color: C.orange, fontSize: 16, letterSpacing: "-0.3px" }}>
           EventLink
         </span>
+        <button
+          onClick={() => setDarkMode((d) => !d)}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontSize: 18,
+            lineHeight: 1,
+            padding: 4,
+            color: darkMode ? "#f5f5f7" : "#555",
+          }}
+          title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {darkMode ? "☀️" : "🌙"}
+        </button>
       </div>
 
       {/* ══════════════ CARD VIEW ══════════════ */}
@@ -710,8 +760,8 @@ export default function FreelancerCard() {
                     position: "absolute",
                     inset: 0,
                     backfaceVisibility: "hidden",
-                    background: "#fff",
-                    border: "1px solid #e0e0e8",
+                    background: DM.cardBg,
+                    border: `1px solid ${DM.cardBorder}`,
                     borderRadius: 18,
                     display: "flex",
                     flexDirection: "column",
@@ -724,23 +774,23 @@ export default function FreelancerCard() {
                       width: 16,
                       height: 16,
                       borderRadius: "50%",
-                      border: "1.5px solid #ccc",
-                      background: C.bg3,
+                      border: `1.5px solid ${DM.cardBorder}`,
+                      background: DM.cardBg2,
                       marginBottom: 16,
                     }}
                   />
                   <div style={{ marginBottom: 14 }}>
                     <Avatar size={96} />
                   </div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: "#111", marginBottom: 4 }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: DM.text1, marginBottom: 4 }}>
                     {fullName}
                   </div>
-                  <div style={{ fontSize: 13, color: "#777", marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, color: DM.text2, marginBottom: 12 }}>
                     {freelancer.title || "Freelancer"}
                   </div>
                   <RatingPill />
                   <div
-                    style={{ width: "100%", height: 1, background: "#f0f0f4", margin: "12px 0" }}
+                    style={{ width: "100%", height: 1, background: DM.divider, margin: "12px 0" }}
                   />
                   <VerifiedBadge />
                   {(freelancer.phone || freelancer.contact_email) && (
@@ -760,7 +810,7 @@ export default function FreelancerCard() {
                           onClick={(e) => e.stopPropagation()}
                           style={{
                             fontSize: 14,
-                            color: "#333",
+                            color: DM.text1,
                             textDecoration: "none",
                             display: "flex",
                             alignItems: "center",
@@ -777,7 +827,7 @@ export default function FreelancerCard() {
                           onClick={(e) => e.stopPropagation()}
                           style={{
                             fontSize: 13,
-                            color: "#333",
+                            color: DM.text1,
                             textDecoration: "none",
                             display: "flex",
                             alignItems: "center",
@@ -794,7 +844,7 @@ export default function FreelancerCard() {
                     style={{
                       marginTop: "auto",
                       fontSize: 12,
-                      color: "#aaa",
+                      color: DM.text3,
                       display: "flex",
                       alignItems: "center",
                       gap: 4,
@@ -822,8 +872,8 @@ export default function FreelancerCard() {
                     position: "absolute",
                     inset: 0,
                     backfaceVisibility: "hidden",
-                    background: "#fff",
-                    border: "1px solid #e0e0e8",
+                    background: DM.cardBg,
+                    border: `1px solid ${DM.cardBorder}`,
                     borderRadius: 18,
                     transform: "rotateY(180deg)",
                     overflow: "hidden",
@@ -843,10 +893,10 @@ export default function FreelancerCard() {
                     >
                       <Avatar size={44} />
                       <div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: DM.text1 }}>
                           {fullName}
                         </div>
-                        <div style={{ fontSize: 12, color: "#888" }}>
+                        <div style={{ fontSize: 12, color: DM.text2 }}>
                           {freelancer.title || "Freelancer"}
                         </div>
                       </div>
@@ -887,7 +937,7 @@ export default function FreelancerCard() {
                         style={{
                           marginTop: 10,
                           padding: "8px 10px",
-                          background: C.bg2,
+                          background: DM.cardBg2,
                           borderRadius: 8,
                           display: "flex",
                           flexDirection: "column",
@@ -900,7 +950,7 @@ export default function FreelancerCard() {
                             onClick={(e) => e.stopPropagation()}
                             style={{
                               fontSize: 12,
-                              color: "#444",
+                              color: DM.text1,
                               textDecoration: "none",
                               display: "flex",
                               alignItems: "center",
@@ -916,7 +966,7 @@ export default function FreelancerCard() {
                             onClick={(e) => e.stopPropagation()}
                             style={{
                               fontSize: 12,
-                              color: "#444",
+                              color: DM.text1,
                               textDecoration: "none",
                               display: "flex",
                               alignItems: "center",
@@ -948,11 +998,11 @@ export default function FreelancerCard() {
                           style={{
                             flex: 1,
                             padding: "11px 4px",
-                            border: `1px solid ${C.border2}`,
-                            background: btn.primary ? C.orange : C.bg2,
+                            border: `1px solid ${DM.cardBorder}`,
+                            background: btn.primary ? C.orange : DM.cardBg2,
                             borderRadius: 10,
                             fontSize: 12,
-                            color: btn.primary ? "#fff" : "#444",
+                            color: btn.primary ? "#fff" : DM.text1,
                             display: "flex",
                             flexDirection: "column",
                             alignItems: "center",
@@ -997,7 +1047,7 @@ export default function FreelancerCard() {
                       style={{
                         position: "absolute",
                         inset: 0,
-                        background: "#fff",
+                        background: DM.cardBg,
                         borderRadius: 18,
                         padding: "12px 12px 10px",
                         overflow: "hidden",
@@ -1032,14 +1082,15 @@ export default function FreelancerCard() {
                         style={{
                           fontSize: 14,
                           fontWeight: 700,
-                          color: "#111",
+                          color: DM.text1,
                           marginBottom: 10,
                           paddingBottom: 8,
-                          borderBottom: "1px solid #f0f0f4",
+                          borderBottom: `1px solid ${DM.divider}`,
                         }}
                       >
                         {panelId!.charAt(0).toUpperCase() + panelId!.slice(1)}
                       </div>
+
                       <div style={{ flex: 1, overflowY: "auto" }}>{renderDetail(panelId)}</div>
                     </div>
                   ))}
@@ -1070,8 +1121,8 @@ export default function FreelancerCard() {
               style={{
                 width: 210,
                 flexShrink: 0,
-                background: "#fff",
-                border: `1px solid ${C.border2}`,
+                background: DM.cardBg,
+                border: `1px solid ${DM.cardBorder}`,
                 borderRadius: 14,
                 padding: "20px 14px",
                 display: "flex",
@@ -1084,14 +1135,14 @@ export default function FreelancerCard() {
                 style={{
                   fontSize: 15,
                   fontWeight: 700,
-                  color: "#111",
+                  color: DM.text1,
                   margin: "10px 0 3px",
                   textAlign: "center",
                 }}
               >
                 {fullName}
               </div>
-              <div style={{ fontSize: 12, color: "#888", marginBottom: 10, textAlign: "center" }}>
+              <div style={{ fontSize: 12, color: DM.text2, marginBottom: 10, textAlign: "center" }}>
                 {freelancer.title || "Freelancer"}
               </div>
               <RatingPill />
@@ -1112,7 +1163,7 @@ export default function FreelancerCard() {
                 ))}
               </div>
               <div
-                style={{ width: "100%", height: 1, background: "#f0f0f4", margin: "6px 0 10px" }}
+                style={{ width: "100%", height: 1, background: DM.divider, margin: "6px 0 10px" }}
               />
               {(freelancer.phone || freelancer.contact_email) && (
                 <div
@@ -1129,7 +1180,7 @@ export default function FreelancerCard() {
                       href={`tel:${freelancer.phone}`}
                       style={{
                         fontSize: 11,
-                        color: "#555",
+                        color: DM.text2,
                         textDecoration: "none",
                         display: "flex",
                         alignItems: "center",
@@ -1144,7 +1195,7 @@ export default function FreelancerCard() {
                       href={`mailto:${freelancer.contact_email}`}
                       style={{
                         fontSize: 11,
-                        color: "#555",
+                        color: DM.text2,
                         textDecoration: "none",
                         display: "flex",
                         alignItems: "center",
@@ -1161,7 +1212,7 @@ export default function FreelancerCard() {
                 style={{
                   marginTop: "auto",
                   fontSize: 10,
-                  color: "#bbb",
+                  color: DM.text3,
                   display: "flex",
                   alignItems: "center",
                   gap: 3,
@@ -1189,7 +1240,7 @@ export default function FreelancerCard() {
               <div
                 style={{
                   display: "flex",
-                  borderBottom: `1px solid ${C.border}`,
+                  borderBottom: `1px solid ${DM.cardBorder}`,
                   marginBottom: 14,
                 }}
               >
@@ -1204,7 +1255,7 @@ export default function FreelancerCard() {
                       border: "none",
                       borderBottom: `2px solid ${rightTab === tab ? C.orange : "transparent"}`,
                       cursor: "pointer",
-                      color: rightTab === tab ? C.orange : C.text2,
+                      color: rightTab === tab ? C.orange : DM.text2,
                       fontWeight: rightTab === tab ? 700 : 500,
                       marginBottom: -1,
                     }}
@@ -1221,7 +1272,7 @@ export default function FreelancerCard() {
                     <p
                       style={{
                         fontSize: 13,
-                        color: C.text2,
+                        color: DM.text2,
                         lineHeight: 1.7,
                         paddingBottom: 12,
                       }}

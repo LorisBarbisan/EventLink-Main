@@ -12,6 +12,7 @@ import { useIsPro } from "@/hooks/useIsPro";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 import type { FreelancerFormData, JobApplication } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -23,12 +24,16 @@ import {
   Clock,
   Copy,
   Download,
+  ExternalLink,
   Mail,
+  Play,
+  Plus,
   QrCode,
   Send,
   Share2,
   ShieldCheck,
   Star,
+  Trash2,
   X,
   Zap,
 } from "lucide-react";
@@ -183,6 +188,82 @@ export default function SimplifiedFreelancerDashboard() {
     enabled: !!user?.id,
   });
 
+  // Portfolio management
+  interface PortfolioPost {
+    id: number;
+    user_id: number;
+    type: "photo" | "video" | "blog" | "link";
+    title: string | null;
+    body: string | null;
+    media_url: string | null;
+    thumbnail_url: string | null;
+    created_at: string;
+  }
+  const [viewingPost, setViewingPost] = useState<PortfolioPost | null>(null);
+  const [showAddPost, setShowAddPost] = useState(false);
+  const [addPostType, setAddPostType] = useState<"photo" | "video" | "link">("photo");
+  const [addPostTitle, setAddPostTitle] = useState("");
+  const [addPostBody, setAddPostBody] = useState("");
+  const [addPostFile, setAddPostFile] = useState<File | null>(null);
+  const [addPostUrl, setAddPostUrl] = useState("");
+  const portfolioFileRef = useRef<HTMLInputElement>(null);
+
+  const { data: portfolioItems = [], refetch: refetchPortfolio } = useQuery<PortfolioPost[]>({
+    queryKey: ["/api/portfolio", user?.id],
+    queryFn: () => apiRequest(`/api/portfolio?userId=${user!.id}`),
+    enabled: !!user?.id,
+  });
+
+  const addPortfolioMutation = useMutation({
+    mutationFn: async () => {
+      let media_url: string | null = null;
+      if (addPostFile) {
+        const formData = new FormData();
+        formData.append("file", addPostFile);
+        const token = localStorage.getItem("auth_token");
+        const uploadRes = await fetch("/api/portfolio/upload", {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: formData,
+        });
+        if (!uploadRes.ok) throw new Error("Upload failed");
+        const uploadData = await uploadRes.json();
+        media_url = uploadData.url;
+      } else if (addPostUrl) {
+        media_url = addPostUrl;
+      }
+      return apiRequest("/api/portfolio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: addPostType,
+          title: addPostTitle || null,
+          body: addPostBody || null,
+          media_url,
+        }),
+      });
+    },
+    onSuccess: () => {
+      refetchPortfolio();
+      setShowAddPost(false);
+      setAddPostTitle("");
+      setAddPostBody("");
+      setAddPostFile(null);
+      setAddPostUrl("");
+      toast({ title: "Portfolio item added" });
+    },
+    onError: () => toast({ title: "Failed to add item", variant: "destructive" }),
+  });
+
+  const deletePortfolioMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/portfolio/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      refetchPortfolio();
+      setViewingPost(null);
+      toast({ title: "Deleted" });
+    },
+  });
+
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
 
@@ -333,8 +414,9 @@ export default function SimplifiedFreelancerDashboard() {
       )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
+          <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
             My Applications
             <TabBadge count={roleSpecificCounts.applications || 0} />
@@ -544,6 +626,230 @@ export default function SimplifiedFreelancerDashboard() {
         {/* Bookings Tab */}
         <TabsContent value="bookings" className="space-y-6">
           <MyJobs />
+        </TabsContent>
+
+        {/* Portfolio Tab */}
+        <TabsContent value="portfolio">
+          {!isPro ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
+              <p className="text-sm font-medium">Portfolio is a Pro feature.</p>
+              <p className="text-xs">Upgrade your account to add and showcase your work.</p>
+            </div>
+          ) : (
+            <div>
+              <div className="mb-4 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {portfolioItems.length} item{portfolioItems.length !== 1 ? "s" : ""}
+                </p>
+                <Button size="sm" onClick={() => setShowAddPost(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Item
+                </Button>
+              </div>
+
+              {portfolioItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16 text-muted-foreground">
+                  <p className="text-sm">No portfolio items yet. Add your first item above.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-0.5">
+                  {portfolioItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setViewingPost(item)}
+                      className="group relative aspect-square overflow-hidden border border-border/40 bg-white transition-opacity hover:opacity-90"
+                    >
+                      {item.type === "photo" && item.media_url && (
+                        <img
+                          src={item.media_url}
+                          alt={item.title || ""}
+                          className="h-full w-full object-cover"
+                        />
+                      )}
+                      {item.type === "video" && (
+                        <>
+                          {item.thumbnail_url && (
+                            <img
+                              src={item.thumbnail_url}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          )}
+                          <div
+                            className={cn(
+                              "absolute inset-0 flex items-center justify-center",
+                              !item.thumbnail_url && "bg-white"
+                            )}
+                          >
+                            <Play className="h-8 w-8 text-primary drop-shadow-lg" />
+                          </div>
+                        </>
+                      )}
+                      {item.type === "link" && (
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-primary/5 p-3">
+                          <ExternalLink className="h-7 w-7 text-primary" />
+                          {item.title && (
+                            <p className="line-clamp-2 text-center text-xs font-medium">
+                              {item.title}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {item.type === "blog" && (
+                        <div className="flex h-full w-full items-center justify-center bg-white p-3">
+                          <p className="line-clamp-4 text-center text-xs text-muted-foreground">
+                            {item.title || item.body}
+                          </p>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Add portfolio item dialog */}
+              <Dialog open={showAddPost} onOpenChange={setShowAddPost}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Add Portfolio Item</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-2">
+                    <div className="flex gap-2">
+                      {(["photo", "video", "link"] as const).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => {
+                            setAddPostType(t);
+                            setAddPostFile(null);
+                            setAddPostUrl("");
+                          }}
+                          className={cn(
+                            "flex-1 rounded-md border py-2 text-sm font-medium capitalize transition-colors",
+                            addPostType === t
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                    {(addPostType === "photo" || addPostType === "video") && (
+                      <div>
+                        <input
+                          ref={portfolioFileRef}
+                          type="file"
+                          accept={
+                            addPostType === "photo"
+                              ? "image/jpeg,image/png,image/gif,image/webp"
+                              : "video/mp4,video/quicktime,video/webm,video/x-msvideo,video/avi"
+                          }
+                          className="hidden"
+                          onChange={(e) => setAddPostFile(e.target.files?.[0] ?? null)}
+                        />
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => portfolioFileRef.current?.click()}
+                        >
+                          {addPostFile ? addPostFile.name : `Choose ${addPostType} file`}
+                        </Button>
+                      </div>
+                    )}
+                    {addPostType === "link" && (
+                      <Input
+                        placeholder="https://..."
+                        value={addPostUrl}
+                        onChange={(e) => setAddPostUrl(e.target.value)}
+                      />
+                    )}
+                    <Input
+                      placeholder="Title (optional)"
+                      value={addPostTitle}
+                      onChange={(e) => setAddPostTitle(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Description (optional)"
+                      value={addPostBody}
+                      onChange={(e) => setAddPostBody(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setShowAddPost(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => addPortfolioMutation.mutate()}
+                      disabled={
+                        addPortfolioMutation.isPending ||
+                        (addPostType !== "link" && !addPostFile) ||
+                        (addPostType === "link" && !addPostUrl)
+                      }
+                    >
+                      {addPortfolioMutation.isPending ? "Uploading..." : "Add"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* View/delete item dialog */}
+              {viewingPost && (
+                <Dialog open={!!viewingPost} onOpenChange={(open) => !open && setViewingPost(null)}>
+                  <DialogContent className="max-w-2xl overflow-hidden p-0">
+                    <div className="relative">
+                      {viewingPost.type === "photo" && viewingPost.media_url && (
+                        <img
+                          src={viewingPost.media_url}
+                          alt={viewingPost.title || ""}
+                          className="max-h-[70vh] w-full bg-white object-contain"
+                        />
+                      )}
+                      {viewingPost.type === "video" && viewingPost.media_url && (
+                        <video
+                          src={viewingPost.media_url}
+                          controls
+                          className="max-h-[70vh] w-full bg-white"
+                        />
+                      )}
+                      {viewingPost.type === "link" && (
+                        <div className="flex flex-col items-center justify-center gap-4 bg-white p-12">
+                          <ExternalLink className="h-12 w-12 text-primary" />
+                          <a
+                            href={viewingPost.media_url || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="break-all text-center text-primary hover:underline"
+                          >
+                            {viewingPost.media_url}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                    {(viewingPost.title || viewingPost.body) && (
+                      <div className="space-y-1 p-4">
+                        {viewingPost.title && <p className="font-semibold">{viewingPost.title}</p>}
+                        {viewingPost.body && (
+                          <p className="text-sm text-muted-foreground">{viewingPost.body}</p>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex justify-end px-4 pb-4">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => deletePortfolioMutation.mutate(viewingPost.id)}
+                        disabled={deletePortfolioMutation.isPending}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+          )}
         </TabsContent>
 
         {/* References Tab */}

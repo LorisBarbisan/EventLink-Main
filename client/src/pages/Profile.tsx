@@ -1436,7 +1436,7 @@ export default function Profile() {
                         <button
                           key={item.id}
                           onClick={() => setViewingPost(item)}
-                          className="group relative aspect-square overflow-hidden bg-muted transition-opacity hover:opacity-90"
+                          className="group relative aspect-square overflow-hidden bg-white transition-opacity hover:opacity-90"
                         >
                           {item.type === "photo" && item.media_url && (
                             <img
@@ -1457,7 +1457,7 @@ export default function Profile() {
                               <div
                                 className={cn(
                                   "absolute inset-0 flex items-center justify-center",
-                                  !item.thumbnail_url && "bg-gray-800"
+                                  !item.thumbnail_url && "bg-white"
                                 )}
                               >
                                 <Play className="h-8 w-8 text-white drop-shadow-lg" />
@@ -1475,7 +1475,7 @@ export default function Profile() {
                             </div>
                           )}
                           {item.type === "blog" && (
-                            <div className="flex h-full w-full items-center justify-center bg-muted/80 p-3">
+                            <div className="flex h-full w-full items-center justify-center bg-white p-3">
                               <p className="line-clamp-4 text-center text-xs text-muted-foreground">
                                 {item.title || item.body}
                               </p>
@@ -1719,18 +1719,18 @@ export default function Profile() {
                 <img
                   src={viewingPost.media_url}
                   alt={viewingPost.title || ""}
-                  className="max-h-[70vh] w-full bg-black object-contain"
+                  className="max-h-[70vh] w-full bg-white object-contain"
                 />
               )}
               {viewingPost.type === "video" && viewingPost.media_url && (
                 <video
                   src={viewingPost.media_url}
                   controls
-                  className="max-h-[70vh] w-full bg-black"
+                  className="max-h-[70vh] w-full bg-white"
                 />
               )}
               {viewingPost.type === "link" && (
-                <div className="flex flex-col items-center justify-center gap-4 bg-muted/30 p-12">
+                <div className="flex flex-col items-center justify-center gap-4 bg-white p-12">
                   <ExternalLink className="h-12 w-12 text-primary" />
                   <a
                     href={viewingPost.media_url || "#"}
