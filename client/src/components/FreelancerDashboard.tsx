@@ -207,6 +207,51 @@ export default function SimplifiedFreelancerDashboard() {
   const [addPostFile, setAddPostFile] = useState<File | null>(null);
   const [addPostUrl, setAddPostUrl] = useState("");
   const portfolioFileRef = useRef<HTMLInputElement>(null);
+  const [thumbnailCandidates, setThumbnailCandidates] = useState<string[]>([]);
+  const [selectedThumbnailIdx, setSelectedThumbnailIdx] = useState<number | null>(null);
+  const [customThumbnailFile, setCustomThumbnailFile] = useState<File | null>(null);
+  const [thumbnailsLoading, setThumbnailsLoading] = useState(false);
+  const customThumbnailRef = useRef<HTMLInputElement>(null);
+
+  const generateVideoThumbnails = async (file: File): Promise<string[]> => {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.muted = true;
+      const url = URL.createObjectURL(file);
+      video.src = url;
+      const candidates: string[] = [];
+      const timestamps: number[] = [];
+      video.onloadedmetadata = () => {
+        const d = video.duration;
+        // Sample at 10%, 30%, 55%, 75% of duration
+        [0.1, 0.3, 0.55, 0.75].forEach((pct) => timestamps.push(Math.min(d * pct, d - 0.1)));
+        let idx = 0;
+        const captureNext = () => {
+          if (idx >= timestamps.length) {
+            URL.revokeObjectURL(url);
+            resolve(candidates);
+            return;
+          }
+          video.currentTime = timestamps[idx];
+        };
+        video.onseeked = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          canvas.getContext("2d")!.drawImage(video, 0, 0);
+          candidates.push(canvas.toDataURL("image/jpeg", 0.85));
+          idx++;
+          captureNext();
+        };
+        captureNext();
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve([]);
+      };
+    });
+  };
 
   const { data: portfolioItems = [], refetch: refetchPortfolio } = useQuery<PortfolioPost[]>({
     queryKey: ["/api/portfolio", user?.id],
@@ -214,24 +259,42 @@ export default function SimplifiedFreelancerDashboard() {
     enabled: !!user?.id,
   });
 
+  const uploadBlob = async (blob: Blob, filename: string): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", blob, filename);
+    const token = localStorage.getItem("auth_token");
+    const res = await fetch("/api/portfolio/upload", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) throw new Error("Upload failed");
+    return (await res.json()).url;
+  };
+
   const addPortfolioMutation = useMutation({
     mutationFn: async () => {
       let media_url: string | null = null;
+      let thumbnail_url: string | null = null;
+
       if (addPostFile) {
-        const formData = new FormData();
-        formData.append("file", addPostFile);
-        const token = localStorage.getItem("auth_token");
-        const uploadRes = await fetch("/api/portfolio/upload", {
-          method: "POST",
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          body: formData,
-        });
-        if (!uploadRes.ok) throw new Error("Upload failed");
-        const uploadData = await uploadRes.json();
-        media_url = uploadData.url;
+        media_url = await uploadBlob(addPostFile, addPostFile.name);
       } else if (addPostUrl) {
         media_url = addPostUrl;
       }
+
+      // Upload thumbnail for video posts
+      if (addPostType === "video") {
+        if (customThumbnailFile) {
+          thumbnail_url = await uploadBlob(customThumbnailFile, customThumbnailFile.name);
+        } else if (selectedThumbnailIdx !== null && thumbnailCandidates[selectedThumbnailIdx]) {
+          const dataUrl = thumbnailCandidates[selectedThumbnailIdx];
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          thumbnail_url = await uploadBlob(blob, "thumbnail.jpg");
+        }
+      }
+
       return apiRequest("/api/portfolio", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -240,6 +303,7 @@ export default function SimplifiedFreelancerDashboard() {
           title: addPostTitle || null,
           body: addPostBody || null,
           media_url,
+          thumbnail_url,
         }),
       });
     },
@@ -250,6 +314,9 @@ export default function SimplifiedFreelancerDashboard() {
       setAddPostBody("");
       setAddPostFile(null);
       setAddPostUrl("");
+      setThumbnailCandidates([]);
+      setSelectedThumbnailIdx(null);
+      setCustomThumbnailFile(null);
       toast({ title: "Portfolio item added" });
     },
     onError: () => toast({ title: "Failed to add item", variant: "destructive" }),
@@ -723,6 +790,9 @@ export default function SimplifiedFreelancerDashboard() {
                             setAddPostType(t);
                             setAddPostFile(null);
                             setAddPostUrl("");
+                            setThumbnailCandidates([]);
+                            setSelectedThumbnailIdx(null);
+                            setCustomThumbnailFile(null);
                           }}
                           className={cn(
                             "flex-1 rounded-md border py-2 text-sm font-medium capitalize transition-colors",
@@ -736,7 +806,7 @@ export default function SimplifiedFreelancerDashboard() {
                       ))}
                     </div>
                     {(addPostType === "photo" || addPostType === "video") && (
-                      <div>
+                      <div className="space-y-3">
                         <input
                           ref={portfolioFileRef}
                           type="file"
@@ -746,7 +816,20 @@ export default function SimplifiedFreelancerDashboard() {
                               : "video/mp4,video/quicktime,video/webm,video/x-msvideo,video/avi"
                           }
                           className="hidden"
-                          onChange={(e) => setAddPostFile(e.target.files?.[0] ?? null)}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0] ?? null;
+                            setAddPostFile(file);
+                            setThumbnailCandidates([]);
+                            setSelectedThumbnailIdx(null);
+                            setCustomThumbnailFile(null);
+                            if (file && addPostType === "video") {
+                              setThumbnailsLoading(true);
+                              const candidates = await generateVideoThumbnails(file);
+                              setThumbnailCandidates(candidates);
+                              if (candidates.length > 0) setSelectedThumbnailIdx(0);
+                              setThumbnailsLoading(false);
+                            }
+                          }}
                         />
                         <Button
                           variant="outline"
@@ -755,6 +838,68 @@ export default function SimplifiedFreelancerDashboard() {
                         >
                           {addPostFile ? addPostFile.name : `Choose ${addPostType} file`}
                         </Button>
+
+                        {/* Thumbnail picker — video only */}
+                        {addPostType === "video" && addPostFile && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground">Cover image</p>
+                            {thumbnailsLoading && (
+                              <p className="text-xs text-muted-foreground">Generating previews…</p>
+                            )}
+                            {!thumbnailsLoading && thumbnailCandidates.length > 0 && (
+                              <div className="grid grid-cols-4 gap-1.5">
+                                {thumbnailCandidates.map((src, i) => (
+                                  <button
+                                    key={i}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedThumbnailIdx(i);
+                                      setCustomThumbnailFile(null);
+                                    }}
+                                    className={cn(
+                                      "aspect-video overflow-hidden rounded border-2 transition-colors",
+                                      selectedThumbnailIdx === i && !customThumbnailFile
+                                        ? "border-primary"
+                                        : "border-border"
+                                    )}
+                                  >
+                                    <img
+                                      src={src}
+                                      alt={`Frame ${i + 1}`}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {/* Custom thumbnail upload */}
+                            <input
+                              ref={customThumbnailRef}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0] ?? null;
+                                setCustomThumbnailFile(f);
+                                if (f) setSelectedThumbnailIdx(null);
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => customThumbnailRef.current?.click()}
+                              className={cn(
+                                "w-full rounded border-2 border-dashed px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary",
+                                customThumbnailFile
+                                  ? "border-primary text-primary"
+                                  : "border-border"
+                              )}
+                            >
+                              {customThumbnailFile
+                                ? `Custom: ${customThumbnailFile.name}`
+                                : "Upload custom cover image"}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                     {addPostType === "link" && (

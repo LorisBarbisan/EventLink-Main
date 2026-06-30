@@ -19,7 +19,7 @@ export async function createPortfolioPost(req: Request, res: Response) {
   if (user.subscription_tier !== "pro") {
     return res.status(403).json({ error: "Portfolio requires Pro subscription" });
   }
-  const { type, title, body, media_url } = req.body;
+  const { type, title, body, media_url, thumbnail_url } = req.body;
   if (!type || !["photo", "video", "blog", "link"].includes(type)) {
     return res.status(400).json({ error: "Invalid post type" });
   }
@@ -29,7 +29,7 @@ export async function createPortfolioPost(req: Request, res: Response) {
     title: title || null,
     body: body || null,
     media_url: media_url || null,
-    thumbnail_url: null,
+    thumbnail_url: thumbnail_url || null,
   });
   return res.status(201).json(post);
 }
