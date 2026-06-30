@@ -535,6 +535,9 @@ export default function SimplifiedFreelancerDashboard() {
                     experience_years: freelancerData.experience_years
                       ? parseInt(freelancerData.experience_years.toString())
                       : undefined,
+                    phone: freelancerData.phone ?? null,
+                    contact_email: freelancerData.contact_email ?? null,
+                    card_dark_mode: freelancerData.card_dark_mode ?? false,
                   };
                   console.log("📤 Sending processed data (CV fields excluded):", processedData);
 
