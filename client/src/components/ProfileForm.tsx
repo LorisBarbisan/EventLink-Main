@@ -109,6 +109,7 @@ export function ProfileForm({
           profile_photo_url: freelancerProfile?.profile_photo_url || "",
           phone: (freelancerProfile as any)?.phone || "",
           contact_email: (freelancerProfile as any)?.contact_email || "",
+          card_dark_mode: !!(freelancerProfile as any)?.card_dark_mode,
         } as FreelancerFormData;
       } else {
         const recruiterProfile = profileData as RecruiterProfile | undefined;
@@ -814,6 +815,17 @@ function FreelancerFormFields({
                 placeholder="hello@yourname.com"
               />
             </div>
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-purple-700 dark:text-purple-300">
+              <input
+                type="checkbox"
+                checked={!!formData.card_dark_mode}
+                onChange={(e) => onInputChange("card_dark_mode", e.target.checked)}
+                className="h-4 w-4 rounded border-purple-300 accent-purple-600"
+              />
+              Dark mode card
+            </label>
           </div>
           <p className="mt-2 text-xs text-purple-600 dark:text-purple-400">
             These appear on the back of your shared business card.

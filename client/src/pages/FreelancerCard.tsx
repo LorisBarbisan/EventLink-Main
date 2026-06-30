@@ -18,7 +18,7 @@ import {
   User,
   Globe,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 // Brand palette
@@ -58,6 +58,10 @@ export default function FreelancerCard() {
     enabled: !!userId,
     retry: false,
   });
+
+  useEffect(() => {
+    if (freelancer) setDarkMode(!!(freelancer as any).card_dark_mode);
+  }, [freelancer]);
 
   const uid: number | undefined = freelancer?.user_id;
 
@@ -703,21 +707,6 @@ export default function FreelancerCard() {
         <span style={{ fontWeight: 700, color: C.orange, fontSize: 16, letterSpacing: "-0.3px" }}>
           EventLink
         </span>
-        <button
-          onClick={() => setDarkMode((d) => !d)}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            fontSize: 18,
-            lineHeight: 1,
-            padding: 4,
-            color: darkMode ? "#f5f5f7" : "#555",
-          }}
-          title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-        >
-          {darkMode ? "☀️" : "🌙"}
-        </button>
       </div>
 
       {/* ══════════════ CARD VIEW ══════════════ */}

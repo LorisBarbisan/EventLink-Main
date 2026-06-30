@@ -146,6 +146,7 @@ export interface FreelancerFormData {
   profile_photo_url: string;
   phone?: string;
   contact_email?: string;
+  card_dark_mode?: boolean;
 }
 
 export interface RecruiterFormData {

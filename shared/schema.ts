@@ -125,6 +125,7 @@ export const freelancer_profiles = pgTable(
     certifications: text("certifications").array(), // Array of certification names
     phone: text("phone"), // Pro: contact phone shown on business card
     contact_email: text("contact_email"), // Pro: contact email shown on business card (overrides account email)
+    card_dark_mode: boolean("card_dark_mode").default(false), // Pro: freelancer's card dark mode preference
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

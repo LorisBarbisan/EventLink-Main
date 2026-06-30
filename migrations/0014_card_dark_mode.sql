@@ -1,0 +1,1 @@
+ALTER TABLE freelancer_profiles ADD COLUMN IF NOT EXISTS card_dark_mode BOOLEAN DEFAULT FALSE;

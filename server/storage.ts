@@ -1152,6 +1152,13 @@ export class DatabaseStorage implements IStorage {
     if (profile.cv_file_type !== undefined) updateData.cv_file_type = profile.cv_file_type;
     if (profile.cv_file_size !== undefined) updateData.cv_file_size = profile.cv_file_size;
 
+    // Pro card fields
+    if ((profile as any).phone !== undefined) updateData.phone = (profile as any).phone;
+    if ((profile as any).contact_email !== undefined)
+      updateData.contact_email = (profile as any).contact_email;
+    if ((profile as any).card_dark_mode !== undefined)
+      updateData.card_dark_mode = (profile as any).card_dark_mode;
+
     // CV-derived structured fields
     if ((profile as any).work_history !== undefined)
       updateData.work_history = (profile as any).work_history;
