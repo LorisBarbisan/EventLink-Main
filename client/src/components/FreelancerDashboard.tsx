@@ -213,43 +213,62 @@ export default function SimplifiedFreelancerDashboard() {
   const [thumbnailsLoading, setThumbnailsLoading] = useState(false);
   const customThumbnailRef = useRef<HTMLInputElement>(null);
 
-  const generateVideoThumbnails = async (file: File): Promise<string[]> => {
+  const generateVideoThumbnails = (file: File): Promise<string[]> => {
     return new Promise((resolve) => {
       const video = document.createElement("video");
-      video.preload = "metadata";
+      video.preload = "auto";
       video.muted = true;
+      video.playsInline = true;
       const url = URL.createObjectURL(file);
       video.src = url;
-      const candidates: string[] = [];
-      const timestamps: number[] = [];
-      video.onloadedmetadata = () => {
-        const d = video.duration;
-        // Sample at 10%, 30%, 55%, 75% of duration
-        [0.1, 0.3, 0.55, 0.75].forEach((pct) => timestamps.push(Math.min(d * pct, d - 0.1)));
+
+      const cleanup = () => URL.revokeObjectURL(url);
+
+      const captureFrame = (): string => {
+        const W = video.videoWidth || 640;
+        const H = video.videoHeight || 360;
+        // Cap at 640px wide to keep data URLs small
+        const scale = Math.min(1, 640 / W);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(W * scale);
+        canvas.height = Math.round(H * scale);
+        canvas.getContext("2d")!.drawImage(video, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL("image/jpeg", 0.82);
+      };
+
+      video.onerror = () => {
+        cleanup();
+        resolve([]);
+      };
+
+      // Wait for enough data to seek
+      video.onloadeddata = () => {
+        const d = isFinite(video.duration) && video.duration > 0 ? video.duration : 10;
+        const timestamps = [0.1, 0.3, 0.55, 0.75].map((p) =>
+          Math.max(0.1, Math.min(d * p, d - 0.1))
+        );
+        const candidates: string[] = [];
         let idx = 0;
-        const captureNext = () => {
+
+        const seekNext = () => {
           if (idx >= timestamps.length) {
-            URL.revokeObjectURL(url);
+            cleanup();
             resolve(candidates);
             return;
           }
           video.currentTime = timestamps[idx];
         };
+
         video.onseeked = () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          canvas.getContext("2d")!.drawImage(video, 0, 0);
-          candidates.push(canvas.toDataURL("image/jpeg", 0.85));
+          candidates.push(captureFrame());
           idx++;
-          captureNext();
+          seekNext();
         };
-        captureNext();
+
+        seekNext();
       };
-      video.onerror = () => {
-        URL.revokeObjectURL(url);
-        resolve([]);
-      };
+
+      video.load();
     });
   };
 
