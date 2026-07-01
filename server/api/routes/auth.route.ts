@@ -29,7 +29,7 @@ export function registerAuthRoutes(app: Express) {
   // Reasonable rate limiting for password operations
   const passwordRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes (aligned with general rate limiter)
-    max: 10, // 10 password attempts per 15 minutes
+    max: 50, // 50 password attempts per 15 minutes
     message: { error: "Too many password attempts. Please try again in 15 minutes." },
     standardHeaders: true,
     legacyHeaders: false,
@@ -160,11 +160,20 @@ export function registerAuthRoutes(app: Express) {
     app.get("/api/auth/dev-admin-login", async (_req: Request, res: Response) => {
       try {
         const admins = await storage.getAdminUsers();
-        const admin = admins.find(u => u.role === "admin");
+        const admin = admins.find((u) => u.role === "admin");
         if (!admin) return res.status(404).json({ error: "No admin user found" });
         const token = generateJWTToken(admin);
-        res.json({ token, user: { id: admin.id, email: admin.email, role: admin.role, first_name: admin.first_name, last_name: admin.last_name } });
-      } catch (err) {
+        res.json({
+          token,
+          user: {
+            id: admin.id,
+            email: admin.email,
+            role: admin.role,
+            first_name: admin.first_name,
+            last_name: admin.last_name,
+          },
+        });
+      } catch {
         res.status(500).json({ error: "Dev login failed" });
       }
     });
