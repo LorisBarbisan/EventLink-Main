@@ -105,6 +105,7 @@ interface FreelancerProfile {
   cv_file_name?: string;
   cv_file_type?: string;
   cv_file_size?: number;
+  country?: string | null;
 }
 
 interface RecruiterProfile {
@@ -1145,7 +1146,12 @@ export default function Profile() {
                       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-muted-foreground md:justify-start">
                         <div className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
-                          {freelancerProfile?.location || "UK"}
+                          {[
+                            freelancerProfile?.location,
+                            freelancerProfile?.country || "United Kingdom",
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
                         </div>
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />

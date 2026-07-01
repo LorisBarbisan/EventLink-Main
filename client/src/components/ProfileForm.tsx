@@ -163,7 +163,11 @@ export function ProfileForm({
 
   const handleLocationChange = (value: string, locationData?: any) => {
     console.log("ProfileForm handleLocationChange:", { value, locationData });
-    setFormData((prev) => ({ ...prev, location: value }));
+    setFormData((prev) => ({
+      ...prev,
+      location: value,
+      ...(locationData?.country ? { country: locationData.country } : {}),
+    }));
   };
 
   const handleSkillAdd = () => {
@@ -451,7 +455,9 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 text-muted-foreground" />
-          <span>{profile.location}</span>
+          <span>
+            {[profile.location, profile.country || "United Kingdom"].filter(Boolean).join(", ")}
+          </span>
         </div>
       </div>
       {profile.bio && (
