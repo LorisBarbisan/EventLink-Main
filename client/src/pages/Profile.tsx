@@ -1146,10 +1146,7 @@ export default function Profile() {
                       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-muted-foreground md:justify-start">
                         <div className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
-                          {[
-                            freelancerProfile?.location,
-                            freelancerProfile?.country || "United Kingdom",
-                          ]
+                          {[freelancerProfile?.location, freelancerProfile?.country]
                             .filter(Boolean)
                             .join(", ")}
                         </div>
