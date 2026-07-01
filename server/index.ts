@@ -5,7 +5,7 @@ import helmet from "helmet";
 import { ogTagMiddleware } from "./api/middleware/ogTags";
 import { reconcileAdminUsers } from "./api/utils/reconcile-admin-users";
 import { seedProductionJobs } from "./api/utils/seed-production-jobs";
-import { backfillSlugs, backfillCountry } from "./api/utils/backfill-slugs";
+import { backfillSlugs, backfillCountry, correctCountries } from "./api/utils/backfill-slugs";
 import { registerJobNotificationScheduler } from "./api/services/job-notification-scheduler.service";
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
@@ -180,6 +180,7 @@ app.use((req, res, next) => {
   await seedProductionJobs();
   backfillSlugs().catch((err) => console.error("Slug backfill failed:", err));
   backfillCountry().catch((err) => console.error("Country backfill failed:", err));
+  correctCountries().catch((err) => console.error("Country corrections failed:", err));
   registerJobNotificationScheduler();
 
   // OG tag middleware for social media crawlers (must be before Vite catch-all)

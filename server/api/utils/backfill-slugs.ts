@@ -3,6 +3,37 @@ import { freelancer_profiles, recruiter_profiles, jobs } from "../../../shared/s
 import { isNull, or, eq, and, not } from "drizzle-orm";
 import { generateFreelancerSlug, generateJobSlug, generateEmployerSlug } from "./slugify";
 
+const COUNTRY_CORRECTIONS: { userId: number; country: string }[] = [
+  // Force United Kingdom
+  { userId: 80, country: "United Kingdom" },
+  { userId: 411, country: "United Kingdom" },
+  { userId: 343, country: "United Kingdom" },
+  { userId: 226, country: "United Kingdom" },
+  { userId: 216, country: "United Kingdom" },
+  { userId: 219, country: "United Kingdom" },
+  // Correct non-UK countries
+  { userId: 421, country: "Egypt" },
+  { userId: 395, country: "Netherlands" },
+  { userId: 387, country: "United Arab Emirates" },
+  { userId: 364, country: "South Africa" },
+  { userId: 268, country: "Philippines" },
+  { userId: 150, country: "United States" },
+];
+
+export async function correctCountries() {
+  try {
+    for (const { userId, country } of COUNTRY_CORRECTIONS) {
+      await db
+        .update(freelancer_profiles)
+        .set({ country })
+        .where(eq(freelancer_profiles.user_id, userId));
+    }
+    console.log(`✅ Country corrections applied for ${COUNTRY_CORRECTIONS.length} profiles`);
+  } catch (err) {
+    console.error("Country corrections error:", err);
+  }
+}
+
 async function geocodeCity(city: string): Promise<string | null> {
   try {
     const params = new URLSearchParams({
