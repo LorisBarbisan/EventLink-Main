@@ -222,15 +222,29 @@ export default function SimplifiedFreelancerDashboard() {
       video.preload = "auto";
       video.muted = true;
       video.playsInline = true;
+      // Must be in the DOM for seeking to work reliably across browsers (Safari)
+      Object.assign(video.style, {
+        position: "fixed",
+        top: "-9999px",
+        left: "-9999px",
+        width: "1px",
+        height: "1px",
+        opacity: "0",
+        pointerEvents: "none",
+      });
+      document.body.appendChild(video);
+
       const url = URL.createObjectURL(file);
       video.src = url;
 
-      const cleanup = () => URL.revokeObjectURL(url);
+      const cleanup = () => {
+        URL.revokeObjectURL(url);
+        if (video.parentNode) video.parentNode.removeChild(video);
+      };
 
       const captureFrame = (): string => {
         const W = video.videoWidth || 640;
         const H = video.videoHeight || 360;
-        // Cap at 640px wide to keep data URLs small
         const scale = Math.min(1, 640 / W);
         const canvas = document.createElement("canvas");
         canvas.width = Math.round(W * scale);
@@ -239,12 +253,18 @@ export default function SimplifiedFreelancerDashboard() {
         return canvas.toDataURL("image/jpeg", 0.82);
       };
 
+      // Timeout fallback so the dialog never hangs
+      const timeout = setTimeout(() => {
+        cleanup();
+        resolve([]);
+      }, 15000);
+
       video.onerror = () => {
+        clearTimeout(timeout);
         cleanup();
         resolve([]);
       };
 
-      // Wait for enough data to seek
       video.onloadeddata = () => {
         const d = isFinite(video.duration) && video.duration > 0 ? video.duration : 10;
         const timestamps = [0.1, 0.3, 0.55, 0.75].map((p) =>
@@ -255,6 +275,7 @@ export default function SimplifiedFreelancerDashboard() {
 
         const seekNext = () => {
           if (idx >= timestamps.length) {
+            clearTimeout(timeout);
             cleanup();
             resolve(candidates);
             return;
