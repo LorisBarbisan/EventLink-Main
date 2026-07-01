@@ -28,13 +28,18 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function backfillCountry() {
   try {
-    // Profiles with no country but with a location — try to geocode first
+    // Profiles with a location and either no country or the default "United Kingdom"
+    // (the first backfill may have incorrectly set non-UK cities to "United Kingdom")
     const withLocation = await db
       .select({ id: freelancer_profiles.id, location: freelancer_profiles.location })
       .from(freelancer_profiles)
       .where(
         and(
-          or(isNull(freelancer_profiles.country), eq(freelancer_profiles.country, "")),
+          or(
+            isNull(freelancer_profiles.country),
+            eq(freelancer_profiles.country, ""),
+            eq(freelancer_profiles.country, "United Kingdom")
+          ),
           not(isNull(freelancer_profiles.location)),
           not(eq(freelancer_profiles.location, ""))
         )
