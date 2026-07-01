@@ -1,7 +1,21 @@
 import { db } from "../config/db";
 import { freelancer_profiles, recruiter_profiles, jobs } from "../../../shared/schema";
-import { isNull, eq } from "drizzle-orm";
+import { isNull, or, eq } from "drizzle-orm";
 import { generateFreelancerSlug, generateJobSlug, generateEmployerSlug } from "./slugify";
+
+export async function backfillCountry() {
+  try {
+    const result = await db
+      .update(freelancer_profiles)
+      .set({ country: "United Kingdom" })
+      .where(or(isNull(freelancer_profiles.country), eq(freelancer_profiles.country, "")));
+    console.log(
+      `✅ Country backfill: set United Kingdom on ${(result as any).rowCount ?? "?"} profiles`
+    );
+  } catch (err) {
+    console.error("Country backfill error:", err);
+  }
+}
 
 export async function backfillSlugs() {
   try {
@@ -51,15 +65,15 @@ export async function backfillSlugs() {
         if (existing.length === 0) break;
         slug = `${baseSlug}-${counter++}`;
       }
-      await db.update(recruiter_profiles).set({ slug } as any).where(eq(recruiter_profiles.id, r.id));
+      await db
+        .update(recruiter_profiles)
+        .set({ slug } as any)
+        .where(eq(recruiter_profiles.id, r.id));
       recruiterCount++;
     }
 
     // Backfill job slugs
-    const jobsWithoutSlug = await db
-      .select()
-      .from(jobs)
-      .where(isNull(jobs.slug));
+    const jobsWithoutSlug = await db.select().from(jobs).where(isNull(jobs.slug));
 
     let jobCount = 0;
     for (const j of jobsWithoutSlug) {
@@ -69,7 +83,9 @@ export async function backfillSlugs() {
     }
 
     if (freelancerCount + recruiterCount + jobCount > 0) {
-      console.log(`✅ Slug backfill: ${freelancerCount} freelancers, ${recruiterCount} employers, ${jobCount} jobs`);
+      console.log(
+        `✅ Slug backfill: ${freelancerCount} freelancers, ${recruiterCount} employers, ${jobCount} jobs`
+      );
     }
   } catch (err) {
     console.error("Slug backfill error:", err);

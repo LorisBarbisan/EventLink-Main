@@ -451,7 +451,9 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 text-muted-foreground" />
-          <span>{profile.location}</span>
+          <span>
+            {[profile.location, profile.country || "United Kingdom"].filter(Boolean).join(", ")}
+          </span>
         </div>
       </div>
       {profile.bio && (
