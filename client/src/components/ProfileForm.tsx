@@ -163,7 +163,11 @@ export function ProfileForm({
 
   const handleLocationChange = (value: string, locationData?: any) => {
     console.log("ProfileForm handleLocationChange:", { value, locationData });
-    setFormData((prev) => ({ ...prev, location: value }));
+    setFormData((prev) => ({
+      ...prev,
+      location: value,
+      ...(locationData?.country ? { country: locationData.country } : {}),
+    }));
   };
 
   const handleSkillAdd = () => {

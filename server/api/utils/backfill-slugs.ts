@@ -1,17 +1,82 @@
 import { db } from "../config/db";
 import { freelancer_profiles, recruiter_profiles, jobs } from "../../../shared/schema";
-import { isNull, or, eq } from "drizzle-orm";
+import { isNull, or, eq, and, not } from "drizzle-orm";
 import { generateFreelancerSlug, generateJobSlug, generateEmployerSlug } from "./slugify";
+
+async function geocodeCity(city: string): Promise<string | null> {
+  try {
+    const params = new URLSearchParams({
+      q: city,
+      format: "json",
+      addressdetails: "1",
+      limit: "1",
+      "accept-language": "en",
+    });
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      headers: { "User-Agent": "EventLink/1.0 (eventlink.one)" },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const data: any[] = await res.json();
+    return data[0]?.address?.country || null;
+  } catch {
+    return null;
+  }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function backfillCountry() {
   try {
-    const result = await db
+    // Profiles with no country but with a location — try to geocode first
+    const withLocation = await db
+      .select({ id: freelancer_profiles.id, location: freelancer_profiles.location })
+      .from(freelancer_profiles)
+      .where(
+        and(
+          or(isNull(freelancer_profiles.country), eq(freelancer_profiles.country, "")),
+          not(isNull(freelancer_profiles.location)),
+          not(eq(freelancer_profiles.location, ""))
+        )
+      );
+
+    let geocoded = 0;
+    let defaulted = 0;
+
+    for (const profile of withLocation) {
+      const country = await geocodeCity(profile.location!);
+      await db
+        .update(freelancer_profiles)
+        .set({ country: country || "United Kingdom" })
+        .where(eq(freelancer_profiles.id, profile.id));
+      if (country) {
+        geocoded++;
+      } else {
+        defaulted++;
+      }
+      // Nominatim rate limit: 1 request/second
+      await sleep(1100);
+    }
+
+    // Profiles with no country and no location — default to United Kingdom
+    const noLocation = await db
       .update(freelancer_profiles)
       .set({ country: "United Kingdom" })
-      .where(or(isNull(freelancer_profiles.country), eq(freelancer_profiles.country, "")));
-    console.log(
-      `✅ Country backfill: set United Kingdom on ${(result as any).rowCount ?? "?"} profiles`
-    );
+      .where(
+        and(
+          or(isNull(freelancer_profiles.country), eq(freelancer_profiles.country, "")),
+          or(isNull(freelancer_profiles.location), eq(freelancer_profiles.location, ""))
+        )
+      );
+
+    const noLocationCount = (noLocation as any).rowCount ?? 0;
+    defaulted += noLocationCount;
+
+    if (geocoded + defaulted > 0) {
+      console.log(
+        `✅ Country backfill: ${geocoded} geocoded, ${defaulted} defaulted to United Kingdom`
+      );
+    }
   } catch (err) {
     console.error("Country backfill error:", err);
   }
