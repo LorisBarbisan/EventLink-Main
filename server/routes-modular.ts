@@ -266,6 +266,21 @@ export async function registerRoutes(
   registerContactRoutes(app);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering
+  app.get("/api/jobs/count", async (_req, res) => {
+    try {
+      const jobs = await storage.searchJobs({
+        keyword: "",
+        location: "",
+        startDate: "",
+        endDate: "",
+      });
+      res.json({ count: jobs.length });
+    } catch (error) {
+      console.error("Job count error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/api/jobs", async (req, res) => {
     try {
       // Extract query parameters

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/UserMenu";
 import { useAuth } from "@/hooks/useAuth";
+import { useHasJobs } from "@/hooks/useHasJobs";
 import { Menu, MessageSquare, Plus, Star } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -18,6 +19,7 @@ interface HeaderProps {
 export const Header = ({ onFeedbackClick }: HeaderProps) => {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
+  const hasJobs = useHasJobs();
   const isHomePage = location === "/";
   const [showInviteDialog, setShowInviteDialog] = useState(false);
 
@@ -28,20 +30,20 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3" data-testid="link-logo">
             <EventLinkLogo size={48} />
-            <span className="hidden text-2xl font-bold text-foreground md:inline">
-              EventLink
-            </span>
+            <span className="hidden text-2xl font-bold text-foreground md:inline">EventLink</span>
           </Link>
 
           {/* Navigation */}
           <nav className="hidden items-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
-            <Link
-              to="/jobs"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
-              data-testid="link-jobs"
-            >
-              Find Jobs
-            </Link>
+            {hasJobs && (
+              <Link
+                to="/jobs"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
+                data-testid="link-jobs"
+              >
+                Find Jobs
+              </Link>
+            )}
             <Link
               to="/freelancers"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
@@ -94,7 +96,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
                 className="hidden transform border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md transition-all duration-300 hover:scale-[1.02] hover:from-amber-600 hover:to-orange-700 lg:flex"
                 data-testid="button-invite-clients"
               >
-                <Star className="w-4 h-4 mr-2 fill-white" />
+                <Star className="mr-2 h-4 w-4 fill-white" />
                 Build My Reputation
               </Button>
             )}
