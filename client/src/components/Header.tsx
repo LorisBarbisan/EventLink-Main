@@ -28,7 +28,11 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
       <div className="container mx-auto px-3 py-3 sm:px-4 lg:py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3" data-testid="link-logo">
+          <Link
+            to="/"
+            className="flex w-0 min-w-fit flex-1 items-center space-x-3"
+            data-testid="link-logo"
+          >
             <EventLinkLogo size={48} />
             <span className="hidden text-2xl font-bold text-foreground md:inline">EventLink</span>
           </Link>
@@ -75,7 +79,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
           </nav>
 
           {/* Actions */}
-          <div className="flex items-center space-x-1 sm:space-x-3">
+          <div className="flex flex-1 items-center justify-end space-x-1 sm:space-x-3">
             {!isHomePage && <SearchBar />}
 
             {user?.role === "recruiter" && (
