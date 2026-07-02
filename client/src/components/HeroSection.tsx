@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import eventlinkLogo from "@assets/E8-Logo-Orange-New.png";
-import { ArrowRight, Briefcase } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 
 export const HeroSection = () => {
@@ -30,8 +30,8 @@ export const HeroSection = () => {
 
           <p className="text-xl leading-relaxed text-muted-foreground">
             EventLink connects top event industry professionals with companies across the UK.
-            Whether you're seeking skilled technical crew or looking for your next opportunity, we
-            make professional connections that drive successful events.
+            Whether you&apos;re seeking skilled technical crew or looking for your next opportunity,
+            we make professional connections that drive successful events.
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -43,18 +43,6 @@ export const HeroSection = () => {
               <Link to="/auth?tab=signup" data-testid="button-get-started">
                 Get Started
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="lg"
-              className="border-2 border-primary px-8 text-lg text-primary transition-all duration-200 hover:border-primary/80 hover:bg-primary/10 hover:text-primary"
-              asChild
-            >
-              <Link to="/jobs">
-                Browse Opportunities
-                <Briefcase className="ml-2 h-5 w-5" />
               </Link>
             </Button>
           </div>
