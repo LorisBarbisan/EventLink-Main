@@ -34,7 +34,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
           </Link>
 
           {/* Navigation */}
-          <nav className="hidden items-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
+          <nav className="hidden flex-1 items-center justify-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
             {hasJobs && (
               <Link
                 to="/jobs"
