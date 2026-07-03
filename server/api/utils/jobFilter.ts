@@ -175,8 +175,10 @@ const EXCLUDE_KEYWORDS = [
 // Adzuna category tags that reliably indicate a non-event-industry job.
 // Reed's public search API doesn't expose a per-job category, so this gate
 // only applies to Adzuna results. Deliberately excludes ambiguous categories
-// (e.g. "engineering-jobs", "creative-design-jobs") that genuinely contain
-// AV/broadcast roles mixed with irrelevant ones — those fall through to scoring.
+// (e.g. "engineering-jobs", "creative-design-jobs", "it-jobs") that genuinely
+// contain AV/broadcast roles mixed with irrelevant ones — live testing found
+// a real "Senior AV Technician" posting tagged "it-jobs" by Adzuna, so that
+// category falls through to scoring rather than being hard-excluded.
 export const ADZUNA_EXCLUDED_CATEGORIES = new Set([
   "catering-jobs",
   "hospitality-catering-jobs",
@@ -186,7 +188,6 @@ export const ADZUNA_EXCLUDED_CATEGORIES = new Set([
   "hr-jobs",
   "retail-jobs",
   "customer-services-jobs",
-  "it-jobs",
   "healthcare-nursing-jobs",
   "teaching-jobs",
   "accounting-finance-jobs",

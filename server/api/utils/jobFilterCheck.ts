@@ -4,13 +4,17 @@
  * Re-run after any change to EVENT_ROLE_KEYWORDS/EXCLUDE_KEYWORDS or the
  * scoring weights/threshold in jobAggregator.ts to catch regressions.
  */
-import { scoreJob } from "./jobFilter.js";
+import { filterEventIndustryJobs, scoreJob } from "./jobFilter.js";
 
 interface SampleCase {
   label: string;
   title: string;
   description: string;
   expected: boolean; // true = should be included
+}
+
+interface CategoryCase extends SampleCase {
+  categoryTag: string;
 }
 
 const CASES: SampleCase[] = [
@@ -186,6 +190,28 @@ const CASES: SampleCase[] = [
   },
 ];
 
+// Category-gate cases (exercise the full filterEventIndustryJobs pipeline,
+// not just scoreJob, since the category gate runs before scoring).
+const CATEGORY_CASES: CategoryCase[] = [
+  {
+    // Real posting pulled live from Adzuna: a genuine AV role Adzuna files
+    // under "it-jobs". Confirms that category isn't hard-excluded.
+    label: "Senior AV Technician tagged it-jobs by Adzuna",
+    expected: true,
+    categoryTag: "it-jobs",
+    title: "Senior AV Technician",
+    description:
+      "Supporting the delivery of live events, providing professional audio visual solutions across conferences, exhibitions, awards ceremonies, corporate events, gala dinners and sporting occasions.",
+  },
+  {
+    label: "Catering job tagged catering-jobs by Adzuna",
+    expected: false,
+    categoryTag: "catering-jobs",
+    title: "Event Chef",
+    description: "Preparing food for corporate hospitality events, kitchen experience required.",
+  },
+];
+
 function run() {
   let pass = 0;
   const failures: string[] = [];
@@ -201,7 +227,26 @@ function run() {
     );
   }
 
-  console.log(`\n${pass}/${CASES.length} passed`);
+  const total = CASES.length + CATEGORY_CASES.length;
+
+  for (const c of CATEGORY_CASES) {
+    const [result] = filterEventIndustryJobs([
+      {
+        title: c.title,
+        description: c.description,
+        company: "Test Co",
+        categoryTag: c.categoryTag,
+      },
+    ]);
+    const included = Boolean(result);
+    const ok = included === c.expected;
+    if (ok) pass++;
+    else failures.push(c.label);
+
+    console.log(`${ok ? "PASS" : "FAIL"} | expected=${c.expected} actual=${included} | ${c.label}`);
+  }
+
+  console.log(`\n${pass}/${total} passed`);
   if (failures.length) {
     console.log(`Failures: ${failures.join(", ")}`);
     process.exitCode = 1;
