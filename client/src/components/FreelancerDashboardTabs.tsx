@@ -27,13 +27,13 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
+  Banknote,
   BookOpen,
   Briefcase,
   Calendar,
   Camera,
   CheckCircle,
   Clock,
-  PoundSterling,
   Mail,
   MapPin,
   MessageCircle,
@@ -902,7 +902,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                   Applied: {job.applicationDate}
                                 </span>
                                 <span className="flex items-center gap-1">
-                                  <PoundSterling className="h-3 w-3" />
+                                  <Banknote className="h-3 w-3" />
                                   {job.rate}
                                 </span>
                               </div>
@@ -1045,7 +1045,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                     : "Date TBD"}
                                 </span>
                                 <span className="flex items-center gap-1">
-                                  <PoundSterling className="h-3 w-3" />
+                                  <Banknote className="h-3 w-3" />
                                   {booking.rate}
                                 </span>
                               </div>

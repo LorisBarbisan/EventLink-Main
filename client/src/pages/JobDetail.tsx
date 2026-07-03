@@ -13,13 +13,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowLeft,
-  Briefcase,
+  Banknote,
   Building2,
   Calendar,
   Clock,
   Lock,
   MapPin,
-  PoundSterling,
   Send,
   XCircle,
 } from "lucide-react";
@@ -37,7 +36,11 @@ export default function JobDetail() {
   const [coverLetter, setCoverLetter] = useState("");
   const [showApplyForm, setShowApplyForm] = useState(false);
 
-  const { data: job, isLoading, error } = useQuery<Job>({
+  const {
+    data: job,
+    isLoading,
+    error,
+  } = useQuery<Job>({
     queryKey: ["/api/jobs", jobId],
     queryFn: async () => {
       const headers: Record<string, string> = {};
@@ -128,10 +131,10 @@ export default function JobDetail() {
   if (isLoading) {
     return (
       <Layout>
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          <Skeleton className="h-8 w-64 mb-4" />
-          <Skeleton className="h-6 w-48 mb-6" />
-          <Skeleton className="h-40 w-full mb-4" />
+        <div className="mx-auto max-w-3xl px-4 py-8">
+          <Skeleton className="mb-4 h-8 w-64" />
+          <Skeleton className="mb-6 h-6 w-48" />
+          <Skeleton className="mb-4 h-40 w-full" />
           <Skeleton className="h-32 w-full" />
         </div>
       </Layout>
@@ -141,27 +144,32 @@ export default function JobDetail() {
   if (error || !job) {
     const errorMessage = error?.message || "Job not found";
     const isInviteOnly = errorMessage.includes("invitation");
-    const isNotAvailable = errorMessage.includes("not found") || errorMessage.includes("not available");
+    const isNotAvailable =
+      errorMessage.includes("not found") || errorMessage.includes("not available");
 
     return (
       <Layout>
-        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <div className="mx-auto max-w-3xl px-4 py-16 text-center">
           {isInviteOnly ? (
-            <Lock className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <Lock className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
           ) : (
-            <AlertCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <AlertCircle className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
           )}
-          <h1 className="text-2xl font-bold mb-2">
-            {isInviteOnly ? "Invite Only" : isNotAvailable ? "Job Not Available" : "Something went wrong"}
+          <h1 className="mb-2 text-2xl font-bold">
+            {isInviteOnly
+              ? "Invite Only"
+              : isNotAvailable
+                ? "Job Not Available"
+                : "Something went wrong"}
           </h1>
-          <p className="text-muted-foreground mb-6">
+          <p className="mb-6 text-muted-foreground">
             {isInviteOnly
               ? errorMessage
               : isNotAvailable
                 ? "This job is no longer available or has been removed from EventLink."
                 : "We couldn't load this job. Please try again later."}
           </p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex justify-center gap-3">
             <Link href="/jobs">
               <Button>Browse Jobs</Button>
             </Link>
@@ -177,11 +185,15 @@ export default function JobDetail() {
   if (job.status === "closed") {
     return (
       <Layout>
-        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-          <XCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Job Closed</h1>
-          <p className="text-muted-foreground mb-2">{job.title} at {job.company}</p>
-          <p className="text-muted-foreground mb-6">This job is no longer accepting applications.</p>
+        <div className="mx-auto max-w-3xl px-4 py-16 text-center">
+          <XCircle className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
+          <h1 className="mb-2 text-2xl font-bold">Job Closed</h1>
+          <p className="mb-2 text-muted-foreground">
+            {job.title} at {job.company}
+          </p>
+          <p className="mb-6 text-muted-foreground">
+            This job is no longer accepting applications.
+          </p>
           <Link href="/jobs">
             <Button>Browse Other Jobs</Button>
           </Link>
@@ -197,36 +209,45 @@ export default function JobDetail() {
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="flex items-center gap-2 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => window.history.length > 1 ? window.history.back() : setLocation("/jobs")}>
-            <ArrowLeft className="h-4 w-4 mr-1" />
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <div className="mb-6 flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              window.history.length > 1 ? window.history.back() : setLocation("/jobs")
+            }
+          >
+            <ArrowLeft className="mr-1 h-4 w-4" />
             Back
           </Button>
         </div>
 
         <Card>
           <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <Badge
+                    variant="secondary"
+                    className="border-orange-200 bg-orange-100 text-orange-800"
+                  >
                     EventLink Opportunity
                   </Badge>
                   {job.status === "active" && (
-                    <Badge variant="outline" className="text-green-700 border-green-300">
+                    <Badge variant="outline" className="border-green-300 text-green-700">
                       Open
                     </Badge>
                   )}
                   {job.status === "private" && (
-                    <Badge variant="outline" className="text-amber-700 border-amber-300">
-                      <Lock className="w-3 h-3 mr-1" />
+                    <Badge variant="outline" className="border-amber-300 text-amber-700">
+                      <Lock className="mr-1 h-3 w-3" />
                       Invite Only
                     </Badge>
                   )}
                 </div>
-                <CardTitle className="text-2xl mt-2">{job.title}</CardTitle>
-                <div className="flex items-center gap-2 mt-1 text-muted-foreground">
+                <CardTitle className="mt-2 text-2xl">{job.title}</CardTitle>
+                <div className="mt-1 flex items-center gap-2 text-muted-foreground">
                   <Building2 className="h-4 w-4" />
                   <span className="font-medium">{job.company}</span>
                 </div>
@@ -236,18 +257,18 @@ export default function JobDetail() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex items-center gap-2 text-sm">
-                <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <MapPin className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                 <span>{job.location}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <PoundSterling className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <Banknote className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                 <span>{job.rate}</span>
               </div>
               {job.event_date && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <Calendar className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                   <span>
                     {job.event_date}
                     {job.end_date ? ` - ${job.end_date}` : ""}
@@ -256,22 +277,22 @@ export default function JobDetail() {
               )}
               {duration && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <Clock className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                   <span>{duration}</span>
                 </div>
               )}
             </div>
 
             <div>
-              <h3 className="font-semibold text-lg mb-2">Description</h3>
-              <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+              <h3 className="mb-2 text-lg font-semibold">Description</h3>
+              <div className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
                 {job.description}
               </div>
             </div>
 
             <div className="border-t pt-6">
               {!user ? (
-                <div className="text-center space-y-3">
+                <div className="space-y-3 text-center">
                   <p className="text-muted-foreground">Sign in to apply for this job</p>
                   <Link href={`/auth?redirect=/jobs/${job.id}`}>
                     <Button size="lg" className="bg-orange-600 hover:bg-orange-700">
@@ -288,7 +309,10 @@ export default function JobDetail() {
               ) : isFreelancer ? (
                 hasApplied ? (
                   <div className="text-center">
-                    <Badge variant="outline" className="text-green-700 border-green-300 py-2 px-4 text-sm">
+                    <Badge
+                      variant="outline"
+                      className="border-green-300 px-4 py-2 text-sm text-green-700"
+                    >
                       You have already applied for this job
                     </Badge>
                   </div>
@@ -296,7 +320,9 @@ export default function JobDetail() {
                   <div className="space-y-4">
                     <h3 className="font-semibold">Apply for this job</h3>
                     <div>
-                      <label className="text-sm text-muted-foreground mb-1 block">Cover letter (optional)</label>
+                      <label className="mb-1 block text-sm text-muted-foreground">
+                        Cover letter (optional)
+                      </label>
                       <Textarea
                         placeholder="Tell the employer why you're a great fit..."
                         value={coverLetter}
@@ -310,7 +336,7 @@ export default function JobDetail() {
                         disabled={applyMutation.isPending}
                         className="bg-orange-600 hover:bg-orange-700"
                       >
-                        <Send className="h-4 w-4 mr-1" />
+                        <Send className="mr-1 h-4 w-4" />
                         {applyMutation.isPending ? "Submitting..." : "Submit Application"}
                       </Button>
                       <Button variant="outline" onClick={() => setShowApplyForm(false)}>
@@ -328,7 +354,7 @@ export default function JobDetail() {
                   </Button>
                 )
               ) : (
-                <p className="text-sm text-muted-foreground text-center">
+                <p className="text-center text-sm text-muted-foreground">
                   Only freelancers can apply for jobs.
                 </p>
               )}

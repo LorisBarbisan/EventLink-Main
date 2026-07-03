@@ -27,8 +27,7 @@ import {
   ChevronRight,
   ChevronUp,
   Clock,
-  PoundSterling,
-  Filter,
+  Banknote,
   MapPin,
   Search,
   X,
@@ -296,7 +295,7 @@ export default function Jobs() {
                 </div>
                 <div>
                   <UKLocationInput
-                    placeholder="Filter by UK location..."
+                    placeholder="Filter by location..."
                     value={locationFilter}
                     onChange={(value) => setLocationFilter(value)}
                     data-testid="input-location-filter"
@@ -402,12 +401,6 @@ export default function Jobs() {
             <h2 className="text-xl font-semibold sm:text-2xl">
               {filteredJobs.length} Job{filteredJobs.length !== 1 ? "s" : ""} Found
             </h2>
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Sort by: Most Recent</span>
-              </div>
-            </div>
           </div>
 
           {/* No Results Message */}
@@ -505,7 +498,7 @@ export default function Jobs() {
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <PoundSterling className="h-4 w-4 text-muted-foreground" />
+                              <Banknote className="h-4 w-4 text-muted-foreground" />
                               <span>
                                 {(job as any).currency && (job as any).currency !== "GBP"
                                   ? `${(job as any).currency} `
