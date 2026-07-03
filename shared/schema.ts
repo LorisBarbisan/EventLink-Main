@@ -1020,6 +1020,7 @@ export const bookings = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     status: text("status").notNull().default("enquired"),
     agreedRate: text("agreed_rate"),
+    currency: text("currency").default("GBP"), // Copied from the job's currency at booking creation
     callTime: text("call_time"),
     venueAddress: text("venue_address"),
     employerNotes: text("employer_notes"),

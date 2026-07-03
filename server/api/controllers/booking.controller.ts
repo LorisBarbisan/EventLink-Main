@@ -33,8 +33,7 @@ function canTransition(from: BookingStatus, to: BookingStatus): boolean {
 export async function createBooking(req: Request, res: Response) {
   try {
     const employerId = req.companyId ?? req.user!.id;
-    const { jobId, freelancerId, agreedRate, callTime, venueAddress, employerNotes } =
-      req.body;
+    const { jobId, freelancerId, agreedRate, callTime, venueAddress, employerNotes } = req.body;
 
     if (!jobId || !freelancerId) {
       return res.status(400).json({ error: "jobId and freelancerId are required" });
@@ -78,6 +77,7 @@ export async function createBooking(req: Request, res: Response) {
         freelancerId,
         status: "enquired",
         agreedRate: agreedRate ?? null,
+        currency: job.currency ?? "GBP",
         callTime: callTime ?? null,
         venueAddress: venueAddress ?? null,
         employerNotes: employerNotes ?? null,
@@ -270,11 +270,7 @@ export async function updateBookingStatus(req: Request, res: Response) {
     }
 
     const cancelledBy =
-      toStatus === "cancelled"
-        ? userId === booking.employerId
-          ? "employer"
-          : "freelancer"
-        : null;
+      toStatus === "cancelled" ? (userId === booking.employerId ? "employer" : "freelancer") : null;
 
     const [updated] = await db
       .update(bookings)
