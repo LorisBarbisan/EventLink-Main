@@ -1,5 +1,10 @@
 import { storage } from "../../storage";
-import { DEFAULT_JOB_CONFIG, type JobSearchConfig } from "./jobConfig";
+import {
+  ADZUNA_COUNTRIES,
+  DEFAULT_JOB_CONFIG,
+  type AdzunaCountryConfig,
+  type JobSearchConfig,
+} from "./jobConfig";
 import { filterEventIndustryJobs, scoreJob } from "./jobFilter";
 
 interface ExternalJob {
@@ -14,6 +19,9 @@ interface ExternalJob {
   source: "reed" | "adzuna";
   employmentType?: string;
   categoryTag?: string; // Adzuna only; undefined for Reed
+  countryCode: string;
+  countryDisplayName: string;
+  currencyCode: string;
 }
 
 interface ReedJobResponse {
@@ -60,10 +68,6 @@ export class JobAggregator {
   private reedApiKey: string | undefined;
   private adzunaApiKey: string | undefined;
   private adzunaAppId: string | undefined;
-
-  // Performance: In-memory cache for external jobs (refresh every 30 minutes)
-  private jobCache: { data: ExternalJob[]; timestamp: number } | null = null;
-  private readonly CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
   // Sync state tracking
   private syncInProgress = false;
@@ -238,6 +242,9 @@ export class JobAggregator {
             postedDate: job.date,
             source: "reed",
             employmentType: job.employmentType,
+            countryCode: "gb",
+            countryDisplayName: "United Kingdom",
+            currencyCode: "GBP",
           })
         );
       } catch (error) {
@@ -257,29 +264,21 @@ export class JobAggregator {
   }
 
   /**
-   * Fetch jobs from Adzuna API
-   * You can customize these parameters:
-   * - keywords: Search terms (default: events-related terms)
-   * - country: Country code (default: 'gb' for UK)
-   * - location: Specific location within country
-   * - salary_min: Minimum salary filter
-   * - salary_max: Maximum salary filter
-   * - results_per_page: Number of results (max 50, default: 20)
-   * - contract_type: 'permanent', 'contract', 'part_time', 'temporary'
+   * Fetch jobs from Adzuna API for a single country. Salary bounds and
+   * currency come from the country config rather than being passed loose,
+   * since they only make sense per-market (see ADZUNA_COUNTRIES).
    */
   async fetchAdzunaJobs(
+    countryConfig: AdzunaCountryConfig,
     keywords = "AV technician OR event production OR sound engineer OR lighting technician OR video technician OR broadcast technician OR live events",
-    country = "gb",
     options: {
       location?: string;
-      salary_min?: number;
-      salary_max?: number;
       results_per_page?: number;
       contract_type?: string;
     } = {}
   ): Promise<ExternalJob[]> {
     if (!this.adzunaApiKey || !this.adzunaAppId) {
-      console.log("❌ Adzuna API credentials not configured");
+      console.log(`❌ Adzuna (${countryConfig.code}) API credentials not configured`);
       return [];
     }
 
@@ -288,7 +287,7 @@ export class JobAggregator {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`🔍 Adzuna API attempt ${attempt}/${maxRetries}`);
+        console.log(`🔍 Adzuna (${countryConfig.code}) API attempt ${attempt}/${maxRetries}`);
 
         // Build query parameters. Adzuna's `what` param does a strict AND
         // match across every word — it has no boolean "OR" syntax, so a
@@ -310,10 +309,12 @@ export class JobAggregator {
 
         // Add optional filters
         if (options.location) params.append("where", options.location);
-        if (options.salary_min) params.append("salary_min", options.salary_min.toString());
-        if (options.salary_max) params.append("salary_max", options.salary_max.toString());
+        if (countryConfig.salaryMin)
+          params.append("salary_min", countryConfig.salaryMin.toString());
+        if (countryConfig.salaryMax)
+          params.append("salary_max", countryConfig.salaryMax.toString());
 
-        const url = `https://api.adzuna.com/v1/api/jobs/${country}/search/1?${params.toString()}`;
+        const url = `https://api.adzuna.com/v1/api/jobs/${countryConfig.code}/search/1?${params.toString()}`;
 
         const response = await fetch(url, {
           headers: {
@@ -325,7 +326,7 @@ export class JobAggregator {
         if (!response.ok) {
           const errorText = await response.text();
           console.error(
-            `❌ Adzuna API error (attempt ${attempt}):`,
+            `❌ Adzuna (${countryConfig.code}) API error (attempt ${attempt}):`,
             response.status,
             response.statusText,
             errorText
@@ -346,17 +347,25 @@ export class JobAggregator {
 
           // Client error - not retryable, fail immediately
           lastError = new Error(
-            `Adzuna API returned ${response.status} ${response.statusText}: ${errorText}`
+            `Adzuna (${countryConfig.code}) API returned ${response.status} ${response.statusText}: ${errorText}`
           );
           break;
         }
 
         const data = await response.json();
-        console.log(`✅ Adzuna API returned ${data.results?.length || 0} jobs`);
-        console.log("🔍 Adzuna API full response:", JSON.stringify(data, null, 2));
+        console.log(
+          `✅ Adzuna (${countryConfig.code}) API returned ${data.results?.length || 0} jobs`
+        );
+        console.log(
+          `🔍 Adzuna (${countryConfig.code}) API full response:`,
+          JSON.stringify(data, null, 2)
+        );
 
         if (data.results?.length > 0) {
-          console.log("📋 Adzuna sample job:", JSON.stringify(data.results[0], null, 2));
+          console.log(
+            `📋 Adzuna (${countryConfig.code}) sample job:`,
+            JSON.stringify(data.results[0], null, 2)
+          );
         }
 
         const jobs = data.results || [];
@@ -368,16 +377,23 @@ export class JobAggregator {
             company: job.company?.display_name || "Company not specified",
             location: job.location?.display_name || "Location not specified",
             description: job.description || "Description not available",
-            salary: this.formatAdzunaSalary(job.salary_min, job.salary_max),
+            salary: this.formatAdzunaSalary(
+              job.salary_min,
+              job.salary_max,
+              countryConfig.currencySymbol
+            ),
             jobUrl: job.redirect_url,
             postedDate: job.created,
             source: "adzuna",
             employmentType: job.contract_type || job.contract_time,
             categoryTag: job.category?.tag,
+            countryCode: countryConfig.code,
+            countryDisplayName: countryConfig.displayName,
+            currencyCode: countryConfig.currency,
           })
         );
       } catch (error) {
-        console.error(`❌ Adzuna fetch attempt ${attempt} failed:`, error);
+        console.error(`❌ Adzuna (${countryConfig.code}) fetch attempt ${attempt} failed:`, error);
         lastError = error as Error;
 
         if (attempt < maxRetries) {
@@ -388,45 +404,11 @@ export class JobAggregator {
       }
     }
 
-    console.error("❌ All Adzuna fetch attempts failed:", lastError);
-    throw lastError ?? new Error("Adzuna API fetch failed for an unknown reason");
-  }
-
-  /**
-   * Fetch jobs from all configured sources with customizable parameters
-   */
-  async fetchAllExternalJobs(
-    reedOptions?: Parameters<typeof this.fetchReedJobs>[2],
-    adzunaOptions?: Parameters<typeof this.fetchAdzunaJobs>[2]
-  ): Promise<ExternalJob[]> {
-    // Check cache first for performance
-    if (this.jobCache && Date.now() - this.jobCache.timestamp < this.CACHE_DURATION) {
-      return this.jobCache.data;
-    }
-
-    const [reedJobs, adzunaJobs] = await Promise.all([
-      this.fetchReedJobs(undefined, undefined, reedOptions),
-      this.fetchAdzunaJobs(undefined, undefined, adzunaOptions),
-    ]);
-
-    // Combine and filter for event industry jobs first
-    const allJobs = [...reedJobs, ...adzunaJobs];
-
-    const eventJobs = filterEventIndustryJobs(allJobs);
-
-    const uniqueJobs = this.deduplicateJobs(eventJobs);
-    console.log(`After deduplication: ${uniqueJobs.length} jobs`);
-
-    const finalJobs = uniqueJobs.slice(0, 50);
-    console.log(`Final jobs to return: ${finalJobs.length} jobs`);
-
-    // Cache the results for performance
-    this.jobCache = {
-      data: finalJobs,
-      timestamp: Date.now(),
-    };
-
-    return finalJobs;
+    console.error(`❌ All Adzuna (${countryConfig.code}) fetch attempts failed:`, lastError);
+    throw (
+      lastError ??
+      new Error(`Adzuna (${countryConfig.code}) API fetch failed for an unknown reason`)
+    );
   }
 
   /**
@@ -457,10 +439,14 @@ export class JobAggregator {
       );
     }
 
-    // Fetch jobs with individual tracking
-    const [reedJobs, adzunaJobs] = await Promise.allSettled([
+    const enabledCountries = ADZUNA_COUNTRIES.filter((c) => c.enabled);
+
+    // Fetch Reed (UK only) plus one Adzuna call per enabled country
+    const [reedJobs, ...adzunaResults] = await Promise.allSettled([
       this.fetchReedJobs(config.reed.keywords, config.reed.location, config.reed.options),
-      this.fetchAdzunaJobs(config.adzuna.keywords, config.adzuna.country, config.adzuna.options),
+      ...enabledCountries.map((countryConfig) =>
+        this.fetchAdzunaJobs(countryConfig, config.adzuna.keywords, config.adzuna.options)
+      ),
     ]);
 
     // Process Reed results
@@ -472,17 +458,22 @@ export class JobAggregator {
       console.error("❌ Reed API failed:", reedJobs.reason);
     }
 
-    // Process Adzuna results
-    if (adzunaJobs.status === "fulfilled") {
-      adzunaJobCount = adzunaJobs.value.length;
-    } else {
-      errors.push(`Adzuna API failed: ${adzunaJobs.reason}`);
-    }
+    // Process Adzuna results, one per country
+    const adzunaJobsBySource: ExternalJob[] = [];
+    adzunaResults.forEach((result, index) => {
+      const countryCode = enabledCountries[index].code;
+      if (result.status === "fulfilled") {
+        adzunaJobCount += result.value.length;
+        adzunaJobsBySource.push(...result.value);
+      } else {
+        errors.push(`Adzuna (${countryCode}) API failed: ${result.reason}`);
+      }
+    });
 
     // Combine successful results
     const allJobs: ExternalJob[] = [
       ...(reedJobs.status === "fulfilled" ? reedJobs.value : []),
-      ...(adzunaJobs.status === "fulfilled" ? adzunaJobs.value : []),
+      ...adzunaJobsBySource,
     ];
 
     // Apply event industry filtering first, then config limits
@@ -577,6 +568,8 @@ export class JobAggregator {
             title: job.title,
             company: job.company,
             location: job.location,
+            country: job.countryDisplayName,
+            currency: job.currencyCode,
             type: "external" as const,
             rate: job.salary || "Not specified",
             description: job.description,
@@ -636,15 +629,15 @@ export class JobAggregator {
     return "Salary not specified";
   }
 
-  private formatAdzunaSalary(min?: number, max?: number): string {
+  private formatAdzunaSalary(min?: number, max?: number, currencySymbol = "£"): string {
     if (!min && !max) return "Salary not specified";
 
     if (min && max && min !== max) {
-      return `£${min.toLocaleString()} - £${max.toLocaleString()}`;
+      return `${currencySymbol}${min.toLocaleString()} - ${currencySymbol}${max.toLocaleString()}`;
     } else if (min) {
-      return `£${min.toLocaleString()}+`;
+      return `${currencySymbol}${min.toLocaleString()}+`;
     } else if (max) {
-      return `Up to £${max.toLocaleString()}`;
+      return `Up to ${currencySymbol}${max.toLocaleString()}`;
     }
 
     return "Salary not specified";

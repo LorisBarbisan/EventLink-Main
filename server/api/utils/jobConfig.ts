@@ -3,6 +3,45 @@
  * Customize these settings to refine the jobs fetched from Reed and Adzuna
  */
 
+export interface AdzunaCountryConfig {
+  code: string; // Adzuna's ISO country code, e.g. "gb", "us"
+  currency: string; // ISO currency code stored on the job, e.g. "GBP"
+  currencySymbol: string; // e.g. "£", "$", "R"
+  displayName: string; // e.g. "United Kingdom" — joined into job.location for display
+  salaryMin?: number; // local-currency annual salary; omit to skip salary filtering
+  salaryMax?: number;
+  enabled: boolean; // easy on/off switch per country without deleting config
+}
+
+/**
+ * Adzuna officially supports these English-speaking markets (confirmed against
+ * Adzuna's own API: at, au, be, br, ca, ch, de, es, fr, gb, in, it, mx, nl, nz,
+ * pl, sg, us, za — Ireland has no separate country API, it's folded into gb).
+ *
+ * No salaryMin/salaryMax for the 5 non-UK countries: the UK's £20k-80k band
+ * was tuned through real testing, and guessing equivalent bands in 5 other
+ * currencies risks silently zeroing out a country's results the same way an
+ * earlier bug (Adzuna's `what` param not supporting literal "OR") silently
+ * zeroed everything — that failure mode is hard to diagnose. Add bounds later
+ * once real per-country results are visible.
+ */
+export const ADZUNA_COUNTRIES: AdzunaCountryConfig[] = [
+  {
+    code: "gb",
+    currency: "GBP",
+    currencySymbol: "£",
+    displayName: "United Kingdom",
+    salaryMin: 20000,
+    salaryMax: 80000,
+    enabled: true,
+  },
+  { code: "us", currency: "USD", currencySymbol: "$", displayName: "United States", enabled: true },
+  { code: "au", currency: "AUD", currencySymbol: "$", displayName: "Australia", enabled: true },
+  { code: "nz", currency: "NZD", currencySymbol: "$", displayName: "New Zealand", enabled: true },
+  { code: "ca", currency: "CAD", currencySymbol: "$", displayName: "Canada", enabled: true },
+  { code: "za", currency: "ZAR", currencySymbol: "R", displayName: "South Africa", enabled: true },
+];
+
 export interface JobSearchConfig {
   reed: {
     keywords: string;
@@ -18,11 +57,10 @@ export interface JobSearchConfig {
   };
   adzuna: {
     keywords: string;
-    country: string;
+    // Country and salary bounds now live in ADZUNA_COUNTRIES (per-country
+    // currency makes a single global salary range meaningless).
     options: {
       location?: string;
-      salary_min?: number;
-      salary_max?: number;
       results_per_page: number;
       contract_type?: "permanent" | "contract" | "part_time" | "temporary";
     };
@@ -65,16 +103,11 @@ export const DEFAULT_JOB_CONFIG: JobSearchConfig = {
 
   adzuna: {
     // Keywords to search for on Adzuna - event industry roles
-    keywords: "AV technician OR event production OR sound engineer OR lighting technician OR video technician OR broadcast technician OR live events",
-    // Country code (gb = UK, us = USA, au = Australia, etc.)
-    country: "gb",
+    keywords:
+      "AV technician OR event production OR sound engineer OR lighting technician OR video technician OR broadcast technician OR live events",
     options: {
       // Specific location within country (optional)
       location: undefined, // e.g., 'London' or 'Manchester'
-
-      // Salary filters (annual salary)
-      salary_min: 20000,
-      salary_max: 80000,
 
       // Number of results per page (max 50)
       results_per_page: 25,
@@ -150,7 +183,6 @@ export const PRESET_CONFIGS = {
       ...DEFAULT_JOB_CONFIG.adzuna,
       options: {
         ...DEFAULT_JOB_CONFIG.adzuna.options,
-        salary_min: 40000,
         contract_type: "contract",
       },
     },
