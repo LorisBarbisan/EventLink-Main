@@ -216,8 +216,11 @@ export class JobAggregator {
             continue;
           }
 
-          // Client error - don't retry
-          return [];
+          // Client error - not retryable, fail immediately
+          lastError = new Error(
+            `Reed API returned ${response.status} ${response.statusText}: ${errorText}`
+          );
+          break;
         }
 
         const data = await response.json();
@@ -250,7 +253,7 @@ export class JobAggregator {
     }
 
     console.error("❌ All Reed fetch attempts failed:", lastError);
-    return [];
+    throw lastError ?? new Error("Reed API fetch failed for an unknown reason");
   }
 
   /**
@@ -332,8 +335,11 @@ export class JobAggregator {
             continue;
           }
 
-          // Client error - don't retry
-          return [];
+          // Client error - not retryable, fail immediately
+          lastError = new Error(
+            `Adzuna API returned ${response.status} ${response.statusText}: ${errorText}`
+          );
+          break;
         }
 
         const data = await response.json();
@@ -374,7 +380,7 @@ export class JobAggregator {
     }
 
     console.error("❌ All Adzuna fetch attempts failed:", lastError);
-    return [];
+    throw lastError ?? new Error("Adzuna API fetch failed for an unknown reason");
   }
 
   /**
@@ -429,6 +435,18 @@ export class JobAggregator {
     const errors: string[] = [];
     let reedJobCount = 0;
     let adzunaJobCount = 0;
+
+    // Surface missing credentials explicitly — fetchReedJobs/fetchAdzunaJobs
+    // resolve to [] (not a rejection) when unconfigured, which otherwise looks
+    // identical to "API call succeeded but returned zero results".
+    if (!this.reedApiKey) {
+      errors.push("Reed not configured: REED_API_KEY is not set on this environment");
+    }
+    if (!this.adzunaApiKey || !this.adzunaAppId) {
+      errors.push(
+        "Adzuna not configured: ADZUNA_API_KEY/ADZUNA_APP_ID are not set on this environment"
+      );
+    }
 
     // Fetch jobs with individual tracking
     const [reedJobs, adzunaJobs] = await Promise.allSettled([
