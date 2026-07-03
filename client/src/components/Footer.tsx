@@ -19,8 +19,7 @@ export const Footer = () => {
                 <span className="text-sm font-semibold">EventLink</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Connecting technical professionals with event opportunities across the events
-                industry.
+                Showcase Talent - Share Opportunities - Build Connections
               </p>
             </div>
 
@@ -146,7 +145,11 @@ export const Footer = () => {
                   </a>
                 </li>
                 <li>
-                  <Link to="/privacy" className="hover:text-foreground" data-testid="footer-link-privacy">
+                  <Link
+                    to="/privacy"
+                    className="hover:text-foreground"
+                    data-testid="footer-link-privacy"
+                  >
                     Privacy Policy
                   </Link>
                 </li>
@@ -156,7 +159,7 @@ export const Footer = () => {
         </div>
       </div>
       <div className="border-t bg-white py-3 text-center text-xs text-muted-foreground">
-        <p>&copy; 2026 Kite. All rights reserved.</p>
+        <p>&copy; 2026 EventLink Ltd. All rights reserved.</p>
       </div>
     </footer>
   );
