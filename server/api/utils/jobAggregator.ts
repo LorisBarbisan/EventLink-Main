@@ -290,11 +290,17 @@ export class JobAggregator {
       try {
         console.log(`🔍 Adzuna API attempt ${attempt}/${maxRetries}`);
 
-        // Build query parameters
+        // Build query parameters. Adzuna's `what` param does a strict AND
+        // match across every word — it has no boolean "OR" syntax, so a
+        // literal " OR "-joined keyword string (e.g. "AV technician OR sound
+        // engineer") matches nothing (every result would need to contain the
+        // literal word "OR" too). `what_or` is Adzuna's actual OR-semantics
+        // param, so the " OR " separators are converted to plain whitespace
+        // before sending.
         const params = new URLSearchParams({
           app_id: this.adzunaAppId!,
           app_key: this.adzunaApiKey!,
-          what: keywords,
+          what_or: keywords.replace(/\s+OR\s+/gi, " "),
           results_per_page: (options.results_per_page || 25).toString(),
           sort_by: "date", // Get most recent jobs first
         });
