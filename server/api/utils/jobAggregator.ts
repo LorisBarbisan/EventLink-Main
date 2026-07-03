@@ -556,12 +556,22 @@ export class JobAggregator {
         };
       }
 
+      // Cross-sync content dedup: the same real-world job is routinely
+      // reposted under many different external IDs by different recruitment
+      // agencies, so an external_id-only check lets the same job accumulate
+      // indefinitely across syncs. Compare against everything already stored
+      // using the same title+company+location key deduplicateJobs uses.
+      const existingExternalJobs = await storage.getExternalJobs();
+      const existingContentKeys = new Set(
+        existingExternalJobs.map((j) => this.contentKey(j.title, j.company, j.location))
+      );
+
       // Store jobs in database
       for (const job of finalJobs) {
-        // Check if job already exists
         const existingJob = await storage.getJobByExternalId(job.id);
+        const contentKey = this.contentKey(job.title, job.company, job.location);
 
-        if (!existingJob) {
+        if (!existingJob && !existingContentKeys.has(contentKey)) {
           // Convert external job format to internal job format
           const jobData = {
             recruiter_id: null, // Null for external jobs
@@ -581,6 +591,7 @@ export class JobAggregator {
           };
 
           await storage.createExternalJob(jobData);
+          existingContentKeys.add(contentKey);
           newJobsAdded++;
         }
       }
@@ -643,13 +654,16 @@ export class JobAggregator {
     return "Salary not specified";
   }
 
+  private contentKey(title: string, company: string, location: string): string {
+    return `${title.toLowerCase()}_${company.toLowerCase()}_${location.toLowerCase()}`;
+  }
+
   private deduplicateJobs(jobs: ExternalJob[]): ExternalJob[] {
     const seen = new Set<string>();
     const unique: ExternalJob[] = [];
 
     for (const job of jobs) {
-      // Create a key based on title + company + location
-      const key = `${job.title.toLowerCase()}_${job.company.toLowerCase()}_${job.location.toLowerCase()}`;
+      const key = this.contentKey(job.title, job.company, job.location);
 
       if (!seen.has(key)) {
         seen.add(key);
