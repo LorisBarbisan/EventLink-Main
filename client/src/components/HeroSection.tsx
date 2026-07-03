@@ -23,15 +23,14 @@ export const HeroSection = () => {
           </div>
 
           <h1 className="text-4xl font-bold leading-tight lg:text-6xl">
-            Connect with
-            <span className="text-primary"> Technical</span>
-            <span className="text-accent"> Crew</span> for Events
+            The Home of <span className="text-primary">Event</span>
+            <span className="text-accent"> Professionals</span>
           </h1>
 
           <p className="text-xl leading-relaxed text-muted-foreground">
-            EventLink connects top event industry professionals with companies across the UK.
-            Whether you&apos;re seeking skilled technical crew or looking for your next opportunity,
-            we make professional connections that drive successful events.
+            EventLink is where freelance event professionals build trusted profiles, showcase their
+            experience, and connect with the companies that power live events - get seen and grow
+            your network - all in one place.
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
