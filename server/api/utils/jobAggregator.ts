@@ -302,7 +302,10 @@ export class JobAggregator {
           app_key: this.adzunaApiKey!,
           what_or: keywords.replace(/\s+OR\s+/gi, " "),
           results_per_page: (options.results_per_page || 25).toString(),
-          sort_by: "date", // Get most recent jobs first
+          // Sorting by date pulled almost entirely irrelevant results (whatever
+          // was newest across all of Adzuna UK matching any single OR term).
+          // Relevance surfaces jobs that actually relate to the search terms.
+          sort_by: "relevance",
         });
 
         // Add optional filters

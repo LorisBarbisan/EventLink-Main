@@ -196,6 +196,11 @@ export const ADZUNA_EXCLUDED_CATEGORIES = new Set([
   "social-work-jobs",
   "domestic-help-cleaning-jobs",
   "travel-jobs",
+  // Live testing found a real "Production Technician (Sprayer)" (BAE Systems,
+  // factory paint shop) tagged manufacturing-jobs. "Production Technician" is
+  // a legitimate title in both AV/events and factory work, but Adzuna's own
+  // manufacturing-jobs category reliably means the latter.
+  "manufacturing-jobs",
 ]);
 
 export interface ScorableJob {

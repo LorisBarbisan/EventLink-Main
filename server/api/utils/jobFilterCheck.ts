@@ -210,6 +210,17 @@ const CATEGORY_CASES: CategoryCase[] = [
     title: "Event Chef",
     description: "Preparing food for corporate hospitality events, kitchen experience required.",
   },
+  {
+    // Real posting pulled live from Adzuna: BAE Systems factory paint shop
+    // role tagged manufacturing-jobs. Title alone ("production technician")
+    // would otherwise score +3 and pass with no other signal either way.
+    label: "Production Technician (Sprayer) tagged manufacturing-jobs by Adzuna",
+    expected: false,
+    categoryTag: "manufacturing-jobs",
+    title: "Production Technician (Sprayer)",
+    description:
+      "Join BAE Systems and you'll be part of something bigger, delivering advanced technology-led defence, aerospace and security solutions.",
+  },
 ];
 
 function run() {
