@@ -1,201 +1,6 @@
 import { storage } from "../../storage";
 import { DEFAULT_JOB_CONFIG, type JobSearchConfig } from "./jobConfig";
-
-// Event industry specific roles to filter for
-const EVENT_INDUSTRY_ROLES = [
-  "AV technician",
-  "lighting technician",
-  "lighting engineer",
-  "Camera operator",
-  "photographer",
-  "video mixer",
-  "streaming engineer",
-  "Powerpoint technician",
-  "Stage manager",
-];
-
-// Keywords that indicate event industry roles
-const EVENT_ROLE_KEYWORDS = [
-  // Core specified roles
-  "av technician",
-  "audio visual",
-  "audiovisual technician",
-  "event technician",
-  "event production",
-  "production technician",
-  "sound engineer",
-  "audio engineer",
-  "lighting technician",
-  "lighting engineer",
-  "lighting operator",
-  "video technician",
-  "vision mixer",
-  "vmix",
-  "broadcast technician",
-  "live events technician",
-  "live events",
-  "conference av",
-  "technical crew",
-  "stage technician",
-  "led technician",
-  "projection technician",
-
-  // Related technical roles
-  "sound technician",
-  "audio technician",
-  "event crew",
-  "event staff",
-  "live streaming",
-  "live production",
-  "production crew",
-  "production assistant",
-  "technical support",
-  "technical coordinator",
-  "camera operator",
-  "video operator",
-  "video mixer",
-  "video engineer",
-  "streaming engineer",
-  "stage manager",
-  "stage management",
-  "production manager",
-
-  // Equipment and venue specific
-  "rigging",
-  "staging",
-  "set up",
-  "conference technician",
-  "exhibition",
-  "trade show",
-  // Broadcasting and media
-  "video production",
-  "live broadcast",
-  "streaming technician",
-  "media technician",
-
-  // Technical equipment signals (strong positive indicators)
-  "mixing desk",
-  "pa system",
-  "lighting desk",
-  "grandma",
-  "avolites",
-  "led wall",
-  "projectors",
-  "cameras",
-  "signal flow",
-  "rf microphones",
-  "live stream",
-  "vision mixing",
-];
-
-// Keywords that indicate NON-event industry roles (catering, hospitality, etc.) that should be excluded
-const EXCLUDE_KEYWORDS = [
-  // Marketing and sales
-  "marketing",
-  "digital marketing",
-  "brand",
-  "brand ambassador",
-  "sales",
-  "sales executive",
-  "promotion",
-  "promotional",
-  "pr",
-  "public relations",
-  "social media",
-  "content creator",
-
-  // Hospitality and catering
-  "hospitality",
-  "hotel",
-  "restaurant",
-  "bar",
-  "waiter",
-  "waitress",
-  "front of house",
-  "venue assistant",
-  "event host",
-  "wedding",
-  "festival",
-  "catering",
-  "chef",
-  "head chef",
-  "sous chef",
-  "cook",
-  "kitchen",
-  "culinary",
-  "food",
-  "banquet",
-  "menu",
-  "dining",
-  "bartender",
-  "barista",
-  "food service",
-  "food preparation",
-  "pastry chef",
-
-  // Management and coordination roles
-  "event manager",
-  "events manager",
-  "event coordinator",
-  "events coordinator",
-  "project manager",
-  "account manager",
-  "client services",
-
-  // Administrative and office roles
-  "administrator",
-  "assistant",
-  "office",
-  "hr",
-  "human resources",
-
-  // General hospitality services
-  "reception",
-  "front desk",
-  "housekeeping",
-  "concierge",
-  "guest services",
-  "accommodation",
-  "booking",
-
-  // Other non-technical roles
-  "cleaning",
-  "security guard",
-  "bouncer",
-  "steward",
-  "usher",
-  "ticket sales",
-  "customer service",
-
-  // Marketing/business signals (strong negative indicators)
-  "campaign",
-  "marketing strategy",
-  "kpis",
-  "pipeline",
-  "lead generation",
-  "customer acquisition",
-  "content calendar",
-
-  // Developer/IT roles
-  "developer",
-  "software developer",
-  "web developer",
-  "frontend developer",
-  "backend developer",
-  "full stack developer",
-  "programmer",
-  "software engineer",
-  "devops",
-  "data engineer",
-  "data scientist",
-  "machine learning",
-  "python developer",
-  "javascript developer",
-  "react developer",
-  "node developer",
-  "java developer",
-  "coding",
-];
+import { filterEventIndustryJobs, scoreJob } from "./jobFilter";
 
 interface ExternalJob {
   id: string;
@@ -208,6 +13,7 @@ interface ExternalJob {
   postedDate: string;
   source: "reed" | "adzuna";
   employmentType?: string;
+  categoryTag?: string; // Adzuna only; undefined for Reed
 }
 
 interface ReedJobResponse {
@@ -243,6 +49,11 @@ interface AdzunaJobResponse {
   created: string;
   redirect_url: string;
   contract_type?: string;
+  contract_time?: string;
+  category?: {
+    tag: string;
+    label: string;
+  };
 }
 
 export class JobAggregator {
@@ -396,7 +207,7 @@ export class JobAggregator {
             // Rate limited - wait before retrying
             const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
             console.log(`⏳ Rate limited, waiting ${delay}ms before retry...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
+            await new Promise((resolve) => setTimeout(resolve, delay));
             continue;
           }
 
@@ -433,7 +244,7 @@ export class JobAggregator {
         if (attempt < maxRetries) {
           const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
           console.log(`⏳ Waiting ${delay}ms before retry...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
@@ -512,7 +323,7 @@ export class JobAggregator {
             // Rate limited - wait before retrying
             const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
             console.log(`⏳ Rate limited, waiting ${delay}ms before retry...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
+            await new Promise((resolve) => setTimeout(resolve, delay));
             continue;
           }
 
@@ -547,6 +358,7 @@ export class JobAggregator {
             postedDate: job.created,
             source: "adzuna",
             employmentType: job.contract_type || job.contract_time,
+            categoryTag: job.category?.tag,
           })
         );
       } catch (error) {
@@ -556,7 +368,7 @@ export class JobAggregator {
         if (attempt < maxRetries) {
           const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
           console.log(`⏳ Waiting ${delay}ms before retry...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
@@ -585,7 +397,7 @@ export class JobAggregator {
     // Combine and filter for event industry jobs first
     const allJobs = [...reedJobs, ...adzunaJobs];
 
-    const eventJobs = this.filterEventIndustryJobs(allJobs);
+    const eventJobs = filterEventIndustryJobs(allJobs);
 
     const uniqueJobs = this.deduplicateJobs(eventJobs);
     console.log(`After deduplication: ${uniqueJobs.length} jobs`);
@@ -603,14 +415,83 @@ export class JobAggregator {
   }
 
   /**
-   * Store external jobs in the database with configurable options
+   * Fetch from both sources, apply event-industry filtering, and dedupe/limit
+   * according to config. Shared by the real sync and the dry-run preview so
+   * neither path duplicates the fetch/filter logic.
    */
-  async syncExternalJobs(config: JobSearchConfig = DEFAULT_JOB_CONFIG): Promise<{
+  private async fetchFilterAndDedupe(config: JobSearchConfig): Promise<{
+    finalJobs: ExternalJob[];
+    totalFetched: number;
+    reedJobCount: number;
+    adzunaJobCount: number;
+    errors: string[];
+  }> {
+    const errors: string[] = [];
+    let reedJobCount = 0;
+    let adzunaJobCount = 0;
+
+    // Fetch jobs with individual tracking
+    const [reedJobs, adzunaJobs] = await Promise.allSettled([
+      this.fetchReedJobs(config.reed.keywords, config.reed.location, config.reed.options),
+      this.fetchAdzunaJobs(config.adzuna.keywords, config.adzuna.country, config.adzuna.options),
+    ]);
+
+    // Process Reed results
+    if (reedJobs.status === "fulfilled") {
+      reedJobCount = reedJobs.value.length;
+      console.log(`📊 Reed: ${reedJobCount} jobs fetched`);
+    } else {
+      errors.push(`Reed API failed: ${reedJobs.reason}`);
+      console.error("❌ Reed API failed:", reedJobs.reason);
+    }
+
+    // Process Adzuna results
+    if (adzunaJobs.status === "fulfilled") {
+      adzunaJobCount = adzunaJobs.value.length;
+    } else {
+      errors.push(`Adzuna API failed: ${adzunaJobs.reason}`);
+    }
+
+    // Combine successful results
+    const allJobs: ExternalJob[] = [
+      ...(reedJobs.status === "fulfilled" ? reedJobs.value : []),
+      ...(adzunaJobs.status === "fulfilled" ? adzunaJobs.value : []),
+    ];
+
+    // Apply event industry filtering first, then config limits
+    const eventFilteredJobs = filterEventIndustryJobs(allJobs);
+
+    const limitedJobs = config.general.enableDeduplication
+      ? this.deduplicateJobs(eventFilteredJobs)
+      : eventFilteredJobs;
+
+    const finalJobs = limitedJobs.slice(0, config.general.maxTotalJobs);
+
+    return { finalJobs, totalFetched: allJobs.length, reedJobCount, adzunaJobCount, errors };
+  }
+
+  /**
+   * Store external jobs in the database with configurable options.
+   * With `dryRun: true`, runs the full fetch/filter pipeline against live API
+   * data and returns a scored sample without writing anything to the database.
+   */
+  async syncExternalJobs(
+    config: JobSearchConfig = DEFAULT_JOB_CONFIG,
+    options: { dryRun?: boolean } = {}
+  ): Promise<{
     totalFetched: number;
     newJobsAdded: number;
     reedJobs: number;
     adzunaJobs: number;
     errors: string[];
+    dryRun?: boolean;
+    sample?: Array<{
+      title: string;
+      company: string;
+      source: string;
+      score: number;
+      included: boolean;
+    }>;
   }> {
     if (this.syncInProgress) {
       console.log("⏸️ Sync already in progress, skipping...");
@@ -625,48 +506,37 @@ export class JobAggregator {
 
     this.syncInProgress = true;
     const startTime = Date.now();
-    const errors: string[] = [];
     let newJobsAdded = 0;
-    let reedJobCount = 0;
-    let adzunaJobCount = 0;
 
     try {
-      // Fetch jobs with individual tracking
-      const [reedJobs, adzunaJobs] = await Promise.allSettled([
-        this.fetchReedJobs(config.reed.keywords, config.reed.location, config.reed.options),
-        this.fetchAdzunaJobs(config.adzuna.keywords, config.adzuna.country, config.adzuna.options),
-      ]);
+      const { finalJobs, totalFetched, reedJobCount, adzunaJobCount, errors } =
+        await this.fetchFilterAndDedupe(config);
 
-      // Process Reed results
-      if (reedJobs.status === "fulfilled") {
-        reedJobCount = reedJobs.value.length;
-        console.log(`📊 Reed: ${reedJobCount} jobs fetched`);
-      } else {
-        errors.push(`Reed API failed: ${reedJobs.reason}`);
-        console.error("❌ Reed API failed:", reedJobs.reason);
+      if (options.dryRun) {
+        const sample = finalJobs.slice(0, 20).map((job) => {
+          const breakdown = scoreJob(job);
+          return {
+            title: job.title,
+            company: job.company,
+            source: job.source,
+            score: breakdown.score,
+            included: breakdown.included,
+          };
+        });
+
+        this.lastSyncTime = Date.now();
+        console.log(`✅ Dry run completed: ${finalJobs.length} jobs would be synced`);
+
+        return {
+          totalFetched,
+          newJobsAdded: 0,
+          reedJobs: reedJobCount,
+          adzunaJobs: adzunaJobCount,
+          errors,
+          dryRun: true,
+          sample,
+        };
       }
-
-      // Process Adzuna results
-      if (adzunaJobs.status === "fulfilled") {
-        adzunaJobCount = adzunaJobs.value.length;
-      } else {
-        errors.push(`Adzuna API failed: ${adzunaJobs.reason}`);
-      }
-
-      // Combine successful results
-      const allJobs: ExternalJob[] = [
-        ...(reedJobs.status === "fulfilled" ? reedJobs.value : []),
-        ...(adzunaJobs.status === "fulfilled" ? adzunaJobs.value : []),
-      ];
-
-      // Apply event industry filtering first, then config limits
-      const eventFilteredJobs = this.filterEventIndustryJobs(allJobs);
-
-      const limitedJobs = config.general.enableDeduplication
-        ? this.deduplicateJobs(eventFilteredJobs)
-        : eventFilteredJobs;
-
-      const finalJobs = limitedJobs.slice(0, config.general.maxTotalJobs);
 
       // Store jobs in database
       for (const job of finalJobs) {
@@ -701,7 +571,7 @@ export class JobAggregator {
       console.log(`✅ Sync completed in ${duration.toFixed(1)}s: ${newJobsAdded} new jobs added`);
 
       return {
-        totalFetched: allJobs.length,
+        totalFetched,
         newJobsAdded,
         reedJobs: reedJobCount,
         adzunaJobs: adzunaJobCount,
@@ -709,15 +579,14 @@ export class JobAggregator {
       };
     } catch (error) {
       const errorMessage = `Sync failed: ${error instanceof Error ? error.message : error}`;
-      errors.push(errorMessage);
       console.error("❌ External job sync failed:", error);
 
       return {
         totalFetched: 0,
         newJobsAdded: 0,
-        reedJobs: reedJobCount,
-        adzunaJobs: adzunaJobCount,
-        errors,
+        reedJobs: 0,
+        adzunaJobs: 0,
+        errors: [errorMessage],
       };
     } finally {
       this.syncInProgress = false;
@@ -752,45 +621,6 @@ export class JobAggregator {
     }
 
     return "Salary not specified";
-  }
-
-  /**
-   * Filter jobs to only include event industry roles
-   */
-  private filterEventIndustryJobs(jobs: ExternalJob[]): ExternalJob[] {
-    console.log(`Filtering ${jobs.length} jobs for event industry roles...`);
-
-    const filteredJobs = jobs.filter(job => {
-      const titleLower = job.title.toLowerCase();
-      const descriptionLower = job.description.toLowerCase();
-      const combinedText = `${titleLower} ${descriptionLower}`;
-
-      // First check if job contains excluded keywords (catering, hospitality, etc.)
-      const isExcluded = EXCLUDE_KEYWORDS.some(excludeKeyword =>
-        combinedText.includes(excludeKeyword.toLowerCase())
-      );
-
-      if (isExcluded) {
-        console.log(`✗ Excluding job (catering/hospitality): ${job.title} (${job.company})`);
-        return false;
-      }
-
-      // Then check if job title or description contains event industry keywords
-      const isEventRole = EVENT_ROLE_KEYWORDS.some(keyword =>
-        combinedText.includes(keyword.toLowerCase())
-      );
-
-      if (isEventRole) {
-        console.log(`✓ Keeping job: ${job.title} (${job.company})`);
-      } else {
-        console.log(`✗ Excluding job (not event industry): ${job.title} (${job.company})`);
-      }
-
-      return isEventRole;
-    });
-
-    console.log(`Filtered down to ${filteredJobs.length} event industry jobs`);
-    return filteredJobs;
   }
 
   private deduplicateJobs(jobs: ExternalJob[]): ExternalJob[] {

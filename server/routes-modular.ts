@@ -1,6 +1,6 @@
 import connectPgSimple from "connect-pg-simple";
 import cors from "cors";
-import type { Express } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
 import helmet from "helmet";
@@ -15,6 +15,7 @@ import { storage } from "./storage";
 // Import domain-specific route modules
 import jwt from "jsonwebtoken";
 import { setCacheByEndpoint } from "./api/middleware/cacheHeaders.js";
+import { requireAdminAuth } from "./api/middleware/admin.middleware.js";
 import { registerAdminRoutes } from "./api/routes/admin.route.js";
 import { registerApplicationRoutes } from "./api/routes/applications.route.js";
 import { registerAuthRoutes } from "./api/routes/auth.route.js";
@@ -311,44 +312,49 @@ export async function registerRoutes(
   // Additional utility endpoints that don't fit into specific domains
 
   // External job sync endpoints
-  // TEMPORARILY DISABLED - External job sync is paused
-  app.post("/api/jobs/sync-external", async (req, res) => {
-    console.log("⏸️ External job sync is temporarily disabled");
-    return res.json({
-      message: "External job sync is temporarily disabled",
-      synced: 0,
-      skipped: 0,
-    });
-    /* DISABLED - Re-enable when ready
+  // Real (non-dry-run) sync stays unauthenticated: Jobs.tsx calls this from the
+  // browser on every page mount, throttled client-side via localStorage.
+  const requireAdminForDryRun = (req: Request, res: Response, next: NextFunction) => {
+    if (req.query.dryRun === "true") return requireAdminAuth(req, res, next);
+    next();
+  };
+
+  app.post("/api/jobs/sync-external", requireAdminForDryRun, async (req, res) => {
     try {
       console.log("🔄 External job sync requested");
       const { jobAggregator } = await import("./api/utils/jobAggregator.js");
       const config = req.body.config; // Optional configuration
+      const dryRun = req.query.dryRun === "true";
 
       // Check if sync is already in progress
-      const isSync = jobAggregator.isSyncInProgress();
-      if (isSync) {
+      if (jobAggregator.isSyncInProgress()) {
         return res.json({ message: "Sync already in progress, skipping..." });
       }
 
-      const result = await jobAggregator.syncExternalJobs(config);
-      console.log("✅ External job sync completed");
+      const result = await jobAggregator.syncExternalJobs(config, { dryRun });
+      console.log(dryRun ? "✅ External job dry-run completed" : "✅ External job sync completed");
       res.json({
-        message: "External jobs synced successfully",
+        message: dryRun
+          ? "Dry run completed, no jobs written"
+          : "External jobs synced successfully",
         ...result,
       });
     } catch (error) {
       console.error("❌ Sync external jobs error:", error);
       res.status(500).json({ error: "Failed to sync external jobs" });
     }
-    */
   });
 
-  // Get external jobs only (public endpoint - no authentication required)
-  // TEMPORARILY DISABLED - Returns empty array
-  app.get("/api/jobs/external", async (req, res) => {
-    console.log("⏸️ External jobs endpoint is temporarily disabled - returning empty array");
-    return res.json([]);
+  // Get external jobs only (admin/debug use — the public Jobs page uses GET /api/jobs,
+  // which already includes external jobs once they're synced into the database)
+  app.get("/api/jobs/external", requireAdminAuth, async (req, res) => {
+    try {
+      const jobs = await storage.getExternalJobs();
+      res.json(jobs);
+    } catch (error) {
+      console.error("❌ Get external jobs error:", error);
+      res.status(500).json({ error: "Failed to fetch external jobs" });
+    }
   });
 
   // Location search endpoint — global via Nominatim, falls back to local UK dataset
