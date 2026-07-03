@@ -1,8 +1,8 @@
 /**
  * Standalone accuracy check for the external job filter. Run with:
  *   npx tsx server/api/utils/jobFilterCheck.ts
- * Re-run after any change to EVENT_ROLE_KEYWORDS/EXCLUDE_KEYWORDS or the
- * scoring weights/threshold in jobAggregator.ts to catch regressions.
+ * Re-run after any change to the strong/weak keyword tiers, EXCLUDE_KEYWORDS,
+ * or the scoring weights/threshold in jobFilter.ts to catch regressions.
  */
 import { filterEventIndustryJobs, scoreJob } from "./jobFilter.js";
 
@@ -187,6 +187,51 @@ const CASES: SampleCase[] = [
     title: "Data Scientist",
     description:
       "Machine learning and data engineering role using python for data science projects.",
+  },
+
+  // --- Weak-tier-alone cases: should now fail without a strong signal ---
+  {
+    // The exact real BAE Systems posting that motivated the strong/weak
+    // split — "production technician" is weak-tier only, no strong hit
+    // anywhere, so this must fail on scoring alone (independent of the
+    // manufacturing-jobs category block tested below).
+    label: "Production Technician (Sprayer) — weak-tier alone, no AV signal",
+    expected: false,
+    title: "Production Technician (Sprayer)",
+    description:
+      "Join BAE Systems and you'll be part of something bigger, delivering advanced technology-led defence, aerospace and security solutions.",
+  },
+  {
+    label: "Production Crew - farm (weak-tier + agriculture exclude)",
+    expected: false,
+    title: "Production Crew Member",
+    description: "Seasonal production crew needed for a busy farm during harvest, picking crops.",
+  },
+  {
+    label: "Technical Coordinator - warehouse (weak-tier alone)",
+    expected: false,
+    title: "Technical Coordinator",
+    description: "Technical coordinator needed to support warehouse operations and logistics.",
+  },
+  {
+    label: "Camera Operator - CCTV (weak-tier alone)",
+    expected: false,
+    title: "Camera Operator",
+    description: "CCTV camera operator monitoring retail premises for security purposes.",
+  },
+
+  // --- Strong-tier true positives: should pass on a single strong hit ---
+  {
+    label: "FOH Engineer freelance (strong title term alone)",
+    expected: true,
+    title: "FOH Engineer",
+    description: "Freelance role for an upcoming tour, own transport required.",
+  },
+  {
+    label: "Rigging Technician (strong title term alone)",
+    expected: true,
+    title: "Rigging Technician",
+    description: "Truss and chain hoist rigging for a touring production, must be IRATA certified.",
   },
 ];
 

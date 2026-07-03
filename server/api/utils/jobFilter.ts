@@ -4,71 +4,158 @@
  * without needing a live database connection.
  */
 
-// Keywords that indicate event industry roles
-const EVENT_ROLE_KEYWORDS = [
-  // Core specified roles
+// Terms that are genuinely unambiguous to live events / AV / broadcast /
+// touring / production work — gear and software brand names, and job titles
+// that aren't meaningfully used outside this industry. A single hit here is
+// enough to include a job on its own (see scoreJob's weighting).
+const STRONG_EVENT_KEYWORDS = [
+  // Roles specific to AV/events/broadcast
   "av technician",
-  "audio visual",
+  "audio visual technician",
   "audiovisual technician",
+  "av engineer",
+  "av installation engineer",
+  "av support engineer",
+  "conference av technician",
+  "conference av",
+  "exhibition av technician",
+  "event av technician",
+  "event av",
+  "live events technician",
+  "live event technician",
   "event technician",
-  "event production",
-  "production technician",
+  "foh engineer",
+  "front of house engineer",
+  "monitor engineer",
+  "audio system engineer",
   "sound engineer",
   "audio engineer",
+  "broadcast engineer",
+  "broadcast technician",
+  "vision mixer",
+  "vision engineer",
+  "vision mixing",
+  "playout engineer",
+  "evs operator",
   "lighting technician",
   "lighting engineer",
+  "lighting designer",
   "lighting operator",
-  "video technician",
-  "vision mixer",
-  "vmix",
-  "broadcast technician",
-  "live events technician",
-  "conference av",
-  "technical crew",
+  "moving light technician",
+  "moving lights",
+  "rigging technician",
+  "truss technician",
+  "truss rigger",
+  "event rigger",
   "stage technician",
-  "led technician",
+  "backline technician",
+  "backline tech",
+  "tour manager",
+  "production electrician",
+  "streaming technician",
+  "streaming engineer",
+  "webcast engineer",
+  "ob engineer",
+  "outside broadcast engineer",
+  "ob technician",
+  "outside broadcast",
+  "satellite truck operator",
+  "projectionist",
   "projection technician",
+  "led wall technician",
+  "led screen technician",
+  "led technician",
+  "video engineer",
+  "live camera operator",
+  "broadcast camera operator",
+  "studio camera operator",
+  "ob camera operator",
+  "vmix",
+  "dry hire technician",
+  "festival crew",
+  "touring crew",
+  "arena tour",
+  "corporate av",
+  "trade show av",
+  "exhibition stand build",
+  "stage management",
+  "stage manager",
 
-  // Related technical roles
+  // Gear, software and brand names essentially unique to this industry
+  "grandma2",
+  "grandma3",
+  "grandma",
+  "avolites",
+  "hog console",
+  "hog 4",
+  "chamsys",
+  "eos console",
+  "etc eos",
+  "colorsource console",
+  "disguise media server",
+  "d3 media server",
+  "resolume",
+  "qlab",
+  "dante audio",
+  "madi",
+  "digico",
+  "allen & heath",
+  "midas console",
+  "yamaha cl5",
+  "yamaha ql5",
+  "l-acoustics",
+  "d&b audiotechnik",
+  "meyer sound",
+  "clear-com",
+  "riedel comms",
+  "blackmagic atem",
+  "atem switcher",
+  "ross switcher",
+  "line array",
+  "pa system",
+  "in-ear monitors",
+  "iem pack",
+  "ground support",
+  "flying rig",
+  "chain hoist",
+  "pixel mapping",
+  "rf coordination",
+  "wireless frequency coordination",
+  "signal flow",
+  "mixing desk",
+  "lighting desk",
+  "rf microphones",
+  "led wall",
+];
+
+// Terms that relate to events/production but are also common in unrelated
+// industries (manufacturing, agriculture, warehousing, IT, construction).
+// A hit here alone isn't enough to include a job — see scoreJob's weighting.
+const WEAK_EVENT_KEYWORDS = [
+  "production technician",
+  "production crew",
+  "production manager",
+  "production assistant",
+  "production support",
+  "technical support",
+  "technical coordinator",
+  "technical crew",
+  "camera operator",
+  "video operator",
+  "video mixer",
   "sound technician",
   "audio technician",
   "live streaming",
   "live production",
-  "production crew",
-  "production assistant",
-  "technical support",
-  "technical coordinator",
-  "camera operator",
-  "video operator",
-  "video mixer",
-  "video engineer",
-  "streaming engineer",
-  "stage manager",
-  "stage management",
-  "production manager",
-
-  // Equipment and venue specific
-  "rigging",
-  "conference technician",
-  // Broadcasting and media
-  "video production",
   "live broadcast",
-  "streaming technician",
+  "video production",
   "media technician",
-
-  // Technical equipment signals (strong positive indicators)
-  "mixing desk",
-  "pa system",
-  "lighting desk",
-  "grandma",
-  "avolites",
-  "led wall",
-  "projectors",
+  "event production",
+  "conference technician",
+  "rigging",
   "cameras",
-  "signal flow",
-  "rf microphones",
-  "live stream",
-  "vision mixing",
+  "projectors",
+  "media server",
 ];
 
 // Keywords that indicate NON-event industry roles (catering, hospitality, etc.) that should be excluded
@@ -170,6 +257,23 @@ const EXCLUDE_KEYWORDS = [
   "node developer",
   "java developer",
   "coding",
+
+  // Agriculture and farming — "production technician/crew/manager" style
+  // titles are also routinely used on farms, so these need an explicit
+  // negative signal since they'd otherwise pass on weak-keyword overlap alone
+  "farm",
+  "farming",
+  "farmer",
+  "agricultural",
+  "agriculture",
+  "livestock",
+  "dairy",
+  "poultry",
+  "arable",
+  "harvest",
+  "crop",
+  "horticulture",
+  "abattoir",
 ];
 
 // Adzuna category tags that reliably indicate a non-event-industry job.
@@ -210,8 +314,10 @@ export interface ScorableJob {
 }
 
 export interface JobScoreBreakdown {
-  titleIncludeHits: string[];
-  descIncludeHits: string[];
+  titleStrongHits: string[];
+  descStrongHits: string[];
+  titleWeakHits: string[];
+  descWeakHits: string[];
   titleExcludeHits: string[];
   descExcludeHits: string[];
   score: number;
@@ -219,34 +325,46 @@ export interface JobScoreBreakdown {
 }
 
 /**
- * Scores a job's relevance to the event-tech industry. Title hits are weighted
- * far more heavily than description hits since job titles are concise/curated,
- * while descriptions are long free text where a single stray word (positive or
- * negative) shouldn't swing the whole decision — hence the score threshold
- * instead of a flat include/exclude keyword gate.
+ * Scores a job's relevance to the event-tech industry using two keyword
+ * tiers rather than one flat list. Strong terms (gear/software brand names,
+ * roles unique to this industry) are unambiguous enough that a single hit is
+ * sufficient on its own. Weak terms ("production technician", "camera
+ * operator", etc.) are genuinely used across other industries too — factory,
+ * farm and warehouse job titles routinely overlap with them — so they only
+ * count when there's enough of them to add up, or when paired with a strong
+ * hit. This directly targets false positives found in production: a
+ * manufacturing "Production Technician (Sprayer)" and a farm-adjacent
+ * "Production" role both matched on weak-tier phrases alone with nothing to
+ * corroborate them.
  */
 export function scoreJob(job: ScorableJob): JobScoreBreakdown {
   const titleLower = job.title.toLowerCase();
   const descLower = job.description.toLowerCase();
 
-  const titleIncludeHits = EVENT_ROLE_KEYWORDS.filter((k) => titleLower.includes(k));
-  const descIncludeHits = EVENT_ROLE_KEYWORDS.filter((k) => descLower.includes(k));
+  const titleStrongHits = STRONG_EVENT_KEYWORDS.filter((k) => titleLower.includes(k));
+  const descStrongHits = STRONG_EVENT_KEYWORDS.filter((k) => descLower.includes(k));
+  const titleWeakHits = WEAK_EVENT_KEYWORDS.filter((k) => titleLower.includes(k));
+  const descWeakHits = WEAK_EVENT_KEYWORDS.filter((k) => descLower.includes(k));
   const titleExcludeHits = EXCLUDE_KEYWORDS.filter((k) => titleLower.includes(k));
   const descExcludeHits = EXCLUDE_KEYWORDS.filter((k) => descLower.includes(k));
 
   const score =
-    titleIncludeHits.length * 3 +
-    Math.min(descIncludeHits.length, 3) * 1 +
-    titleExcludeHits.length * -5 +
-    Math.min(descExcludeHits.length, 3) * -1;
+    titleStrongHits.length * 6 +
+    Math.min(descStrongHits.length, 2) * 3 +
+    titleWeakHits.length * 2 +
+    Math.min(descWeakHits.length, 3) * 1 +
+    titleExcludeHits.length * -8 +
+    Math.min(descExcludeHits.length, 3) * -2;
 
   return {
-    titleIncludeHits,
-    descIncludeHits,
+    titleStrongHits,
+    descStrongHits,
+    titleWeakHits,
+    descWeakHits,
     titleExcludeHits,
     descExcludeHits,
     score,
-    included: score >= 3,
+    included: score >= 6,
   };
 }
 
@@ -270,7 +388,8 @@ export function filterEventIndustryJobs<T extends ScorableJob & { title: string;
 
     const breakdown = scoreJob(job);
     const detail =
-      `[titleIn:${breakdown.titleIncludeHits.join(",") || "-"} descIn:${breakdown.descIncludeHits.join(",") || "-"} ` +
+      `[titleStrong:${breakdown.titleStrongHits.join(",") || "-"} descStrong:${breakdown.descStrongHits.join(",") || "-"} ` +
+      `titleWeak:${breakdown.titleWeakHits.join(",") || "-"} descWeak:${breakdown.descWeakHits.join(",") || "-"} ` +
       `titleEx:${breakdown.titleExcludeHits.join(",") || "-"} descEx:${breakdown.descExcludeHits.join(",") || "-"}]`;
 
     if (breakdown.included) {
@@ -279,7 +398,7 @@ export function filterEventIndustryJobs<T extends ScorableJob & { title: string;
       );
     } else {
       console.log(
-        `✗ Excluding job (score ${breakdown.score} < 3): ${job.title} (${job.company}) ${detail}`
+        `✗ Excluding job (score ${breakdown.score} < 6): ${job.title} (${job.company}) ${detail}`
       );
     }
 
