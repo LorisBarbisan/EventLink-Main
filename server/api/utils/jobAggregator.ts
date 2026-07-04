@@ -356,17 +356,6 @@ export class JobAggregator {
         console.log(
           `✅ Adzuna (${countryConfig.code}) API returned ${data.results?.length || 0} jobs`
         );
-        console.log(
-          `🔍 Adzuna (${countryConfig.code}) API full response:`,
-          JSON.stringify(data, null, 2)
-        );
-
-        if (data.results?.length > 0) {
-          console.log(
-            `📋 Adzuna (${countryConfig.code}) sample job:`,
-            JSON.stringify(data.results[0], null, 2)
-          );
-        }
 
         const jobs = data.results || [];
 
