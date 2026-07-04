@@ -1415,6 +1415,7 @@ export class DatabaseStorage implements IStorage {
   async searchFreelancers(filters: {
     keyword?: string;
     location?: string;
+    country?: string;
     page?: number;
     limit?: number;
   }): Promise<{
@@ -1424,7 +1425,7 @@ export class DatabaseStorage implements IStorage {
     totalPages: number;
   }> {
     try {
-      const { keyword, location, page = 1, limit = 20 } = filters;
+      const { keyword, location, country, page = 1, limit = 20 } = filters;
       const EVENTLINK_EMAIL = "eventlink@eventlink.one";
 
       // Build conditions array
@@ -1439,6 +1440,12 @@ export class DatabaseStorage implements IStorage {
 
       if (location?.trim()) {
         conditions.push(freelancerLocationCondition(location));
+      }
+
+      if (country?.trim()) {
+        conditions.push(
+          sql`LOWER(${freelancer_profiles.country}) = ${country.trim().toLowerCase()}`
+        );
       }
 
       // Always fetch EventLink profile separately (if it matches filters)
@@ -2109,12 +2116,13 @@ export class DatabaseStorage implements IStorage {
   async searchJobs(filters: {
     keyword?: string;
     location?: string;
+    country?: string;
     startDate?: string;
     endDate?: string;
   }): Promise<Job[]> {
     try {
       await this.closeExpiredJobs();
-      const { keyword, location, startDate, endDate } = filters;
+      const { keyword, location, country, startDate, endDate } = filters;
 
       // Build conditions array
       const conditions = [];
@@ -2152,6 +2160,11 @@ export class DatabaseStorage implements IStorage {
       if (location && location.trim()) {
         const locationTerm = `%${location.toLowerCase()}%`;
         conditions.push(sql`LOWER(${jobs.location}) LIKE ${locationTerm}`);
+      }
+
+      // Country filter (exact match)
+      if (country && country.trim()) {
+        conditions.push(sql`LOWER(${jobs.country}) = ${country.toLowerCase()}`);
       }
 
       // Date range filter on event_date

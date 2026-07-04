@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { COUNTRIES, CountrySelect } from "@/components/ui/country-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -27,6 +28,7 @@ const EVENTLINK_PROMOTIONAL_EMAIL = "eventlink@eventlink.one";
 export default function Freelancers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
+  const [countryFilter, setCountryFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [, setLocation] = useLocation();
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -86,7 +88,7 @@ export default function Freelancers() {
   // Reset to page 1 when search filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, locationFilter]);
+  }, [searchQuery, locationFilter, countryFilter]);
 
   // Fetch freelancers using server-side search
   const {
@@ -94,11 +96,12 @@ export default function Freelancers() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["/api/freelancers/search", searchQuery, locationFilter, currentPage],
+    queryKey: ["/api/freelancers/search", searchQuery, locationFilter, countryFilter, currentPage],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery) params.append("keyword", searchQuery);
       if (locationFilter) params.append("location", locationFilter);
+      if (countryFilter) params.append("country", countryFilter);
       params.append("page", currentPage.toString());
       params.append("limit", "21");
 
@@ -165,7 +168,7 @@ export default function Freelancers() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
               <div className="md:col-span-2">
                 <Input
                   placeholder="Search freelancers, skills, or specializations..."
@@ -176,10 +179,18 @@ export default function Freelancers() {
                 />
               </div>
               <div>
+                <CountrySelect
+                  value={countryFilter}
+                  onChange={setCountryFilter}
+                  placeholder="All countries"
+                />
+              </div>
+              <div>
                 <GlobalLocationInput
                   placeholder="Filter by location..."
                   value={locationFilter}
                   onChange={(value) => setLocationFilter(value)}
+                  countryCode={COUNTRIES.find((c) => c.name === countryFilter)?.code}
                   data-testid="input-location-filter"
                 />
               </div>
@@ -241,17 +252,18 @@ export default function Freelancers() {
                   <User className="mx-auto h-12 w-12 text-muted-foreground" />
                   <h3 className="text-xl font-semibold">No Freelancers Found</h3>
                   <p className="mx-auto max-w-md text-muted-foreground">
-                    {searchQuery || locationFilter
+                    {searchQuery || locationFilter || countryFilter
                       ? `No freelancers match your search criteria. Try adjusting your filters or search terms.`
                       : `There are currently no freelancer profiles available. Freelancers need to complete their profiles before appearing in search results.`}
                   </p>
                   <div className="flex justify-center gap-4 pt-4">
-                    {(searchQuery || locationFilter) && (
+                    {(searchQuery || locationFilter || countryFilter) && (
                       <Button
                         variant="outline"
                         onClick={() => {
                           setSearchQuery("");
                           setLocationFilter("");
+                          setCountryFilter("");
                         }}
                         data-testid="button-clear-filters"
                       >

@@ -289,18 +289,20 @@ export async function registerRoutes(
       // Extract query parameters
       const keyword = (req.query.keyword as string) || "";
       const location = (req.query.location as string) || "";
+      const country = (req.query.country as string) || "";
       const startDate = (req.query.start_date as string) || "";
       const endDate = (req.query.end_date as string) || "";
 
       console.log("📋 Jobs endpoint called with filters:", {
         keyword,
         location,
+        country,
         startDate,
         endDate,
       });
 
       // Get filtered jobs from storage
-      const jobs = await storage.searchJobs({ keyword, location, startDate, endDate });
+      const jobs = await storage.searchJobs({ keyword, location, country, startDate, endDate });
 
       console.log(`📊 Found ${jobs.length} jobs after filtering`);
 

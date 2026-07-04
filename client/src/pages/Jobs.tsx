@@ -1,7 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -13,13 +12,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { UKLocationInput } from "@/components/ui/uk-location-input";
+import { COUNTRIES, CountrySelect } from "@/components/ui/country-select";
+import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
 import {
   Calendar as CalendarIcon,
   ChevronDown,
@@ -51,28 +49,21 @@ export default function Jobs() {
   // Initialize search state from URL parameters
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
-  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
-
-  // Control popover states to prevent overlapping
-  const [fromDateOpen, setFromDateOpen] = useState(false);
-  const [toDateOpen, setToDateOpen] = useState(false);
+  const [countryFilter, setCountryFilter] = useState("");
 
   // Load initial search parameters from URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlSearch = urlParams.get("search") || "";
     const urlLocation = urlParams.get("location") || "";
-    const urlDateFrom = urlParams.get("date_from") || "";
-    const urlDateTo = urlParams.get("date_to") || "";
+    const urlCountry = urlParams.get("country") || "";
     const urlPage = parseInt(urlParams.get("page") || "1");
     // Check for jobId to auto-expand
     const urlJobId = urlParams.get("jobId");
 
     setSearchQuery(urlSearch);
     setLocationFilter(urlLocation);
-    if (urlDateFrom) setDateFrom(new Date(urlDateFrom));
-    if (urlDateTo) setDateTo(new Date(urlDateTo));
+    setCountryFilter(urlCountry);
     setCurrentPage(urlPage);
 
     if (urlJobId) {
@@ -87,8 +78,7 @@ export default function Jobs() {
 
     if (searchQuery) urlParams.set("search", searchQuery);
     if (locationFilter) urlParams.set("location", locationFilter);
-    if (dateFrom) urlParams.set("date_from", format(dateFrom, "yyyy-MM-dd"));
-    if (dateTo) urlParams.set("date_to", format(dateTo, "yyyy-MM-dd"));
+    if (countryFilter) urlParams.set("country", countryFilter);
 
     if (currentPage > 1) urlParams.set("page", currentPage.toString());
     // Persist expanded job ID in URL
@@ -99,12 +89,12 @@ export default function Jobs() {
 
     // Scroll to top when page changes
     window.scrollTo(0, 0);
-  }, [searchQuery, locationFilter, dateFrom, dateTo, currentPage]);
+  }, [searchQuery, locationFilter, countryFilter, currentPage]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, locationFilter, dateFrom, dateTo]);
+  }, [searchQuery, locationFilter, countryFilter]);
 
   // Update URL when expansion changes
   useEffect(() => {
@@ -124,14 +114,13 @@ export default function Jobs() {
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ["/api/jobs", searchQuery, locationFilter, dateFrom, dateTo],
+    queryKey: ["/api/jobs", searchQuery, locationFilter, countryFilter],
     queryFn: () => {
       // Build query parameters for server-side filtering
       const params = new URLSearchParams();
       if (searchQuery) params.set("keyword", searchQuery);
       if (locationFilter) params.set("location", locationFilter);
-      if (dateFrom) params.set("start_date", format(dateFrom, "yyyy-MM-dd"));
-      if (dateTo) params.set("end_date", format(dateTo, "yyyy-MM-dd"));
+      if (countryFilter) params.set("country", countryFilter);
 
       const queryString = params.toString();
       const url = queryString ? `/api/jobs?${queryString}` : "/api/jobs";
@@ -283,7 +272,7 @@ export default function Jobs() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
                   <Input
                     placeholder="Search jobs, companies, or skills..."
@@ -294,84 +283,25 @@ export default function Jobs() {
                   />
                 </div>
                 <div>
-                  <UKLocationInput
+                  <CountrySelect
+                    value={countryFilter}
+                    onChange={setCountryFilter}
+                    placeholder="All countries"
+                  />
+                </div>
+                <div>
+                  <GlobalLocationInput
                     placeholder="Filter by location..."
                     value={locationFilter}
                     onChange={(value) => setLocationFilter(value)}
+                    countryCode={COUNTRIES.find((c) => c.name === countryFilter)?.code}
                     data-testid="input-location-filter"
                   />
                 </div>
               </div>
 
-              {/* Date Range Filter */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <Popover
-                    open={fromDateOpen}
-                    onOpenChange={(open) => {
-                      setFromDateOpen(open);
-                      if (open) setToDateOpen(false); // Close the other popover
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                        data-testid="button-date-from"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateFrom ? format(dateFrom, "PPP") : "Event Date From"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dateFrom}
-                        onSelect={(date) => {
-                          setDateFrom(date);
-                          setFromDateOpen(false); // Close popover after selection
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div>
-                  <Popover
-                    open={toDateOpen}
-                    onOpenChange={(open) => {
-                      setToDateOpen(open);
-                      if (open) setFromDateOpen(false); // Close the other popover
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                        data-testid="button-date-to"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateTo ? format(dateTo, "PPP") : "Event Date To"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dateTo}
-                        onSelect={(date) => {
-                          setDateTo(date);
-                          setToDateOpen(false); // Close popover after selection
-                        }}
-                        initialFocus
-                        disabled={(date) => (dateFrom ? date < dateFrom : false)}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-
               {/* Clear Filters Button */}
-              {(searchQuery || locationFilter || dateFrom || dateTo) && (
+              {(searchQuery || locationFilter || countryFilter) && (
                 <div className="flex justify-start">
                   <Button
                     variant="outline"
@@ -379,8 +309,7 @@ export default function Jobs() {
                     onClick={() => {
                       setSearchQuery("");
                       setLocationFilter("");
-                      setDateFrom(undefined);
-                      setDateTo(undefined);
+                      setCountryFilter("");
                       setCurrentPage(1);
                     }}
                     className="flex items-center gap-2"
@@ -412,12 +341,13 @@ export default function Jobs() {
                 <p className="mb-4 text-muted-foreground">
                   Try adjusting your search criteria or removing some filters.
                 </p>
-                {(searchQuery || locationFilter) && (
+                {(searchQuery || locationFilter || countryFilter) && (
                   <Button
                     variant="outline"
                     onClick={() => {
                       setSearchQuery("");
                       setLocationFilter("");
+                      setCountryFilter("");
                       setCurrentPage(1);
                     }}
                     className="flex items-center gap-2"
