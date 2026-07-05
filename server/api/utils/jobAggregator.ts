@@ -673,6 +673,55 @@ export class JobAggregator {
 
     return unique;
   }
+
+  /**
+   * One-time cleanup for duplicates that accumulated in the database before
+   * the title+description dedup key existed (they were stored under distinct
+   * title+company+location keys, e.g. "Encore" vs "Encore Global" for the
+   * same verbatim job ad). Groups existing external jobs by the current
+   * content key, keeps the oldest row in each group, and deletes the rest.
+   */
+  async dedupeExistingExternalJobs(): Promise<{
+    groupsWithDuplicates: number;
+    deletedCount: number;
+  }> {
+    const existingExternalJobs = await storage.getExternalJobs();
+
+    const groups = new Map<string, typeof existingExternalJobs>();
+    for (const job of existingExternalJobs) {
+      const key = this.contentKey(job.title, job.description);
+      const group = groups.get(key);
+      if (group) {
+        group.push(job);
+      } else {
+        groups.set(key, [job]);
+      }
+    }
+
+    let groupsWithDuplicates = 0;
+    let deletedCount = 0;
+
+    for (const group of Array.from(groups.values())) {
+      if (group.length <= 1) continue;
+      groupsWithDuplicates++;
+
+      const sortedByOldestFirst = [...group].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      const duplicatesToRemove = sortedByOldestFirst.slice(1);
+
+      for (const duplicate of duplicatesToRemove) {
+        await storage.deleteJob(duplicate.id);
+        deletedCount++;
+      }
+    }
+
+    console.log(
+      `🧹 Dedup cleanup: ${groupsWithDuplicates} duplicate groups found, ${deletedCount} jobs removed`
+    );
+
+    return { groupsWithDuplicates, deletedCount };
+  }
 }
 
 export const jobAggregator = new JobAggregator();

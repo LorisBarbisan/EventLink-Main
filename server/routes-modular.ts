@@ -361,6 +361,21 @@ export async function registerRoutes(
     }
   });
 
+  // One-time cleanup for external job duplicates that accumulated before the
+  // title+description dedup key existed. Safe to run repeatedly — it's a
+  // no-op once nothing matches on title+description anymore.
+  app.post("/api/jobs/dedupe-cleanup", requireAdminAuth, async (req, res) => {
+    try {
+      console.log("🧹 External job dedupe cleanup requested");
+      const { jobAggregator } = await import("./api/utils/jobAggregator.js");
+      const result = await jobAggregator.dedupeExistingExternalJobs();
+      res.json({ message: "Dedupe cleanup completed", ...result });
+    } catch (error) {
+      console.error("❌ Dedupe cleanup error:", error);
+      res.status(500).json({ error: "Failed to run dedupe cleanup" });
+    }
+  });
+
   // Location search endpoint — global via Nominatim, falls back to local UK dataset
   app.get("/api/locations/search", async (req, res) => {
     try {
