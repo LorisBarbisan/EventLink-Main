@@ -549,16 +549,16 @@ export class JobAggregator {
       // reposted under many different external IDs by different recruitment
       // agencies, so an external_id-only check lets the same job accumulate
       // indefinitely across syncs. Compare against everything already stored
-      // using the same title+company+location key deduplicateJobs uses.
+      // using the same title+description key deduplicateJobs uses.
       const existingExternalJobs = await storage.getExternalJobs();
       const existingContentKeys = new Set(
-        existingExternalJobs.map((j) => this.contentKey(j.title, j.company, j.location))
+        existingExternalJobs.map((j) => this.contentKey(j.title, j.description))
       );
 
       // Store jobs in database
       for (const job of finalJobs) {
         const existingJob = await storage.getJobByExternalId(job.id);
-        const contentKey = this.contentKey(job.title, job.company, job.location);
+        const contentKey = this.contentKey(job.title, job.description);
 
         if (!existingJob && !existingContentKeys.has(contentKey)) {
           // Convert external job format to internal job format
@@ -643,8 +643,19 @@ export class JobAggregator {
     return "Salary not specified";
   }
 
-  private contentKey(title: string, company: string, location: string): string {
-    return `${title.toLowerCase()}_${company.toLowerCase()}_${location.toLowerCase()}`;
+  /**
+   * Keyed on title+description rather than title+company+location: the same
+   * real-world job is routinely reposted under near-identical but not
+   * identical company/location strings (e.g. "Encore" vs "Encore Global",
+   * "Brisbane" vs "Brisbane CBD, Brisbane") by the same agency's multiple
+   * Adzuna employer profiles, which let duplicates slip past a
+   * company/location-based key entirely. The description text is copy-pasted
+   * verbatim across those reposts, making it a far more reliable duplicate
+   * signal than company or location ever were.
+   */
+  private contentKey(title: string, description: string): string {
+    const normalizedDescription = description.toLowerCase().replace(/\s+/g, " ").trim();
+    return `${title.toLowerCase().trim()}_${normalizedDescription}`;
   }
 
   private deduplicateJobs(jobs: ExternalJob[]): ExternalJob[] {
@@ -652,7 +663,7 @@ export class JobAggregator {
     const unique: ExternalJob[] = [];
 
     for (const job of jobs) {
-      const key = this.contentKey(job.title, job.company, job.location);
+      const key = this.contentKey(job.title, job.description);
 
       if (!seen.has(key)) {
         seen.add(key);
