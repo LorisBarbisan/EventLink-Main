@@ -364,9 +364,7 @@ export async function registerRoutes(
   // One-time cleanup for external job duplicates that accumulated before the
   // title+description dedup key existed. Safe to run repeatedly — it's a
   // no-op once nothing matches on title+description anymore.
-  // TEMPORARY: auth gate removed to run a one-off cleanup on an environment
-  // with no admin user yet. Restore requireAdminAuth immediately after.
-  app.post("/api/jobs/dedupe-cleanup", async (req, res) => {
+  app.post("/api/jobs/dedupe-cleanup", requireAdminAuth, async (req, res) => {
     try {
       console.log("🧹 External job dedupe cleanup requested");
       const { jobAggregator } = await import("./api/utils/jobAggregator.js");
