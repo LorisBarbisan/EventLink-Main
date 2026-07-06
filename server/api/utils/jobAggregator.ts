@@ -652,10 +652,29 @@ export class JobAggregator {
    * company/location-based key entirely. The description text is copy-pasted
    * verbatim across those reposts, making it a far more reliable duplicate
    * signal than company or location ever were.
+   *
+   * Normalization strips currency symbols and punctuation, since the same
+   * underlying ad comes out slightly different per source — a real example:
+   * Reed rendered "32,000 - 38,000 + Overtime + Healthcare" while Adzuna
+   * rendered "£32,000 - £38,000  Overtime  Healthcare" for the identical job.
+   * The description is also compared only on its first 250 normalized
+   * characters rather than in full, since Reed and Adzuna truncate the same
+   * source text at different lengths — comparing the full string would miss
+   * a match that's identical up to whichever source truncated it shorter.
+   * Verified against real duplicate postings: both were byte-identical after
+   * normalization for at least their first 300 characters.
    */
   private contentKey(title: string, description: string): string {
-    const normalizedDescription = description.toLowerCase().replace(/\s+/g, " ").trim();
-    return `${title.toLowerCase().trim()}_${normalizedDescription}`;
+    const normalize = (text: string) =>
+      text
+        .toLowerCase()
+        .replace(/[£$€¥]/g, "")
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const descriptionPrefix = normalize(description).slice(0, 250);
+    return `${normalize(title)}_${descriptionPrefix}`;
   }
 
   private deduplicateJobs(jobs: ExternalJob[]): ExternalJob[] {
