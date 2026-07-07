@@ -27,6 +27,7 @@ import {
   Clock,
   Banknote,
   MapPin,
+  RefreshCw,
   Search,
   X,
 } from "lucide-react";
@@ -168,6 +169,38 @@ export default function Jobs() {
 
   // Current user is now available from useAuth hook
   console.log("Current user from useAuth:", currentUser);
+
+  // Manual refresh: re-triggers the external job sync on demand, bypassing
+  // the 30-minute localStorage throttle used for the automatic on-mount sync.
+  const refreshJobsMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/jobs/sync-external", { method: "POST" });
+    },
+    onSuccess: async (result: { newJobsAdded?: number; errors?: string[] }) => {
+      await refetch();
+      if (result?.errors?.length) {
+        toast({
+          title: "Refresh completed with issues",
+          description: result.errors.join("; "),
+          variant: "destructive",
+        });
+      } else {
+        const added = result?.newJobsAdded ?? 0;
+        toast({
+          title: "Jobs refreshed",
+          description:
+            added > 0 ? `${added} new job${added !== 1 ? "s" : ""} added.` : "No new jobs found.",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Refresh failed",
+        description: error?.message || "Failed to refresh jobs.",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Job application mutation
   const applyToJobMutation = useMutation({
@@ -330,6 +363,19 @@ export default function Jobs() {
             <h2 className="text-xl font-semibold sm:text-2xl">
               {filteredJobs.length} Job{filteredJobs.length !== 1 ? "s" : ""} Found
             </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refreshJobsMutation.mutate()}
+              disabled={refreshJobsMutation.isPending}
+              className="flex items-center gap-2"
+              data-testid="button-refresh-jobs"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${refreshJobsMutation.isPending ? "animate-spin" : ""}`}
+              />
+              {refreshJobsMutation.isPending ? "Refreshing..." : "Refresh"}
+            </Button>
           </div>
 
           {/* No Results Message */}
