@@ -1,9 +1,14 @@
+import { createHash } from "crypto";
 import { storage } from "../../storage";
 import {
   ADZUNA_COUNTRIES,
+  CAREERJET_COUNTRIES,
   DEFAULT_JOB_CONFIG,
+  JOOBLE_COUNTRIES,
   type AdzunaCountryConfig,
+  type CareerjetCountryConfig,
   type JobSearchConfig,
+  type JoobleCountryConfig,
 } from "./jobConfig";
 import { filterEventIndustryJobs, scoreJob } from "./jobFilter";
 
@@ -16,9 +21,9 @@ interface ExternalJob {
   salary?: string;
   jobUrl: string;
   postedDate: string;
-  source: "reed" | "adzuna";
+  source: "reed" | "adzuna" | "jooble" | "careerjet";
   employmentType?: string;
-  categoryTag?: string; // Adzuna only; undefined for Reed
+  categoryTag?: string; // Adzuna only; undefined for Reed/Jooble/Careerjet
   countryCode: string;
   countryDisplayName: string;
   currencyCode: string;
@@ -64,10 +69,38 @@ interface AdzunaJobResponse {
   };
 }
 
+interface JoobleJobResponse {
+  id: number | string;
+  title: string;
+  location: string;
+  snippet: string;
+  salary: string;
+  source: string;
+  type: string;
+  link: string;
+  company: string;
+  updated: string;
+}
+
+interface CareerjetJobResponse {
+  title: string;
+  description: string;
+  company: string;
+  locations: string;
+  url: string;
+  date: string;
+  salary?: string;
+  salary_min?: string;
+  salary_max?: string;
+  salary_currency_code?: string;
+}
+
 export class JobAggregator {
   private reedApiKey: string | undefined;
   private adzunaApiKey: string | undefined;
   private adzunaAppId: string | undefined;
+  private joobleApiKey: string | undefined;
+  private careerjetApiKey: string | undefined;
 
   // Sync state tracking
   private syncInProgress = false;
@@ -79,9 +112,13 @@ export class JobAggregator {
     this.reedApiKey = process.env.REED_API_KEY;
     this.adzunaApiKey = process.env.ADZUNA_API_KEY;
     this.adzunaAppId = process.env.ADZUNA_APP_ID;
+    this.joobleApiKey = process.env.JOOBLE_API_KEY;
+    this.careerjetApiKey = process.env.CAREERJET_API_KEY;
 
     console.log("🚀 JobAggregator initialized:");
     console.log(`Adzuna App ID: ${this.adzunaAppId ? "CONFIGURED" : "MISSING"}`);
+    console.log(`Jooble API Key: ${this.joobleApiKey ? "CONFIGURED" : "MISSING"}`);
+    console.log(`Careerjet API Key: ${this.careerjetApiKey ? "CONFIGURED" : "MISSING"}`);
 
     // Start background sync
     this.startBackgroundSync();
@@ -401,6 +438,234 @@ export class JobAggregator {
   }
 
   /**
+   * Fetch jobs from Jooble for a single country. Jooble is intentionally
+   * limited to UK/US (see JOOBLE_COUNTRIES) since its free-text `location`
+   * param isn't reliable for other markets.
+   */
+  async fetchJoobleJobs(
+    countryConfig: JoobleCountryConfig,
+    keywords = "technician",
+    options: { page?: number } = {}
+  ): Promise<ExternalJob[]> {
+    if (!this.joobleApiKey) {
+      console.log(`❌ Jooble (${countryConfig.countryCode}) API key not configured`);
+      return [];
+    }
+
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(
+          `🔍 Jooble (${countryConfig.countryCode}) API attempt ${attempt}/${maxRetries}`
+        );
+
+        const response = await fetch(`https://jooble.org/api/${this.joobleApiKey}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "EventLink/1.0",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            keywords,
+            location: countryConfig.location,
+            page: options.page,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(
+            `❌ Jooble (${countryConfig.countryCode}) API error (attempt ${attempt}):`,
+            response.status,
+            response.statusText,
+            errorText
+          );
+
+          if (response.status === 429) {
+            const delay = Math.pow(2, attempt) * 1000;
+            console.log(`⏳ Rate limited, waiting ${delay}ms before retry...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+
+          if (response.status >= 500) {
+            continue;
+          }
+
+          lastError = new Error(
+            `Jooble (${countryConfig.countryCode}) API returned ${response.status} ${response.statusText}: ${errorText}`
+          );
+          break;
+        }
+
+        const data = await response.json();
+        const results: JoobleJobResponse[] = data.jobs || [];
+        console.log(`✅ Jooble (${countryConfig.countryCode}) API returned ${results.length} jobs`);
+
+        return results.map(
+          (job: JoobleJobResponse): ExternalJob => ({
+            id: `jooble_${job.id}`,
+            title: this.stripHtml(job.title),
+            company: job.company ? this.stripHtml(job.company) : "Company not specified",
+            location: job.location || countryConfig.displayName,
+            description: this.stripHtml(job.snippet),
+            salary: job.salary ? this.stripHtml(job.salary) : "Salary not specified",
+            jobUrl: job.link,
+            postedDate: job.updated,
+            source: "jooble",
+            employmentType: job.type || undefined,
+            countryCode: countryConfig.countryCode,
+            countryDisplayName: countryConfig.displayName,
+            currencyCode: countryConfig.currency,
+          })
+        );
+      } catch (error) {
+        console.error(
+          `❌ Jooble (${countryConfig.countryCode}) fetch attempt ${attempt} failed:`,
+          error
+        );
+        lastError = error as Error;
+
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000;
+          console.log(`⏳ Waiting ${delay}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    console.error(`❌ All Jooble (${countryConfig.countryCode}) fetch attempts failed:`, lastError);
+    throw (
+      lastError ??
+      new Error(`Jooble (${countryConfig.countryCode}) API fetch failed for an unknown reason`)
+    );
+  }
+
+  /**
+   * Fetch jobs from Careerjet for a single country via its `locale_code`
+   * param. HTTP only (Careerjet's public API has no HTTPS endpoint), and
+   * requires a Referer header or it returns 403 "Undeclared referrer".
+   */
+  async fetchCareerjetJobs(
+    countryConfig: CareerjetCountryConfig,
+    keywords = "AV technician OR event production OR sound engineer OR lighting technician OR video technician OR broadcast technician OR live events",
+    options: { pagesize?: number } = {}
+  ): Promise<ExternalJob[]> {
+    if (!this.careerjetApiKey) {
+      console.log(`❌ Careerjet (${countryConfig.countryCode}) API key not configured`);
+      return [];
+    }
+
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(
+          `🔍 Careerjet (${countryConfig.countryCode}) API attempt ${attempt}/${maxRetries}`
+        );
+
+        const params = new URLSearchParams({
+          keywords,
+          locale_code: countryConfig.localeCode,
+          affid: this.careerjetApiKey!,
+          user_ip: "203.0.113.1",
+          user_agent: "EventLink/1.0",
+          pagesize: (options.pagesize || 25).toString(),
+        });
+
+        const url = `http://public.api.careerjet.net/search?${params.toString()}`;
+
+        const response = await fetch(url, {
+          headers: {
+            Referer: "https://eventlink.one",
+            "User-Agent": "EventLink/1.0",
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(
+            `❌ Careerjet (${countryConfig.countryCode}) API error (attempt ${attempt}):`,
+            response.status,
+            response.statusText,
+            errorText
+          );
+
+          if (response.status === 429) {
+            const delay = Math.pow(2, attempt) * 1000;
+            console.log(`⏳ Rate limited, waiting ${delay}ms before retry...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+
+          if (response.status >= 500) {
+            continue;
+          }
+
+          lastError = new Error(
+            `Careerjet (${countryConfig.countryCode}) API returned ${response.status} ${response.statusText}: ${errorText}`
+          );
+          break;
+        }
+
+        const data = await response.json();
+        const results: CareerjetJobResponse[] = data.jobs || [];
+        console.log(
+          `✅ Careerjet (${countryConfig.countryCode}) API returned ${results.length} jobs`
+        );
+
+        return results.map((job: CareerjetJobResponse): ExternalJob => {
+          const salaryMin = job.salary_min ? parseInt(job.salary_min, 10) : undefined;
+          const salaryMax = job.salary_max ? parseInt(job.salary_max, 10) : undefined;
+
+          return {
+            // Careerjet doesn't return a stable job ID, so derive one from the
+            // job URL (which is stable across a single job's lifetime).
+            id: `careerjet_${createHash("md5").update(job.url).digest("hex")}`,
+            title: this.stripHtml(job.title),
+            company: job.company ? this.stripHtml(job.company) : "Company not specified",
+            location: job.locations || countryConfig.displayName,
+            description: this.stripHtml(job.description),
+            salary: this.formatAdzunaSalary(salaryMin, salaryMax, countryConfig.currencySymbol),
+            jobUrl: job.url,
+            postedDate: job.date,
+            source: "careerjet",
+            countryCode: countryConfig.countryCode,
+            countryDisplayName: countryConfig.displayName,
+            currencyCode: countryConfig.currency,
+          };
+        });
+      } catch (error) {
+        console.error(
+          `❌ Careerjet (${countryConfig.countryCode}) fetch attempt ${attempt} failed:`,
+          error
+        );
+        lastError = error as Error;
+
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000;
+          console.log(`⏳ Waiting ${delay}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    console.error(
+      `❌ All Careerjet (${countryConfig.countryCode}) fetch attempts failed:`,
+      lastError
+    );
+    throw (
+      lastError ??
+      new Error(`Careerjet (${countryConfig.countryCode}) API fetch failed for an unknown reason`)
+    );
+  }
+
+  /**
    * Fetch from both sources, apply event-industry filtering, and dedupe/limit
    * according to config. Shared by the real sync and the dry-run preview so
    * neither path duplicates the fetch/filter logic.
@@ -410,14 +675,18 @@ export class JobAggregator {
     totalFetched: number;
     reedJobCount: number;
     adzunaJobCount: number;
+    joobleJobCount: number;
+    careerjetJobCount: number;
     errors: string[];
   }> {
     const errors: string[] = [];
     let reedJobCount = 0;
     let adzunaJobCount = 0;
+    let joobleJobCount = 0;
+    let careerjetJobCount = 0;
 
-    // Surface missing credentials explicitly — fetchReedJobs/fetchAdzunaJobs
-    // resolve to [] (not a rejection) when unconfigured, which otherwise looks
+    // Surface missing credentials explicitly — the fetch*Jobs methods resolve
+    // to [] (not a rejection) when unconfigured, which otherwise looks
     // identical to "API call succeeded but returned zero results".
     if (!this.reedApiKey) {
       errors.push("Reed not configured: REED_API_KEY is not set on this environment");
@@ -427,30 +696,64 @@ export class JobAggregator {
         "Adzuna not configured: ADZUNA_API_KEY/ADZUNA_APP_ID are not set on this environment"
       );
     }
+    if (!this.joobleApiKey) {
+      errors.push("Jooble not configured: JOOBLE_API_KEY is not set on this environment");
+    }
+    if (!this.careerjetApiKey) {
+      errors.push("Careerjet not configured: CAREERJET_API_KEY is not set on this environment");
+    }
 
-    const enabledCountries = ADZUNA_COUNTRIES.filter((c) => c.enabled);
+    const enabledAdzunaCountries = ADZUNA_COUNTRIES.filter((c) => c.enabled);
+    const enabledJoobleCountries = JOOBLE_COUNTRIES.filter((c) => c.enabled);
+    const enabledCareerjetCountries = CAREERJET_COUNTRIES.filter((c) => c.enabled);
 
-    // Fetch Reed (UK only) plus one Adzuna call per enabled country
-    const [reedJobs, ...adzunaResults] = await Promise.allSettled([
+    // Jooble's keyword matching can't reliably handle a single multi-word/OR
+    // query (see JobSearchConfig.jooble.keywords), so it gets one call per
+    // country per broad keyword rather than one call per country.
+    const joobleCountryKeywordPairs = enabledJoobleCountries.flatMap((countryConfig) =>
+      config.jooble.keywords.map((keyword) => ({ countryConfig, keyword }))
+    );
+
+    // Fetch Reed (UK only) plus one call per enabled country for Adzuna/
+    // Careerjet, and one call per country-keyword pair for Jooble, all in one
+    // batch. Results are sliced back apart below by each group's known length
+    // (Promise.allSettled preserves order).
+    const allSettled = await Promise.allSettled([
       this.fetchReedJobs(config.reed.keywords, config.reed.location, config.reed.options),
-      ...enabledCountries.map((countryConfig) =>
+      ...enabledAdzunaCountries.map((countryConfig) =>
         this.fetchAdzunaJobs(countryConfig, config.adzuna.keywords, config.adzuna.options)
+      ),
+      ...joobleCountryKeywordPairs.map(({ countryConfig, keyword }) =>
+        this.fetchJoobleJobs(countryConfig, keyword, config.jooble.options)
+      ),
+      ...enabledCareerjetCountries.map((countryConfig) =>
+        this.fetchCareerjetJobs(countryConfig, config.careerjet.keywords, config.careerjet.options)
       ),
     ]);
 
+    const reedResult = allSettled[0];
+    const adzunaResults = allSettled.slice(1, 1 + enabledAdzunaCountries.length);
+    const joobleResults = allSettled.slice(
+      1 + enabledAdzunaCountries.length,
+      1 + enabledAdzunaCountries.length + joobleCountryKeywordPairs.length
+    );
+    const careerjetResults = allSettled.slice(
+      1 + enabledAdzunaCountries.length + joobleCountryKeywordPairs.length
+    );
+
     // Process Reed results
-    if (reedJobs.status === "fulfilled") {
-      reedJobCount = reedJobs.value.length;
+    if (reedResult.status === "fulfilled") {
+      reedJobCount = reedResult.value.length;
       console.log(`📊 Reed: ${reedJobCount} jobs fetched`);
     } else {
-      errors.push(`Reed API failed: ${reedJobs.reason}`);
-      console.error("❌ Reed API failed:", reedJobs.reason);
+      errors.push(`Reed API failed: ${reedResult.reason}`);
+      console.error("❌ Reed API failed:", reedResult.reason);
     }
 
     // Process Adzuna results, one per country
     const adzunaJobsBySource: ExternalJob[] = [];
     adzunaResults.forEach((result, index) => {
-      const countryCode = enabledCountries[index].code;
+      const countryCode = enabledAdzunaCountries[index].code;
       if (result.status === "fulfilled") {
         adzunaJobCount += result.value.length;
         adzunaJobsBySource.push(...result.value);
@@ -459,10 +762,38 @@ export class JobAggregator {
       }
     });
 
+    // Process Jooble results, one per country-keyword pair
+    const joobleJobsBySource: ExternalJob[] = [];
+    joobleResults.forEach((result, index) => {
+      const { countryConfig, keyword } = joobleCountryKeywordPairs[index];
+      if (result.status === "fulfilled") {
+        joobleJobCount += result.value.length;
+        joobleJobsBySource.push(...result.value);
+      } else {
+        errors.push(
+          `Jooble (${countryConfig.countryCode}, "${keyword}") API failed: ${result.reason}`
+        );
+      }
+    });
+
+    // Process Careerjet results, one per country
+    const careerjetJobsBySource: ExternalJob[] = [];
+    careerjetResults.forEach((result, index) => {
+      const countryCode = enabledCareerjetCountries[index].countryCode;
+      if (result.status === "fulfilled") {
+        careerjetJobCount += result.value.length;
+        careerjetJobsBySource.push(...result.value);
+      } else {
+        errors.push(`Careerjet (${countryCode}) API failed: ${result.reason}`);
+      }
+    });
+
     // Combine successful results
     const allJobs: ExternalJob[] = [
-      ...(reedJobs.status === "fulfilled" ? reedJobs.value : []),
+      ...(reedResult.status === "fulfilled" ? reedResult.value : []),
       ...adzunaJobsBySource,
+      ...joobleJobsBySource,
+      ...careerjetJobsBySource,
     ];
 
     // Apply event industry filtering first, then config limits
@@ -474,7 +805,15 @@ export class JobAggregator {
 
     const finalJobs = limitedJobs.slice(0, config.general.maxTotalJobs);
 
-    return { finalJobs, totalFetched: allJobs.length, reedJobCount, adzunaJobCount, errors };
+    return {
+      finalJobs,
+      totalFetched: allJobs.length,
+      reedJobCount,
+      adzunaJobCount,
+      joobleJobCount,
+      careerjetJobCount,
+      errors,
+    };
   }
 
   /**
@@ -490,6 +829,8 @@ export class JobAggregator {
     newJobsAdded: number;
     reedJobs: number;
     adzunaJobs: number;
+    joobleJobs: number;
+    careerjetJobs: number;
     errors: string[];
     dryRun?: boolean;
     sample?: Array<{
@@ -507,6 +848,8 @@ export class JobAggregator {
         newJobsAdded: 0,
         reedJobs: 0,
         adzunaJobs: 0,
+        joobleJobs: 0,
+        careerjetJobs: 0,
         errors: ["Sync already in progress"],
       };
     }
@@ -516,8 +859,15 @@ export class JobAggregator {
     let newJobsAdded = 0;
 
     try {
-      const { finalJobs, totalFetched, reedJobCount, adzunaJobCount, errors } =
-        await this.fetchFilterAndDedupe(config);
+      const {
+        finalJobs,
+        totalFetched,
+        reedJobCount,
+        adzunaJobCount,
+        joobleJobCount,
+        careerjetJobCount,
+        errors,
+      } = await this.fetchFilterAndDedupe(config);
 
       if (options.dryRun) {
         const sample = finalJobs.slice(0, 20).map((job) => {
@@ -539,6 +889,8 @@ export class JobAggregator {
           newJobsAdded: 0,
           reedJobs: reedJobCount,
           adzunaJobs: adzunaJobCount,
+          joobleJobs: joobleJobCount,
+          careerjetJobs: careerjetJobCount,
           errors,
           dryRun: true,
           sample,
@@ -595,6 +947,8 @@ export class JobAggregator {
         newJobsAdded,
         reedJobs: reedJobCount,
         adzunaJobs: adzunaJobCount,
+        joobleJobs: joobleJobCount,
+        careerjetJobs: careerjetJobCount,
         errors,
       };
     } catch (error) {
@@ -606,6 +960,8 @@ export class JobAggregator {
         newJobsAdded: 0,
         reedJobs: 0,
         adzunaJobs: 0,
+        joobleJobs: 0,
+        careerjetJobs: 0,
         errors: [errorMessage],
       };
     } finally {
@@ -641,6 +997,26 @@ export class JobAggregator {
     }
 
     return "Salary not specified";
+  }
+
+  /**
+   * Jooble and Careerjet (unlike Reed/Adzuna) return titles/descriptions/
+   * salary strings containing raw HTML (`<b>` tags, `&nbsp;`/`&pound;`
+   * entities). Left unstripped, this both leaks into the UI and pollutes
+   * contentKey's normalized dedup text with literal words like "nbsp"/
+   * "pound" that a clean Reed/Adzuna duplicate of the same job wouldn't have.
+   */
+  private stripHtml(html: string): string {
+    return html
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&pound;/gi, "£")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;|&apos;/gi, "'")
+      .replace(/&#(\d+);/g, (_match, code) => String.fromCharCode(parseInt(code, 10)))
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   /**

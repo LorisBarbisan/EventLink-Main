@@ -287,6 +287,25 @@ export function CountrySelect({
             />
           </div>
           <ul role="listbox" className="max-h-60 overflow-y-auto py-1">
+            {!search && (
+              <li
+                role="option"
+                aria-selected={!value}
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  !value && "bg-accent/50"
+                )}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange("");
+                  setOpen(false);
+                  setSearch("");
+                }}
+              >
+                <span className="flex-1">All Countries</span>
+                {!value && <Check className="h-4 w-4 shrink-0 text-primary" />}
+              </li>
+            )}
             {filtered.length === 0 ? (
               <li className="px-3 py-2 text-sm text-muted-foreground">No countries found.</li>
             ) : (

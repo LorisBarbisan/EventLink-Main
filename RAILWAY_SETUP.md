@@ -41,11 +41,13 @@
 
 ### Required — External Job Aggregation
 
-| Variable         | Notes                                                |
-| ---------------- | ---------------------------------------------------- |
-| `REED_API_KEY`   | From reed.co.uk/developers. Used as HTTP Basic Auth. |
-| `ADZUNA_API_KEY` | Adzuna "App Key" from developer.adzuna.com           |
-| `ADZUNA_APP_ID`  | Adzuna "App ID" from developer.adzuna.com            |
+| Variable            | Notes                                                       |
+| ------------------- | ----------------------------------------------------------- |
+| `REED_API_KEY`      | From reed.co.uk/developers. Used as HTTP Basic Auth.        |
+| `ADZUNA_API_KEY`    | Adzuna "App Key" from developer.adzuna.com                  |
+| `ADZUNA_APP_ID`     | Adzuna "App ID" from developer.adzuna.com                   |
+| `JOOBLE_API_KEY`    | From jooble.org/api/about. UK + US only (see jobConfig.ts). |
+| `CAREERJET_API_KEY` | Careerjet's `affid` partner ID from careerjet.com/partners  |
 
 Missing any of these disables that source only — `POST /api/jobs/sync-external` still runs with whichever sources are configured (see `server/api/utils/jobAggregator.ts`).
 
