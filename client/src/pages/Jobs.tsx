@@ -281,6 +281,66 @@ export default function Jobs() {
   // Server-side filtering handles search, location, and date
   const filteredJobs = transformedJobs;
 
+  const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
+  const startIndex = (currentPage - 1) * jobsPerPage;
+  const endIndex = startIndex + jobsPerPage;
+  const currentJobs = filteredJobs.slice(startIndex, endIndex);
+
+  const renderPaginationControls = () =>
+    totalPages > 1 && (
+      <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+        <div className="text-sm text-muted-foreground">
+          Showing {startIndex + 1}-{Math.min(endIndex, filteredJobs.length)} of{" "}
+          {filteredJobs.length} jobs
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Previous
+          </Button>
+
+          {/* Page Numbers */}
+          <div className="flex gap-1">
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(
+                (pageNum) =>
+                  pageNum === 1 || pageNum === totalPages || Math.abs(pageNum - currentPage) <= 1
+              )
+              .map((pageNum, index, array) => (
+                <div key={pageNum} className="flex items-center">
+                  {index > 0 && array[index - 1] !== pageNum - 1 && (
+                    <span className="px-2 text-muted-foreground">...</span>
+                  )}
+                  <Button
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                </div>
+              ))}
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
@@ -378,6 +438,9 @@ export default function Jobs() {
             </Button>
           </div>
 
+          {/* Pagination Controls (top) */}
+          {renderPaginationControls()}
+
           {/* No Results Message */}
           {filteredJobs.length === 0 && !isLoading && (
             <Card>
@@ -406,14 +469,9 @@ export default function Jobs() {
             </Card>
           )}
 
-          {/* Pagination Logic */}
+          {/* Job Cards */}
           {filteredJobs.length > 0 &&
             (() => {
-              const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
-              const startIndex = (currentPage - 1) * jobsPerPage;
-              const endIndex = startIndex + jobsPerPage;
-              const currentJobs = filteredJobs.slice(startIndex, endIndex);
-
               return (
                 <>
                   {/* Job Cards */}
@@ -613,62 +671,8 @@ export default function Jobs() {
                     </Card>
                   ))}
 
-                  {/* Pagination Controls */}
-                  {totalPages > 1 && (
-                    <div className="flex flex-col items-center gap-4 pt-6 sm:flex-row sm:justify-between">
-                      <div className="text-sm text-muted-foreground">
-                        Showing {startIndex + 1}-{Math.min(endIndex, filteredJobs.length)} of{" "}
-                        {filteredJobs.length} jobs
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                          disabled={currentPage === 1}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                          Previous
-                        </Button>
-
-                        {/* Page Numbers */}
-                        <div className="flex gap-1">
-                          {Array.from({ length: totalPages }, (_, i) => i + 1)
-                            .filter(
-                              (pageNum) =>
-                                pageNum === 1 ||
-                                pageNum === totalPages ||
-                                Math.abs(pageNum - currentPage) <= 1
-                            )
-                            .map((pageNum, index, array) => (
-                              <div key={pageNum} className="flex items-center">
-                                {index > 0 && array[index - 1] !== pageNum - 1 && (
-                                  <span className="px-2 text-muted-foreground">...</span>
-                                )}
-                                <Button
-                                  variant={currentPage === pageNum ? "default" : "outline"}
-                                  size="sm"
-                                  onClick={() => setCurrentPage(pageNum)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  {pageNum}
-                                </Button>
-                              </div>
-                            ))}
-                        </div>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                          disabled={currentPage === totalPages}
-                        >
-                          Next
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Pagination Controls (bottom) */}
+                  <div className="pt-6">{renderPaginationControls()}</div>
                 </>
               );
             })()}
