@@ -5,15 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { UKLocationInput } from "@/components/ui/uk-location-input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { COUNTRIES } from "@/lib/countries";
+import { COUNTRIES, CountrySelect } from "@/components/ui/country-select";
+import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -175,8 +168,8 @@ export default function Freelancers() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="md:col-span-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <div className="md:col-span-2">
                 <Input
                   placeholder="Search freelancers, skills, or specializations..."
                   value={searchQuery}
@@ -186,31 +179,18 @@ export default function Freelancers() {
                 />
               </div>
               <div>
-                <Select
-                  value={countryFilter || "all"}
-                  onValueChange={(v) => {
-                    setCountryFilter(v === "all" ? "" : v);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger data-testid="select-country-filter">
-                    <SelectValue placeholder="Filter by country..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All countries</SelectItem>
-                    {COUNTRIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CountrySelect
+                  value={countryFilter}
+                  onChange={setCountryFilter}
+                  placeholder="All countries"
+                />
               </div>
-              <div className="md:col-span-2">
-                <UKLocationInput
-                  placeholder="Filter by city..."
+              <div>
+                <GlobalLocationInput
+                  placeholder="Filter by location..."
                   value={locationFilter}
                   onChange={(value) => setLocationFilter(value)}
+                  countryCode={COUNTRIES.find((c) => c.name === countryFilter)?.code}
                   data-testid="input-location-filter"
                 />
               </div>
@@ -272,17 +252,18 @@ export default function Freelancers() {
                   <User className="mx-auto h-12 w-12 text-muted-foreground" />
                   <h3 className="text-xl font-semibold">No Freelancers Found</h3>
                   <p className="mx-auto max-w-md text-muted-foreground">
-                    {searchQuery || locationFilter
+                    {searchQuery || locationFilter || countryFilter
                       ? `No freelancers match your search criteria. Try adjusting your filters or search terms.`
                       : `There are currently no freelancer profiles available. Freelancers need to complete their profiles before appearing in search results.`}
                   </p>
                   <div className="flex justify-center gap-4 pt-4">
-                    {(searchQuery || locationFilter) && (
+                    {(searchQuery || locationFilter || countryFilter) && (
                       <Button
                         variant="outline"
                         onClick={() => {
                           setSearchQuery("");
                           setLocationFilter("");
+                          setCountryFilter("");
                         }}
                         data-testid="button-clear-filters"
                       >
@@ -451,12 +432,7 @@ export default function Freelancers() {
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <MapPin className="h-3 w-3" />
                             <span>
-                              {[
-                                freelancer.location,
-                                freelancer.country || (freelancer.location ? "United Kingdom" : ""),
-                              ]
-                                .filter(Boolean)
-                                .join(", ")}
+                              {[freelancer.location, freelancer.country].filter(Boolean).join(", ")}
                             </span>
                           </div>
                         )}

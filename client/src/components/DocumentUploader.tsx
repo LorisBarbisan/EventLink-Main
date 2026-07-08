@@ -264,11 +264,19 @@ export function DocumentUploader({
       const response = await fetch(url, {
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
       });
-      if (!response.ok) throw new Error("Download failed");
-      const ct = response.headers.get("content-type") ?? "";
-      if (ct.includes("application/json")) {
-        const data = await response.json();
-        if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        const mimeType =
+          response.headers.get("Content-Type") || document.file_type || "application/octet-stream";
+        const blob = new Blob([arrayBuffer], { type: mimeType });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank");
+      } else if (response.status === 401 || response.status === 403) {
+        toast({
+          title: "Access denied",
+          description: "You are not authorised to download this file.",
+          variant: "destructive",
+        });
       } else {
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
@@ -539,6 +547,7 @@ interface DocumentBadgesProps {
 }
 
 export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBadgesProps) {
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const isSignedIn = !!viewerRole || !!isOwner;
 
@@ -553,16 +562,19 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
       const response = await fetch(`/api/documents/${document.id}/download`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error("Download failed");
-      const ct = response.headers.get("content-type") ?? "";
-      if (ct.includes("application/json")) {
-        const data = await response.json();
-        if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
-      } else {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        const mimeType =
+          response.headers.get("Content-Type") || document.file_type || "application/octet-stream";
+        const blob = new Blob([arrayBuffer], { type: mimeType });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank");
+      } else if (response.status === 401 || response.status === 403) {
+        toast({
+          title: "Access denied",
+          description: "You are not authorised to download this file.",
+          variant: "destructive",
+        });
       }
     } catch {
       console.error("Failed to download document");

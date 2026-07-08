@@ -2,8 +2,13 @@ import { insertMessageAttachmentSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { cvParserService } from "../services/cv-parser.service";
 import { storage } from "../../storage";
-import { ObjectNotFoundError, ObjectStorageService } from "../utils/object-storage";
-import { isLocalPath, saveLocally, deleteLocally, readLocally } from "../utils/local-storage-fallback";
+import { ObjectStorageService } from "../utils/object-storage";
+import {
+  isLocalPath,
+  saveLocally,
+  deleteLocally,
+  readLocally,
+} from "../utils/local-storage-fallback";
 
 // Upload CV - combined endpoint that receives base64 file data and uploads to storage
 export async function uploadCV(req: Request, res: Response) {
@@ -29,24 +34,12 @@ export async function uploadCV(req: Request, res: Response) {
     // Try object storage first; fall back to local disk if unavailable
     let storedPath: string = objectKey;
     try {
-      const privateDir = process.env.PRIVATE_OBJECT_DIR;
-      if (!privateDir) throw new Error("PRIVATE_OBJECT_DIR not set");
-
-      const signedPutUrl = await ObjectStorageService.getUploadUrl(objectKey, contentType);
-      const uploadResponse = await fetch(signedPutUrl, {
-        method: "PUT",
-        body: buffer,
-        headers: { "Content-Type": contentType },
-      });
-
-      if (!uploadResponse.ok) {
-        const errText = await uploadResponse.text().catch(() => "");
-        throw new Error(`Signed URL upload failed: ${uploadResponse.status} ${errText}`);
-      }
-
+      await ObjectStorageService.uploadBuffer(objectKey, contentType, buffer);
       console.log(`✅ CV uploaded to object storage: ${objectKey}`);
     } catch (uploadError: any) {
-      console.warn(`⚠️  Object storage unavailable (${uploadError?.message}), falling back to local disk`);
+      console.warn(
+        `⚠️  Object storage unavailable (${uploadError?.message}), falling back to local disk`
+      );
       storedPath = await saveLocally(objectKey, buffer);
       console.log(`✅ CV saved locally: ${storedPath}`);
     }
@@ -73,7 +66,7 @@ export async function uploadCV(req: Request, res: Response) {
     });
 
     // Trigger CV parsing in the background (async, non-blocking)
-    cvParserService.parseCV(userId, storedPath, contentType).catch(err => {
+    cvParserService.parseCV(userId, storedPath, contentType).catch((err) => {
       console.error(`Background CV parsing failed for user ${userId}:`, err);
     });
   } catch (error) {
@@ -182,25 +175,10 @@ export async function downloadCV(req: Request, res: Response) {
         res.send(buffer);
         console.log(`✅ Served CV from local disk for freelancer ${freelancerId}: ${fileName}`);
       } else {
-        // Object storage via signed GET URL
-        const signedGetUrl = await ObjectStorageService.getDownloadUrl(profile.cv_file_url);
-        const storageRes = await fetch(signedGetUrl);
-
-        if (!storageRes.ok) {
-          if (storageRes.status === 404) {
-            return res.status(404).json({ error: "CV file not found in storage" });
-          }
-          throw new Error(`Storage fetch failed: ${storageRes.status}`);
-        }
-
-        const { Readable } = await import("stream");
-        const nodeStream = Readable.fromWeb(storageRes.body as any);
-        nodeStream.on("error", (err: Error) => {
-          console.error(`❌ Stream error for CV ${profile.cv_file_url}:`, err);
-          if (!res.headersSent) res.status(500).json({ error: "Error streaming CV file" });
-        });
-        nodeStream.pipe(res);
-        console.log(`✅ Streaming CV from object storage for freelancer ${freelancerId}: ${fileName}`);
+        // Stream directly from object storage via SDK
+        const buffer = await ObjectStorageService.downloadObjectBuffer(profile.cv_file_url);
+        res.send(buffer);
+        console.log(`✅ Served CV from object storage for freelancer ${freelancerId}: ${fileName}`);
       }
     } catch (objectError) {
       console.error(`❌ Failed to serve CV for ${profile.cv_file_url}:`, objectError);
@@ -303,7 +281,7 @@ export async function addAttachmentToMessage(req: Request, res: Response) {
     }
 
     const conversations = await storage.getConversationsByUserId((req as any).user.id);
-    const hasAccess = conversations.some(c => c.id === message.conversation_id);
+    const hasAccess = conversations.some((c) => c.id === message.conversation_id);
 
     if (!hasAccess && message.sender_id !== (req as any).user.id) {
       return res.status(403).json({ error: "Access denied" });
@@ -365,7 +343,7 @@ export async function getMessageAttachments(req: Request, res: Response) {
     }
 
     const conversations = await storage.getConversationsByUserId((req as any).user.id);
-    const hasAccess = conversations.some(c => c.id === message.conversation_id);
+    const hasAccess = conversations.some((c) => c.id === message.conversation_id);
 
     if (!hasAccess) {
       return res.status(403).json({ error: "Access denied" });
@@ -404,7 +382,7 @@ export async function downloadAttachment(req: Request, res: Response) {
     }
 
     const conversations = await storage.getConversationsByUserId((req as any).user.id);
-    const hasAccess = conversations.some(c => c.id === message.conversation_id);
+    const hasAccess = conversations.some((c) => c.id === message.conversation_id);
 
     if (!hasAccess) {
       return res.status(403).json({ error: "Access denied" });

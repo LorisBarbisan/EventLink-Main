@@ -35,6 +35,7 @@ export interface FreelancerProfile {
   superpower?: string;
   bio?: string;
   location?: string;
+  country?: string;
   experience_years?: number;
   skills: string[];
   portfolio_url?: string;
@@ -57,6 +58,7 @@ export interface RecruiterProfile {
   contact_name: string;
   company_type: string;
   location: string;
+  country?: string;
   description: string;
   website_url?: string;
   linkedin_url?: string;
@@ -72,6 +74,8 @@ export interface Job {
   title: string;
   company: string;
   location: string;
+  country?: string;
+  currency?: string;
   type: string;
   rate: string;
   description: string;
@@ -137,6 +141,7 @@ export interface FreelancerFormData {
   superpower: string;
   bio: string;
   location: string;
+  country: string;
   experience_years: string;
   skills: string[];
   portfolio_url: string;
@@ -154,6 +159,7 @@ export interface RecruiterFormData {
   contact_name: string;
   company_type: string;
   location: string;
+  country: string;
   description: string;
   website_url: string;
   linkedin_url: string;
@@ -163,6 +169,8 @@ export interface RecruiterFormData {
 export interface JobFormData {
   title: string;
   location: string;
+  country?: string;
+  currency?: string;
   rate: string;
   description: string;
   event_date: string; // Start date (mandatory)

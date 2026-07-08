@@ -16,8 +16,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { UKLocationInput } from "@/components/ui/uk-location-input";
-import { COUNTRIES } from "@/lib/countries";
+import { CountrySelect } from "@/components/ui/country-select";
+import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsPro } from "@/hooks/useIsPro";
@@ -99,7 +99,7 @@ export function ProfileForm({
           superpower: freelancerProfile?.superpower || "",
           bio: freelancerProfile?.bio || "",
           location: freelancerProfile?.location || "",
-          country: (freelancerProfile as any)?.country || "",
+          country: freelancerProfile?.country || "",
           experience_years: freelancerProfile?.experience_years?.toString() || "",
           skills: freelancerProfile?.skills || [],
           portfolio_url: freelancerProfile?.portfolio_url || "",
@@ -118,7 +118,7 @@ export function ProfileForm({
           contact_name: recruiterProfile?.contact_name || "",
           company_type: recruiterProfile?.company_type || "",
           location: recruiterProfile?.location || "",
-          country: (recruiterProfile as any)?.country || "",
+          country: recruiterProfile?.country || "",
           description: recruiterProfile?.description || "",
           website_url: recruiterProfile?.website_url || "",
           linkedin_url: recruiterProfile?.linkedin_url || "",
@@ -167,7 +167,11 @@ export function ProfileForm({
 
   const handleLocationChange = (value: string, locationData?: any) => {
     console.log("ProfileForm handleLocationChange:", { value, locationData });
-    setFormData((prev) => ({ ...prev, location: value }));
+    setFormData((prev) => ({
+      ...prev,
+      location: value,
+      ...(locationData?.country ? { country: locationData.country } : {}),
+    }));
   };
 
   const handleSkillAdd = () => {
@@ -203,7 +207,8 @@ export function ProfileForm({
         fd.first_name?.trim() &&
         fd.last_name?.trim() &&
         fd.title?.trim() &&
-        fd.location?.trim()
+        fd.location?.trim() &&
+        fd.country?.trim()
       );
     })();
 
@@ -215,6 +220,7 @@ export function ProfileForm({
       if (!fd.last_name?.trim()) missing.push("Last Name");
       if (!fd.title?.trim()) missing.push("Professional Title");
       if (!fd.location?.trim()) missing.push("Location");
+      if (!fd.country?.trim()) missing.push("Country");
       if (missing.length > 0) {
         toast({
           title: "Required fields missing",
@@ -453,7 +459,7 @@ function FreelancerProfileView({ profile }: { profile: FreelancerProfile }) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 text-muted-foreground" />
-          <span>{profile.location}</span>
+          <span>{[profile.location, profile.country].filter(Boolean).join(", ")}</span>
         </div>
       </div>
       {profile.bio && (
@@ -674,35 +680,25 @@ function FreelancerFormFields({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <Label htmlFor="country">Country</Label>
-          <Select
-            value={(formData as any).country || ""}
-            onValueChange={(v) => onInputChange("country", v)}
-          >
-            <SelectTrigger id="country" data-testid="select-country">
-              <SelectValue placeholder="Select country..." />
-            </SelectTrigger>
-            <SelectContent>
-              {COUNTRIES.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <UKLocationInput
-            id="location"
-            label="City"
-            value={formData.location}
-            onChange={onLocationChange}
-            placeholder="Start typing your city..."
-            data-testid="input-location"
+          <Label htmlFor="country">Country *</Label>
+          <CountrySelect
+            id="country"
+            value={formData.country}
+            onChange={(v) => onInputChange("country", v)}
+            required
           />
         </div>
+        <GlobalLocationInput
+          id="location"
+          label="City / Location *"
+          value={formData.location}
+          onChange={onLocationChange}
+          placeholder="Start typing a city..."
+          data-testid="input-location"
+          required
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4">
@@ -971,33 +967,24 @@ function RecruiterFormFields({
           </Select>
         </div>
         <div>
-          <Label htmlFor="country">Country</Label>
-          <Select
-            value={(formData as any).country || ""}
-            onValueChange={(v) => onInputChange("country", v)}
-          >
-            <SelectTrigger id="country" data-testid="select-country-recruiter">
-              <SelectValue placeholder="Select country..." />
-            </SelectTrigger>
-            <SelectContent>
-              {COUNTRIES.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <UKLocationInput
+          <GlobalLocationInput
             id="location"
-            label="City"
+            label="City / Location"
             value={formData.location}
             onChange={onLocationChange}
-            placeholder="Start typing your city..."
+            placeholder="Start typing a city..."
             data-testid="input-location"
           />
         </div>
+      </div>
+
+      <div>
+        <Label htmlFor="country">Country</Label>
+        <CountrySelect
+          id="country"
+          value={formData.country}
+          onChange={(v) => onInputChange("country", v)}
+        />
       </div>
 
       <div>

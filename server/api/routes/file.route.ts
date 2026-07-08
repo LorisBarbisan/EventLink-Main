@@ -28,7 +28,7 @@ export function registerFileRoutes(app: Express) {
   app.delete("/api/cv", authenticateJWT, deleteCV);
 
   // Download CV — JWT required OR valid ?pt= public profile token
-  app.get("/api/cv/download/:freelancerId", downloadCV);
+  app.get("/api/cv/download/:freelancerId", authenticateOptionalJWT, downloadCV);
 
   // Serve objects (DISABLED for security - use specific authenticated endpoints instead)
   app.get("/objects/:objectPath(*)", getObjectAccess);

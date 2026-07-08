@@ -71,18 +71,7 @@ export async function uploadDocument(req: Request, res: Response) {
 
     let storedPath: string = objectKey;
     try {
-      const signedPutUrl = await ObjectStorageService.getUploadUrl(objectKey, contentType);
-      const uploadResponse = await fetch(signedPutUrl, {
-        method: "PUT",
-        body: buffer,
-        headers: { "Content-Type": contentType },
-      });
-
-      if (!uploadResponse.ok) {
-        const errText = await uploadResponse.text().catch(() => "");
-        throw new Error(`Signed URL upload failed: ${uploadResponse.status} ${errText}`);
-      }
-
+      await ObjectStorageService.uploadBuffer(objectKey, contentType, buffer);
       console.log(`✅ Document uploaded to object storage: ${objectKey}`);
     } catch (uploadError: any) {
       console.warn(
@@ -199,20 +188,20 @@ export async function downloadDocument(req: Request, res: Response) {
         return res.send(buffer);
       }
 
-      const downloadUrl = await ObjectStorageService.getDownloadUrl(document.file_url);
-      console.log(`✅ Generated download URL for document: ${document.file_url}`);
+      const fileName = document.original_filename || "document";
+      const contentType = document.file_type || "application/octet-stream";
 
-      // ?open=1 → redirect directly so plain <a href> links work without popup blocking
-      if (req.query.open === "1") {
-        return res.redirect(302, downloadUrl);
-      }
-
-      res.json({
-        downloadUrl,
-        fileName: document.original_filename,
+      res.set({
+        "Content-Type": contentType,
+        "Content-Disposition": `inline; filename="${encodeURIComponent(fileName)}"`,
+        "Cache-Control": "private, no-store",
       });
+
+      const buffer = await ObjectStorageService.downloadObjectBuffer(document.file_url);
+      res.send(buffer);
+      console.log(`✅ Served document from object storage: ${document.file_url}`);
     } catch (objectError) {
-      console.error(`❌ Failed to get download URL for ${document.file_url}:`, objectError);
+      console.error(`❌ Failed to serve document for ${document.file_url}:`, objectError);
       return res.status(404).json({ error: "Document file not found in storage" });
     }
   } catch (error) {

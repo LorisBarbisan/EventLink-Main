@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { UKLocationInput } from "@/components/ui/uk-location-input";
+import { COUNTRIES, CountrySelect } from "@/components/ui/country-select";
+import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import {
   Table,
   TableBody,
@@ -96,13 +97,14 @@ export default function SimplifiedRecruiterDashboard() {
   const [crewTab, setCrewTab] = useState<"all" | "saved" | "worked">("all");
   const [crewSearch, setCrewSearch] = useState("");
   const [crewLocation, setCrewLocation] = useState("");
+  const [crewCountry, setCrewCountry] = useState("");
   const [crewSearchPage, setCrewSearchPage] = useState(1);
 
-  const isCrewSearching = !!(crewSearch.trim() || crewLocation.trim());
+  const isCrewSearching = !!(crewSearch.trim() || crewLocation.trim() || crewCountry.trim());
 
   useEffect(() => {
     setCrewSearchPage(1);
-  }, [crewSearch, crewLocation]);
+  }, [crewSearch, crewLocation, crewCountry]);
 
   const [jobSearch, setJobSearch] = useState("");
   const [jobStatusFilter, setJobStatusFilter] = useState<"all" | "active" | "private" | "closed">(
@@ -200,12 +202,7 @@ export default function SimplifiedRecruiterDashboard() {
   }, [isManager, activeTab]);
 
   // Use custom hooks - only call when user ID is available
-  const {
-    profile,
-
-    saveProfile,
-    isSaving,
-  } = useProfile({
+  const { profile, saveProfile, isSaving } = useProfile({
     userId: user ? getEffectiveCompanyId(user) : 0,
     userType: "recruiter",
   });
@@ -290,11 +287,12 @@ export default function SimplifiedRecruiterDashboard() {
   });
 
   const { data: crewSearchResults, isLoading: crewSearchLoading } = useQuery({
-    queryKey: ["/api/freelancers/search", crewSearch, crewLocation, crewSearchPage],
+    queryKey: ["/api/freelancers/search", crewSearch, crewLocation, crewCountry, crewSearchPage],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (crewSearch.trim()) params.append("keyword", crewSearch.trim());
       if (crewLocation.trim()) params.append("location", crewLocation.trim());
+      if (crewCountry.trim()) params.append("country", crewCountry.trim());
       params.append("page", crewSearchPage.toString());
       params.append("limit", "21");
 
@@ -811,11 +809,19 @@ export default function SimplifiedRecruiterDashboard() {
                   data-testid="input-my-crew-search"
                 />
               </div>
+              <div className="max-w-[200px] flex-1">
+                <CountrySelect
+                  value={crewCountry}
+                  onChange={setCrewCountry}
+                  placeholder="All countries"
+                />
+              </div>
               <div className="max-w-[240px] flex-1">
-                <UKLocationInput
-                  placeholder="Filter by UK location..."
+                <GlobalLocationInput
+                  placeholder="Filter by location..."
                   value={crewLocation}
                   onChange={(value) => setCrewLocation(value)}
+                  countryCode={COUNTRIES.find((c) => c.name === crewCountry)?.code}
                   data-testid="input-my-crew-location"
                 />
               </div>
@@ -855,6 +861,7 @@ export default function SimplifiedRecruiterDashboard() {
                     onClick={() => {
                       setCrewSearch("");
                       setCrewLocation("");
+                      setCrewCountry("");
                     }}
                   >
                     Clear filters
@@ -935,12 +942,7 @@ export default function SimplifiedRecruiterDashboard() {
                         {(freelancer.location || freelancer.country) && (
                           <div className="mb-2 flex items-center gap-1 text-xs text-muted-foreground">
                             <MapPin className="h-3 w-3" />
-                            {[
-                              freelancer.location,
-                              freelancer.country || (freelancer.location ? "United Kingdom" : ""),
-                            ]
-                              .filter(Boolean)
-                              .join(", ")}
+                            {[freelancer.location, freelancer.country].filter(Boolean).join(", ")}
                           </div>
                         )}
 

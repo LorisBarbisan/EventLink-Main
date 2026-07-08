@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
@@ -71,6 +72,13 @@ import {
   Trash2,
   User,
 } from "lucide-react";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import { Input } from "@/components/ui/input";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
@@ -108,6 +116,7 @@ interface FreelancerProfile {
   cv_file_size?: number;
   phone?: string;
   contact_email?: string;
+  country?: string | null;
 }
 
 interface RecruiterProfile {
@@ -120,6 +129,86 @@ interface RecruiterProfile {
   website_url: string;
   linkedin_url: string;
   company_logo_url?: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function FeaturedReviews({ freelancerId }: { freelancerId: number }) {
+  const { data: ratings = [] } = useFreelancerRatings(freelancerId);
+
+  // Filter and sort reviews
+  // Criteria: Has review text, highest rating, longest review, newest
+  const featuredReviews = ratings
+    .filter((r: any) => r.review && r.review.trim().length > 0)
+    .sort((a: any, b: any) => {
+      if (b.rating !== a.rating) return b.rating - a.rating; // Highest rating first
+      if (b.review.length !== a.review.length) return b.review.length - a.review.length; // Longest review second
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // Newest third
+    })
+    .slice(0, 5); // Take top 5
+
+  if (featuredReviews.length === 0) return null;
+
+  return (
+    <Card className="border-accent/20 bg-gradient-to-br from-card to-accent/20">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Star className="h-5 w-5 fill-yellow-500 text-yellow-500" />
+          Featured Reviews
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Carousel
+          opts={{
+            align: "start",
+            loop: true,
+          }}
+          className="w-full"
+        >
+          <CarouselContent className="-ml-1">
+            {featuredReviews.map((rating: any) => (
+              <CarouselItem key={rating.id} className="pl-1 md:basis-1/2 lg:basis-1/3">
+                <div className="h-full p-1">
+                  <Card className="h-full bg-card/50 transition-colors hover:bg-card">
+                    <CardContent className="flex h-full flex-col p-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                            <span className="text-xs font-bold text-primary">
+                              {rating.recruiter?.first_name?.[0] || "R"}
+                            </span>
+                          </div>
+                          <span className="text-sm font-semibold">
+                            {rating.recruiter?.first_name || "Employer"}
+                          </span>
+                        </div>
+                        <StarRating rating={rating.rating} readonly size="sm" />
+                      </div>
+                      <div className="relative flex-1">
+                        <Quote className="absolute -left-1 -top-1 h-4 w-4 text-muted-foreground/30" />
+                        <p className="line-clamp-4 px-2 pt-2 text-sm italic text-muted-foreground">
+                          &quot;{rating.review}&quot;
+                        </p>
+                      </div>
+                      <div className="mt-4 flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
+                        <span>{rating.job_title || "Project"}</span>
+                        <span>{format(new Date(rating.created_at), "MMM yyyy")}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          {featuredReviews.length > 1 && (
+            <>
+              <CarouselPrevious className="left-0 -ml-3 bg-background/80 backdrop-blur-sm" />
+              <CarouselNext className="right-0 -mr-3 bg-background/80 backdrop-blur-sm" />
+            </>
+          )}
+        </Carousel>
+      </CardContent>
+    </Card>
+  );
 }
 
 function ReviewsSection({ freelancerId }: { freelancerId: number }) {
@@ -557,8 +646,12 @@ export default function Profile() {
         throw new Error(errorData.error || "Failed to download CV");
       }
 
-      // Create a blob URL from the streamed file and open it in a new tab
-      const blob = await response.blob();
+      const arrayBuffer = await response.arrayBuffer();
+      const mimeType =
+        response.headers.get("Content-Type") ||
+        cvProfile.cv_file_type ||
+        "application/octet-stream";
+      const blob = new Blob([arrayBuffer], { type: mimeType });
       const blobUrl = URL.createObjectURL(blob);
       window.open(blobUrl, "_blank");
       toast({
@@ -1211,7 +1304,9 @@ export default function Profile() {
                       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-muted-foreground md:justify-start">
                         <div className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
-                          {freelancerProfile?.location || "UK"}
+                          {[freelancerProfile?.location, freelancerProfile?.country]
+                            .filter(Boolean)
+                            .join(", ")}
                         </div>
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
@@ -1331,10 +1426,12 @@ export default function Profile() {
                           <User className="h-4 w-4" />
                           {recruiterProfile?.contact_name}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          {recruiterProfile?.location || "UK"}
-                        </div>
+                        {recruiterProfile?.location && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-4 w-4" />
+                            {recruiterProfile.location}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1685,7 +1782,9 @@ export default function Profile() {
                           )}
                           {job.rate && (
                             <span className="flex items-center gap-1">
-                              <span className="text-xs font-medium">£</span>
+                              {(job as any).currency && (job as any).currency !== "GBP" && (
+                                <span className="text-xs font-medium">{(job as any).currency}</span>
+                              )}
                               {job.rate}
                             </span>
                           )}

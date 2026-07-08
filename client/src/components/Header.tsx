@@ -26,15 +26,17 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
       <div className="container mx-auto px-3 py-3 sm:px-4 lg:py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3" data-testid="link-logo">
+          <Link
+            to="/"
+            className="flex w-0 min-w-fit flex-1 items-center space-x-3"
+            data-testid="link-logo"
+          >
             <EventLinkLogo size={48} />
-            <span className="hidden text-2xl font-bold text-foreground md:inline">
-              EventLink
-            </span>
+            <span className="hidden text-2xl font-bold text-foreground md:inline">EventLink</span>
           </Link>
 
           {/* Navigation */}
-          <nav className="hidden items-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
+          <nav className="hidden flex-1 items-center justify-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
             <Link
               to="/jobs"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
@@ -73,7 +75,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
           </nav>
 
           {/* Actions */}
-          <div className="flex items-center space-x-1 sm:space-x-3">
+          <div className="flex flex-1 items-center justify-end space-x-1 sm:space-x-3">
             {!isHomePage && <SearchBar />}
 
             {user?.role === "recruiter" && (
@@ -94,7 +96,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
                 className="hidden transform border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md transition-all duration-300 hover:scale-[1.02] hover:from-amber-600 hover:to-orange-700 lg:flex"
                 data-testid="button-invite-clients"
               >
-                <Star className="w-4 h-4 mr-2 fill-white" />
+                <Star className="mr-2 h-4 w-4 fill-white" />
                 Build My Reputation
               </Button>
             )}

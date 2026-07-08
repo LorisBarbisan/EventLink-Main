@@ -171,12 +171,18 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
   };
 
   // Fetch full job details when dialog opens or expanded
-  const { data: jobDetails, isLoading: jobDetailsLoading, isError: jobDetailsError } = useQuery<Job>({
-    queryKey: ['/api/jobs', application.job_id],
+  const {
+    data: jobDetails,
+    isLoading: jobDetailsLoading,
+    isError: jobDetailsError,
+  } = useQuery<Job>({
+    queryKey: ["/api/jobs", application.job_id],
     queryFn: async () => {
       const res = await fetch(`/api/jobs/${application.job_id}`, {
         headers: {
-          ...(localStorage.getItem("auth_token") ? { Authorization: `Bearer ${localStorage.getItem("auth_token")}` } : {}),
+          ...(localStorage.getItem("auth_token")
+            ? { Authorization: `Bearer ${localStorage.getItem("auth_token")}` }
+            : {}),
         },
       });
       if (!res.ok) throw new Error(`Failed to fetch job: ${res.status}`);
@@ -243,8 +249,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
       setShowHireConfirm(false);
       toast({
         title: "Applicant hired!",
-        description:
-          "The applicant has been notified of their successful application.",
+        description: "The applicant has been notified of their successful application.",
       });
     },
     onError: () => {
@@ -611,9 +616,9 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     data-testid={`button-job-details-${application.id}`}
                   >
                     {showJobExpanded ? (
-                      <ChevronUp className="w-4 h-4 mr-1" />
+                      <ChevronUp className="mr-1 h-4 w-4" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 mr-1" />
+                      <ChevronDown className="mr-1 h-4 w-4" />
                     )}
                     Job Details
                   </Button>
@@ -1060,10 +1065,10 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
 
         {/* Docs button for hired freelancers */}
         {userType === "freelancer" && application.status === "hired" && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
+          <div className="mt-3 border-t border-gray-100 pt-3">
             <button
               onClick={() => setShowDocsModal(true)}
-              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-50 text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors font-medium"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
             >
               📎 Docs
             </button>
@@ -1080,9 +1085,25 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
             const file = e.target.files?.[0];
             if (!file) return;
             e.target.value = "";
-            if (file.size > 10 * 1024 * 1024) { toast({ title: "File too large", description: "Max 10 MB.", variant: "destructive" }); return; }
-            const allowed = ["application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
-            if (!allowed.includes(file.type)) { toast({ title: "File type not supported", description: "Only PDF, Word, and Excel files are allowed.", variant: "destructive" }); return; }
+            if (file.size > 10 * 1024 * 1024) {
+              toast({ title: "File too large", description: "Max 10 MB.", variant: "destructive" });
+              return;
+            }
+            const allowed = [
+              "application/pdf",
+              "application/msword",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/vnd.ms-excel",
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ];
+            if (!allowed.includes(file.type)) {
+              toast({
+                title: "File type not supported",
+                description: "Only PDF, Word, and Excel files are allowed.",
+                variant: "destructive",
+              });
+              return;
+            }
             setPendingFile(file);
             setShowUploadWarning(true);
           }}
@@ -1090,22 +1111,34 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
 
         {/* Upload warning */}
         {showUploadWarning && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8">
-              <div className="text-4xl mb-4 text-center">📋</div>
-              <h2 className="text-xl font-bold text-gray-900 mb-3 text-center">Before you upload</h2>
-              <p className="text-gray-600 text-sm leading-relaxed mb-4 text-center">
-                This document will be visible to the employer. Make sure you are happy to share it before continuing.
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
+              <div className="mb-4 text-center text-4xl">📋</div>
+              <h2 className="mb-3 text-center text-xl font-bold text-gray-900">
+                Before you upload
+              </h2>
+              <p className="mb-4 text-center text-sm leading-relaxed text-gray-600">
+                This document will be visible to the employer. Make sure you are happy to share it
+                before continuing.
               </p>
               {pendingFile && (
-                <div className="mb-4 text-xs text-gray-500 text-center truncate">
+                <div className="mb-4 truncate text-center text-xs text-gray-500">
                   <span className="font-medium text-gray-700">{pendingFile.name}</span>
                   <span className="ml-1">({(pendingFile.size / 1024 / 1024).toFixed(1)} MB)</span>
                 </div>
               )}
               <div className="mb-5">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Document type</label>
-                <select value={docType} onChange={e => { setDocType(e.target.value); setCustomDocName(""); }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Document type
+                </label>
+                <select
+                  value={docType}
+                  onChange={(e) => {
+                    setDocType(e.target.value);
+                    setCustomDocName("");
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                >
                   <option value="invoice">Invoice</option>
                   <option value="travel_receipt">Travel Receipt</option>
                   <option value="overtime">Overtime</option>
@@ -1114,8 +1147,17 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
               </div>
               {docType === "other" && (
                 <div className="mb-5">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Document name</label>
-                  <input type="text" value={customDocName} onChange={e => setCustomDocName(e.target.value)} placeholder="e.g. NDA, Timesheet" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" maxLength={60} />
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Document name
+                  </label>
+                  <input
+                    type="text"
+                    value={customDocName}
+                    onChange={(e) => setCustomDocName(e.target.value)}
+                    placeholder="e.g. NDA, Timesheet"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    maxLength={60}
+                  />
                 </div>
               )}
               <div className="flex gap-3">
@@ -1125,7 +1167,10 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     setShowUploadWarning(false);
                     setUploading(true);
                     try {
-                      const effectiveDocType = docType === "other" && customDocName.trim() ? customDocName.trim() : docType;
+                      const effectiveDocType =
+                        docType === "other" && customDocName.trim()
+                          ? customDocName.trim()
+                          : docType;
                       const base64 = await new Promise<string>((resolve, reject) => {
                         const reader = new FileReader();
                         reader.onload = () => resolve((reader.result as string).split(",")[1]);
@@ -1133,29 +1178,55 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         reader.readAsDataURL(pendingFile);
                       });
                       const token = localStorage.getItem("auth_token");
-                      const res = await fetch(`/api/job/${application.job_id}/documents/freelancer`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                        body: JSON.stringify({ fileData: base64, filename: pendingFile.name, contentType: pendingFile.type, documentType: effectiveDocType }),
+                      const res = await fetch(
+                        `/api/job/${application.job_id}/documents/freelancer`,
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                          },
+                          body: JSON.stringify({
+                            fileData: base64,
+                            filename: pendingFile.name,
+                            contentType: pendingFile.type,
+                            documentType: effectiveDocType,
+                          }),
+                        }
+                      );
+                      if (!res.ok) {
+                        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+                        throw new Error(err.error || `Upload failed (${res.status})`);
+                      }
+                      queryClient.invalidateQueries({
+                        queryKey: [`/api/job/${application.job_id}/documents`],
                       });
-                      if (!res.ok) { const err = await res.json().catch(() => ({ error: "Upload failed" })); throw new Error(err.error || `Upload failed (${res.status})`); }
-                      queryClient.invalidateQueries({ queryKey: [`/api/job/${application.job_id}/documents`] });
                       toast({ title: "Document uploaded" });
                       setCustomDocName("");
                       setShowDocsModal(true);
                     } catch (err: any) {
-                      toast({ title: "Upload failed", description: err?.message || "Please try again", variant: "destructive" });
+                      toast({
+                        title: "Upload failed",
+                        description: err?.message || "Please try again",
+                        variant: "destructive",
+                      });
                     } finally {
                       setUploading(false);
                       setPendingFile(null);
                     }
                   }}
                   disabled={uploading}
-                  className="flex-1 py-3 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                  className="flex-1 rounded-xl bg-orange-600 py-3 font-semibold text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
                 >
                   {uploading ? "Uploading..." : "Upload"}
                 </button>
-                <button onClick={() => { setShowUploadWarning(false); setPendingFile(null); }} className="flex-1 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors">
+                <button
+                  onClick={() => {
+                    setShowUploadWarning(false);
+                    setPendingFile(null);
+                  }}
+                  className="flex-1 rounded-xl border border-gray-300 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                >
                   Cancel
                 </button>
               </div>
@@ -1178,39 +1249,52 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
           isUploading={uploading}
         />
 
-      {userType === "recruiter" && showJobExpanded && (
+        {userType === "recruiter" && showJobExpanded && (
           <div className="mt-4 border-t pt-4">
             {jobDetailsLoading ? (
               <div className="flex items-center justify-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                <span className="text-sm text-muted-foreground ml-2">Loading job details...</span>
+                <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-primary"></div>
+                <span className="ml-2 text-sm text-muted-foreground">Loading job details...</span>
               </div>
             ) : jobDetails ? (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Job Title</p>
-                    <p className="text-sm font-semibold">{jobDetails.title || application.job_title}</p>
+                    <p className="text-sm font-semibold">
+                      {jobDetails.title || application.job_title}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Location</p>
                     <p className="text-sm">{jobDetails.location || "Not specified"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Rate (£)</p>
-                    <p className="text-sm font-medium text-green-600">{jobDetails.rate || "Not specified"}</p>
+                    <p className="text-xs font-medium text-muted-foreground">Rate</p>
+                    <p className="text-sm font-medium text-green-600">
+                      {jobDetails.rate || "Not specified"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Status</p>
-                    <Badge variant={jobDetails.status === "active" ? "default" : "secondary"} className="mt-0.5">
-                      {jobDetails.status ? jobDetails.status.charAt(0).toUpperCase() + jobDetails.status.slice(1) : "Unknown"}
+                    <Badge
+                      variant={jobDetails.status === "active" ? "default" : "secondary"}
+                      className="mt-0.5"
+                    >
+                      {jobDetails.status
+                        ? jobDetails.status.charAt(0).toUpperCase() + jobDetails.status.slice(1)
+                        : "Unknown"}
                     </Badge>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Start Date</p>
                     <p className="text-sm">
                       {jobDetails.event_date
-                        ? new Date(jobDetails.event_date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+                        ? new Date(jobDetails.event_date).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })
                         : "Not specified"}
                     </p>
                   </div>
@@ -1218,7 +1302,11 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     <div>
                       <p className="text-xs font-medium text-muted-foreground">End Date</p>
                       <p className="text-sm">
-                        {new Date(jobDetails.end_date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        {new Date(jobDetails.end_date).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}
                       </p>
                     </div>
                   )}
@@ -1226,23 +1314,31 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     <p className="text-xs font-medium text-muted-foreground">Posted</p>
                     <p className="text-sm">
                       {jobDetails.created_at
-                        ? new Date(jobDetails.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+                        ? new Date(jobDetails.created_at).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })
                         : "Not available"}
                     </p>
                   </div>
                 </div>
                 {jobDetails.description && (
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
-                    <div className="p-3 bg-muted rounded-lg max-h-40 overflow-y-auto">
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{jobDetails.description}</p>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Description</p>
+                    <div className="max-h-40 overflow-y-auto rounded-lg bg-muted p-3">
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {jobDetails.description}
+                      </p>
                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-2">
-                {jobDetailsError ? "Unable to load job details. Please try again." : "Job details not available"}
+              <p className="py-2 text-center text-sm text-muted-foreground">
+                {jobDetailsError
+                  ? "Unable to load job details. Please try again."
+                  : "Job details not available"}
               </p>
             )}
           </div>

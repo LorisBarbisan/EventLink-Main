@@ -1097,6 +1097,7 @@ export class DatabaseStorage implements IStorage {
       superpower: profile.superpower,
       bio: profile.bio,
       location: profile.location,
+      country: profile.country,
       experience_years: profile.experience_years,
       skills: profile.skills,
       portfolio_url: profile.portfolio_url,
@@ -1127,6 +1128,7 @@ export class DatabaseStorage implements IStorage {
     if (profile.superpower !== undefined) updateData.superpower = profile.superpower;
     if (profile.bio !== undefined) updateData.bio = profile.bio;
     if (profile.location !== undefined) updateData.location = profile.location;
+    if (profile.country !== undefined) updateData.country = profile.country;
     if (profile.experience_years !== undefined)
       updateData.experience_years = profile.experience_years;
     if (profile.skills !== undefined) updateData.skills = profile.skills;
@@ -1344,6 +1346,7 @@ export class DatabaseStorage implements IStorage {
     if (profile.contact_name !== undefined) updateData.contact_name = profile.contact_name;
     if (profile.company_type !== undefined) updateData.company_type = profile.company_type;
     if (profile.location !== undefined) updateData.location = profile.location;
+    if (profile.country !== undefined) updateData.country = profile.country;
     if (profile.description !== undefined) updateData.description = profile.description;
     if (profile.website_url !== undefined) updateData.website_url = profile.website_url;
     if (profile.linkedin_url !== undefined) updateData.linkedin_url = profile.linkedin_url;
@@ -1371,6 +1374,7 @@ export class DatabaseStorage implements IStorage {
         superpower: freelancer_profiles.superpower,
         bio: freelancer_profiles.bio,
         location: freelancer_profiles.location,
+        country: freelancer_profiles.country,
         experience_years: freelancer_profiles.experience_years,
         skills: freelancer_profiles.skills,
         portfolio_url: freelancer_profiles.portfolio_url,
@@ -1417,6 +1421,7 @@ export class DatabaseStorage implements IStorage {
         contact_name: recruiter_profiles.contact_name,
         company_type: recruiter_profiles.company_type,
         location: recruiter_profiles.location,
+        country: recruiter_profiles.country,
         description: recruiter_profiles.description,
         website_url: recruiter_profiles.website_url,
         linkedin_url: recruiter_profiles.linkedin_url,
@@ -1462,7 +1467,9 @@ export class DatabaseStorage implements IStorage {
       }
 
       if (country?.trim()) {
-        conditions.push(sql`LOWER(${freelancer_profiles.country}) = LOWER(${country.trim()})`);
+        conditions.push(
+          sql`LOWER(${freelancer_profiles.country}) = ${country.trim().toLowerCase()}`
+        );
       }
 
       // Always fetch EventLink profile separately (if it matches filters)
@@ -1477,7 +1484,7 @@ export class DatabaseStorage implements IStorage {
           superpower: freelancer_profiles.superpower,
           bio: freelancer_profiles.bio,
           location: freelancer_profiles.location,
-          country: (freelancer_profiles as any).country,
+          country: freelancer_profiles.country,
           experience_years: freelancer_profiles.experience_years,
           skills: freelancer_profiles.skills,
           portfolio_url: freelancer_profiles.portfolio_url,
@@ -1557,7 +1564,7 @@ export class DatabaseStorage implements IStorage {
           superpower: freelancer_profiles.superpower,
           bio: freelancer_profiles.bio,
           location: freelancer_profiles.location,
-          country: (freelancer_profiles as any).country,
+          country: freelancer_profiles.country,
           experience_years: freelancer_profiles.experience_years,
           skills: freelancer_profiles.skills,
           portfolio_url: freelancer_profiles.portfolio_url,
@@ -2032,6 +2039,8 @@ export class DatabaseStorage implements IStorage {
     if (job.title !== undefined) updateData.title = job.title;
     if (job.company !== undefined) updateData.company = job.company;
     if (job.location !== undefined) updateData.location = job.location;
+    if ((job as any).country !== undefined) updateData.country = (job as any).country;
+    if ((job as any).currency !== undefined) updateData.currency = (job as any).currency;
     if (job.type !== undefined) updateData.type = job.type;
     if (job.rate !== undefined) updateData.rate = job.rate;
     if (job.description !== undefined) updateData.description = job.description;
@@ -2131,12 +2140,13 @@ export class DatabaseStorage implements IStorage {
   async searchJobs(filters: {
     keyword?: string;
     location?: string;
+    country?: string;
     startDate?: string;
     endDate?: string;
   }): Promise<Job[]> {
     try {
       await this.closeExpiredJobs();
-      const { keyword, location, startDate, endDate } = filters;
+      const { keyword, location, country, startDate, endDate } = filters;
 
       // Build conditions array
       const conditions = [];
@@ -2174,6 +2184,11 @@ export class DatabaseStorage implements IStorage {
       if (location && location.trim()) {
         const locationTerm = `%${location.toLowerCase()}%`;
         conditions.push(sql`LOWER(${jobs.location}) LIKE ${locationTerm}`);
+      }
+
+      // Country filter (exact match)
+      if (country && country.trim()) {
+        conditions.push(sql`LOWER(${jobs.country}) = ${country.toLowerCase()}`);
       }
 
       // Date range filter on event_date
@@ -2380,7 +2395,7 @@ export class DatabaseStorage implements IStorage {
           superpower: freelancer_profiles.superpower,
           bio: freelancer_profiles.bio,
           location: freelancer_profiles.location,
-          country: (freelancer_profiles as any).country,
+          country: freelancer_profiles.country,
           experience_years: freelancer_profiles.experience_years,
           skills: freelancer_profiles.skills,
           portfolio_url: freelancer_profiles.portfolio_url,

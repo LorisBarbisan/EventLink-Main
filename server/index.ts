@@ -1,12 +1,11 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express, { NextFunction, type Request, Response } from "express";
-import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { ogTagMiddleware } from "./api/middleware/ogTags";
 import { reconcileAdminUsers } from "./api/utils/reconcile-admin-users";
 import { seedProductionJobs } from "./api/utils/seed-production-jobs";
-import { backfillSlugs } from "./api/utils/backfill-slugs";
+import { backfillSlugs, backfillCountry, correctCountries } from "./api/utils/backfill-slugs";
 import { registerJobNotificationScheduler } from "./api/services/job-notification-scheduler.service";
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
@@ -16,10 +15,10 @@ dotenv.config();
 
 const app = express();
 
-// CRITICAL: Enable trust proxy for production deployment behind reverse proxy (Replit)
+// CRITICAL: Enable trust proxy for production deployment behind reverse proxy (Railway)
 // This fixes rate limiting and IP detection issues in production
 if (process.env.NODE_ENV === "production") {
-  app.set("trust proxy", 1); // Trust first proxy (Replit's reverse proxy)
+  app.set("trust proxy", true); // Trust Railway's reverse proxy chain
   console.log("✅ Trust proxy enabled for production");
 } else {
   // More specific trust proxy for development to avoid rate limiting warnings
@@ -108,31 +107,6 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-// PRODUCTION-READY RATE LIMITING with proper proxy support
-const generalRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === "production" ? 500 : 1000, // Stricter in production
-  message: { error: "Too many requests from this IP, please try again later" },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipFailedRequests: true,
-  skipSuccessfulRequests: false,
-});
-
-// More restrictive rate limiting for data-saving operations
-const saveOperationsLimit = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes
-  max: process.env.NODE_ENV === "production" ? 30 : 100, // 30 saves per 5 min in production
-  message: { error: "Too many save operations. Please wait a moment before trying again." },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipFailedRequests: true,
-});
-
-app.use("/api", generalRateLimit);
-// Apply stricter limits to save/update operations
-app.use(["/api/profiles", "/api/jobs", "/api/applications"], saveOperationsLimit);
-
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
@@ -204,7 +178,9 @@ app.use((req, res, next) => {
   // Reconcile admin users on startup
   await reconcileAdminUsers();
   await seedProductionJobs();
-  backfillSlugs().catch(err => console.error("Slug backfill failed:", err));
+  backfillSlugs().catch((err) => console.error("Slug backfill failed:", err));
+  backfillCountry().catch((err) => console.error("Country backfill failed:", err));
+  correctCountries().catch((err) => console.error("Country corrections failed:", err));
   registerJobNotificationScheduler();
 
   // OG tag middleware for social media crawlers (must be before Vite catch-all)
@@ -252,7 +228,7 @@ app.use((req, res, next) => {
   };
 
   process.on("SIGTERM", () => shutdown("SIGTERM"));
-  process.on("SIGINT",  () => shutdown("SIGINT"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 
   server.on("error", (err: NodeJS.ErrnoException) => {
     if (err.code === "EADDRINUSE") {
@@ -274,12 +250,15 @@ app.use((req, res, next) => {
       console.error("Failed to close expired jobs on startup:", err);
     }
 
-    setInterval(async () => {
-      try {
-        await storage.closeExpiredJobs();
-      } catch (err) {
-        console.error("Periodic job expiry check failed:", err);
-      }
-    }, 60 * 60 * 1000);
+    setInterval(
+      async () => {
+        try {
+          await storage.closeExpiredJobs();
+        } catch (err) {
+          console.error("Periodic job expiry check failed:", err);
+        }
+      },
+      60 * 60 * 1000
+    );
   });
 })();
