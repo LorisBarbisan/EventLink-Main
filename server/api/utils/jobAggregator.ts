@@ -196,6 +196,28 @@ export class JobAggregator {
   }
 
   /**
+   * Wraps fetch with a hard timeout via AbortController. Without this, a
+   * single stalled connection to any one of the (now up to 85 per sync)
+   * external API calls would hang forever with no error and no retry —
+   * and since fetchFilterAndDedupe waits on Promise.allSettled for every
+   * call to settle, one hung request blocks the entire sync indefinitely
+   * (the exact "Refreshing..." spinner that never stops).
+   */
+  private async fetchWithTimeout(
+    url: string,
+    init: RequestInit = {},
+    timeoutMs = 15000
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /**
    * Fetch jobs from Reed UK API
    * You can customize these default parameters:
    * - keywords: Search terms (default: events-related terms)
@@ -250,7 +272,7 @@ export class JobAggregator {
 
         const url = `https://www.reed.co.uk/api/1.0/search?${params.toString()}`;
 
-        const response = await fetch(url, {
+        const response = await this.fetchWithTimeout(url, {
           headers: {
             Authorization: `Basic ${Buffer.from(this.reedApiKey + ":").toString("base64")}`,
             "User-Agent": "EventLink/1.0",
@@ -376,7 +398,7 @@ export class JobAggregator {
 
         const url = `https://api.adzuna.com/v1/api/jobs/${countryConfig.code}/search/1?${params.toString()}`;
 
-        const response = await fetch(url, {
+        const response = await this.fetchWithTimeout(url, {
           headers: {
             "User-Agent": "EventLink/1.0",
             Accept: "application/json",
@@ -484,19 +506,22 @@ export class JobAggregator {
           `🔍 Jooble (${countryConfig.countryCode}) API attempt ${attempt}/${maxRetries}`
         );
 
-        const response = await fetch(`https://jooble.org/api/${this.joobleApiKey}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "User-Agent": "EventLink/1.0",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            keywords,
-            location: countryConfig.location,
-            page: options.page,
-          }),
-        });
+        const response = await this.fetchWithTimeout(
+          `https://jooble.org/api/${this.joobleApiKey}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "User-Agent": "EventLink/1.0",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              keywords,
+              location: countryConfig.location,
+              page: options.page,
+            }),
+          }
+        );
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -602,7 +627,7 @@ export class JobAggregator {
 
         const url = `http://public.api.careerjet.net/search?${params.toString()}`;
 
-        const response = await fetch(url, {
+        const response = await this.fetchWithTimeout(url, {
           headers: {
             Referer: "https://eventlink.one",
             "User-Agent": "EventLink/1.0",
@@ -724,7 +749,7 @@ export class JobAggregator {
 
         const url = `https://jsearch.p.rapidapi.com/search-v2?${params.toString()}`;
 
-        const response = await fetch(url, {
+        const response = await this.fetchWithTimeout(url, {
           headers: {
             "x-rapidapi-host": "jsearch.p.rapidapi.com",
             "x-rapidapi-key": this.rapidApiKey!,

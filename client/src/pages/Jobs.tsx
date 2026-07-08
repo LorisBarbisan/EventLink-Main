@@ -638,7 +638,7 @@ export default function Jobs() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
-                                  Apply on {job.external_source}
+                                  Find out more
                                 </a>
                               </Button>
                             ) : (
@@ -651,20 +651,22 @@ export default function Jobs() {
                                 {applyToJobMutation.isPending ? "Applying..." : "Apply Now"}
                               </Button>
                             )}
-                            <Button
-                              variant="outline"
-                              onClick={() => toggleJobExpansion(job.id.toString())}
-                              data-testid={`button-expand-${job.id}`}
-                            >
-                              {expandedJobId === job.id.toString() ? (
-                                <ChevronUp className="mr-1 h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="mr-1 h-4 w-4" />
-                              )}
-                              {expandedJobId === job.id.toString()
-                                ? "Less Details"
-                                : "More Details"}
-                            </Button>
+                            {!job.external_source && (
+                              <Button
+                                variant="outline"
+                                onClick={() => toggleJobExpansion(job.id.toString())}
+                                data-testid={`button-expand-${job.id}`}
+                              >
+                                {expandedJobId === job.id.toString() ? (
+                                  <ChevronUp className="mr-1 h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="mr-1 h-4 w-4" />
+                                )}
+                                {expandedJobId === job.id.toString()
+                                  ? "Less Details"
+                                  : "More Details"}
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </CardContent>

@@ -303,7 +303,7 @@ export default function JobDetail() {
               ) : isExternalJob ? (
                 <a href={job.external_url!} target="_blank" rel="noopener noreferrer">
                   <Button size="lg" className="w-full sm:w-auto">
-                    Apply on {job.external_source || "External Site"}
+                    Find out more
                   </Button>
                 </a>
               ) : isFreelancer ? (
