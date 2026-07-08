@@ -335,11 +335,13 @@ export async function registerRoutes(
         return res.json({ message: "Sync already in progress, skipping..." });
       }
 
-      // includeJSearch: true — this route only fires on-demand (admin
-      // dry-run preview or the public manual "Refresh" button), never on the
-      // automatic 30-min background timer, so it's safe to spend JSearch's
-      // free-tier RapidAPI credits here.
-      const result = await jobAggregator.syncExternalJobs(config, { dryRun, includeJSearch: true });
+      // includeJSearch: false — temporarily disabled, the RapidAPI JSearch
+      // key has exhausted its monthly quota (BASIC/free plan). Flip back to
+      // true once the quota resets or the plan is upgraded.
+      const result = await jobAggregator.syncExternalJobs(config, {
+        dryRun,
+        includeJSearch: false,
+      });
       console.log(dryRun ? "✅ External job dry-run completed" : "✅ External job sync completed");
       res.json({
         message: dryRun
