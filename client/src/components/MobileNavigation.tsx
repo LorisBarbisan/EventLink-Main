@@ -1,6 +1,5 @@
 import { EventLinkLogo } from "@/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
-import { useHasJobs } from "@/hooks/useHasJobs";
 import { isManagerTeamMember } from "@/lib/employerContext";
 import { MessageSquare, Plus, Star } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -13,7 +12,6 @@ interface MobileNavigationProps {
 export const MobileNavigation = ({ onFeedbackClick, onInviteClick }: MobileNavigationProps) => {
   const [, setLocation] = useLocation();
   const { user, signOut } = useAuth();
-  const hasJobs = useHasJobs();
 
   const showProfileLink =
     user &&
@@ -39,15 +37,13 @@ export const MobileNavigation = ({ onFeedbackClick, onInviteClick }: MobileNavig
 
       {/* Navigation */}
       <nav className="mt-8 flex flex-col space-y-4">
-        {hasJobs && (
-          <Link
-            to="/jobs"
-            className="rounded-md px-4 py-2 text-foreground transition-colors hover:bg-muted hover:text-primary"
-            data-testid="mobile-link-jobs"
-          >
-            Find Jobs
-          </Link>
-        )}
+        <Link
+          to="/jobs"
+          className="rounded-md px-4 py-2 text-foreground transition-colors hover:bg-muted hover:text-primary"
+          data-testid="mobile-link-jobs"
+        >
+          Find Jobs
+        </Link>
         <Link
           to="/freelancers"
           className="rounded-md px-4 py-2 text-foreground transition-colors hover:bg-muted hover:text-primary"

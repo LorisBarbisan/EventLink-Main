@@ -1,6 +1,6 @@
 import connectPgSimple from "connect-pg-simple";
 import cors from "cors";
-import type { Express } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
 import helmet from "helmet";
@@ -15,6 +15,7 @@ import { storage } from "./storage";
 // Import domain-specific route modules
 import jwt from "jsonwebtoken";
 import { setCacheByEndpoint } from "./api/middleware/cacheHeaders.js";
+import { requireAdminAuth } from "./api/middleware/admin.middleware.js";
 import { registerAdminRoutes } from "./api/routes/admin.route.js";
 import { registerApplicationRoutes } from "./api/routes/applications.route.js";
 import { registerAuthRoutes } from "./api/routes/auth.route.js";
@@ -246,6 +247,23 @@ export async function registerRoutes(
     next();
   });
 
+  // Must be registered before registerJobRoutes(), whose GET /api/jobs/:id
+  // would otherwise shadow this path (matching "count" as the :id param).
+  app.get("/api/jobs/count", async (_req, res) => {
+    try {
+      const jobs = await storage.searchJobs({
+        keyword: "",
+        location: "",
+        startDate: "",
+        endDate: "",
+      });
+      res.json({ count: jobs.length });
+    } catch (error) {
+      console.error("Job count error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Register all domain-specific routes
   registerAuthRoutes(app);
   registerProfileRoutes(app);
@@ -266,38 +284,25 @@ export async function registerRoutes(
   registerContactRoutes(app);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering
-  app.get("/api/jobs/count", async (_req, res) => {
-    try {
-      const jobs = await storage.searchJobs({
-        keyword: "",
-        location: "",
-        startDate: "",
-        endDate: "",
-      });
-      res.json({ count: jobs.length });
-    } catch (error) {
-      console.error("Job count error:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
   app.get("/api/jobs", async (req, res) => {
     try {
       // Extract query parameters
       const keyword = (req.query.keyword as string) || "";
       const location = (req.query.location as string) || "";
+      const country = (req.query.country as string) || "";
       const startDate = (req.query.start_date as string) || "";
       const endDate = (req.query.end_date as string) || "";
 
       console.log("📋 Jobs endpoint called with filters:", {
         keyword,
         location,
+        country,
         startDate,
         endDate,
       });
 
       // Get filtered jobs from storage
-      const jobs = await storage.searchJobs({ keyword, location, startDate, endDate });
+      const jobs = await storage.searchJobs({ keyword, location, country, startDate, endDate });
 
       console.log(`📊 Found ${jobs.length} jobs after filtering`);
 
@@ -311,44 +316,68 @@ export async function registerRoutes(
   // Additional utility endpoints that don't fit into specific domains
 
   // External job sync endpoints
-  // TEMPORARILY DISABLED - External job sync is paused
-  app.post("/api/jobs/sync-external", async (req, res) => {
-    console.log("⏸️ External job sync is temporarily disabled");
-    return res.json({
-      message: "External job sync is temporarily disabled",
-      synced: 0,
-      skipped: 0,
-    });
-    /* DISABLED - Re-enable when ready
+  // Real (non-dry-run) sync stays unauthenticated: Jobs.tsx calls this from the
+  // browser on every page mount, throttled client-side via localStorage.
+  const requireAdminForDryRun = (req: Request, res: Response, next: NextFunction) => {
+    if (req.query.dryRun === "true") return requireAdminAuth(req, res, next);
+    next();
+  };
+
+  app.post("/api/jobs/sync-external", requireAdminForDryRun, async (req, res) => {
     try {
       console.log("🔄 External job sync requested");
       const { jobAggregator } = await import("./api/utils/jobAggregator.js");
       const config = req.body.config; // Optional configuration
+      const dryRun = req.query.dryRun === "true";
 
       // Check if sync is already in progress
-      const isSync = jobAggregator.isSyncInProgress();
-      if (isSync) {
+      if (jobAggregator.isSyncInProgress()) {
         return res.json({ message: "Sync already in progress, skipping..." });
       }
 
-      const result = await jobAggregator.syncExternalJobs(config);
-      console.log("✅ External job sync completed");
+      // includeJSearch: true — this route only fires on-demand (admin
+      // dry-run preview or the public manual "Refresh" button), never on the
+      // automatic 30-min background timer, so it's safe to spend JSearch's
+      // free-tier RapidAPI credits here.
+      const result = await jobAggregator.syncExternalJobs(config, { dryRun, includeJSearch: true });
+      console.log(dryRun ? "✅ External job dry-run completed" : "✅ External job sync completed");
       res.json({
-        message: "External jobs synced successfully",
+        message: dryRun
+          ? "Dry run completed, no jobs written"
+          : "External jobs synced successfully",
         ...result,
       });
     } catch (error) {
       console.error("❌ Sync external jobs error:", error);
       res.status(500).json({ error: "Failed to sync external jobs" });
     }
-    */
   });
 
-  // Get external jobs only (public endpoint - no authentication required)
-  // TEMPORARILY DISABLED - Returns empty array
-  app.get("/api/jobs/external", async (req, res) => {
-    console.log("⏸️ External jobs endpoint is temporarily disabled - returning empty array");
-    return res.json([]);
+  // Get external jobs only (admin/debug use — the public Jobs page uses GET /api/jobs,
+  // which already includes external jobs once they're synced into the database)
+  app.get("/api/jobs/external", requireAdminAuth, async (req, res) => {
+    try {
+      const jobs = await storage.getExternalJobs();
+      res.json(jobs);
+    } catch (error) {
+      console.error("❌ Get external jobs error:", error);
+      res.status(500).json({ error: "Failed to fetch external jobs" });
+    }
+  });
+
+  // One-time cleanup for external job duplicates that accumulated before the
+  // title+description dedup key existed. Safe to run repeatedly — it's a
+  // no-op once nothing matches on title+description anymore.
+  app.post("/api/jobs/dedupe-cleanup", requireAdminAuth, async (req, res) => {
+    try {
+      console.log("🧹 External job dedupe cleanup requested");
+      const { jobAggregator } = await import("./api/utils/jobAggregator.js");
+      const result = await jobAggregator.dedupeExistingExternalJobs();
+      res.json({ message: "Dedupe cleanup completed", ...result });
+    } catch (error) {
+      console.error("❌ Dedupe cleanup error:", error);
+      res.status(500).json({ error: "Failed to run dedupe cleanup" });
+    }
   });
 
   // Location search endpoint — global via Nominatim, falls back to local UK dataset

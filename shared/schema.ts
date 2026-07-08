@@ -175,7 +175,9 @@ export const jobs = pgTable("jobs", {
   hours: integer("hours"), // Number of hours if duration_type = 'hours'
   status: text("status").default("private").$type<"active" | "paused" | "closed" | "private">(),
   external_id: text("external_id"), // For external job IDs (reed_123, adzuna_456)
-  external_source: text("external_source").$type<"reed" | "adzuna" | null>(), // Source of external job
+  external_source: text("external_source").$type<
+    "reed" | "adzuna" | "jooble" | "careerjet" | "jsearch" | null
+  >(), // Source of external job
   external_url: text("external_url"), // URL to original job posting
   posted_date: text("posted_date"), // Original posting date from external source
   slug: text("slug"), // SEO-friendly URL slug e.g. sound-engineer-london-4821
@@ -1020,6 +1022,7 @@ export const bookings = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     status: text("status").notNull().default("enquired"),
     agreedRate: text("agreed_rate"),
+    currency: text("currency").default("GBP"), // Copied from the job's currency at booking creation
     callTime: text("call_time"),
     venueAddress: text("venue_address"),
     employerNotes: text("employer_notes"),

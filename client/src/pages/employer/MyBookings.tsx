@@ -9,18 +9,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 
 // ── Types ─────────────────────────────────────────────────
-type BookingStatus =
-  | "enquired"
-  | "confirmed"
-  | "briefed"
-  | "completed"
-  | "cancelled";
+type BookingStatus = "enquired" | "confirmed" | "briefed" | "completed" | "cancelled";
 
 interface BookingResult {
   booking: {
     id: number;
     status: BookingStatus;
     agreedRate: string | null;
+    currency: string | null;
     callTime: string | null;
     venueAddress: string | null;
     employerNotes: string | null;
@@ -95,7 +91,7 @@ function StatusBadge({ status }: { status: BookingStatus }) {
   const config = STATUS_CONFIG[status];
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.color}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.bg} ${config.color}`}
     >
       {config.label}
     </span>
@@ -118,15 +114,15 @@ function BookingCard({
   const canCancel = booking.status !== "completed" && booking.status !== "cancelled";
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
       {/* Header */}
-      <div className="p-4 border-b border-gray-100 flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 truncate">{job.title}</h3>
-          <p className="text-sm text-gray-500 mt-0.5">
+      <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-4">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-semibold text-gray-900">{job.title}</h3>
+          <p className="mt-0.5 text-sm text-gray-500">
             {job.location}
             {job.eventDate && (
-              <span className="ml-2 text-orange-600 font-medium">
+              <span className="ml-2 font-medium text-orange-600">
                 · {format(new Date(job.eventDate), "d MMM yyyy")}
               </span>
             )}
@@ -136,27 +132,27 @@ function BookingCard({
       </div>
 
       {/* Freelancer info */}
-      <div className="p-4 flex items-center gap-3 border-b border-gray-100">
-        <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
+      <div className="flex items-center gap-3 border-b border-gray-100 p-4">
+        <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full bg-gray-100">
           {freelancer.profilePicture ? (
             <img
               src={freelancer.profilePicture}
               alt={`${freelancer.firstName} ${freelancer.lastName}`}
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">
+            <div className="flex h-full w-full items-center justify-center text-sm font-medium text-gray-400">
               {freelancer.firstName[0]}
               {freelancer.lastName[0]}
             </div>
           )}
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="font-medium text-gray-900">
             {freelancer.firstName} {freelancer.lastName}
           </p>
           {booking.status !== "enquired" && (
-            <div className="flex gap-3 mt-0.5">
+            <div className="mt-0.5 flex gap-3">
               <a
                 href={`mailto:${freelancer.email}`}
                 className="text-xs text-orange-600 hover:underline"
@@ -178,23 +174,26 @@ function BookingCard({
 
       {/* Booking details */}
       {(booking.agreedRate || booking.callTime || booking.venueAddress) && (
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 grid grid-cols-3 gap-3 text-sm">
+        <div className="grid grid-cols-3 gap-3 border-b border-gray-100 bg-gray-50 px-4 py-3 text-sm">
           {booking.agreedRate && (
             <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wide">Rate</p>
-              <p className="font-medium text-gray-900">£{booking.agreedRate}</p>
+              <p className="text-xs uppercase tracking-wide text-gray-400">Rate</p>
+              <p className="font-medium text-gray-900">
+                {booking.currency && booking.currency !== "GBP" ? `${booking.currency} ` : ""}
+                {booking.agreedRate}
+              </p>
             </div>
           )}
           {booking.callTime && (
             <div>
-              <p className="text-gray-400 text-xs uppercase tracking-wide">Call time</p>
+              <p className="text-xs uppercase tracking-wide text-gray-400">Call time</p>
               <p className="font-medium text-gray-900">{booking.callTime}</p>
             </div>
           )}
           {booking.venueAddress && (
             <div className="col-span-2">
-              <p className="text-gray-400 text-xs uppercase tracking-wide">Venue</p>
-              <p className="font-medium text-gray-900 truncate">{booking.venueAddress}</p>
+              <p className="text-xs uppercase tracking-wide text-gray-400">Venue</p>
+              <p className="truncate font-medium text-gray-900">{booking.venueAddress}</p>
             </div>
           )}
         </div>
@@ -202,16 +201,16 @@ function BookingCard({
 
       {/* Notes */}
       {booking.employerNotes && (
-        <div className="px-4 py-3 border-b border-gray-100">
-          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Notes</p>
+        <div className="border-b border-gray-100 px-4 py-3">
+          <p className="mb-1 text-xs uppercase tracking-wide text-gray-400">Notes</p>
           <p className="text-sm text-gray-600">{booking.employerNotes}</p>
         </div>
       )}
 
       {/* Cancellation info */}
       {booking.status === "cancelled" && (
-        <div className="px-4 py-3 border-b border-gray-100 bg-red-50">
-          <p className="text-xs text-red-600 uppercase tracking-wide mb-1">Cancelled</p>
+        <div className="border-b border-gray-100 bg-red-50 px-4 py-3">
+          <p className="mb-1 text-xs uppercase tracking-wide text-red-600">Cancelled</p>
           {booking.cancellationReason && (
             <p className="text-sm text-red-700">{booking.cancellationReason}</p>
           )}
@@ -220,12 +219,12 @@ function BookingCard({
 
       {/* Actions */}
       {(nextStatuses.length > 0 || canCancel) && (
-        <div className="p-4 flex items-center gap-2 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2 p-4">
           {nextStatuses.map((nextStatus) => (
             <button
               key={nextStatus}
               onClick={() => onStatusChange(booking.id, nextStatus)}
-              className="px-3 py-1.5 text-sm font-medium bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              className="rounded-lg bg-orange-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-orange-700"
             >
               {NEXT_STATUS_LABELS[booking.status]}
             </button>
@@ -233,19 +232,19 @@ function BookingCard({
           {canCancel && !showCancel && (
             <button
               onClick={() => setShowCancel(true)}
-              className="px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
             >
               Cancel booking
             </button>
           )}
           {showCancel && (
-            <div className="w-full mt-2 space-y-2">
+            <div className="mt-2 w-full space-y-2">
               <input
                 type="text"
                 placeholder="Reason for cancellation (optional)"
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
               />
               <div className="flex gap-2">
                 <button
@@ -253,7 +252,7 @@ function BookingCard({
                     onStatusChange(booking.id, "cancelled", cancelReason || undefined);
                     setShowCancel(false);
                   }}
-                  className="px-3 py-1.5 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
                 >
                   Confirm cancellation
                 </button>
@@ -272,8 +271,8 @@ function BookingCard({
       {/* Footer timestamp */}
       <div className="px-4 pb-3">
         <p className="text-xs text-gray-400">
-          Created {format(new Date(booking.createdAt), "d MMM yyyy")} ·{" "}
-          Updated {format(new Date(booking.updatedAt), "d MMM yyyy 'at' HH:mm")}
+          Created {format(new Date(booking.createdAt), "d MMM yyyy")} · Updated{" "}
+          {format(new Date(booking.updatedAt), "d MMM yyyy 'at' HH:mm")}
         </p>
       </div>
     </div>
@@ -301,14 +300,14 @@ function BookingsSummary({
   ];
 
   return (
-    <div className="grid grid-cols-4 gap-4 mb-6">
+    <div className="mb-6 grid grid-cols-4 gap-4">
       {items.map((item) => (
         <div
           key={item.label}
-          className="bg-white rounded-xl border border-gray-200 p-4 text-center"
+          className="rounded-xl border border-gray-200 bg-white p-4 text-center"
         >
           <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
-          <p className="text-xs text-gray-500 mt-1">{item.label}</p>
+          <p className="mt-1 text-xs text-gray-500">{item.label}</p>
         </div>
       ))}
     </div>
@@ -356,14 +355,16 @@ export default function MyBookings() {
     },
   });
 
-  const handleStatusChange = (bookingId: number, status: BookingStatus, cancellationReason?: string) => {
+  const handleStatusChange = (
+    bookingId: number,
+    status: BookingStatus,
+    cancellationReason?: string
+  ) => {
     statusMutation.mutate({ bookingId, status, cancellationReason });
   };
 
   const filteredBookings =
-    bookingsData?.filter(
-      (r) => activeFilter === "all" || r.booking.status === activeFilter
-    ) ?? [];
+    bookingsData?.filter((r) => activeFilter === "all" || r.booking.status === activeFilter) ?? [];
 
   const filterCounts: Record<string, number> = {
     all: bookingsData?.length ?? 0,
@@ -384,25 +385,23 @@ export default function MyBookings() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-8">
       {/* Page header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">My Bookings</h1>
-        <p className="text-gray-500 mt-1">
-          Track and manage your freelance crew bookings
-        </p>
+        <p className="mt-1 text-gray-500">Track and manage your freelance crew bookings</p>
       </div>
 
       {/* Summary counts */}
       {summary && <BookingsSummary summary={summary} />}
 
       {/* Filter tabs */}
-      <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1 overflow-x-auto">
+      <div className="mb-6 flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1">
         {filterTabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveFilter(tab.key)}
-            className={`flex-shrink-0 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            className={`flex-shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               activeFilter === tab.key
                 ? "bg-white text-gray-900 shadow-sm"
                 : "text-gray-500 hover:text-gray-700"
@@ -410,7 +409,7 @@ export default function MyBookings() {
           >
             {tab.label}
             {filterCounts[tab.key] > 0 && (
-              <span className="ml-1.5 text-xs bg-gray-200 text-gray-600 rounded-full px-1.5 py-0.5">
+              <span className="ml-1.5 rounded-full bg-gray-200 px-1.5 py-0.5 text-xs text-gray-600">
                 {filterCounts[tab.key]}
               </span>
             )}
@@ -422,14 +421,14 @@ export default function MyBookings() {
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-48 bg-gray-100 rounded-xl animate-pulse" />
+            <div key={i} className="h-48 animate-pulse rounded-xl bg-gray-100" />
           ))}
         </div>
       ) : filteredBookings.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-5xl mb-4">📋</div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings yet</h3>
-          <p className="text-gray-500 text-sm">
+        <div className="py-16 text-center">
+          <div className="mb-4 text-5xl">📋</div>
+          <h3 className="mb-2 text-lg font-medium text-gray-900">No bookings yet</h3>
+          <p className="text-sm text-gray-500">
             Bookings are created automatically when you message a freelancer about a job.
           </p>
         </div>

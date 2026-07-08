@@ -3,6 +3,196 @@
  * Customize these settings to refine the jobs fetched from Reed and Adzuna
  */
 
+export interface AdzunaCountryConfig {
+  code: string; // Adzuna's ISO country code, e.g. "gb", "us"
+  currency: string; // ISO currency code stored on the job, e.g. "GBP"
+  currencySymbol: string; // e.g. "£", "$", "R"
+  displayName: string; // e.g. "United Kingdom" — joined into job.location for display
+  salaryMin?: number; // local-currency annual salary; omit to skip salary filtering
+  salaryMax?: number;
+  enabled: boolean; // easy on/off switch per country without deleting config
+}
+
+/**
+ * Adzuna officially supports these English-speaking markets (confirmed against
+ * Adzuna's own API: at, au, be, br, ca, ch, de, es, fr, gb, in, it, mx, nl, nz,
+ * pl, sg, us, za — Ireland has no separate country API, it's folded into gb).
+ *
+ * No salaryMin/salaryMax for the 5 non-UK countries: the UK's £20k-80k band
+ * was tuned through real testing, and guessing equivalent bands in 5 other
+ * currencies risks silently zeroing out a country's results the same way an
+ * earlier bug (Adzuna's `what` param not supporting literal "OR") silently
+ * zeroed everything — that failure mode is hard to diagnose. Add bounds later
+ * once real per-country results are visible.
+ */
+export const ADZUNA_COUNTRIES: AdzunaCountryConfig[] = [
+  {
+    code: "gb",
+    currency: "GBP",
+    currencySymbol: "£",
+    displayName: "United Kingdom",
+    salaryMin: 20000,
+    salaryMax: 80000,
+    enabled: true,
+  },
+  { code: "us", currency: "USD", currencySymbol: "$", displayName: "United States", enabled: true },
+  { code: "au", currency: "AUD", currencySymbol: "$", displayName: "Australia", enabled: true },
+  { code: "nz", currency: "NZD", currencySymbol: "$", displayName: "New Zealand", enabled: true },
+  { code: "ca", currency: "CAD", currencySymbol: "$", displayName: "Canada", enabled: true },
+  { code: "za", currency: "ZAR", currencySymbol: "R", displayName: "South Africa", enabled: true },
+];
+
+export interface JoobleCountryConfig {
+  location: string; // Free-text location string Jooble expects, e.g. "United Kingdom"
+  countryCode: string; // ISO country code stored on the job, e.g. "gb"
+  currency: string;
+  currencySymbol: string;
+  displayName: string;
+  enabled: boolean;
+}
+
+/**
+ * Jooble's `location` param is free text with no ISO country scoping, and
+ * live testing showed it's unreliable outside the UK/US (a "South Africa"
+ * search returned Pennsylvania/Maryland USA jobs) — so unlike Adzuna and
+ * Careerjet, Jooble is intentionally limited to these two markets only.
+ */
+export const JOOBLE_COUNTRIES: JoobleCountryConfig[] = [
+  {
+    location: "United Kingdom",
+    countryCode: "gb",
+    currency: "GBP",
+    currencySymbol: "£",
+    displayName: "United Kingdom",
+    enabled: true,
+  },
+  {
+    location: "United States",
+    countryCode: "us",
+    currency: "USD",
+    currencySymbol: "$",
+    displayName: "United States",
+    enabled: true,
+  },
+];
+
+export interface CareerjetCountryConfig {
+  localeCode: string; // Careerjet's locale param, e.g. "en_GB"
+  countryCode: string; // ISO country code stored on the job, e.g. "gb"
+  currency: string;
+  currencySymbol: string;
+  displayName: string;
+  enabled: boolean;
+}
+
+/**
+ * Careerjet's `locale_code` reliably scopes results by country (confirmed via
+ * live testing), so it gets the same 6-country coverage as Adzuna.
+ */
+export const CAREERJET_COUNTRIES: CareerjetCountryConfig[] = [
+  {
+    localeCode: "en_GB",
+    countryCode: "gb",
+    currency: "GBP",
+    currencySymbol: "£",
+    displayName: "United Kingdom",
+    enabled: true,
+  },
+  {
+    localeCode: "en_US",
+    countryCode: "us",
+    currency: "USD",
+    currencySymbol: "$",
+    displayName: "United States",
+    enabled: true,
+  },
+  {
+    localeCode: "en_AU",
+    countryCode: "au",
+    currency: "AUD",
+    currencySymbol: "$",
+    displayName: "Australia",
+    enabled: true,
+  },
+  {
+    localeCode: "en_NZ",
+    countryCode: "nz",
+    currency: "NZD",
+    currencySymbol: "$",
+    displayName: "New Zealand",
+    enabled: true,
+  },
+  {
+    localeCode: "en_CA",
+    countryCode: "ca",
+    currency: "CAD",
+    currencySymbol: "$",
+    displayName: "Canada",
+    enabled: true,
+  },
+  {
+    localeCode: "en_ZA",
+    countryCode: "za",
+    currency: "ZAR",
+    currencySymbol: "R",
+    displayName: "South Africa",
+    enabled: true,
+  },
+];
+
+export interface JSearchCountryConfig {
+  countryCode: string; // JSearch's `country` param, ISO 3166-1 alpha-2, e.g. "gb"
+  displayName: string;
+  currency: string;
+  currencySymbol: string;
+  enabled: boolean;
+}
+
+/**
+ * JSearch (via RapidAPI) covers the same 6 countries as Adzuna/Careerjet.
+ * Runs on the same free-tier credit constraints as Jooble's per-keyword
+ * calls (see JobSearchConfig.jsearch.keywords) — kept manual-refresh-only,
+ * see the includeJSearch flag on fetchFilterAndDedupe/syncExternalJobs.
+ */
+export const JSEARCH_COUNTRIES: JSearchCountryConfig[] = [
+  {
+    countryCode: "gb",
+    displayName: "United Kingdom",
+    currency: "GBP",
+    currencySymbol: "£",
+    enabled: true,
+  },
+  {
+    countryCode: "us",
+    displayName: "United States",
+    currency: "USD",
+    currencySymbol: "$",
+    enabled: true,
+  },
+  {
+    countryCode: "au",
+    displayName: "Australia",
+    currency: "AUD",
+    currencySymbol: "$",
+    enabled: true,
+  },
+  {
+    countryCode: "nz",
+    displayName: "New Zealand",
+    currency: "NZD",
+    currencySymbol: "$",
+    enabled: true,
+  },
+  { countryCode: "ca", displayName: "Canada", currency: "CAD", currencySymbol: "$", enabled: true },
+  {
+    countryCode: "za",
+    displayName: "South Africa",
+    currency: "ZAR",
+    currencySymbol: "R",
+    enabled: true,
+  },
+];
+
 export interface JobSearchConfig {
   reed: {
     keywords: string;
@@ -18,13 +208,46 @@ export interface JobSearchConfig {
   };
   adzuna: {
     keywords: string;
-    country: string;
+    // Country and salary bounds now live in ADZUNA_COUNTRIES (per-country
+    // currency makes a single global salary range meaningless).
     options: {
       location?: string;
-      salary_min?: number;
-      salary_max?: number;
       results_per_page: number;
       contract_type?: "permanent" | "contract" | "part_time" | "temporary";
+    };
+  };
+  jooble: {
+    // Jooble's keyword matching is erratic for multi-word/OR-joined queries
+    // (confirmed via live testing: some 2-word phrases return 0 results while
+    // longer OR-joined strings collapse to 0 entirely, with no discoverable
+    // AND/OR rule). Each entry here is called separately as its own query and
+    // the results are merged, rather than joining them into one string.
+    keywords: string[];
+    // Countries live in JOOBLE_COUNTRIES (UK + US only, see comment there).
+    options: {
+      page?: number;
+    };
+  };
+  careerjet: {
+    keywords: string;
+    // Countries live in CAREERJET_COUNTRIES.
+    options: {
+      pagesize?: number;
+    };
+  };
+  jsearch: {
+    // JSearch's free-form `query` also can't reliably combine multiple
+    // concepts or trust the `country` param alone (confirmed via live
+    // testing: a combined OR-style query silently ignored country=gb and
+    // returned Singapore jobs). Each keyword is queried separately per
+    // country, with the country name embedded directly in the query text.
+    keywords: string[];
+    // Countries live in JSEARCH_COUNTRIES. Excluded from the automatic
+    // background sync by default (see includeJSearch on syncExternalJobs) —
+    // only runs on-demand (admin dry-run / manual Refresh button) to stay
+    // within a free-tier RapidAPI credit budget.
+    options: {
+      numPages?: number;
     };
   };
   general: {
@@ -65,22 +288,66 @@ export const DEFAULT_JOB_CONFIG: JobSearchConfig = {
 
   adzuna: {
     // Keywords to search for on Adzuna - event industry roles
-    keywords: "AV technician OR event production OR sound engineer OR lighting technician OR video technician OR broadcast technician OR live events",
-    // Country code (gb = UK, us = USA, au = Australia, etc.)
-    country: "gb",
+    keywords:
+      "AV technician OR event production OR sound engineer OR lighting technician OR video technician OR broadcast technician OR live events",
     options: {
       // Specific location within country (optional)
       location: undefined, // e.g., 'London' or 'Manchester'
-
-      // Salary filters (annual salary)
-      salary_min: 20000,
-      salary_max: 80000,
 
       // Number of results per page (max 50)
       results_per_page: 25,
 
       // Contract type filter
       contract_type: undefined, // Remove filter to get all types
+    },
+  },
+
+  jooble: {
+    // Broad single-word terms for Jooble, called separately (see the
+    // JobSearchConfig.jooble.keywords comment for why). Each was confirmed
+    // via live testing to return a non-zero, event-industry-relevant result
+    // set on its own; precision is handled downstream by filterEventIndustryJobs.
+    keywords: [
+      "technician",
+      "engineer",
+      "production",
+      "lighting",
+      "broadcast",
+      "video",
+      "sound",
+      "events",
+      "AV",
+    ],
+    options: {
+      page: undefined,
+    },
+  },
+
+  careerjet: {
+    // Keywords to search for on Careerjet - event industry roles
+    keywords:
+      "AV technician OR event production OR sound engineer OR lighting technician OR video technician OR broadcast technician OR live events",
+    options: {
+      pagesize: 25,
+    },
+  },
+
+  jsearch: {
+    // Same broad single-concept terms as Jooble (see comment on
+    // JobSearchConfig.jsearch.keywords for why single concepts only).
+    keywords: [
+      "technician",
+      "engineer",
+      "production",
+      "lighting",
+      "broadcast",
+      "video",
+      "sound",
+      "events",
+      "AV",
+    ],
+    options: {
+      numPages: 1,
     },
   },
 
@@ -150,7 +417,6 @@ export const PRESET_CONFIGS = {
       ...DEFAULT_JOB_CONFIG.adzuna,
       options: {
         ...DEFAULT_JOB_CONFIG.adzuna.options,
-        salary_min: 40000,
         contract_type: "contract",
       },
     },

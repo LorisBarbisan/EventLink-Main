@@ -1,7 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -13,13 +12,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { UKLocationInput } from "@/components/ui/uk-location-input";
+import { COUNTRIES, CountrySelect } from "@/components/ui/country-select";
+import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
 import {
   Calendar as CalendarIcon,
   ChevronDown,
@@ -27,9 +25,9 @@ import {
   ChevronRight,
   ChevronUp,
   Clock,
-  PoundSterling,
-  Filter,
+  Banknote,
   MapPin,
+  RefreshCw,
   Search,
   X,
 } from "lucide-react";
@@ -52,28 +50,21 @@ export default function Jobs() {
   // Initialize search state from URL parameters
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
-  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
-
-  // Control popover states to prevent overlapping
-  const [fromDateOpen, setFromDateOpen] = useState(false);
-  const [toDateOpen, setToDateOpen] = useState(false);
+  const [countryFilter, setCountryFilter] = useState("");
 
   // Load initial search parameters from URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlSearch = urlParams.get("search") || "";
     const urlLocation = urlParams.get("location") || "";
-    const urlDateFrom = urlParams.get("date_from") || "";
-    const urlDateTo = urlParams.get("date_to") || "";
+    const urlCountry = urlParams.get("country") || "";
     const urlPage = parseInt(urlParams.get("page") || "1");
     // Check for jobId to auto-expand
     const urlJobId = urlParams.get("jobId");
 
     setSearchQuery(urlSearch);
     setLocationFilter(urlLocation);
-    if (urlDateFrom) setDateFrom(new Date(urlDateFrom));
-    if (urlDateTo) setDateTo(new Date(urlDateTo));
+    setCountryFilter(urlCountry);
     setCurrentPage(urlPage);
 
     if (urlJobId) {
@@ -88,8 +79,7 @@ export default function Jobs() {
 
     if (searchQuery) urlParams.set("search", searchQuery);
     if (locationFilter) urlParams.set("location", locationFilter);
-    if (dateFrom) urlParams.set("date_from", format(dateFrom, "yyyy-MM-dd"));
-    if (dateTo) urlParams.set("date_to", format(dateTo, "yyyy-MM-dd"));
+    if (countryFilter) urlParams.set("country", countryFilter);
 
     if (currentPage > 1) urlParams.set("page", currentPage.toString());
     // Persist expanded job ID in URL
@@ -100,12 +90,12 @@ export default function Jobs() {
 
     // Scroll to top when page changes
     window.scrollTo(0, 0);
-  }, [searchQuery, locationFilter, dateFrom, dateTo, currentPage]);
+  }, [searchQuery, locationFilter, countryFilter, currentPage]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, locationFilter, dateFrom, dateTo]);
+  }, [searchQuery, locationFilter, countryFilter]);
 
   // Update URL when expansion changes
   useEffect(() => {
@@ -125,14 +115,13 @@ export default function Jobs() {
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ["/api/jobs", searchQuery, locationFilter, dateFrom, dateTo],
+    queryKey: ["/api/jobs", searchQuery, locationFilter, countryFilter],
     queryFn: () => {
       // Build query parameters for server-side filtering
       const params = new URLSearchParams();
       if (searchQuery) params.set("keyword", searchQuery);
       if (locationFilter) params.set("location", locationFilter);
-      if (dateFrom) params.set("start_date", format(dateFrom, "yyyy-MM-dd"));
-      if (dateTo) params.set("end_date", format(dateTo, "yyyy-MM-dd"));
+      if (countryFilter) params.set("country", countryFilter);
 
       const queryString = params.toString();
       const url = queryString ? `/api/jobs?${queryString}` : "/api/jobs";
@@ -180,6 +169,38 @@ export default function Jobs() {
 
   // Current user is now available from useAuth hook
   console.log("Current user from useAuth:", currentUser);
+
+  // Manual refresh: re-triggers the external job sync on demand, bypassing
+  // the 30-minute localStorage throttle used for the automatic on-mount sync.
+  const refreshJobsMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/jobs/sync-external", { method: "POST" });
+    },
+    onSuccess: async (result: { newJobsAdded?: number; errors?: string[] }) => {
+      await refetch();
+      if (result?.errors?.length) {
+        toast({
+          title: "Refresh completed with issues",
+          description: result.errors.join("; "),
+          variant: "destructive",
+        });
+      } else {
+        const added = result?.newJobsAdded ?? 0;
+        toast({
+          title: "Jobs refreshed",
+          description:
+            added > 0 ? `${added} new job${added !== 1 ? "s" : ""} added.` : "No new jobs found.",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Refresh failed",
+        description: error?.message || "Failed to refresh jobs.",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Job application mutation
   const applyToJobMutation = useMutation({
@@ -260,6 +281,66 @@ export default function Jobs() {
   // Server-side filtering handles search, location, and date
   const filteredJobs = transformedJobs;
 
+  const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
+  const startIndex = (currentPage - 1) * jobsPerPage;
+  const endIndex = startIndex + jobsPerPage;
+  const currentJobs = filteredJobs.slice(startIndex, endIndex);
+
+  const renderPaginationControls = () =>
+    totalPages > 1 && (
+      <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+        <div className="text-sm text-muted-foreground">
+          Showing {startIndex + 1}-{Math.min(endIndex, filteredJobs.length)} of{" "}
+          {filteredJobs.length} jobs
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Previous
+          </Button>
+
+          {/* Page Numbers */}
+          <div className="flex gap-1">
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(
+                (pageNum) =>
+                  pageNum === 1 || pageNum === totalPages || Math.abs(pageNum - currentPage) <= 1
+              )
+              .map((pageNum, index, array) => (
+                <div key={pageNum} className="flex items-center">
+                  {index > 0 && array[index - 1] !== pageNum - 1 && (
+                    <span className="px-2 text-muted-foreground">...</span>
+                  )}
+                  <Button
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {pageNum}
+                  </Button>
+                </div>
+              ))}
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
@@ -284,7 +365,7 @@ export default function Jobs() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
                   <Input
                     placeholder="Search jobs, companies, or skills..."
@@ -295,84 +376,25 @@ export default function Jobs() {
                   />
                 </div>
                 <div>
-                  <UKLocationInput
-                    placeholder="Filter by UK location..."
+                  <CountrySelect
+                    value={countryFilter}
+                    onChange={setCountryFilter}
+                    placeholder="All countries"
+                  />
+                </div>
+                <div>
+                  <GlobalLocationInput
+                    placeholder="Filter by location..."
                     value={locationFilter}
                     onChange={(value) => setLocationFilter(value)}
+                    countryCode={COUNTRIES.find((c) => c.name === countryFilter)?.code}
                     data-testid="input-location-filter"
                   />
                 </div>
               </div>
 
-              {/* Date Range Filter */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <Popover
-                    open={fromDateOpen}
-                    onOpenChange={(open) => {
-                      setFromDateOpen(open);
-                      if (open) setToDateOpen(false); // Close the other popover
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                        data-testid="button-date-from"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateFrom ? format(dateFrom, "PPP") : "Event Date From"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dateFrom}
-                        onSelect={(date) => {
-                          setDateFrom(date);
-                          setFromDateOpen(false); // Close popover after selection
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div>
-                  <Popover
-                    open={toDateOpen}
-                    onOpenChange={(open) => {
-                      setToDateOpen(open);
-                      if (open) setFromDateOpen(false); // Close the other popover
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                        data-testid="button-date-to"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateTo ? format(dateTo, "PPP") : "Event Date To"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dateTo}
-                        onSelect={(date) => {
-                          setDateTo(date);
-                          setToDateOpen(false); // Close popover after selection
-                        }}
-                        initialFocus
-                        disabled={(date) => (dateFrom ? date < dateFrom : false)}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-
               {/* Clear Filters Button */}
-              {(searchQuery || locationFilter || dateFrom || dateTo) && (
+              {(searchQuery || locationFilter || countryFilter) && (
                 <div className="flex justify-start">
                   <Button
                     variant="outline"
@@ -380,8 +402,7 @@ export default function Jobs() {
                     onClick={() => {
                       setSearchQuery("");
                       setLocationFilter("");
-                      setDateFrom(undefined);
-                      setDateTo(undefined);
+                      setCountryFilter("");
                       setCurrentPage(1);
                     }}
                     className="flex items-center gap-2"
@@ -402,13 +423,23 @@ export default function Jobs() {
             <h2 className="text-xl font-semibold sm:text-2xl">
               {filteredJobs.length} Job{filteredJobs.length !== 1 ? "s" : ""} Found
             </h2>
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Sort by: Most Recent</span>
-              </div>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refreshJobsMutation.mutate()}
+              disabled={refreshJobsMutation.isPending}
+              className="flex items-center gap-2"
+              data-testid="button-refresh-jobs"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${refreshJobsMutation.isPending ? "animate-spin" : ""}`}
+              />
+              {refreshJobsMutation.isPending ? "Refreshing..." : "Refresh"}
+            </Button>
           </div>
+
+          {/* Pagination Controls (top) */}
+          {renderPaginationControls()}
 
           {/* No Results Message */}
           {filteredJobs.length === 0 && !isLoading && (
@@ -419,12 +450,13 @@ export default function Jobs() {
                 <p className="mb-4 text-muted-foreground">
                   Try adjusting your search criteria or removing some filters.
                 </p>
-                {(searchQuery || locationFilter) && (
+                {(searchQuery || locationFilter || countryFilter) && (
                   <Button
                     variant="outline"
                     onClick={() => {
                       setSearchQuery("");
                       setLocationFilter("");
+                      setCountryFilter("");
                       setCurrentPage(1);
                     }}
                     className="flex items-center gap-2"
@@ -437,14 +469,9 @@ export default function Jobs() {
             </Card>
           )}
 
-          {/* Pagination Logic */}
+          {/* Job Cards */}
           {filteredJobs.length > 0 &&
             (() => {
-              const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
-              const startIndex = (currentPage - 1) * jobsPerPage;
-              const endIndex = startIndex + jobsPerPage;
-              const currentJobs = filteredJobs.slice(startIndex, endIndex);
-
               return (
                 <>
                   {/* Job Cards */}
@@ -505,7 +532,7 @@ export default function Jobs() {
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <PoundSterling className="h-4 w-4 text-muted-foreground" />
+                              <Banknote className="h-4 w-4 text-muted-foreground" />
                               <span>
                                 {(job as any).currency && (job as any).currency !== "GBP"
                                   ? `${(job as any).currency} `
@@ -611,7 +638,7 @@ export default function Jobs() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
-                                  Apply on {job.external_source}
+                                  Find out more
                                 </a>
                               </Button>
                             ) : (
@@ -624,82 +651,30 @@ export default function Jobs() {
                                 {applyToJobMutation.isPending ? "Applying..." : "Apply Now"}
                               </Button>
                             )}
-                            <Button
-                              variant="outline"
-                              onClick={() => toggleJobExpansion(job.id.toString())}
-                              data-testid={`button-expand-${job.id}`}
-                            >
-                              {expandedJobId === job.id.toString() ? (
-                                <ChevronUp className="mr-1 h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="mr-1 h-4 w-4" />
-                              )}
-                              {expandedJobId === job.id.toString()
-                                ? "Less Details"
-                                : "More Details"}
-                            </Button>
+                            {!job.external_source && (
+                              <Button
+                                variant="outline"
+                                onClick={() => toggleJobExpansion(job.id.toString())}
+                                data-testid={`button-expand-${job.id}`}
+                              >
+                                {expandedJobId === job.id.toString() ? (
+                                  <ChevronUp className="mr-1 h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="mr-1 h-4 w-4" />
+                                )}
+                                {expandedJobId === job.id.toString()
+                                  ? "Less Details"
+                                  : "More Details"}
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
 
-                  {/* Pagination Controls */}
-                  {totalPages > 1 && (
-                    <div className="flex flex-col items-center gap-4 pt-6 sm:flex-row sm:justify-between">
-                      <div className="text-sm text-muted-foreground">
-                        Showing {startIndex + 1}-{Math.min(endIndex, filteredJobs.length)} of{" "}
-                        {filteredJobs.length} jobs
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                          disabled={currentPage === 1}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                          Previous
-                        </Button>
-
-                        {/* Page Numbers */}
-                        <div className="flex gap-1">
-                          {Array.from({ length: totalPages }, (_, i) => i + 1)
-                            .filter(
-                              (pageNum) =>
-                                pageNum === 1 ||
-                                pageNum === totalPages ||
-                                Math.abs(pageNum - currentPage) <= 1
-                            )
-                            .map((pageNum, index, array) => (
-                              <div key={pageNum} className="flex items-center">
-                                {index > 0 && array[index - 1] !== pageNum - 1 && (
-                                  <span className="px-2 text-muted-foreground">...</span>
-                                )}
-                                <Button
-                                  variant={currentPage === pageNum ? "default" : "outline"}
-                                  size="sm"
-                                  onClick={() => setCurrentPage(pageNum)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  {pageNum}
-                                </Button>
-                              </div>
-                            ))}
-                        </div>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                          disabled={currentPage === totalPages}
-                        >
-                          Next
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                  {/* Pagination Controls (bottom) */}
+                  <div className="pt-6">{renderPaginationControls()}</div>
                 </>
               );
             })()}

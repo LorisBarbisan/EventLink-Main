@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/UserMenu";
 import { useAuth } from "@/hooks/useAuth";
-import { useHasJobs } from "@/hooks/useHasJobs";
 import { Menu, MessageSquare, Plus, Star } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -19,7 +18,6 @@ interface HeaderProps {
 export const Header = ({ onFeedbackClick }: HeaderProps) => {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  const hasJobs = useHasJobs();
   const isHomePage = location === "/";
   const [showInviteDialog, setShowInviteDialog] = useState(false);
 
@@ -39,15 +37,13 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
 
           {/* Navigation */}
           <nav className="hidden flex-1 items-center justify-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
-            {hasJobs && (
-              <Link
-                to="/jobs"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
-                data-testid="link-jobs"
-              >
-                Find Jobs
-              </Link>
-            )}
+            <Link
+              to="/jobs"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
+              data-testid="link-jobs"
+            >
+              Find Jobs
+            </Link>
             <Link
               to="/freelancers"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"

@@ -19,11 +19,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { Job, JobApplication } from "@shared/types";
 import {
+  Banknote,
   Calendar,
   ChevronDown,
   ChevronUp,
   Clock,
-  PoundSterling,
   Edit,
   Eye,
   EyeOff,
@@ -298,7 +298,7 @@ export function JobCard({
                 {[job.location, (job as any).country].filter(Boolean).join(", ")}
               </div>
               <div className="flex items-center gap-1">
-                <PoundSterling className="h-4 w-4" />
+                <Banknote className="h-4 w-4" />
                 {(job as any).currency && (job as any).currency !== "GBP"
                   ? `${(job as any).currency} `
                   : ""}

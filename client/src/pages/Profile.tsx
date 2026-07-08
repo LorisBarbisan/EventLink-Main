@@ -1268,10 +1268,12 @@ export default function Profile() {
                           <User className="h-4 w-4" />
                           {recruiterProfile?.contact_name}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          {recruiterProfile?.location || "UK"}
-                        </div>
+                        {recruiterProfile?.location && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-4 w-4" />
+                            {recruiterProfile.location}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1511,7 +1513,9 @@ export default function Profile() {
                       )}
                       {job.rate && (
                         <span className="flex items-center gap-1">
-                          <span className="text-xs font-medium">£</span>
+                          {(job as any).currency && (job as any).currency !== "GBP" && (
+                            <span className="text-xs font-medium">{(job as any).currency}</span>
+                          )}
                           {job.rate}
                         </span>
                       )}
