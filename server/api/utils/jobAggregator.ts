@@ -5,10 +5,12 @@ import {
   CAREERJET_COUNTRIES,
   DEFAULT_JOB_CONFIG,
   JOOBLE_COUNTRIES,
+  JSEARCH_COUNTRIES,
   type AdzunaCountryConfig,
   type CareerjetCountryConfig,
   type JobSearchConfig,
   type JoobleCountryConfig,
+  type JSearchCountryConfig,
 } from "./jobConfig";
 import { filterEventIndustryJobs, scoreJob } from "./jobFilter";
 
@@ -21,9 +23,9 @@ interface ExternalJob {
   salary?: string;
   jobUrl: string;
   postedDate: string;
-  source: "reed" | "adzuna" | "jooble" | "careerjet";
+  source: "reed" | "adzuna" | "jooble" | "careerjet" | "jsearch";
   employmentType?: string;
-  categoryTag?: string; // Adzuna only; undefined for Reed/Jooble/Careerjet
+  categoryTag?: string; // Adzuna only; undefined for Reed/Jooble/Careerjet/JSearch
   countryCode: string;
   countryDisplayName: string;
   currencyCode: string;
@@ -95,12 +97,28 @@ interface CareerjetJobResponse {
   salary_currency_code?: string;
 }
 
+interface JSearchJobResponse {
+  job_id: string;
+  job_title: string;
+  employer_name: string | null;
+  job_city: string | null;
+  job_location: string | null;
+  job_country: string | null;
+  job_description: string;
+  job_min_salary: number | null;
+  job_max_salary: number | null;
+  job_apply_link: string;
+  job_posted_at_datetime_utc: string;
+  job_employment_type: string | null;
+}
+
 export class JobAggregator {
   private reedApiKey: string | undefined;
   private adzunaApiKey: string | undefined;
   private adzunaAppId: string | undefined;
   private joobleApiKey: string | undefined;
   private careerjetApiKey: string | undefined;
+  private rapidApiKey: string | undefined;
 
   // Sync state tracking
   private syncInProgress = false;
@@ -114,11 +132,13 @@ export class JobAggregator {
     this.adzunaAppId = process.env.ADZUNA_APP_ID;
     this.joobleApiKey = process.env.JOOBLE_API_KEY;
     this.careerjetApiKey = process.env.CAREERJET_API_KEY;
+    this.rapidApiKey = process.env.RAPIDAPI_KEY;
 
     console.log("🚀 JobAggregator initialized:");
     console.log(`Adzuna App ID: ${this.adzunaAppId ? "CONFIGURED" : "MISSING"}`);
     console.log(`Jooble API Key: ${this.joobleApiKey ? "CONFIGURED" : "MISSING"}`);
     console.log(`Careerjet API Key: ${this.careerjetApiKey ? "CONFIGURED" : "MISSING"}`);
+    console.log(`RapidAPI Key (JSearch): ${this.rapidApiKey ? "CONFIGURED" : "MISSING"}`);
 
     // Start background sync
     this.startBackgroundSync();
@@ -151,6 +171,9 @@ export class JobAggregator {
       if (!this.syncInProgress) {
         try {
           console.log("⏰ Running background sync...");
+          // includeJSearch omitted (defaults false): JSearch stays out of the
+          // automatic sync to conserve a free-tier RapidAPI credit budget —
+          // it only runs on-demand, see the /api/jobs/sync-external route.
           await this.syncExternalJobs();
         } catch (error) {
           console.error("❌ Background sync failed:", error);
@@ -666,17 +689,145 @@ export class JobAggregator {
   }
 
   /**
+   * Fetch jobs from JSearch (Google for Jobs, via RapidAPI) for a single
+   * country + keyword. JSearch's `country` param alone isn't reliable
+   * either — a combined multi-concept query silently ignored it and
+   * returned results from an unrelated country in live testing — so the
+   * country display name is embedded directly in the free-form `query`
+   * text as JSearch's own docs recommend, in addition to the `country` param.
+   */
+  async fetchJSearchJobs(
+    countryConfig: JSearchCountryConfig,
+    keyword = "technician",
+    options: { numPages?: number } = {}
+  ): Promise<ExternalJob[]> {
+    if (!this.rapidApiKey) {
+      console.log(`❌ JSearch (${countryConfig.countryCode}) API key not configured`);
+      return [];
+    }
+
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(
+          `🔍 JSearch (${countryConfig.countryCode}, "${keyword}") API attempt ${attempt}/${maxRetries}`
+        );
+
+        const params = new URLSearchParams({
+          query: `${keyword} jobs in ${countryConfig.displayName}`,
+          country: countryConfig.countryCode,
+          num_pages: (options.numPages || 1).toString(),
+          date_posted: "all",
+        });
+
+        const url = `https://jsearch.p.rapidapi.com/search-v2?${params.toString()}`;
+
+        const response = await fetch(url, {
+          headers: {
+            "x-rapidapi-host": "jsearch.p.rapidapi.com",
+            "x-rapidapi-key": this.rapidApiKey!,
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(
+            `❌ JSearch (${countryConfig.countryCode}, "${keyword}") API error (attempt ${attempt}):`,
+            response.status,
+            response.statusText,
+            errorText
+          );
+
+          if (response.status === 429) {
+            const delay = Math.pow(2, attempt) * 1000;
+            console.log(`⏳ Rate limited, waiting ${delay}ms before retry...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+
+          if (response.status >= 500) {
+            continue;
+          }
+
+          lastError = new Error(
+            `JSearch (${countryConfig.countryCode}, "${keyword}") API returned ${response.status} ${response.statusText}: ${errorText}`
+          );
+          break;
+        }
+
+        const data = await response.json();
+        const results: JSearchJobResponse[] = data.data?.jobs || [];
+        console.log(
+          `✅ JSearch (${countryConfig.countryCode}, "${keyword}") API returned ${results.length} jobs`
+        );
+
+        return results.map(
+          (job: JSearchJobResponse): ExternalJob => ({
+            id: `jsearch_${job.job_id}`,
+            title: job.job_title,
+            company: job.employer_name || "Company not specified",
+            location: job.job_city || job.job_location || countryConfig.displayName,
+            description: job.job_description || "Description not available",
+            salary: this.formatAdzunaSalary(
+              job.job_min_salary ?? undefined,
+              job.job_max_salary ?? undefined,
+              countryConfig.currencySymbol
+            ),
+            jobUrl: job.job_apply_link,
+            postedDate: job.job_posted_at_datetime_utc,
+            source: "jsearch",
+            employmentType: job.job_employment_type || undefined,
+            countryCode: countryConfig.countryCode,
+            countryDisplayName: countryConfig.displayName,
+            currencyCode: countryConfig.currency,
+          })
+        );
+      } catch (error) {
+        console.error(
+          `❌ JSearch (${countryConfig.countryCode}, "${keyword}") fetch attempt ${attempt} failed:`,
+          error
+        );
+        lastError = error as Error;
+
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000;
+          console.log(`⏳ Waiting ${delay}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    console.error(
+      `❌ All JSearch (${countryConfig.countryCode}, "${keyword}") fetch attempts failed:`,
+      lastError
+    );
+    throw (
+      lastError ??
+      new Error(
+        `JSearch (${countryConfig.countryCode}, "${keyword}") API fetch failed for an unknown reason`
+      )
+    );
+  }
+
+  /**
    * Fetch from both sources, apply event-industry filtering, and dedupe/limit
    * according to config. Shared by the real sync and the dry-run preview so
    * neither path duplicates the fetch/filter logic.
    */
-  private async fetchFilterAndDedupe(config: JobSearchConfig): Promise<{
+  private async fetchFilterAndDedupe(
+    config: JobSearchConfig,
+    options: { includeJSearch?: boolean } = {}
+  ): Promise<{
     finalJobs: ExternalJob[];
     totalFetched: number;
     reedJobCount: number;
     adzunaJobCount: number;
     joobleJobCount: number;
     careerjetJobCount: number;
+    jsearchJobCount: number;
     errors: string[];
   }> {
     const errors: string[] = [];
@@ -684,6 +835,7 @@ export class JobAggregator {
     let adzunaJobCount = 0;
     let joobleJobCount = 0;
     let careerjetJobCount = 0;
+    let jsearchJobCount = 0;
 
     // Surface missing credentials explicitly — the fetch*Jobs methods resolve
     // to [] (not a rejection) when unconfigured, which otherwise looks
@@ -702,10 +854,16 @@ export class JobAggregator {
     if (!this.careerjetApiKey) {
       errors.push("Careerjet not configured: CAREERJET_API_KEY is not set on this environment");
     }
+    if (options.includeJSearch && !this.rapidApiKey) {
+      errors.push("JSearch not configured: RAPIDAPI_KEY is not set on this environment");
+    }
 
     const enabledAdzunaCountries = ADZUNA_COUNTRIES.filter((c) => c.enabled);
     const enabledJoobleCountries = JOOBLE_COUNTRIES.filter((c) => c.enabled);
     const enabledCareerjetCountries = CAREERJET_COUNTRIES.filter((c) => c.enabled);
+    const enabledJSearchCountries = options.includeJSearch
+      ? JSEARCH_COUNTRIES.filter((c) => c.enabled)
+      : [];
 
     // Jooble's keyword matching can't reliably handle a single multi-word/OR
     // query (see JobSearchConfig.jooble.keywords), so it gets one call per
@@ -714,10 +872,18 @@ export class JobAggregator {
       config.jooble.keywords.map((keyword) => ({ countryConfig, keyword }))
     );
 
+    // Same story for JSearch (see JobSearchConfig.jsearch.keywords). Empty
+    // when includeJSearch is false — JSearch is excluded from the automatic
+    // background sync to stay within a free-tier RapidAPI credit budget, and
+    // only runs on-demand (admin dry-run / manual Refresh button).
+    const jsearchCountryKeywordPairs = enabledJSearchCountries.flatMap((countryConfig) =>
+      config.jsearch.keywords.map((keyword) => ({ countryConfig, keyword }))
+    );
+
     // Fetch Reed (UK only) plus one call per enabled country for Adzuna/
-    // Careerjet, and one call per country-keyword pair for Jooble, all in one
-    // batch. Results are sliced back apart below by each group's known length
-    // (Promise.allSettled preserves order).
+    // Careerjet, and one call per country-keyword pair for Jooble/JSearch,
+    // all in one batch. Results are sliced back apart below by each group's
+    // known length (Promise.allSettled preserves order).
     const allSettled = await Promise.allSettled([
       this.fetchReedJobs(config.reed.keywords, config.reed.location, config.reed.options),
       ...enabledAdzunaCountries.map((countryConfig) =>
@@ -729,6 +895,9 @@ export class JobAggregator {
       ...enabledCareerjetCountries.map((countryConfig) =>
         this.fetchCareerjetJobs(countryConfig, config.careerjet.keywords, config.careerjet.options)
       ),
+      ...jsearchCountryKeywordPairs.map(({ countryConfig, keyword }) =>
+        this.fetchJSearchJobs(countryConfig, keyword, config.jsearch.options)
+      ),
     ]);
 
     const reedResult = allSettled[0];
@@ -738,7 +907,17 @@ export class JobAggregator {
       1 + enabledAdzunaCountries.length + joobleCountryKeywordPairs.length
     );
     const careerjetResults = allSettled.slice(
-      1 + enabledAdzunaCountries.length + joobleCountryKeywordPairs.length
+      1 + enabledAdzunaCountries.length + joobleCountryKeywordPairs.length,
+      1 +
+        enabledAdzunaCountries.length +
+        joobleCountryKeywordPairs.length +
+        enabledCareerjetCountries.length
+    );
+    const jsearchResults = allSettled.slice(
+      1 +
+        enabledAdzunaCountries.length +
+        joobleCountryKeywordPairs.length +
+        enabledCareerjetCountries.length
     );
 
     // Process Reed results
@@ -788,12 +967,27 @@ export class JobAggregator {
       }
     });
 
+    // Process JSearch results, one per country-keyword pair
+    const jsearchJobsBySource: ExternalJob[] = [];
+    jsearchResults.forEach((result, index) => {
+      const { countryConfig, keyword } = jsearchCountryKeywordPairs[index];
+      if (result.status === "fulfilled") {
+        jsearchJobCount += result.value.length;
+        jsearchJobsBySource.push(...result.value);
+      } else {
+        errors.push(
+          `JSearch (${countryConfig.countryCode}, "${keyword}") API failed: ${result.reason}`
+        );
+      }
+    });
+
     // Combine successful results
     const allJobs: ExternalJob[] = [
       ...(reedResult.status === "fulfilled" ? reedResult.value : []),
       ...adzunaJobsBySource,
       ...joobleJobsBySource,
       ...careerjetJobsBySource,
+      ...jsearchJobsBySource,
     ];
 
     // Apply event industry filtering first, then config limits
@@ -812,6 +1006,7 @@ export class JobAggregator {
       adzunaJobCount,
       joobleJobCount,
       careerjetJobCount,
+      jsearchJobCount,
       errors,
     };
   }
@@ -823,7 +1018,7 @@ export class JobAggregator {
    */
   async syncExternalJobs(
     config: JobSearchConfig = DEFAULT_JOB_CONFIG,
-    options: { dryRun?: boolean } = {}
+    options: { dryRun?: boolean; includeJSearch?: boolean } = {}
   ): Promise<{
     totalFetched: number;
     newJobsAdded: number;
@@ -831,6 +1026,7 @@ export class JobAggregator {
     adzunaJobs: number;
     joobleJobs: number;
     careerjetJobs: number;
+    jsearchJobs: number;
     errors: string[];
     dryRun?: boolean;
     sample?: Array<{
@@ -850,6 +1046,7 @@ export class JobAggregator {
         adzunaJobs: 0,
         joobleJobs: 0,
         careerjetJobs: 0,
+        jsearchJobs: 0,
         errors: ["Sync already in progress"],
       };
     }
@@ -866,8 +1063,9 @@ export class JobAggregator {
         adzunaJobCount,
         joobleJobCount,
         careerjetJobCount,
+        jsearchJobCount,
         errors,
-      } = await this.fetchFilterAndDedupe(config);
+      } = await this.fetchFilterAndDedupe(config, { includeJSearch: options.includeJSearch });
 
       if (options.dryRun) {
         const sample = finalJobs.slice(0, 20).map((job) => {
@@ -891,6 +1089,7 @@ export class JobAggregator {
           adzunaJobs: adzunaJobCount,
           joobleJobs: joobleJobCount,
           careerjetJobs: careerjetJobCount,
+          jsearchJobs: jsearchJobCount,
           errors,
           dryRun: true,
           sample,
@@ -949,6 +1148,7 @@ export class JobAggregator {
         adzunaJobs: adzunaJobCount,
         joobleJobs: joobleJobCount,
         careerjetJobs: careerjetJobCount,
+        jsearchJobs: jsearchJobCount,
         errors,
       };
     } catch (error) {
@@ -962,6 +1162,7 @@ export class JobAggregator {
         adzunaJobs: 0,
         joobleJobs: 0,
         careerjetJobs: 0,
+        jsearchJobs: 0,
         errors: [errorMessage],
       };
     } finally {

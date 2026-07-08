@@ -176,7 +176,7 @@ export const jobs = pgTable("jobs", {
   status: text("status").default("private").$type<"active" | "paused" | "closed" | "private">(),
   external_id: text("external_id"), // For external job IDs (reed_123, adzuna_456)
   external_source: text("external_source").$type<
-    "reed" | "adzuna" | "jooble" | "careerjet" | null
+    "reed" | "adzuna" | "jooble" | "careerjet" | "jsearch" | null
   >(), // Source of external job
   external_url: text("external_url"), // URL to original job posting
   posted_date: text("posted_date"), // Original posting date from external source

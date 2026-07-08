@@ -335,7 +335,11 @@ export async function registerRoutes(
         return res.json({ message: "Sync already in progress, skipping..." });
       }
 
-      const result = await jobAggregator.syncExternalJobs(config, { dryRun });
+      // includeJSearch: true — this route only fires on-demand (admin
+      // dry-run preview or the public manual "Refresh" button), never on the
+      // automatic 30-min background timer, so it's safe to spend JSearch's
+      // free-tier RapidAPI credits here.
+      const result = await jobAggregator.syncExternalJobs(config, { dryRun, includeJSearch: true });
       console.log(dryRun ? "✅ External job dry-run completed" : "✅ External job sync completed");
       res.json({
         message: dryRun

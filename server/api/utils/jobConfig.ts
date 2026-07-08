@@ -140,6 +140,59 @@ export const CAREERJET_COUNTRIES: CareerjetCountryConfig[] = [
   },
 ];
 
+export interface JSearchCountryConfig {
+  countryCode: string; // JSearch's `country` param, ISO 3166-1 alpha-2, e.g. "gb"
+  displayName: string;
+  currency: string;
+  currencySymbol: string;
+  enabled: boolean;
+}
+
+/**
+ * JSearch (via RapidAPI) covers the same 6 countries as Adzuna/Careerjet.
+ * Runs on the same free-tier credit constraints as Jooble's per-keyword
+ * calls (see JobSearchConfig.jsearch.keywords) — kept manual-refresh-only,
+ * see the includeJSearch flag on fetchFilterAndDedupe/syncExternalJobs.
+ */
+export const JSEARCH_COUNTRIES: JSearchCountryConfig[] = [
+  {
+    countryCode: "gb",
+    displayName: "United Kingdom",
+    currency: "GBP",
+    currencySymbol: "£",
+    enabled: true,
+  },
+  {
+    countryCode: "us",
+    displayName: "United States",
+    currency: "USD",
+    currencySymbol: "$",
+    enabled: true,
+  },
+  {
+    countryCode: "au",
+    displayName: "Australia",
+    currency: "AUD",
+    currencySymbol: "$",
+    enabled: true,
+  },
+  {
+    countryCode: "nz",
+    displayName: "New Zealand",
+    currency: "NZD",
+    currencySymbol: "$",
+    enabled: true,
+  },
+  { countryCode: "ca", displayName: "Canada", currency: "CAD", currencySymbol: "$", enabled: true },
+  {
+    countryCode: "za",
+    displayName: "South Africa",
+    currency: "ZAR",
+    currencySymbol: "R",
+    enabled: true,
+  },
+];
+
 export interface JobSearchConfig {
   reed: {
     keywords: string;
@@ -180,6 +233,21 @@ export interface JobSearchConfig {
     // Countries live in CAREERJET_COUNTRIES.
     options: {
       pagesize?: number;
+    };
+  };
+  jsearch: {
+    // JSearch's free-form `query` also can't reliably combine multiple
+    // concepts or trust the `country` param alone (confirmed via live
+    // testing: a combined OR-style query silently ignored country=gb and
+    // returned Singapore jobs). Each keyword is queried separately per
+    // country, with the country name embedded directly in the query text.
+    keywords: string[];
+    // Countries live in JSEARCH_COUNTRIES. Excluded from the automatic
+    // background sync by default (see includeJSearch on syncExternalJobs) —
+    // only runs on-demand (admin dry-run / manual Refresh button) to stay
+    // within a free-tier RapidAPI credit budget.
+    options: {
+      numPages?: number;
     };
   };
   general: {
@@ -261,6 +329,25 @@ export const DEFAULT_JOB_CONFIG: JobSearchConfig = {
       "AV technician OR event production OR sound engineer OR lighting technician OR video technician OR broadcast technician OR live events",
     options: {
       pagesize: 25,
+    },
+  },
+
+  jsearch: {
+    // Same broad single-concept terms as Jooble (see comment on
+    // JobSearchConfig.jsearch.keywords for why single concepts only).
+    keywords: [
+      "technician",
+      "engineer",
+      "production",
+      "lighting",
+      "broadcast",
+      "video",
+      "sound",
+      "events",
+      "AV",
+    ],
+    options: {
+      numPages: 1,
     },
   },
 
