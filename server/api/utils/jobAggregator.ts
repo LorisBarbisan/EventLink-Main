@@ -290,7 +290,8 @@ export class JobAggregator {
           );
 
           if (response.status === 429) {
-            // Rate limited - wait before retrying
+            // Rate limited - record why in case every retry also fails, then wait
+            lastError = new Error(`Reed API rate limited (429): ${errorText}`);
             const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
             console.log(`⏳ Rate limited, waiting ${delay}ms before retry...`);
             await new Promise((resolve) => setTimeout(resolve, delay));
@@ -298,7 +299,10 @@ export class JobAggregator {
           }
 
           if (response.status >= 500) {
-            // Server error - retry
+            // Server error - record why in case every retry also fails, then retry
+            lastError = new Error(
+              `Reed API returned ${response.status} ${response.statusText}: ${errorText}`
+            );
             continue;
           }
 
@@ -415,7 +419,10 @@ export class JobAggregator {
           );
 
           if (response.status === 429) {
-            // Rate limited - wait before retrying
+            // Rate limited - record why in case every retry also fails, then wait
+            lastError = new Error(
+              `Adzuna (${countryConfig.code}) API rate limited (429): ${errorText}`
+            );
             const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
             console.log(`⏳ Rate limited, waiting ${delay}ms before retry...`);
             await new Promise((resolve) => setTimeout(resolve, delay));
@@ -423,7 +430,10 @@ export class JobAggregator {
           }
 
           if (response.status >= 500) {
-            // Server error - retry
+            // Server error - record why in case every retry also fails, then retry
+            lastError = new Error(
+              `Adzuna (${countryConfig.code}) API returned ${response.status} ${response.statusText}: ${errorText}`
+            );
             continue;
           }
 
@@ -533,6 +543,9 @@ export class JobAggregator {
           );
 
           if (response.status === 429) {
+            lastError = new Error(
+              `Jooble (${countryConfig.countryCode}) API rate limited (429): ${errorText}`
+            );
             const delay = Math.pow(2, attempt) * 1000;
             console.log(`⏳ Rate limited, waiting ${delay}ms before retry...`);
             await new Promise((resolve) => setTimeout(resolve, delay));
@@ -540,6 +553,9 @@ export class JobAggregator {
           }
 
           if (response.status >= 500) {
+            lastError = new Error(
+              `Jooble (${countryConfig.countryCode}) API returned ${response.status} ${response.statusText}: ${errorText}`
+            );
             continue;
           }
 
@@ -645,6 +661,9 @@ export class JobAggregator {
           );
 
           if (response.status === 429) {
+            lastError = new Error(
+              `Careerjet (${countryConfig.countryCode}) API rate limited (429): ${errorText}`
+            );
             const delay = Math.pow(2, attempt) * 1000;
             console.log(`⏳ Rate limited, waiting ${delay}ms before retry...`);
             await new Promise((resolve) => setTimeout(resolve, delay));
@@ -652,6 +671,9 @@ export class JobAggregator {
           }
 
           if (response.status >= 500) {
+            lastError = new Error(
+              `Careerjet (${countryConfig.countryCode}) API returned ${response.status} ${response.statusText}: ${errorText}`
+            );
             continue;
           }
 
@@ -767,6 +789,9 @@ export class JobAggregator {
           );
 
           if (response.status === 429) {
+            lastError = new Error(
+              `JSearch (${countryConfig.countryCode}, "${keyword}") API rate limited (429): ${errorText}`
+            );
             const delay = Math.pow(2, attempt) * 1000;
             console.log(`⏳ Rate limited, waiting ${delay}ms before retry...`);
             await new Promise((resolve) => setTimeout(resolve, delay));
@@ -774,6 +799,9 @@ export class JobAggregator {
           }
 
           if (response.status >= 500) {
+            lastError = new Error(
+              `JSearch (${countryConfig.countryCode}, "${keyword}") API returned ${response.status} ${response.statusText}: ${errorText}`
+            );
             continue;
           }
 
