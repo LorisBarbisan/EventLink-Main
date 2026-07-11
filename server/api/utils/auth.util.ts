@@ -1,9 +1,10 @@
 import { Request } from "express";
 import jwt from "jsonwebtoken";
 import { storage } from "server/storage";
+import { JWT_SECRET } from "../config/env";
 
 const ADMIN_EMAILS = process.env.ADMIN_EMAILS
-  ? process.env.ADMIN_EMAILS.split(",").map(email => email.trim().toLowerCase())
+  ? process.env.ADMIN_EMAILS.split(",").map((email) => email.trim().toLowerCase())
   : [];
 
 // TODO: Export these from auth.ts to avoid duplication
@@ -11,7 +12,6 @@ export const blacklistedTokens = new Set<string>();
 
 export const generateJWTToken = (user: any) => {
   const userWithRole = computeUserRole(user);
-  const JWT_SECRET = process.env.JWT_SECRET!;
   return jwt.sign(
     {
       id: userWithRole.id,
@@ -24,8 +24,6 @@ export const generateJWTToken = (user: any) => {
 };
 
 export const verifyJWTToken = (token: string) => {
-  const JWT_SECRET = process.env.JWT_SECRET;
-  if (!JWT_SECRET) return null;
   try {
     return jwt.verify(token, JWT_SECRET);
   } catch (error: unknown) {
@@ -73,7 +71,7 @@ export const computeUserRole = (user: any) => {
       .then(() => {
         console.log(`✅ Updated ${user.email} to admin role in database`);
       })
-      .catch(error => {
+      .catch((error) => {
         console.error(`❌ Failed to update admin role for ${user.email}:`, error);
       });
   }

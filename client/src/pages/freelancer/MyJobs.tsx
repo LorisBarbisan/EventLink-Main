@@ -72,9 +72,12 @@ export default function MyJobs() {
 
   const cancelMutation = useMutation({
     mutationFn: async (bookingId: number) => {
-      return apiRequest("PATCH", `/api/bookings/${bookingId}/status`, {
-        status: "cancelled",
-        cancellationReason: "Cancelled by freelancer",
+      return apiRequest(`/api/bookings/${bookingId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          status: "cancelled",
+          cancellationReason: "Cancelled by freelancer",
+        }),
       });
     },
     onSuccess: () => {
