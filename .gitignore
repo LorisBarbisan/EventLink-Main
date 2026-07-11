@@ -8,3 +8,5 @@ vite.config.ts.*
 .env.*
 # Local CV upload fallback (dev only)
 uploads/
+# curl cookie jars from local API testing — contain session tokens
+*cookies*.txt

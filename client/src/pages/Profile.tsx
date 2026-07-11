@@ -878,7 +878,7 @@ export default function Profile() {
         }
       } else if (userProfile.role === "recruiter") {
         try {
-          const data = await apiRequest(`/api/recruiter/${targetUserId}`);
+          const data = await apiRequest(`/api/recruiter/${resolvedUserId}`);
           if (data) {
             setRecruiterProfile({
               id: data.id?.toString(),
