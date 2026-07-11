@@ -2190,20 +2190,27 @@ export class DatabaseStorage implements IStorage {
         .where(and(...conditions));
 
       // Sort with EventLink jobs first (external_source IS NULL), then external jobs
-      // Within each group, sort by created_at or posted_date DESC (most recent first)
+      // Within each group, sort by posted_date/created_at DESC (most recent first).
+      // The comparator must never return NaN: an inconsistent comparator makes
+      // Array.sort unstable and can break the EventLink-first grouping.
+      const effectiveDate = (job: Job): number => {
+        if (job.posted_date) {
+          // External feeds send UK-style DD/MM/YYYY, which Date.parse reads as MM/DD
+          const ukDate = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(job.posted_date);
+          const parsed = ukDate
+            ? Date.parse(`${ukDate[3]}-${ukDate[2]}-${ukDate[1]}`)
+            : Date.parse(job.posted_date);
+          if (!Number.isNaN(parsed)) return parsed;
+        }
+        const created = new Date(job.created_at).getTime();
+        return Number.isNaN(created) ? 0 : created;
+      };
+
       const sortedResults = results.sort((a, b) => {
-        // First priority: EventLink jobs (no external_source) come first
         const aIsEventLink = !a.external_source;
         const bIsEventLink = !b.external_source;
-
-        if (aIsEventLink && !bIsEventLink) return -1;
-        if (!aIsEventLink && bIsEventLink) return 1;
-
-        // Second priority: sort by date (most recent first)
-        // Use posted_date for external jobs, created_at for EventLink jobs
-        const aDate = a.posted_date ? new Date(a.posted_date) : new Date(a.created_at);
-        const bDate = b.posted_date ? new Date(b.posted_date) : new Date(b.created_at);
-        return bDate.getTime() - aDate.getTime();
+        if (aIsEventLink !== bIsEventLink) return aIsEventLink ? -1 : 1;
+        return effectiveDate(b) - effectiveDate(a);
       });
 
       return sortedResults;
