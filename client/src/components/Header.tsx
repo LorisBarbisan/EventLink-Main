@@ -32,7 +32,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
           {/* Logo */}
           <Link
             to="/"
-            className="flex w-0 min-w-fit flex-1 items-center space-x-3"
+            className="flex min-w-fit flex-shrink-0 items-center space-x-3"
             data-testid="link-logo"
           >
             <EventLinkLogo size={48} />
@@ -56,14 +56,14 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
             )}
             <Link
               to="/jobs"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
+              className="whitespace-nowrap text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
               data-testid="link-jobs"
             >
               Find Jobs
             </Link>
             <Link
               to="/freelancers"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
+              className="whitespace-nowrap text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
               data-testid="link-freelancers"
             >
               Find Crew
@@ -92,7 +92,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
           </nav>
 
           {/* Actions */}
-          <div className="flex flex-1 items-center justify-end space-x-1 sm:space-x-3">
+          <div className="flex flex-shrink-0 items-center justify-end space-x-1 sm:space-x-3">
             {!isHomePage && <SearchBar />}
 
             {user?.role === "recruiter" && (
