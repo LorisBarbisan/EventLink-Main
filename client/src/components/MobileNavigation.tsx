@@ -1,6 +1,6 @@
 import { EventLinkLogo } from "@/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
-import { useIsUkFreelancer } from "@/hooks/useIsUkFreelancer";
+import type { InsuranceAccess } from "@/hooks/useIsUkFreelancer";
 import { isManagerTeamMember } from "@/lib/employerContext";
 import { MessageSquare, Plus, ShieldCheck, Star } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -8,17 +8,18 @@ import { Link, useLocation } from "wouter";
 interface MobileNavigationProps {
   onFeedbackClick: () => void;
   onInviteClick?: () => void;
+  insuranceAccess?: InsuranceAccess;
   onInsuranceClick?: () => void;
 }
 
 export const MobileNavigation = ({
   onFeedbackClick,
   onInviteClick,
+  insuranceAccess = "hidden",
   onInsuranceClick,
 }: MobileNavigationProps) => {
   const [, setLocation] = useLocation();
   const { user, signOut } = useAuth();
-  const isUkFreelancer = useIsUkFreelancer();
 
   const showProfileLink =
     user &&
@@ -104,8 +105,9 @@ export const MobileNavigation = ({
           </button>
         )}
 
-        {/* Insurance offers - only for UK freelancers with a profile */}
-        {isUkFreelancer && onInsuranceClick && (
+        {/* Insurance offers - UK freelancers get offers; freelancers
+            without a profile get a prompt to create one */}
+        {insuranceAccess !== "hidden" && onInsuranceClick && (
           <button
             onClick={onInsuranceClick}
             className="flex w-full items-center gap-2 rounded-md border px-4 py-3 text-left font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"

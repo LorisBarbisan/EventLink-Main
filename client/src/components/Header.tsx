@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/UserMenu";
 import { useAuth } from "@/hooks/useAuth";
-import { useIsUkFreelancer } from "@/hooks/useIsUkFreelancer";
+import { useInsuranceAccess } from "@/hooks/useIsUkFreelancer";
 import { Menu, MessageSquare, Plus, ShieldCheck, Star } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -23,7 +23,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
   const isHomePage = location === "/";
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showInsuranceDialog, setShowInsuranceDialog] = useState(false);
-  const isUkFreelancer = useIsUkFreelancer();
+  const insuranceAccess = useInsuranceAccess();
 
   return (
     <header className="border-b shadow-sm" style={{ backgroundColor: "#F4F2EE" }}>
@@ -105,8 +105,9 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
               </Button>
             )}
 
-            {/* Insurance offers - only for UK freelancers with a profile */}
-            {isUkFreelancer && (
+            {/* Insurance offers - UK freelancers get offers; freelancers
+                without a profile get a prompt to create one */}
+            {insuranceAccess !== "hidden" && (
               <Button
                 variant="outline"
                 onClick={() => setShowInsuranceDialog(true)}
@@ -147,6 +148,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
                 <MobileNavigation
                   onFeedbackClick={onFeedbackClick}
                   onInviteClick={() => setShowInviteDialog(true)}
+                  insuranceAccess={insuranceAccess}
                   onInsuranceClick={() => setShowInsuranceDialog(true)}
                 />
               </SheetContent>
@@ -159,7 +161,11 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
         onOpenChange={setShowInviteDialog}
         userId={user?.id || 0}
       />
-      <InsuranceOffersDialog open={showInsuranceDialog} onOpenChange={setShowInsuranceDialog} />
+      <InsuranceOffersDialog
+        open={showInsuranceDialog}
+        onOpenChange={setShowInsuranceDialog}
+        mode={insuranceAccess === "available" ? "offers" : "needs-profile"}
+      />
     </header>
   );
 };

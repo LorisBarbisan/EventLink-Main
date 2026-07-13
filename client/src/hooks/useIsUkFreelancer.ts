@@ -21,15 +21,23 @@ export function isUkCountry(country: unknown): boolean {
 }
 
 /**
- * True only for a signed-in freelancer who has created a profile whose
- * country is in the UK. Shares the dashboard's profile query cache
- * (same queryKey) so it adds no extra request on pages that already load it.
+ * Visibility state for the insurance offers button:
+ * - "available"    → UK freelancer with a profile; open the offers.
+ * - "needs-profile" → freelancer signed up but hasn't created a profile;
+ *                     show the button but prompt them to create one.
+ * - "hidden"       → everyone else (non-freelancers, non-UK profiles).
  */
-export function useIsUkFreelancer(): boolean {
+export type InsuranceAccess = "available" | "needs-profile" | "hidden";
+
+export function useInsuranceAccess(): InsuranceAccess {
   const { user } = useAuth();
   const isFreelancer = user?.role === "freelancer";
 
-  const { data: profile } = useQuery({
+  const {
+    data: profile,
+    error,
+    isError,
+  } = useQuery({
     queryKey: ["/api/freelancer/profile", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -39,5 +47,17 @@ export function useIsUkFreelancer(): boolean {
     enabled: isFreelancer && !!user?.id,
   });
 
-  return isFreelancer && !!profile && isUkCountry((profile as { country?: unknown }).country);
+  if (!isFreelancer) return "hidden";
+
+  // The profile endpoint returns 404 when the freelancer hasn't created one.
+  if (isError && (error as { status?: number })?.status === 404) {
+    return "needs-profile";
+  }
+
+  if (profile && isUkCountry((profile as { country?: unknown }).country)) {
+    return "available";
+  }
+
+  // Loading, transient errors, or a non-UK profile: keep the button hidden.
+  return "hidden";
 }
