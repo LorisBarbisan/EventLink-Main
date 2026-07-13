@@ -3,7 +3,6 @@ import { InsuranceOffersDialog } from "@/components/InsuranceOffersDialog";
 import { EventLinkLogo } from "@/components/Logo";
 import { MobileNavigation } from "@/components/MobileNavigation";
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
-import { SearchBar } from "@/components/SearchBar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/UserMenu";
@@ -18,9 +17,8 @@ interface HeaderProps {
 }
 
 export const Header = ({ onFeedbackClick }: HeaderProps) => {
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const isHomePage = location === "/";
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showInsuranceDialog, setShowInsuranceDialog] = useState(false);
   const insuranceAccess = useInsuranceAccess();
@@ -38,21 +36,6 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
             <EventLinkLogo size={48} />
             <span className="hidden text-2xl font-bold text-foreground md:inline">EventLink</span>
           </Link>
-
-          {/* Insurance offers — sits on the left, mirroring Build My Reputation
-              on the right. UK freelancers get offers; freelancers without a
-              profile get a prompt to create one. */}
-          {insuranceAccess !== "hidden" && (
-            <Button
-              onClick={() => setShowInsuranceDialog(true)}
-              className="ml-2 hidden flex-shrink-0 border-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md transition-all hover:from-purple-600 hover:to-pink-600 lg:flex"
-              data-testid="button-insurance-offers"
-              title="Insurance offers for UK-based freelancers"
-            >
-              <ShieldCheck className="mr-2 h-4 w-4" />
-              Insurance Offers (UK)
-            </Button>
-          )}
 
           {/* Navigation */}
           <nav className="hidden flex-1 items-center justify-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
@@ -95,7 +78,19 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
 
           {/* Actions */}
           <div className="flex flex-shrink-0 items-center justify-end space-x-1 sm:space-x-3">
-            {!isHomePage && <SearchBar />}
+            {/* Insurance offers — UK freelancers get offers; freelancers
+                without a profile get a prompt to create one */}
+            {insuranceAccess !== "hidden" && (
+              <Button
+                onClick={() => setShowInsuranceDialog(true)}
+                className="hidden w-56 border-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md transition-all hover:from-purple-600 hover:to-pink-600 lg:flex"
+                data-testid="button-insurance-offers"
+                title="Insurance offers for UK-based freelancers"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Insurance Offers (UK)
+              </Button>
+            )}
 
             {user?.role === "recruiter" && (
               <Button
@@ -112,10 +107,10 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
             {user?.role === "freelancer" && (
               <Button
                 onClick={() => setShowInviteDialog(true)}
-                className="hidden transform border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md transition-all duration-300 hover:scale-[1.02] hover:from-amber-600 hover:to-orange-700 lg:flex"
+                className="hidden w-56 transform border-0 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md transition-all duration-300 hover:scale-[1.02] hover:from-amber-600 hover:to-orange-700 lg:flex"
                 data-testid="button-invite-clients"
               >
-                <Star className="mr-2 h-4 w-4 fill-white" />
+                <Star className="h-4 w-4 fill-white" />
                 Build My Reputation
               </Button>
             )}
