@@ -1,4 +1,5 @@
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
+import { InsuranceOffersDialog } from "@/components/InsuranceOffersDialog";
 import { EventLinkLogo } from "@/components/Logo";
 import { MobileNavigation } from "@/components/MobileNavigation";
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
@@ -7,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/UserMenu";
 import { useAuth } from "@/hooks/useAuth";
-import { Menu, MessageSquare, Plus, Star } from "lucide-react";
+import { useIsUkFreelancer } from "@/hooks/useIsUkFreelancer";
+import { Menu, MessageSquare, Plus, ShieldCheck, Star } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 
@@ -20,6 +22,8 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
   const { user } = useAuth();
   const isHomePage = location === "/";
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [showInsuranceDialog, setShowInsuranceDialog] = useState(false);
+  const isUkFreelancer = useIsUkFreelancer();
 
   return (
     <header className="border-b shadow-sm" style={{ backgroundColor: "#F4F2EE" }}>
@@ -101,6 +105,19 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
               </Button>
             )}
 
+            {/* Insurance offers - only for UK freelancers with a profile */}
+            {isUkFreelancer && (
+              <Button
+                variant="outline"
+                onClick={() => setShowInsuranceDialog(true)}
+                className="hidden lg:flex"
+                data-testid="button-insurance-offers"
+              >
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                Insurance Offers
+              </Button>
+            )}
+
             {user ? (
               <div className="flex items-center space-x-1 sm:space-x-2">
                 <NotificationSystem userId={user.id} />
@@ -130,6 +147,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
                 <MobileNavigation
                   onFeedbackClick={onFeedbackClick}
                   onInviteClick={() => setShowInviteDialog(true)}
+                  onInsuranceClick={() => setShowInsuranceDialog(true)}
                 />
               </SheetContent>
             </Sheet>
@@ -141,6 +159,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
         onOpenChange={setShowInviteDialog}
         userId={user?.id || 0}
       />
+      <InsuranceOffersDialog open={showInsuranceDialog} onOpenChange={setShowInsuranceDialog} />
     </header>
   );
 };

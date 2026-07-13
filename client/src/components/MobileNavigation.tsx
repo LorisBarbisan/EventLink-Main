@@ -1,17 +1,24 @@
 import { EventLinkLogo } from "@/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsUkFreelancer } from "@/hooks/useIsUkFreelancer";
 import { isManagerTeamMember } from "@/lib/employerContext";
-import { MessageSquare, Plus, Star } from "lucide-react";
+import { MessageSquare, Plus, ShieldCheck, Star } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 interface MobileNavigationProps {
   onFeedbackClick: () => void;
   onInviteClick?: () => void;
+  onInsuranceClick?: () => void;
 }
 
-export const MobileNavigation = ({ onFeedbackClick, onInviteClick }: MobileNavigationProps) => {
+export const MobileNavigation = ({
+  onFeedbackClick,
+  onInviteClick,
+  onInsuranceClick,
+}: MobileNavigationProps) => {
   const [, setLocation] = useLocation();
   const { user, signOut } = useAuth();
+  const isUkFreelancer = useIsUkFreelancer();
 
   const showProfileLink =
     user &&
@@ -94,6 +101,18 @@ export const MobileNavigation = ({ onFeedbackClick, onInviteClick }: MobileNavig
           >
             <Star className="h-4 w-4 flex-shrink-0 fill-white" />
             Build My Reputation
+          </button>
+        )}
+
+        {/* Insurance offers - only for UK freelancers with a profile */}
+        {isUkFreelancer && onInsuranceClick && (
+          <button
+            onClick={onInsuranceClick}
+            className="flex w-full items-center gap-2 rounded-md border px-4 py-3 text-left font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
+            data-testid="mobile-button-insurance-offers"
+          >
+            <ShieldCheck className="h-4 w-4 flex-shrink-0" />
+            Insurance Offers
           </button>
         )}
 
