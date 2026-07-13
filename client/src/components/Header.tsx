@@ -39,21 +39,23 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
             <span className="hidden text-2xl font-bold text-foreground md:inline">EventLink</span>
           </Link>
 
+          {/* Insurance offers — sits on the left, mirroring Build My Reputation
+              on the right. UK freelancers get offers; freelancers without a
+              profile get a prompt to create one. */}
+          {insuranceAccess !== "hidden" && (
+            <Button
+              onClick={() => setShowInsuranceDialog(true)}
+              className="ml-2 hidden flex-shrink-0 border-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md transition-all hover:from-purple-600 hover:to-pink-600 lg:flex"
+              data-testid="button-insurance-offers"
+              title="Insurance offers for UK-based freelancers"
+            >
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              Insurance Offers (UK)
+            </Button>
+          )}
+
           {/* Navigation */}
           <nav className="hidden flex-1 items-center justify-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
-            {/* Insurance offers - UK freelancers get offers; freelancers
-                without a profile get a prompt to create one */}
-            {insuranceAccess !== "hidden" && (
-              <Button
-                onClick={() => setShowInsuranceDialog(true)}
-                className="hidden border-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md transition-all hover:from-purple-600 hover:to-pink-600 lg:flex"
-                data-testid="button-insurance-offers"
-                title="Insurance offers for UK-based freelancers"
-              >
-                <ShieldCheck className="mr-2 h-4 w-4" />
-                Insurance Offers (UK)
-              </Button>
-            )}
             <Link
               to="/jobs"
               className="whitespace-nowrap text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
