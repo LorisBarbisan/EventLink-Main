@@ -28,8 +28,8 @@ export function InsuranceOffersDialog({ open, onOpenChange, mode }: InsuranceOff
           </DialogTitle>
           <DialogDescription>
             {mode === "offers"
-              ? "Exclusive discounts on cover for UK event freelancers from our insurance partners."
-              : "Insurance offers are available to freelancers with a completed profile."}
+              ? "Exclusive discounts on cover for UK-based event freelancers from our insurance partners."
+              : "These insurance offers are available to UK-based freelancers with a completed profile."}
           </DialogDescription>
         </DialogHeader>
 
@@ -67,8 +67,8 @@ export function InsuranceOffersDialog({ open, onOpenChange, mode }: InsuranceOff
               <UserPlus className="h-6 w-6 text-primary" />
             </div>
             <p className="text-sm text-muted-foreground">
-              Create your freelancer profile to unlock exclusive insurance discounts from our
-              partners.
+              These offers are for UK-based freelancers. If you&apos;re in the UK, create your
+              profile to unlock exclusive insurance discounts from our partners.
             </p>
             <Link href="/dashboard">
               <Button onClick={() => onOpenChange(false)} data-testid="insurance-create-profile">

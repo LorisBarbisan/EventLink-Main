@@ -114,7 +114,7 @@ export const MobileNavigation = ({
             data-testid="mobile-button-insurance-offers"
           >
             <ShieldCheck className="h-4 w-4 flex-shrink-0" />
-            Insurance Offers
+            Insurance Offers (UK)
           </button>
         )}
 

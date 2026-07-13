@@ -113,9 +113,10 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
                 onClick={() => setShowInsuranceDialog(true)}
                 className="hidden lg:flex"
                 data-testid="button-insurance-offers"
+                title="Insurance offers for UK-based freelancers"
               >
                 <ShieldCheck className="mr-2 h-4 w-4" />
-                Insurance Offers
+                Insurance Offers (UK)
               </Button>
             )}
 
