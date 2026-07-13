@@ -109,9 +109,8 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
                 without a profile get a prompt to create one */}
             {insuranceAccess !== "hidden" && (
               <Button
-                variant="outline"
                 onClick={() => setShowInsuranceDialog(true)}
-                className="hidden lg:flex"
+                className="hidden border-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md transition-all hover:from-purple-600 hover:to-pink-600 lg:flex"
                 data-testid="button-insurance-offers"
                 title="Insurance offers for UK-based freelancers"
               >

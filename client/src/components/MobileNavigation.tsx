@@ -110,7 +110,7 @@ export const MobileNavigation = ({
         {insuranceAccess !== "hidden" && onInsuranceClick && (
           <button
             onClick={onInsuranceClick}
-            className="flex w-full items-center gap-2 rounded-md border px-4 py-3 text-left font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
+            className="flex w-full items-center gap-2 rounded-md bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-3 text-left font-medium text-white shadow-sm transition-colors hover:from-purple-600 hover:to-pink-600"
             data-testid="mobile-button-insurance-offers"
           >
             <ShieldCheck className="h-4 w-4 flex-shrink-0" />
