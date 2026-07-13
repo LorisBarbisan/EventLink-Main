@@ -1160,6 +1160,8 @@ export class DatabaseStorage implements IStorage {
       updateData.contact_email = (profile as any).contact_email;
     if ((profile as any).card_dark_mode !== undefined)
       updateData.card_dark_mode = (profile as any).card_dark_mode;
+    if ((profile as any).profile_theme !== undefined)
+      updateData.profile_theme = (profile as any).profile_theme;
 
     // CV-derived structured fields
     if ((profile as any).work_history !== undefined)

@@ -152,6 +152,11 @@ export interface FreelancerFormData {
   phone?: string;
   contact_email?: string;
   card_dark_mode?: boolean;
+  profile_theme?: {
+    accent?: string;
+    font?: "inter" | "playfair" | "poppins" | "space-grotesk";
+    section_order?: string[];
+  };
 }
 
 export interface RecruiterFormData {

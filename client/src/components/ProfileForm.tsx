@@ -1,4 +1,5 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ProfileThemePicker } from "@/components/ProfileThemePicker";
 import { CVParsingReview } from "@/components/CVParsingReview";
 import { ImageUpload } from "@/components/ImageUpload";
 import { SimplifiedCVUploader } from "@/components/SimplifiedCVUploader";
@@ -110,6 +111,7 @@ export function ProfileForm({
           phone: (freelancerProfile as any)?.phone || "",
           contact_email: (freelancerProfile as any)?.contact_email || "",
           card_dark_mode: !!(freelancerProfile as any)?.card_dark_mode,
+          profile_theme: (freelancerProfile as any)?.profile_theme ?? {},
         } as FreelancerFormData;
       } else {
         const recruiterProfile = profileData as RecruiterProfile | undefined;
@@ -826,6 +828,18 @@ function FreelancerFormFields({
           <p className="mt-2 text-xs text-purple-600 dark:text-purple-400">
             These appear on the back of your shared business card.
           </p>
+        </div>
+      )}
+
+      {isPro && (
+        <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-950/20">
+          <p className="mb-3 text-sm font-medium text-purple-700 dark:text-purple-300">
+            Profile Appearance
+          </p>
+          <ProfileThemePicker
+            theme={(formData as any).profile_theme ?? {}}
+            onChange={(t) => onInputChange("profile_theme", t as any)}
+          />
         </div>
       )}
 

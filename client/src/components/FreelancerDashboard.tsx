@@ -412,7 +412,6 @@ export default function SimplifiedFreelancerDashboard() {
     },
   });
 
-
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
 
@@ -621,6 +620,7 @@ export default function SimplifiedFreelancerDashboard() {
                     phone: freelancerData.phone ?? null,
                     contact_email: freelancerData.contact_email ?? null,
                     card_dark_mode: freelancerData.card_dark_mode ?? false,
+                    profile_theme: freelancerData.profile_theme ?? null,
                   };
                   console.log("📤 Sending processed data (CV fields excluded):", processedData);
 

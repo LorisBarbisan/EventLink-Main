@@ -1,4 +1,3 @@
-/* eslint-disable react/no-unescaped-entities */
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
@@ -670,6 +669,64 @@ export default function Profile() {
 
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showStandaloneRatingDialog, setShowStandaloneRatingDialog] = useState(false);
+
+  // Profile theme
+  const profileTheme: { accent?: string; font?: string; section_order?: string[] } =
+    (freelancerProfile as any)?.profile_theme ?? {};
+  const themeAccent = profileTheme.accent ?? null;
+  const themeSections = (profileTheme.section_order as TabId[] | undefined) ?? [
+    "about",
+    "portfolio",
+    "references",
+    "documents",
+    "contacts",
+  ];
+
+  // Inject Google Font if needed
+  useEffect(() => {
+    const fontUrls: Record<string, string> = {
+      playfair:
+        "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap",
+      poppins: "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap",
+      "space-grotesk":
+        "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
+    };
+    const fontFamilies: Record<string, string> = {
+      inter: "Inter, sans-serif",
+      playfair: "'Playfair Display', serif",
+      poppins: "Poppins, sans-serif",
+      "space-grotesk": "'Space Grotesk', sans-serif",
+    };
+    const key = profileTheme.font ?? "inter";
+    const url = fontUrls[key];
+    if (url) {
+      const existing = document.getElementById("profile-theme-font");
+      if (!existing) {
+        const link = document.createElement("link");
+        link.id = "profile-theme-font";
+        link.rel = "stylesheet";
+        link.href = url;
+        document.head.appendChild(link);
+      }
+    }
+    const style =
+      document.getElementById("profile-theme-style") ||
+      (() => {
+        const s = document.createElement("style");
+        s.id = "profile-theme-style";
+        document.head.appendChild(s);
+        return s;
+      })();
+    style.textContent = `
+      .profile-themed { font-family: ${fontFamilies[key] ?? "inherit"}; }
+      .profile-themed [data-accent] { color: ${themeAccent ?? "var(--primary)"}; }
+      .profile-themed .accent-border { border-color: ${themeAccent ?? "var(--primary)"}; }
+      .profile-themed .accent-bg { background-color: ${themeAccent ?? "var(--primary)"}; }
+    `;
+    return () => {
+      document.getElementById("profile-theme-style")?.remove();
+    };
+  }, [profileTheme.font, themeAccent]);
 
   // Profile tabs
   type TabId = "about" | "portfolio" | "references" | "documents" | "contacts";
@@ -1454,25 +1511,28 @@ export default function Profile() {
 
           {/* ── Freelancer: tabbed layout ── */}
           {isFreelancerSection && (
-            <>
+            <div className="profile-themed">
               {/* Tab bar */}
               <div className="flex overflow-x-auto border-b border-border">
-                {(["about", "portfolio", "references", "documents", "contacts"] as const).map(
-                  (tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={cn(
-                        "-mb-px whitespace-nowrap border-b-2 px-5 py-2.5 text-sm font-medium capitalize transition-colors",
-                        activeTab === tab
-                          ? "border-primary text-primary"
-                          : "border-transparent text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {tab}
-                    </button>
-                  )
-                )}
+                {themeSections.map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab as TabId)}
+                    className={cn(
+                      "-mb-px whitespace-nowrap border-b-2 px-5 py-2.5 text-sm font-medium capitalize transition-colors",
+                      activeTab === tab
+                        ? "border-b-2 text-[var(--profile-accent,var(--primary))]"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                    style={
+                      activeTab === tab && themeAccent
+                        ? { borderColor: themeAccent, color: themeAccent }
+                        : undefined
+                    }
+                  >
+                    {tab}
+                  </button>
+                ))}
               </div>
 
               {/* About tab */}
@@ -1690,7 +1750,7 @@ export default function Profile() {
                   </CardContent>
                 </Card>
               )}
-            </>
+            </div>
           )}
 
           {/* ── Recruiter: flat layout ── */}

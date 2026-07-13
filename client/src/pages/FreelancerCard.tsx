@@ -63,6 +63,11 @@ export default function FreelancerCard() {
     if (freelancer) setDarkMode(!!(freelancer as any).card_dark_mode);
   }, [freelancer]);
 
+  // Profile theme accent (overrides default orange on the card)
+  const themeAccent: string = (freelancer as any)?.profile_theme?.accent ?? C.orange;
+  // Faint tint version for icon backgrounds / pill backgrounds
+  const themeAccentLight: string = themeAccent + "1a"; // 10% opacity via hex alpha
+
   const uid: number | undefined = freelancer?.user_id;
 
   const { data: portfolio = [] } = useQuery<any[]>({
@@ -177,7 +182,7 @@ export default function FreelancerCard() {
           width: size,
           height: size,
           borderRadius: "50%",
-          border: `${size > 48 ? 2.5 : 2}px solid ${C.orange}`,
+          border: `${size > 48 ? 2.5 : 2}px solid ${themeAccent}`,
           background: "linear-gradient(135deg,#b8cce0,#7a93a8)",
           display: "flex",
           alignItems: "center",
@@ -228,15 +233,16 @@ export default function FreelancerCard() {
           display: "inline-flex",
           alignItems: "center",
           gap: 4,
-          background: C.orangeLight,
+          background: themeAccentLight,
           borderRadius: 20,
           padding: "3px 9px",
           fontSize: 11,
           fontWeight: 700,
-          color: C.orange,
+          color: themeAccent,
         }}
       >
-        <Star style={{ width: 11, height: 11, fill: C.orange, color: C.orange }} /> {avgRating}
+        <Star style={{ width: 11, height: 11, fill: themeAccent, color: themeAccent }} />{" "}
+        {avgRating}
       </div>
     );
   }
@@ -388,7 +394,7 @@ export default function FreelancerCard() {
             const bg =
               item.type === "photo" ? "#fef3e8" : item.type === "video" ? C.purpleLight : "#edf7ed";
             const typeColor =
-              item.type === "photo" ? C.orange : item.type === "video" ? C.purple : C.success;
+              item.type === "photo" ? themeAccent : item.type === "video" ? C.purple : C.success;
             return (
               <div
                 key={item.id}
@@ -704,7 +710,9 @@ export default function FreelancerCard() {
           justifyContent: "space-between",
         }}
       >
-        <span style={{ fontWeight: 700, color: C.orange, fontSize: 16, letterSpacing: "-0.3px" }}>
+        <span
+          style={{ fontWeight: 700, color: themeAccent, fontSize: 16, letterSpacing: "-0.3px" }}
+        >
           EventLink
         </span>
       </div>
@@ -846,7 +854,7 @@ export default function FreelancerCard() {
                     style={{
                       fontSize: 13,
                       fontWeight: 700,
-                      color: C.orange,
+                      color: themeAccent,
                       letterSpacing: "-0.3px",
                       marginTop: 8,
                     }}
@@ -893,8 +901,8 @@ export default function FreelancerCard() {
 
                     <SectionBtn
                       id="about"
-                      icon={<User style={{ width: 18, height: 18, color: C.orange }} />}
-                      iconBg={C.orangeLight}
+                      icon={<User style={{ width: 18, height: 18, color: themeAccent }} />}
+                      iconBg={themeAccentLight}
                       label="About"
                       sub="Overview & intro"
                     />
@@ -988,7 +996,7 @@ export default function FreelancerCard() {
                             flex: 1,
                             padding: "11px 4px",
                             border: `1px solid ${DM.cardBorder}`,
-                            background: btn.primary ? C.orange : DM.cardBg2,
+                            background: btn.primary ? themeAccent : DM.cardBg2,
                             borderRadius: 10,
                             fontSize: 12,
                             color: btn.primary ? "#fff" : DM.text1,
@@ -1058,7 +1066,7 @@ export default function FreelancerCard() {
                           background: "none",
                           border: "none",
                           fontSize: 11,
-                          color: C.orange,
+                          color: themeAccent,
                           fontWeight: 600,
                           cursor: "pointer",
                           marginBottom: 10,
@@ -1214,7 +1222,7 @@ export default function FreelancerCard() {
                 style={{
                   fontSize: 12,
                   fontWeight: 700,
-                  color: C.orange,
+                  color: themeAccent,
                   letterSpacing: "-0.3px",
                   marginTop: 8,
                 }}
@@ -1242,9 +1250,9 @@ export default function FreelancerCard() {
                       fontSize: 12,
                       background: "none",
                       border: "none",
-                      borderBottom: `2px solid ${rightTab === tab ? C.orange : "transparent"}`,
+                      borderBottom: `2px solid ${rightTab === tab ? themeAccent : "transparent"}`,
                       cursor: "pointer",
-                      color: rightTab === tab ? C.orange : DM.text2,
+                      color: rightTab === tab ? themeAccent : DM.text2,
                       fontWeight: rightTab === tab ? 700 : 500,
                       marginBottom: -1,
                     }}
@@ -1269,8 +1277,8 @@ export default function FreelancerCard() {
                       {freelancer.bio || "No bio available."}
                     </p>
                     <DRow
-                      iconBg={C.orangeLight}
-                      icon={<MapPin style={{ width: 15, height: 15, color: C.orange }} />}
+                      iconBg={themeAccentLight}
+                      icon={<MapPin style={{ width: 15, height: 15, color: themeAccent }} />}
                       label={
                         [freelancer.location, freelancer.country].filter(Boolean).join(", ") || "–"
                       }
@@ -1350,7 +1358,7 @@ export default function FreelancerCard() {
                             : "#edf7ed";
                       const typeColor =
                         item.type === "photo"
-                          ? C.orange
+                          ? themeAccent
                           : item.type === "video"
                             ? C.purple
                             : C.success;
