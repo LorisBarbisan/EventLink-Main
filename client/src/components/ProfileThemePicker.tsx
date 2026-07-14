@@ -90,6 +90,7 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
       {/* Accent colour */}
       <div>
         <p className="mb-2 text-sm font-medium">Accent colour</p>
+        {/* v2 */}
         <div className="flex flex-wrap gap-2">
           {ACCENT_PRESETS.map((p) => (
             <button
