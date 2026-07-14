@@ -1265,8 +1265,11 @@ export default function FreelancerCard() {
               <div
                 style={{
                   display: "flex",
-                  borderBottom: `1px solid ${DM.cardBorder}`,
+                  background: themeAccent,
+                  borderRadius: 10,
+                  padding: "4px 4px",
                   marginBottom: 14,
+                  gap: 2,
                 }}
               >
                 {(["about", "credentials", "portfolio", "files"] as RightTab[]).map((tab) => (
@@ -1274,15 +1277,16 @@ export default function FreelancerCard() {
                     key={tab}
                     onClick={() => setRightTab(tab)}
                     style={{
-                      padding: "7px 14px",
-                      fontSize: 12,
-                      background: "none",
+                      flex: 1,
+                      padding: "5px 6px",
+                      fontSize: 11,
+                      background: rightTab === tab ? "rgba(255,255,255,0.95)" : "transparent",
                       border: "none",
-                      borderBottom: `2px solid ${rightTab === tab ? themeAccent : "transparent"}`,
+                      borderRadius: 7,
                       cursor: "pointer",
-                      color: rightTab === tab ? themeAccent : DM.text2,
+                      color: rightTab === tab ? themeAccent : "rgba(255,255,255,0.85)",
                       fontWeight: rightTab === tab ? 700 : 500,
-                      marginBottom: -1,
+                      transition: "all 0.15s",
                     }}
                   >
                     {tab.charAt(0).toUpperCase() + tab.slice(1)}
