@@ -831,17 +831,15 @@ function FreelancerFormFields({
         </div>
       )}
 
-      {isPro && (
-        <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-950/20">
-          <p className="mb-3 text-sm font-medium text-purple-700 dark:text-purple-300">
-            Profile Appearance
-          </p>
-          <ProfileThemePicker
-            theme={(formData as any).profile_theme ?? {}}
-            onChange={(t) => onInputChange("profile_theme", t as any)}
-          />
-        </div>
-      )}
+      <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-950/20">
+        <p className="mb-3 text-sm font-medium text-purple-700 dark:text-purple-300">
+          Profile Appearance
+        </p>
+        <ProfileThemePicker
+          theme={(formData as any).profile_theme ?? {}}
+          onChange={(t) => onInputChange("profile_theme", t as any)}
+        />
+      </div>
 
       <div>
         <ImageUpload
