@@ -699,15 +699,13 @@ export default function Profile() {
     };
     const key = profileTheme.font ?? "inter";
     const url = fontUrls[key];
+    document.getElementById("profile-theme-font")?.remove();
     if (url) {
-      const existing = document.getElementById("profile-theme-font");
-      if (!existing) {
-        const link = document.createElement("link");
-        link.id = "profile-theme-font";
-        link.rel = "stylesheet";
-        link.href = url;
-        document.head.appendChild(link);
-      }
+      const link = document.createElement("link");
+      link.id = "profile-theme-font";
+      link.rel = "stylesheet";
+      link.href = url;
+      document.head.appendChild(link);
     }
     const style =
       document.getElementById("profile-theme-style") ||

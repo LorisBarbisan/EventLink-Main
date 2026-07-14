@@ -68,6 +68,34 @@ export default function FreelancerCard() {
   // Faint tint version for icon backgrounds / pill backgrounds
   const themeAccentLight: string = themeAccent + "1a"; // 10% opacity via hex alpha
 
+  // Font from profile theme
+  const themeFont: string = (freelancer as any)?.profile_theme?.font ?? "inter";
+  const FONT_CSS_MAP: Record<string, string> = {
+    inter: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    playfair: "'Playfair Display', serif",
+    poppins: "Poppins, sans-serif",
+    "space-grotesk": "'Space Grotesk', sans-serif",
+  };
+  const FONT_URLS: Record<string, string> = {
+    playfair:
+      "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap",
+    poppins: "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap",
+    "space-grotesk":
+      "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
+  };
+  useEffect(() => {
+    const url = FONT_URLS[themeFont];
+    if (url) {
+      const id = "card-theme-font";
+      document.getElementById(id)?.remove();
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = url;
+      document.head.appendChild(link);
+    }
+  }, [themeFont]);
+
   const uid: number | undefined = freelancer?.user_id;
 
   const { data: portfolio = [] } = useQuery<any[]>({
@@ -676,7 +704,7 @@ export default function FreelancerCard() {
         pillText: "#f5f5f7",
       }
     : {
-        pageBg: C.bg3,
+        pageBg: themeAccent + "0d", // 5% accent tint in light mode
         cardBg: "#fff",
         cardBg2: C.bg2,
         cardBorder: "#e0e0e8",
@@ -696,7 +724,7 @@ export default function FreelancerCard() {
       style={{
         background: DM.pageBg,
         minHeight: "100vh",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        fontFamily: FONT_CSS_MAP[themeFont] ?? FONT_CSS_MAP.inter,
       }}
     >
       {/* ── HEADER ── */}
