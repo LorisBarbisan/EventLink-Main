@@ -26,11 +26,11 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
   return (
     <header className="border-b shadow-sm" style={{ backgroundColor: "#F4F2EE" }}>
       <div className="container mx-auto px-3 py-3 sm:px-4 lg:py-4">
-        <div className="flex items-center justify-between">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           {/* Logo */}
           <Link
             to="/"
-            className="flex min-w-fit flex-shrink-0 items-center space-x-3"
+            className="flex min-w-fit items-center space-x-3 justify-self-start"
             data-testid="link-logo"
           >
             <EventLinkLogo size={48} />
@@ -38,7 +38,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
           </Link>
 
           {/* Navigation */}
-          <nav className="hidden flex-1 items-center justify-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
+          <nav className="hidden items-center justify-center space-x-3 justify-self-center sm:flex lg:space-x-4 xl:space-x-6">
             <Link
               to="/jobs"
               className="whitespace-nowrap text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
@@ -77,7 +77,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
           </nav>
 
           {/* Actions */}
-          <div className="flex flex-shrink-0 items-center justify-end space-x-1 sm:space-x-3">
+          <div className="flex flex-shrink-0 items-center justify-end space-x-1 justify-self-end sm:space-x-3">
             {/* Insurance offers — UK freelancers get offers; freelancers
                 without a profile get a prompt to create one */}
             {insuranceAccess !== "hidden" && (
