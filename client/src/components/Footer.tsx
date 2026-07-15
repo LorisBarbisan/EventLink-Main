@@ -3,44 +3,55 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 
-export const Footer = () => {
+interface FooterProps {
+  dark?: boolean;
+}
+
+export const Footer = ({ dark = false }: FooterProps) => {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
 
+  const bg = dark ? "#192743" : "#F4F2EE";
+  const brandText = dark ? "text-sm font-semibold text-white" : "text-sm font-semibold";
+  const descText = dark ? "text-xs text-white/60" : "text-xs text-muted-foreground";
+  const headingText = dark
+    ? "mb-1 text-xs font-semibold uppercase tracking-wide text-white/50"
+    : "mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground";
+  const listClass = dark
+    ? "space-y-1 text-xs text-white/60"
+    : "space-y-1 text-xs text-muted-foreground";
+  const linkHover = dark ? "hover:text-white" : "hover:text-foreground";
+  const borderClass = dark ? "border-t border-white/10" : "border-t";
+  const bottomBarClass = dark
+    ? "border-t border-white/10 py-3 text-center text-xs text-white/50"
+    : "border-t bg-white py-3 text-center text-xs text-muted-foreground";
+
   return (
-    <footer className="mt-auto border-t">
-      <div style={{ backgroundColor: "#F4F2EE" }}>
+    <footer className={`mt-auto ${borderClass}`}>
+      <div style={{ backgroundColor: bg }}>
         <div className="container mx-auto px-4 py-4">
           <div className="grid grid-cols-1 gap-4 text-center md:grid-cols-4 md:text-left">
             <div className="flex flex-col items-center md:items-start">
               <div className="mb-2 flex items-center justify-center space-x-2 md:justify-start">
                 <EventLinkLogo size={28} />
-                <span className="text-sm font-semibold">EventLink</span>
+                <span className={brandText}>EventLink</span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Showcase Talent - Share Opportunities - Build Connections
-              </p>
+              <p className={descText}>Showcase Talent - Share Opportunities - Build Connections</p>
             </div>
 
             <div>
-              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                For Freelancers
-              </h4>
-              <ul className="space-y-1 text-xs text-muted-foreground">
+              <h4 className={headingText}>For Freelancers</h4>
+              <ul className={listClass}>
                 <li>
-                  <Link
-                    to="/jobs"
-                    className="hover:text-foreground"
-                    data-testid="footer-link-browse-jobs"
-                  >
+                  <Link to="/jobs" className={linkHover} data-testid="footer-link-browse-jobs">
                     Browse Jobs
                   </Link>
                 </li>
                 <li>
                   <button
                     onClick={() => setLocation(user ? "/dashboard" : "/auth")}
-                    className="hover:text-foreground"
+                    className={linkHover}
                     data-testid="footer-button-create-profile"
                   >
                     Create Profile
@@ -49,7 +60,7 @@ export const Footer = () => {
                 <li>
                   <Link
                     to="/how-it-works"
-                    className="hover:text-foreground"
+                    className={linkHover}
                     data-testid="footer-link-how-it-works"
                   >
                     How Does It Work
@@ -59,16 +70,10 @@ export const Footer = () => {
             </div>
 
             <div>
-              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                For Companies
-              </h4>
-              <ul className="space-y-1 text-xs text-muted-foreground">
+              <h4 className={headingText}>For Companies</h4>
+              <ul className={listClass}>
                 <li>
-                  <Link
-                    to="/freelancers"
-                    className="hover:text-foreground"
-                    data-testid="footer-link-find-crew"
-                  >
+                  <Link to="/freelancers" className={linkHover} data-testid="footer-link-find-crew">
                     Find Crew
                   </Link>
                 </li>
@@ -88,7 +93,7 @@ export const Footer = () => {
                         setLocation("/dashboard?tab=jobs&action=post");
                       }
                     }}
-                    className="hover:text-foreground"
+                    className={linkHover}
                     data-testid="footer-button-post-job"
                   >
                     Post a Job
@@ -97,7 +102,7 @@ export const Footer = () => {
                 <li>
                   <Link
                     to="/auth?tab=signup"
-                    className="hover:text-foreground"
+                    className={linkHover}
                     data-testid="footer-link-company-signup"
                   >
                     Get Started
@@ -107,30 +112,20 @@ export const Footer = () => {
             </div>
 
             <div>
-              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Support
-              </h4>
-              <ul className="space-y-1 text-xs text-muted-foreground">
+              <h4 className={headingText}>Support</h4>
+              <ul className={listClass}>
                 <li>
-                  <Link
-                    to="/contact-us"
-                    className="hover:text-foreground"
-                    data-testid="footer-link-contact"
-                  >
+                  <Link to="/contact-us" className={linkHover} data-testid="footer-link-contact">
                     Contact Us
                   </Link>
                 </li>
                 <li>
-                  <Link to="/faq" className="hover:text-foreground" data-testid="footer-link-faq">
+                  <Link to="/faq" className={linkHover} data-testid="footer-link-faq">
                     FAQ
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    to="/about"
-                    className="hover:text-foreground"
-                    data-testid="footer-link-about"
-                  >
+                  <Link to="/about" className={linkHover} data-testid="footer-link-about">
                     About
                   </Link>
                 </li>
@@ -139,17 +134,13 @@ export const Footer = () => {
                     href="/terms-of-use.pdf"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-foreground"
+                    className={linkHover}
                   >
                     Terms &amp; Conditions
                   </a>
                 </li>
                 <li>
-                  <Link
-                    to="/privacy"
-                    className="hover:text-foreground"
-                    data-testid="footer-link-privacy"
-                  >
+                  <Link to="/privacy" className={linkHover} data-testid="footer-link-privacy">
                     Privacy Policy
                   </Link>
                 </li>
@@ -158,7 +149,7 @@ export const Footer = () => {
           </div>
         </div>
       </div>
-      <div className="border-t bg-white py-3 text-center text-xs text-muted-foreground">
+      <div className={bottomBarClass} style={{ backgroundColor: dark ? "#192743" : undefined }}>
         <p>&copy; 2026 EventLink Ltd. All rights reserved.</p>
       </div>
     </footer>

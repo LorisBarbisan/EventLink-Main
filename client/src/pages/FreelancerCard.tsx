@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Download,
   FileText,
-  LayoutGrid,
   Lock,
   MapPin,
   Share2,
@@ -67,6 +66,29 @@ export default function FreelancerCard() {
   const themeAccent: string = (freelancer as any)?.profile_theme?.accent ?? C.orange;
   // Faint tint version for icon backgrounds / pill backgrounds
   const themeAccentLight: string = themeAccent + "1a"; // 10% opacity via hex alpha
+
+  // Derive luminance from accent so the back-of-card text adapts (white on dark, dark on light)
+  function parseLuminance(color: string): number {
+    if (color.startsWith("#")) {
+      const h = color.replace("#", "");
+      if (h.length < 6) return 0.3;
+      const r = parseInt(h.slice(0, 2), 16) / 255;
+      const g = parseInt(h.slice(2, 4), 16) / 255;
+      const b = parseInt(h.slice(4, 6), 16) / 255;
+      return 0.299 * r + 0.587 * g + 0.114 * b;
+    }
+    return 0.3; // HSL / named → assume dark enough for white text
+  }
+  const accentLum = parseLuminance(themeAccent);
+  // Use dark text only for very bright custom colors (yellows, whites)
+  const accentIsDark = accentLum < 0.7;
+  const onAccent = accentIsDark ? "#ffffff" : "#111111";
+  const onAccentSub = accentIsDark ? "rgba(255,255,255,0.72)" : "rgba(0,0,0,0.55)";
+  const onAccentMuted = accentIsDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.35)";
+  // Glass effect for buttons on accent background
+  const glassBg = accentIsDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.07)";
+  const glassBorder = accentIsDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.12)";
+  const glassStrongBg = accentIsDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.12)";
 
   // Font from profile theme
   const themeFont: string = (freelancer as any)?.profile_theme?.font ?? "inter";
@@ -558,19 +580,19 @@ export default function FreelancerCard() {
     return null;
   }
 
-  // Section button used on card back
+  // Section button used on card back — glassmorphism on accent background
   function SectionBtn({
     id,
-    icon,
-    iconBg,
+    icon: _icon,
     label,
     sub,
+    emoji,
   }: {
     id: Detail;
     icon: React.ReactNode;
-    iconBg: string;
     label: string;
     sub: string;
+    emoji: string;
   }) {
     return (
       <div
@@ -582,33 +604,37 @@ export default function FreelancerCard() {
           display: "flex",
           alignItems: "center",
           gap: 12,
-          background: DM.cardBg2,
-          border: `1px solid ${DM.cardBorder}`,
-          borderRadius: 12,
-          padding: "13px 14px",
-          marginBottom: 9,
+          background: glassBg,
+          border: `1px solid ${glassBorder}`,
+          borderRadius: 14,
+          padding: "11px 13px",
+          marginBottom: 8,
           cursor: "pointer",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
         }}
       >
         <div
           style={{
-            width: 38,
-            height: 38,
+            width: 36,
+            height: 36,
             borderRadius: 10,
-            background: iconBg,
+            background: glassStrongBg,
+            border: `1px solid ${glassBorder}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
+            fontSize: 16,
           }}
         >
-          {icon}
+          {emoji}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: DM.text1 }}>{label}</span>
-          <span style={{ fontSize: 11, color: DM.text2 }}>{sub}</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: onAccent }}>{label}</span>
+          <span style={{ fontSize: 10, color: onAccentSub }}>{sub}</span>
         </div>
-        <ChevronRight style={{ marginLeft: "auto", width: 15, height: 15, color: DM.text3 }} />
+        <ChevronRight style={{ marginLeft: "auto", width: 14, height: 14, color: onAccentMuted }} />
       </div>
     );
   }
@@ -738,9 +764,7 @@ export default function FreelancerCard() {
           justifyContent: "space-between",
         }}
       >
-        <span
-          style={{ fontWeight: 700, color: themeAccent, fontSize: 16, letterSpacing: "-0.3px" }}
-        >
+        <span style={{ fontWeight: 700, color: C.orange, fontSize: 16, letterSpacing: "-0.3px" }}>
           EventLink
         </span>
       </div>
@@ -882,7 +906,7 @@ export default function FreelancerCard() {
                     style={{
                       fontSize: 13,
                       fontWeight: 700,
-                      color: themeAccent,
+                      color: C.orange,
                       letterSpacing: "-0.3px",
                       marginTop: 8,
                     }}
@@ -897,8 +921,9 @@ export default function FreelancerCard() {
                     position: "absolute",
                     inset: 0,
                     backfaceVisibility: "hidden",
-                    background: DM.cardBg,
-                    border: `1px solid ${DM.cardBorder}`,
+                    WebkitBackfaceVisibility: "hidden",
+                    background: darkMode ? DM.cardBg : themeAccent,
+                    border: "none",
                     borderRadius: 18,
                     transform: "rotateY(180deg)",
                     overflow: "hidden",
@@ -907,138 +932,158 @@ export default function FreelancerCard() {
                   {/* Main back content */}
                   <div
                     style={{
-                      padding: "18px 16px",
-                      height: "100%",
+                      padding: "16px 14px 12px",
+                      position: "absolute",
+                      inset: 0,
                       display: "flex",
                       flexDirection: "column",
+                      overflow: "hidden",
                     }}
                   >
+                    {/* Header row */}
                     <div
-                      style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}
                     >
-                      <Avatar size={44} />
-                      <div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: DM.text1 }}>
+                      <Avatar size={40} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: darkMode ? DM.text1 : onAccent,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
                           {fullName}
                         </div>
-                        <div style={{ fontSize: 12, color: DM.text2 }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: darkMode ? DM.text2 : onAccentSub,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
                           {freelancer.title || "Freelancer"}
                         </div>
                       </div>
+                      <span
+                        style={{ fontSize: 11, fontWeight: 700, color: C.orange, flexShrink: 0 }}
+                      >
+                        EventLink
+                      </span>
                     </div>
 
-                    <SectionBtn
-                      id="about"
-                      icon={<User style={{ width: 18, height: 18, color: themeAccent }} />}
-                      iconBg={themeAccentLight}
-                      label="About"
-                      sub="Overview & intro"
-                    />
-                    <SectionBtn
-                      id="credentials"
-                      icon={<ShieldCheck style={{ width: 18, height: 18, color: C.success }} />}
-                      iconBg={C.successLight}
-                      label="Credentials"
-                      sub="Verified & endorsed"
-                    />
-                    <SectionBtn
-                      id="portfolio"
-                      icon={<LayoutGrid style={{ width: 18, height: 18, color: C.purple }} />}
-                      iconBg={C.purpleLight}
-                      label="Portfolio"
-                      sub="Photos, reels & blog"
-                    />
-                    <SectionBtn
-                      id="files"
-                      icon={<FileText style={{ width: 18, height: 18, color: "#7060c0" }} />}
-                      iconBg="#f0f0f8"
-                      label="Files"
-                      sub="CV & documents"
-                    />
+                    {/* Section buttons */}
+                    <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+                      <SectionBtn
+                        id="about"
+                        emoji="👤"
+                        label="About"
+                        sub="Overview & intro"
+                        icon={null}
+                      />
+                      <SectionBtn
+                        id="credentials"
+                        emoji="🏅"
+                        label="Credentials"
+                        sub="Verified & endorsed"
+                        icon={null}
+                      />
+                      <SectionBtn
+                        id="portfolio"
+                        emoji="🖼️"
+                        label="Portfolio"
+                        sub="Photos, reels & blog"
+                        icon={null}
+                      />
+                      <SectionBtn
+                        id="files"
+                        emoji="📄"
+                        label="Files"
+                        sub="CV & documents"
+                        icon={null}
+                      />
 
-                    {/* Pro contact details */}
-                    {(freelancer.phone || freelancer.contact_email) && (
-                      <div
-                        style={{
-                          marginTop: 10,
-                          padding: "8px 10px",
-                          background: DM.cardBg2,
-                          borderRadius: 8,
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 4,
-                        }}
-                      >
-                        {freelancer.phone && (
-                          <a
-                            href={`tel:${freelancer.phone}`}
-                            onClick={(e) => e.stopPropagation()}
-                            style={{
-                              fontSize: 12,
-                              color: DM.text1,
-                              textDecoration: "none",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 6,
-                            }}
-                          >
-                            <span style={{ fontSize: 14 }}>📞</span> {freelancer.phone}
-                          </a>
-                        )}
-                        {freelancer.contact_email && (
-                          <a
-                            href={`mailto:${freelancer.contact_email}`}
-                            onClick={(e) => e.stopPropagation()}
-                            style={{
-                              fontSize: 12,
-                              color: DM.text1,
-                              textDecoration: "none",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 6,
-                            }}
-                          >
-                            <span style={{ fontSize: 14 }}>✉️</span> {freelancer.contact_email}
-                          </a>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Action bar */}
-                    <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 10 }}>
-                      {[
-                        {
-                          icon: <Share2 style={{ width: 17, height: 17 }} />,
-                          label: "Share",
-                          primary: true,
-                          onClick: (e: React.MouseEvent) => {
-                            e.stopPropagation();
-                            copyLink();
-                          },
-                        },
-                      ].map((btn) => (
-                        <button
-                          key={btn.label}
-                          onClick={btn.onClick}
+                      {/* Pro contact details */}
+                      {(freelancer.phone || freelancer.contact_email) && (
+                        <div
                           style={{
-                            flex: 1,
-                            padding: "11px 4px",
-                            border: `1px solid ${DM.cardBorder}`,
-                            background: btn.primary ? themeAccent : DM.cardBg2,
+                            marginTop: 4,
+                            padding: "7px 10px",
+                            background: glassBg,
+                            border: `1px solid ${glassBorder}`,
                             borderRadius: 10,
-                            fontSize: 12,
-                            color: btn.primary ? "#fff" : DM.text1,
                             display: "flex",
                             flexDirection: "column",
-                            alignItems: "center",
                             gap: 4,
-                            fontWeight: 600,
-                            cursor: "pointer",
                           }}
                         >
-                          {btn.icon} {btn.label}
-                        </button>
-                      ))}
+                          {freelancer.phone && (
+                            <a
+                              href={`tel:${freelancer.phone}`}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                fontSize: 11,
+                                color: darkMode ? DM.text1 : onAccent,
+                                textDecoration: "none",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                              }}
+                            >
+                              <span style={{ fontSize: 13 }}>📞</span> {freelancer.phone}
+                            </a>
+                          )}
+                          {freelancer.contact_email && (
+                            <a
+                              href={`mailto:${freelancer.contact_email}`}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                fontSize: 11,
+                                color: darkMode ? DM.text1 : onAccent,
+                                textDecoration: "none",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                wordBreak: "break-all",
+                              }}
+                            >
+                              <span style={{ fontSize: 13 }}>✉️</span> {freelancer.contact_email}
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action bar — pinned to bottom */}
+                    <div style={{ display: "flex", gap: 8, paddingTop: 10, flexShrink: 0 }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyLink();
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: "10px 4px",
+                          border: `1px solid ${glassBorder}`,
+                          background: glassStrongBg,
+                          borderRadius: 22,
+                          fontSize: 11,
+                          color: darkMode ? DM.text1 : onAccent,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: 4,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <Share2 style={{ width: 16, height: 16 }} /> Share
+                      </button>
                       <a
                         href={profileUrl()}
                         target="_blank"
@@ -1046,21 +1091,21 @@ export default function FreelancerCard() {
                         onClick={(e) => e.stopPropagation()}
                         style={{
                           flex: 1,
-                          padding: "11px 4px",
-                          border: `1px solid ${C.border2}`,
-                          background: C.bg2,
-                          borderRadius: 10,
-                          fontSize: 12,
-                          color: "#444",
+                          padding: "10px 4px",
+                          border: `1px solid ${glassBorder}`,
+                          background: glassBg,
+                          borderRadius: 22,
+                          fontSize: 11,
+                          color: darkMode ? DM.text1 : onAccent,
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "center",
                           gap: 4,
-                          fontWeight: 600,
+                          fontWeight: 700,
                           textDecoration: "none",
                         }}
                       >
-                        <Globe style={{ width: 17, height: 17 }} /> Profile
+                        <Globe style={{ width: 16, height: 16 }} /> Profile
                       </a>
                     </div>
                   </div>

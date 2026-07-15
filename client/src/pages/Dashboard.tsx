@@ -3,6 +3,7 @@ import { Layout } from "@/components/Layout";
 import RecruiterDashboard from "@/components/RecruiterDashboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsPro } from "@/hooks/useIsPro";
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -14,6 +15,7 @@ interface Profile {
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
+  const isPro = useIsPro();
   const [, setLocation] = useLocation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,7 +89,7 @@ export default function Dashboard() {
       <Layout>
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">Profile not found</h1>
+            <h1 className="mb-4 text-2xl font-bold">Profile not found</h1>
             <p className="text-muted-foreground">Unable to load your profile. Please try again.</p>
           </div>
         </div>
@@ -104,8 +106,10 @@ export default function Dashboard() {
     console.error("⚠️ Unknown user role:", profile.role, "- Defaulting to FreelancerDashboard");
   }
 
+  const darkHeader = showFreelancerDashboard && isPro;
+
   return (
-    <Layout>
+    <Layout dark={darkHeader}>
       <div className="container mx-auto px-4 py-8">
         {showFreelancerDashboard ? (
           <FreelancerDashboard />

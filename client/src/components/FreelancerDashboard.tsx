@@ -41,7 +41,6 @@ import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
-import { DocumentUploader } from "./DocumentUploader";
 import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
 import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
@@ -655,13 +654,6 @@ export default function SimplifiedFreelancerDashboard() {
               }}
               isSaving={false}
             />
-          )}
-
-          {/* Documents & Certifications Section */}
-          {user?.id && (
-            <div className="mt-6">
-              <DocumentUploader userId={user.id} isOwner={true} viewerRole="freelancer" />
-            </div>
           )}
         </TabsContent>
 

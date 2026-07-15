@@ -11,40 +11,20 @@ export interface ProfileTheme {
 
 const ACCENT_PRESETS = [
   { label: "Orange", value: "#f97316" },
-  { label: "Purple", value: "#8b5cf6" },
-  { label: "Blue", value: "#3b82f6" },
-  { label: "Teal", value: "#14b8a6" },
-  { label: "Rose", value: "#f43f5e" },
-  { label: "Amber", value: "#f59e0b" },
-  { label: "Emerald", value: "#10b981" },
-  { label: "Slate", value: "#64748b" },
+  { label: "Brown", value: "#92400e" },
+  { label: "Teal", value: "#0d7490" },
+  { label: "Green", value: "#15803d" },
+  { label: "Taupe", value: "#78716c" },
+  { label: "Amber", value: "#ca8a04" },
+  { label: "Purple", value: "#7c3aed" },
+  { label: "Rose", value: "#be185d" },
 ];
 
-const FONTS: { key: FontKey; label: string; sample: string; style: string }[] = [
-  {
-    key: "inter",
-    label: "Modern",
-    sample: "Clean & professional",
-    style: "font-sans",
-  },
-  {
-    key: "playfair",
-    label: "Elegant",
-    sample: "Editorial & refined",
-    style: "font-serif",
-  },
-  {
-    key: "poppins",
-    label: "Friendly",
-    sample: "Rounded & approachable",
-    style: "",
-  },
-  {
-    key: "space-grotesk",
-    label: "Technical",
-    sample: "Distinct & modern",
-    style: "",
-  },
+const FONTS: { key: FontKey; label: string; style: string }[] = [
+  { key: "inter", label: "Modern", style: "Inter, sans-serif" },
+  { key: "playfair", label: "Elegant", style: "'Playfair Display', serif" },
+  { key: "poppins", label: "Friendly", style: "Poppins, sans-serif" },
+  { key: "space-grotesk", label: "Technical", style: "'Space Grotesk', sans-serif" },
 ];
 
 const FONT_CSS: Record<FontKey, string> = {
@@ -89,8 +69,7 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
     <div className="space-y-6">
       {/* Accent colour */}
       <div>
-        <p className="mb-2 text-sm font-medium">Accent colour</p>
-        {/* v2 */}
+        <p className="mb-3 text-sm font-semibold">Accent colour</p>
         <div className="flex flex-wrap gap-2">
           {ACCENT_PRESETS.map((p) => (
             <button
@@ -99,48 +78,71 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
               title={p.label}
               onClick={() => setAccent(p.value)}
               className={cn(
-                "h-8 w-8 rounded-full border-2 transition-transform hover:scale-110",
-                accent === p.value ? "scale-110 border-foreground" : "border-transparent"
+                "h-8 w-14 rounded-full border-2 transition-all hover:scale-105",
+                accent === p.value
+                  ? "scale-105 border-foreground ring-2 ring-foreground/20"
+                  : "border-transparent hover:border-foreground/30"
               )}
               style={{ backgroundColor: p.value }}
-            />
+            >
+              {accent === p.value && (
+                <span className="block text-center text-xs font-bold text-white drop-shadow">
+                  ✓
+                </span>
+              )}
+            </button>
           ))}
-          {/* Custom hex */}
-          <label className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border text-xs text-muted-foreground hover:border-foreground">
+        </div>
+        {/* Custom hex */}
+        <div className="mt-3 flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Custom</span>
+          <label
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-border shadow-sm"
+            style={{ backgroundColor: accent }}
+          >
             <input
               type="color"
               value={accent}
               onChange={(e) => setAccent(e.target.value)}
               className="sr-only"
             />
-            +
           </label>
+          <input
+            type="text"
+            value={accent}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setAccent(v);
+            }}
+            className="h-7 w-24 rounded-md border border-border bg-background px-2 font-mono text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          />
         </div>
-        <div
-          className="mt-2 h-1.5 w-full rounded-full"
-          style={{ backgroundColor: accent, opacity: 0.7 }}
-        />
       </div>
 
       {/* Font */}
       <div>
-        <p className="mb-2 text-sm font-medium">Font</p>
-        <div className="grid grid-cols-2 gap-2">
+        <p className="mb-3 text-sm font-semibold">Profile font</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {FONTS.map((f) => (
             <button
               key={f.key}
               type="button"
               onClick={() => setFont(f.key)}
               className={cn(
-                "rounded-lg border-2 px-3 py-2 text-left transition-colors",
+                "flex flex-col items-start rounded-xl border-2 px-3 py-3 transition-all",
                 font === f.key
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50"
+                  ? "border-foreground bg-muted/60"
+                  : "border-border bg-background hover:border-foreground/40"
               )}
-              style={{ fontFamily: FONT_CSS[f.key] }}
+              style={{ fontFamily: f.style }}
             >
-              <span className="block text-sm font-semibold">{f.label}</span>
-              <span className="block text-xs text-muted-foreground">{f.sample}</span>
+              <span className="text-xl font-semibold leading-none">Aa</span>
+              <span
+                className="mt-1 text-xs text-muted-foreground"
+                style={{ fontFamily: "Inter, sans-serif" }}
+              >
+                {f.label}
+              </span>
             </button>
           ))}
         </div>
@@ -148,19 +150,22 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
 
       {/* Section order */}
       <div>
-        <p className="mb-2 text-sm font-medium">Section order</p>
-        <div className="space-y-1">
+        <p className="mb-1 text-sm font-semibold">Section order</p>
+        <p className="mb-3 text-xs text-muted-foreground">
+          This controls the order of tabs on your public profile.
+        </p>
+        <div className="space-y-1.5">
           {sections.map((s, i) => (
             <div
               key={s}
-              className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5"
+              className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2"
             >
               <span className="flex-1 text-sm">{SECTION_LABELS[s] ?? s}</span>
               <button
                 type="button"
                 onClick={() => moveSection(i, -1)}
                 disabled={i === 0}
-                className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
               >
                 <ChevronUp className="h-4 w-4" />
               </button>
@@ -168,7 +173,7 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
                 type="button"
                 onClick={() => moveSection(i, 1)}
                 disabled={i === sections.length - 1}
-                className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
               >
                 <ChevronDown className="h-4 w-4" />
               </button>

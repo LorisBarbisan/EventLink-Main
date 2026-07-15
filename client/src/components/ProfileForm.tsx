@@ -1,11 +1,13 @@
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ProfileThemePicker } from "@/components/ProfileThemePicker";
 import { CVParsingReview } from "@/components/CVParsingReview";
+import { DocumentUploader } from "@/components/DocumentUploader";
 import { ImageUpload } from "@/components/ImageUpload";
 import { SimplifiedCVUploader } from "@/components/SimplifiedCVUploader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -33,7 +35,6 @@ import type {
 } from "@shared/types";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2, FileText, Globe, MapPin, Plus, X } from "lucide-react";
-import { ShareProfileButton } from "@/components/ShareProfileButton";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RatingDisplay } from "./StarRating";
 
@@ -56,32 +57,7 @@ export function ProfileForm({
   readOnly = false,
 }: ProfileFormProps) {
   const { user } = useAuth();
-  const hasProfileContent = (() => {
-    if (!profile) return false;
-    if (userType === "recruiter") return !!(profile as RecruiterProfile).company_name;
-    return !!(profile as FreelancerProfile).first_name;
-  })();
-
-  const [isEditing, setIsEditing] = useState(!readOnly && !hasProfileContent);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const hasInitializedEditing = useRef(false);
-
-  useEffect(() => {
-    if (!hasInitializedEditing.current && profile) {
-      hasInitializedEditing.current = true;
-      const hasContent =
-        userType === "recruiter"
-          ? !!(profile as RecruiterProfile).company_name
-          : !!(profile as FreelancerProfile).first_name;
-      setIsEditing(!readOnly && !hasContent);
-    }
-  }, [profile, userType, readOnly]);
-
-  useEffect(() => {
-    if (readOnly) {
-      setIsEditing(false);
-    }
-  }, [readOnly]);
   const draftKey = user?.id
     ? `${DRAFT_STORAGE_KEY_PREFIX}${userType}_${user.id}`
     : "profile_draft_temp";
@@ -131,9 +107,10 @@ export function ProfileForm({
     [userType]
   );
 
-  const [formData, setFormData, , isDirty] = usePersistentState<
-    FreelancerFormData | RecruiterFormData
-  >(draftKey, getDefaultFormData(profile));
+  const [formData, setFormData] = usePersistentState<FreelancerFormData | RecruiterFormData>(
+    draftKey,
+    getDefaultFormData(profile)
+  );
   const [newSkill, setNewSkill] = useState("");
 
   useEffect(() => {
@@ -152,11 +129,11 @@ export function ProfileForm({
           setFormData(getDefaultFormData(profile));
         }
         initialLoadDone.current = true;
-      } else if (!hasDraft && !isEditing) {
+      } else if (!hasDraft) {
         setFormData(getDefaultFormData(profile));
       }
     }
-  }, [profile, draftKey, getDefaultFormData, setFormData, isEditing]);
+  }, [profile, draftKey, getDefaultFormData, setFormData]);
 
   const handleInputChange = (field: string, value: string) => {
     console.log("ProfileForm handleInputChange:", {
@@ -239,7 +216,6 @@ export function ProfileForm({
       } catch (e) {
         console.warn("Failed to clear draft:", e);
       }
-      setIsEditing(false);
     } catch {
       // Error toast is handled by the useProfile hook
     }
@@ -261,36 +237,18 @@ export function ProfileForm({
     );
   }
 
-  if (!isEditing && profile) {
+  if (readOnly) {
     return (
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex-1">
-              <CardTitle>
-                {userType === "freelancer" ? "Freelancer Profile" : "Company Profile"}
-              </CardTitle>
-              <CardDescription>
-                {userType === "freelancer"
-                  ? "Your professional information and skills"
-                  : readOnly
-                    ? "Company information (view only — contact the owner to make changes)"
-                    : "Your company information and details"}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              {userType === "freelancer" && user?.id && <ShareProfileButton userId={user.id} />}
-              {!readOnly && (
-                <Button
-                  onClick={() => setIsEditing(true)}
-                  data-testid="button-edit-profile"
-                  className="shrink-0"
-                >
-                  Edit Profile
-                </Button>
-              )}
-            </div>
-          </div>
+          <CardTitle>
+            {userType === "freelancer" ? "Freelancer Profile" : "Company Profile"}
+          </CardTitle>
+          <CardDescription>
+            {userType === "recruiter"
+              ? "Company information (view only — contact the owner to make changes)"
+              : "Your professional information and skills"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {userType === "freelancer" ? (
@@ -303,17 +261,12 @@ export function ProfileForm({
     );
   }
 
-  if (readOnly) {
-    return null;
-  }
-
   return (
     <Card>
       <ConfirmDialog
         open={showConfirmDialog}
         onOpenChange={setShowConfirmDialog}
         onConfirm={() => {
-          // Reset to profile data
           setFormData(getDefaultFormData(profile));
           try {
             sessionStorage.removeItem(draftKey);
@@ -321,80 +274,111 @@ export function ProfileForm({
             console.warn("Failed to clear draft:", e);
           }
           setShowConfirmDialog(false);
-          setIsEditing(false);
         }}
         onCancel={() => setShowConfirmDialog(false)}
         title="Unsaved Changes"
-        description="You have unsaved changes. Are you sure you want to discard them and stop editing?"
+        description="You have unsaved changes. Are you sure you want to discard them?"
       />
-      <CardHeader>
-        <CardTitle>
-          {profile
-            ? "Edit Profile"
-            : `Create ${userType === "freelancer" ? "Freelancer" : "Company"} Profile`}
-        </CardTitle>
-        <CardDescription>
-          {userType === "freelancer"
-            ? "Update your professional information and skills"
-            : "Update your company information and details"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {userType === "freelancer" ? (
-          <FreelancerFormFields
-            formData={formData as FreelancerFormData}
-            profile={profile as FreelancerProfile}
-            onInputChange={handleInputChange}
-            onLocationChange={handleLocationChange}
-            newSkill={newSkill}
-            setNewSkill={setNewSkill}
-            onSkillAdd={handleSkillAdd}
-            onSkillRemove={handleSkillRemove}
-            onFieldsConfirmed={(confirmedFields) => {
-              setFormData((prev) => {
-                const updated = { ...prev };
-                for (const [key, value] of Object.entries(confirmedFields)) {
-                  if (value !== undefined && value !== null) {
-                    (updated as any)[key] = value;
-                  }
-                }
-                return updated;
-              });
-            }}
-          />
-        ) : (
-          <RecruiterFormFields
-            formData={formData as RecruiterFormData}
-            onInputChange={handleInputChange}
-            onLocationChange={handleLocationChange}
-          />
-        )}
+      {userType === "freelancer" ? (
+        <>
+          <Tabs defaultValue="profile">
+            <CardHeader className="pb-0">
+              <div className="flex items-center justify-between">
+                <CardTitle>{profile ? "Edit Profile" : "Create Freelancer Profile"}</CardTitle>
+              </div>
+              <TabsList className="mt-3 w-full justify-start">
+                <TabsTrigger value="profile">Profile</TabsTrigger>
+                <TabsTrigger value="card">Card &amp; Appearance</TabsTrigger>
+              </TabsList>
+            </CardHeader>
 
-        <div className="flex gap-2">
-          <Button
-            onClick={handleSave}
-            disabled={isSaving || !freelancerRequiredValid}
-            data-testid="button-save-profile"
-          >
-            {isSaving ? "Saving..." : "Save Profile"}
-          </Button>
-          {profile && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (isDirty) {
-                  setShowConfirmDialog(true);
-                } else {
-                  setIsEditing(false);
-                }
-              }}
-              data-testid="button-cancel-edit"
-            >
-              Cancel
-            </Button>
-          )}
-        </div>
-      </CardContent>
+            <CardContent className="space-y-4 pt-4">
+              <TabsContent value="profile" className="space-y-4">
+                <FreelancerProfileFields
+                  formData={formData as FreelancerFormData}
+                  profile={profile as FreelancerProfile}
+                  onInputChange={handleInputChange}
+                  onLocationChange={handleLocationChange}
+                  newSkill={newSkill}
+                  setNewSkill={setNewSkill}
+                  onSkillAdd={handleSkillAdd}
+                  onSkillRemove={handleSkillRemove}
+                  onFieldsConfirmed={(confirmedFields) => {
+                    setFormData((prev) => {
+                      const updated = { ...prev };
+                      for (const [key, value] of Object.entries(confirmedFields)) {
+                        if (value !== undefined && value !== null) {
+                          (updated as any)[key] = value;
+                        }
+                      }
+                      return updated;
+                    });
+                  }}
+                />
+                {user?.id && (
+                  <div className="pt-2">
+                    <DocumentUploader userId={user.id} isOwner={true} viewerRole="freelancer" />
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="card" className="space-y-4">
+                <FreelancerCardAppearanceFields
+                  formData={formData as FreelancerFormData}
+                  onInputChange={handleInputChange}
+                />
+              </TabsContent>
+
+              <div className="flex gap-2 border-t pt-4">
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving || !freelancerRequiredValid}
+                  data-testid="button-save-profile"
+                >
+                  {isSaving ? "Saving..." : "Save Profile"}
+                </Button>
+                {profile && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowConfirmDialog(true)}
+                    data-testid="button-cancel-edit"
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Tabs>
+        </>
+      ) : (
+        <>
+          <CardHeader>
+            <CardTitle>{profile ? "Edit Profile" : "Create Company Profile"}</CardTitle>
+            <CardDescription>Update your company information and details</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <RecruiterFormFields
+              formData={formData as RecruiterFormData}
+              onInputChange={handleInputChange}
+              onLocationChange={handleLocationChange}
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleSave} disabled={isSaving} data-testid="button-save-profile">
+                {isSaving ? "Saving..." : "Save Profile"}
+              </Button>
+              {profile && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowConfirmDialog(true)}
+                  data-testid="button-cancel-edit"
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </>
+      )}
     </Card>
   );
 }
@@ -571,7 +555,7 @@ function RecruiterProfileView({ profile }: { profile: RecruiterProfile }) {
   );
 }
 
-function FreelancerFormFields({
+function FreelancerProfileFields({
   formData,
   profile,
   onInputChange,
@@ -592,7 +576,6 @@ function FreelancerFormFields({
   onSkillRemove: (skill: string) => void;
   onFieldsConfirmed?: (fields: Record<string, any>) => void;
 }) {
-  const isPro = useIsPro();
   return (
     <>
       {/* CV Upload Section - Moved to top with clear messaging */}
@@ -787,60 +770,6 @@ function FreelancerFormFields({
         </div>
       </div>
 
-      {isPro && (
-        <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-950/20">
-          <p className="mb-3 text-sm font-medium text-purple-700 dark:text-purple-300">
-            Business Card Contact Details
-          </p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={formData.phone || ""}
-                onChange={(e) => onInputChange("phone", e.target.value)}
-                placeholder="+44 7911 123456"
-              />
-            </div>
-            <div>
-              <Label htmlFor="contact_email">Contact Email</Label>
-              <Input
-                id="contact_email"
-                type="email"
-                value={formData.contact_email || ""}
-                onChange={(e) => onInputChange("contact_email", e.target.value)}
-                placeholder="hello@yourname.com"
-              />
-            </div>
-          </div>
-          <div className="mt-3 flex items-center gap-3">
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-purple-700 dark:text-purple-300">
-              <input
-                type="checkbox"
-                checked={!!formData.card_dark_mode}
-                onChange={(e) => onInputChange("card_dark_mode", e.target.checked)}
-                className="h-4 w-4 rounded border-purple-300 accent-purple-600"
-              />
-              Dark mode card
-            </label>
-          </div>
-          <p className="mt-2 text-xs text-purple-600 dark:text-purple-400">
-            These appear on the back of your shared business card.
-          </p>
-        </div>
-      )}
-
-      <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-950/20">
-        <p className="mb-3 text-sm font-medium text-purple-700 dark:text-purple-300">
-          Profile Appearance
-        </p>
-        <ProfileThemePicker
-          theme={(formData as any).profile_theme ?? {}}
-          onChange={(t) => onInputChange("profile_theme", t as any)}
-        />
-      </div>
-
       <div>
         <ImageUpload
           label="Profile Photo (Optional)"
@@ -850,6 +779,256 @@ function FreelancerFormFields({
         />
       </div>
     </>
+  );
+}
+
+function CardLivePreview({
+  formData,
+  theme,
+}: {
+  formData: FreelancerFormData;
+  theme: { accent?: string; font?: string };
+}) {
+  const FONT_CSS_MAP: Record<string, string> = {
+    inter: "Inter, sans-serif",
+    playfair: "'Playfair Display', serif",
+    poppins: "Poppins, sans-serif",
+    "space-grotesk": "'Space Grotesk', sans-serif",
+  };
+  const accent = theme.accent ?? "#f97316";
+  const fontFamily = FONT_CSS_MAP[theme.font ?? "inter"] ?? "Inter, sans-serif";
+  const firstName = formData.first_name || "Your";
+  const lastName = formData.last_name || "Name";
+  const title = formData.title || "Professional Title";
+  const location =
+    [formData.location, formData.country].filter(Boolean).join(", ") || "City, Country";
+  const skills = formData.skills?.slice(0, 5) ?? [];
+  const photo = formData.profile_photo_url;
+
+  return (
+    <div
+      style={{
+        fontFamily,
+        borderRadius: 18,
+        boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+        background: "#fff",
+        padding: "18px 16px 16px",
+        border: "1px solid rgba(0,0,0,0.07)",
+      }}
+    >
+      {/* Rating badge */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+        <span
+          style={{
+            background: accent,
+            color: "#fff",
+            borderRadius: 20,
+            fontSize: 11,
+            fontWeight: 700,
+            padding: "3px 10px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 3,
+          }}
+        >
+          ★ 4.9 · 34
+        </span>
+      </div>
+      {/* Photo */}
+      <div style={{ marginBottom: 12 }}>
+        {photo && photo !== "null" && photo.trim() ? (
+          <img
+            src={photo}
+            alt="Preview"
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: "50%",
+              objectFit: "cover",
+              border: `3px solid ${accent}`,
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: "50%",
+              background: accent + "22",
+              border: `3px solid ${accent}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 22,
+              color: accent,
+            }}
+          >
+            👤
+          </div>
+        )}
+      </div>
+      {/* Name + title */}
+      <div style={{ fontWeight: 700, fontSize: 17, lineHeight: 1.2, color: "#111" }}>
+        {firstName} {lastName}
+      </div>
+      <div style={{ fontSize: 12, color: "#777", marginTop: 2, marginBottom: 10 }}>{title}</div>
+      {/* Skills */}
+      {skills.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+          {skills.map((s, i) => (
+            <span
+              key={i}
+              style={{
+                background: accent + "22",
+                color: accent,
+                borderRadius: 20,
+                fontSize: 11,
+                padding: "2px 9px",
+                fontWeight: 600,
+              }}
+            >
+              {s}
+            </span>
+          ))}
+        </div>
+      )}
+      {skills.length === 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+          {["Your skill", "Another skill"].map((s, i) => (
+            <span
+              key={i}
+              style={{
+                background: accent + "22",
+                color: accent,
+                borderRadius: 20,
+                fontSize: 11,
+                padding: "2px 9px",
+                fontWeight: 600,
+                opacity: 0.5,
+              }}
+            >
+              {s}
+            </span>
+          ))}
+        </div>
+      )}
+      {/* Divider */}
+      <div style={{ borderTop: "1px solid #eee", marginBottom: 12 }} />
+      {/* Location + CTA */}
+      <div
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 11,
+            color: "#888",
+            minWidth: 0,
+          }}
+        >
+          <span>📍</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {location}
+          </span>
+        </div>
+        <button
+          type="button"
+          style={{
+            background: accent,
+            color: "#fff",
+            border: "none",
+            borderRadius: 20,
+            fontSize: 11,
+            fontWeight: 700,
+            padding: "6px 14px",
+            cursor: "default",
+            whiteSpace: "nowrap",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          ✦ View details
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FreelancerCardAppearanceFields({
+  formData,
+  onInputChange,
+}: {
+  formData: FreelancerFormData;
+  onInputChange: (field: string, value: any) => void;
+}) {
+  const isPro = useIsPro();
+  const theme = (formData as any).profile_theme ?? {};
+
+  return (
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_260px]">
+      {/* Left: Controls */}
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-base font-semibold">Appearance</h3>
+          <p className="text-sm text-muted-foreground">
+            Choose your accent colour, profile font, and the order of public sections.
+          </p>
+        </div>
+
+        {isPro && (
+          <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
+            <p className="text-sm font-semibold">Business Card Contact Details</p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone || ""}
+                  onChange={(e) => onInputChange("phone", e.target.value)}
+                  placeholder="+44 7911 123456"
+                />
+              </div>
+              <div>
+                <Label htmlFor="contact_email">Contact Email</Label>
+                <Input
+                  id="contact_email"
+                  type="email"
+                  value={formData.contact_email || ""}
+                  onChange={(e) => onInputChange("contact_email", e.target.value)}
+                  placeholder="hello@yourname.com"
+                />
+              </div>
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={!!formData.card_dark_mode}
+                onChange={(e) => onInputChange("card_dark_mode", e.target.checked)}
+                className="h-4 w-4 rounded"
+              />
+              Dark mode card
+            </label>
+            <p className="text-xs text-muted-foreground">
+              These appear on the back of your shared business card.
+            </p>
+          </div>
+        )}
+
+        <ProfileThemePicker theme={theme} onChange={(t) => onInputChange("profile_theme", t)} />
+      </div>
+
+      {/* Right: Live Preview */}
+      <div className="self-start lg:sticky lg:top-4">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Live Preview
+        </p>
+        <CardLivePreview formData={formData} theme={theme} />
+      </div>
+    </div>
   );
 }
 
