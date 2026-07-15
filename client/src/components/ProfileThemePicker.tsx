@@ -5,6 +5,7 @@ export type FontKey = "inter" | "playfair" | "poppins" | "space-grotesk";
 
 export interface ProfileTheme {
   accent?: string;
+  button_color?: string;
   font?: FontKey;
   section_order?: string[];
 }
@@ -54,7 +55,9 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
   const font = theme.font ?? "inter";
   const sections = theme.section_order ?? DEFAULT_SECTIONS;
 
+  const buttonColor = theme.button_color ?? "#ffffff";
   const setAccent = (v: string) => onChange({ ...theme, accent: v });
+  const setButtonColor = (v: string) => onChange({ ...theme, button_color: v });
   const setFont = (v: FontKey) => onChange({ ...theme, font: v });
 
   const moveSection = (idx: number, dir: -1 | 1) => {
@@ -113,6 +116,75 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
             onChange={(e) => {
               const v = e.target.value;
               if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setAccent(v);
+            }}
+            className="h-7 w-24 rounded-md border border-border bg-background px-2 font-mono text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        </div>
+      </div>
+
+      {/* Button colour */}
+      <div>
+        <p className="mb-1 text-sm font-semibold">Button colour</p>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Colour of the section buttons on the back of your card.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: "White", value: "#ffffff" },
+            { label: "Light", value: "#f5f0eb" },
+            { label: "Orange", value: "#f97316" },
+            { label: "Amber", value: "#fbbf24" },
+            { label: "Teal", value: "#0d9488" },
+            { label: "Dark", value: "#1e293b" },
+          ].map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              title={p.label}
+              onClick={() => setButtonColor(p.value)}
+              className={cn(
+                "h-8 w-14 rounded-full border-2 transition-all hover:scale-105",
+                buttonColor === p.value
+                  ? "scale-105 border-foreground ring-2 ring-foreground/20"
+                  : "border-border hover:border-foreground/30"
+              )}
+              style={{ backgroundColor: p.value }}
+            >
+              {buttonColor === p.value && (
+                <span
+                  className="block text-center text-xs font-bold drop-shadow"
+                  style={{
+                    color:
+                      p.value === "#ffffff" || p.value === "#f5f0eb" || p.value === "#fbbf24"
+                        ? "#333"
+                        : "#fff",
+                  }}
+                >
+                  ✓
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Custom</span>
+          <label
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-border shadow-sm"
+            style={{ backgroundColor: buttonColor }}
+          >
+            <input
+              type="color"
+              value={buttonColor}
+              onChange={(e) => setButtonColor(e.target.value)}
+              className="sr-only"
+            />
+          </label>
+          <input
+            type="text"
+            value={buttonColor}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setButtonColor(v);
             }}
             className="h-7 w-24 rounded-md border border-border bg-background px-2 font-mono text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />

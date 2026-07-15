@@ -64,6 +64,8 @@ export default function FreelancerCard() {
 
   // Profile theme accent (overrides default orange on the card)
   const themeAccent: string = (freelancer as any)?.profile_theme?.accent ?? C.orange;
+  // Button colour for section buttons on the card back
+  const themeButtonColor: string = (freelancer as any)?.profile_theme?.button_color ?? "#ffffff";
   // Faint tint version for icon backgrounds / pill backgrounds
   const themeAccentLight: string = themeAccent + "1a"; // 10% opacity via hex alpha
 
@@ -84,11 +86,26 @@ export default function FreelancerCard() {
   const accentIsDark = accentLum < 0.7;
   const onAccent = accentIsDark ? "#ffffff" : "#111111";
   const onAccentSub = accentIsDark ? "rgba(255,255,255,0.72)" : "rgba(0,0,0,0.55)";
-  const onAccentMuted = accentIsDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.35)";
-  // Glass effect for buttons on accent background
+  // Glass effect (fallback, kept for non-button elements)
   const glassBg = accentIsDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.13)";
   const glassBorder = accentIsDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.18)";
   const glassStrongBg = accentIsDark ? "rgba(255,255,255,0.32)" : "rgba(0,0,0,0.18)";
+
+  // Button colour vars — used for section buttons and action bar
+  const btnLum = (() => {
+    const c = themeButtonColor;
+    if (!c.startsWith("#")) return 0.9;
+    const h = c.replace("#", "");
+    if (h.length < 6) return 0.9;
+    const r = parseInt(h.slice(0, 2), 16) / 255;
+    const g = parseInt(h.slice(2, 4), 16) / 255;
+    const b = parseInt(h.slice(4, 6), 16) / 255;
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+  })();
+  const onBtn = btnLum > 0.5 ? "#111111" : "#ffffff";
+  const onBtnSub = btnLum > 0.5 ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.7)";
+  const onBtnMuted = btnLum > 0.5 ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.45)";
+  const btnBorder = btnLum > 0.5 ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.25)";
 
   // Font from profile theme
   const themeFont: string = (freelancer as any)?.profile_theme?.font ?? "inter";
@@ -604,14 +621,12 @@ export default function FreelancerCard() {
           display: "flex",
           alignItems: "center",
           gap: 12,
-          background: glassBg,
-          border: `1px solid ${glassBorder}`,
+          background: themeButtonColor,
+          border: `1px solid ${btnBorder}`,
           borderRadius: 14,
           padding: "11px 13px",
           marginBottom: 8,
           cursor: "pointer",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
         }}
       >
         <div
@@ -619,8 +634,7 @@ export default function FreelancerCard() {
             width: 36,
             height: 36,
             borderRadius: 10,
-            background: glassStrongBg,
-            border: `1px solid ${glassBorder}`,
+            background: "rgba(0,0,0,0.07)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -631,10 +645,10 @@ export default function FreelancerCard() {
           {emoji}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: onAccent }}>{label}</span>
-          <span style={{ fontSize: 10, color: onAccentSub }}>{sub}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: onBtn }}>{label}</span>
+          <span style={{ fontSize: 10, color: onBtnSub }}>{sub}</span>
         </div>
-        <ChevronRight style={{ marginLeft: "auto", width: 14, height: 14, color: onAccentMuted }} />
+        <ChevronRight style={{ marginLeft: "auto", width: 14, height: 14, color: onBtnMuted }} />
       </div>
     );
   }
@@ -1078,11 +1092,11 @@ export default function FreelancerCard() {
                         style={{
                           flex: 1,
                           padding: "10px 4px",
-                          border: `1px solid ${glassBorder}`,
-                          background: glassStrongBg,
+                          border: `1px solid ${btnBorder}`,
+                          background: darkMode ? glassStrongBg : themeButtonColor,
                           borderRadius: 22,
                           fontSize: 11,
-                          color: darkMode ? DM.text1 : onAccent,
+                          color: darkMode ? DM.text1 : onBtn,
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "center",
@@ -1101,11 +1115,11 @@ export default function FreelancerCard() {
                         style={{
                           flex: 1,
                           padding: "10px 4px",
-                          border: `1px solid ${glassBorder}`,
-                          background: glassBg,
+                          border: `1px solid ${btnBorder}`,
+                          background: darkMode ? glassBg : themeButtonColor,
                           borderRadius: 22,
                           fontSize: 11,
-                          color: darkMode ? DM.text1 : onAccent,
+                          color: darkMode ? DM.text1 : onBtn,
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "center",

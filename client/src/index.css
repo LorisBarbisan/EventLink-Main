@@ -21,10 +21,10 @@ All colors MUST be HSL.
     --primary-foreground: 0 0% 100%;
     --primary-hover: 27 88% 40%;
 
-    --secondary: 197 85% 95%;
+    --secondary: 27 85% 95%;
     --secondary-foreground: 210 24% 16%;
 
-    --muted: 197 85% 97%;
+    --muted: 27 60% 97%;
     --muted-foreground: 215 16% 47%;
 
     --accent: 270 95% 70%;

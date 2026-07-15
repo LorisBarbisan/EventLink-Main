@@ -797,8 +797,10 @@ function CardLivePreview({
   theme,
 }: {
   formData: FreelancerFormData;
-  theme: { accent?: string; font?: string };
+  theme: { accent?: string; button_color?: string; font?: string };
 }) {
+  const [flipped, setFlipped] = useState(false);
+
   const FONT_CSS_MAP: Record<string, string> = {
     inter: "Inter, sans-serif",
     playfair: "'Playfair Display', serif",
@@ -806,13 +808,14 @@ function CardLivePreview({
     "space-grotesk": "'Space Grotesk', sans-serif",
   };
   const accent = theme.accent ?? "#f97316";
+  const buttonColor = theme.button_color ?? "#ffffff";
   const fontFamily = FONT_CSS_MAP[theme.font ?? "inter"] ?? "Inter, sans-serif";
   const firstName = formData.first_name || "Your";
   const lastName = formData.last_name || "Name";
   const title = formData.title || "Professional Title";
   const photo = formData.profile_photo_url;
 
-  // Luminance for text contrast (mirrors FreelancerCard logic)
+  // Luminance for back-of-card text contrast
   const lum = (() => {
     if (!accent.startsWith("#")) return 0.3;
     const h = accent.replace("#", "");
@@ -825,10 +828,20 @@ function CardLivePreview({
   const isDark = lum < 0.7;
   const onAccent = isDark ? "#fff" : "#111";
   const onAccentSub = isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.55)";
-  const onAccentMuted = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)";
-  const glassBg = isDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.13)";
-  const glassBorder = isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.18)";
-  const glassStrong = isDark ? "rgba(255,255,255,0.32)" : "rgba(0,0,0,0.18)";
+
+  // Button colour luminance (for text on button)
+  const btnLum = (() => {
+    if (!buttonColor.startsWith("#")) return 0.9;
+    const h = buttonColor.replace("#", "");
+    if (h.length < 6) return 0.9;
+    const r = parseInt(h.slice(0, 2), 16) / 255;
+    const g = parseInt(h.slice(2, 4), 16) / 255;
+    const b = parseInt(h.slice(4, 6), 16) / 255;
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+  })();
+  const onBtn = btnLum > 0.5 ? "#111" : "#fff";
+  const onBtnSub = btnLum > 0.5 ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.7)";
+  const btnBorder = btnLum > 0.5 ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.25)";
 
   const sections = [
     { emoji: "👤", label: "About", sub: "Overview & intro" },
@@ -838,144 +851,235 @@ function CardLivePreview({
   ];
 
   return (
-    <div
-      style={{
-        fontFamily,
-        borderRadius: 18,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-        background: accent,
-        padding: "16px 14px 14px",
-        minHeight: 320,
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* Header row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        {/* Avatar */}
+    <div style={{ fontFamily }}>
+      {/* Flip hint */}
+      <p className="mb-1 text-center text-xs text-muted-foreground">
+        {flipped ? "← Tap to see front" : "Tap to see back →"}
+      </p>
+
+      {/* 3-D flip scene */}
+      <div onClick={() => setFlipped((f) => !f)} style={{ perspective: 900, cursor: "pointer" }}>
         <div
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: "50%",
-            border: `2px solid ${glassBorder}`,
-            background: glassStrong,
-            overflow: "hidden",
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 16,
+            position: "relative",
+            transformStyle: "preserve-3d",
+            transition: "transform 0.55s cubic-bezier(.4,0,.2,1)",
+            transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+            borderRadius: 18,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+            minHeight: 340,
           }}
         >
-          {photo && photo !== "null" && photo.trim() ? (
-            <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          ) : (
-            "👤"
-          )}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* ── FRONT ── */}
           <div
             style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: onAccent,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {firstName} {lastName}
-          </div>
-          <div
-            style={{
-              fontSize: 10,
-              color: onAccentSub,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {title}
-          </div>
-        </div>
-        <span
-          style={{
-            fontSize: 9,
-            fontWeight: 700,
-            color: "hsl(27,88%,45%)",
-            flexShrink: 0,
-            background: "rgba(255,255,255,0.92)",
-            borderRadius: 20,
-            padding: "2px 7px",
-            border: "1px solid rgba(255,255,255,0.6)",
-          }}
-        >
-          EventLink
-        </span>
-      </div>
-
-      {/* Section buttons */}
-      <div style={{ flex: 1 }}>
-        {sections.map((s) => (
-          <div
-            key={s.label}
-            style={{
+              position: "absolute",
+              inset: 0,
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              background: "#fff",
+              borderRadius: 18,
+              border: "1px solid rgba(0,0,0,0.09)",
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              gap: 10,
-              background: glassBg,
-              border: `1px solid ${glassBorder}`,
-              borderRadius: 12,
-              padding: "9px 11px",
-              marginBottom: 7,
+              padding: "20px 16px 16px",
             }}
           >
+            {/* dot */}
             <div
               style={{
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                background: glassStrong,
-                border: `1px solid ${glassBorder}`,
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                background: "#eee",
+                border: "1.5px solid #ddd",
+                marginBottom: 14,
+              }}
+            />
+            {/* avatar */}
+            <div
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: "50%",
+                background: "#f0f0f0",
+                border: "2px solid #e0e0e0",
+                overflow: "hidden",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 13,
-                flexShrink: 0,
+                fontSize: 28,
+                marginBottom: 10,
               }}
             >
-              {s.emoji}
+              {photo && photo !== "null" && photo.trim() ? (
+                <img
+                  src={photo}
+                  alt=""
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : (
+                "👤"
+              )}
             </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: onAccent }}>{s.label}</div>
-              <div style={{ fontSize: 9, color: onAccentSub }}>{s.sub}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#111", marginBottom: 3 }}>
+              {firstName} {lastName}
             </div>
-            <div style={{ marginLeft: "auto", fontSize: 12, color: onAccentMuted }}>›</div>
+            <div style={{ fontSize: 11, color: "#666", marginBottom: 14 }}>{title}</div>
+            <div style={{ width: "100%", height: 1, background: "#eee", marginBottom: 10 }} />
+            <div style={{ marginTop: "auto", fontSize: 10, color: "#999" }}>📍 Location</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "hsl(27,88%,45%)", marginTop: 6 }}>
+              EventLink
+            </div>
           </div>
-        ))}
-      </div>
 
-      {/* Action bar */}
-      <div style={{ display: "flex", gap: 7, marginTop: 10 }}>
-        {["🔗 Share", "👁 Profile"].map((label) => (
+          {/* ── BACK ── */}
           <div
-            key={label}
             style={{
-              flex: 1,
-              padding: "8px 4px",
-              background: glassStrong,
-              border: `1px solid ${glassBorder}`,
-              borderRadius: 20,
-              fontSize: 10,
-              color: onAccent,
-              fontWeight: 700,
-              textAlign: "center",
+              position: "absolute",
+              inset: 0,
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transform: "rotateY(180deg)",
+              background: accent,
+              borderRadius: 18,
+              display: "flex",
+              flexDirection: "column",
+              padding: "16px 14px 14px",
             }}
           >
-            {label}
+            {/* Header row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: "50%",
+                  border: `2px solid ${btnBorder}`,
+                  background: buttonColor,
+                  overflow: "hidden",
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 16,
+                }}
+              >
+                {photo && photo !== "null" && photo.trim() ? (
+                  <img
+                    src={photo}
+                    alt=""
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : (
+                  "👤"
+                )}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: onAccent,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {firstName} {lastName}
+                </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: onAccentSub,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {title}
+                </div>
+              </div>
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: "hsl(27,88%,45%)",
+                  flexShrink: 0,
+                  background: "rgba(255,255,255,0.92)",
+                  borderRadius: 20,
+                  padding: "2px 7px",
+                  border: "1px solid rgba(255,255,255,0.6)",
+                }}
+              >
+                EventLink
+              </span>
+            </div>
+
+            {/* Section buttons */}
+            <div style={{ flex: 1 }}>
+              {sections.map((s) => (
+                <div
+                  key={s.label}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    background: buttonColor,
+                    border: `1px solid ${btnBorder}`,
+                    borderRadius: 12,
+                    padding: "8px 10px",
+                    marginBottom: 6,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 7,
+                      background: "rgba(0,0,0,0.07)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 13,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {s.emoji}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: onBtn }}>{s.label}</div>
+                    <div style={{ fontSize: 9, color: onBtnSub }}>{s.sub}</div>
+                  </div>
+                  <div style={{ marginLeft: "auto", fontSize: 12, color: onBtnSub }}>›</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Action bar */}
+            <div style={{ display: "flex", gap: 7, marginTop: 10 }}>
+              {["🔗 Share", "👁 Profile"].map((label) => (
+                <div
+                  key={label}
+                  style={{
+                    flex: 1,
+                    padding: "7px 4px",
+                    background: buttonColor,
+                    border: `1px solid ${btnBorder}`,
+                    borderRadius: 20,
+                    fontSize: 10,
+                    color: onBtn,
+                    fontWeight: 700,
+                    textAlign: "center",
+                  }}
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );
