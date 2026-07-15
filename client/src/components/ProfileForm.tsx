@@ -286,9 +286,19 @@ export function ProfileForm({
               <div className="flex items-center justify-between">
                 <CardTitle>{profile ? "Edit Profile" : "Create Freelancer Profile"}</CardTitle>
               </div>
-              <TabsList className="mt-3 w-full justify-start">
-                <TabsTrigger value="card">Card &amp; Appearance</TabsTrigger>
-                <TabsTrigger value="profile">Info &amp; Content</TabsTrigger>
+              <TabsList className="mt-3 w-full justify-start border border-border bg-muted/60">
+                <TabsTrigger
+                  value="card"
+                  className="font-semibold data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow"
+                >
+                  Card &amp; Appearance
+                </TabsTrigger>
+                <TabsTrigger
+                  value="profile"
+                  className="font-semibold data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow"
+                >
+                  Info &amp; Content
+                </TabsTrigger>
               </TabsList>
             </CardHeader>
 
@@ -816,9 +826,9 @@ function CardLivePreview({
   const onAccent = isDark ? "#fff" : "#111";
   const onAccentSub = isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.55)";
   const onAccentMuted = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)";
-  const glassBg = isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.07)";
-  const glassBorder = isDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.12)";
-  const glassStrong = isDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.12)";
+  const glassBg = isDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.13)";
+  const glassBorder = isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.18)";
+  const glassStrong = isDark ? "rgba(255,255,255,0.32)" : "rgba(0,0,0,0.18)";
 
   const sections = [
     { emoji: "👤", label: "About", sub: "Overview & intro" },
@@ -889,7 +899,18 @@ function CardLivePreview({
             {title}
           </div>
         </div>
-        <span style={{ fontSize: 10, fontWeight: 700, color: "hsl(27,88%,45%)", flexShrink: 0 }}>
+        <span
+          style={{
+            fontSize: 9,
+            fontWeight: 700,
+            color: "hsl(27,88%,45%)",
+            flexShrink: 0,
+            background: "rgba(255,255,255,0.92)",
+            borderRadius: 20,
+            padding: "2px 7px",
+            border: "1px solid rgba(255,255,255,0.6)",
+          }}
+        >
           EventLink
         </span>
       </div>

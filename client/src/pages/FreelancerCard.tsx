@@ -86,9 +86,9 @@ export default function FreelancerCard() {
   const onAccentSub = accentIsDark ? "rgba(255,255,255,0.72)" : "rgba(0,0,0,0.55)";
   const onAccentMuted = accentIsDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.35)";
   // Glass effect for buttons on accent background
-  const glassBg = accentIsDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.07)";
-  const glassBorder = accentIsDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.12)";
-  const glassStrongBg = accentIsDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.12)";
+  const glassBg = accentIsDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.13)";
+  const glassBorder = accentIsDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.18)";
+  const glassStrongBg = accentIsDark ? "rgba(255,255,255,0.32)" : "rgba(0,0,0,0.18)";
 
   // Font from profile theme
   const themeFont: string = (freelancer as any)?.profile_theme?.font ?? "inter";
@@ -971,7 +971,16 @@ export default function FreelancerCard() {
                         </div>
                       </div>
                       <span
-                        style={{ fontSize: 11, fontWeight: 700, color: C.orange, flexShrink: 0 }}
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: C.orange,
+                          flexShrink: 0,
+                          background: "rgba(255,255,255,0.92)",
+                          borderRadius: 20,
+                          padding: "2px 8px",
+                          border: "1px solid rgba(255,255,255,0.6)",
+                        }}
                       >
                         EventLink
                       </span>
