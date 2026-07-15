@@ -281,14 +281,14 @@ export function ProfileForm({
       />
       {userType === "freelancer" ? (
         <>
-          <Tabs defaultValue="profile">
+          <Tabs defaultValue="card">
             <CardHeader className="pb-0">
               <div className="flex items-center justify-between">
                 <CardTitle>{profile ? "Edit Profile" : "Create Freelancer Profile"}</CardTitle>
               </div>
               <TabsList className="mt-3 w-full justify-start">
-                <TabsTrigger value="profile">Profile</TabsTrigger>
                 <TabsTrigger value="card">Card &amp; Appearance</TabsTrigger>
+                <TabsTrigger value="profile">Info &amp; Content</TabsTrigger>
               </TabsList>
             </CardHeader>
 
@@ -800,158 +800,161 @@ function CardLivePreview({
   const firstName = formData.first_name || "Your";
   const lastName = formData.last_name || "Name";
   const title = formData.title || "Professional Title";
-  const location =
-    [formData.location, formData.country].filter(Boolean).join(", ") || "City, Country";
-  const skills = formData.skills?.slice(0, 5) ?? [];
   const photo = formData.profile_photo_url;
+
+  // Luminance for text contrast (mirrors FreelancerCard logic)
+  const lum = (() => {
+    if (!accent.startsWith("#")) return 0.3;
+    const h = accent.replace("#", "");
+    if (h.length < 6) return 0.3;
+    const r = parseInt(h.slice(0, 2), 16) / 255;
+    const g = parseInt(h.slice(2, 4), 16) / 255;
+    const b = parseInt(h.slice(4, 6), 16) / 255;
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+  })();
+  const isDark = lum < 0.7;
+  const onAccent = isDark ? "#fff" : "#111";
+  const onAccentSub = isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.55)";
+  const onAccentMuted = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)";
+  const glassBg = isDark ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.07)";
+  const glassBorder = isDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.12)";
+  const glassStrong = isDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.12)";
+
+  const sections = [
+    { emoji: "👤", label: "About", sub: "Overview & intro" },
+    { emoji: "🏅", label: "Credentials", sub: "Verified & endorsed" },
+    { emoji: "🖼️", label: "Portfolio", sub: "Photos, reels & blog" },
+    { emoji: "📄", label: "Files", sub: "CV & documents" },
+  ];
 
   return (
     <div
       style={{
         fontFamily,
         borderRadius: 18,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
-        background: "#fff",
-        padding: "18px 16px 16px",
-        border: "1px solid rgba(0,0,0,0.07)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+        background: accent,
+        padding: "16px 14px 14px",
+        minHeight: 320,
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      {/* Rating badge */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-        <span
-          style={{
-            background: accent,
-            color: "#fff",
-            borderRadius: 20,
-            fontSize: 11,
-            fontWeight: 700,
-            padding: "3px 10px",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 3,
-          }}
-        >
-          ★ 4.9 · 34
-        </span>
-      </div>
-      {/* Photo */}
-      <div style={{ marginBottom: 12 }}>
-        {photo && photo !== "null" && photo.trim() ? (
-          <img
-            src={photo}
-            alt="Preview"
-            style={{
-              width: 60,
-              height: 60,
-              borderRadius: "50%",
-              objectFit: "cover",
-              border: `3px solid ${accent}`,
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 60,
-              height: 60,
-              borderRadius: "50%",
-              background: accent + "22",
-              border: `3px solid ${accent}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 22,
-              color: accent,
-            }}
-          >
-            👤
-          </div>
-        )}
-      </div>
-      {/* Name + title */}
-      <div style={{ fontWeight: 700, fontSize: 17, lineHeight: 1.2, color: "#111" }}>
-        {firstName} {lastName}
-      </div>
-      <div style={{ fontSize: 12, color: "#777", marginTop: 2, marginBottom: 10 }}>{title}</div>
-      {/* Skills */}
-      {skills.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
-          {skills.map((s, i) => (
-            <span
-              key={i}
-              style={{
-                background: accent + "22",
-                color: accent,
-                borderRadius: 20,
-                fontSize: 11,
-                padding: "2px 9px",
-                fontWeight: 600,
-              }}
-            >
-              {s}
-            </span>
-          ))}
-        </div>
-      )}
-      {skills.length === 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
-          {["Your skill", "Another skill"].map((s, i) => (
-            <span
-              key={i}
-              style={{
-                background: accent + "22",
-                color: accent,
-                borderRadius: 20,
-                fontSize: 11,
-                padding: "2px 9px",
-                fontWeight: 600,
-                opacity: 0.5,
-              }}
-            >
-              {s}
-            </span>
-          ))}
-        </div>
-      )}
-      {/* Divider */}
-      <div style={{ borderTop: "1px solid #eee", marginBottom: 12 }} />
-      {/* Location + CTA */}
-      <div
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}
-      >
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        {/* Avatar */}
         <div
           style={{
+            width: 38,
+            height: 38,
+            borderRadius: "50%",
+            border: `2px solid ${glassBorder}`,
+            background: glassStrong,
+            overflow: "hidden",
+            flexShrink: 0,
             display: "flex",
             alignItems: "center",
-            gap: 4,
-            fontSize: 11,
-            color: "#888",
-            minWidth: 0,
+            justifyContent: "center",
+            fontSize: 16,
           }}
         >
-          <span>📍</span>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {location}
-          </span>
+          {photo && photo !== "null" && photo.trim() ? (
+            <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            "👤"
+          )}
         </div>
-        <button
-          type="button"
-          style={{
-            background: accent,
-            color: "#fff",
-            border: "none",
-            borderRadius: 20,
-            fontSize: 11,
-            fontWeight: 700,
-            padding: "6px 14px",
-            cursor: "default",
-            whiteSpace: "nowrap",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
-          ✦ View details
-        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: onAccent,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {firstName} {lastName}
+          </div>
+          <div
+            style={{
+              fontSize: 10,
+              color: onAccentSub,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {title}
+          </div>
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 700, color: "hsl(27,88%,45%)", flexShrink: 0 }}>
+          EventLink
+        </span>
+      </div>
+
+      {/* Section buttons */}
+      <div style={{ flex: 1 }}>
+        {sections.map((s) => (
+          <div
+            key={s.label}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              background: glassBg,
+              border: `1px solid ${glassBorder}`,
+              borderRadius: 12,
+              padding: "9px 11px",
+              marginBottom: 7,
+            }}
+          >
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                background: glassStrong,
+                border: `1px solid ${glassBorder}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 13,
+                flexShrink: 0,
+              }}
+            >
+              {s.emoji}
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: onAccent }}>{s.label}</div>
+              <div style={{ fontSize: 9, color: onAccentSub }}>{s.sub}</div>
+            </div>
+            <div style={{ marginLeft: "auto", fontSize: 12, color: onAccentMuted }}>›</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Action bar */}
+      <div style={{ display: "flex", gap: 7, marginTop: 10 }}>
+        {["🔗 Share", "👁 Profile"].map((label) => (
+          <div
+            key={label}
+            style={{
+              flex: 1,
+              padding: "8px 4px",
+              background: glassStrong,
+              border: `1px solid ${glassBorder}`,
+              borderRadius: 20,
+              fontSize: 10,
+              color: onAccent,
+              fontWeight: 700,
+              textAlign: "center",
+            }}
+          >
+            {label}
+          </div>
+        ))}
       </div>
     </div>
   );
