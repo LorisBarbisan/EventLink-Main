@@ -1445,7 +1445,14 @@ export class DatabaseStorage implements IStorage {
     page?: number;
     limit?: number;
   }): Promise<{
-    results: Array<FreelancerProfile & { average_rating: number; rating_count: number }>;
+    results: Array<
+      FreelancerProfile & {
+        average_rating: number;
+        rating_count: number;
+        subscription_tier: string | null;
+        user_email: string;
+      }
+    >;
     total: number;
     page: number;
     totalPages: number;
@@ -1501,6 +1508,7 @@ export class DatabaseStorage implements IStorage {
           created_at: freelancer_profiles.created_at,
           updated_at: freelancer_profiles.updated_at,
           user_email: users.email,
+          subscription_tier: users.subscription_tier,
         })
         .from(freelancer_profiles)
         .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
@@ -1581,6 +1589,7 @@ export class DatabaseStorage implements IStorage {
           created_at: freelancer_profiles.created_at,
           updated_at: freelancer_profiles.updated_at,
           user_email: users.email,
+          subscription_tier: users.subscription_tier,
         })
         .from(freelancer_profiles)
         .innerJoin(users, eq(freelancer_profiles.user_id, users.id))

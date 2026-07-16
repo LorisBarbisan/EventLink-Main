@@ -143,6 +143,7 @@ export default function Freelancers() {
     relevanceScore: profile.relevance_score || 0,
     userEmail: profile.user_email || "",
     isPromotional: profile.user_email?.toLowerCase() === EVENTLINK_PROMOTIONAL_EMAIL,
+    isPro: profile.subscription_tier === "pro",
   }));
 
   return (
@@ -366,16 +367,28 @@ export default function Freelancers() {
             {transformedFreelancers.map((freelancer: any) => (
               <Card
                 key={freelancer.id}
-                className={`border-l-4 border-l-accent transition-shadow hover:shadow-lg ${
+                className={`transition-shadow hover:shadow-lg ${
+                  freelancer.isPro ? "border-[#2d4875]" : "border-l-4 border-l-accent"
+                } ${
                   highlightedFreelancer && freelancer.id === `real-${highlightedFreelancer}`
-                    ? "bg-blue-50 ring-2 ring-blue-500"
+                    ? "ring-2 ring-blue-500"
                     : ""
                 }`}
+                style={
+                  freelancer.isPro ? { background: "#192743", borderColor: "#2d4875" } : undefined
+                }
                 data-testid={`freelancer-card-${freelancer.id}`}
               >
                 <CardHeader>
                   <div className="flex items-start gap-4">
-                    <div className="bg-gradient-primary flex h-16 w-16 items-center justify-center overflow-hidden rounded-full text-2xl">
+                    <div
+                      className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full"
+                      style={
+                        freelancer.isPro
+                          ? { background: "#253859", border: "2px solid #2d4875" }
+                          : { background: "var(--gradient-primary)" }
+                      }
+                    >
                       {freelancer.avatar &&
                       (freelancer.avatar.startsWith("data:image/") ||
                         freelancer.avatar.startsWith("https://") ||
@@ -386,8 +399,16 @@ export default function Freelancers() {
                           className="h-full w-full rounded-full bg-white object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center rounded-full bg-blue-600">
-                          <span className="text-lg font-bold text-white">
+                        <div
+                          className="flex h-full w-full items-center justify-center rounded-full"
+                          style={
+                            freelancer.isPro ? { background: "#253859" } : { background: "#2563eb" }
+                          }
+                        >
+                          <span
+                            className="text-lg font-bold"
+                            style={{ color: freelancer.isPro ? "#94a3b8" : "#fff" }}
+                          >
                             {freelancer.name
                               .split(" ")
                               .map((n: string) => n[0])
@@ -397,11 +418,49 @@ export default function Freelancers() {
                       )}
                     </div>
                     <div className="flex-1">
-                      <CardTitle className="text-xl">{freelancer.name}</CardTitle>
-                      <p className="font-medium text-muted-foreground">{freelancer.title}</p>
+                      <div className="flex items-center gap-2">
+                        <CardTitle
+                          className="text-xl"
+                          style={freelancer.isPro ? { color: "#fff" } : undefined}
+                        >
+                          {freelancer.name}
+                        </CardTitle>
+                        {freelancer.isPro && (
+                          <span
+                            style={{
+                              background: "#f97316",
+                              color: "#fff",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              borderRadius: 4,
+                              padding: "2px 7px",
+                              letterSpacing: "0.04em",
+                            }}
+                          >
+                            PRO
+                          </span>
+                        )}
+                      </div>
+                      <p
+                        className="font-medium"
+                        style={
+                          freelancer.isPro
+                            ? { color: "#8facc8" }
+                            : { color: "var(--muted-foreground)" }
+                        }
+                      >
+                        {freelancer.title}
+                      </p>
                       {freelancer.superpower && (
                         <div className="mt-1 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
-                          <span className="text-sm font-medium text-muted-foreground">
+                          <span
+                            className="text-sm font-medium"
+                            style={
+                              freelancer.isPro
+                                ? { color: "#8facc8" }
+                                : { color: "var(--muted-foreground)" }
+                            }
+                          >
                             Superpower:
                           </span>
                           <Badge className="h-auto max-w-full truncate whitespace-normal border-0 bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-1 hover:from-purple-600 hover:to-pink-600">
@@ -413,7 +472,9 @@ export default function Freelancers() {
                         {freelancer.rating > 0 && (
                           <div className="flex items-center gap-1">
                             <Star className="h-4 w-4 fill-current text-yellow-500" />
-                            <span>{freelancer.rating.toFixed(1)}</span>
+                            <span style={freelancer.isPro ? { color: "#cbd5e1" } : undefined}>
+                              {freelancer.rating.toFixed(1)}
+                            </span>
                           </div>
                         )}
                         <Badge
@@ -422,14 +483,38 @@ export default function Freelancers() {
                           }
                           className={
                             freelancer.availability === "Available"
-                              ? "bg-green-100 text-green-800"
+                              ? freelancer.isPro
+                                ? ""
+                                : "bg-green-100 text-green-800"
                               : ""
+                          }
+                          style={
+                            freelancer.isPro && freelancer.availability === "Available"
+                              ? {
+                                  background: "rgba(34,197,94,0.15)",
+                                  color: "#4ade80",
+                                  border: "none",
+                                }
+                              : freelancer.isPro
+                                ? {
+                                    background: "rgba(148,163,184,0.15)",
+                                    color: "#8facc8",
+                                    border: "none",
+                                  }
+                                : undefined
                           }
                         >
                           {freelancer.availability}
                         </Badge>
                         {(freelancer.location || freelancer.country) && (
-                          <div className="flex items-center gap-1 text-muted-foreground">
+                          <div
+                            className="flex items-center gap-1"
+                            style={
+                              freelancer.isPro
+                                ? { color: "#64879f" }
+                                : { color: "var(--muted-foreground)" }
+                            }
+                          >
                             <MapPin className="h-3 w-3" />
                             <span>
                               {[freelancer.location, freelancer.country].filter(Boolean).join(", ")}
@@ -446,7 +531,16 @@ export default function Freelancers() {
                 <CardContent className="pt-0">
                   <div className="flex gap-3">
                     <Button
-                      className="bg-gradient-primary hover:bg-primary-hover h-8 text-sm"
+                      className={
+                        freelancer.isPro
+                          ? "h-8 text-sm"
+                          : "bg-gradient-primary hover:bg-primary-hover h-8 text-sm"
+                      }
+                      style={
+                        freelancer.isPro
+                          ? { background: "#f97316", color: "#fff", border: "none" }
+                          : undefined
+                      }
                       onClick={() => {
                         if (!currentUser && !freelancer.isPromotional) {
                           alert("Please log in to contact freelancers");
@@ -467,6 +561,11 @@ export default function Freelancers() {
                     <Button
                       variant="outline"
                       className="h-8 text-sm"
+                      style={
+                        freelancer.isPro
+                          ? { background: "transparent", color: "#8facc8", borderColor: "#2d4875" }
+                          : undefined
+                      }
                       onClick={() => {
                         const userId = freelancer.id.replace("real-", "");
                         setLocation(`/profile/${userId}`);
@@ -483,7 +582,14 @@ export default function Freelancers() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className={`ml-auto h-8 w-8 ${isSaved ? "text-orange-500" : "text-muted-foreground"}`}
+                            className={`ml-auto h-8 w-8 ${isSaved ? "text-orange-500" : ""}`}
+                            style={
+                              !isSaved && freelancer.isPro
+                                ? { color: "#64879f" }
+                                : !isSaved
+                                  ? { color: "var(--muted-foreground)" }
+                                  : undefined
+                            }
                             onClick={() => {
                               if (isSaved) {
                                 unsaveMutation.mutate(freelancerUserId);
