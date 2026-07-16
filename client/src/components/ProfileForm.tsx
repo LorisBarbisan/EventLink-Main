@@ -880,21 +880,21 @@ function CardLivePreview({
               WebkitBackfaceVisibility: "hidden",
               background: "#fff",
               borderRadius: 18,
-              border: "1px solid rgba(0,0,0,0.09)",
+              border: `1.5px solid ${accent}33`,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               padding: "20px 16px 16px",
             }}
           >
-            {/* dot */}
+            {/* accent dot */}
             <div
               style={{
-                width: 12,
-                height: 12,
+                width: 10,
+                height: 10,
                 borderRadius: "50%",
-                background: "#eee",
-                border: "1.5px solid #ddd",
+                background: accent,
+                opacity: 0.7,
                 marginBottom: 14,
               }}
             />
@@ -905,7 +905,7 @@ function CardLivePreview({
                 height: 72,
                 borderRadius: "50%",
                 background: "#f0f0f0",
-                border: "2px solid #e0e0e0",
+                border: `3px solid ${accent}`,
                 overflow: "hidden",
                 display: "flex",
                 alignItems: "center",
@@ -924,18 +924,27 @@ function CardLivePreview({
                 "👤"
               )}
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#111", marginBottom: 3 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: accent, marginBottom: 3 }}>
               {firstName} {lastName}
             </div>
             <div style={{ fontSize: 11, color: "#666", marginBottom: 10 }}>{title}</div>
-            <div style={{ width: "100%", height: 1, background: "#eee", marginBottom: 10 }} />
-            {/* Contact details */}
+            {/* accent divider */}
+            <div
+              style={{
+                width: "100%",
+                height: 1.5,
+                background: `linear-gradient(to right, transparent, ${accent}66, transparent)`,
+                marginBottom: 10,
+              }}
+            />
+            {/* Contact details — centred */}
             {(formData.phone || formData.contact_email) && (
               <div
                 style={{
                   width: "100%",
                   display: "flex",
                   flexDirection: "column",
+                  alignItems: "center",
                   gap: 5,
                   marginBottom: 8,
                 }}
@@ -947,6 +956,7 @@ function CardLivePreview({
                       color: "#444",
                       display: "flex",
                       alignItems: "center",
+                      justifyContent: "center",
                       gap: 4,
                     }}
                   >
@@ -960,8 +970,10 @@ function CardLivePreview({
                       color: "#444",
                       display: "flex",
                       alignItems: "center",
+                      justifyContent: "center",
                       gap: 4,
                       wordBreak: "break-all",
+                      textAlign: "center",
                     }}
                   >
                     <span>✉️</span> {formData.contact_email}
@@ -973,15 +985,27 @@ function CardLivePreview({
               style={{
                 marginTop: "auto",
                 fontSize: 10,
-                color: "#999",
+                color: accent,
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 3,
               }}
             >
               📍 {[formData.location, formData.country].filter(Boolean).join(", ") || "Location"}
             </div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "hsl(27,88%,45%)", marginTop: 6 }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#fff",
+                background: accent,
+                borderRadius: 20,
+                padding: "2px 10px",
+                marginTop: 8,
+                letterSpacing: "0.05em",
+              }}
+            >
               EventLink
             </div>
           </div>
