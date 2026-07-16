@@ -6,6 +6,7 @@ export type FontKey = "inter" | "playfair" | "poppins" | "space-grotesk";
 export interface ProfileTheme {
   accent?: string;
   button_color?: string;
+  button_text?: "auto" | "light" | "dark";
   font?: FontKey;
   section_order?: string[];
 }
@@ -56,8 +57,10 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
   const sections = theme.section_order ?? DEFAULT_SECTIONS;
 
   const buttonColor = theme.button_color ?? "#ffffff";
+  const buttonText = theme.button_text ?? "auto";
   const setAccent = (v: string) => onChange({ ...theme, accent: v });
   const setButtonColor = (v: string) => onChange({ ...theme, button_color: v });
+  const setButtonText = (v: "auto" | "light" | "dark") => onChange({ ...theme, button_text: v });
   const setFont = (v: FontKey) => onChange({ ...theme, font: v });
 
   const moveSection = (idx: number, dir: -1 | 1) => {
@@ -130,12 +133,10 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
         </p>
         <div className="flex flex-wrap gap-2">
           {[
+            { label: "Black", value: "#000000" },
             { label: "White", value: "#ffffff" },
-            { label: "Light", value: "#f5f0eb" },
-            { label: "Orange", value: "#f97316" },
-            { label: "Amber", value: "#fbbf24" },
-            { label: "Teal", value: "#0d9488" },
-            { label: "Dark", value: "#1e293b" },
+            { label: "Grey", value: "#8e8e8e" },
+            { label: "Yellow", value: "#ffcc00" },
           ].map((p) => (
             <button
               key={p.value}
@@ -154,10 +155,7 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
                 <span
                   className="block text-center text-xs font-bold drop-shadow"
                   style={{
-                    color:
-                      p.value === "#ffffff" || p.value === "#f5f0eb" || p.value === "#fbbf24"
-                        ? "#333"
-                        : "#fff",
+                    color: p.value === "#ffffff" || p.value === "#ffcc00" ? "#333" : "#fff",
                   }}
                 >
                   ✓
@@ -188,6 +186,27 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
             }}
             className="h-7 w-24 rounded-md border border-border bg-background px-2 font-mono text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
+        </div>
+        {/* Button text colour toggle */}
+        <div className="mt-3">
+          <p className="mb-2 text-xs font-semibold text-muted-foreground">Button text</p>
+          <div className="flex gap-1">
+            {(["auto", "light", "dark"] as const).map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setButtonText(opt)}
+                className={cn(
+                  "rounded-md border px-3 py-1 text-xs font-medium capitalize transition-all",
+                  buttonText === opt
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border bg-background text-muted-foreground hover:border-foreground/40"
+                )}
+              >
+                {opt === "auto" ? "Auto" : opt === "light" ? "☀ Light" : "☾ Dark"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

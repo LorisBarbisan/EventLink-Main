@@ -791,7 +791,12 @@ function CardLivePreview({
   theme,
 }: {
   formData: FreelancerFormData;
-  theme: { accent?: string; button_color?: string; font?: string };
+  theme: {
+    accent?: string;
+    button_color?: string;
+    button_text?: "auto" | "light" | "dark";
+    font?: string;
+  };
 }) {
   const [flipped, setFlipped] = useState(false);
 
@@ -803,6 +808,7 @@ function CardLivePreview({
   };
   const accent = theme.accent ?? "#f97316";
   const buttonColor = theme.button_color ?? "#ffffff";
+  const buttonTextPref = theme.button_text ?? "auto";
   const fontFamily = FONT_CSS_MAP[theme.font ?? "inter"] ?? "Inter, sans-serif";
   const firstName = formData.first_name || "Your";
   const lastName = formData.last_name || "Name";
@@ -823,7 +829,7 @@ function CardLivePreview({
   const onAccent = isDark ? "#fff" : "#111";
   const onAccentSub = isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.55)";
 
-  // Button colour luminance (for text on button)
+  // Button text colour — respect manual override, fall back to luminance
   const btnLum = (() => {
     if (!buttonColor.startsWith("#")) return 0.9;
     const h = buttonColor.replace("#", "");
@@ -833,9 +839,10 @@ function CardLivePreview({
     const b = parseInt(h.slice(4, 6), 16) / 255;
     return 0.299 * r + 0.587 * g + 0.114 * b;
   })();
-  const onBtn = btnLum > 0.5 ? "#111" : "#fff";
-  const onBtnSub = btnLum > 0.5 ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.7)";
-  const btnBorder = btnLum > 0.5 ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.25)";
+  const btnDark = buttonTextPref === "dark" || (buttonTextPref === "auto" && btnLum > 0.5);
+  const onBtn = btnDark ? "#111" : "#fff";
+  const onBtnSub = btnDark ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.7)";
+  const btnBorder = btnDark ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.25)";
 
   const sections = [
     { emoji: "👤", label: "About", sub: "Overview & intro" },
@@ -920,9 +927,60 @@ function CardLivePreview({
             <div style={{ fontSize: 15, fontWeight: 700, color: "#111", marginBottom: 3 }}>
               {firstName} {lastName}
             </div>
-            <div style={{ fontSize: 11, color: "#666", marginBottom: 14 }}>{title}</div>
+            <div style={{ fontSize: 11, color: "#666", marginBottom: 10 }}>{title}</div>
             <div style={{ width: "100%", height: 1, background: "#eee", marginBottom: 10 }} />
-            <div style={{ marginTop: "auto", fontSize: 10, color: "#999" }}>📍 Location</div>
+            {/* Contact details */}
+            {(formData.phone || formData.contact_email) && (
+              <div
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 5,
+                  marginBottom: 8,
+                }}
+              >
+                {formData.phone && (
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "#444",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <span>📞</span> {formData.phone}
+                  </div>
+                )}
+                {formData.contact_email && (
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "#444",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    <span>✉️</span> {formData.contact_email}
+                  </div>
+                )}
+              </div>
+            )}
+            <div
+              style={{
+                marginTop: "auto",
+                fontSize: 10,
+                color: "#999",
+                display: "flex",
+                alignItems: "center",
+                gap: 3,
+              }}
+            >
+              📍 {[formData.location, formData.country].filter(Boolean).join(", ") || "Location"}
+            </div>
             <div style={{ fontSize: 12, fontWeight: 700, color: "hsl(27,88%,45%)", marginTop: 6 }}>
               EventLink
             </div>

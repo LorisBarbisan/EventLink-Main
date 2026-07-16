@@ -92,6 +92,8 @@ export default function FreelancerCard() {
   const glassStrongBg = accentIsDark ? "rgba(255,255,255,0.32)" : "rgba(0,0,0,0.18)";
 
   // Button colour vars — used for section buttons and action bar
+  const themeButtonText: "auto" | "light" | "dark" =
+    (freelancer as any)?.profile_theme?.button_text ?? "auto";
   const btnLum = (() => {
     const c = themeButtonColor;
     if (!c.startsWith("#")) return 0.9;
@@ -102,10 +104,11 @@ export default function FreelancerCard() {
     const b = parseInt(h.slice(4, 6), 16) / 255;
     return 0.299 * r + 0.587 * g + 0.114 * b;
   })();
-  const onBtn = btnLum > 0.5 ? "#111111" : "#ffffff";
-  const onBtnSub = btnLum > 0.5 ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.7)";
-  const onBtnMuted = btnLum > 0.5 ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.45)";
-  const btnBorder = btnLum > 0.5 ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.25)";
+  const btnDark = themeButtonText === "dark" || (themeButtonText === "auto" && btnLum > 0.5);
+  const onBtn = btnDark ? "#111111" : "#ffffff";
+  const onBtnSub = btnDark ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.7)";
+  const onBtnMuted = btnDark ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.45)";
+  const btnBorder = btnDark ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.25)";
 
   // Font from profile theme
   const themeFont: string = (freelancer as any)?.profile_theme?.font ?? "inter";
