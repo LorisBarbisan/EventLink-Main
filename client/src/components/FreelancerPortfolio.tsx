@@ -182,7 +182,7 @@ function PostForm({
       });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/portfolio", userId] });
+      qc.refetchQueries({ queryKey: ["/api/portfolio", userId] });
       toast({ title: initial ? "Post updated" : "Post created" });
       onClose();
     },
@@ -342,7 +342,7 @@ export function FreelancerPortfolio({
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest(`/api/portfolio/${id}`, { method: "DELETE" }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/portfolio", userId] });
+      qc.refetchQueries({ queryKey: ["/api/portfolio", userId] });
       toast({ title: "Post deleted" });
     },
     onError: () => toast({ title: "Delete failed", variant: "destructive" }),
