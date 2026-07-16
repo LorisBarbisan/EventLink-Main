@@ -70,7 +70,7 @@ function PostCard({
   const placeholder = TYPE_PLACEHOLDER[post.type];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
+    <div className="rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
       {/* Media area */}
       <div className="aspect-video w-full overflow-hidden bg-muted">
         {post.type === "photo" && post.media_url ? (
