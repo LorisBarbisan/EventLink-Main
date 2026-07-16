@@ -367,8 +367,8 @@ export default function Freelancers() {
             {transformedFreelancers.map((freelancer: any) => (
               <Card
                 key={freelancer.id}
-                className={`transition-shadow hover:shadow-lg ${
-                  freelancer.isPro ? "border-r-4 border-r-[#192743]" : "border-l-4 border-l-accent"
+                className={`border-l-4 border-l-accent transition-shadow hover:shadow-lg ${
+                  freelancer.isPro ? "border-r-[28px] border-r-[#192743]" : ""
                 } ${
                   highlightedFreelancer && freelancer.id === `real-${highlightedFreelancer}`
                     ? "ring-2 ring-blue-500"
