@@ -1,4 +1,3 @@
-import { ArticleEditor } from "@/components/ArticleEditor";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -17,7 +16,12 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
+
+// Lazy-load so Tiptap packages don't block the portfolio grid on first render
+const ArticleEditor = lazy(() =>
+  import("@/components/ArticleEditor").then((m) => ({ default: m.ArticleEditor }))
+);
 
 type PostType = "photo" | "video" | "blog";
 
@@ -423,7 +427,15 @@ function PostForm({
       {isArticle ? (
         <div>
           <Label className="mb-1 block">Content</Label>
-          <ArticleEditor content={body} onChange={setBody} />
+          <Suspense
+            fallback={
+              <div className="flex h-40 items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            }
+          >
+            <ArticleEditor content={body} onChange={setBody} />
+          </Suspense>
         </div>
       ) : (
         <div>
