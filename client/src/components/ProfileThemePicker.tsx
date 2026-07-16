@@ -11,14 +11,14 @@ export interface ProfileTheme {
 }
 
 const ACCENT_PRESETS = [
-  { label: "Orange", value: "#f97316" },
-  { label: "Brown", value: "#92400e" },
-  { label: "Teal", value: "#0d7490" },
-  { label: "Green", value: "#15803d" },
-  { label: "Taupe", value: "#78716c" },
-  { label: "Amber", value: "#ca8a04" },
-  { label: "Purple", value: "#7c3aed" },
-  { label: "Rose", value: "#be185d" },
+  { label: "Black", value: "#000000" },
+  { label: "White", value: "#ffffff" },
+  { label: "Red", value: "#a30d26" },
+  { label: "Lime", value: "#90ff09" },
+  { label: "Dark Grey", value: "#5c5c5c" },
+  { label: "Blue", value: "#1700c0" },
+  { label: "Grey", value: "#999999" },
+  { label: "Yellow", value: "#efd725" },
 ];
 
 const FONTS: { key: FontKey; label: string; style: string }[] = [
