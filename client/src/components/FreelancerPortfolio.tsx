@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,15 +38,21 @@ interface FreelancerPortfolioProps {
 }
 
 const TYPE_LABELS: Record<PostType, string> = {
-  photo: "Photo",
-  video: "Video",
-  blog: "Blog Post",
+  photo: "Photos",
+  video: "Videos",
+  blog: "Blogs",
 };
 
 const TYPE_ICONS: Record<PostType, React.ReactNode> = {
   photo: <ImagePlus className="h-4 w-4" />,
   video: <Film className="h-4 w-4" />,
   blog: <FileText className="h-4 w-4" />,
+};
+
+const TYPE_PLACEHOLDER: Record<PostType, { icon: React.ReactNode; label: string }> = {
+  photo: { icon: <ImagePlus className="h-10 w-10 text-muted-foreground/40" />, label: "Photo" },
+  video: { icon: <Film className="h-10 w-10 text-muted-foreground/40" />, label: "Video" },
+  blog: { icon: <FileText className="h-10 w-10 text-muted-foreground/40" />, label: "Blog post" },
 };
 
 function PostCard({
@@ -62,65 +67,42 @@ function PostCard({
   onDelete: (id: number) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-
-  const TYPE_HEADER: Record<PostType, { bg: string; icon: React.ReactNode; badge: string }> = {
-    photo: {
-      bg: "bg-blue-500",
-      badge: "bg-blue-500",
-      icon: <ImagePlus className="h-8 w-8 text-white/80" />,
-    },
-    video: {
-      bg: "bg-orange-500",
-      badge: "bg-orange-500",
-      icon: <Film className="h-8 w-8 text-white/80" />,
-    },
-    blog: {
-      bg: "bg-[#0d1f3c]",
-      badge: "bg-[#0d1f3c]",
-      icon: <FileText className="h-8 w-8 text-white/80" />,
-    },
-  };
-
-  const header = TYPE_HEADER[post.type];
+  const placeholder = TYPE_PLACEHOLDER[post.type];
 
   return (
-    <Card className="overflow-visible">
-      {/* Header area — always shown, colour-coded by type */}
-      <div className="relative overflow-hidden rounded-t-xl">
+    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
+      {/* Media area */}
+      <div className="aspect-video w-full overflow-hidden bg-muted">
         {post.type === "photo" && post.media_url ? (
-          <div className="aspect-video">
-            <img
-              src={post.media_url}
-              alt={post.title || "Portfolio photo"}
-              className="h-full w-full object-cover"
-            />
-          </div>
+          <img
+            src={post.media_url}
+            alt={post.title || "Portfolio photo"}
+            className="h-full w-full object-cover"
+          />
         ) : post.type === "video" && post.media_url ? (
-          <div className="aspect-video">
-            <video
-              src={post.media_url}
-              controls
-              className="h-full w-full object-cover"
-              poster={post.thumbnail_url || undefined}
-            />
-          </div>
+          <video
+            src={post.media_url}
+            controls
+            className="h-full w-full object-cover"
+            poster={post.thumbnail_url || undefined}
+          />
         ) : (
-          <div className={`flex h-24 items-center justify-center ${header.bg}`}>{header.icon}</div>
+          <div className="flex h-full flex-col items-center justify-center gap-2">
+            {placeholder.icon}
+            <span className="text-xs text-muted-foreground">{placeholder.label}</span>
+          </div>
         )}
-        {/* Type badge overlay */}
-        <span
-          className={`absolute left-2 top-2 flex items-center gap-1 rounded-full ${header.badge} px-2 py-0.5 text-xs font-semibold text-white shadow`}
-        >
-          {TYPE_LABELS[post.type]}
-        </span>
       </div>
 
-      <CardContent className="p-4">
+      {/* Text content */}
+      <div className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            {post.title && <p className="truncate font-semibold leading-tight">{post.title}</p>}
+            {post.title && (
+              <p className="truncate text-base font-bold leading-snug">{post.title}</p>
+            )}
             {post.body && (
-              <p className="mt-1 line-clamp-3 text-sm text-muted-foreground">{post.body}</p>
+              <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{post.body}</p>
             )}
           </div>
           {editable && (
@@ -158,8 +140,8 @@ function PostCard({
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -387,16 +369,18 @@ export function FreelancerPortfolio({
     setDialogOpen(true);
   };
 
+  const TAB_LABELS: Record<"all" | PostType, string> = {
+    all: "All",
+    photo: "Photos",
+    video: "Videos",
+    blog: "Blogs",
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Portfolio</h2>
-          <p className="text-sm text-muted-foreground">
-            Share your work — photos, videos, and blog posts
-          </p>
-        </div>
+      <div className="mb-5 flex items-center justify-between">
+        <h2 className="text-xl font-bold">Portfolio</h2>
         {editable && (
           <Button
             onClick={openNew}
@@ -408,24 +392,22 @@ export function FreelancerPortfolio({
         )}
       </div>
 
-      {/* Filter tabs */}
-      {posts.length > 0 && (
-        <div className="flex gap-2">
-          {(["all", "photo", "video", "blog"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setFilterType(t)}
-              className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
-                filterType === t
-                  ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t === "all" ? "All" : TYPE_LABELS[t]}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Subtabs */}
+      <div className="mb-5 flex gap-1 border-b border-border">
+        {(["all", "photo", "video", "blog"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setFilterType(t)}
+            className={`relative px-4 py-2 text-sm font-medium transition-colors ${
+              filterType === t
+                ? "text-foreground after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-accent"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {TAB_LABELS[t]}
+          </button>
+        ))}
+      </div>
 
       {/* Grid */}
       {isLoading ? (
