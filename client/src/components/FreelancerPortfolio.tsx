@@ -69,10 +69,58 @@ function PostCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const placeholder = TYPE_PLACEHOLDER[post.type];
 
+  // Blog posts: full-card text layout, no media area
+  if (post.type === "blog") {
+    return (
+      <div className="relative flex aspect-video flex-col rounded-2xl border border-border bg-card p-3 shadow-sm transition-shadow hover:shadow-md">
+        {editable && (
+          <div className="absolute right-1 top-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+            {menuOpen && (
+              <div className="absolute right-0 top-8 z-50 w-32 rounded-md border bg-popover py-1 shadow-lg">
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onEdit(post);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Edit
+                </button>
+                <button
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-destructive hover:bg-muted"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onDelete(post.id);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        {post.title && <p className="mb-1 pr-6 text-sm font-bold leading-snug">{post.title}</p>}
+        {post.body && (
+          <p className="line-clamp-[8] text-xs leading-relaxed text-muted-foreground">
+            {post.body}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
       {/* Media area */}
-      <div className="aspect-video w-full overflow-hidden bg-muted">
+      <div className="aspect-video w-full overflow-hidden rounded-t-2xl bg-muted">
         {post.type === "photo" && post.media_url ? (
           <img
             src={post.media_url}
