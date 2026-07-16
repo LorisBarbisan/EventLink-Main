@@ -95,14 +95,12 @@ function PostCard({
       </div>
 
       {/* Text content */}
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2">
+      <div className="p-2">
+        <div className="flex items-start justify-between gap-1">
           <div className="min-w-0 flex-1">
-            {post.title && (
-              <p className="truncate text-base font-bold leading-snug">{post.title}</p>
-            )}
+            {post.title && <p className="truncate text-sm font-bold leading-snug">{post.title}</p>}
             {post.body && (
-              <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{post.body}</p>
+              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{post.body}</p>
             )}
           </div>
           {editable && (
@@ -428,7 +426,7 @@ export function FreelancerPortfolio({
           )}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {filtered.map((post) => (
             <PostCard
               key={post.id}

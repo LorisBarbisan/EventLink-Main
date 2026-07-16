@@ -1437,7 +1437,7 @@ export default function FreelancerCard() {
                   </div>
                 )}
                 {rightTab === "portfolio" && hasAccess && (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 6 }}>
                     {(portfolio as any[]).length === 0 && (
                       <p style={{ fontSize: 13, color: C.text3, gridColumn: "1/-1" }}>
                         No portfolio items yet.
@@ -1471,36 +1471,36 @@ export default function FreelancerCard() {
                             <img
                               src={item.thumbnail_url}
                               alt={item.title}
-                              style={{ width: "100%", height: 72, objectFit: "cover" }}
+                              style={{ width: "100%", height: 52, objectFit: "cover" }}
                             />
                           ) : (
                             <div
                               style={{
-                                height: 72,
+                                height: 52,
                                 background: bg,
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                fontSize: 28,
+                                fontSize: 20,
                               }}
                             >
                               {emoji}
                             </div>
                           )}
-                          <div style={{ padding: "6px 8px" }}>
+                          <div style={{ padding: "4px 6px" }}>
                             <div
                               style={{
-                                fontSize: 9,
+                                fontSize: 8,
                                 textTransform: "uppercase",
-                                letterSpacing: "0.6px",
+                                letterSpacing: "0.5px",
                                 fontWeight: 700,
                                 color: typeColor,
-                                marginBottom: 2,
+                                marginBottom: 1,
                               }}
                             >
                               {item.type}
                             </div>
-                            <div style={{ fontSize: 11, color: "#333", fontWeight: 500 }}>
+                            <div style={{ fontSize: 10, color: "#333", fontWeight: 500 }}>
                               {item.title || "Untitled"}
                             </div>
                           </div>
