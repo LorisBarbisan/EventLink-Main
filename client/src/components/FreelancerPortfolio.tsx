@@ -1,8 +1,8 @@
+import { ArticleEditor } from "@/components/ArticleEditor";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -37,10 +37,11 @@ interface FreelancerPortfolioProps {
   editable?: boolean;
 }
 
+// "blog" type is called "Article" in the UI; the DB value stays "blog"
 const TYPE_LABELS: Record<PostType, string> = {
   photo: "Photos",
   video: "Videos",
-  blog: "Blogs",
+  blog: "Articles",
 };
 
 const TYPE_ICONS: Record<PostType, React.ReactNode> = {
@@ -52,7 +53,7 @@ const TYPE_ICONS: Record<PostType, React.ReactNode> = {
 const TYPE_PLACEHOLDER: Record<PostType, { icon: React.ReactNode; label: string }> = {
   photo: { icon: <ImagePlus className="h-10 w-10 text-muted-foreground/40" />, label: "Photo" },
   video: { icon: <Film className="h-10 w-10 text-muted-foreground/40" />, label: "Video" },
-  blog: { icon: <FileText className="h-10 w-10 text-muted-foreground/40" />, label: "Blog post" },
+  blog: { icon: <FileText className="h-10 w-10 text-muted-foreground/40" />, label: "Article" },
 };
 
 function PostCard({
@@ -69,49 +70,81 @@ function PostCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const placeholder = TYPE_PLACEHOLDER[post.type];
 
-  // Blog posts: full-card text layout, no media area
+  // Article cards: banner + title + body text preview
   if (post.type === "blog") {
-    return (
-      <div className="relative flex aspect-video flex-col rounded-2xl border border-border bg-card p-3 shadow-sm transition-shadow hover:shadow-md">
-        {editable && (
-          <div className="absolute right-1 top-1 shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => setMenuOpen((o) => !o)}
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-            {menuOpen && (
-              <div className="absolute right-0 top-8 z-50 w-32 rounded-md border bg-popover py-1 shadow-lg">
-                <button
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onEdit(post);
-                  }}
-                >
-                  <Pencil className="h-3.5 w-3.5" /> Edit
-                </button>
-                <button
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-destructive hover:bg-muted"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onDelete(post.id);
-                  }}
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Delete
-                </button>
-              </div>
+    const Menu = () =>
+      editable ? (
+        <div className="absolute right-1 top-1 z-10 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setMenuOpen((o) => !o)}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+          {menuOpen && (
+            <div className="absolute right-0 top-8 z-50 w-32 rounded-md border bg-popover py-1 shadow-lg">
+              <button
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onEdit(post);
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </button>
+              <button
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-destructive hover:bg-muted"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDelete(post.id);
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
+            </div>
+          )}
+        </div>
+      ) : null;
+
+    if (post.thumbnail_url) {
+      // Banner present — image on top, title + excerpt below
+      return (
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
+          <Menu />
+          <div className="aspect-video w-full overflow-hidden rounded-t-2xl bg-muted">
+            <img
+              src={post.thumbnail_url}
+              alt={post.title || "Article banner"}
+              className="h-full w-full object-cover"
+            />
+          </div>
+          <div className="p-2">
+            {post.title && <p className="truncate text-sm font-bold leading-snug">{post.title}</p>}
+            {post.body && (
+              <p
+                className="mt-0.5 line-clamp-2 text-xs text-muted-foreground"
+                dangerouslySetInnerHTML={{
+                  __html: post.body.replace(/<[^>]+>/g, " ").slice(0, 120),
+                }}
+              />
             )}
           </div>
-        )}
+        </div>
+      );
+    }
+
+    // No banner — full text card
+    return (
+      <div className="relative flex aspect-video flex-col overflow-hidden rounded-2xl border border-border bg-card p-3 shadow-sm transition-shadow hover:shadow-md">
+        <Menu />
         {post.title && <p className="mb-1 pr-6 text-sm font-bold leading-snug">{post.title}</p>}
         {post.body && (
-          <p className="line-clamp-[8] text-xs leading-relaxed text-muted-foreground">
-            {post.body}
-          </p>
+          <div
+            className="article-preview line-clamp-[8] text-xs leading-relaxed text-muted-foreground"
+            dangerouslySetInnerHTML={{ __html: post.body }}
+          />
         )}
       </div>
     );
@@ -203,11 +236,14 @@ function PostForm({
   const { toast } = useToast();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
+  const bannerRef = useRef<HTMLInputElement>(null);
 
   const [type, setType] = useState<PostType>(initial?.type || "photo");
   const [title, setTitle] = useState(initial?.title || "");
   const [body, setBody] = useState(initial?.body || "");
   const [mediaUrl, setMediaUrl] = useState(initial?.media_url || "");
+  // For articles: thumbnail_url stores the banner image
+  const [bannerUrl, setBannerUrl] = useState(initial?.thumbnail_url || "");
   const [uploading, setUploading] = useState(false);
 
   const mutation = useMutation({
@@ -216,7 +252,8 @@ function PostForm({
         type,
         title: title || null,
         body: body || null,
-        media_url: mediaUrl || null,
+        media_url: type === "blog" ? null : mediaUrl || null,
+        thumbnail_url: type === "blog" ? bannerUrl || null : null,
       };
       if (initial) {
         return apiRequest(`/api/portfolio/${initial.id}`, {
@@ -231,19 +268,17 @@ function PostForm({
     },
     onSuccess: () => {
       qc.refetchQueries({ queryKey: ["/api/portfolio", userId] });
-      toast({ title: initial ? "Post updated" : "Post created" });
+      toast({ title: initial ? "Article updated" : "Article published" });
       onClose();
     },
     onError: () => toast({ title: "Something went wrong", variant: "destructive" }),
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const readFile = (file: File, onDone: (url: string) => void) => {
     setUploading(true);
     const reader = new FileReader();
     reader.onload = () => {
-      setMediaUrl(reader.result as string);
+      onDone(reader.result as string);
       setUploading(false);
     };
     reader.onerror = () => {
@@ -253,12 +288,14 @@ function PostForm({
     reader.readAsDataURL(file);
   };
 
+  const isArticle = type === "blog";
+
   return (
     <div className="space-y-4">
       {/* Type selector */}
       {!initial && (
         <div>
-          <Label className="mb-2 block">Post type</Label>
+          <Label className="mb-2 block">Type</Label>
           <div className="flex gap-2">
             {(["photo", "video", "blog"] as PostType[]).map((t) => (
               <button
@@ -271,7 +308,7 @@ function PostForm({
                 }`}
               >
                 {TYPE_ICONS[t]}
-                {TYPE_LABELS[t]}
+                {t === "blog" ? "Article" : TYPE_LABELS[t].replace(/s$/, "")}
               </button>
             ))}
           </div>
@@ -280,18 +317,56 @@ function PostForm({
 
       {/* Title */}
       <div>
-        <Label htmlFor="post-title">Title</Label>
+        <Label htmlFor="post-title">{isArticle ? "Article title" : "Title"}</Label>
         <Input
           id="post-title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder={type === "blog" ? "Post title..." : "Caption (optional)"}
-          className="mt-1"
+          placeholder={isArticle ? "Article title…" : "Caption (optional)"}
+          className={`mt-1 ${isArticle ? "text-lg font-semibold" : ""}`}
         />
       </div>
 
-      {/* Media upload for photo/video */}
-      {type !== "blog" && (
+      {/* Article: banner image */}
+      {isArticle && (
+        <div>
+          <Label>Banner image (optional)</Label>
+          <div className="mt-1">
+            {bannerUrl ? (
+              <div className="relative overflow-hidden rounded-lg border bg-muted">
+                <img src={bannerUrl} alt="banner" className="max-h-40 w-full object-cover" />
+                <button
+                  onClick={() => setBannerUrl("")}
+                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => bannerRef.current?.click()}
+                disabled={uploading}
+                className="flex w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-border py-4 text-sm text-muted-foreground transition-colors hover:border-purple-400 hover:text-purple-600 disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" /> Add banner image
+              </button>
+            )}
+            <input
+              ref={bannerRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) readFile(f, setBannerUrl);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Photo / Video upload */}
+      {!isArticle && (
         <div>
           <Label>{type === "photo" ? "Photo" : "Video"}</Label>
           <div className="mt-1 space-y-2">
@@ -335,24 +410,34 @@ function PostForm({
               type="file"
               accept={type === "photo" ? "image/*" : "video/*"}
               className="hidden"
-              onChange={handleFileChange}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) readFile(f, setMediaUrl);
+              }}
             />
           </div>
         </div>
       )}
 
-      {/* Body / text */}
-      <div>
-        <Label htmlFor="post-body">{type === "blog" ? "Content" : "Description"}</Label>
-        <Textarea
-          id="post-body"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder={type === "blog" ? "Write your post here..." : "Add a description..."}
-          rows={type === "blog" ? 8 : 3}
-          className="mt-1"
-        />
-      </div>
+      {/* Article: rich text editor */}
+      {isArticle ? (
+        <div>
+          <Label className="mb-1 block">Content</Label>
+          <ArticleEditor content={body} onChange={setBody} />
+        </div>
+      ) : (
+        <div>
+          <Label htmlFor="post-body">Description</Label>
+          <textarea
+            id="post-body"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Add a description…"
+            rows={3}
+            className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+      )}
 
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="outline" onClick={onClose}>
@@ -364,7 +449,7 @@ function PostForm({
           disabled={mutation.isPending || uploading}
         >
           {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {initial ? "Save changes" : "Publish"}
+          {initial ? "Save changes" : isArticle ? "Publish article" : "Publish"}
         </Button>
       </div>
     </div>
@@ -413,7 +498,7 @@ export function FreelancerPortfolio({
     all: "All",
     photo: "Photos",
     video: "Videos",
-    blog: "Blogs",
+    blog: "Articles",
   };
 
   return (
@@ -483,11 +568,19 @@ export function FreelancerPortfolio({
 
       {/* Create / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit post" : "New portfolio post"}</DialogTitle>
+            <DialogTitle>
+              {editing
+                ? editing.type === "blog"
+                  ? "Edit article"
+                  : "Edit post"
+                : "New portfolio post"}
+            </DialogTitle>
           </DialogHeader>
-          <PostForm userId={userId} initial={editing} onClose={() => setDialogOpen(false)} />
+          <div className="overflow-y-auto pr-1">
+            <PostForm userId={userId} initial={editing} onClose={() => setDialogOpen(false)} />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -1018,7 +1018,7 @@ export default function FreelancerCard() {
                         id="portfolio"
                         icon={<Image style={{ width: 18, height: 18 }} />}
                         label="Portfolio"
-                        sub="Photos, reels & blog"
+                        sub="Photos, reels & articles"
                       />
                       <SectionBtn
                         id="files"

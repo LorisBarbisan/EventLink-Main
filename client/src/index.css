@@ -117,6 +117,100 @@ All colors MUST be HSL.
   }
 }
 
+/* ── Tiptap article editor prose styles ── */
+.article-editor .ProseMirror {
+  outline: none;
+}
+.article-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+.article-editor .ProseMirror h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 1rem 0 0.4rem;
+}
+.article-editor .ProseMirror h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0.8rem 0 0.3rem;
+}
+.article-editor .ProseMirror p {
+  margin: 0.4rem 0;
+  line-height: 1.65;
+}
+.article-editor .ProseMirror ul,
+.article-editor .ProseMirror ol {
+  padding-left: 1.4rem;
+  margin: 0.4rem 0;
+}
+.article-editor .ProseMirror li {
+  margin: 0.15rem 0;
+}
+.article-editor .ProseMirror ul li {
+  list-style-type: disc;
+}
+.article-editor .ProseMirror ol li {
+  list-style-type: decimal;
+}
+.article-editor .ProseMirror blockquote {
+  border-left: 3px solid hsl(var(--border));
+  padding-left: 0.9rem;
+  color: hsl(var(--muted-foreground));
+  margin: 0.6rem 0;
+  font-style: italic;
+}
+.article-editor .ProseMirror hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 1rem 0;
+}
+.article-editor .ProseMirror a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+}
+.article-editor .ProseMirror img {
+  max-width: 100%;
+  border-radius: 6px;
+  margin: 0.6rem 0;
+}
+.article-editor .ProseMirror strong {
+  font-weight: 700;
+}
+.article-editor .ProseMirror em {
+  font-style: italic;
+}
+.article-editor .ProseMirror s {
+  text-decoration: line-through;
+}
+.article-editor .ProseMirror u {
+  text-decoration: underline;
+}
+
+/* Article card preview — strip most formatting, keep it as plain text excerpt */
+.article-preview h2,
+.article-preview h3 {
+  font-weight: 600;
+}
+.article-preview p,
+.article-preview li {
+  display: inline;
+}
+.article-preview p::after {
+  content: " ";
+}
+.article-preview ul,
+.article-preview ol,
+.article-preview blockquote {
+  display: inline;
+}
+.article-preview img {
+  display: none;
+}
+
 @layer utilities {
   .bg-gradient-primary {
     background: var(--gradient-primary);
