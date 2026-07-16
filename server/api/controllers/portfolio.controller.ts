@@ -7,10 +7,15 @@ import { randomUUID } from "crypto";
 const UPLOADS_DIR = path.join(process.cwd(), "uploads", "portfolio");
 
 export async function getPortfolioPosts(req: Request, res: Response) {
-  const userId = parseInt(req.query.userId as string);
-  if (isNaN(userId)) return res.status(400).json({ error: "Invalid userId" });
-  const posts = await storage.getPortfolioPosts(userId);
-  return res.json(posts);
+  try {
+    const userId = parseInt(req.query.userId as string);
+    if (isNaN(userId)) return res.status(400).json({ error: "Invalid userId" });
+    const posts = await storage.getPortfolioPosts(userId);
+    return res.json(posts);
+  } catch (err) {
+    console.error("getPortfolioPosts error:", err);
+    return res.status(500).json({ error: "Failed to load portfolio" });
+  }
 }
 
 export async function createPortfolioPost(req: Request, res: Response) {

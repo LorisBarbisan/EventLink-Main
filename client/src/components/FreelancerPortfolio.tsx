@@ -467,7 +467,11 @@ export function FreelancerPortfolio({
   const [editing, setEditing] = useState<PortfolioPost | undefined>(undefined);
   const [filterType, setFilterType] = useState<PostType | "all">("all");
 
-  const { data: posts = [], isLoading } = useQuery<PortfolioPost[]>({
+  const {
+    data: posts = [],
+    isLoading,
+    isError,
+  } = useQuery<PortfolioPost[]>({
     queryKey: ["/api/portfolio", userId],
     queryFn: () => apiRequest(`/api/portfolio?userId=${userId}`),
   });
@@ -538,6 +542,12 @@ export function FreelancerPortfolio({
       {isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : isError ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-16 text-center">
+          <p className="text-sm text-muted-foreground">
+            Could not load portfolio. Please try again.
+          </p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-16 text-center">
