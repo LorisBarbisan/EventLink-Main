@@ -248,27 +248,21 @@ function PostForm({
           <Label>{type === "photo" ? "Photo" : "Video"}</Label>
           <div className="mt-1 space-y-2">
             {mediaUrl ? (
-              <div className="relative rounded-md border bg-muted p-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm text-muted-foreground">
-                    {mediaUrl.split("/").pop()}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 shrink-0"
-                    onClick={() => setMediaUrl("")}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                {type === "photo" && (
-                  <img
-                    src={mediaUrl}
-                    alt="preview"
-                    className="mt-2 max-h-40 rounded object-cover"
-                  />
+              <div className="relative overflow-hidden rounded-lg border bg-muted">
+                {type === "photo" ? (
+                  <img src={mediaUrl} alt="preview" className="max-h-52 w-full object-cover" />
+                ) : (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <Film className="h-5 w-5 shrink-0 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Video ready</span>
+                  </div>
                 )}
+                <button
+                  onClick={() => setMediaUrl("")}
+                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
             ) : (
               <button
