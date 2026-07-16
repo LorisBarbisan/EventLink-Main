@@ -588,26 +588,20 @@ function FreelancerProfileFields({
 }) {
   return (
     <>
-      {/* CV Upload Section - Moved to top with clear messaging */}
-      <Card className="min-w-0 max-w-full border-primary/20 bg-primary/5">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <FileText className="h-5 w-5 text-primary" />
-            Quick Profile Setup with CV
-          </CardTitle>
-          <CardDescription>
-            Upload your CV and we&apos;ll automatically extract your skills, experience, and contact
-            details to fill in your profile. You can review and edit the suggestions before applying
-            them.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      {/* CV Upload — compact inline row */}
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
+        <FileText className="h-4 w-4 shrink-0 text-primary" />
+        <span className="text-sm font-medium">CV / Resume</span>
+        <span className="hidden text-xs text-muted-foreground sm:inline">
+          Auto-fills your profile from your CV
+        </span>
+        <div className="ml-auto">
           <CVUploadSection
             profile={profile as FreelancerProfile}
             onFieldsConfirmed={onFieldsConfirmed}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <Separator className="my-6" />
 

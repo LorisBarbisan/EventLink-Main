@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, AuthError, queryClient } from "@/lib/queryClient";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Upload, FileText, Download, Trash2, CheckCircle, Sparkles } from "lucide-react";
+import { Upload, Download, Trash2, CheckCircle, Sparkles } from "lucide-react";
 
 interface CVUploaderProps {
   userId: number;
@@ -40,7 +38,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
       (async () => {
         let active = true;
         while (active) {
-          await new Promise(r => setTimeout(r, 3000));
+          await new Promise((r) => setTimeout(r, 3000));
           try {
             const statusData = await apiRequest("/api/cv/parse/status");
             queryClient.setQueryData(["/api/cv/parse/status"], statusData);
@@ -63,8 +61,9 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
     },
   });
 
-  const showExtractButton = currentCV?.fileName &&
-    (!parsingStatus || parsingStatus.status !== "parsing" && parsingStatus.status !== "pending");
+  const showExtractButton =
+    currentCV?.fileName &&
+    (!parsingStatus || (parsingStatus.status !== "parsing" && parsingStatus.status !== "pending"));
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -135,7 +134,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
       (async () => {
         let active = true;
         while (active) {
-          await new Promise(r => setTimeout(r, 3000));
+          await new Promise((r) => setTimeout(r, 3000));
           try {
             const statusData = await apiRequest("/api/cv/parse/status");
             queryClient.setQueryData(["/api/cv/parse/status"], statusData);
@@ -199,7 +198,7 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
       if (onUploadComplete) {
         await onUploadComplete(response.profile);
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Delete failed",
         description: "Failed to delete CV. Please try again.",
@@ -218,165 +217,112 @@ export function SimplifiedCVUploader({ userId, currentCV, onUploadComplete }: CV
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  return (
-    <Card className="min-w-0 max-w-full overflow-hidden">
-      <CardHeader className="space-y-1.5 px-4 pb-4 pt-6 sm:px-6">
-        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-          <FileText className="w-5 h-5" />
-          CV/Resume
-        </CardTitle>
-        <CardDescription>
-          Upload your CV to showcase your experience to potential employers
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="px-4 sm:px-6">
-        {currentCV?.fileName ? (
-          <div className="space-y-4">
-            <div className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-              <div className="flex min-w-0 flex-1 items-start gap-2.5 sm:items-center sm:gap-3">
-                <div className="mt-0.5 shrink-0 rounded bg-green-100 p-1.5 dark:bg-green-900/20 sm:mt-0 sm:p-2">
-                  <CheckCircle className="h-4 w-4 text-green-600 sm:h-5 sm:w-5 dark:text-green-400" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p
-                    className="truncate text-sm font-medium sm:text-base"
-                    title={currentCV.fileName}
-                    aria-label={currentCV.fileName}
-                  >
-                    {currentCV.fileName}
-                  </p>
-                  {currentCV.fileSize && (
-                    <p className="text-xs text-muted-foreground sm:text-sm">
-                      {formatFileSize(currentCV.fileSize)}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex min-w-0 w-full flex-row gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
-                {currentCV.fileUrl && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="min-w-0 flex-1 sm:flex-initial"
-                    onClick={async () => {
-                      try {
-                        const token = localStorage.getItem("auth_token");
-                        const response = await fetch(`/api/cv/download/${userId}`, {
-                          headers: {
-                            Authorization: `Bearer ${token}`,
-                          },
-                        });
-                        if (response.ok) {
-                          const blob = await response.blob();
-                          const blobUrl = URL.createObjectURL(blob);
-                          window.open(blobUrl, "_blank");
-                        } else {
-                          toast({
-                            title: "Download failed",
-                            description: "Failed to download CV. Please try again.",
-                            variant: "destructive",
-                          });
-                        }
-                      } catch (error) {
-                        toast({
-                          title: "Download failed",
-                          description: "Failed to download CV. Please try again.",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                    data-testid="button-download-cv"
-                  >
-                    <Download className="w-4 h-4 mr-1" />
-                    View
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="min-w-0 flex-1 sm:flex-initial"
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  data-testid="button-delete-cv"
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  {isDeleting ? "Deleting..." : "Delete"}
-                </Button>
-              </div>
-            </div>
-
-            {showExtractButton && (
-              <Button
-                variant="default"
-                className="h-auto min-h-10 w-full min-w-0 whitespace-normal px-3 py-2.5 text-balance"
-                onClick={() => extractMutation.mutate()}
-                disabled={extractMutation.isPending}
-              >
-                <Sparkles className="mr-2 h-4 w-4 shrink-0" />
-                <span className="text-left leading-snug">
-                  {extractMutation.isPending ? "Extracting..." : "Extract profile data from CV"}
-                </span>
-              </Button>
-            )}
-
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-2">Want to upload a new CV?</p>
-              <label htmlFor="cv-file-replace">
-                <Button variant="outline" disabled={isUploading} asChild>
-                  <span>
-                    <Upload className="w-4 h-4 mr-2" />
-                    {isUploading ? "Uploading..." : "Replace CV"}
-                  </span>
-                </Button>
-              </label>
-              <input
-                id="cv-file-replace"
-                type="file"
-                accept=".pdf"
-                onChange={handleFileSelect}
-                className="hidden"
-                disabled={isUploading}
-                data-testid="input-cv-file-replace"
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <div className="mb-4">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="font-medium mb-2">No CV uploaded</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Upload your CV to increase your chances of getting hired
-              </p>
-            </div>
-
-            <label htmlFor="cv-file-upload">
-              <Button disabled={isUploading} asChild>
-                <span>
-                  <Upload className="w-4 h-4 mr-2" />
-                  {isUploading ? "Uploading..." : "Upload CV"}
-                </span>
-              </Button>
-            </label>
-            <input
-              id="cv-file-upload"
-              type="file"
-              accept=".pdf"
-              onChange={handleFileSelect}
-              className="hidden"
-              disabled={isUploading}
-              data-testid="input-cv-file-upload"
-            />
-
-            <div className="mt-4 text-xs text-muted-foreground">
-              <p>Accepted format: PDF</p>
-              <p>Maximum size: 5MB</p>
-            </div>
-          </div>
+  if (currentCV?.fileName) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <CheckCircle className="h-4 w-4 shrink-0 text-green-600" />
+        <span className="max-w-[160px] truncate text-sm font-medium" title={currentCV.fileName}>
+          {currentCV.fileName}
+        </span>
+        {currentCV.fileSize && (
+          <span className="text-xs text-muted-foreground">
+            ({formatFileSize(currentCV.fileSize)})
+          </span>
         )}
-      </CardContent>
-    </Card>
+        {currentCV.fileUrl && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                const token = localStorage.getItem("auth_token");
+                const response = await fetch(`/api/cv/download/${userId}`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                if (response.ok) {
+                  const blob = await response.blob();
+                  window.open(URL.createObjectURL(blob), "_blank");
+                } else {
+                  toast({
+                    title: "Download failed",
+                    description: "Failed to download CV.",
+                    variant: "destructive",
+                  });
+                }
+              } catch {
+                toast({
+                  title: "Download failed",
+                  description: "Failed to download CV.",
+                  variant: "destructive",
+                });
+              }
+            }}
+            data-testid="button-download-cv"
+          >
+            <Download className="mr-1 h-3 w-3" /> View
+          </Button>
+        )}
+        {showExtractButton && (
+          <Button
+            size="sm"
+            onClick={() => extractMutation.mutate()}
+            disabled={extractMutation.isPending}
+          >
+            <Sparkles className="mr-1 h-3 w-3" />
+            {extractMutation.isPending ? "Extracting…" : "Extract data"}
+          </Button>
+        )}
+        <label htmlFor="cv-file-replace">
+          <Button variant="outline" size="sm" disabled={isUploading} asChild>
+            <span>
+              <Upload className="mr-1 h-3 w-3" />
+              {isUploading ? "Uploading…" : "Replace"}
+            </span>
+          </Button>
+        </label>
+        <input
+          id="cv-file-replace"
+          type="file"
+          accept=".pdf"
+          onChange={handleFileSelect}
+          className="hidden"
+          disabled={isUploading}
+          data-testid="input-cv-file-replace"
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleDelete}
+          disabled={isDeleting}
+          data-testid="button-delete-cv"
+        >
+          <Trash2 className="mr-1 h-3 w-3" />
+          {isDeleting ? "Deleting…" : "Delete"}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <label htmlFor="cv-file-upload">
+        <Button size="sm" disabled={isUploading} asChild>
+          <span>
+            <Upload className="mr-1 h-3 w-3" />
+            {isUploading ? "Uploading…" : "Upload CV"}
+          </span>
+        </Button>
+      </label>
+      <input
+        id="cv-file-upload"
+        type="file"
+        accept=".pdf"
+        onChange={handleFileSelect}
+        className="hidden"
+        disabled={isUploading}
+        data-testid="input-cv-file-upload"
+      />
+      <span className="text-xs text-muted-foreground">PDF · max 5 MB</span>
+    </div>
   );
 }
