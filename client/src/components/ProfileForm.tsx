@@ -880,37 +880,39 @@ function CardLivePreview({
               WebkitBackfaceVisibility: "hidden",
               background: "#fff",
               borderRadius: 18,
-              border: `1.5px solid ${accent}33`,
+              border: "1px solid #e0e0e8",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               padding: "20px 16px 16px",
             }}
           >
-            {/* accent dot */}
+            {/* NFC dot — grey, matching real card */}
             <div
               style={{
-                width: 10,
-                height: 10,
+                width: 14,
+                height: 14,
                 borderRadius: "50%",
-                background: accent,
-                opacity: 0.7,
+                background: "#f7f7f8",
+                border: "1.5px solid #e0e0e8",
                 marginBottom: 14,
               }}
             />
-            {/* avatar */}
+            {/* avatar — accent ring is the only front-face colour hint */}
             <div
               style={{
                 width: 72,
                 height: 72,
                 borderRadius: "50%",
-                background: "#f0f0f0",
-                border: `3px solid ${accent}`,
+                background: "linear-gradient(135deg,#b8cce0,#7a93a8)",
+                border: `2.5px solid ${accent}`,
                 overflow: "hidden",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 28,
+                fontSize: 26,
+                color: "#fff",
+                fontWeight: 700,
                 marginBottom: 10,
               }}
             >
@@ -921,22 +923,14 @@ function CardLivePreview({
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : (
-                "👤"
+                `${(firstName[0] ?? "").toUpperCase()}${(lastName[0] ?? "").toUpperCase()}`
               )}
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: accent, marginBottom: 3 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 3 }}>
               {firstName} {lastName}
             </div>
-            <div style={{ fontSize: 11, color: "#666", marginBottom: 10 }}>{title}</div>
-            {/* accent divider */}
-            <div
-              style={{
-                width: "100%",
-                height: 1.5,
-                background: `linear-gradient(to right, transparent, ${accent}66, transparent)`,
-                marginBottom: 10,
-              }}
-            />
+            <div style={{ fontSize: 11, color: "#555", marginBottom: 10 }}>{title}</div>
+            <div style={{ width: "100%", height: 1, background: "#f0f0f4", marginBottom: 10 }} />
             {/* Contact details — centred */}
             {(formData.phone || formData.contact_email) && (
               <div
@@ -945,38 +939,40 @@ function CardLivePreview({
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: 5,
-                  marginBottom: 8,
+                  gap: 7,
+                  margin: "4px 0 8px",
                 }}
               >
                 {formData.phone && (
                   <div
                     style={{
-                      fontSize: 10,
-                      color: "#444",
+                      fontSize: 12,
+                      color: "#111",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: 4,
+                      gap: 6,
+                      fontWeight: 500,
                     }}
                   >
-                    <span>📞</span> {formData.phone}
+                    <span style={{ fontSize: 14 }}>📞</span> {formData.phone}
                   </div>
                 )}
                 {formData.contact_email && (
                   <div
                     style={{
-                      fontSize: 10,
-                      color: "#444",
+                      fontSize: 11,
+                      color: "#111",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: 4,
+                      gap: 6,
+                      fontWeight: 500,
                       wordBreak: "break-all",
                       textAlign: "center",
                     }}
                   >
-                    <span>✉️</span> {formData.contact_email}
+                    <span style={{ fontSize: 14 }}>✉️</span> {formData.contact_email}
                   </div>
                 )}
               </div>
@@ -985,7 +981,7 @@ function CardLivePreview({
               style={{
                 marginTop: "auto",
                 fontSize: 10,
-                color: accent,
+                color: "#999",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -996,14 +992,11 @@ function CardLivePreview({
             </div>
             <div
               style={{
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 700,
-                color: "#fff",
-                background: accent,
-                borderRadius: 20,
-                padding: "2px 10px",
-                marginTop: 8,
-                letterSpacing: "0.05em",
+                color: "hsl(27,88%,45%)",
+                letterSpacing: "-0.3px",
+                marginTop: 7,
               }}
             >
               EventLink
