@@ -34,7 +34,18 @@ import type {
   RecruiterProfile,
 } from "@shared/types";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, FileText, Globe, MapPin, Plus, X } from "lucide-react";
+import {
+  Building2,
+  ChevronRight,
+  FileText,
+  Globe,
+  Image,
+  MapPin,
+  Plus,
+  ShieldCheck,
+  User,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RatingDisplay } from "./StarRating";
 
@@ -845,10 +856,18 @@ function CardLivePreview({
   const btnBorder = btnDark ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.25)";
 
   const sections = [
-    { emoji: "👤", label: "About", sub: "Overview & intro" },
-    { emoji: "🏅", label: "Credentials", sub: "Verified & endorsed" },
-    { emoji: "🖼️", label: "Portfolio", sub: "Photos, reels & blog" },
-    { emoji: "📄", label: "Files", sub: "CV & documents" },
+    { icon: <User style={{ width: 15, height: 15 }} />, label: "About", sub: "Overview & intro" },
+    {
+      icon: <ShieldCheck style={{ width: 15, height: 15 }} />,
+      label: "Credentials",
+      sub: "Verified & endorsed",
+    },
+    {
+      icon: <Image style={{ width: 15, height: 15 }} />,
+      label: "Portfolio",
+      sub: "Photos, reels & blog",
+    },
+    { icon: <FileText style={{ width: 15, height: 15 }} />, label: "Files", sub: "CV & documents" },
   ];
 
   return (
@@ -1106,22 +1125,28 @@ function CardLivePreview({
                     style={{
                       width: 28,
                       height: 28,
-                      borderRadius: 7,
-                      background: "rgba(0,0,0,0.07)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 13,
                       flexShrink: 0,
+                      color: onBtn,
                     }}
                   >
-                    {s.emoji}
+                    {s.icon}
                   </div>
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: onBtn }}>{s.label}</div>
                     <div style={{ fontSize: 9, color: onBtnSub }}>{s.sub}</div>
                   </div>
-                  <div style={{ marginLeft: "auto", fontSize: 12, color: onBtnSub }}>›</div>
+                  <ChevronRight
+                    style={{
+                      marginLeft: "auto",
+                      width: 12,
+                      height: 12,
+                      color: onBtn,
+                      opacity: 0.4,
+                    }}
+                  />
                 </div>
               ))}
             </div>

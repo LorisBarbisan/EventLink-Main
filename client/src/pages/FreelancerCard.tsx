@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Download,
   FileText,
+  Image,
   Lock,
   MapPin,
   Share2,
@@ -600,19 +601,17 @@ export default function FreelancerCard() {
     return null;
   }
 
-  // Section button used on card back — glassmorphism on accent background
+  // Section button used on card back
   function SectionBtn({
     id,
-    icon: _icon,
+    icon,
     label,
     sub,
-    emoji,
   }: {
     id: Detail;
     icon: React.ReactNode;
     label: string;
     sub: string;
-    emoji: string;
   }) {
     return (
       <div
@@ -634,18 +633,16 @@ export default function FreelancerCard() {
       >
         <div
           style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: "rgba(0,0,0,0.07)",
+            width: 32,
+            height: 32,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
-            fontSize: 16,
+            color: onBtn,
           }}
         >
-          {emoji}
+          {icon}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: onBtn }}>{label}</span>
@@ -1007,31 +1004,27 @@ export default function FreelancerCard() {
                     <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
                       <SectionBtn
                         id="about"
-                        emoji="👤"
+                        icon={<User style={{ width: 18, height: 18 }} />}
                         label="About"
                         sub="Overview & intro"
-                        icon={null}
                       />
                       <SectionBtn
                         id="credentials"
-                        emoji="🏅"
+                        icon={<ShieldCheck style={{ width: 18, height: 18 }} />}
                         label="Credentials"
                         sub="Verified & endorsed"
-                        icon={null}
                       />
                       <SectionBtn
                         id="portfolio"
-                        emoji="🖼️"
+                        icon={<Image style={{ width: 18, height: 18 }} />}
                         label="Portfolio"
                         sub="Photos, reels & blog"
-                        icon={null}
                       />
                       <SectionBtn
                         id="files"
-                        emoji="📄"
+                        icon={<FileText style={{ width: 18, height: 18 }} />}
                         label="Files"
                         sub="CV & documents"
-                        icon={null}
                       />
 
                       {/* Pro contact details */}
