@@ -51,6 +51,8 @@ import {
   Briefcase,
   Calendar,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   Download,
   ExternalLink,
@@ -741,7 +743,8 @@ export default function Profile() {
     thumbnail_url: string | null;
     created_at: string;
   }
-  const [viewingPost, setViewingPost] = useState<PortfolioPost | null>(null);
+  const [viewingIdx, setViewingIdx] = useState<number | null>(null);
+  const viewingPost = viewingIdx !== null ? (portfolioItems[viewingIdx] ?? null) : null;
   const [showAddPost, setShowAddPost] = useState(false);
   const [addPostType, setAddPostType] = useState<"photo" | "video" | "link">("photo");
   const [addPostTitle, setAddPostTitle] = useState("");
@@ -801,7 +804,7 @@ export default function Profile() {
     mutationFn: (id: number) => apiRequest(`/api/portfolio/${id}`, { method: "DELETE" }),
     onSuccess: () => {
       refetchPortfolio();
-      setViewingPost(null);
+      setViewingIdx(null);
       toast({ title: "Deleted" });
     },
   });
@@ -1587,10 +1590,10 @@ export default function Profile() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 gap-0.5">
-                      {portfolioItems.map((item) => (
+                      {portfolioItems.map((item, idx) => (
                         <button
                           key={item.id}
-                          onClick={() => setViewingPost(item)}
+                          onClick={() => setViewingIdx(idx)}
                           className="group relative aspect-square overflow-hidden bg-white transition-opacity hover:opacity-90"
                         >
                           {item.type === "photo" && item.media_url && (
@@ -1602,20 +1605,19 @@ export default function Profile() {
                           )}
                           {item.type === "video" && (
                             <>
-                              {item.thumbnail_url && (
+                              {item.thumbnail_url ? (
                                 <img
                                   src={item.thumbnail_url}
                                   alt=""
                                   className="h-full w-full object-cover"
                                 />
+                              ) : (
+                                <div className="h-full w-full bg-neutral-900" />
                               )}
-                              <div
-                                className={cn(
-                                  "absolute inset-0 flex items-center justify-center",
-                                  !item.thumbnail_url && "bg-white"
-                                )}
-                              >
-                                <Play className="h-8 w-8 text-white drop-shadow-lg" />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
+                                  <Play className="h-5 w-5 fill-white text-white" />
+                                </div>
                               </div>
                             </>
                           )}
@@ -1869,25 +1871,49 @@ export default function Profile() {
 
       {/* Portfolio: view item modal */}
       {viewingPost && (
-        <Dialog open={!!viewingPost} onOpenChange={(open) => !open && setViewingPost(null)}>
+        <Dialog open={!!viewingPost} onOpenChange={(open) => !open && setViewingIdx(null)}>
           <DialogContent className="max-w-2xl overflow-hidden p-0">
+            {/* Navigation arrows */}
+            {portfolioItems.length > 1 && (
+              <>
+                <button
+                  onClick={() => setViewingIdx((i) => (i !== null && i > 0 ? i - 1 : i))}
+                  disabled={viewingIdx === 0}
+                  className="absolute left-2 top-1/2 z-50 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white transition-opacity hover:bg-black/70 disabled:opacity-20"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() =>
+                    setViewingIdx((i) => (i !== null && i < portfolioItems.length - 1 ? i + 1 : i))
+                  }
+                  disabled={viewingIdx === portfolioItems.length - 1}
+                  className="absolute right-2 top-1/2 z-50 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white transition-opacity hover:bg-black/70 disabled:opacity-20"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </>
+            )}
+
             <div className="relative">
               {viewingPost.type === "photo" && viewingPost.media_url && (
                 <img
                   src={viewingPost.media_url}
                   alt={viewingPost.title || ""}
-                  className="max-h-[70vh] w-full bg-white object-contain"
+                  className="max-h-[70vh] w-full bg-black object-contain"
                 />
               )}
               {viewingPost.type === "video" && viewingPost.media_url && (
                 <video
+                  key={viewingPost.id}
                   src={viewingPost.media_url}
                   controls
-                  className="max-h-[70vh] w-full bg-white"
+                  autoPlay
+                  className="max-h-[70vh] w-full bg-black"
                 />
               )}
               {viewingPost.type === "link" && (
-                <div className="flex flex-col items-center justify-center gap-4 bg-white p-12">
+                <div className="flex flex-col items-center justify-center gap-4 bg-muted p-12">
                   <ExternalLink className="h-12 w-12 text-primary" />
                   <a
                     href={viewingPost.media_url || "#"}
@@ -1899,8 +1925,30 @@ export default function Profile() {
                   </a>
                 </div>
               )}
+              {viewingPost.type === "blog" && (
+                <div className="max-h-[70vh] overflow-y-auto p-6">
+                  {viewingPost.thumbnail_url && (
+                    <img
+                      src={viewingPost.thumbnail_url}
+                      alt={viewingPost.title || ""}
+                      className="mb-4 w-full rounded-lg object-cover"
+                      style={{ maxHeight: 220 }}
+                    />
+                  )}
+                  {viewingPost.title && (
+                    <h2 className="mb-3 text-xl font-bold">{viewingPost.title}</h2>
+                  )}
+                  {viewingPost.body && (
+                    <div
+                      className="article-editor prose max-w-none text-sm text-foreground"
+                      dangerouslySetInnerHTML={{ __html: viewingPost.body }}
+                    />
+                  )}
+                </div>
+              )}
             </div>
-            {(viewingPost.title || viewingPost.body) && (
+
+            {viewingPost.type !== "blog" && (viewingPost.title || viewingPost.body) && (
               <div className="space-y-1 p-4">
                 {viewingPost.title && <p className="font-semibold">{viewingPost.title}</p>}
                 {viewingPost.body && (
