@@ -1225,15 +1225,6 @@ function FreelancerCardAppearanceFields({
                 />
               </div>
             </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={!!formData.card_dark_mode}
-                onChange={(e) => onInputChange("card_dark_mode", e.target.checked)}
-                className="h-4 w-4 rounded"
-              />
-              Dark mode card
-            </label>
             <p className="text-xs text-muted-foreground">
               These appear on the back of your shared business card.
             </p>
