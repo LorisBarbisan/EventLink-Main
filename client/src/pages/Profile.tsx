@@ -1918,7 +1918,7 @@ export default function Profile() {
                   key={viewingPost.id}
                   src={viewingPost.media_url}
                   controls
-                  autoPlay
+                  playsInline
                   className="max-h-[70vh] w-full bg-black"
                 />
               )}

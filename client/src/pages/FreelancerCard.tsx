@@ -494,76 +494,110 @@ export default function FreelancerCard() {
         );
       }
       return (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-          {(portfolio as any[]).length === 0 && (
-            <p style={{ fontSize: 12, color: C.text3, gridColumn: "1/-1" }}>
-              No portfolio items yet.
-            </p>
-          )}
-          {(portfolio as any[]).slice(0, 4).map((item: any) => {
-            const emoji = item.type === "photo" ? "🖼️" : item.type === "video" ? "🎬" : "📝";
-            const bg =
-              item.type === "photo" ? "#fef3e8" : item.type === "video" ? C.purpleLight : "#edf7ed";
-            const typeColor =
-              item.type === "photo" ? themeAccent : item.type === "video" ? C.purple : C.success;
-            // Photos use media_url; videos use thumbnail_url if available; articles use thumbnail_url (banner)
-            const previewImg = item.type === "photo" ? item.media_url : item.thumbnail_url;
-            const profileSlug = freelancer?.custom_slug || freelancer?.slug || uid;
-            const clickUrl =
-              item.type === "blog"
-                ? `${window.location.origin}/profile/${profileSlug}`
-                : item.media_url || undefined;
-            return (
-              <div
-                key={item.id}
-                onClick={() => clickUrl && window.open(clickUrl, "_blank")}
-                style={{
-                  borderRadius: 8,
-                  overflow: "hidden",
-                  border: "1px solid #eee",
-                  cursor: clickUrl ? "pointer" : "default",
-                }}
-              >
-                {previewImg ? (
-                  <img
-                    src={previewImg}
-                    alt={item.title}
-                    style={{ width: "100%", height: 52, objectFit: "cover" }}
-                  />
-                ) : (
+        <div style={{ overflowY: "auto", maxHeight: 340 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {(portfolio as any[]).length === 0 && (
+              <p style={{ fontSize: 12, color: C.text3, gridColumn: "1/-1" }}>
+                No portfolio items yet.
+              </p>
+            )}
+            {(portfolio as any[]).map((item: any) => {
+              const emoji = item.type === "photo" ? "🖼️" : item.type === "video" ? "🎬" : "📝";
+              const bg =
+                item.type === "photo"
+                  ? "#fef3e8"
+                  : item.type === "video"
+                    ? C.purpleLight
+                    : "#edf7ed";
+              const typeColor =
+                item.type === "photo" ? themeAccent : item.type === "video" ? C.purple : C.success;
+              const previewImg = item.type === "photo" ? item.media_url : item.thumbnail_url;
+              const profileSlug = freelancer?.custom_slug || freelancer?.slug || uid;
+              const clickUrl =
+                item.type === "blog"
+                  ? `${window.location.origin}/profile/${profileSlug}`
+                  : item.type !== "video"
+                    ? item.media_url || undefined
+                    : undefined;
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => clickUrl && window.open(clickUrl, "_blank")}
+                  style={{
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    border: "1px solid #eee",
+                    cursor: clickUrl ? "pointer" : "default",
+                  }}
+                >
                   <div
                     style={{
-                      height: 52,
+                      width: "100%",
+                      aspectRatio: "1",
+                      position: "relative",
                       background: bg,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 20,
                     }}
                   >
-                    {emoji}
+                    {item.type === "video" && item.media_url ? (
+                      <video
+                        src={item.media_url}
+                        controls
+                        playsInline
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : previewImg ? (
+                      <img
+                        src={previewImg}
+                        alt={item.title}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 28,
+                        }}
+                      >
+                        {emoji}
+                      </div>
+                    )}
                   </div>
-                )}
-                <div style={{ padding: "5px 7px" }}>
-                  <div
-                    style={{
-                      fontSize: 9,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.6px",
-                      fontWeight: 600,
-                      color: typeColor,
-                      marginBottom: 1,
-                    }}
-                  >
-                    {item.type === "blog" ? "article" : item.type}
-                  </div>
-                  <div style={{ fontSize: 10, color: "#333", fontWeight: 500 }}>
-                    {item.title || "Untitled"}
+                  <div style={{ padding: "5px 7px" }}>
+                    <div
+                      style={{
+                        fontSize: 9,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.6px",
+                        fontWeight: 600,
+                        color: typeColor,
+                        marginBottom: 1,
+                      }}
+                    >
+                      {item.type === "blog" ? "article" : item.type}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#333", fontWeight: 500 }}>
+                      {item.title || "Untitled"}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       );
     }
@@ -1490,76 +1524,109 @@ export default function FreelancerCard() {
                   </div>
                 )}
                 {rightTab === "portfolio" && hasAccess && (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 6 }}>
-                    {(portfolio as any[]).length === 0 && (
-                      <p style={{ fontSize: 13, color: C.text3, gridColumn: "1/-1" }}>
-                        No portfolio items yet.
-                      </p>
-                    )}
-                    {(portfolio as any[]).map((item: any) => {
-                      const emoji =
-                        item.type === "photo" ? "🖼️" : item.type === "video" ? "🎬" : "📝";
-                      const bg =
-                        item.type === "photo"
-                          ? "#fef3e8"
-                          : item.type === "video"
-                            ? C.purpleLight
-                            : "#edf7ed";
-                      const typeColor =
-                        item.type === "photo"
-                          ? themeAccent
-                          : item.type === "video"
-                            ? C.purple
-                            : C.success;
-                      return (
-                        <div
-                          key={item.id}
-                          style={{
-                            border: `1px solid ${C.border}`,
-                            borderRadius: 8,
-                            overflow: "hidden",
-                          }}
-                        >
-                          {item.thumbnail_url ? (
-                            <img
-                              src={item.thumbnail_url}
-                              alt={item.title}
-                              style={{ width: "100%", height: 52, objectFit: "cover" }}
-                            />
-                          ) : (
-                            <div
-                              style={{
-                                height: 52,
-                                background: bg,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: 20,
-                              }}
-                            >
-                              {emoji}
+                  <div style={{ overflowY: "auto", maxHeight: 380 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+                      {(portfolio as any[]).length === 0 && (
+                        <p style={{ fontSize: 13, color: C.text3, gridColumn: "1/-1" }}>
+                          No portfolio items yet.
+                        </p>
+                      )}
+                      {(portfolio as any[]).map((item: any) => {
+                        const emoji =
+                          item.type === "photo" ? "🖼️" : item.type === "video" ? "🎬" : "📝";
+                        const bg =
+                          item.type === "photo"
+                            ? "#fef3e8"
+                            : item.type === "video"
+                              ? C.purpleLight
+                              : "#edf7ed";
+                        const typeColor =
+                          item.type === "photo"
+                            ? themeAccent
+                            : item.type === "video"
+                              ? C.purple
+                              : C.success;
+                        const previewImg =
+                          item.type === "photo" ? item.media_url : item.thumbnail_url;
+                        const profileSlug = freelancer?.custom_slug || freelancer?.slug || uid;
+                        const clickUrl =
+                          item.type === "blog"
+                            ? `${window.location.origin}/profile/${profileSlug}`
+                            : item.type !== "video"
+                              ? item.media_url || undefined
+                              : undefined;
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => clickUrl && window.open(clickUrl, "_blank")}
+                            style={{
+                              border: `1px solid ${C.border}`,
+                              borderRadius: 8,
+                              overflow: "hidden",
+                              cursor: clickUrl ? "pointer" : "default",
+                            }}
+                          >
+                            <div style={{ width: "100%", aspectRatio: "1", background: bg }}>
+                              {item.type === "video" && item.media_url ? (
+                                <video
+                                  src={item.media_url}
+                                  controls
+                                  playsInline
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    display: "block",
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              ) : previewImg ? (
+                                <img
+                                  src={previewImg}
+                                  alt={item.title}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    display: "block",
+                                  }}
+                                />
+                              ) : (
+                                <div
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 28,
+                                  }}
+                                >
+                                  {emoji}
+                                </div>
+                              )}
                             </div>
-                          )}
-                          <div style={{ padding: "4px 6px" }}>
-                            <div
-                              style={{
-                                fontSize: 8,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.5px",
-                                fontWeight: 700,
-                                color: typeColor,
-                                marginBottom: 1,
-                              }}
-                            >
-                              {item.type}
-                            </div>
-                            <div style={{ fontSize: 10, color: "#333", fontWeight: 500 }}>
-                              {item.title || "Untitled"}
+                            <div style={{ padding: "5px 7px" }}>
+                              <div
+                                style={{
+                                  fontSize: 8,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.5px",
+                                  fontWeight: 700,
+                                  color: typeColor,
+                                  marginBottom: 1,
+                                }}
+                              >
+                                {item.type === "blog" ? "article" : item.type}
+                              </div>
+                              <div style={{ fontSize: 10, color: "#333", fontWeight: 500 }}>
+                                {item.title || "Untitled"}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
