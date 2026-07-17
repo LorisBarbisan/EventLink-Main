@@ -5,15 +5,60 @@ import { randomUUID } from "crypto";
 import { ObjectStorageService, ObjectNotFoundError } from "../utils/object-storage";
 import { isLocalPath, saveLocally, readLocally } from "../utils/local-storage-fallback";
 
+function stripBase64(posts: import("@shared/schema").PortfolioPost[]) {
+  return posts.map((p) => ({
+    ...p,
+    media_url: p.media_url?.startsWith("data:") ? `/api/portfolio/${p.id}/media` : p.media_url,
+    thumbnail_url: p.thumbnail_url?.startsWith("data:")
+      ? `/api/portfolio/${p.id}/thumbnail`
+      : p.thumbnail_url,
+  }));
+}
+
 export async function getPortfolioPosts(req: Request, res: Response) {
   try {
     const userId = parseInt(req.query.userId as string);
     if (isNaN(userId)) return res.status(400).json({ error: "Invalid userId" });
     const posts = await storage.getPortfolioPosts(userId);
-    return res.json(posts);
+    return res.json(stripBase64(posts));
   } catch (err) {
     console.error("getPortfolioPosts error:", err);
     return res.status(500).json({ error: "Failed to load portfolio" });
+  }
+}
+
+function serveDataUrl(dataUrl: string, res: Response) {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/s);
+  if (!match) return res.status(500).json({ error: "Invalid stored data" });
+  const [, mime, b64] = match;
+  const buf = Buffer.from(b64, "base64");
+  res.set({ "Content-Type": mime, "Cache-Control": "private, max-age=86400" });
+  return res.send(buf);
+}
+
+export async function servePortfolioMedia(req: Request, res: Response) {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    const post = await storage.getPortfolioPostById(id);
+    if (!post?.media_url) return res.status(404).json({ error: "Not found" });
+    if (post.media_url.startsWith("data:")) return serveDataUrl(post.media_url, res);
+    return res.redirect(post.media_url);
+  } catch {
+    return res.status(500).json({ error: "Serve failed" });
+  }
+}
+
+export async function servePortfolioThumbnail(req: Request, res: Response) {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    const post = await storage.getPortfolioPostById(id);
+    if (!post?.thumbnail_url) return res.status(404).json({ error: "Not found" });
+    if (post.thumbnail_url.startsWith("data:")) return serveDataUrl(post.thumbnail_url, res);
+    return res.redirect(post.thumbnail_url);
+  } catch {
+    return res.status(500).json({ error: "Serve failed" });
   }
 }
 

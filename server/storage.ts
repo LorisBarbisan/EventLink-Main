@@ -620,6 +620,7 @@ export interface IStorage {
 
   // Portfolio posts
   getPortfolioPosts(userId: number): Promise<import("@shared/schema").PortfolioPost[]>;
+  getPortfolioPostById(id: number): Promise<import("@shared/schema").PortfolioPost | undefined>;
   createPortfolioPost(
     data: import("@shared/schema").InsertPortfolioPost
   ): Promise<import("@shared/schema").PortfolioPost>;
@@ -5493,6 +5494,15 @@ export class DatabaseStorage implements IStorage {
       .from(portfolio_posts)
       .where(eq(portfolio_posts.user_id, userId))
       .orderBy(desc(portfolio_posts.created_at));
+  }
+
+  async getPortfolioPostById(id: number): Promise<PortfolioPost | undefined> {
+    const result = await db
+      .select()
+      .from(portfolio_posts)
+      .where(eq(portfolio_posts.id, id))
+      .limit(1);
+    return result[0];
   }
 
   async createPortfolioPost(data: InsertPortfolioPost): Promise<PortfolioPost> {

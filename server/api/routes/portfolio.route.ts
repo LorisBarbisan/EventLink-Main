@@ -5,6 +5,8 @@ import {
   deletePortfolioPost,
   getPortfolioPosts,
   servePortfolioFile,
+  servePortfolioMedia,
+  servePortfolioThumbnail,
   updatePortfolioPost,
   uploadPortfolioFile,
 } from "../controllers/portfolio.controller";
@@ -14,6 +16,8 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 
 export function registerPortfolioRoutes(app: Express) {
   app.get("/api/portfolio", getPortfolioPosts);
+  app.get("/api/portfolio/:id/media", servePortfolioMedia);
+  app.get("/api/portfolio/:id/thumbnail", servePortfolioThumbnail);
   app.get("/api/portfolio/file/*", servePortfolioFile);
   app.post("/api/portfolio/upload", authenticateJWT, upload.single("file"), uploadPortfolioFile);
   app.post("/api/portfolio", authenticateJWT, createPortfolioPost);
