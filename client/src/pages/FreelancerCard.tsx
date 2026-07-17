@@ -242,10 +242,20 @@ export default function FreelancerCard() {
   const skills: string[] = Array.isArray(freelancer.skills) ? freelancer.skills : [];
   // Use the token from the URL (non-owners don't receive reference_token from the API)
   const pt = urlPt ? `?pt=${encodeURIComponent(urlPt)}` : "";
+  // Append auth token to download URLs so browser-navigation (new tab) requests stay authenticated
+  const authToken =
+    typeof localStorage !== "undefined" ? (localStorage.getItem("auth_token") ?? "") : "";
+  const withAuth = (url: string) => {
+    if (!authToken) return url;
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}token=${encodeURIComponent(authToken)}`;
+  };
   const docUrl = (id: number) =>
-    urlPt
-      ? `/api/documents/${id}/download?open=1&pt=${encodeURIComponent(urlPt)}`
-      : `/api/documents/${id}/download?open=1`;
+    withAuth(
+      urlPt
+        ? `/api/documents/${id}/download?open=1&pt=${encodeURIComponent(urlPt)}`
+        : `/api/documents/${id}/download?open=1`
+    );
   // Owner always has access; recruiters always have access; others need the ?pt= token
   const hasAccess = user?.id === uid || user?.role === "recruiter" || urlPt.length > 0;
   const avail: string = freelancer.availability_status || "available";
@@ -480,14 +490,27 @@ export default function FreelancerCard() {
               item.type === "photo" ? "#fef3e8" : item.type === "video" ? C.purpleLight : "#edf7ed";
             const typeColor =
               item.type === "photo" ? themeAccent : item.type === "video" ? C.purple : C.success;
+            // Photos use media_url; videos use thumbnail_url if available; articles use thumbnail_url (banner)
+            const previewImg = item.type === "photo" ? item.media_url : item.thumbnail_url;
+            const profileSlug = freelancer?.custom_slug || freelancer?.slug || uid;
+            const clickUrl =
+              item.type === "blog"
+                ? `${window.location.origin}/profile/${profileSlug}`
+                : item.media_url || undefined;
             return (
               <div
                 key={item.id}
-                style={{ borderRadius: 8, overflow: "hidden", border: "1px solid #eee" }}
+                onClick={() => clickUrl && window.open(clickUrl, "_blank")}
+                style={{
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  border: "1px solid #eee",
+                  cursor: clickUrl ? "pointer" : "default",
+                }}
               >
-                {item.thumbnail_url ? (
+                {previewImg ? (
                   <img
-                    src={item.thumbnail_url}
+                    src={previewImg}
                     alt={item.title}
                     style={{ width: "100%", height: 52, objectFit: "cover" }}
                   />
@@ -516,7 +539,7 @@ export default function FreelancerCard() {
                       marginBottom: 1,
                     }}
                   >
-                    {item.type}
+                    {item.type === "blog" ? "article" : item.type}
                   </div>
                   <div style={{ fontSize: 10, color: "#333", fontWeight: 500 }}>
                     {item.title || "Untitled"}
@@ -555,7 +578,7 @@ export default function FreelancerCard() {
           name: "CV",
           bg: "#fee2e2",
           iconColor: "#dc2626",
-          href: `/api/cv/download/${uid}${pt}`,
+          href: withAuth(`/api/cv/download/${uid}${pt}`),
         });
       }
       (documents as any[]).forEach((doc: any) => {
@@ -1549,7 +1572,7 @@ export default function FreelancerCard() {
                         iconBg="#fee2e2"
                         icon={<FileText style={{ width: 15, height: 15, color: "#dc2626" }} />}
                         label="CV"
-                        href={`/api/cv/download/${uid}${pt}`}
+                        href={withAuth(`/api/cv/download/${uid}${pt}`)}
                         action={<Download style={{ width: 14, height: 14, color: "#ccc" }} />}
                       />
                     )}
