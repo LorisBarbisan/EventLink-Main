@@ -3,6 +3,7 @@ import { storage } from "../../storage";
 import path from "path";
 import { randomUUID } from "crypto";
 import { ObjectStorageService, ObjectNotFoundError } from "../utils/object-storage";
+import { isLocalPath, saveLocally, readLocally } from "../utils/local-storage-fallback";
 
 export async function getPortfolioPosts(req: Request, res: Response) {
   try {
@@ -85,8 +86,18 @@ export async function uploadPortfolioFile(req: Request, res: Response) {
   try {
     const ext = path.extname(file.originalname).toLowerCase();
     const key = `portfolio/${user.id}/${randomUUID()}${ext}`;
-    await ObjectStorageService.uploadBuffer(key, file.mimetype, file.buffer);
-    const url = `/api/portfolio/file/${key}`;
+    let url: string;
+    try {
+      await ObjectStorageService.uploadBuffer(key, file.mimetype, file.buffer);
+      url = `/api/portfolio/file/${key}`;
+    } catch (r2Err) {
+      console.warn(
+        "R2 unavailable for portfolio upload, falling back to local disk:",
+        (r2Err as Error).message
+      );
+      const localPath = await saveLocally(key, file.buffer);
+      url = `/api/portfolio/file/${localPath}`;
+    }
     return res.json({ url });
   } catch (err) {
     console.error("uploadPortfolioFile error:", err);
@@ -98,6 +109,11 @@ export async function servePortfolioFile(req: Request, res: Response) {
   const key = (req.params as any)[0] as string;
   if (!key) return res.status(400).json({ error: "Missing key" });
   try {
+    if (isLocalPath(key)) {
+      const buffer = await readLocally(key);
+      res.set({ "Cache-Control": "private, max-age=86400" });
+      return res.send(buffer);
+    }
     const svc = new ObjectStorageService();
     await svc.downloadObject(key, res, 86400);
   } catch (err) {

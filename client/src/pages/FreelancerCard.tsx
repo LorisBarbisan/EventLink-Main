@@ -155,7 +155,7 @@ export default function FreelancerCard() {
 
   const uid: number | undefined = freelancer?.user_id;
 
-  const { data: portfolio = [] } = useQuery<any[]>({
+  const { data: portfolio = [], isLoading: portfolioLoading } = useQuery<any[]>({
     queryKey: ["/api/portfolio", uid],
     queryFn: () => apiRequest(`/api/portfolio?userId=${uid}`),
     enabled: !!uid,
@@ -477,6 +477,22 @@ export default function FreelancerCard() {
             </p>
           </div>
         );
+      if (portfolioLoading) {
+        return (
+          <div style={{ display: "flex", justifyContent: "center", padding: "24px 0" }}>
+            <div
+              className="animate-spin"
+              style={{
+                width: 20,
+                height: 20,
+                border: `2px solid ${onAccent}33`,
+                borderTopColor: onAccent,
+                borderRadius: "50%",
+              }}
+            />
+          </div>
+        );
+      }
       return (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
           {(portfolio as any[]).length === 0 && (

@@ -278,7 +278,33 @@ function PostForm({
     onError: () => toast({ title: "Something went wrong", variant: "destructive" }),
   });
 
-  const uploadFile = async (file: File, onDone: (url: string) => void) => {
+  // Compress image with canvas (max 1200×900, 85% WebP) → compressed base64 data URL
+  const compressImage = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      const blobUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(blobUrl);
+        const MAX_W = 1200;
+        const MAX_H = 900;
+        let { width, height } = img;
+        if (width > MAX_W || height > MAX_H) {
+          const ratio = Math.min(MAX_W / width, MAX_H / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/webp", 0.85));
+      };
+      img.onerror = reject;
+      img.src = blobUrl;
+    });
+
+  // Upload video to server (R2 / local fallback) and return served URL
+  const uploadVideo = async (file: File, onDone: (url: string) => void) => {
     setUploading(true);
     try {
       const token = localStorage.getItem("auth_token");
@@ -297,9 +323,26 @@ function PostForm({
       const { url } = await res.json();
       onDone(url);
     } catch {
-      toast({ title: "Upload failed", variant: "destructive" });
+      toast({ title: "Video upload failed", variant: "destructive" });
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Route to correct handler: images get client-side compression, videos go to server
+  const handleMedia = async (file: File, onDone: (url: string) => void) => {
+    if (file.type.startsWith("video/")) {
+      await uploadVideo(file, onDone);
+    } else {
+      setUploading(true);
+      try {
+        const compressed = await compressImage(file);
+        onDone(compressed);
+      } catch {
+        toast({ title: "Could not process image", variant: "destructive" });
+      } finally {
+        setUploading(false);
+      }
     }
   };
 
@@ -373,7 +416,7 @@ function PostForm({
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) uploadFile(f, setBannerUrl);
+                if (f) handleMedia(f, setBannerUrl);
               }}
             />
           </div>
@@ -427,7 +470,7 @@ function PostForm({
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) uploadFile(f, setMediaUrl);
+                if (f) handleMedia(f, setMediaUrl);
               }}
             />
           </div>
