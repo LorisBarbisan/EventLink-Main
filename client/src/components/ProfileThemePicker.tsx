@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 export type FontKey = "inter" | "playfair" | "poppins" | "space-grotesk";
+export type TextureKey = "none" | "leather" | "grid";
 
 export interface ProfileTheme {
   accent?: string;
@@ -9,17 +10,59 @@ export interface ProfileTheme {
   button_text?: "auto" | "light" | "dark";
   font?: FontKey;
   section_order?: string[];
+  texture?: TextureKey;
 }
 
-const ACCENT_PRESETS = [
-  { label: "Black", value: "#000000" },
-  { label: "White", value: "#ffffff" },
-  { label: "Red", value: "#a30d26" },
-  { label: "Lime", value: "#90ff09" },
-  { label: "Dark Grey", value: "#5c5c5c" },
-  { label: "Blue", value: "#1700c0" },
-  { label: "Grey", value: "#999999" },
-  { label: "Yellow", value: "#efd725" },
+interface Template {
+  label: string;
+  accent: string;
+  button_color: string;
+  button_text: "auto" | "light" | "dark";
+  font: FontKey;
+  texture: TextureKey;
+}
+
+const TEMPLATES: Template[] = [
+  {
+    label: "Minimal",
+    accent: "#ffffff",
+    button_color: "#111111",
+    button_text: "light",
+    font: "inter",
+    texture: "none",
+  },
+  {
+    label: "Midnight",
+    accent: "#0d0d0d",
+    button_color: "#ffffff",
+    button_text: "dark",
+    font: "space-grotesk",
+    texture: "leather",
+  },
+  {
+    label: "Digital",
+    accent: "#0a1628",
+    button_color: "#00d4ff",
+    button_text: "dark",
+    font: "space-grotesk",
+    texture: "grid",
+  },
+  {
+    label: "Amber",
+    accent: "#c45c00",
+    button_color: "#ffffff",
+    button_text: "dark",
+    font: "poppins",
+    texture: "none",
+  },
+  {
+    label: "Elegant",
+    accent: "#1a1a2e",
+    button_color: "#d4af37",
+    button_text: "dark",
+    font: "playfair",
+    texture: "none",
+  },
 ];
 
 const FONTS: { key: FontKey; label: string; style: string }[] = [
@@ -63,6 +106,17 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
   const setButtonText = (v: "auto" | "light" | "dark") => onChange({ ...theme, button_text: v });
   const setFont = (v: FontKey) => onChange({ ...theme, font: v });
 
+  const applyTemplate = (t: Template) => {
+    onChange({
+      ...theme,
+      accent: t.accent,
+      button_color: t.button_color,
+      button_text: t.button_text,
+      font: t.font,
+      texture: t.texture,
+    });
+  };
+
   const moveSection = (idx: number, dir: -1 | 1) => {
     const next = [...sections];
     const target = idx + dir;
@@ -71,37 +125,61 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
     onChange({ ...theme, section_order: next });
   };
 
+  // Texture CSS patterns (SVG data URIs)
+  const TEXTURE_BG: Record<TextureKey, string> = {
+    none: "none",
+    leather:
+      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M12 0L24 12L12 24L0 12Z' fill='none' stroke='rgba(255,255,255,0.07)' stroke-width='0.8'/%3E%3C/svg%3E\")",
+    grid: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cline x1='0' y1='0' x2='0' y2='40' stroke='rgba(0,212,255,0.14)' stroke-width='0.5'/%3E%3Cline x1='0' y1='0' x2='40' y2='0' stroke='rgba(0,212,255,0.14)' stroke-width='0.5'/%3E%3C/svg%3E\")",
+  };
+
   return (
     <div className="space-y-6">
-      {/* Accent colour */}
+      {/* Templates */}
       <div>
-        <p className="mb-3 text-sm font-semibold">Accent colour</p>
-        <div className="flex flex-wrap gap-2">
-          {ACCENT_PRESETS.map((p) => (
+        <p className="mb-3 text-sm font-semibold">Templates</p>
+        <div className="grid grid-cols-5 gap-2">
+          {TEMPLATES.map((t) => (
             <button
-              key={p.value}
+              key={t.label}
               type="button"
-              title={p.label}
-              onClick={() => setAccent(p.value)}
+              onClick={() => applyTemplate(t)}
+              title={t.label}
               className={cn(
-                "h-8 w-14 rounded-full border-2 transition-all hover:scale-105",
-                accent === p.value
-                  ? "scale-105 border-foreground ring-2 ring-foreground/20"
-                  : "border-transparent hover:border-foreground/30"
+                "group flex flex-col items-center gap-1.5 rounded-xl border-2 p-1.5 transition-all hover:border-foreground/60",
+                theme.accent === t.accent && theme.texture === t.texture
+                  ? "border-foreground ring-2 ring-foreground/20"
+                  : "border-border"
               )}
-              style={{ backgroundColor: p.value }}
             >
-              {accent === p.value && (
-                <span className="block text-center text-xs font-bold text-white drop-shadow">
-                  ✓
-                </span>
-              )}
+              {/* Mini card preview */}
+              <div
+                className="h-12 w-full rounded-lg"
+                style={{
+                  backgroundColor: t.accent,
+                  backgroundImage: TEXTURE_BG[t.texture],
+                  border: t.accent === "#ffffff" ? "1px solid #e5e7eb" : "none",
+                }}
+              >
+                {/* Mini button swatch */}
+                <div className="flex h-full items-end justify-center pb-1.5">
+                  <div
+                    className="h-1.5 w-8 rounded-full"
+                    style={{ backgroundColor: t.button_color }}
+                  />
+                </div>
+              </div>
+              <span className="text-[10px] font-medium text-muted-foreground">{t.label}</span>
             </button>
           ))}
         </div>
-        {/* Custom hex */}
-        <div className="mt-3 flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Custom</span>
+      </div>
+
+      {/* Background colour */}
+      <div>
+        <p className="mb-1 text-sm font-semibold">Background colour</p>
+        <p className="mb-3 text-xs text-muted-foreground">Card background colour.</p>
+        <div className="flex items-center gap-2">
           <label
             className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-border shadow-sm"
             style={{ backgroundColor: accent }}
@@ -131,41 +209,7 @@ export function ProfileThemePicker({ theme, onChange }: Props) {
         <p className="mb-3 text-xs text-muted-foreground">
           Colour of the section buttons on the back of your card.
         </p>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { label: "Black", value: "#000000" },
-            { label: "White", value: "#ffffff" },
-            { label: "Grey", value: "#8e8e8e" },
-            { label: "Yellow", value: "#ffcc00" },
-          ].map((p) => (
-            <button
-              key={p.value}
-              type="button"
-              title={p.label}
-              onClick={() => setButtonColor(p.value)}
-              className={cn(
-                "h-8 w-14 rounded-full border-2 transition-all hover:scale-105",
-                buttonColor === p.value
-                  ? "scale-105 border-foreground ring-2 ring-foreground/20"
-                  : "border-border hover:border-foreground/30"
-              )}
-              style={{ backgroundColor: p.value }}
-            >
-              {buttonColor === p.value && (
-                <span
-                  className="block text-center text-xs font-bold drop-shadow"
-                  style={{
-                    color: p.value === "#ffffff" || p.value === "#ffcc00" ? "#333" : "#fff",
-                  }}
-                >
-                  ✓
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-        <div className="mt-3 flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Custom</span>
+        <div className="flex items-center gap-2">
           <label
             className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-border shadow-sm"
             style={{ backgroundColor: buttonColor }}

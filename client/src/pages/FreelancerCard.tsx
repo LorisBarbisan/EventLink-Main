@@ -69,6 +69,20 @@ export default function FreelancerCard() {
   const themeButtonColor: string = (freelancer as any)?.profile_theme?.button_color ?? "#ffffff";
   // Faint tint version for icon backgrounds / pill backgrounds
   const themeAccentLight: string = themeAccent + "1a"; // 10% opacity via hex alpha
+  // Texture overlay for the card face
+  const themeTexture: string = (freelancer as any)?.profile_theme?.texture ?? "none";
+  const TEXTURE_PATTERNS: Record<string, string> = {
+    none: "none",
+    leather:
+      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M12 0L24 12L12 24L0 12Z' fill='none' stroke='rgba(255,255,255,0.07)' stroke-width='0.8'/%3E%3C/svg%3E\")",
+    grid: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cline x1='0' y1='0' x2='0' y2='40' stroke='rgba(0,212,255,0.14)' stroke-width='0.5'/%3E%3Cline x1='0' y1='0' x2='40' y2='0' stroke='rgba(0,212,255,0.14)' stroke-width='0.5'/%3E%3C/svg%3E\")",
+  };
+  const cardFaceBg = darkMode
+    ? {}
+    : {
+        backgroundColor: themeAccent,
+        backgroundImage: TEXTURE_PATTERNS[themeTexture] ?? "none",
+      };
 
   // Derive luminance from accent so the back-of-card text adapts (white on dark, dark on light)
   function parseLuminance(color: string): number {
@@ -936,7 +950,7 @@ export default function FreelancerCard() {
                     inset: 0,
                     backfaceVisibility: "hidden",
                     WebkitBackfaceVisibility: "hidden",
-                    background: darkMode ? DM.cardBg : themeAccent,
+                    ...(darkMode ? { background: DM.cardBg } : cardFaceBg),
                     border: "none",
                     borderRadius: 18,
                     transform: "rotateY(180deg)",
