@@ -1610,6 +1610,7 @@ export default function Profile() {
                             <img
                               src={item.media_url}
                               alt={item.title || ""}
+                              loading="lazy"
                               className="h-full w-full object-cover"
                             />
                           )}
@@ -1619,6 +1620,7 @@ export default function Profile() {
                                 <img
                                   src={item.thumbnail_url}
                                   alt=""
+                                  loading="lazy"
                                   className="h-full w-full object-cover"
                                 />
                               ) : (
@@ -1919,6 +1921,7 @@ export default function Profile() {
                   src={viewingPost.media_url}
                   controls
                   playsInline
+                  preload="auto"
                   className="max-h-[70vh] w-full bg-black"
                 />
               )}

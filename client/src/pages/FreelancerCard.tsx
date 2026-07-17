@@ -51,6 +51,7 @@ export default function FreelancerCard() {
   const [detail, setDetail] = useState<Detail>(null);
   const [rightTab, setRightTab] = useState<RightTab>("about");
   const [darkMode, setDarkMode] = useState(false);
+  const [playingVideoId, setPlayingVideoId] = useState<number | null>(null);
 
   const { data: freelancer, isLoading } = useQuery({
     queryKey: ["/api/freelancer", userId],
@@ -513,6 +514,7 @@ export default function FreelancerCard() {
                 item.type === "photo" ? themeAccent : item.type === "video" ? C.purple : C.success;
               const previewImg = item.type === "photo" ? item.media_url : item.thumbnail_url;
               const profileSlug = freelancer?.custom_slug || freelancer?.slug || uid;
+              const isPlaying = playingVideoId === item.id;
               const clickUrl =
                 item.type === "blog"
                   ? `${window.location.origin}/profile/${profileSlug}`
@@ -522,12 +524,18 @@ export default function FreelancerCard() {
               return (
                 <div
                   key={item.id}
-                  onClick={() => clickUrl && window.open(clickUrl, "_blank")}
+                  onClick={() => {
+                    if (item.type === "video") {
+                      setPlayingVideoId(isPlaying ? null : item.id);
+                    } else if (clickUrl) {
+                      window.open(clickUrl, "_blank");
+                    }
+                  }}
                   style={{
                     borderRadius: 8,
                     overflow: "hidden",
                     border: "1px solid #eee",
-                    cursor: clickUrl ? "pointer" : "default",
+                    cursor: item.type === "video" || clickUrl ? "pointer" : "default",
                   }}
                 >
                   <div
@@ -538,11 +546,13 @@ export default function FreelancerCard() {
                       background: bg,
                     }}
                   >
-                    {item.type === "video" && item.media_url ? (
+                    {item.type === "video" && item.media_url && isPlaying ? (
                       <video
                         src={item.media_url}
                         controls
+                        autoPlay
                         playsInline
+                        preload="auto"
                         style={{
                           width: "100%",
                           height: "100%",
@@ -552,16 +562,45 @@ export default function FreelancerCard() {
                         onClick={(e) => e.stopPropagation()}
                       />
                     ) : previewImg ? (
-                      <img
-                        src={previewImg}
-                        alt={item.title}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          display: "block",
-                        }}
-                      />
+                      <>
+                        <img
+                          src={previewImg}
+                          alt={item.title}
+                          loading="lazy"
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                        {item.type === "video" && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background: "rgba(0,0,0,0.22)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: "50%",
+                                background: "rgba(0,0,0,0.6)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <span style={{ color: "#fff", fontSize: 13, marginLeft: 3 }}>▶</span>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div
                         style={{
@@ -570,10 +609,26 @@ export default function FreelancerCard() {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          fontSize: 28,
+                          position: "relative",
                         }}
                       >
-                        {emoji}
+                        {item.type === "video" ? (
+                          <div
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: "50%",
+                              background: "rgba(0,0,0,0.4)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <span style={{ color: "#fff", fontSize: 13, marginLeft: 3 }}>▶</span>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: 28 }}>{emoji}</span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1549,6 +1604,7 @@ export default function FreelancerCard() {
                         const previewImg =
                           item.type === "photo" ? item.media_url : item.thumbnail_url;
                         const profileSlug = freelancer?.custom_slug || freelancer?.slug || uid;
+                        const isPlaying = playingVideoId === item.id;
                         const clickUrl =
                           item.type === "blog"
                             ? `${window.location.origin}/profile/${profileSlug}`
@@ -1558,20 +1614,35 @@ export default function FreelancerCard() {
                         return (
                           <div
                             key={item.id}
-                            onClick={() => clickUrl && window.open(clickUrl, "_blank")}
+                            onClick={() => {
+                              if (item.type === "video") {
+                                setPlayingVideoId(isPlaying ? null : item.id);
+                              } else if (clickUrl) {
+                                window.open(clickUrl, "_blank");
+                              }
+                            }}
                             style={{
                               border: `1px solid ${C.border}`,
                               borderRadius: 8,
                               overflow: "hidden",
-                              cursor: clickUrl ? "pointer" : "default",
+                              cursor: item.type === "video" || clickUrl ? "pointer" : "default",
                             }}
                           >
-                            <div style={{ width: "100%", aspectRatio: "1", background: bg }}>
-                              {item.type === "video" && item.media_url ? (
+                            <div
+                              style={{
+                                width: "100%",
+                                aspectRatio: "1",
+                                background: bg,
+                                position: "relative",
+                              }}
+                            >
+                              {item.type === "video" && item.media_url && isPlaying ? (
                                 <video
                                   src={item.media_url}
                                   controls
+                                  autoPlay
                                   playsInline
+                                  preload="auto"
                                   style={{
                                     width: "100%",
                                     height: "100%",
@@ -1581,16 +1652,53 @@ export default function FreelancerCard() {
                                   onClick={(e) => e.stopPropagation()}
                                 />
                               ) : previewImg ? (
-                                <img
-                                  src={previewImg}
-                                  alt={item.title}
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                    display: "block",
-                                  }}
-                                />
+                                <>
+                                  <img
+                                    src={previewImg}
+                                    alt={item.title}
+                                    loading="lazy"
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                      display: "block",
+                                    }}
+                                  />
+                                  {item.type === "video" && (
+                                    <div
+                                      style={{
+                                        position: "absolute",
+                                        inset: 0,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        background: "rgba(0,0,0,0.22)",
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          width: 34,
+                                          height: 34,
+                                          borderRadius: "50%",
+                                          background: "rgba(0,0,0,0.6)",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                        }}
+                                      >
+                                        <span
+                                          style={{
+                                            color: "#fff",
+                                            fontSize: 13,
+                                            marginLeft: 3,
+                                          }}
+                                        >
+                                          ▶
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
                               ) : (
                                 <div
                                   style={{
@@ -1599,10 +1707,27 @@ export default function FreelancerCard() {
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    fontSize: 28,
                                   }}
                                 >
-                                  {emoji}
+                                  {item.type === "video" ? (
+                                    <div
+                                      style={{
+                                        width: 34,
+                                        height: 34,
+                                        borderRadius: "50%",
+                                        background: "rgba(0,0,0,0.4)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                      }}
+                                    >
+                                      <span style={{ color: "#fff", fontSize: 13, marginLeft: 3 }}>
+                                        ▶
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span style={{ fontSize: 28 }}>{emoji}</span>
+                                  )}
                                 </div>
                               )}
                             </div>
