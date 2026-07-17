@@ -278,18 +278,29 @@ function PostForm({
     onError: () => toast({ title: "Something went wrong", variant: "destructive" }),
   });
 
-  const readFile = (file: File, onDone: (url: string) => void) => {
+  const uploadFile = async (file: File, onDone: (url: string) => void) => {
     setUploading(true);
-    const reader = new FileReader();
-    reader.onload = () => {
-      onDone(reader.result as string);
+    try {
+      const token = localStorage.getItem("auth_token");
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/portfolio/upload", {
+        method: "POST",
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Upload failed");
+      }
+      const { url } = await res.json();
+      onDone(url);
+    } catch {
+      toast({ title: "Upload failed", variant: "destructive" });
+    } finally {
       setUploading(false);
-    };
-    reader.onerror = () => {
-      toast({ title: "Could not read file", variant: "destructive" });
-      setUploading(false);
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const isArticle = type === "blog";
@@ -362,7 +373,7 @@ function PostForm({
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) readFile(f, setBannerUrl);
+                if (f) uploadFile(f, setBannerUrl);
               }}
             />
           </div>
@@ -416,7 +427,7 @@ function PostForm({
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) readFile(f, setMediaUrl);
+                if (f) uploadFile(f, setMediaUrl);
               }}
             />
           </div>

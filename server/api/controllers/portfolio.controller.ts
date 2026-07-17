@@ -1,10 +1,8 @@
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
-
-const UPLOADS_DIR = path.join(process.cwd(), "uploads", "portfolio");
+import { ObjectStorageService, ObjectNotFoundError } from "../utils/object-storage";
 
 export async function getPortfolioPosts(req: Request, res: Response) {
   try {
@@ -85,14 +83,25 @@ export async function uploadPortfolioFile(req: Request, res: Response) {
   if (!file) return res.status(400).json({ error: "No file uploaded" });
 
   try {
-    await fs.mkdir(UPLOADS_DIR, { recursive: true });
     const ext = path.extname(file.originalname).toLowerCase();
-    const filename = `${randomUUID()}${ext}`;
-    const dest = path.join(UPLOADS_DIR, filename);
-    await fs.writeFile(dest, file.buffer);
-    const url = `/uploads/portfolio/${filename}`;
+    const key = `portfolio/${user.id}/${randomUUID()}${ext}`;
+    await ObjectStorageService.uploadBuffer(key, file.mimetype, file.buffer);
+    const url = `/api/portfolio/file/${key}`;
     return res.json({ url });
-  } catch {
+  } catch (err) {
+    console.error("uploadPortfolioFile error:", err);
     return res.status(500).json({ error: "Upload failed" });
+  }
+}
+
+export async function servePortfolioFile(req: Request, res: Response) {
+  const key = (req.params as any)[0] as string;
+  if (!key) return res.status(400).json({ error: "Missing key" });
+  try {
+    const svc = new ObjectStorageService();
+    await svc.downloadObject(key, res, 86400);
+  } catch (err) {
+    if (err instanceof ObjectNotFoundError) return res.status(404).json({ error: "Not found" });
+    return res.status(500).json({ error: "Serve failed" });
   }
 }
