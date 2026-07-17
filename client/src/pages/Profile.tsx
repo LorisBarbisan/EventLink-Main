@@ -59,6 +59,7 @@ import {
   Flag,
   Globe,
   Linkedin,
+  Loader2,
   Mail,
   MapPin,
   MessageCircle,
@@ -753,10 +754,15 @@ export default function Profile() {
   const [addPostUrl, setAddPostUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: portfolioItems = [], refetch: refetchPortfolio } = useQuery<PortfolioPost[]>({
+  const {
+    data: portfolioItems = [],
+    refetch: refetchPortfolio,
+    isLoading: portfolioLoading,
+  } = useQuery<PortfolioPost[]>({
     queryKey: ["/api/portfolio", freelancerProfile?.user_id],
     queryFn: () => apiRequest(`/api/portfolio?userId=${freelancerProfile!.user_id}`),
     enabled: !!freelancerProfile?.user_id,
+    refetchOnMount: "always",
   });
 
   const addPortfolioMutation = useMutation({
@@ -1580,7 +1586,11 @@ export default function Profile() {
                       </Button>
                     </div>
                   )}
-                  {portfolioItems.length === 0 ? (
+                  {portfolioLoading ? (
+                    <div className="flex justify-center py-16">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : portfolioItems.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                       {isOwnProfile && !isPro ? (
                         <p className="text-sm">Upgrade to Pro to add portfolio items.</p>
