@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { getVideoThumbnail } from "@/lib/video-embed";
 
 // Brand palette
 const C = {
@@ -51,7 +52,6 @@ export default function FreelancerCard() {
   const [detail, setDetail] = useState<Detail>(null);
   const [rightTab, setRightTab] = useState<RightTab>("about");
   const [darkMode, setDarkMode] = useState(false);
-  const [playingVideoId, setPlayingVideoId] = useState<number | null>(null);
 
   const { data: freelancer, isLoading } = useQuery({
     queryKey: ["/api/freelancer", userId],
@@ -503,39 +503,24 @@ export default function FreelancerCard() {
               </p>
             )}
             {(portfolio as any[]).map((item: any) => {
-              const emoji = item.type === "photo" ? "🖼️" : item.type === "video" ? "🎬" : "📝";
-              const bg =
+              const emoji = item.type === "photo" ? "🖼️" : "🎬";
+              const bg = item.type === "photo" ? "#fef3e8" : C.purpleLight;
+              const typeColor = item.type === "photo" ? themeAccent : C.purple;
+              const previewImg =
                 item.type === "photo"
-                  ? "#fef3e8"
-                  : item.type === "video"
-                    ? C.purpleLight
-                    : "#edf7ed";
-              const typeColor =
-                item.type === "photo" ? themeAccent : item.type === "video" ? C.purple : C.success;
-              const previewImg = item.type === "photo" ? item.media_url : item.thumbnail_url;
-              const profileSlug = freelancer?.custom_slug || freelancer?.slug || uid;
-              const isPlaying = playingVideoId === item.id;
+                  ? item.media_url
+                  : (item.thumbnail_url ?? getVideoThumbnail(item.media_url ?? "") ?? null);
               const clickUrl =
-                item.type === "blog"
-                  ? `${window.location.origin}/profile/${profileSlug}`
-                  : item.type !== "video"
-                    ? item.media_url || undefined
-                    : undefined;
+                item.type === "photo" ? item.media_url || undefined : item.media_url || undefined;
               return (
                 <div
                   key={item.id}
-                  onClick={() => {
-                    if (item.type === "video") {
-                      setPlayingVideoId(isPlaying ? null : item.id);
-                    } else if (clickUrl) {
-                      window.open(clickUrl, "_blank");
-                    }
-                  }}
+                  onClick={() => clickUrl && window.open(clickUrl, "_blank", "noopener,noreferrer")}
                   style={{
                     borderRadius: 8,
                     overflow: "hidden",
                     border: "1px solid #eee",
-                    cursor: item.type === "video" || clickUrl ? "pointer" : "default",
+                    cursor: clickUrl ? "pointer" : "default",
                   }}
                 >
                   <div
@@ -546,22 +531,7 @@ export default function FreelancerCard() {
                       background: bg,
                     }}
                   >
-                    {item.type === "video" && item.media_url && isPlaying ? (
-                      <video
-                        src={item.media_url}
-                        controls
-                        autoPlay
-                        playsInline
-                        preload="auto"
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          display: "block",
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : previewImg ? (
+                    {previewImg ? (
                       <>
                         <img
                           src={previewImg}
@@ -609,7 +579,6 @@ export default function FreelancerCard() {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          position: "relative",
                         }}
                       >
                         {item.type === "video" ? (
@@ -1587,45 +1556,27 @@ export default function FreelancerCard() {
                         </p>
                       )}
                       {(portfolio as any[]).map((item: any) => {
-                        const emoji =
-                          item.type === "photo" ? "🖼️" : item.type === "video" ? "🎬" : "📝";
-                        const bg =
-                          item.type === "photo"
-                            ? "#fef3e8"
-                            : item.type === "video"
-                              ? C.purpleLight
-                              : "#edf7ed";
-                        const typeColor =
-                          item.type === "photo"
-                            ? themeAccent
-                            : item.type === "video"
-                              ? C.purple
-                              : C.success;
+                        const emoji = item.type === "photo" ? "🖼️" : "🎬";
+                        const bg = item.type === "photo" ? "#fef3e8" : C.purpleLight;
+                        const typeColor = item.type === "photo" ? themeAccent : C.purple;
                         const previewImg =
-                          item.type === "photo" ? item.media_url : item.thumbnail_url;
-                        const profileSlug = freelancer?.custom_slug || freelancer?.slug || uid;
-                        const isPlaying = playingVideoId === item.id;
-                        const clickUrl =
-                          item.type === "blog"
-                            ? `${window.location.origin}/profile/${profileSlug}`
-                            : item.type !== "video"
-                              ? item.media_url || undefined
-                              : undefined;
+                          item.type === "photo"
+                            ? item.media_url
+                            : (item.thumbnail_url ??
+                              getVideoThumbnail(item.media_url ?? "") ??
+                              null);
+                        const clickUrl = item.media_url || undefined;
                         return (
                           <div
                             key={item.id}
-                            onClick={() => {
-                              if (item.type === "video") {
-                                setPlayingVideoId(isPlaying ? null : item.id);
-                              } else if (clickUrl) {
-                                window.open(clickUrl, "_blank");
-                              }
-                            }}
+                            onClick={() =>
+                              clickUrl && window.open(clickUrl, "_blank", "noopener,noreferrer")
+                            }
                             style={{
                               border: `1px solid ${C.border}`,
                               borderRadius: 8,
                               overflow: "hidden",
-                              cursor: item.type === "video" || clickUrl ? "pointer" : "default",
+                              cursor: clickUrl ? "pointer" : "default",
                             }}
                           >
                             <div
@@ -1636,22 +1587,7 @@ export default function FreelancerCard() {
                                 position: "relative",
                               }}
                             >
-                              {item.type === "video" && item.media_url && isPlaying ? (
-                                <video
-                                  src={item.media_url}
-                                  controls
-                                  autoPlay
-                                  playsInline
-                                  preload="auto"
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                    display: "block",
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              ) : previewImg ? (
+                              {previewImg ? (
                                 <>
                                   <img
                                     src={previewImg}
@@ -1742,7 +1678,7 @@ export default function FreelancerCard() {
                                   marginBottom: 1,
                                 }}
                               >
-                                {item.type === "blog" ? "article" : item.type}
+                                {item.type}
                               </div>
                               <div style={{ fontSize: 10, color: "#333", fontWeight: 500 }}>
                                 {item.title || "Untitled"}

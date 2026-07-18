@@ -42,6 +42,7 @@ import {
   useReportRating,
 } from "@/hooks/useRatings";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getEmbedUrl, getVideoThumbnail } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -1616,16 +1617,22 @@ export default function Profile() {
                           )}
                           {item.type === "video" && (
                             <>
-                              {item.thumbnail_url ? (
-                                <img
-                                  src={item.thumbnail_url}
-                                  alt=""
-                                  loading="lazy"
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="h-full w-full bg-neutral-900" />
-                              )}
+                              {(() => {
+                                const thumb =
+                                  item.thumbnail_url ??
+                                  getVideoThumbnail(item.media_url ?? "") ??
+                                  null;
+                                return thumb ? (
+                                  <img
+                                    src={thumb}
+                                    alt=""
+                                    loading="lazy"
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="h-full w-full bg-neutral-900" />
+                                );
+                              })()}
                               <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
                                   <Play className="h-5 w-5 fill-white text-white" />
@@ -1916,14 +1923,29 @@ export default function Profile() {
                 />
               )}
               {viewingPost.type === "video" && viewingPost.media_url && (
-                <video
-                  key={viewingPost.id}
-                  src={viewingPost.media_url}
-                  controls
-                  playsInline
-                  preload="auto"
-                  className="max-h-[70vh] w-full bg-black"
-                />
+                <div className="aspect-video w-full bg-black">
+                  {getEmbedUrl(viewingPost.media_url) ? (
+                    <iframe
+                      key={viewingPost.id}
+                      src={`${getEmbedUrl(viewingPost.media_url)}?autoplay=1`}
+                      className="h-full w-full"
+                      allowFullScreen
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      title={viewingPost.title || "Video"}
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center">
+                      <a
+                        href={viewingPost.media_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-white underline"
+                      >
+                        Open video
+                      </a>
+                    </div>
+                  )}
+                </div>
               )}
               {viewingPost.type === "link" && (
                 <div className="flex flex-col items-center justify-center gap-4 bg-muted p-12">

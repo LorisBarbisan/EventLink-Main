@@ -4,26 +4,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { getEmbedUrl, getVideoThumbnail } from "@/lib/video-embed";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  FileText,
   Film,
   ImagePlus,
   Loader2,
   MoreHorizontal,
   Pencil,
+  Play,
   Plus,
   Trash2,
   X,
 } from "lucide-react";
-import { lazy, Suspense, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
-// Lazy-load so Tiptap packages don't block the portfolio grid on first render
-const ArticleEditor = lazy(() =>
-  import("@/components/ArticleEditor").then((m) => ({ default: m.ArticleEditor }))
-);
-
-type PostType = "photo" | "video" | "blog";
+type PostType = "photo" | "video";
 
 interface PortfolioPost {
   id: number;
@@ -41,23 +37,14 @@ interface FreelancerPortfolioProps {
   editable?: boolean;
 }
 
-// "blog" type is called "Article" in the UI; the DB value stays "blog"
 const TYPE_LABELS: Record<PostType, string> = {
   photo: "Photos",
   video: "Videos",
-  blog: "Articles",
 };
 
 const TYPE_ICONS: Record<PostType, React.ReactNode> = {
   photo: <ImagePlus className="h-4 w-4" />,
   video: <Film className="h-4 w-4" />,
-  blog: <FileText className="h-4 w-4" />,
-};
-
-const TYPE_PLACEHOLDER: Record<PostType, { icon: React.ReactNode; label: string }> = {
-  photo: { icon: <ImagePlus className="h-10 w-10 text-muted-foreground/40" />, label: "Photo" },
-  video: { icon: <Film className="h-10 w-10 text-muted-foreground/40" />, label: "Video" },
-  blog: { icon: <FileText className="h-10 w-10 text-muted-foreground/40" />, label: "Article" },
 };
 
 function PostCard({
@@ -72,109 +59,53 @@ function PostCard({
   onDelete: (id: number) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const placeholder = TYPE_PLACEHOLDER[post.type];
 
-  // Article cards: banner + title + body text preview
-  if (post.type === "blog") {
-    const Menu = () =>
-      editable ? (
-        <div className="absolute right-1 top-1 z-10 shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setMenuOpen((o) => !o)}
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-          {menuOpen && (
-            <div className="absolute right-0 top-8 z-50 w-32 rounded-md border bg-popover py-1 shadow-lg">
-              <button
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onEdit(post);
-                }}
-              >
-                <Pencil className="h-3.5 w-3.5" /> Edit
-              </button>
-              <button
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-destructive hover:bg-muted"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onDelete(post.id);
-                }}
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Delete
-              </button>
-            </div>
-          )}
-        </div>
-      ) : null;
+  const thumbnail =
+    post.type === "video"
+      ? (post.thumbnail_url ?? getVideoThumbnail(post.media_url ?? "") ?? null)
+      : post.media_url;
 
-    if (post.thumbnail_url) {
-      // Banner present — image on top, title + excerpt below
-      return (
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
-          <Menu />
-          <div className="aspect-video w-full overflow-hidden rounded-t-2xl bg-muted">
-            <img
-              src={post.thumbnail_url}
-              alt={post.title || "Article banner"}
-              className="h-full w-full object-cover"
-            />
-          </div>
-          <div className="p-2">
-            {post.title && <p className="truncate text-sm font-bold leading-snug">{post.title}</p>}
-            {post.body && (
-              <p
-                className="mt-0.5 line-clamp-2 text-xs text-muted-foreground"
-                dangerouslySetInnerHTML={{
-                  __html: post.body.replace(/<[^>]+>/g, " ").slice(0, 120),
-                }}
-              />
-            )}
-          </div>
-        </div>
-      );
+  const handleClick = () => {
+    if (post.type === "video" && post.media_url) {
+      window.open(post.media_url, "_blank", "noopener,noreferrer");
     }
-
-    // No banner — full text card
-    return (
-      <div className="relative flex aspect-video flex-col overflow-hidden rounded-2xl border border-border bg-card p-3 shadow-sm transition-shadow hover:shadow-md">
-        <Menu />
-        {post.title && <p className="mb-1 pr-6 text-sm font-bold leading-snug">{post.title}</p>}
-        {post.body && (
-          <div
-            className="article-preview line-clamp-[8] text-xs leading-relaxed text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: post.body }}
-          />
-        )}
-      </div>
-    );
-  }
+  };
 
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
+    <div
+      className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
+      onClick={post.type === "video" ? handleClick : undefined}
+    >
       {/* Media area */}
       <div className="aspect-video w-full overflow-hidden rounded-t-2xl bg-muted">
         {post.type === "photo" && post.media_url ? (
           <img
             src={post.media_url}
             alt={post.title || "Portfolio photo"}
+            loading="lazy"
             className="h-full w-full object-cover"
           />
-        ) : post.type === "video" && post.media_url ? (
-          <video
-            src={post.media_url}
-            controls
-            className="h-full w-full object-cover"
-            poster={post.thumbnail_url || undefined}
-          />
+        ) : post.type === "video" ? (
+          <div className="relative h-full w-full">
+            {thumbnail ? (
+              <img
+                src={thumbnail}
+                alt={post.title || "Video thumbnail"}
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-neutral-900" />
+            )}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/30">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/60">
+                <Play className="h-5 w-5 fill-white text-white" style={{ marginLeft: 3 }} />
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2">
-            {placeholder.icon}
-            <span className="text-xs text-muted-foreground">{placeholder.label}</span>
+            <ImagePlus className="h-10 w-10 text-muted-foreground/40" />
           </div>
         )}
       </div>
@@ -189,7 +120,7 @@ function PostCard({
             )}
           </div>
           {editable && (
-            <div className="relative shrink-0">
+            <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
               <Button
                 variant="ghost"
                 size="icon"
@@ -240,15 +171,17 @@ function PostForm({
   const { toast } = useToast();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
-  const bannerRef = useRef<HTMLInputElement>(null);
 
-  const [type, setType] = useState<PostType>(initial?.type || "photo");
+  const [type, setType] = useState<PostType>(
+    initial?.type === "photo" || initial?.type === "video" ? initial.type : "photo"
+  );
   const [title, setTitle] = useState(initial?.title || "");
   const [body, setBody] = useState(initial?.body || "");
   const [mediaUrl, setMediaUrl] = useState(initial?.media_url || "");
-  // For articles: thumbnail_url stores the banner image
-  const [bannerUrl, setBannerUrl] = useState(initial?.thumbnail_url || "");
   const [uploading, setUploading] = useState(false);
+
+  const embedUrl = type === "video" ? getEmbedUrl(mediaUrl) : null;
+  const derivedThumbnail = type === "video" ? getVideoThumbnail(mediaUrl) : null;
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -256,8 +189,8 @@ function PostForm({
         type,
         title: title || null,
         body: body || null,
-        media_url: type === "blog" ? null : mediaUrl || null,
-        thumbnail_url: type === "blog" ? bannerUrl || null : null,
+        media_url: mediaUrl || null,
+        thumbnail_url: type === "video" ? derivedThumbnail || null : null,
       };
       if (initial) {
         return apiRequest(`/api/portfolio/${initial.id}`, {
@@ -272,13 +205,12 @@ function PostForm({
     },
     onSuccess: () => {
       qc.refetchQueries({ queryKey: ["/api/portfolio", userId] });
-      toast({ title: initial ? "Article updated" : "Article published" });
+      toast({ title: initial ? "Post updated" : "Post published" });
       onClose();
     },
     onError: () => toast({ title: "Something went wrong", variant: "destructive" }),
   });
 
-  // Compress image with canvas (max 1200×900, 85% WebP) → compressed base64 data URL
   const compressImage = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const img = new Image();
@@ -303,50 +235,17 @@ function PostForm({
       img.src = blobUrl;
     });
 
-  // Upload video to server (R2 / local fallback) and return served URL
-  const uploadVideo = async (file: File, onDone: (url: string) => void) => {
+  const handlePhotoFile = async (file: File) => {
     setUploading(true);
     try {
-      const token = localStorage.getItem("auth_token");
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/portfolio/upload", {
-        method: "POST",
-        credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: formData,
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Upload failed");
-      }
-      const { url } = await res.json();
-      onDone(url);
+      const compressed = await compressImage(file);
+      setMediaUrl(compressed);
     } catch {
-      toast({ title: "Video upload failed", variant: "destructive" });
+      toast({ title: "Could not process image", variant: "destructive" });
     } finally {
       setUploading(false);
     }
   };
-
-  // Route to correct handler: images get client-side compression, videos go to server
-  const handleMedia = async (file: File, onDone: (url: string) => void) => {
-    if (file.type.startsWith("video/")) {
-      await uploadVideo(file, onDone);
-    } else {
-      setUploading(true);
-      try {
-        const compressed = await compressImage(file);
-        onDone(compressed);
-      } catch {
-        toast({ title: "Could not process image", variant: "destructive" });
-      } finally {
-        setUploading(false);
-      }
-    }
-  };
-
-  const isArticle = type === "blog";
 
   return (
     <div className="space-y-4">
@@ -355,10 +254,13 @@ function PostForm({
         <div>
           <Label className="mb-2 block">Type</Label>
           <div className="flex gap-2">
-            {(["photo", "video", "blog"] as PostType[]).map((t) => (
+            {(["photo", "video"] as PostType[]).map((t) => (
               <button
                 key={t}
-                onClick={() => setType(t)}
+                onClick={() => {
+                  setType(t);
+                  setMediaUrl("");
+                }}
                 className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
                   type === t
                     ? "border-purple-500 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
@@ -366,7 +268,7 @@ function PostForm({
                 }`}
               >
                 {TYPE_ICONS[t]}
-                {t === "blog" ? "Article" : TYPE_LABELS[t].replace(/s$/, "")}
+                {TYPE_LABELS[t].replace(/s$/, "")}
               </button>
             ))}
           </div>
@@ -375,69 +277,24 @@ function PostForm({
 
       {/* Title */}
       <div>
-        <Label htmlFor="post-title">{isArticle ? "Article title" : "Title"}</Label>
+        <Label htmlFor="post-title">Title</Label>
         <Input
           id="post-title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder={isArticle ? "Article title…" : "Caption (optional)"}
-          className={`mt-1 ${isArticle ? "text-lg font-semibold" : ""}`}
+          placeholder="Caption (optional)"
+          className="mt-1"
         />
       </div>
 
-      {/* Article: banner image */}
-      {isArticle && (
+      {/* Photo upload */}
+      {type === "photo" && (
         <div>
-          <Label>Banner image (optional)</Label>
-          <div className="mt-1">
-            {bannerUrl ? (
-              <div className="relative overflow-hidden rounded-lg border bg-muted">
-                <img src={bannerUrl} alt="banner" className="max-h-40 w-full object-cover" />
-                <button
-                  onClick={() => setBannerUrl("")}
-                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => bannerRef.current?.click()}
-                disabled={uploading}
-                className="flex w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-border py-4 text-sm text-muted-foreground transition-colors hover:border-purple-400 hover:text-purple-600 disabled:opacity-50"
-              >
-                <Plus className="h-4 w-4" /> Add banner image
-              </button>
-            )}
-            <input
-              ref={bannerRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleMedia(f, setBannerUrl);
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Photo / Video upload */}
-      {!isArticle && (
-        <div>
-          <Label>{type === "photo" ? "Photo" : "Video"}</Label>
+          <Label>Photo</Label>
           <div className="mt-1 space-y-2">
             {mediaUrl ? (
               <div className="relative overflow-hidden rounded-lg border bg-muted">
-                {type === "photo" ? (
-                  <img src={mediaUrl} alt="preview" className="max-h-52 w-full object-cover" />
-                ) : (
-                  <div className="flex items-center gap-3 px-4 py-3">
-                    <Film className="h-5 w-5 shrink-0 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Video ready</span>
-                  </div>
-                )}
+                <img src={mediaUrl} alt="preview" className="max-h-52 w-full object-cover" />
                 <button
                   onClick={() => setMediaUrl("")}
                   className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
@@ -453,12 +310,11 @@ function PostForm({
               >
                 {uploading ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Uploading...
+                    <Loader2 className="h-4 w-4 animate-spin" /> Processing…
                   </>
                 ) : (
                   <>
-                    <Plus className="h-4 w-4" /> Click to upload{" "}
-                    {type === "photo" ? "a photo" : "a video"}
+                    <Plus className="h-4 w-4" /> Click to upload a photo
                   </>
                 )}
               </button>
@@ -466,44 +322,57 @@ function PostForm({
             <input
               ref={fileRef}
               type="file"
-              accept={type === "photo" ? "image/*" : "video/*"}
+              accept="image/*"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) handleMedia(f, setMediaUrl);
+                if (f) handlePhotoFile(f);
               }}
             />
           </div>
         </div>
       )}
 
-      {/* Article: rich text editor */}
-      {isArticle ? (
-        <div>
-          <Label className="mb-1 block">Content</Label>
-          <Suspense
-            fallback={
-              <div className="flex h-40 items-center justify-center">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            }
-          >
-            <ArticleEditor content={body} onChange={setBody} />
-          </Suspense>
-        </div>
-      ) : (
-        <div>
-          <Label htmlFor="post-body">Description</Label>
-          <textarea
-            id="post-body"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Add a description…"
-            rows={3}
-            className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      {/* Video embed URL */}
+      {type === "video" && (
+        <div className="space-y-2">
+          <Label htmlFor="video-url">Video URL</Label>
+          <Input
+            id="video-url"
+            value={mediaUrl}
+            onChange={(e) => setMediaUrl(e.target.value)}
+            placeholder="Paste YouTube or Vimeo URL…"
+            className="mt-1"
           />
+          {mediaUrl && !embedUrl && (
+            <p className="text-xs text-destructive">Paste a YouTube or Vimeo link to preview.</p>
+          )}
+          {embedUrl && (
+            <div className="mt-2 aspect-video w-full overflow-hidden rounded-lg bg-black">
+              <iframe
+                src={embedUrl}
+                className="h-full w-full"
+                allowFullScreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                title="Video preview"
+              />
+            </div>
+          )}
         </div>
       )}
+
+      {/* Description */}
+      <div>
+        <Label htmlFor="post-body">Description</Label>
+        <textarea
+          id="post-body"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="Add a description…"
+          rows={3}
+          className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
 
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="outline" onClick={onClose}>
@@ -515,7 +384,7 @@ function PostForm({
           disabled={mutation.isPending || uploading}
         >
           {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {initial ? "Save changes" : isArticle ? "Publish article" : "Publish"}
+          {initial ? "Save changes" : "Publish"}
         </Button>
       </div>
     </div>
@@ -534,13 +403,16 @@ export function FreelancerPortfolio({
   const [filterType, setFilterType] = useState<PostType | "all">("all");
 
   const {
-    data: posts = [],
+    data: rawPosts = [],
     isLoading,
     isError,
   } = useQuery<PortfolioPost[]>({
     queryKey: ["/api/portfolio", userId],
     queryFn: () => apiRequest(`/api/portfolio?userId=${userId}`),
   });
+
+  // Filter out legacy blog posts from the UI
+  const posts = rawPosts.filter((p) => p.type === "photo" || p.type === "video");
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiRequest(`/api/portfolio/${id}`, { method: "DELETE" }),
@@ -568,7 +440,6 @@ export function FreelancerPortfolio({
     all: "All",
     photo: "Photos",
     video: "Videos",
-    blog: "Articles",
   };
 
   return (
@@ -589,7 +460,7 @@ export function FreelancerPortfolio({
 
       {/* Subtabs */}
       <div className="mb-5 flex gap-1 border-b border-border">
-        {(["all", "photo", "video", "blog"] as const).map((t) => (
+        {(["all", "photo", "video"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setFilterType(t)}
@@ -646,13 +517,7 @@ export function FreelancerPortfolio({
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              {editing
-                ? editing.type === "blog"
-                  ? "Edit article"
-                  : "Edit post"
-                : "New portfolio post"}
-            </DialogTitle>
+            <DialogTitle>{editing ? "Edit post" : "New portfolio post"}</DialogTitle>
           </DialogHeader>
           <div className="overflow-y-auto pr-1">
             <PostForm userId={userId} initial={editing} onClose={() => setDialogOpen(false)} />
