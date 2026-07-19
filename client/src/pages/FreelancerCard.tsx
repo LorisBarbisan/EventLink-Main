@@ -787,10 +787,7 @@ export default function FreelancerCard() {
                     style={{ width: "100%", height: 1, background: DM.divider, margin: "12px 0" }}
                   />
                   <VerifiedBadge />
-                  {(freelancer.phone ||
-                    freelancer.contact_email ||
-                    freelancer.linkedin_url ||
-                    freelancer.website_url) && (
+                  {(freelancer.phone || freelancer.contact_email) && (
                     <div
                       style={{
                         display: "flex",
@@ -833,52 +830,6 @@ export default function FreelancerCard() {
                           }}
                         >
                           <span style={{ fontSize: 16 }}>✉️</span> {freelancer.contact_email}
-                        </a>
-                      )}
-                      {freelancer.linkedin_url && (
-                        <a
-                          href={
-                            freelancer.linkedin_url.match(/^https?:\/\//)
-                              ? freelancer.linkedin_url
-                              : `https://${freelancer.linkedin_url}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          style={{
-                            fontSize: 13,
-                            color: DM.text1,
-                            textDecoration: "none",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 7,
-                            fontWeight: 500,
-                          }}
-                        >
-                          <Linkedin style={{ width: 16, height: 16 }} /> LinkedIn
-                        </a>
-                      )}
-                      {freelancer.website_url && (
-                        <a
-                          href={
-                            freelancer.website_url.match(/^https?:\/\//)
-                              ? freelancer.website_url
-                              : `https://${freelancer.website_url}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          style={{
-                            fontSize: 13,
-                            color: DM.text1,
-                            textDecoration: "none",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 7,
-                            fontWeight: 500,
-                          }}
-                        >
-                          <Globe style={{ width: 16, height: 16 }} /> Website
                         </a>
                       )}
                     </div>
