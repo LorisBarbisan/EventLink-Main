@@ -1197,10 +1197,7 @@ export default function FreelancerCard() {
               <div
                 style={{ width: "100%", height: 1, background: DM.divider, margin: "6px 0 10px" }}
               />
-              {(freelancer.phone ||
-                freelancer.contact_email ||
-                freelancer.linkedin_url ||
-                freelancer.website_url) && (
+              {(freelancer.phone || freelancer.contact_email) && (
                 <div
                   style={{
                     width: "100%",
@@ -1239,48 +1236,6 @@ export default function FreelancerCard() {
                       }}
                     >
                       <span style={{ fontSize: 13 }}>✉️</span> {freelancer.contact_email}
-                    </a>
-                  )}
-                  {freelancer.linkedin_url && (
-                    <a
-                      href={
-                        freelancer.linkedin_url.match(/^https?:\/\//)
-                          ? freelancer.linkedin_url
-                          : `https://${freelancer.linkedin_url}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        fontSize: 11,
-                        color: DM.text2,
-                        textDecoration: "none",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 5,
-                      }}
-                    >
-                      <Linkedin style={{ width: 13, height: 13 }} /> LinkedIn
-                    </a>
-                  )}
-                  {freelancer.website_url && (
-                    <a
-                      href={
-                        freelancer.website_url.match(/^https?:\/\//)
-                          ? freelancer.website_url
-                          : `https://${freelancer.website_url}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        fontSize: 11,
-                        color: DM.text2,
-                        textDecoration: "none",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 5,
-                      }}
-                    >
-                      <Globe style={{ width: 13, height: 13 }} /> Website
                     </a>
                   )}
                 </div>
@@ -1378,6 +1333,32 @@ export default function FreelancerCard() {
                           : undefined
                       }
                     />
+                    {freelancer.linkedin_url && (
+                      <DRow
+                        iconBg={themeAccentLight}
+                        icon={<Linkedin style={{ width: 15, height: 15, color: themeAccent }} />}
+                        label="LinkedIn"
+                        sub="View profile"
+                        href={
+                          freelancer.linkedin_url.match(/^https?:\/\//)
+                            ? freelancer.linkedin_url
+                            : `https://${freelancer.linkedin_url}`
+                        }
+                      />
+                    )}
+                    {freelancer.website_url && (
+                      <DRow
+                        iconBg={themeAccentLight}
+                        icon={<Globe style={{ width: 15, height: 15, color: themeAccent }} />}
+                        label="Website"
+                        sub="Visit website"
+                        href={
+                          freelancer.website_url.match(/^https?:\/\//)
+                            ? freelancer.website_url
+                            : `https://${freelancer.website_url}`
+                        }
+                      />
+                    )}
                   </div>
                 )}
 

@@ -39,7 +39,7 @@ import {
   ChevronRight,
   FileText,
   Globe,
-  Image,
+  Linkedin,
   MapPin,
   Plus,
   ShieldCheck,
@@ -862,12 +862,25 @@ function CardLivePreview({
       label: "Credentials",
       sub: "Verified & endorsed",
     },
-    {
-      icon: <Image style={{ width: 15, height: 15 }} />,
-      label: "Portfolio",
-      sub: "Photos, reels & blog",
-    },
     { icon: <FileText style={{ width: 15, height: 15 }} />, label: "Files", sub: "CV & documents" },
+    ...(formData.linkedin_url
+      ? [
+          {
+            icon: <Linkedin style={{ width: 15, height: 15 }} />,
+            label: "LinkedIn",
+            sub: "View profile",
+          },
+        ]
+      : []),
+    ...(formData.website_url
+      ? [
+          {
+            icon: <Globe style={{ width: 15, height: 15 }} />,
+            label: "Website",
+            sub: "Visit website",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -1153,24 +1166,21 @@ function CardLivePreview({
 
             {/* Action bar */}
             <div style={{ display: "flex", gap: 7, marginTop: 10 }}>
-              {["🔗 Share", "👁 Profile"].map((label) => (
-                <div
-                  key={label}
-                  style={{
-                    flex: 1,
-                    padding: "7px 4px",
-                    background: buttonColor,
-                    border: `1px solid ${btnBorder}`,
-                    borderRadius: 20,
-                    fontSize: 10,
-                    color: onBtn,
-                    fontWeight: 700,
-                    textAlign: "center",
-                  }}
-                >
-                  {label}
-                </div>
-              ))}
+              <div
+                style={{
+                  flex: 1,
+                  padding: "7px 4px",
+                  background: buttonColor,
+                  border: `1px solid ${btnBorder}`,
+                  borderRadius: 20,
+                  fontSize: 10,
+                  color: onBtn,
+                  fontWeight: 700,
+                  textAlign: "center",
+                }}
+              >
+                🔗 Share
+              </div>
             </div>
           </div>
         </div>
