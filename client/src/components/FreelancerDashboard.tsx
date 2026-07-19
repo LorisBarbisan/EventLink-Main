@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FreelancerPortfolio } from "@/components/FreelancerPortfolio";
 import MyJobs from "@/pages/freelancer/MyJobs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -333,9 +332,8 @@ export default function SimplifiedFreelancerDashboard() {
       )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
-          <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
             My Applications
             <TabBadge count={roleSpecificCounts.applications || 0} />
@@ -543,18 +541,6 @@ export default function SimplifiedFreelancerDashboard() {
         {/* Bookings Tab */}
         <TabsContent value="bookings" className="space-y-6">
           <MyJobs />
-        </TabsContent>
-
-        {/* Portfolio Tab */}
-        <TabsContent value="portfolio">
-          {!isPro ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-              <p className="text-sm font-medium">Portfolio is a Pro feature.</p>
-              <p className="text-xs">Upgrade your account to add and showcase your work.</p>
-            </div>
-          ) : user?.id ? (
-            <FreelancerPortfolio userId={user.id} editable />
-          ) : null}
         </TabsContent>
 
         {/* References Tab */}

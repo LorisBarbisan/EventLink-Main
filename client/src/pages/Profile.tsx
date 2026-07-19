@@ -42,7 +42,6 @@ import {
   useReportRating,
 } from "@/hooks/useRatings";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { getEmbedUrl, getVideoThumbnail } from "@/lib/video-embed";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -52,27 +51,20 @@ import {
   Briefcase,
   Calendar,
   Check,
-  ChevronLeft,
-  ChevronRight,
   Copy,
   Download,
-  ExternalLink,
   Flag,
   Globe,
   Linkedin,
-  Loader2,
   Mail,
   MapPin,
   MessageCircle,
   Phone,
-  Play,
-  Plus,
   QrCode,
   Quote,
   Share2,
   ShieldCheck,
   Star,
-  Trash2,
   User,
 } from "lucide-react";
 import {
@@ -82,8 +74,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { Input } from "@/components/ui/input";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 
 const EVENTLINK_PROMOTIONAL_EMAIL = "eventlink@eventlink.one";
@@ -680,7 +671,6 @@ export default function Profile() {
   const themeAccent = profileTheme.accent ?? null;
   const themeSections = (profileTheme.section_order as TabId[] | undefined) ?? [
     "about",
-    "portfolio",
     "references",
     "documents",
     "contacts",
@@ -731,90 +721,8 @@ export default function Profile() {
   }, [profileTheme.font, themeAccent]);
 
   // Profile tabs
-  type TabId = "about" | "portfolio" | "references" | "documents" | "contacts";
+  type TabId = "about" | "references" | "documents" | "contacts";
   const [activeTab, setActiveTab] = useState<TabId>("about");
-
-  // Portfolio
-  interface PortfolioPost {
-    id: number;
-    user_id: number;
-    type: "photo" | "video" | "blog" | "link";
-    title: string | null;
-    body: string | null;
-    media_url: string | null;
-    thumbnail_url: string | null;
-    created_at: string;
-  }
-  const [viewingIdx, setViewingIdx] = useState<number | null>(null);
-  const viewingPost = viewingIdx !== null ? (portfolioItems[viewingIdx] ?? null) : null;
-  const [showAddPost, setShowAddPost] = useState(false);
-  const [addPostType, setAddPostType] = useState<"photo" | "video" | "link">("photo");
-  const [addPostTitle, setAddPostTitle] = useState("");
-  const [addPostBody, setAddPostBody] = useState("");
-  const [addPostFile, setAddPostFile] = useState<File | null>(null);
-  const [addPostUrl, setAddPostUrl] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const {
-    data: portfolioItems = [],
-    refetch: refetchPortfolio,
-    isLoading: portfolioLoading,
-  } = useQuery<PortfolioPost[]>({
-    queryKey: ["/api/portfolio", freelancerProfile?.user_id],
-    queryFn: () => apiRequest(`/api/portfolio?userId=${freelancerProfile!.user_id}`),
-    enabled: !!freelancerProfile?.user_id,
-    refetchOnMount: "always",
-  });
-
-  const addPortfolioMutation = useMutation({
-    mutationFn: async () => {
-      let media_url: string | null = null;
-      if (addPostFile) {
-        const formData = new FormData();
-        formData.append("file", addPostFile);
-        const token = localStorage.getItem("auth_token");
-        const uploadRes = await fetch("/api/portfolio/upload", {
-          method: "POST",
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          body: formData,
-        });
-        if (!uploadRes.ok) throw new Error("Upload failed");
-        const uploadData = await uploadRes.json();
-        media_url = uploadData.url;
-      } else if (addPostUrl) {
-        media_url = addPostUrl;
-      }
-      return apiRequest("/api/portfolio", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: addPostType,
-          title: addPostTitle || null,
-          body: addPostBody || null,
-          media_url,
-        }),
-      });
-    },
-    onSuccess: () => {
-      refetchPortfolio();
-      setShowAddPost(false);
-      setAddPostTitle("");
-      setAddPostBody("");
-      setAddPostFile(null);
-      setAddPostUrl("");
-      toast({ title: "Portfolio item added" });
-    },
-    onError: () => toast({ title: "Failed to add item", variant: "destructive" }),
-  });
-
-  const deletePortfolioMutation = useMutation({
-    mutationFn: (id: number) => apiRequest(`/api/portfolio/${id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      refetchPortfolio();
-      setViewingIdx(null);
-      toast({ title: "Deleted" });
-    },
-  });
 
   // Generate QR code when Pro modal opens
   useEffect(() => {
@@ -1576,94 +1484,6 @@ export default function Profile() {
                 </div>
               )}
 
-              {/* Portfolio tab */}
-              {activeTab === "portfolio" && (
-                <div>
-                  {isOwnProfile && isPro && (
-                    <div className="mb-4 flex justify-end">
-                      <Button size="sm" onClick={() => setShowAddPost(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add
-                      </Button>
-                    </div>
-                  )}
-                  {portfolioLoading ? (
-                    <div className="flex justify-center py-16">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : portfolioItems.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                      {isOwnProfile && !isPro ? (
-                        <p className="text-sm">Upgrade to Pro to add portfolio items.</p>
-                      ) : (
-                        <p className="text-sm">No portfolio items yet.</p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-3 gap-0.5">
-                      {portfolioItems.map((item, idx) => (
-                        <button
-                          key={item.id}
-                          onClick={() => setViewingIdx(idx)}
-                          className="group relative aspect-square overflow-hidden bg-white transition-opacity hover:opacity-90"
-                        >
-                          {item.type === "photo" && item.media_url && (
-                            <img
-                              src={item.media_url}
-                              alt={item.title || ""}
-                              loading="lazy"
-                              className="h-full w-full object-cover"
-                            />
-                          )}
-                          {item.type === "video" && (
-                            <>
-                              {(() => {
-                                const thumb =
-                                  item.thumbnail_url ??
-                                  getVideoThumbnail(item.media_url ?? "") ??
-                                  null;
-                                return thumb ? (
-                                  <img
-                                    src={thumb}
-                                    alt=""
-                                    loading="lazy"
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="h-full w-full bg-neutral-900" />
-                                );
-                              })()}
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
-                                  <Play className="h-5 w-5 fill-white text-white" />
-                                </div>
-                              </div>
-                            </>
-                          )}
-                          {item.type === "link" && (
-                            <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-primary/5 p-3">
-                              <ExternalLink className="h-7 w-7 text-primary" />
-                              {item.title && (
-                                <p className="line-clamp-2 text-center text-xs font-medium">
-                                  {item.title}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                          {item.type === "blog" && (
-                            <div className="flex h-full w-full items-center justify-center bg-white p-3">
-                              <p className="line-clamp-4 text-center text-xs text-muted-foreground">
-                                {item.title || item.body}
-                              </p>
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* References tab */}
               {activeTab === "references" && (
                 <div className="space-y-6">
@@ -1741,26 +1561,10 @@ export default function Profile() {
                           Website
                         </a>
                       )}
-                      {freelancerProfile?.portfolio_url && (
-                        <a
-                          href={
-                            freelancerProfile.portfolio_url.match(/^https?:\/\//)
-                              ? freelancerProfile.portfolio_url
-                              : `https://${freelancerProfile.portfolio_url}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 text-sm hover:text-primary"
-                        >
-                          <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          Portfolio
-                        </a>
-                      )}
                       {!freelancerProfile?.phone &&
                         !freelancerProfile?.contact_email &&
                         !freelancerProfile?.linkedin_url &&
-                        !freelancerProfile?.website_url &&
-                        !freelancerProfile?.portfolio_url && (
+                        !freelancerProfile?.website_url && (
                           <p className="text-sm text-muted-foreground">
                             No contact details available.
                           </p>
@@ -1887,215 +1691,6 @@ export default function Profile() {
           )}
         </div>
       </div>
-
-      {/* Portfolio: view item modal */}
-      {viewingPost && (
-        <Dialog open={!!viewingPost} onOpenChange={(open) => !open && setViewingIdx(null)}>
-          <DialogContent className="max-w-2xl overflow-hidden p-0">
-            {/* Navigation arrows */}
-            {portfolioItems.length > 1 && (
-              <>
-                <button
-                  onClick={() => setViewingIdx((i) => (i !== null && i > 0 ? i - 1 : i))}
-                  disabled={viewingIdx === 0}
-                  className="absolute left-2 top-1/2 z-50 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white transition-opacity hover:bg-black/70 disabled:opacity-20"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() =>
-                    setViewingIdx((i) => (i !== null && i < portfolioItems.length - 1 ? i + 1 : i))
-                  }
-                  disabled={viewingIdx === portfolioItems.length - 1}
-                  className="absolute right-2 top-1/2 z-50 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white transition-opacity hover:bg-black/70 disabled:opacity-20"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              </>
-            )}
-
-            <div className="relative">
-              {viewingPost.type === "photo" && viewingPost.media_url && (
-                <img
-                  src={viewingPost.media_url}
-                  alt={viewingPost.title || ""}
-                  className="max-h-[70vh] w-full bg-black object-contain"
-                />
-              )}
-              {viewingPost.type === "video" && viewingPost.media_url && (
-                <div className="aspect-video w-full bg-black">
-                  {getEmbedUrl(viewingPost.media_url) ? (
-                    <iframe
-                      key={viewingPost.id}
-                      src={`${getEmbedUrl(viewingPost.media_url)}?autoplay=1`}
-                      className="h-full w-full"
-                      allowFullScreen
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      title={viewingPost.title || "Video"}
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center">
-                      <a
-                        href={viewingPost.media_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-white underline"
-                      >
-                        Open video
-                      </a>
-                    </div>
-                  )}
-                </div>
-              )}
-              {viewingPost.type === "link" && (
-                <div className="flex flex-col items-center justify-center gap-4 bg-muted p-12">
-                  <ExternalLink className="h-12 w-12 text-primary" />
-                  <a
-                    href={viewingPost.media_url || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="break-all text-center text-primary hover:underline"
-                  >
-                    {viewingPost.media_url}
-                  </a>
-                </div>
-              )}
-              {viewingPost.type === "blog" && (
-                <div className="max-h-[70vh] overflow-y-auto p-6">
-                  {viewingPost.thumbnail_url && (
-                    <img
-                      src={viewingPost.thumbnail_url}
-                      alt={viewingPost.title || ""}
-                      className="mb-4 w-full rounded-lg object-cover"
-                      style={{ maxHeight: 220 }}
-                    />
-                  )}
-                  {viewingPost.title && (
-                    <h2 className="mb-3 text-xl font-bold">{viewingPost.title}</h2>
-                  )}
-                  {viewingPost.body && (
-                    <div
-                      className="article-editor prose max-w-none text-sm text-foreground"
-                      dangerouslySetInnerHTML={{ __html: viewingPost.body }}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-
-            {viewingPost.type !== "blog" && (viewingPost.title || viewingPost.body) && (
-              <div className="space-y-1 p-4">
-                {viewingPost.title && <p className="font-semibold">{viewingPost.title}</p>}
-                {viewingPost.body && (
-                  <p className="text-sm text-muted-foreground">{viewingPost.body}</p>
-                )}
-              </div>
-            )}
-            {isOwnProfile && (
-              <div className="flex justify-end px-4 pb-4">
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => deletePortfolioMutation.mutate(viewingPost.id)}
-                  disabled={deletePortfolioMutation.isPending}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </Button>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Portfolio: add item dialog */}
-      <Dialog open={showAddPost} onOpenChange={setShowAddPost}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Portfolio Item</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {/* Type selector */}
-            <div className="flex gap-2">
-              {(["photo", "video", "link"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => {
-                    setAddPostType(t);
-                    setAddPostFile(null);
-                    setAddPostUrl("");
-                  }}
-                  className={cn(
-                    "flex-1 rounded-md border py-2 text-sm font-medium capitalize transition-colors",
-                    addPostType === t
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-
-            {/* File or URL input */}
-            {(addPostType === "photo" || addPostType === "video") && (
-              <div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept={
-                    addPostType === "photo"
-                      ? "image/jpeg,image/png,image/gif,image/webp"
-                      : "video/mp4,video/quicktime,video/webm,video/x-msvideo,video/avi"
-                  }
-                  className="hidden"
-                  onChange={(e) => setAddPostFile(e.target.files?.[0] ?? null)}
-                />
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {addPostFile ? addPostFile.name : `Choose ${addPostType} file`}
-                </Button>
-              </div>
-            )}
-            {addPostType === "link" && (
-              <Input
-                placeholder="https://..."
-                value={addPostUrl}
-                onChange={(e) => setAddPostUrl(e.target.value)}
-              />
-            )}
-
-            <Input
-              placeholder="Title (optional)"
-              value={addPostTitle}
-              onChange={(e) => setAddPostTitle(e.target.value)}
-            />
-            <Input
-              placeholder="Description (optional)"
-              value={addPostBody}
-              onChange={(e) => setAddPostBody(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddPost(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => addPortfolioMutation.mutate()}
-              disabled={
-                addPortfolioMutation.isPending ||
-                (addPostType !== "link" && !addPostFile) ||
-                (addPostType === "link" && !addPostUrl)
-              }
-            >
-              {addPortfolioMutation.isPending ? "Uploading..." : "Add"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Message Modal */}
       {profile && user && (

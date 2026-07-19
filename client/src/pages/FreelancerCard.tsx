@@ -9,7 +9,7 @@ import {
   ChevronRight,
   Download,
   FileText,
-  Image,
+  Linkedin,
   Lock,
   MapPin,
   Share2,
@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { getVideoThumbnail } from "@/lib/video-embed";
 
 // Brand palette
 const C = {
@@ -39,8 +38,8 @@ const C = {
   border2: "rgba(0,0,0,0.18)",
 };
 
-type Detail = "about" | "credentials" | "portfolio" | "files" | null;
-type RightTab = "about" | "credentials" | "portfolio" | "files";
+type Detail = "about" | "credentials" | "files" | null;
+type RightTab = "about" | "credentials" | "files";
 
 export default function FreelancerCard() {
   const { userId } = useParams();
@@ -156,12 +155,6 @@ export default function FreelancerCard() {
 
   const uid: number | undefined = freelancer?.user_id;
 
-  const { data: portfolio = [], isLoading: portfolioLoading } = useQuery<any[]>({
-    queryKey: ["/api/portfolio", uid],
-    queryFn: () => apiRequest(`/api/portfolio?userId=${uid}`),
-    enabled: !!uid,
-  });
-
   const { data: documents = [] } = useQuery<any[]>({
     queryKey: ["/api/documents", uid],
     queryFn: () => apiRequest(`/api/documents/${uid}`),
@@ -175,12 +168,6 @@ export default function FreelancerCard() {
   });
 
   const { data: rating } = useFreelancerAverageRating(uid || 0);
-
-  const profileUrl = () => {
-    const slug = freelancer?.custom_slug || freelancer?.slug;
-    const base = window.location.origin;
-    return slug ? `${base}/profile/${slug}` : `${base}/profile/${uid ?? userId}`;
-  };
 
   // Share URL = card page with token so recipient gets portfolio/files access
   // Falls back to urlPt so recipients can re-share (owner's token travels with the URL)
@@ -458,173 +445,6 @@ export default function FreelancerCard() {
         </div>
       );
     }
-    if (type === "portfolio") {
-      if (!hasAccess)
-        return (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 8,
-              padding: "24px 12px",
-              color: C.text3,
-              textAlign: "center",
-            }}
-          >
-            <Lock style={{ width: 22, height: 22, color: "#ccc" }} />
-            <p style={{ fontSize: 12, margin: 0 }}>
-              Portfolio is visible to signed-in employers or via shared link.
-            </p>
-          </div>
-        );
-      if (portfolioLoading) {
-        return (
-          <div style={{ display: "flex", justifyContent: "center", padding: "24px 0" }}>
-            <div
-              className="animate-spin"
-              style={{
-                width: 20,
-                height: 20,
-                border: `2px solid ${onAccent}33`,
-                borderTopColor: onAccent,
-                borderRadius: "50%",
-              }}
-            />
-          </div>
-        );
-      }
-      return (
-        <div style={{ overflowY: "auto", maxHeight: 340 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {(portfolio as any[]).length === 0 && (
-              <p style={{ fontSize: 12, color: C.text3, gridColumn: "1/-1" }}>
-                No portfolio items yet.
-              </p>
-            )}
-            {(portfolio as any[]).map((item: any) => {
-              const emoji = item.type === "photo" ? "🖼️" : "🎬";
-              const bg = item.type === "photo" ? "#fef3e8" : C.purpleLight;
-              const typeColor = item.type === "photo" ? themeAccent : C.purple;
-              const previewImg =
-                item.type === "photo"
-                  ? item.media_url
-                  : (item.thumbnail_url ?? getVideoThumbnail(item.media_url ?? "") ?? null);
-              const clickUrl =
-                item.type === "photo" ? item.media_url || undefined : item.media_url || undefined;
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => clickUrl && window.open(clickUrl, "_blank", "noopener,noreferrer")}
-                  style={{
-                    borderRadius: 8,
-                    overflow: "hidden",
-                    border: "1px solid #eee",
-                    cursor: clickUrl ? "pointer" : "default",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "100%",
-                      aspectRatio: "1",
-                      position: "relative",
-                      background: bg,
-                    }}
-                  >
-                    {previewImg ? (
-                      <>
-                        <img
-                          src={previewImg}
-                          alt={item.title}
-                          loading="lazy"
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            display: "block",
-                          }}
-                        />
-                        {item.type === "video" && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              inset: 0,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              background: "rgba(0,0,0,0.22)",
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: 34,
-                                height: 34,
-                                borderRadius: "50%",
-                                background: "rgba(0,0,0,0.6)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <span style={{ color: "#fff", fontSize: 13, marginLeft: 3 }}>▶</span>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        {item.type === "video" ? (
-                          <div
-                            style={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: "50%",
-                              background: "rgba(0,0,0,0.4)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <span style={{ color: "#fff", fontSize: 13, marginLeft: 3 }}>▶</span>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: 28 }}>{emoji}</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ padding: "5px 7px" }}>
-                    <div
-                      style={{
-                        fontSize: 9,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.6px",
-                        fontWeight: 600,
-                        color: typeColor,
-                        marginBottom: 1,
-                      }}
-                    >
-                      {item.type === "blog" ? "article" : item.type}
-                    </div>
-                    <div style={{ fontSize: 10, color: "#333", fontWeight: 500 }}>
-                      {item.title || "Untitled"}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      );
-    }
     if (type === "files") {
       if (!hasAccess)
         return (
@@ -835,7 +655,7 @@ export default function FreelancerCard() {
     return <div style={row}>{inner}</div>;
   }
 
-  const DETAIL_PANELS: Detail[] = ["about", "credentials", "portfolio", "files"];
+  const DETAIL_PANELS: Detail[] = ["about", "credentials", "files"];
 
   // Dark mode theme overrides
   const DM = darkMode
@@ -967,7 +787,10 @@ export default function FreelancerCard() {
                     style={{ width: "100%", height: 1, background: DM.divider, margin: "12px 0" }}
                   />
                   <VerifiedBadge />
-                  {(freelancer.phone || freelancer.contact_email) && (
+                  {(freelancer.phone ||
+                    freelancer.contact_email ||
+                    freelancer.linkedin_url ||
+                    freelancer.website_url) && (
                     <div
                       style={{
                         display: "flex",
@@ -1010,6 +833,52 @@ export default function FreelancerCard() {
                           }}
                         >
                           <span style={{ fontSize: 16 }}>✉️</span> {freelancer.contact_email}
+                        </a>
+                      )}
+                      {freelancer.linkedin_url && (
+                        <a
+                          href={
+                            freelancer.linkedin_url.match(/^https?:\/\//)
+                              ? freelancer.linkedin_url
+                              : `https://${freelancer.linkedin_url}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            fontSize: 13,
+                            color: DM.text1,
+                            textDecoration: "none",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 7,
+                            fontWeight: 500,
+                          }}
+                        >
+                          <Linkedin style={{ width: 16, height: 16 }} /> LinkedIn
+                        </a>
+                      )}
+                      {freelancer.website_url && (
+                        <a
+                          href={
+                            freelancer.website_url.match(/^https?:\/\//)
+                              ? freelancer.website_url
+                              : `https://${freelancer.website_url}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            fontSize: 13,
+                            color: DM.text1,
+                            textDecoration: "none",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 7,
+                            fontWeight: 500,
+                          }}
+                        >
+                          <Globe style={{ width: 16, height: 16 }} /> Website
                         </a>
                       )}
                     </div>
@@ -1126,12 +995,6 @@ export default function FreelancerCard() {
                         sub="Verified & endorsed"
                       />
                       <SectionBtn
-                        id="portfolio"
-                        icon={<Image style={{ width: 18, height: 18 }} />}
-                        label="Portfolio"
-                        sub="Photos, reels & articles"
-                      />
-                      <SectionBtn
                         id="files"
                         icon={<FileText style={{ width: 18, height: 18 }} />}
                         label="Files"
@@ -1139,7 +1002,10 @@ export default function FreelancerCard() {
                       />
 
                       {/* Pro contact details */}
-                      {(freelancer.phone || freelancer.contact_email) && (
+                      {(freelancer.phone ||
+                        freelancer.contact_email ||
+                        freelancer.linkedin_url ||
+                        freelancer.website_url) && (
                         <div
                           style={{
                             marginTop: 4,
@@ -1185,6 +1051,50 @@ export default function FreelancerCard() {
                               <span style={{ fontSize: 13 }}>✉️</span> {freelancer.contact_email}
                             </a>
                           )}
+                          {freelancer.linkedin_url && (
+                            <a
+                              href={
+                                freelancer.linkedin_url.match(/^https?:\/\//)
+                                  ? freelancer.linkedin_url
+                                  : `https://${freelancer.linkedin_url}`
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                fontSize: 11,
+                                color: darkMode ? DM.text1 : onAccent,
+                                textDecoration: "none",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                              }}
+                            >
+                              <Linkedin style={{ width: 13, height: 13 }} /> LinkedIn
+                            </a>
+                          )}
+                          {freelancer.website_url && (
+                            <a
+                              href={
+                                freelancer.website_url.match(/^https?:\/\//)
+                                  ? freelancer.website_url
+                                  : `https://${freelancer.website_url}`
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                fontSize: 11,
+                                color: darkMode ? DM.text1 : onAccent,
+                                textDecoration: "none",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                              }}
+                            >
+                              <Globe style={{ width: 13, height: 13 }} /> Website
+                            </a>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1214,29 +1124,6 @@ export default function FreelancerCard() {
                       >
                         <Share2 style={{ width: 16, height: 16 }} /> Share
                       </button>
-                      <a
-                        href={profileUrl()}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                          flex: 1,
-                          padding: "10px 4px",
-                          border: `1px solid ${btnBorder}`,
-                          background: darkMode ? glassBg : themeButtonColor,
-                          borderRadius: 22,
-                          fontSize: 11,
-                          color: darkMode ? DM.text1 : onBtn,
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          gap: 4,
-                          fontWeight: 700,
-                          textDecoration: "none",
-                        }}
-                      >
-                        <Globe style={{ width: 16, height: 16 }} /> Profile
-                      </a>
                     </div>
                   </div>
 
@@ -1365,7 +1252,10 @@ export default function FreelancerCard() {
               <div
                 style={{ width: "100%", height: 1, background: DM.divider, margin: "6px 0 10px" }}
               />
-              {(freelancer.phone || freelancer.contact_email) && (
+              {(freelancer.phone ||
+                freelancer.contact_email ||
+                freelancer.linkedin_url ||
+                freelancer.website_url) && (
                 <div
                   style={{
                     width: "100%",
@@ -1404,6 +1294,48 @@ export default function FreelancerCard() {
                       }}
                     >
                       <span style={{ fontSize: 13 }}>✉️</span> {freelancer.contact_email}
+                    </a>
+                  )}
+                  {freelancer.linkedin_url && (
+                    <a
+                      href={
+                        freelancer.linkedin_url.match(/^https?:\/\//)
+                          ? freelancer.linkedin_url
+                          : `https://${freelancer.linkedin_url}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: 11,
+                        color: DM.text2,
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                      }}
+                    >
+                      <Linkedin style={{ width: 13, height: 13 }} /> LinkedIn
+                    </a>
+                  )}
+                  {freelancer.website_url && (
+                    <a
+                      href={
+                        freelancer.website_url.match(/^https?:\/\//)
+                          ? freelancer.website_url
+                          : `https://${freelancer.website_url}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: 11,
+                        color: DM.text2,
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                      }}
+                    >
+                      <Globe style={{ width: 13, height: 13 }} /> Website
                     </a>
                   )}
                 </div>
@@ -1447,7 +1379,7 @@ export default function FreelancerCard() {
                   gap: 2,
                 }}
               >
-                {(["about", "credentials", "portfolio", "files"] as RightTab[]).map((tab) => (
+                {(["about", "credentials", "files"] as RightTab[]).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setRightTab(tab)}
@@ -1526,168 +1458,6 @@ export default function FreelancerCard() {
                     {(references as any[]).length === 0 && !isVerified && (
                       <p style={{ fontSize: 13, color: C.text3 }}>No credentials yet.</p>
                     )}
-                  </div>
-                )}
-
-                {rightTab === "portfolio" && !hasAccess && (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "32px 16px",
-                      color: C.text3,
-                      textAlign: "center",
-                    }}
-                  >
-                    <Lock style={{ width: 24, height: 24, color: "#ccc" }} />
-                    <p style={{ fontSize: 13, margin: 0 }}>
-                      Portfolio is visible to signed-in employers or via shared link.
-                    </p>
-                  </div>
-                )}
-                {rightTab === "portfolio" && hasAccess && (
-                  <div style={{ overflowY: "auto", maxHeight: 380 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-                      {(portfolio as any[]).length === 0 && (
-                        <p style={{ fontSize: 13, color: C.text3, gridColumn: "1/-1" }}>
-                          No portfolio items yet.
-                        </p>
-                      )}
-                      {(portfolio as any[]).map((item: any) => {
-                        const emoji = item.type === "photo" ? "🖼️" : "🎬";
-                        const bg = item.type === "photo" ? "#fef3e8" : C.purpleLight;
-                        const typeColor = item.type === "photo" ? themeAccent : C.purple;
-                        const previewImg =
-                          item.type === "photo"
-                            ? item.media_url
-                            : (item.thumbnail_url ??
-                              getVideoThumbnail(item.media_url ?? "") ??
-                              null);
-                        const clickUrl = item.media_url || undefined;
-                        return (
-                          <div
-                            key={item.id}
-                            onClick={() =>
-                              clickUrl && window.open(clickUrl, "_blank", "noopener,noreferrer")
-                            }
-                            style={{
-                              border: `1px solid ${C.border}`,
-                              borderRadius: 8,
-                              overflow: "hidden",
-                              cursor: clickUrl ? "pointer" : "default",
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: "100%",
-                                aspectRatio: "1",
-                                background: bg,
-                                position: "relative",
-                              }}
-                            >
-                              {previewImg ? (
-                                <>
-                                  <img
-                                    src={previewImg}
-                                    alt={item.title}
-                                    loading="lazy"
-                                    style={{
-                                      width: "100%",
-                                      height: "100%",
-                                      objectFit: "cover",
-                                      display: "block",
-                                    }}
-                                  />
-                                  {item.type === "video" && (
-                                    <div
-                                      style={{
-                                        position: "absolute",
-                                        inset: 0,
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        background: "rgba(0,0,0,0.22)",
-                                      }}
-                                    >
-                                      <div
-                                        style={{
-                                          width: 34,
-                                          height: 34,
-                                          borderRadius: "50%",
-                                          background: "rgba(0,0,0,0.6)",
-                                          display: "flex",
-                                          alignItems: "center",
-                                          justifyContent: "center",
-                                        }}
-                                      >
-                                        <span
-                                          style={{
-                                            color: "#fff",
-                                            fontSize: 13,
-                                            marginLeft: 3,
-                                          }}
-                                        >
-                                          ▶
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                </>
-                              ) : (
-                                <div
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                  }}
-                                >
-                                  {item.type === "video" ? (
-                                    <div
-                                      style={{
-                                        width: 34,
-                                        height: 34,
-                                        borderRadius: "50%",
-                                        background: "rgba(0,0,0,0.4)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                      }}
-                                    >
-                                      <span style={{ color: "#fff", fontSize: 13, marginLeft: 3 }}>
-                                        ▶
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <span style={{ fontSize: 28 }}>{emoji}</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            <div style={{ padding: "5px 7px" }}>
-                              <div
-                                style={{
-                                  fontSize: 8,
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.5px",
-                                  fontWeight: 700,
-                                  color: typeColor,
-                                  marginBottom: 1,
-                                }}
-                              >
-                                {item.type}
-                              </div>
-                              <div style={{ fontSize: 10, color: "#333", fontWeight: 500 }}>
-                                {item.title || "Untitled"}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
                   </div>
                 )}
 
