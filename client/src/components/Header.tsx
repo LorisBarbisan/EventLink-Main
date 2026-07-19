@@ -122,7 +122,12 @@ export const Header = ({ onFeedbackClick, dark = false }: HeaderProps) => {
             {/* Mobile menu */}
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="sm:hidden">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="sm:hidden"
+                  style={{ color: dark ? "white" : undefined }}
+                >
                   <Menu className="h-6 w-6" />
                 </Button>
               </SheetTrigger>

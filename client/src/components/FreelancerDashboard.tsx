@@ -265,7 +265,7 @@ export default function SimplifiedFreelancerDashboard() {
             </p>
             <p className="truncate text-sm text-white/90">{getProfileUrl()}</p>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap gap-2">
             <Button
               size="sm"
               onClick={handleShareProfile}
@@ -307,7 +307,7 @@ export default function SimplifiedFreelancerDashboard() {
             </p>
             <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={handleShareProfile}>
               {linkCopied ? (
                 <>
