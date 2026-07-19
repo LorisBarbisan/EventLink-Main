@@ -101,9 +101,7 @@ export default function FreelancerCard() {
   const accentIsDark = accentLum < 0.7;
   const onAccent = accentIsDark ? "#ffffff" : "#111111";
   const onAccentSub = accentIsDark ? "rgba(255,255,255,0.72)" : "rgba(0,0,0,0.55)";
-  // Glass effect (fallback, kept for non-button elements)
-  const glassBg = accentIsDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.13)";
-  const glassBorder = accentIsDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.18)";
+  // Glass effect (used for non-button overlay elements)
   const glassStrongBg = accentIsDark ? "rgba(255,255,255,0.32)" : "rgba(0,0,0,0.18)";
 
   // Button colour vars — used for section buttons and action bar
@@ -952,101 +950,97 @@ export default function FreelancerCard() {
                         sub="CV & documents"
                       />
 
-                      {/* Pro contact details */}
-                      {(freelancer.phone ||
-                        freelancer.contact_email ||
-                        freelancer.linkedin_url ||
-                        freelancer.website_url) && (
-                        <div
+                      {freelancer.linkedin_url && (
+                        <a
+                          href={
+                            freelancer.linkedin_url.match(/^https?:\/\//)
+                              ? freelancer.linkedin_url
+                              : `https://${freelancer.linkedin_url}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           style={{
-                            marginTop: 4,
-                            padding: "7px 10px",
-                            background: glassBg,
-                            border: `1px solid ${glassBorder}`,
-                            borderRadius: 10,
                             display: "flex",
-                            flexDirection: "column",
-                            gap: 4,
+                            alignItems: "center",
+                            gap: 12,
+                            background: themeButtonColor,
+                            border: `1px solid ${btnBorder}`,
+                            borderRadius: 14,
+                            padding: "11px 13px",
+                            marginBottom: 8,
+                            textDecoration: "none",
                           }}
                         >
-                          {freelancer.phone && (
-                            <a
-                              href={`tel:${freelancer.phone}`}
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                fontSize: 11,
-                                color: darkMode ? DM.text1 : onAccent,
-                                textDecoration: "none",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                              }}
-                            >
-                              <span style={{ fontSize: 13 }}>📞</span> {freelancer.phone}
-                            </a>
-                          )}
-                          {freelancer.contact_email && (
-                            <a
-                              href={`mailto:${freelancer.contact_email}`}
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                fontSize: 11,
-                                color: darkMode ? DM.text1 : onAccent,
-                                textDecoration: "none",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                wordBreak: "break-all",
-                              }}
-                            >
-                              <span style={{ fontSize: 13 }}>✉️</span> {freelancer.contact_email}
-                            </a>
-                          )}
-                          {freelancer.linkedin_url && (
-                            <a
-                              href={
-                                freelancer.linkedin_url.match(/^https?:\/\//)
-                                  ? freelancer.linkedin_url
-                                  : `https://${freelancer.linkedin_url}`
-                              }
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                fontSize: 11,
-                                color: darkMode ? DM.text1 : onAccent,
-                                textDecoration: "none",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                              }}
-                            >
-                              <Linkedin style={{ width: 13, height: 13 }} /> LinkedIn
-                            </a>
-                          )}
-                          {freelancer.website_url && (
-                            <a
-                              href={
-                                freelancer.website_url.match(/^https?:\/\//)
-                                  ? freelancer.website_url
-                                  : `https://${freelancer.website_url}`
-                              }
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                fontSize: 11,
-                                color: darkMode ? DM.text1 : onAccent,
-                                textDecoration: "none",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                              }}
-                            >
-                              <Globe style={{ width: 13, height: 13 }} /> Website
-                            </a>
-                          )}
-                        </div>
+                          <div
+                            style={{
+                              width: 32,
+                              height: 32,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                              color: onBtn,
+                            }}
+                          >
+                            <Linkedin style={{ width: 18, height: 18 }} />
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: onBtn }}>
+                              LinkedIn
+                            </span>
+                            <span style={{ fontSize: 10, color: onBtnSub }}>View profile</span>
+                          </div>
+                          <ChevronRight
+                            style={{ marginLeft: "auto", width: 14, height: 14, color: onBtnMuted }}
+                          />
+                        </a>
+                      )}
+                      {freelancer.website_url && (
+                        <a
+                          href={
+                            freelancer.website_url.match(/^https?:\/\//)
+                              ? freelancer.website_url
+                              : `https://${freelancer.website_url}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 12,
+                            background: themeButtonColor,
+                            border: `1px solid ${btnBorder}`,
+                            borderRadius: 14,
+                            padding: "11px 13px",
+                            marginBottom: 8,
+                            textDecoration: "none",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 32,
+                              height: 32,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                              color: onBtn,
+                            }}
+                          >
+                            <Globe style={{ width: 18, height: 18 }} />
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: onBtn }}>
+                              Website
+                            </span>
+                            <span style={{ fontSize: 10, color: onBtnSub }}>Visit website</span>
+                          </div>
+                          <ChevronRight
+                            style={{ marginLeft: "auto", width: 14, height: 14, color: onBtnMuted }}
+                          />
+                        </a>
                       )}
                     </div>
 
