@@ -576,24 +576,34 @@ export default function SimplifiedFreelancerDashboard() {
                 <p className="text-sm text-muted-foreground">Generating...</p>
               </div>
             )}
-            <p className="max-w-[220px] break-all text-center text-xs text-muted-foreground">
-              {cardShareUrl}
-            </p>
-            {qrDataUrl && (
+            <div className="flex gap-2">
               <Button
                 variant="outline"
                 className="gap-2"
                 onClick={() => {
-                  const a = document.createElement("a");
-                  a.href = qrDataUrl;
-                  a.download = "eventlink-qr-code.png";
-                  a.click();
+                  navigator.clipboard.writeText(cardShareUrl);
+                  toast({ title: "Link copied!" });
                 }}
               >
-                <Download className="h-4 w-4" />
-                Download QR Code
+                <Copy className="h-4 w-4" />
+                Copy Link
               </Button>
-            )}
+              {qrDataUrl && (
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = qrDataUrl;
+                    a.download = "eventlink-qr-code.png";
+                    a.click();
+                  }}
+                >
+                  <Download className="h-4 w-4" />
+                  Download QR
+                </Button>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
