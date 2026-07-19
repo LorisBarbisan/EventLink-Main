@@ -762,14 +762,14 @@ function FreelancerProfileFields({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <Label htmlFor="portfolio_url">Portfolio URL</Label>
+          <Label htmlFor="website_url">Website URL</Label>
           <Input
-            id="portfolio_url"
+            id="website_url"
             type="url"
-            value={formData.portfolio_url}
-            onChange={(e) => onInputChange("portfolio_url", e.target.value)}
-            placeholder="https://yourportfolio.com"
-            data-testid="input-portfolio-url"
+            value={formData.website_url}
+            onChange={(e) => onInputChange("website_url", e.target.value)}
+            placeholder="https://yourwebsite.com"
+            data-testid="input-website-url"
           />
         </div>
         <div>
