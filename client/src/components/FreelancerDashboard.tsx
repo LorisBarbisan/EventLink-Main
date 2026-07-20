@@ -26,7 +26,6 @@ import {
   Mail,
   QrCode,
   Send,
-  Share2,
   ShieldCheck,
   Star,
   X,
@@ -279,15 +278,9 @@ export default function SimplifiedFreelancerDashboard() {
               ) : (
                 <>
                   <Copy className="mr-1.5 h-3.5 w-3.5" />
-                  Copy Link
+                  Copy Profile Link
                 </>
               )}
-            </Button>
-            <Button size="sm" asChild className="border-0 bg-white/20 text-white hover:bg-white/30">
-              <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
-                <Share2 className="mr-1.5 h-3.5 w-3.5" />
-                View Profile
-              </a>
             </Button>
             <Button
               size="sm"
@@ -295,7 +288,7 @@ export default function SimplifiedFreelancerDashboard() {
               className="border-0 bg-white/20 text-white hover:bg-white/30"
             >
               <QrCode className="mr-1.5 h-3.5 w-3.5" />
-              QR Code
+              Card QR Code
             </Button>
           </div>
         </div>
@@ -317,15 +310,9 @@ export default function SimplifiedFreelancerDashboard() {
               ) : (
                 <>
                   <Copy className="mr-1.5 h-3.5 w-3.5" />
-                  Copy Link
+                  Copy Profile Link
                 </>
               )}
-            </Button>
-            <Button size="sm" variant="outline" asChild>
-              <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
-                <Share2 className="mr-1.5 h-3.5 w-3.5" />
-                View Profile
-              </a>
             </Button>
           </div>
         </div>
