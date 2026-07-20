@@ -69,7 +69,7 @@ export async function createPortalSession(req: Request, res: Response) {
   }
 }
 
-// ─── Subscription Webhook ────────────────────────────────────────────────────
+// ─── Combined Webhook (subscriptions + identity) ─────────────────────────────
 
 export async function handleWebhook(req: Request, res: Response) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -93,6 +93,7 @@ export async function handleWebhook(req: Request, res: Response) {
 
   try {
     switch (event.type) {
+      // ── Subscription events ──────────────────────────────────────────────
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = Number(session.metadata?.userId);
@@ -110,8 +111,7 @@ export async function handleWebhook(req: Request, res: Response) {
       case "customer.subscription.deleted":
       case "customer.subscription.paused": {
         const sub = event.data.object as Stripe.Subscription;
-        const customerId = sub.customer as string;
-        const dbUser = await storage.getUserByStripeCustomerId(customerId);
+        const dbUser = await storage.getUserByStripeCustomerId(sub.customer as string);
         if (dbUser) {
           await storage.updateSubscriptionTier(dbUser.id, "free");
           console.log(`⬇️  Stripe: user ${dbUser.id} downgraded to Free`);
@@ -121,11 +121,30 @@ export async function handleWebhook(req: Request, res: Response) {
 
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
-        const customerId = sub.customer as string;
-        const dbUser = await storage.getUserByStripeCustomerId(customerId);
+        const dbUser = await storage.getUserByStripeCustomerId(sub.customer as string);
         if (dbUser) {
-          const tier = sub.status === "active" ? "pro" : "free";
-          await storage.updateSubscriptionTier(dbUser.id, tier);
+          await storage.updateSubscriptionTier(dbUser.id, sub.status === "active" ? "pro" : "free");
+        }
+        break;
+      }
+
+      // ── Identity events ──────────────────────────────────────────────────
+      case "identity.verification_session.verified": {
+        const session = event.data.object as Stripe.Identity.VerificationSession;
+        const userId = Number(session.metadata?.userId);
+        if (userId) {
+          await storage.updateIdVerified(userId, true, session.id);
+          console.log(`✅ Identity: user ${userId} verified`);
+        }
+        break;
+      }
+
+      case "identity.verification_session.requires_input": {
+        const session = event.data.object as Stripe.Identity.VerificationSession;
+        const userId = Number(session.metadata?.userId);
+        if (userId) {
+          await storage.updateIdVerified(userId, false, session.id);
+          console.log(`⚠️  Identity: user ${userId} verification requires input`);
         }
         break;
       }
@@ -163,50 +182,4 @@ export async function createIdentitySession(req: Request, res: Response) {
     console.error("Stripe Identity error:", err);
     return res.status(500).json({ error: err.message });
   }
-}
-
-// ─── Identity Webhook ────────────────────────────────────────────────────────
-
-export async function handleIdentityWebhook(req: Request, res: Response) {
-  const webhookSecret = process.env.STRIPE_IDENTITY_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    return res.status(500).json({ error: "Identity webhook secret not configured" });
-  }
-
-  const stripe = getStripe();
-  let event: Stripe.Event;
-
-  try {
-    event = stripe.webhooks.constructEvent(
-      req.body as Buffer,
-      req.headers["stripe-signature"] as string,
-      webhookSecret
-    );
-  } catch (err: any) {
-    console.error("Stripe identity webhook signature error:", err.message);
-    return res.status(400).json({ error: `Webhook error: ${err.message}` });
-  }
-
-  try {
-    if (event.type === "identity.verification_session.verified") {
-      const session = event.data.object as Stripe.Identity.VerificationSession;
-      const userId = Number(session.metadata?.userId);
-      if (userId) {
-        await storage.updateIdVerified(userId, true, session.id);
-        console.log(`✅ Identity: user ${userId} verified`);
-      }
-    } else if (event.type === "identity.verification_session.requires_input") {
-      const session = event.data.object as Stripe.Identity.VerificationSession;
-      const userId = Number(session.metadata?.userId);
-      if (userId) {
-        await storage.updateIdVerified(userId, false, session.id);
-        console.log(`⚠️  Identity: user ${userId} verification requires input`);
-      }
-    }
-  } catch (err: any) {
-    console.error("Stripe identity webhook handler error:", err);
-    return res.status(500).json({ error: "Webhook handler failed" });
-  }
-
-  return res.json({ received: true });
 }
