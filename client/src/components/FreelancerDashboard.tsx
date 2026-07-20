@@ -264,7 +264,7 @@ export default function SimplifiedFreelancerDashboard() {
             </p>
             <p className="truncate text-sm text-white/90">{getProfileUrl()}</p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
+          <div className="flex shrink-0 gap-2">
             <Button
               size="sm"
               onClick={handleShareProfile}
@@ -278,7 +278,7 @@ export default function SimplifiedFreelancerDashboard() {
               ) : (
                 <>
                   <Copy className="mr-1.5 h-3.5 w-3.5" />
-                  Copy Profile Link
+                  Copy Link
                 </>
               )}
             </Button>
@@ -288,7 +288,7 @@ export default function SimplifiedFreelancerDashboard() {
               className="border-0 bg-white/20 text-white hover:bg-white/30"
             >
               <QrCode className="mr-1.5 h-3.5 w-3.5" />
-              Card QR Code
+              Card QR
             </Button>
           </div>
         </div>
@@ -300,7 +300,7 @@ export default function SimplifiedFreelancerDashboard() {
             </p>
             <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
+          <div className="flex shrink-0 gap-2">
             <Button size="sm" variant="outline" onClick={handleShareProfile}>
               {linkCopied ? (
                 <>
@@ -310,7 +310,7 @@ export default function SimplifiedFreelancerDashboard() {
               ) : (
                 <>
                   <Copy className="mr-1.5 h-3.5 w-3.5" />
-                  Copy Profile Link
+                  Copy Link
                 </>
               )}
             </Button>
