@@ -141,16 +141,39 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-80">
-                <MobileNavigation
-                  onFeedbackClick={onFeedbackClick}
-                  onInviteClick={() => setShowInviteDialog(true)}
-                  insuranceAccess={insuranceAccess}
-                  onInsuranceClick={() => setShowInsuranceDialog(true)}
-                />
+                <MobileNavigation onFeedbackClick={onFeedbackClick} />
               </SheetContent>
             </Sheet>
           </div>
         </div>
+
+        {/* Below lg the action buttons don't fit the top row, so they get their
+            own compact row here rather than being buried in the menu. */}
+        {(insuranceAccess !== "hidden" || user?.role === "freelancer") && (
+          <div className="mt-2 flex items-center gap-2 lg:hidden">
+            {insuranceAccess !== "hidden" && (
+              <Button
+                onClick={() => setShowInsuranceDialog(true)}
+                className="h-9 flex-1 border-0 bg-gradient-to-r from-purple-500 to-pink-500 px-2 text-xs text-white shadow-md hover:from-purple-600 hover:to-pink-600"
+                data-testid="button-insurance-offers-mobile"
+                title="Insurance offers for UK-based freelancers"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Insurance Offers (UK)
+              </Button>
+            )}
+            {user?.role === "freelancer" && (
+              <Button
+                onClick={() => setShowInviteDialog(true)}
+                className="h-9 flex-1 border-0 bg-gradient-to-r from-amber-500 to-orange-600 px-2 text-xs text-white shadow-md hover:from-amber-600 hover:to-orange-700"
+                data-testid="button-invite-clients-mobile"
+              >
+                <Star className="h-4 w-4 fill-white" />
+                Build My Reputation
+              </Button>
+            )}
+          </div>
+        )}
       </div>
       <InviteClientsDialog
         open={showInviteDialog}
