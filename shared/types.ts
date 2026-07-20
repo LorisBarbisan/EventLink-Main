@@ -13,6 +13,7 @@ export interface User {
   password_reset_expires?: Date | null;
   auth_provider?: "email" | "google" | "facebook" | "linkedin";
   subscription_tier?: "free" | "pro" | null;
+  id_verified?: boolean | null;
   google_id?: string | null;
   facebook_id?: string | null;
   linkedin_id?: string | null;

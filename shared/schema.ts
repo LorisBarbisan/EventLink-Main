@@ -61,6 +61,8 @@ export const users = pgTable(
     subscription_expires_at: timestamp("subscription_expires_at", { withTimezone: true }),
     stripe_customer_id: text("stripe_customer_id"),
     stripe_subscription_id: text("stripe_subscription_id"),
+    id_verified: boolean("id_verified").default(false).notNull(),
+    stripe_identity_session_id: text("stripe_identity_session_id"),
   },
   (table) => ({
     statusCheck: check(

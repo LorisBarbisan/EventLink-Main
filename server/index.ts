@@ -11,6 +11,7 @@ import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
 import { storage } from "./storage";
 import { log, serveStatic, setupVite } from "./vite";
+import { handleWebhook, handleIdentityWebhook } from "./api/controllers/stripe.controller";
 dotenv.config();
 
 const app = express();
@@ -106,6 +107,14 @@ if (process.env.NODE_ENV === "production") {
     next();
   });
 }
+
+// Stripe webhooks must receive raw body — register BEFORE express.json()
+app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), handleWebhook);
+app.post(
+  "/api/stripe/identity-webhook",
+  express.raw({ type: "application/json" }),
+  handleIdentityWebhook
+);
 
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));

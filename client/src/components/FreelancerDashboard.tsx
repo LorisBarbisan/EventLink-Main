@@ -150,6 +150,34 @@ export default function SimplifiedFreelancerDashboard() {
   const profileLoading = profileQueryLoading && !profileHasEverLoaded.current;
 
   const [cardShareUrl, setCardShareUrl] = useState("");
+  const [identityLoading, setIdentityLoading] = useState(false);
+
+  const handleVerifyId = async () => {
+    setIdentityLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/stripe/identity", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else
+        toast({
+          title: "Error",
+          description: data.error || "Could not start verification",
+          variant: "destructive",
+        });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Could not start verification",
+        variant: "destructive",
+      });
+    } finally {
+      setIdentityLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!showQrModal || !user) return;
@@ -290,6 +318,22 @@ export default function SimplifiedFreelancerDashboard() {
               <QrCode className="mr-1.5 h-3.5 w-3.5" />
               Card QR
             </Button>
+            {user.id_verified ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-white/30 bg-white/10 px-2 py-1 text-xs font-semibold text-white">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                ID Verified
+              </span>
+            ) : (
+              <Button
+                size="sm"
+                onClick={handleVerifyId}
+                disabled={identityLoading}
+                className="border-0 bg-white/20 text-white hover:bg-white/30"
+              >
+                <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                {identityLoading ? "…" : "Verify ID"}
+              </Button>
+            )}
           </div>
         </div>
       ) : (

@@ -36,6 +36,7 @@ import jobDocumentRouter from "./api/routes/job-document.route.js";
 import { registerPortfolioRoutes } from "./api/routes/portfolio.route.js";
 import { registerQRRoutes } from "./api/routes/qr.route.js";
 import { registerSlugRoutes } from "./api/routes/slug.route.js";
+import { registerStripeRoutes } from "./api/routes/stripe.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { wsService } from "./api/websocket/websocketService";
 
@@ -288,6 +289,7 @@ export async function registerRoutes(
   app.use("/api/team", teamRouter);
   app.use("/api/job", jobDocumentRouter);
   registerContactRoutes(app);
+  registerStripeRoutes(app);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering
   app.get("/api/jobs", async (req, res) => {

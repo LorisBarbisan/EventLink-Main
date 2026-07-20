@@ -208,6 +208,7 @@ export async function handleGoogleCallback(req: Request, res: Response) {
         email_verified: userWithRole.email_verified,
         auth_provider: userWithRole.auth_provider || "email",
         subscription_tier: userWithRole.subscription_tier || "free",
+        id_verified: userWithRole.id_verified ?? false,
       })
     )}`;
 
@@ -282,6 +283,7 @@ export function handleFacebookCallback(req: Request, res: Response, next: any) {
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
           auth_provider: userWithRole.auth_provider || "email",
+          id_verified: userWithRole.id_verified ?? false,
           subscription_tier: userWithRole.subscription_tier || "free",
         })
       )}`;
@@ -357,6 +359,7 @@ export function handleAppleCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
+          id_verified: userWithRole.id_verified ?? false,
           auth_provider: userWithRole.auth_provider || "email",
           subscription_tier: userWithRole.subscription_tier || "free",
         })
@@ -444,6 +447,7 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
           first_name: userWithRole.first_name,
           last_name: userWithRole.last_name,
           role: userWithRole.role,
+          id_verified: userWithRole.id_verified ?? false,
           email_verified: userWithRole.email_verified,
           auth_provider: userWithRole.auth_provider || "email",
           subscription_tier: userWithRole.subscription_tier || "free",
@@ -510,6 +514,7 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
           email_verified: userWithRole.email_verified,
           auth_provider: userWithRole.auth_provider || "email",
           subscription_tier: userWithRole.subscription_tier || "free",
+          id_verified: userWithRole.id_verified ?? false,
         },
       });
     }
@@ -541,6 +546,7 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
           email_verified: userWithRole.email_verified,
           auth_provider: userWithRole.auth_provider || "email",
           subscription_tier: userWithRole.subscription_tier || "free",
+          id_verified: userWithRole.id_verified ?? false,
         },
       });
     }
@@ -593,6 +599,7 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
         email: userWithRole.email,
         first_name: userWithRole.first_name,
         last_name: userWithRole.last_name,
+        id_verified: userWithRole.id_verified ?? false,
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
         auth_provider: userWithRole.auth_provider || "email",
@@ -671,6 +678,7 @@ export async function getSession(req: Request, res: Response) {
         id: userWithRole.id,
         email: userWithRole.email,
         first_name: userWithRole.first_name,
+        id_verified: userWithRole.id_verified ?? false,
         last_name: userWithRole.last_name,
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
@@ -786,6 +794,7 @@ export async function signup(req: Request, res: Response) {
       user: {
         id: userWithRole.id,
         email: userWithRole.email,
+        id_verified: userWithRole.id_verified ?? false,
         first_name: userWithRole.first_name,
         last_name: userWithRole.last_name,
         role: userWithRole.role,
@@ -1196,6 +1205,7 @@ export async function updateAccount(req: Request, res: Response) {
     res.json({
       user: {
         id: userWithRole.id,
+        id_verified: userWithRole.id_verified ?? false,
         email: userWithRole.email,
         first_name: userWithRole.first_name,
         last_name: userWithRole.last_name,

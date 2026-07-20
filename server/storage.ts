@@ -99,6 +99,7 @@ export interface IStorage {
   // User management
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
   createUser(
     user: InsertUser & { email_verification_token?: string; email_verification_expires?: Date }
   ): Promise<User>;
@@ -617,6 +618,12 @@ export interface IStorage {
   setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void>;
 
   updateSubscriptionTier(userId: number, tier: "free" | "pro"): Promise<User | undefined>;
+  updateStripeCustomer(
+    userId: number,
+    customerId: string,
+    subscriptionId: string | null
+  ): Promise<void>;
+  updateIdVerified(userId: number, verified: boolean, sessionId?: string): Promise<void>;
 
   // Portfolio posts
   getPortfolioPosts(userId: number): Promise<import("@shared/schema").PortfolioPost[]>;
@@ -665,6 +672,15 @@ export class DatabaseStorage implements IStorage {
     const result = { ...user, profile };
     cache.set(cacheKey, result, 300);
     return result;
+  }
+
+  async getUserByStripeCustomerId(customerId: string): Promise<User | undefined> {
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.stripe_customer_id, customerId))
+      .limit(1);
+    return result[0];
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -5485,6 +5501,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return result[0];
+  }
+
+  async updateStripeCustomer(
+    userId: number,
+    customerId: string,
+    subscriptionId: string | null
+  ): Promise<void> {
+    await db
+      .update(users)
+      .set({ stripe_customer_id: customerId, stripe_subscription_id: subscriptionId })
+      .where(eq(users.id, userId));
+    cache.clearPattern(`user:${userId}`);
+  }
+
+  async updateIdVerified(userId: number, verified: boolean, sessionId?: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ id_verified: verified, stripe_identity_session_id: sessionId ?? null })
+      .where(eq(users.id, userId));
+    cache.clearPattern(`user:${userId}`);
   }
 
   // Portfolio posts

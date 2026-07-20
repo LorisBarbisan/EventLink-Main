@@ -2,7 +2,8 @@ import { Layout } from "@/components/Layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { Check, X, Zap } from "lucide-react";
+import { useIsPro } from "@/hooks/useIsPro";
+import { Check, Loader2, X, Zap } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
@@ -44,15 +45,45 @@ const ANNUAL_SAVING_PCT = Math.round(
 
 export default function Billing() {
   const [annual, setAnnual] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const isPro = useIsPro();
   const [, setLocation] = useLocation();
 
-  const handleGetPro = () => {
+  const handleGetPro = async () => {
     if (!user) {
       setLocation("/auth?tab=signup");
-    } else {
-      // Stripe checkout will be wired here
-      setLocation("/dashboard");
+      return;
+    }
+    if (isPro) {
+      // Open customer portal to manage subscription
+      setLoading(true);
+      try {
+        const res = await fetch("/api/stripe/portal", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        const data = await res.json();
+        if (data.url) window.location.href = data.url;
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ period: annual ? "annual" : "monthly" }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -183,9 +214,14 @@ export default function Billing() {
             <Button
               className="mb-8 w-full bg-gradient-to-r from-purple-500 to-pink-500 font-semibold text-white hover:from-purple-600 hover:to-pink-600"
               onClick={handleGetPro}
+              disabled={loading}
             >
-              <Zap className="mr-2 h-4 w-4 fill-white" />
-              {user ? "Upgrade to Pro" : "Get Pro"}
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="mr-2 h-4 w-4 fill-white" />
+              )}
+              {isPro ? "Manage subscription" : user ? "Upgrade to Pro" : "Get Pro"}
             </Button>
 
             <ul className="flex-1 space-y-3">
