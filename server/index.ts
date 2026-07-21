@@ -65,8 +65,7 @@ if (process.env.NODE_ENV === "production") {
             "https://region1.google-analytics.com",
             "https://px.ads.linkedin.com",
             "wss://localhost:*",
-            "wss://*.replit.dev",
-            "wss://*.replit.app",
+            "wss://*.up.railway.app",
             "wss://eventlink.one",
           ],
           frameSrc: [
@@ -95,8 +94,6 @@ if (process.env.NODE_ENV === "production") {
 }
 
 // Additional production security headers
-// NOTE: Do NOT add HTTPS redirect here — Replit's reverse proxy handles SSL termination.
-// The app must serve plain HTTP; redirecting to HTTPS breaks Replit's health checks.
 if (process.env.NODE_ENV === "production") {
   app.use((req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -119,11 +116,7 @@ app.use(
   cors({
     origin:
       process.env.NODE_ENV === "production"
-        ? [
-            process.env.REPLIT_DEV_DOMAIN || "",
-            "https://*.replit.app",
-            "https://*.replit.dev",
-          ].filter(Boolean)
+        ? [process.env.APP_URL || "", "https://*.up.railway.app"].filter(Boolean)
         : true, // Allow all origins in development
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],

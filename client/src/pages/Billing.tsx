@@ -61,7 +61,7 @@ export default function Billing() {
       try {
         const res = await fetch("/api/stripe/portal", {
           method: "POST",
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          headers: { Authorization: `Bearer ${localStorage.getItem("auth_token")}` },
         });
         const data = await res.json();
         if (data.url) window.location.href = data.url;
@@ -76,7 +76,7 @@ export default function Billing() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
         body: JSON.stringify({ period: annual ? "annual" : "monthly" }),
       });
