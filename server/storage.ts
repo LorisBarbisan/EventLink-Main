@@ -1072,6 +1072,17 @@ export class DatabaseStorage implements IStorage {
         })
       : null;
 
+    // Resolve country from city if not provided
+    let resolvedCountry = profile.country;
+    if (!resolvedCountry && profile.location) {
+      try {
+        const { geocodeCity } = await import("./api/utils/backfill-slugs.js");
+        resolvedCountry = (await geocodeCity(profile.location)) ?? undefined;
+      } catch {
+        // non-fatal — country stays empty
+      }
+    }
+
     const profileData = {
       user_id: profile.user_id,
       first_name: profile.first_name,
@@ -1080,7 +1091,7 @@ export class DatabaseStorage implements IStorage {
       superpower: profile.superpower,
       bio: profile.bio,
       location: profile.location,
-      country: profile.country,
+      country: resolvedCountry,
       experience_years: profile.experience_years,
       skills: profile.skills,
       portfolio_url: profile.portfolio_url,

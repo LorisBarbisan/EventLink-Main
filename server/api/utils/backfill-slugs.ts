@@ -18,6 +18,8 @@ const COUNTRY_CORRECTIONS: { userId: number; country: string }[] = [
   { userId: 364, country: "South Africa" },
   { userId: 268, country: "Philippines" },
   { userId: 150, country: "United States" },
+  // No location provided — manually confirmed as UK based
+  { userId: 454, country: "United Kingdom" },
 ];
 
 export async function correctCountries() {
@@ -34,7 +36,7 @@ export async function correctCountries() {
   }
 }
 
-async function geocodeCity(city: string): Promise<string | null> {
+export async function geocodeCity(city: string): Promise<string | null> {
   try {
     const params = new URLSearchParams({
       q: city,

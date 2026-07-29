@@ -135,6 +135,10 @@ export async function createFreelancerProfile(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid input", details: result.error.issues });
     }
 
+    if (!result.data.location?.trim()) {
+      return res.status(400).json({ error: "Location is required" });
+    }
+
     const profile = await storage.createFreelancerProfile(result.data);
     res.status(201).json(profile);
   } catch (error) {
