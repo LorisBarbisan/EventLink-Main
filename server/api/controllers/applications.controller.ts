@@ -24,7 +24,7 @@ export async function getFreelancerBookings(req: Request, res: Response) {
 
     const applications = await storage.getFreelancerApplications(freelancerId);
     // Filter only hired applications for bookings
-    const bookings = applications.filter(app => app.status === "hired");
+    const bookings = applications.filter((app) => app.status === "hired");
 
     res.json(bookings);
   } catch (error) {
@@ -69,6 +69,10 @@ export async function applyToJob(req: Request, res: Response) {
       return res.status(400).json({ error: "This job is no longer accepting applications" });
     }
 
+    if (job.is_freelancer_posted && job.posted_by_user_id === (req as any).user.id) {
+      return res.status(400).json({ error: "You cannot apply to your own job posting" });
+    }
+
     // Check if already applied
     let existingApplications: JobApplication[] = [];
     try {
@@ -78,7 +82,7 @@ export async function applyToJob(req: Request, res: Response) {
       // Continue with empty array if fetch fails - allow application to proceed
     }
 
-    const alreadyApplied = existingApplications.some(app => app.job_id === jobId);
+    const alreadyApplied = existingApplications.some((app) => app.job_id === jobId);
 
     if (alreadyApplied) {
       return res.status(400).json({ error: "You have already applied to this job" });
@@ -163,7 +167,9 @@ export async function getJobApplications(req: Request, res: Response) {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    if (!ownsEmployerCompany(req, job.recruiter_id)) {
+    const isFreelancerOwner =
+      job.is_freelancer_posted && job.posted_by_user_id === (req as any).user?.id;
+    if (!ownsEmployerCompany(req, job.recruiter_id) && !isFreelancerOwner) {
       return res.status(403).json({ error: "Not authorized to view applications for this job" });
     }
 
@@ -217,7 +223,9 @@ export async function acceptApplication(req: Request, res: Response) {
     }
 
     const job = await storage.getJobById(application.job_id);
-    if (!job || !ownsEmployerCompany(req, job.recruiter_id)) {
+    const isFreelancerOwnerAccept =
+      job?.is_freelancer_posted && job.posted_by_user_id === (req as any).user?.id;
+    if (!job || (!ownsEmployerCompany(req, job.recruiter_id) && !isFreelancerOwnerAccept)) {
       return res.status(403).json({ error: "Not authorized to accept this application" });
     }
 
@@ -254,11 +262,12 @@ export async function acceptApplication(req: Request, res: Response) {
         }
 
         // Fetch any documents attached to this job
-        let jobDocs: Array<{ fileName: string; downloadUrl: string | null; documentType: string }> = [];
+        let jobDocs: Array<{ fileName: string; downloadUrl: string | null; documentType: string }> =
+          [];
         try {
           const baseUrl = `${req.protocol}://${req.get("host")}`;
           const docs = await getJobDocumentsWithUrls(application.job_id, baseUrl);
-          jobDocs = docs.map(d => ({
+          jobDocs = docs.map((d) => ({
             fileName: d.fileName,
             downloadUrl: d.downloadUrl,
             documentType: d.documentType,
@@ -278,7 +287,7 @@ export async function acceptApplication(req: Request, res: Response) {
             applicationId: applicationId,
             documents: jobDocs.length > 0 ? jobDocs : undefined,
           })
-          .catch(error => {
+          .catch((error) => {
             console.error("Failed to send application update email:", error);
           });
       }
@@ -322,7 +331,9 @@ export async function rejectApplication(req: Request, res: Response) {
     }
 
     const job = await storage.getJobById(application.job_id);
-    if (!job || !ownsEmployerCompany(req, job.recruiter_id)) {
+    const isFreelancerOwnerReject =
+      job?.is_freelancer_posted && job.posted_by_user_id === (req as any).user?.id;
+    if (!job || (!ownsEmployerCompany(req, job.recruiter_id) && !isFreelancerOwnerReject)) {
       return res.status(403).json({ error: "Not authorized to reject this application" });
     }
 
@@ -368,7 +379,7 @@ export async function rejectApplication(req: Request, res: Response) {
             status: "Not Selected",
             applicationId: applicationId,
           })
-          .catch(error => {
+          .catch((error) => {
             console.error("Failed to send application update email:", error);
           });
       }
@@ -424,14 +435,20 @@ export async function deleteApplication(req: Request, res: Response) {
     ) {
       // Freelancer can delete their own applications
       userRole = "freelancer";
-    } else if ((req as any).user.role === "recruiter" || (req as any).user.role === "admin") {
-      // Recruiter/admin can hide applications from jobs they own
+    } else if (
+      (req as any).user.role === "recruiter" ||
+      (req as any).user.role === "admin" ||
+      (req as any).user.role === "freelancer"
+    ) {
+      // Recruiter/admin/freelancer-poster can hide applications from jobs they own
       const job = await storage.getJobById(application.job_id);
       if (!job) {
         return res.status(404).json({ error: "Job not found" });
       }
 
-      if (ownsEmployerCompany(req, job.recruiter_id)) {
+      const isFreelancerOwnerDelete =
+        job.is_freelancer_posted && job.posted_by_user_id === (req as any).user.id;
+      if (ownsEmployerCompany(req, job.recruiter_id) || isFreelancerOwnerDelete) {
         userRole = "recruiter";
       } else {
         return res.status(403).json({ error: "Not authorized to delete this application" });
@@ -479,12 +496,14 @@ export async function inviteFreelancer(req: Request, res: Response) {
     }
 
     if (job.status === "closed") {
-      return res.status(400).json({ error: "This job is closed and no longer accepting invitations" });
+      return res
+        .status(400)
+        .json({ error: "This job is closed and no longer accepting invitations" });
     }
 
     // Check if already applied/invited
     const existingApplications = await storage.getFreelancerApplications(freelancerId);
-    const alreadyApplied = existingApplications.some(app => app.job_id === jobId);
+    const alreadyApplied = existingApplications.some((app) => app.job_id === jobId);
 
     if (alreadyApplied) {
       return res
@@ -574,7 +593,8 @@ export async function inviteFreelancer(req: Request, res: Response) {
 export async function withdrawInvitation(req: Request, res: Response) {
   try {
     const applicationId = parseInt(req.params.applicationId);
-    if (Number.isNaN(applicationId)) return res.status(400).json({ error: "Invalid application ID" });
+    if (Number.isNaN(applicationId))
+      return res.status(400).json({ error: "Invalid application ID" });
     if (!(req as any).user) return res.status(401).json({ error: "Not authenticated" });
 
     const application = await storage.getJobApplicationById(applicationId);
@@ -602,7 +622,11 @@ export async function withdrawInvitation(req: Request, res: Response) {
       related_entity_type: "application",
       related_entity_id: applicationId,
       action_url: "/dashboard?tab=jobs",
-      metadata: JSON.stringify({ application_id: applicationId, job_id: job.id, type: "invitation_withdrawn" }),
+      metadata: JSON.stringify({
+        application_id: applicationId,
+        job_id: job.id,
+        type: "invitation_withdrawn",
+      }),
     });
 
     // Email notification (non-blocking)
@@ -611,7 +635,8 @@ export async function withdrawInvitation(req: Request, res: Response) {
       if (freelancer) {
         let freelancerName = freelancer.email;
         const fp = await storage.getFreelancerProfile(application.freelancer_id);
-        if (fp?.first_name || fp?.last_name) freelancerName = `${fp.first_name || ""} ${fp.last_name || ""}`.trim();
+        if (fp?.first_name || fp?.last_name)
+          freelancerName = `${fp.first_name || ""} ${fp.last_name || ""}`.trim();
 
         await emailService.sendApplicationUpdateNotification({
           recipientId: application.freelancer_id,

@@ -577,7 +577,9 @@ export async function getRecruiterJobDetail(req: Request, res: Response) {
     const result = await storage.getAdminJobDetail(jobId);
     if (!result) return res.status(404).json({ error: "Job not found" });
 
-    if (result.job.recruiter_id !== effectiveId) {
+    const isFreelancerOwnerDetail =
+      result.job.is_freelancer_posted && result.job.posted_by_user_id === (req as any).user?.id;
+    if (result.job.recruiter_id !== effectiveId && !isFreelancerOwnerDetail) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
