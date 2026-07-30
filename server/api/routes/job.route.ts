@@ -2,6 +2,7 @@ import type { Express } from "express";
 import {
   closeJob,
   createJob,
+  createFreelancerJob,
   deleteJob,
   getJobById,
   getJobLinkViewCount,
@@ -13,6 +14,7 @@ import {
   updateJob,
 } from "../controllers/job.controller";
 import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
+import { requireRole } from "../middleware/role.middleware";
 import { resolveCompanyId, resolveCompanyIdOptional } from "../middleware/team.middleware";
 
 export function registerJobRoutes(app: Express) {
@@ -31,8 +33,11 @@ export function registerJobRoutes(app: Express) {
   // Get job link view count (authenticated - recruiter/admin only)
   app.get("/api/jobs/:id/link-views", authenticateJWT, getJobLinkViewCount);
 
-  // Create new job
+  // Create new job (recruiter / employer)
   app.post("/api/jobs", authenticateJWT, resolveCompanyId, createJob);
+
+  // Create a job posted by a freelancer
+  app.post("/api/jobs/freelancer", authenticateJWT, requireRole("freelancer"), createFreelancerJob);
 
   // Update job
   app.put("/api/jobs/:jobId", authenticateJWT, resolveCompanyId, updateJob);

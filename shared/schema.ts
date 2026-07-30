@@ -187,6 +187,7 @@ export const jobs = pgTable("jobs", {
   >(), // Batch window assignment; cleared after send
   notification_sent_at: timestamp("notification_sent_at", { withTimezone: true }), // When automated batch notification was sent
   is_urgent: boolean("is_urgent").default(false), // true when event date is within 48h of publication
+  is_freelancer_posted: boolean("is_freelancer_posted").default(false).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -445,6 +446,30 @@ export const insertJobSchema = createInsertSchema(jobs)
     location: z.string().min(1, "Location is required"),
     description: z.string().optional().default(""),
     type: z.string().optional().default("freelance"),
+  });
+
+export const insertFreelancerJobSchema = createInsertSchema(jobs)
+  .omit({
+    id: true,
+    created_at: true,
+    updated_at: true,
+    recruiter_id: true,
+    posted_by_user_id: true,
+    is_freelancer_posted: true,
+    external_id: true,
+    external_source: true,
+    external_url: true,
+    posted_date: true,
+    last_notified_at: true,
+    notification_batch_window: true,
+    notification_sent_at: true,
+  })
+  .extend({
+    title: z.string().min(1, "Job title is required"),
+    location: z.string().min(1, "Location is required"),
+    description: z.string().optional().default(""),
+    type: z.string().optional().default("freelance"),
+    company: z.string().optional(),
   });
 
 export const insertJobApplicationSchema = createInsertSchema(job_applications)
