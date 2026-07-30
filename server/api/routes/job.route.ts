@@ -8,6 +8,7 @@ import {
   getJobLinkViewCount,
   getJobPresets,
   getJobsByRecruiter,
+  getMyPostedJobs,
   getRecruiterJobDetail,
   reopenJob,
   trackJobLinkView,
@@ -38,6 +39,9 @@ export function registerJobRoutes(app: Express) {
 
   // Create a job posted by a freelancer
   app.post("/api/jobs/freelancer", authenticateJWT, requireRole("freelancer"), createFreelancerJob);
+
+  // Get jobs the current freelancer has posted themselves
+  app.get("/api/jobs/my-posted", authenticateJWT, requireRole("freelancer"), getMyPostedJobs);
 
   // Update job
   app.put("/api/jobs/:jobId", authenticateJWT, resolveCompanyId, updateJob);

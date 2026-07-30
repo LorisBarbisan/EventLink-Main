@@ -484,7 +484,17 @@ export default function Jobs() {
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div className="space-y-2">
                             <CardTitle className="text-lg sm:text-xl">{job.title}</CardTitle>
-                            {job.recruiter_id && !job.external_source ? (
+                            {job.is_freelancer_posted && job.posted_by_user_id ? (
+                              <button
+                                onClick={() =>
+                                  window.open(`/profile/${job.posted_by_user_id}`, "_blank")
+                                }
+                                className="cursor-pointer text-left font-medium text-muted-foreground transition-colors hover:text-primary hover:underline"
+                                data-testid={`link-company-${job.id}`}
+                              >
+                                {job.company}
+                              </button>
+                            ) : job.recruiter_id && !job.external_source ? (
                               <button
                                 onClick={() =>
                                   window.open(`/profile/${job.recruiter_id}`, "_blank")
@@ -505,6 +515,10 @@ export default function Jobs() {
                                 className="border-muted-foreground/40 text-xs text-muted-foreground"
                               >
                                 Closed
+                              </Badge>
+                            ) : job.is_freelancer_posted ? (
+                              <Badge className="bg-gradient-to-r from-[#7B5EA7] to-[#9B7DC7] font-semibold text-white">
+                                Posted by Freelancer
                               </Badge>
                             ) : !job.external_source ? (
                               <Badge className="bg-gradient-to-r from-[#D8690E] to-[#E97B24] font-semibold text-white">

@@ -175,6 +175,19 @@ export async function createJob(req: Request, res: Response) {
   }
 }
 
+// Get jobs posted by the current freelancer
+export async function getMyPostedJobs(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const postedJobs = await storage.getFreelancerPostedJobs(user.id);
+    res.set("Cache-Control", "no-store");
+    res.json(postedJobs);
+  } catch (error) {
+    console.error("Get my posted jobs error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Create a job posted by a freelancer
 export async function createFreelancerJob(req: Request, res: Response) {
   try {
@@ -250,8 +263,10 @@ export async function updateJob(req: Request, res: Response) {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    const effectiveId = (req as any).companyId ?? (req as any).user.id;
-    if ((req as any).user.role !== "admin" && job.recruiter_id !== effectiveId) {
+    const user = (req as any).user;
+    const effectiveId = (req as any).companyId ?? user.id;
+    const isFreelancerOwner = job.is_freelancer_posted && job.posted_by_user_id === user.id;
+    if (user.role !== "admin" && job.recruiter_id !== effectiveId && !isFreelancerOwner) {
       return res.status(403).json({ error: "Not authorized to update this job" });
     }
 
@@ -384,7 +399,13 @@ export async function closeJob(req: Request, res: Response) {
     }
 
     const effectiveId = (req as any).companyId ?? (req as any).user.id;
-    if ((req as any).user.role !== "admin" && job.recruiter_id !== effectiveId) {
+    const isFreelancerOwnerClose =
+      job.is_freelancer_posted && job.posted_by_user_id === (req as any).user.id;
+    if (
+      (req as any).user.role !== "admin" &&
+      job.recruiter_id !== effectiveId &&
+      !isFreelancerOwnerClose
+    ) {
       return res.status(403).json({ error: "Not authorized to close this job" });
     }
 
@@ -456,7 +477,13 @@ export async function reopenJob(req: Request, res: Response) {
     }
 
     const effectiveId = (req as any).companyId ?? (req as any).user.id;
-    if ((req as any).user.role !== "admin" && job.recruiter_id !== effectiveId) {
+    const isFreelancerOwnerReopen =
+      job.is_freelancer_posted && job.posted_by_user_id === (req as any).user.id;
+    if (
+      (req as any).user.role !== "admin" &&
+      job.recruiter_id !== effectiveId &&
+      !isFreelancerOwnerReopen
+    ) {
       return res.status(403).json({ error: "Not authorized to reopen this job" });
     }
 
@@ -494,7 +521,13 @@ export async function deleteJob(req: Request, res: Response) {
     }
 
     const effectiveId = (req as any).companyId ?? (req as any).user.id;
-    if ((req as any).user.role !== "admin" && job.recruiter_id !== effectiveId) {
+    const isFreelancerOwnerDelete =
+      job.is_freelancer_posted && job.posted_by_user_id === (req as any).user.id;
+    if (
+      (req as any).user.role !== "admin" &&
+      job.recruiter_id !== effectiveId &&
+      !isFreelancerOwnerDelete
+    ) {
       return res.status(403).json({ error: "Not authorized to delete this job" });
     }
 

@@ -70,6 +70,7 @@ export interface Job {
   id: number;
   recruiter_id: number;
   posted_by_user_id?: number | null;
+  is_freelancer_posted?: boolean;
   title: string;
   company: string;
   location: string;

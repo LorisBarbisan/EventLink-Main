@@ -177,6 +177,7 @@ export interface IStorage {
   // Job management
   getAllJobs(): Promise<Job[]>;
   getJobsByRecruiterId(recruiterId: number): Promise<Job[]>;
+  getFreelancerPostedJobs(userId: number): Promise<Job[]>;
   getJobById(jobId: number): Promise<Job | undefined>;
   createJob(job: InsertJob): Promise<Job>;
   /** Persist posted_by_user_id from recruiter_id when missing (legacy rows). */
@@ -1913,6 +1914,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(jobs)
       .where(eq(jobs.recruiter_id, recruiterId))
+      .orderBy(desc(jobs.created_at));
+  }
+
+  async getFreelancerPostedJobs(userId: number): Promise<Job[]> {
+    return await db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.posted_by_user_id, userId), eq(jobs.is_freelancer_posted, true)))
       .orderBy(desc(jobs.created_at));
   }
 

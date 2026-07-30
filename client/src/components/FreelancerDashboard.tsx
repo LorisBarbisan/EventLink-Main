@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MyJobs from "@/pages/freelancer/MyJobs";
+import MyPostedJobs from "@/pages/freelancer/MyPostedJobs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
@@ -244,7 +245,7 @@ export default function SimplifiedFreelancerDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
             My Applications
@@ -262,6 +263,7 @@ export default function SimplifiedFreelancerDashboard() {
             <ShieldCheck className="h-4 w-4" />
             References
           </TabsTrigger>
+          <TabsTrigger value="posted-jobs">Post a Job</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -461,6 +463,11 @@ export default function SimplifiedFreelancerDashboard() {
         {/* References Tab */}
         <TabsContent value="references" className="space-y-6">
           <ReferenceRequestsSection userId={user.id} />
+        </TabsContent>
+
+        {/* Post a Job Tab */}
+        <TabsContent value="posted-jobs">
+          <MyPostedJobs />
         </TabsContent>
       </Tabs>
     </div>
