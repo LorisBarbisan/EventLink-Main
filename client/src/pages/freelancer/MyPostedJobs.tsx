@@ -65,6 +65,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
 interface PostJobFormData {
   title: string;
   location: string;
+  country: string;
   type: string;
   rate: string;
   description: string;
@@ -75,6 +76,7 @@ interface PostJobFormData {
 const EMPTY_FORM: PostJobFormData = {
   title: "",
   location: "",
+  country: "",
   type: "freelance",
   rate: "",
   description: "",
@@ -233,6 +235,7 @@ export default function MyPostedJobs() {
     setForm({
       title: job.title,
       location: job.location,
+      country: job.country || "",
       type: job.type,
       rate: job.rate,
       description: job.description,
@@ -537,15 +540,26 @@ export default function MyPostedJobs() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="rate">Rate *</Label>
+                <Label htmlFor="country">Country *</Label>
                 <Input
-                  id="rate"
-                  placeholder="e.g. £200/day"
-                  value={form.rate}
-                  onChange={(e) => setForm((f) => ({ ...f, rate: e.target.value }))}
+                  id="country"
+                  placeholder="e.g. United Kingdom"
+                  value={form.country}
+                  onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
                   required
                 />
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="rate">Rate *</Label>
+              <Input
+                id="rate"
+                placeholder="e.g. £200/day"
+                value={form.rate}
+                onChange={(e) => setForm((f) => ({ ...f, rate: e.target.value }))}
+                required
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
