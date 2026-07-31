@@ -22,6 +22,7 @@ import {
   Clock,
   Copy,
   Mail,
+  Plus,
   Send,
   Share2,
   ShieldCheck,
@@ -221,7 +222,15 @@ export default function SimplifiedFreelancerDashboard() {
           </p>
           <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button
+            size="sm"
+            onClick={() => handleTabChange("posted-jobs")}
+            className="bg-gradient-to-r from-[#7B5EA7] to-[#9B7DC7] text-white hover:from-[#6a4f94] hover:to-[#8a6cb6]"
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Post a Job
+          </Button>
           <Button size="sm" variant="outline" onClick={handleShareProfile}>
             {linkCopied ? (
               <>
