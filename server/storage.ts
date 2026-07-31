@@ -177,7 +177,11 @@ export interface IStorage {
   // Job management
   getAllJobs(): Promise<Job[]>;
   getJobsByRecruiterId(recruiterId: number): Promise<Job[]>;
-  getFreelancerPostedJobs(userId: number): Promise<Job[]>;
+  getFreelancerPostedJobs(
+    userId: number
+  ): Promise<
+    (Job & { application_count: number; shortlisted_count: number; hired_count: number })[]
+  >;
   getJobById(jobId: number): Promise<Job | undefined>;
   createJob(job: InsertJob): Promise<Job>;
   /** Persist posted_by_user_id from recruiter_id when missing (legacy rows). */
@@ -1960,12 +1964,47 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(jobs.created_at));
   }
 
-  async getFreelancerPostedJobs(userId: number): Promise<Job[]> {
-    return await db
+  async getFreelancerPostedJobs(
+    userId: number
+  ): Promise<
+    (Job & { application_count: number; shortlisted_count: number; hired_count: number })[]
+  > {
+    const jobRows = await db
       .select()
       .from(jobs)
       .where(and(eq(jobs.posted_by_user_id, userId), eq(jobs.is_freelancer_posted, true)))
       .orderBy(desc(jobs.created_at));
+
+    if (jobRows.length === 0) return [];
+
+    const jobIds = jobRows.map((j) => j.id);
+    const appStats = await db
+      .select({
+        job_id: job_applications.job_id,
+        total: count(),
+        shortlisted: sql<number>`count(*) filter (where ${job_applications.status} = 'shortlisted')`,
+        hired: sql<number>`count(*) filter (where ${job_applications.status} = 'hired')`,
+      })
+      .from(job_applications)
+      .where(inArray(job_applications.job_id, jobIds))
+      .groupBy(job_applications.job_id);
+
+    const statsMap = new Map(
+      appStats.map((s) => [
+        s.job_id,
+        { total: s.total, shortlisted: Number(s.shortlisted), hired: Number(s.hired) },
+      ])
+    );
+
+    return jobRows.map((job) => {
+      const s = statsMap.get(job.id) ?? { total: 0, shortlisted: 0, hired: 0 };
+      return {
+        ...job,
+        application_count: s.total,
+        shortlisted_count: s.shortlisted,
+        hired_count: s.hired,
+      };
+    });
   }
 
   async closeExpiredJobs(): Promise<number> {

@@ -37,6 +37,7 @@ import {
   Plus,
   RotateCcw,
   Trash2,
+  Users,
   UserCheck,
   UserX,
   XCircle,
@@ -306,7 +307,7 @@ export default function MyPostedJobs() {
                   </span>
                 </div>
 
-                <div className="mb-3 flex flex-wrap gap-3 text-sm text-gray-500">
+                <div className="mb-2 flex flex-wrap gap-3 text-sm text-gray-500">
                   {job.location && (
                     <span className="flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5" />
@@ -327,6 +328,27 @@ export default function MyPostedJobs() {
                         month: "short",
                         year: "numeric",
                       })}
+                    </span>
+                  )}
+                </div>
+
+                {/* Application stats */}
+                <div className="mb-3 flex flex-wrap gap-2">
+                  <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                    <Users className="h-3 w-3" />
+                    {job.application_count ?? 0} applicant
+                    {(job.application_count ?? 0) !== 1 ? "s" : ""}
+                  </span>
+                  {(job.shortlisted_count ?? 0) > 0 && (
+                    <span className="flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-700">
+                      <BookmarkPlus className="h-3 w-3" />
+                      {job.shortlisted_count} shortlisted
+                    </span>
+                  )}
+                  {(job.hired_count ?? 0) > 0 && (
+                    <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                      <UserCheck className="h-3 w-3" />
+                      {job.hired_count} accepted
                     </span>
                   )}
                 </div>
@@ -427,7 +449,14 @@ export default function MyPostedJobs() {
                   onClick={() => setExpandedJobId(expandedJobId === job.id ? null : job.id)}
                   className="mt-3 flex w-full items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
                 >
-                  <span>Applicants</span>
+                  <span>
+                    View applicants
+                    {(job.application_count ?? 0) > 0 && (
+                      <span className="ml-1.5 rounded-full bg-gray-200 px-1.5 py-0.5 text-xs">
+                        {job.application_count}
+                      </span>
+                    )}
+                  </span>
                   {expandedJobId === job.id ? (
                     <ChevronUp className="h-4 w-4" />
                   ) : (

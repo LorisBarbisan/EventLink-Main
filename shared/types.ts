@@ -94,6 +94,10 @@ export interface Job {
   posted_date?: string;
   created_at: string;
   updated_at: string;
+  // enriched by getFreelancerPostedJobs
+  application_count?: number;
+  shortlisted_count?: number;
+  hired_count?: number;
 }
 
 export interface JobApplication {
