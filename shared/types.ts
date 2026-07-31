@@ -113,6 +113,8 @@ export interface JobApplication {
   job_title?: string;
   job_company?: string;
   recruiter_id?: number | null;
+  job_is_freelancer_posted?: boolean;
+  job_posted_by_user_id?: number | null;
   rating_id?: number;
   rating?: number;
   review?: string;

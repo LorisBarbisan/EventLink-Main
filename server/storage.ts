@@ -2380,6 +2380,8 @@ export class DatabaseStorage implements IStorage {
         invitation_message: job_applications.invitation_message,
         freelancer_response: job_applications.freelancer_response,
         recruiter_id: jobs.recruiter_id,
+        job_is_freelancer_posted: jobs.is_freelancer_posted,
+        job_posted_by_user_id: jobs.posted_by_user_id,
         rating_id: sql<number>`(SELECT id FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,

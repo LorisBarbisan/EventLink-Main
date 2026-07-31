@@ -454,6 +454,33 @@ export async function shortlistApplication(req: Request, res: Response) {
       });
     }
 
+    // Send email notification (non-blocking)
+    try {
+      const freelancer = await storage.getUser(application.freelancer_id);
+      if (freelancer) {
+        let displayName = freelancer.email;
+        const freelancerProfile = await storage.getFreelancerProfile(application.freelancer_id);
+        if (freelancerProfile?.first_name || freelancerProfile?.last_name) {
+          displayName =
+            `${freelancerProfile.first_name || ""} ${freelancerProfile.last_name || ""}`.trim() ||
+            freelancer.email;
+        }
+        emailService
+          .sendApplicationUpdateNotification({
+            recipientId: application.freelancer_id,
+            recipientEmail: freelancer.email,
+            recipientName: displayName,
+            jobTitle: job.title,
+            companyName: job.company,
+            status: "Shortlisted",
+            applicationId,
+          })
+          .catch((err) => console.error("Failed to send shortlist email:", err));
+      }
+    } catch (err) {
+      console.error("Error preparing shortlist email:", err);
+    }
+
     res.json({ message: "Application shortlisted successfully" });
   } catch (error) {
     console.error("Shortlist application error:", error);
