@@ -1701,6 +1701,8 @@ export class DatabaseStorage implements IStorage {
         conditions.push(isNotNull(jobs.external_source));
       } else if (type === "internal") {
         conditions.push(isNull(jobs.external_source));
+      } else if (type === "freelancer") {
+        conditions.push(eq(jobs.is_freelancer_posted, true));
       }
     }
 
@@ -1800,16 +1802,46 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Also look up freelancer posters (posted_by_user_id on freelancer-posted jobs)
+    const posterIds = jobRows
+      .filter((j) => j.is_freelancer_posted && j.posted_by_user_id !== null)
+      .map((j) => j.posted_by_user_id as number);
+    const posterMap: Map<number, { email: string; name: string }> = new Map();
+
+    if (posterIds.length > 0) {
+      const uniquePosterIds = Array.from(new Set(posterIds));
+      const posters = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          first_name: users.first_name,
+          last_name: users.last_name,
+        })
+        .from(users)
+        .where(inArray(users.id, uniquePosterIds));
+
+      for (const p of posters) {
+        posterMap.set(p.id, {
+          email: p.email,
+          name: [p.first_name, p.last_name].filter(Boolean).join(" ") || p.email,
+        });
+      }
+    }
+
     const enrichedJobs = jobRows.map((job) => {
       const counts = appCounts.get(job.id) || { total: 0, hired: 0, closureEmailCount: 0 };
       const recruiter = job.recruiter_id ? recruiterMap.get(job.recruiter_id) : undefined;
+      const poster =
+        job.is_freelancer_posted && job.posted_by_user_id
+          ? posterMap.get(job.posted_by_user_id)
+          : undefined;
       return {
         ...job,
         application_count: counts.total,
         hired_count: counts.hired,
         closure_email_count: counts.closureEmailCount,
-        recruiter_email: recruiter?.email,
-        recruiter_name: recruiter?.name,
+        recruiter_email: poster?.email ?? recruiter?.email,
+        recruiter_name: poster?.name ?? recruiter?.name,
       };
     });
 
@@ -1838,7 +1870,18 @@ export class DatabaseStorage implements IStorage {
 
     let recruiter_email: string | undefined;
     let recruiter_name: string | undefined;
-    if (job.recruiter_id) {
+    if (job.is_freelancer_posted && job.posted_by_user_id) {
+      const [poster] = await db
+        .select({ email: users.email, first_name: users.first_name, last_name: users.last_name })
+        .from(users)
+        .where(eq(users.id, job.posted_by_user_id))
+        .limit(1);
+      if (poster) {
+        recruiter_email = poster.email;
+        recruiter_name =
+          [poster.first_name, poster.last_name].filter(Boolean).join(" ") || poster.email;
+      }
+    } else if (job.recruiter_id) {
       const [recruiter] = await db
         .select({ email: users.email, first_name: users.first_name, last_name: users.last_name })
         .from(users)
