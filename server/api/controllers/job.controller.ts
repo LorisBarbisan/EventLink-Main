@@ -188,6 +188,23 @@ export async function getMyPostedJobs(req: Request, res: Response) {
   }
 }
 
+// Public: get active jobs posted by a specific freelancer (shown on their profile)
+export async function getFreelancerPublicPostedJobs(req: Request, res: Response) {
+  try {
+    const userId = parseInt(req.params.userId);
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+    const all = await storage.getFreelancerPostedJobs(userId);
+    const active = all.filter((j) => j.status === "active");
+    res.set("Cache-Control", "public, max-age=60");
+    res.json(active);
+  } catch (error) {
+    console.error("Get freelancer public posted jobs error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Create a job posted by a freelancer
 export async function createFreelancerJob(req: Request, res: Response) {
   try {

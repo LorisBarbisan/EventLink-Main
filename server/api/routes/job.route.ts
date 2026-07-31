@@ -4,6 +4,7 @@ import {
   createJob,
   createFreelancerJob,
   deleteJob,
+  getFreelancerPublicPostedJobs,
   getJobById,
   getJobLinkViewCount,
   getJobPresets,
@@ -42,6 +43,9 @@ export function registerJobRoutes(app: Express) {
 
   // Get jobs the current freelancer has posted themselves
   app.get("/api/jobs/my-posted", authenticateJWT, requireRole("freelancer"), getMyPostedJobs);
+
+  // Public: active jobs posted by a specific freelancer (profile page)
+  app.get("/api/freelancer/:userId/posted-jobs", getFreelancerPublicPostedJobs);
 
   // Update job
   app.put("/api/jobs/:jobId", authenticateJWT, resolveCompanyId, updateJob);

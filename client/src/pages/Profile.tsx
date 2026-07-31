@@ -599,6 +599,13 @@ export default function Profile() {
     select: (jobs) => jobs.filter((j) => j.status === "active"),
   });
 
+  // Get active freelancer-posted jobs for freelancer profiles
+  const { data: freelancerPostedJobs = [] } = useQuery<any[]>({
+    queryKey: ["/api/freelancer/posted-jobs", profileUserId],
+    queryFn: () => apiRequest(`/api/freelancer/${profileUserId}/posted-jobs`),
+    enabled: !!profileUserId && !!freelancerProfile,
+  });
+
   const handleDownloadCV = async (cvProfile: FreelancerProfile) => {
     if (!user) {
       redirectToAuth();
@@ -1475,6 +1482,56 @@ export default function Profile() {
                     </>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Freelancer-posted jobs — shown on freelancer profiles */}
+          {freelancerProfile && freelancerPostedJobs.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-primary" />
+                  Hiring For
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {freelancerPostedJobs.map((job: any) => (
+                  <a
+                    key={job.id}
+                    href={`/jobs?jobId=${job.id}`}
+                    className="block rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                  >
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <h3 className="font-semibold leading-tight">{job.title}</h3>
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 bg-[#7B5EA7]/10 text-xs text-[#7B5EA7]"
+                      >
+                        Hiring
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      {job.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {job.location}
+                        </span>
+                      )}
+                      {job.rate && <span>{job.rate}</span>}
+                      {job.event_date && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {new Date(job.event_date).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  </a>
+                ))}
               </CardContent>
             </Card>
           )}
