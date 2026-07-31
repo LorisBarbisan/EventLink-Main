@@ -407,6 +407,60 @@ export async function rejectApplication(req: Request, res: Response) {
   }
 }
 
+// Shortlist application
+export async function shortlistApplication(req: Request, res: Response) {
+  try {
+    const applicationId = parseInt(req.params.applicationId);
+
+    if (!(req as any).user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const application = await storage.getJobApplicationById(applicationId);
+    if (!application) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    const job = await storage.getJobById(application.job_id);
+    const isFreelancerOwner =
+      job?.is_freelancer_posted && job.posted_by_user_id === (req as any).user?.id;
+    if (!job || (!ownsEmployerCompany(req, job.recruiter_id) && !isFreelancerOwner)) {
+      return res.status(403).json({ error: "Not authorized to shortlist this application" });
+    }
+
+    await storage.updateApplicationStatus(applicationId, "shortlisted");
+
+    await storage.createNotification({
+      user_id: application.freelancer_id,
+      type: "application_update",
+      title: "You've been shortlisted!",
+      message: `Great news! Your application for "${job.title}" at ${job.company} has been shortlisted.`,
+      priority: "high",
+      related_entity_type: "application",
+      related_entity_id: applicationId,
+      action_url: "/dashboard?tab=jobs",
+      metadata: JSON.stringify({
+        application_id: applicationId,
+        job_id: job.id,
+        status: "shortlisted",
+      }),
+    });
+
+    if ((global as any).broadcastToUser) {
+      (global as any).broadcastToUser(application.freelancer_id, {
+        type: "application_update",
+        application: { id: applicationId, job_title: job.title, company: job.company },
+        status: "shortlisted",
+      });
+    }
+
+    res.json({ message: "Application shortlisted successfully" });
+  } catch (error) {
+    console.error("Shortlist application error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Delete application (soft delete with role-based permissions)
 export async function deleteApplication(req: Request, res: Response) {
   try {

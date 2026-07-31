@@ -51,6 +51,7 @@ export default function Jobs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
+  const [freelancerPostedFilter, setFreelancerPostedFilter] = useState(false);
 
   // Load initial search parameters from URL
   useEffect(() => {
@@ -278,8 +279,10 @@ export default function Jobs() {
     posted: job.created_at ? new Date(job.created_at).toLocaleDateString() : "Recently posted",
   }));
 
-  // Server-side filtering handles search, location, and date
-  const filteredJobs = transformedJobs;
+  // Server-side filtering handles search, location, and date; client-side for freelancer toggle
+  const filteredJobs = freelancerPostedFilter
+    ? transformedJobs.filter((job: any) => job.is_freelancer_posted)
+    : transformedJobs;
 
   const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
   const startIndex = (currentPage - 1) * jobsPerPage;
@@ -393,8 +396,31 @@ export default function Jobs() {
                 </div>
               </div>
 
+              {/* Freelancer-posted toggle */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={freelancerPostedFilter}
+                  onClick={() => {
+                    setFreelancerPostedFilter((v) => !v);
+                    setCurrentPage(1);
+                  }}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                    freelancerPostedFilter ? "bg-[#7B5EA7]" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform ${
+                      freelancerPostedFilter ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+                <span className="text-sm text-gray-600">Posted by Freelancers only</span>
+              </div>
+
               {/* Clear Filters Button */}
-              {(searchQuery || locationFilter || countryFilter) && (
+              {(searchQuery || locationFilter || countryFilter || freelancerPostedFilter) && (
                 <div className="flex justify-start">
                   <Button
                     variant="outline"
@@ -403,6 +429,7 @@ export default function Jobs() {
                       setSearchQuery("");
                       setLocationFilter("");
                       setCountryFilter("");
+                      setFreelancerPostedFilter(false);
                       setCurrentPage(1);
                     }}
                     className="flex items-center gap-2"

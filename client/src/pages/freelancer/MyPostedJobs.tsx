@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Banknote,
+  BookmarkPlus,
   Calendar,
   ChevronDown,
   ChevronUp,
@@ -186,7 +187,7 @@ export default function MyPostedJobs() {
 
   const acceptMutation = useMutation({
     mutationFn: async (applicationId: number) =>
-      apiRequest(`/api/applications/${applicationId}/accept`, { method: "POST" }),
+      apiRequest(`/api/applications/${applicationId}/accept`, { method: "PUT" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/jobs/${expandedJobId}/applications`] });
       toast({ title: "Applicant accepted" });
@@ -198,13 +199,25 @@ export default function MyPostedJobs() {
 
   const rejectMutation = useMutation({
     mutationFn: async (applicationId: number) =>
-      apiRequest(`/api/applications/${applicationId}/reject`, { method: "POST" }),
+      apiRequest(`/api/applications/${applicationId}/reject`, { method: "PUT" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/jobs/${expandedJobId}/applications`] });
       toast({ title: "Applicant declined" });
     },
     onError: (err: any) => {
       toast({ title: "Failed to decline", description: err?.message, variant: "destructive" });
+    },
+  });
+
+  const shortlistMutation = useMutation({
+    mutationFn: async (applicationId: number) =>
+      apiRequest(`/api/applications/${applicationId}/shortlist`, { method: "PUT" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/jobs/${expandedJobId}/applications`] });
+      toast({ title: "Applicant shortlisted" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to shortlist", description: err?.message, variant: "destructive" });
     },
   });
 
@@ -427,7 +440,12 @@ export default function MyPostedJobs() {
                     jobId={job.id}
                     onAccept={(id) => acceptMutation.mutate(id)}
                     onReject={(id) => rejectMutation.mutate(id)}
-                    isPending={acceptMutation.isPending || rejectMutation.isPending}
+                    onShortlist={(id) => shortlistMutation.mutate(id)}
+                    isPending={
+                      acceptMutation.isPending ||
+                      rejectMutation.isPending ||
+                      shortlistMutation.isPending
+                    }
                   />
                 )}
               </div>
@@ -570,13 +588,17 @@ function ApplicantsPanel({
   jobId,
   onAccept,
   onReject,
+  onShortlist,
   isPending,
 }: {
   jobId: number;
   onAccept: (id: number) => void;
   onReject: (id: number) => void;
+  onShortlist: (id: number) => void;
   isPending: boolean;
 }) {
+  const [expandedCoverId, setExpandedCoverId] = useState<number | null>(null);
+
   const { data, isLoading } = useQuery<Applicant[]>({
     queryKey: [`/api/jobs/${jobId}/applications`],
   });
@@ -597,29 +619,51 @@ function ApplicantsPanel({
     <div className="mt-3 space-y-2">
       {data.map((app) => {
         const cfg = APP_STATUS[app.status] ?? { label: app.status, color: "text-gray-500" };
-        const isActive = ["applied", "reviewed", "shortlisted"].includes(app.status);
+        const canAct = ["applied", "reviewed"].includes(app.status);
+        const canAccept = ["applied", "reviewed", "shortlisted"].includes(app.status);
+        const coverExpanded = expandedCoverId === app.id;
         return (
-          <div
-            key={app.id}
-            className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2.5"
-          >
-            <div className="min-w-0">
-              <a
-                href={`/profile/${app.freelancer_id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="font-medium text-gray-900 hover:text-primary hover:underline"
-              >
-                {app.freelancer_name}
-              </a>
-              {app.freelancer_title && (
-                <p className="truncate text-xs text-gray-400">{app.freelancer_title}</p>
-              )}
-            </div>
-            <div className="flex flex-shrink-0 items-center gap-2">
-              <span className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
-              {isActive && (
-                <>
+          <div key={app.id} className="rounded-lg border border-gray-100 bg-white px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <a
+                  href={`/profile/${app.freelancer_id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-gray-900 hover:text-primary hover:underline"
+                >
+                  {app.freelancer_name}
+                </a>
+                {app.freelancer_title && (
+                  <p className="truncate text-xs text-gray-400">{app.freelancer_title}</p>
+                )}
+              </div>
+              <div className="flex flex-shrink-0 items-center gap-2">
+                <span className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
+                {app.cover_letter && (
+                  <button
+                    onClick={() => setExpandedCoverId(coverExpanded ? null : app.id)}
+                    title={coverExpanded ? "Hide cover letter" : "View cover letter"}
+                    className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600"
+                  >
+                    {coverExpanded ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
+                {canAct && (
+                  <button
+                    onClick={() => onShortlist(app.id)}
+                    disabled={isPending}
+                    title="Shortlist"
+                    className="rounded p-1 text-purple-600 transition-colors hover:bg-purple-50 disabled:opacity-40"
+                  >
+                    <BookmarkPlus className="h-4 w-4" />
+                  </button>
+                )}
+                {canAccept && (
                   <button
                     onClick={() => onAccept(app.id)}
                     disabled={isPending}
@@ -628,6 +672,8 @@ function ApplicantsPanel({
                   >
                     <UserCheck className="h-4 w-4" />
                   </button>
+                )}
+                {(canAct || app.status === "shortlisted") && (
                   <button
                     onClick={() => onReject(app.id)}
                     disabled={isPending}
@@ -636,9 +682,14 @@ function ApplicantsPanel({
                   >
                     <UserX className="h-4 w-4" />
                   </button>
-                </>
-              )}
+                )}
+              </div>
             </div>
+            {coverExpanded && app.cover_letter && (
+              <p className="mt-2 whitespace-pre-wrap rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                {app.cover_letter}
+              </p>
+            )}
           </div>
         );
       })}

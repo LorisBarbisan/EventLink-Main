@@ -10,6 +10,7 @@ import {
   inviteFreelancer,
   rejectApplication,
   respondToInvitation,
+  shortlistApplication,
   withdrawInvitation,
 } from "../controllers/applications.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
@@ -43,14 +44,42 @@ export function registerApplicationRoutes(app: Express) {
   );
 
   // Accept application
-  app.put("/api/applications/:applicationId/accept", authenticateJWT, resolveCompanyId, acceptApplication);
+  app.put(
+    "/api/applications/:applicationId/accept",
+    authenticateJWT,
+    resolveCompanyId,
+    acceptApplication
+  );
 
   // Reject application
-  app.put("/api/applications/:applicationId/reject", authenticateJWT, resolveCompanyId, rejectApplication);
+  app.put(
+    "/api/applications/:applicationId/reject",
+    authenticateJWT,
+    resolveCompanyId,
+    rejectApplication
+  );
+
+  // Shortlist application
+  app.put(
+    "/api/applications/:applicationId/shortlist",
+    authenticateJWT,
+    resolveCompanyId,
+    shortlistApplication
+  );
 
   // Withdraw an invitation (employer only)
-  app.delete("/api/applications/:applicationId/invite", authenticateJWT, resolveCompanyId, withdrawInvitation);
+  app.delete(
+    "/api/applications/:applicationId/invite",
+    authenticateJWT,
+    resolveCompanyId,
+    withdrawInvitation
+  );
 
   // Delete application (soft delete with role-based permissions)
-  app.delete("/api/applications/:applicationId", authenticateJWT, resolveCompanyId, deleteApplication);
+  app.delete(
+    "/api/applications/:applicationId",
+    authenticateJWT,
+    resolveCompanyId,
+    deleteApplication
+  );
 }
