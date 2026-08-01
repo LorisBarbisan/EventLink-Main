@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { CountrySelect } from "@/components/ui/country-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
@@ -30,7 +31,7 @@ import type {
   RecruiterProfile,
 } from "@shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, FileText, Globe, Lock, MapPin, Plus, X } from "lucide-react";
+import { Building2, FileText, Globe, MapPin, Plus, X } from "lucide-react";
 import { ShareProfileButton } from "@/components/ShareProfileButton";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RatingDisplay } from "./StarRating";
@@ -58,7 +59,7 @@ export function ProfileForm({
 
   const freelancerProfile = userType === "freelancer" ? (profile as FreelancerProfile) : null;
   const [profileIsPublic, setProfileIsPublic] = useState(
-    freelancerProfile?.profile_is_public ?? false
+    freelancerProfile?.profile_is_public ?? true
   );
 
   const privacyMutation = useMutation({
@@ -302,25 +303,20 @@ export function ProfileForm({
             </div>
             <div className="flex items-center gap-2">
               {userType === "freelancer" && user?.id && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => privacyMutation.mutate(!profileIsPublic)}
-                  disabled={privacyMutation.isPending}
-                  className="gap-1.5 text-xs"
-                  title={
-                    profileIsPublic
-                      ? "Profile is public — click to make private"
-                      : "Profile is private — click to make public"
-                  }
-                >
-                  {profileIsPublic ? (
-                    <Globe className="h-3.5 w-3.5 text-green-600" />
-                  ) : (
-                    <Lock className="h-3.5 w-3.5 text-gray-500" />
-                  )}
-                  {profileIsPublic ? "Public" : "Private"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={profileIsPublic}
+                    onCheckedChange={(checked) => privacyMutation.mutate(checked)}
+                    disabled={privacyMutation.isPending}
+                    id="profile-visibility"
+                  />
+                  <label
+                    htmlFor="profile-visibility"
+                    className="cursor-pointer select-none text-sm font-medium"
+                  >
+                    {profileIsPublic ? "Public" : "Private"}
+                  </label>
+                </div>
               )}
               {userType === "freelancer" && user?.id && <ShareProfileButton userId={user.id} />}
               {!readOnly && (
