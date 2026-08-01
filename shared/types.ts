@@ -41,6 +41,7 @@ export interface FreelancerProfile {
   linkedin_url?: string;
   website_url?: string;
   availability_status: "available" | "busy" | "unavailable";
+  profile_is_public?: boolean;
   profile_photo_url?: string;
   cv_file_name?: string;
   cv_file_type?: string;

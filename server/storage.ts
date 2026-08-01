@@ -1142,6 +1142,9 @@ export class DatabaseStorage implements IStorage {
       updateData.profile_photo_url = profile.profile_photo_url;
     }
 
+    if ((profile as any).profile_is_public !== undefined)
+      updateData.profile_is_public = (profile as any).profile_is_public;
+
     // CV fields
     if (profile.cv_file_url !== undefined) updateData.cv_file_url = profile.cv_file_url;
     if (profile.cv_file_name !== undefined) updateData.cv_file_name = profile.cv_file_name;

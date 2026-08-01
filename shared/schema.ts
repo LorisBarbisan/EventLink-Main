@@ -112,6 +112,7 @@ export const freelancer_profiles = pgTable(
     cv_file_name: text("cv_file_name"),
     cv_file_type: text("cv_file_type"),
     cv_file_size: integer("cv_file_size"),
+    profile_is_public: boolean("profile_is_public").notNull().default(false),
     reference_token: text("reference_token"), // UUID for public reference request link
     slug: text("slug"), // SEO-friendly URL slug e.g. james-harris-sound-engineer
     custom_slug: text("custom_slug"), // User-chosen vanity URL e.g. john-smith

@@ -142,8 +142,8 @@ export async function downloadCV(req: Request, res: Response) {
     const user = await storage.getUser(freelancerId);
     const isPromotionalAccount = user?.email?.toLowerCase() === EVENTLINK_PROMOTIONAL_EMAIL;
 
-    // Check authorization: promotional account is public; others need JWT auth OR valid ?pt= token
-    if (!isPromotionalAccount) {
+    // Check authorization: promotional account and public profiles are open; others need JWT auth OR valid ?pt= token
+    if (!isPromotionalAccount && !(profile as any).profile_is_public) {
       const requestingUser = (req as any).user;
       const publicToken = req.query.pt as string | undefined;
 

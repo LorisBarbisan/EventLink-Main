@@ -157,13 +157,15 @@ export async function downloadDocument(req: Request, res: Response) {
     const publicToken = req.query.pt as string | undefined;
 
     if (!requestingUser) {
-      // Allow access if caller provides the owner's public profile token
-      if (!publicToken) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
       const ownerProfile = await storage.getFreelancerProfile(document.freelancer_id);
-      if (!ownerProfile?.reference_token || ownerProfile.reference_token !== publicToken) {
-        return res.status(403).json({ error: "Invalid or missing access token" });
+      // Allow access when profile is public or caller provides a valid public token
+      if (!(ownerProfile as any)?.profile_is_public) {
+        if (!publicToken) {
+          return res.status(401).json({ error: "Not authenticated" });
+        }
+        if (!ownerProfile?.reference_token || ownerProfile.reference_token !== publicToken) {
+          return res.status(403).json({ error: "Invalid or missing access token" });
+        }
       }
     } else {
       // Signed-in user: freelancers can only access their own documents
