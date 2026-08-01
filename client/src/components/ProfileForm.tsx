@@ -29,8 +29,8 @@ import type {
   RecruiterFormData,
   RecruiterProfile,
 } from "@shared/types";
-import { useQueryClient } from "@tanstack/react-query";
-import { Building2, FileText, Globe, MapPin, Plus, X } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Building2, FileText, Globe, Lock, MapPin, Plus, X } from "lucide-react";
 import { ShareProfileButton } from "@/components/ShareProfileButton";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RatingDisplay } from "./StarRating";
@@ -54,6 +54,34 @@ export function ProfileForm({
   readOnly = false,
 }: ProfileFormProps) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const freelancerProfile = userType === "freelancer" ? (profile as FreelancerProfile) : null;
+  const [profileIsPublic, setProfileIsPublic] = useState(
+    freelancerProfile?.profile_is_public ?? false
+  );
+
+  const privacyMutation = useMutation({
+    mutationFn: (isPublic: boolean) =>
+      apiRequest(`/api/freelancer/${user?.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ profile_is_public: isPublic }),
+      }),
+    onSuccess: (_data, isPublic) => {
+      setProfileIsPublic(isPublic);
+      queryClient.invalidateQueries({ queryKey: ["/api/freelancer/profile", user?.id] });
+      toast({
+        title: isPublic ? "Profile set to public" : "Profile set to private",
+        description: isPublic
+          ? "Anyone can now view your CV and documents without logging in."
+          : "Only signed-in employers can view your CV and documents.",
+      });
+    },
+    onError: () => {
+      toast({ title: "Failed to update privacy setting", variant: "destructive" });
+    },
+  });
+
   const hasProfileContent = (() => {
     if (!profile) return false;
     if (userType === "recruiter") return !!(profile as RecruiterProfile).company_name;
@@ -273,6 +301,27 @@ export function ProfileForm({
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              {userType === "freelancer" && user?.id && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => privacyMutation.mutate(!profileIsPublic)}
+                  disabled={privacyMutation.isPending}
+                  className="gap-1.5 text-xs"
+                  title={
+                    profileIsPublic
+                      ? "Profile is public — click to make private"
+                      : "Profile is private — click to make public"
+                  }
+                >
+                  {profileIsPublic ? (
+                    <Globe className="h-3.5 w-3.5 text-green-600" />
+                  ) : (
+                    <Lock className="h-3.5 w-3.5 text-gray-500" />
+                  )}
+                  {profileIsPublic ? "Public" : "Private"}
+                </Button>
+              )}
               {userType === "freelancer" && user?.id && <ShareProfileButton userId={user.id} />}
               {!readOnly && (
                 <Button
