@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TabBadge } from "@/components/ui/tab-badge";
+import { CountrySelect } from "@/components/ui/country-select";
 import {
   Table,
   TableBody,
@@ -122,6 +123,7 @@ interface User {
   created_at: string;
   last_login_at?: string;
   profile_status?: "no_profile" | "incomplete" | "complete";
+  profile_country?: string | null;
   job_alerts_opt_out?: boolean;
   job_alert_frequency_preference?: "instant" | "weekly" | "none";
 }
@@ -938,68 +940,70 @@ function AdminDashboardContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 gap-1 p-1 sm:grid-cols-8">
-          <TabsTrigger
-            value="overview"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
-          >
-            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Overview</span>
-            <span className="sm:hidden">Stats</span>
+        {/* Mobile: dropdown tab selector */}
+        <div className="sm:hidden">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="overview">Overview</SelectItem>
+              <SelectItem value="feedback">
+                Feedback{counts.feedback > 0 ? ` (${counts.feedback})` : ""}
+              </SelectItem>
+              <SelectItem value="moderation">Moderation</SelectItem>
+              <SelectItem value="contact">
+                Contact{counts.contact_messages > 0 ? ` (${counts.contact_messages})` : ""}
+              </SelectItem>
+              <SelectItem value="jobs">Jobs</SelectItem>
+              <SelectItem value="users">Users</SelectItem>
+              <SelectItem value="teams">Teams</SelectItem>
+              <SelectItem value="admin-management">Admin</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Desktop: tab bar */}
+        <TabsList className="hidden w-full grid-cols-8 gap-1 p-1 sm:grid">
+          <TabsTrigger value="overview" className="flex items-center justify-center gap-2 text-sm">
+            <TrendingUp className="h-4 w-4" />
+            Overview
           </TabsTrigger>
-          <TabsTrigger
-            value="feedback"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
-          >
-            <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Feedback</span>
-            <span className="sm:hidden">Feed.</span>
+          <TabsTrigger value="feedback" className="flex items-center justify-center gap-2 text-sm">
+            <MessageSquare className="h-4 w-4" />
+            Feedback
             <TabBadge count={counts.feedback} />
           </TabsTrigger>
           <TabsTrigger
             value="moderation"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
+            className="flex items-center justify-center gap-2 text-sm"
           >
-            <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Moderation</span>
-            <span className="sm:hidden">Mod.</span>
+            <Shield className="h-4 w-4" />
+            Moderation
           </TabsTrigger>
-          <TabsTrigger
-            value="contact"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
-          >
-            <Mail className="h-3 w-3 sm:h-4 sm:w-4" />
+          <TabsTrigger value="contact" className="flex items-center justify-center gap-2 text-sm">
+            <Mail className="h-4 w-4" />
             Contact
             <TabBadge count={counts.contact_messages} />
           </TabsTrigger>
-          <TabsTrigger
-            value="jobs"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
-          >
-            <Briefcase className="h-3 w-3 sm:h-4 sm:w-4" />
+          <TabsTrigger value="jobs" className="flex items-center justify-center gap-2 text-sm">
+            <Briefcase className="h-4 w-4" />
             Jobs
           </TabsTrigger>
-          <TabsTrigger
-            value="users"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
-          >
-            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+          <TabsTrigger value="users" className="flex items-center justify-center gap-2 text-sm">
+            <Users className="h-4 w-4" />
             Users
           </TabsTrigger>
-          <TabsTrigger
-            value="teams"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
-          >
-            <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
+          <TabsTrigger value="teams" className="flex items-center justify-center gap-2 text-sm">
+            <Building2 className="h-4 w-4" />
             Teams
           </TabsTrigger>
           <TabsTrigger
             value="admin-management"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
+            className="flex items-center justify-center gap-2 text-sm"
           >
-            <UserCheck className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Admin</span>
-            <span className="sm:hidden">Adm.</span>
+            <UserCheck className="h-4 w-4" />
+            Admin
           </TabsTrigger>
         </TabsList>
 
@@ -1467,10 +1471,10 @@ function AdminDashboardContent() {
                       </SelectContent>
                     </Select>
 
-                    <Input
-                      placeholder="Filter by country..."
+                    <CountrySelect
                       value={jobCountryFilter === "all" ? "" : jobCountryFilter}
-                      onChange={(e) => setJobCountryFilter(e.target.value || "all")}
+                      onChange={(v) => setJobCountryFilter(v || "all")}
+                      placeholder="All countries"
                       className="w-[160px]"
                     />
 
@@ -2280,10 +2284,10 @@ function AdminDashboardContent() {
                         </SelectContent>
                       </Select>
 
-                      <Input
-                        placeholder="Filter by country..."
+                      <CountrySelect
                         value={userCountryFilter}
-                        onChange={(e) => setUserCountryFilter(e.target.value)}
+                        onChange={(v) => setUserCountryFilter(v)}
+                        placeholder="All countries"
                         className="h-9 w-full text-xs sm:text-sm"
                       />
 
@@ -2327,7 +2331,7 @@ function AdminDashboardContent() {
                           <TableHead>Status</TableHead>
                           <TableHead className="hidden md:table-cell">Joined</TableHead>
                           <TableHead className="hidden lg:table-cell">Last Login</TableHead>
-                          <TableHead className="hidden lg:table-cell">Job Alerts</TableHead>
+                          <TableHead className="hidden lg:table-cell">Country</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2426,23 +2430,8 @@ function AdminDashboardContent() {
                                   : "Never"}
                               </TableCell>
                               <TableCell className="hidden py-2 lg:table-cell">
-                                {rowUser.role === "freelancer" ? (
-                                  rowUser.job_alerts_opt_out ? (
-                                    <Badge variant="destructive" className="text-xs">
-                                      Opted Out
-                                    </Badge>
-                                  ) : rowUser.job_alert_frequency_preference === "none" ? (
-                                    <Badge variant="secondary" className="text-xs">
-                                      None
-                                    </Badge>
-                                  ) : (
-                                    <Badge
-                                      variant="outline"
-                                      className="border-green-500 text-xs text-green-700"
-                                    >
-                                      {rowUser.job_alert_frequency_preference || "instant"}
-                                    </Badge>
-                                  )
+                                {rowUser.profile_country ? (
+                                  <span className="text-xs">{rowUser.profile_country}</span>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">-</span>
                                 )}

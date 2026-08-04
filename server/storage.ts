@@ -4463,15 +4463,21 @@ export class DatabaseStorage implements IStorage {
         title: string | null;
         bio: string | null;
         skills: string[] | null;
+        country: string | null;
       }[]
     ) => {
-      const map: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+      const map: Map<number, { hasProfile: boolean; isComplete: boolean; country: string | null }> =
+        new Map();
       for (const profile of profiles) {
         const hasTitle = profile.title && profile.title.trim() !== "";
         const hasBio = profile.bio && profile.bio.trim() !== "";
         const hasSkills = profile.skills && profile.skills.length > 0;
         const isComplete = hasTitle && hasBio && hasSkills;
-        map.set(profile.user_id, { hasProfile: true, isComplete: !!isComplete });
+        map.set(profile.user_id, {
+          hasProfile: true,
+          isComplete: !!isComplete,
+          country: profile.country ?? null,
+        });
       }
       return map;
     };
@@ -4500,6 +4506,7 @@ export class DatabaseStorage implements IStorage {
             title: freelancer_profiles.title,
             bio: freelancer_profiles.bio,
             skills: freelancer_profiles.skills,
+            country: freelancer_profiles.country,
           })
           .from(freelancer_profiles)
           .where(inArray(freelancer_profiles.user_id, allFreelancerIds));
@@ -4511,6 +4518,7 @@ export class DatabaseStorage implements IStorage {
       const allWithStatus = allFreelancers.map((user) => ({
         ...user,
         profile_status: computeProfileStatus(user.id, user.role, profileMap),
+        profile_country: profileMap.get(user.id)?.country ?? null,
       }));
 
       const filtered = allWithStatus.filter((u) => u.profile_status === profileStatus);
@@ -4544,6 +4552,7 @@ export class DatabaseStorage implements IStorage {
           title: freelancer_profiles.title,
           bio: freelancer_profiles.bio,
           skills: freelancer_profiles.skills,
+          country: freelancer_profiles.country,
         })
         .from(freelancer_profiles)
         .where(inArray(freelancer_profiles.user_id, freelancerIds));
@@ -4551,10 +4560,11 @@ export class DatabaseStorage implements IStorage {
       profileMap = buildProfileMap(profiles);
     }
 
-    // Add profile_status to each user
+    // Add profile_status and profile_country to each user
     const usersWithProfileStatus = usersResult.map((user) => ({
       ...user,
       profile_status: computeProfileStatus(user.id, user.role, profileMap),
+      profile_country: profileMap.get(user.id)?.country ?? null,
     }));
 
     return {
