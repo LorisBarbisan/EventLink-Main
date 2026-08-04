@@ -196,7 +196,7 @@ function AdminDashboardContent() {
       setCsvDownloading(false);
     }
   };
-  const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
+  const [, setSelectedFeedback] = useState<FeedbackItem | null>(null);
   const [adminResponse, setAdminResponse] = useState("");
   const [feedbackFilters, setFeedbackFilters] = useState({
     status: "all",
@@ -204,20 +204,21 @@ function AdminDashboardContent() {
   });
 
   // Contact message reply state
-  const [selectedContactMessage, setSelectedContactMessage] = useState<ContactMessage | null>(null);
+  const [, setSelectedContactMessage] = useState<ContactMessage | null>(null);
   const [contactReply, setContactReply] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
 
   // Admin management state
   const [isBootstrapping, setIsBootstrapping] = useState(false);
 
-  const [, setLocation] = useLocation();
+  useLocation();
 
   // Users Tab State
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [profileStatusFilter, setProfileStatusFilter] = useState("all");
+  const [userCountryFilter, setUserCountryFilter] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -246,7 +247,8 @@ function AdminDashboardContent() {
   // Jobs Tab State
   const [jobSearch, setJobSearch] = useState("");
   const [jobStatusFilter, setJobStatusFilter] = useState("all");
-  const [jobTypeFilter, setJobTypeFilter] = useState("all");
+  const [jobTypeFilter, setJobTypeFilter] = useState("internal");
+  const [jobCountryFilter, setJobCountryFilter] = useState("all");
   const [jobSortBy, setJobSortBy] = useState("company");
   const [jobSortOrder, setJobSortOrder] = useState<"asc" | "desc">("desc");
   const [jobCurrentPage, setJobCurrentPage] = useState(1);
@@ -345,7 +347,15 @@ function AdminDashboardContent() {
   useEffect(() => {
     const handleHashSync = () => {
       const hash = window.location.hash.replace("#", "");
-      const validTabs = ["overview", "users", "jobs", "feedback", "contact", "teams", "admin-management"];
+      const validTabs = [
+        "overview",
+        "users",
+        "jobs",
+        "feedback",
+        "contact",
+        "teams",
+        "admin-management",
+      ];
       if (hash && validTabs.includes(hash)) {
         setActiveTab((prev) => (prev !== hash ? hash : prev));
       }
@@ -424,6 +434,7 @@ function AdminDashboardContent() {
       profileStatusFilter,
       sortBy,
       sortOrder,
+      userCountryFilter,
     ],
     queryFn: () => {
       const params = new URLSearchParams();
@@ -433,6 +444,7 @@ function AdminDashboardContent() {
       if (roleFilter !== "all") params.append("role", roleFilter);
       if (statusFilter !== "all") params.append("status", statusFilter);
       if (profileStatusFilter !== "all") params.append("profileStatus", profileStatusFilter);
+      if (userCountryFilter.trim()) params.append("country", userCountryFilter.trim());
       params.append("sortBy", sortBy);
       params.append("sortOrder", sortOrder);
       return apiRequest(`/api/admin/users?${params.toString()}`);
@@ -519,6 +531,7 @@ function AdminDashboardContent() {
       jobSearch,
       jobStatusFilter,
       jobTypeFilter,
+      jobCountryFilter,
       jobSortBy,
       jobSortOrder,
     ],
@@ -529,6 +542,8 @@ function AdminDashboardContent() {
       if (jobSearch) params.append("search", jobSearch);
       if (jobStatusFilter !== "all") params.append("status", jobStatusFilter);
       if (jobTypeFilter !== "all") params.append("type", jobTypeFilter);
+      if (jobCountryFilter && jobCountryFilter !== "all")
+        params.append("country", jobCountryFilter);
       params.append("sortBy", jobSortBy);
       params.append("sortOrder", jobSortOrder);
       return apiRequest(`/api/admin/jobs?${params.toString()}`);
@@ -733,7 +748,7 @@ function AdminDashboardContent() {
 
   useEffect(() => {
     setJobCurrentPage(1);
-  }, [jobSearch, jobStatusFilter, jobTypeFilter, jobSortBy, jobSortOrder]);
+  }, [jobSearch, jobStatusFilter, jobTypeFilter, jobCountryFilter, jobSortBy, jobSortOrder]);
 
   // Automatically mark notifications as read when the relevant tab is active
   useEffect(() => {
@@ -924,40 +939,64 @@ function AdminDashboardContent() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4 gap-1 p-1 sm:grid-cols-8">
-          <TabsTrigger value="overview" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+          <TabsTrigger
+            value="overview"
+            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
+          >
             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Overview</span>
             <span className="sm:hidden">Stats</span>
           </TabsTrigger>
-          <TabsTrigger value="feedback" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+          <TabsTrigger
+            value="feedback"
+            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
+          >
             <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Feedback</span>
             <span className="sm:hidden">Feed.</span>
             <TabBadge count={counts.feedback} />
           </TabsTrigger>
-          <TabsTrigger value="moderation" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+          <TabsTrigger
+            value="moderation"
+            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
+          >
             <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Moderation</span>
             <span className="sm:hidden">Mod.</span>
           </TabsTrigger>
-          <TabsTrigger value="contact" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+          <TabsTrigger
+            value="contact"
+            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
+          >
             <Mail className="h-3 w-3 sm:h-4 sm:w-4" />
             Contact
             <TabBadge count={counts.contact_messages} />
           </TabsTrigger>
-          <TabsTrigger value="jobs" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+          <TabsTrigger
+            value="jobs"
+            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
+          >
             <Briefcase className="h-3 w-3 sm:h-4 sm:w-4" />
             Jobs
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+          <TabsTrigger
+            value="users"
+            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
+          >
             <Users className="h-3 w-3 sm:h-4 sm:w-4" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="teams" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+          <TabsTrigger
+            value="teams"
+            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
+          >
             <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
             Teams
           </TabsTrigger>
-          <TabsTrigger value="admin-management" className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm">
+          <TabsTrigger
+            value="admin-management"
+            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
+          >
             <UserCheck className="h-3 w-3 sm:h-4 sm:w-4" />
             <span className="hidden sm:inline">Admin</span>
             <span className="sm:hidden">Adm.</span>
@@ -1417,14 +1456,23 @@ function AdminDashboardContent() {
 
                     <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}>
                       <SelectTrigger className="w-[160px]">
-                        <SelectValue placeholder="Type" />
+                        <SelectValue placeholder="Source" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="internal">EventLink only</SelectItem>
+                        <SelectItem value="all">All (incl. imported)</SelectItem>
+                        <SelectItem value="external">Imported only</SelectItem>
                         <SelectItem value="published">Published</SelectItem>
                         <SelectItem value="private">Private</SelectItem>
                       </SelectContent>
                     </Select>
+
+                    <Input
+                      placeholder="Filter by country..."
+                      value={jobCountryFilter === "all" ? "" : jobCountryFilter}
+                      onChange={(e) => setJobCountryFilter(e.target.value || "all")}
+                      className="w-[160px]"
+                    />
 
                     <Select value={jobSortBy} onValueChange={setJobSortBy}>
                       <SelectTrigger className="w-[160px]">
@@ -1450,20 +1498,20 @@ function AdminDashboardContent() {
                     </Select>
                   </div>
 
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Title</TableHead>
-                          <TableHead>Company</TableHead>
-                          <TableHead>Location</TableHead>
+                          <TableHead className="hidden sm:table-cell">Company</TableHead>
+                          <TableHead className="hidden md:table-cell">Location</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Applications</TableHead>
-                          <TableHead>Hired</TableHead>
-                          <TableHead>Notified</TableHead>
-                          <TableHead>Event Date</TableHead>
-                          <TableHead>Posted By</TableHead>
-                          <TableHead>Created</TableHead>
+                          <TableHead className="hidden md:table-cell">Applications</TableHead>
+                          <TableHead className="hidden lg:table-cell">Hired</TableHead>
+                          <TableHead className="hidden lg:table-cell">Notified</TableHead>
+                          <TableHead className="hidden sm:table-cell">Event Date</TableHead>
+                          <TableHead className="hidden lg:table-cell">Posted By</TableHead>
+                          <TableHead className="hidden lg:table-cell">Created</TableHead>
                           <TableHead></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1482,13 +1530,13 @@ function AdminDashboardContent() {
                                 {job.title}
                               </TableCell>
                               <TableCell
-                                className="max-w-[150px] truncate py-2"
+                                className="hidden max-w-[150px] truncate py-2 sm:table-cell"
                                 title={job.company}
                               >
                                 {job.company}
                               </TableCell>
                               <TableCell
-                                className="max-w-[120px] truncate py-2"
+                                className="hidden max-w-[120px] truncate py-2 md:table-cell"
                                 title={job.location}
                               >
                                 {job.location}
@@ -1511,10 +1559,10 @@ function AdminDashboardContent() {
                                   {job.status}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="py-2 text-center">
+                              <TableCell className="hidden py-2 text-center md:table-cell">
                                 <Badge variant="secondary">{job.application_count}</Badge>
                               </TableCell>
-                              <TableCell className="py-2 text-center">
+                              <TableCell className="hidden py-2 text-center lg:table-cell">
                                 {job.hired_count > 0 ? (
                                   <Badge
                                     variant="default"
@@ -1526,7 +1574,7 @@ function AdminDashboardContent() {
                                   <span className="text-xs text-muted-foreground">0</span>
                                 )}
                               </TableCell>
-                              <TableCell className="py-2 text-center">
+                              <TableCell className="hidden py-2 text-center lg:table-cell">
                                 {job.closure_email_count > 0 ? (
                                   <Badge
                                     variant="secondary"
@@ -1538,17 +1586,17 @@ function AdminDashboardContent() {
                                   <span className="text-xs text-muted-foreground">—</span>
                                 )}
                               </TableCell>
-                              <TableCell className="py-2 text-xs">
+                              <TableCell className="hidden py-2 text-xs sm:table-cell">
                                 {job.event_date || "-"}
                                 {job.end_date ? ` - ${job.end_date}` : ""}
                               </TableCell>
                               <TableCell
-                                className="max-w-[150px] truncate py-2 text-xs"
+                                className="hidden max-w-[150px] truncate py-2 text-xs lg:table-cell"
                                 title={job.recruiter_name || job.recruiter_email || "External"}
                               >
                                 {job.recruiter_name || job.recruiter_email || "External"}
                               </TableCell>
-                              <TableCell className="py-2 text-xs">
+                              <TableCell className="hidden py-2 text-xs lg:table-cell">
                                 {new Date(job.created_at).toLocaleDateString()}
                               </TableCell>
                               <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
@@ -1854,7 +1902,10 @@ function AdminDashboardContent() {
                                                 : ""
                                             }
                                           >
-                                            {app.status === "rejected" ? "Declined" : app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+                                            {app.status === "rejected"
+                                              ? "Declined"
+                                              : app.status.charAt(0).toUpperCase() +
+                                                app.status.slice(1)}
                                           </Badge>
                                         </TableCell>
                                         <TableCell className="py-2 text-xs">
@@ -1974,7 +2025,7 @@ function AdminDashboardContent() {
                               </Badge>
                             )}
                             {searchTerm && (
-                              <Badge variant="secondary">Search: "{searchTerm}"</Badge>
+                              <Badge variant="secondary">Search: &quot;{searchTerm}&quot;</Badge>
                             )}
                             {roleFilter === "all" &&
                               statusFilter === "all" &&
@@ -2229,6 +2280,13 @@ function AdminDashboardContent() {
                         </SelectContent>
                       </Select>
 
+                      <Input
+                        placeholder="Filter by country..."
+                        value={userCountryFilter}
+                        onChange={(e) => setUserCountryFilter(e.target.value)}
+                        className="h-9 w-full text-xs sm:text-sm"
+                      />
+
                       <Select value={sortBy} onValueChange={setSortBy}>
                         <SelectTrigger className="h-9 w-full text-xs sm:text-sm">
                           <SelectValue placeholder="Sort by" />
@@ -2258,18 +2316,18 @@ function AdminDashboardContent() {
                     </div>
                   </div>
 
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Name</TableHead>
-                          <TableHead>Email</TableHead>
+                          <TableHead className="hidden sm:table-cell">Email</TableHead>
                           <TableHead>Role</TableHead>
-                          <TableHead>Profile</TableHead>
+                          <TableHead className="hidden md:table-cell">Profile</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Joined</TableHead>
-                          <TableHead>Last Login</TableHead>
-                          <TableHead>Job Alerts</TableHead>
+                          <TableHead className="hidden md:table-cell">Joined</TableHead>
+                          <TableHead className="hidden lg:table-cell">Last Login</TableHead>
+                          <TableHead className="hidden lg:table-cell">Job Alerts</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2282,7 +2340,7 @@ function AdminDashboardContent() {
                                   ? `${rowUser.first_name || ""} ${rowUser.last_name || ""}`.trim()
                                   : "N/A"}
                               </TableCell>
-                              <TableCell className="py-2">
+                              <TableCell className="hidden py-2 sm:table-cell">
                                 {rowUser.role === "recruiter" ? (
                                   <button
                                     className="text-left text-primary hover:underline"
@@ -2313,7 +2371,7 @@ function AdminDashboardContent() {
                                   {rowUser.role === "recruiter" ? "employer" : rowUser.role}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="py-2">
+                              <TableCell className="hidden py-2 md:table-cell">
                                 {rowUser.role === "freelancer" ? (
                                   rowUser.profile_status === "complete" ? (
                                     <Badge
@@ -2353,10 +2411,10 @@ function AdminDashboardContent() {
                                   </span>
                                 )}
                               </TableCell>
-                              <TableCell className="py-2">
+                              <TableCell className="hidden py-2 md:table-cell">
                                 {new Date(rowUser.created_at).toLocaleDateString()}
                               </TableCell>
-                              <TableCell className="py-2">
+                              <TableCell className="hidden py-2 lg:table-cell">
                                 {rowUser.last_login_at
                                   ? new Date(rowUser.last_login_at).toLocaleString([], {
                                       year: "numeric",
@@ -2367,14 +2425,21 @@ function AdminDashboardContent() {
                                     })
                                   : "Never"}
                               </TableCell>
-                              <TableCell className="py-2">
+                              <TableCell className="hidden py-2 lg:table-cell">
                                 {rowUser.role === "freelancer" ? (
                                   rowUser.job_alerts_opt_out ? (
-                                    <Badge variant="destructive" className="text-xs">Opted Out</Badge>
+                                    <Badge variant="destructive" className="text-xs">
+                                      Opted Out
+                                    </Badge>
                                   ) : rowUser.job_alert_frequency_preference === "none" ? (
-                                    <Badge variant="secondary" className="text-xs">None</Badge>
+                                    <Badge variant="secondary" className="text-xs">
+                                      None
+                                    </Badge>
                                   ) : (
-                                    <Badge variant="outline" className="text-xs border-green-500 text-green-700">
+                                    <Badge
+                                      variant="outline"
+                                      className="border-green-500 text-xs text-green-700"
+                                    >
                                       {rowUser.job_alert_frequency_preference || "instant"}
                                     </Badge>
                                   )
@@ -2500,7 +2565,9 @@ function AdminDashboardContent() {
                   <CardTitle className="flex items-center gap-2">
                     <Building2 className="h-5 w-5" />
                     {selectedTeamId && teamDetailData ? (
-                      <span>{teamDetailData.company.company_name || teamDetailData.company.owner_email}</span>
+                      <span>
+                        {teamDetailData.company.company_name || teamDetailData.company.owner_email}
+                      </span>
                     ) : (
                       <span>Employer Companies</span>
                     )}
@@ -2527,7 +2594,10 @@ function AdminDashboardContent() {
                     <Input
                       placeholder="Search companies, emails..."
                       value={teamsSearch}
-                      onChange={(e) => { setTeamsSearch(e.target.value); setTeamsPage(1); }}
+                      onChange={(e) => {
+                        setTeamsSearch(e.target.value);
+                        setTeamsPage(1);
+                      }}
                       className="pl-8"
                     />
                   </div>
@@ -2547,11 +2617,17 @@ function AdminDashboardContent() {
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                       {[
                         { label: "Team Members", value: teamDetailData.company.member_count },
-                        { label: "Pending Invites", value: teamDetailData.company.pending_invitations },
+                        {
+                          label: "Pending Invites",
+                          value: teamDetailData.company.pending_invitations,
+                        },
                         { label: "Active Jobs", value: teamDetailData.company.active_jobs },
                         { label: "Total Hired", value: teamDetailData.company.total_hired },
                       ].map((s) => (
-                        <div key={s.label} className="rounded-lg border bg-muted/30 p-3 text-center">
+                        <div
+                          key={s.label}
+                          className="rounded-lg border bg-muted/30 p-3 text-center"
+                        >
                           <div className="text-2xl font-bold">{s.value}</div>
                           <div className="text-xs text-muted-foreground">{s.label}</div>
                         </div>
@@ -2562,27 +2638,58 @@ function AdminDashboardContent() {
                     <div className="rounded-lg border p-4 text-sm">
                       <h3 className="mb-3 font-semibold">Company Info</h3>
                       <div className="grid gap-2 sm:grid-cols-2">
-                        <div><span className="text-muted-foreground">Owner:</span>{" "}
-                          <a href={`/profile/${teamDetailData.company.company_user_id}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                            {teamDetailData.company.owner_first_name && teamDetailData.company.owner_last_name
+                        <div>
+                          <span className="text-muted-foreground">Owner:</span>{" "}
+                          <a
+                            href={`/profile/${teamDetailData.company.company_user_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            {teamDetailData.company.owner_first_name &&
+                            teamDetailData.company.owner_last_name
                               ? `${teamDetailData.company.owner_first_name} ${teamDetailData.company.owner_last_name}`
                               : teamDetailData.company.owner_email}
                           </a>
                         </div>
-                        <div><span className="text-muted-foreground">Email:</span>{" "}{teamDetailData.company.owner_email}</div>
+                        <div>
+                          <span className="text-muted-foreground">Email:</span>{" "}
+                          {teamDetailData.company.owner_email}
+                        </div>
                         {teamDetailData.company.location && (
-                          <div><span className="text-muted-foreground">Location:</span>{" "}{teamDetailData.company.location}</div>
-                        )}
-                        {teamDetailData.company.company_type && (
-                          <div><span className="text-muted-foreground">Type:</span>{" "}{teamDetailData.company.company_type}</div>
-                        )}
-                        {teamDetailData.company.website_url && (
-                          <div><span className="text-muted-foreground">Website:</span>{" "}
-                            <a href={teamDetailData.company.website_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{teamDetailData.company.website_url}</a>
+                          <div>
+                            <span className="text-muted-foreground">Location:</span>{" "}
+                            {teamDetailData.company.location}
                           </div>
                         )}
-                        <div><span className="text-muted-foreground">Joined:</span>{" "}{new Date(teamDetailData.company.created_at).toLocaleDateString()}</div>
-                        <div><span className="text-muted-foreground">Active / Closed Jobs:</span>{" "}{teamDetailData.company.active_jobs} / {teamDetailData.company.closed_jobs}</div>
+                        {teamDetailData.company.company_type && (
+                          <div>
+                            <span className="text-muted-foreground">Type:</span>{" "}
+                            {teamDetailData.company.company_type}
+                          </div>
+                        )}
+                        {teamDetailData.company.website_url && (
+                          <div>
+                            <span className="text-muted-foreground">Website:</span>{" "}
+                            <a
+                              href={teamDetailData.company.website_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              {teamDetailData.company.website_url}
+                            </a>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-muted-foreground">Joined:</span>{" "}
+                          {new Date(teamDetailData.company.created_at).toLocaleDateString()}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Active / Closed Jobs:</span>{" "}
+                          {teamDetailData.company.active_jobs} /{" "}
+                          {teamDetailData.company.closed_jobs}
+                        </div>
                       </div>
                     </div>
 
@@ -2617,23 +2724,38 @@ function AdminDashboardContent() {
                                     <div className="font-medium">{m.name}</div>
                                     <div className="text-xs text-muted-foreground">
                                       {m.user_id ? (
-                                        <a href={`/profile/${m.user_id}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                        <a
+                                          href={`/profile/${m.user_id}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-primary hover:underline"
+                                        >
                                           {m.email}
                                         </a>
-                                      ) : m.email}
+                                      ) : (
+                                        m.email
+                                      )}
                                     </div>
                                   </TableCell>
                                   <TableCell className="py-2">
-                                    <Badge variant="outline" className="capitalize">{m.role}</Badge>
+                                    <Badge variant="outline" className="capitalize">
+                                      {m.role}
+                                    </Badge>
                                   </TableCell>
                                   <TableCell className="py-2">
                                     {m.invite_accepted ? (
-                                      <Badge className="bg-green-600 hover:bg-green-700 text-xs">Accepted</Badge>
+                                      <Badge className="bg-green-600 text-xs hover:bg-green-700">
+                                        Accepted
+                                      </Badge>
                                     ) : (
-                                      <Badge variant="secondary" className="text-xs">Pending</Badge>
+                                      <Badge variant="secondary" className="text-xs">
+                                        Pending
+                                      </Badge>
                                     )}
                                     {m.account_status && (
-                                      <span className="ml-1 text-xs text-muted-foreground capitalize">· {m.account_status}</span>
+                                      <span className="ml-1 text-xs capitalize text-muted-foreground">
+                                        · {m.account_status}
+                                      </span>
                                     )}
                                   </TableCell>
                                   <TableCell className="py-2 text-sm">
@@ -2680,14 +2802,24 @@ function AdminDashboardContent() {
                                   <TableCell className="py-2 font-medium">
                                     <button
                                       className="text-left text-primary hover:underline"
-                                      onClick={() => { setSelectedJobId(j.id); setActiveTab("jobs"); window.history.replaceState(null, "", "#jobs"); }}
+                                      onClick={() => {
+                                        setSelectedJobId(j.id);
+                                        setActiveTab("jobs");
+                                        window.history.replaceState(null, "", "#jobs");
+                                      }}
                                     >
                                       {j.title}
                                     </button>
                                   </TableCell>
                                   <TableCell className="py-2">
                                     <Badge
-                                      variant={j.status === "active" ? "default" : j.status === "closed" ? "destructive" : "secondary"}
+                                      variant={
+                                        j.status === "active"
+                                          ? "default"
+                                          : j.status === "closed"
+                                            ? "destructive"
+                                            : "secondary"
+                                      }
                                       className="text-xs capitalize"
                                     >
                                       {j.status}
@@ -2695,15 +2827,26 @@ function AdminDashboardContent() {
                                   </TableCell>
                                   <TableCell className="py-2 text-xs">
                                     {j.is_published ? (
-                                      <Badge variant="outline" className="border-green-500 text-green-700 text-xs">Posted</Badge>
+                                      <Badge
+                                        variant="outline"
+                                        className="border-green-500 text-xs text-green-700"
+                                      >
+                                        Posted
+                                      </Badge>
                                     ) : (
-                                      <Badge variant="outline" className="text-xs">Private</Badge>
+                                      <Badge variant="outline" className="text-xs">
+                                        Private
+                                      </Badge>
                                     )}
                                   </TableCell>
                                   <TableCell className="py-2 text-sm">{j.recruiter_name}</TableCell>
-                                  <TableCell className="py-2 text-sm">{j.application_count}</TableCell>
+                                  <TableCell className="py-2 text-sm">
+                                    {j.application_count}
+                                  </TableCell>
                                   <TableCell className="py-2 text-sm">{j.hired_count}</TableCell>
-                                  <TableCell className="py-2 text-xs">{new Date(j.created_at).toLocaleDateString()}</TableCell>
+                                  <TableCell className="py-2 text-xs">
+                                    {new Date(j.created_at).toLocaleDateString()}
+                                  </TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
@@ -2713,123 +2856,173 @@ function AdminDashboardContent() {
                     </div>
                   </div>
                 ) : (
-                  <p className="py-8 text-center text-sm text-muted-foreground">Company not found.</p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Company not found.
+                  </p>
                 )
+              ) : /* Teams List View */
+              teamsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
               ) : (
-                /* Teams List View */
-                teamsLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <>
+                  <div className="mb-2 text-sm text-muted-foreground">
+                    {teamsData?.total ?? 0} employer account{teamsData?.total !== 1 ? "s" : ""}
+                    {teamsSearch && ` matching "${teamsSearch}"`}
                   </div>
-                ) : (
-                  <>
-                    <div className="mb-2 text-sm text-muted-foreground">
-                      {teamsData?.total ?? 0} employer account{teamsData?.total !== 1 ? "s" : ""}
-                      {teamsSearch && ` matching "${teamsSearch}"`}
-                    </div>
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Company</TableHead>
+                          <TableHead>Owner</TableHead>
+                          <TableHead>Members</TableHead>
+                          <TableHead>Pending Invites</TableHead>
+                          <TableHead>Active Jobs</TableHead>
+                          <TableHead>Hired</TableHead>
+                          <TableHead>Joined</TableHead>
+                          <TableHead />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(teamsData?.teams ?? []).length === 0 ? (
                           <TableRow>
-                            <TableHead>Company</TableHead>
-                            <TableHead>Owner</TableHead>
-                            <TableHead>Members</TableHead>
-                            <TableHead>Pending Invites</TableHead>
-                            <TableHead>Active Jobs</TableHead>
-                            <TableHead>Hired</TableHead>
-                            <TableHead>Joined</TableHead>
-                            <TableHead />
+                            <TableCell
+                              colSpan={8}
+                              className="py-8 text-center text-muted-foreground"
+                            >
+                              {teamsSearch
+                                ? "No companies match your search."
+                                : "No employer accounts found."}
+                            </TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {(teamsData?.teams ?? []).length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
-                                {teamsSearch ? "No companies match your search." : "No employer accounts found."}
+                        ) : (
+                          (teamsData?.teams ?? []).map((team) => (
+                            <TableRow
+                              key={team.company_user_id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => setSelectedTeamId(team.company_user_id)}
+                            >
+                              <TableCell className="py-2 font-medium">
+                                {team.company_name || (
+                                  <span className="italic text-muted-foreground">
+                                    No company name
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <div className="text-sm">
+                                  {team.owner_first_name || team.owner_last_name
+                                    ? `${team.owner_first_name ?? ""} ${team.owner_last_name ?? ""}`.trim()
+                                    : "—"}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {team.owner_email}
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-2 text-center">
+                                {team.member_count > 0 ? (
+                                  <Badge className="bg-blue-600 text-xs hover:bg-blue-700">
+                                    {team.member_count}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2 text-center">
+                                {team.pending_invitations > 0 ? (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {team.pending_invitations}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2 text-center text-sm">
+                                {team.active_jobs}
+                              </TableCell>
+                              <TableCell className="py-2 text-center text-sm">
+                                {team.total_hired}
+                              </TableCell>
+                              <TableCell className="py-2 text-xs">
+                                {new Date(team.created_at).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedTeamId(team.company_user_id);
+                                  }}
+                                >
+                                  View
+                                </Button>
                               </TableCell>
                             </TableRow>
-                          ) : (
-                            (teamsData?.teams ?? []).map((team) => (
-                              <TableRow key={team.company_user_id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedTeamId(team.company_user_id)}>
-                                <TableCell className="py-2 font-medium">
-                                  {team.company_name || <span className="italic text-muted-foreground">No company name</span>}
-                                </TableCell>
-                                <TableCell className="py-2">
-                                  <div className="text-sm">
-                                    {team.owner_first_name || team.owner_last_name
-                                      ? `${team.owner_first_name ?? ""} ${team.owner_last_name ?? ""}`.trim()
-                                      : "—"}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">{team.owner_email}</div>
-                                </TableCell>
-                                <TableCell className="py-2 text-center">
-                                  {team.member_count > 0 ? (
-                                    <Badge className="bg-blue-600 hover:bg-blue-700 text-xs">{team.member_count}</Badge>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">—</span>
-                                  )}
-                                </TableCell>
-                                <TableCell className="py-2 text-center">
-                                  {team.pending_invitations > 0 ? (
-                                    <Badge variant="secondary" className="text-xs">{team.pending_invitations}</Badge>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">—</span>
-                                  )}
-                                </TableCell>
-                                <TableCell className="py-2 text-center text-sm">{team.active_jobs}</TableCell>
-                                <TableCell className="py-2 text-center text-sm">{team.total_hired}</TableCell>
-                                <TableCell className="py-2 text-xs">{new Date(team.created_at).toLocaleDateString()}</TableCell>
-                                <TableCell className="py-2">
-                                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); setSelectedTeamId(team.company_user_id); }}>
-                                    View
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
 
-                    {/* Pagination */}
-                    {(teamsData?.totalPages ?? 1) > 1 && (
-                      <div className="mt-4 flex justify-center">
-                        <Pagination>
-                          <PaginationContent>
-                            <PaginationItem>
-                              <PaginationPrevious
-                                onClick={() => setTeamsPage((p) => Math.max(1, p - 1))}
-                                className={teamsPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                              />
-                            </PaginationItem>
-                            {Array.from({ length: teamsData?.totalPages ?? 1 }, (_, i) => i + 1)
-                              .filter((p) => p === 1 || p === (teamsData?.totalPages ?? 1) || Math.abs(p - teamsPage) <= 1)
-                              .map((p, i, arr) => (
-                                <>
-                                  {i > 0 && arr[i - 1] !== p - 1 && (
-                                    <PaginationItem key={`ellipsis-${p}`}>
-                                      <span className="px-2">…</span>
-                                    </PaginationItem>
-                                  )}
-                                  <PaginationItem key={p}>
-                                    <PaginationLink isActive={p === teamsPage} onClick={() => setTeamsPage(p)} className="cursor-pointer">
-                                      {p}
-                                    </PaginationLink>
+                  {/* Pagination */}
+                  {(teamsData?.totalPages ?? 1) > 1 && (
+                    <div className="mt-4 flex justify-center">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              onClick={() => setTeamsPage((p) => Math.max(1, p - 1))}
+                              className={
+                                teamsPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
+                              }
+                            />
+                          </PaginationItem>
+                          {Array.from({ length: teamsData?.totalPages ?? 1 }, (_, i) => i + 1)
+                            .filter(
+                              (p) =>
+                                p === 1 ||
+                                p === (teamsData?.totalPages ?? 1) ||
+                                Math.abs(p - teamsPage) <= 1
+                            )
+                            .map((p, i, arr) => (
+                              <>
+                                {i > 0 && arr[i - 1] !== p - 1 && (
+                                  <PaginationItem key={`ellipsis-${p}`}>
+                                    <span className="px-2">…</span>
                                   </PaginationItem>
-                                </>
-                              ))}
-                            <PaginationItem>
-                              <PaginationNext
-                                onClick={() => setTeamsPage((p) => Math.min(teamsData?.totalPages ?? 1, p + 1))}
-                                className={teamsPage >= (teamsData?.totalPages ?? 1) ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                              />
-                            </PaginationItem>
-                          </PaginationContent>
-                        </Pagination>
-                      </div>
-                    )}
-                  </>
-                )
+                                )}
+                                <PaginationItem key={p}>
+                                  <PaginationLink
+                                    isActive={p === teamsPage}
+                                    onClick={() => setTeamsPage(p)}
+                                    className="cursor-pointer"
+                                  >
+                                    {p}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              </>
+                            ))}
+                          <PaginationItem>
+                            <PaginationNext
+                              onClick={() =>
+                                setTeamsPage((p) => Math.min(teamsData?.totalPages ?? 1, p + 1))
+                              }
+                              className={
+                                teamsPage >= (teamsData?.totalPages ?? 1)
+                                  ? "pointer-events-none opacity-50"
+                                  : "cursor-pointer"
+                              }
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

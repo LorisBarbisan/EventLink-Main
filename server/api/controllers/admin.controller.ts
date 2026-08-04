@@ -187,6 +187,7 @@ export async function getAdminJobs(req: Request, res: Response) {
     const type = (req.query.type as string) || undefined;
     const sortBy = (req.query.sortBy as string) || "created_at";
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+    const country = (req.query.country as string) || undefined;
 
     const { jobs, total } = await storage.getAdminJobs(
       page,
@@ -195,7 +196,8 @@ export async function getAdminJobs(req: Request, res: Response) {
       status,
       type,
       sortBy,
-      sortOrder
+      sortOrder,
+      country
     );
 
     res.json({
@@ -239,6 +241,7 @@ export async function getAllUsers(req: Request, res: Response) {
     const sortBy = (req.query.sortBy as string) || "created_at";
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
     const profileStatus = (req.query.profileStatus as string) || undefined;
+    const country = (req.query.country as string) || undefined;
 
     const { users, total } = await storage.getAllUsers(
       page,
@@ -248,7 +251,8 @@ export async function getAllUsers(req: Request, res: Response) {
       status,
       sortBy,
       sortOrder,
-      profileStatus
+      profileStatus,
+      country
     );
 
     // Remove sensitive information

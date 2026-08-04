@@ -218,7 +218,8 @@ export interface IStorage {
     status?: string,
     type?: string,
     sortBy?: string,
-    sortOrder?: "asc" | "desc"
+    sortOrder?: "asc" | "desc",
+    country?: string
   ): Promise<{
     jobs: (Job & {
       application_count: number;
@@ -397,7 +398,8 @@ export interface IStorage {
     status?: string,
     sortBy?: string,
     sortOrder?: "asc" | "desc",
-    profileStatus?: string
+    profileStatus?: string,
+    country?: string
   ): Promise<{ users: (User & { profile_status?: string })[]; total: number }>;
   updateUserStatus(userId: number, status: string): Promise<User>;
 
@@ -1665,7 +1667,8 @@ export class DatabaseStorage implements IStorage {
     status?: string,
     type?: string,
     sortBy?: string,
-    sortOrder?: "asc" | "desc"
+    sortOrder?: "asc" | "desc",
+    country?: string
   ): Promise<{
     jobs: (Job & {
       application_count: number;
@@ -1704,6 +1707,10 @@ export class DatabaseStorage implements IStorage {
       } else if (type === "internal") {
         conditions.push(isNull(jobs.external_source));
       }
+    }
+
+    if (country && country !== "all") {
+      conditions.push(ilike(jobs.country, country.trim()));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -4381,7 +4388,8 @@ export class DatabaseStorage implements IStorage {
     status?: string,
     sortBy?: string,
     sortOrder?: "asc" | "desc",
-    profileStatus?: string
+    profileStatus?: string,
+    country?: string
   ): Promise<{ users: (User & { profile_status?: string })[]; total: number }> {
     const offset = (page - 1) * limit;
 
@@ -4404,6 +4412,15 @@ export class DatabaseStorage implements IStorage {
 
     if (status && status !== "all") {
       conditions.push(eq(users.status, status));
+    }
+
+    if (country && country.trim() !== "") {
+      const matchingProfileUserIds = await db
+        .select({ user_id: freelancer_profiles.user_id })
+        .from(freelancer_profiles)
+        .where(ilike(freelancer_profiles.country, `%${country.trim()}%`));
+      const ids = matchingProfileUserIds.map((r) => r.user_id);
+      conditions.push(ids.length > 0 ? inArray(users.id, ids) : sql`1=0`);
     }
 
     // Determine sort column and direction
