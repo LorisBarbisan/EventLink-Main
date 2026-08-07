@@ -218,7 +218,8 @@ export interface IStorage {
     status?: string,
     type?: string,
     sortBy?: string,
-    sortOrder?: "asc" | "desc"
+    sortOrder?: "asc" | "desc",
+    country?: string
   ): Promise<{
     jobs: (Job & {
       application_count: number;
@@ -397,7 +398,8 @@ export interface IStorage {
     status?: string,
     sortBy?: string,
     sortOrder?: "asc" | "desc",
-    profileStatus?: string
+    profileStatus?: string,
+    country?: string
   ): Promise<{ users: (User & { profile_status?: string })[]; total: number }>;
   updateUserStatus(userId: number, status: string): Promise<User>;
 
@@ -1072,6 +1074,17 @@ export class DatabaseStorage implements IStorage {
         })
       : null;
 
+    // Resolve country from city if not provided
+    let resolvedCountry = profile.country;
+    if (!resolvedCountry && profile.location) {
+      try {
+        const { geocodeCity } = await import("./api/utils/backfill-slugs.js");
+        resolvedCountry = (await geocodeCity(profile.location)) ?? undefined;
+      } catch {
+        // non-fatal — country stays empty
+      }
+    }
+
     const profileData = {
       user_id: profile.user_id,
       first_name: profile.first_name,
@@ -1080,7 +1093,7 @@ export class DatabaseStorage implements IStorage {
       superpower: profile.superpower,
       bio: profile.bio,
       location: profile.location,
-      country: profile.country,
+      country: resolvedCountry,
       experience_years: profile.experience_years,
       skills: profile.skills,
       portfolio_url: profile.portfolio_url,
@@ -1130,6 +1143,9 @@ export class DatabaseStorage implements IStorage {
       );
       updateData.profile_photo_url = profile.profile_photo_url;
     }
+
+    if ((profile as any).profile_is_public !== undefined)
+      updateData.profile_is_public = (profile as any).profile_is_public;
 
     // CV fields
     if (profile.cv_file_url !== undefined) updateData.cv_file_url = profile.cv_file_url;
@@ -1651,7 +1667,8 @@ export class DatabaseStorage implements IStorage {
     status?: string,
     type?: string,
     sortBy?: string,
-    sortOrder?: "asc" | "desc"
+    sortOrder?: "asc" | "desc",
+    country?: string
   ): Promise<{
     jobs: (Job & {
       application_count: number;
@@ -1690,6 +1707,10 @@ export class DatabaseStorage implements IStorage {
       } else if (type === "internal") {
         conditions.push(isNull(jobs.external_source));
       }
+    }
+
+    if (country && country !== "all") {
+      conditions.push(ilike(jobs.country, country.trim()));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -4367,7 +4388,8 @@ export class DatabaseStorage implements IStorage {
     status?: string,
     sortBy?: string,
     sortOrder?: "asc" | "desc",
-    profileStatus?: string
+    profileStatus?: string,
+    country?: string
   ): Promise<{ users: (User & { profile_status?: string })[]; total: number }> {
     const offset = (page - 1) * limit;
 
@@ -4390,6 +4412,15 @@ export class DatabaseStorage implements IStorage {
 
     if (status && status !== "all") {
       conditions.push(eq(users.status, status));
+    }
+
+    if (country && country.trim() !== "") {
+      const matchingProfileUserIds = await db
+        .select({ user_id: freelancer_profiles.user_id })
+        .from(freelancer_profiles)
+        .where(ilike(freelancer_profiles.country, `%${country.trim()}%`));
+      const ids = matchingProfileUserIds.map((r) => r.user_id);
+      conditions.push(ids.length > 0 ? inArray(users.id, ids) : sql`1=0`);
     }
 
     // Determine sort column and direction
@@ -4432,15 +4463,21 @@ export class DatabaseStorage implements IStorage {
         title: string | null;
         bio: string | null;
         skills: string[] | null;
+        country: string | null;
       }[]
     ) => {
-      const map: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+      const map: Map<number, { hasProfile: boolean; isComplete: boolean; country: string | null }> =
+        new Map();
       for (const profile of profiles) {
         const hasTitle = profile.title && profile.title.trim() !== "";
         const hasBio = profile.bio && profile.bio.trim() !== "";
         const hasSkills = profile.skills && profile.skills.length > 0;
         const isComplete = hasTitle && hasBio && hasSkills;
-        map.set(profile.user_id, { hasProfile: true, isComplete: !!isComplete });
+        map.set(profile.user_id, {
+          hasProfile: true,
+          isComplete: !!isComplete,
+          country: profile.country ?? null,
+        });
       }
       return map;
     };
@@ -4469,6 +4506,7 @@ export class DatabaseStorage implements IStorage {
             title: freelancer_profiles.title,
             bio: freelancer_profiles.bio,
             skills: freelancer_profiles.skills,
+            country: freelancer_profiles.country,
           })
           .from(freelancer_profiles)
           .where(inArray(freelancer_profiles.user_id, allFreelancerIds));
@@ -4480,6 +4518,7 @@ export class DatabaseStorage implements IStorage {
       const allWithStatus = allFreelancers.map((user) => ({
         ...user,
         profile_status: computeProfileStatus(user.id, user.role, profileMap),
+        profile_country: profileMap.get(user.id)?.country ?? null,
       }));
 
       const filtered = allWithStatus.filter((u) => u.profile_status === profileStatus);
@@ -4513,6 +4552,7 @@ export class DatabaseStorage implements IStorage {
           title: freelancer_profiles.title,
           bio: freelancer_profiles.bio,
           skills: freelancer_profiles.skills,
+          country: freelancer_profiles.country,
         })
         .from(freelancer_profiles)
         .where(inArray(freelancer_profiles.user_id, freelancerIds));
@@ -4520,10 +4560,11 @@ export class DatabaseStorage implements IStorage {
       profileMap = buildProfileMap(profiles);
     }
 
-    // Add profile_status to each user
+    // Add profile_status and profile_country to each user
     const usersWithProfileStatus = usersResult.map((user) => ({
       ...user,
       profile_status: computeProfileStatus(user.id, user.role, profileMap),
+      profile_country: profileMap.get(user.id)?.country ?? null,
     }));
 
     return {

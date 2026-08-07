@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { CountrySelect } from "@/components/ui/country-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
@@ -29,7 +30,7 @@ import type {
   RecruiterFormData,
   RecruiterProfile,
 } from "@shared/types";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Building2, FileText, Globe, MapPin, Plus, X } from "lucide-react";
 import { ShareProfileButton } from "@/components/ShareProfileButton";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -54,6 +55,34 @@ export function ProfileForm({
   readOnly = false,
 }: ProfileFormProps) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const freelancerProfile = userType === "freelancer" ? (profile as FreelancerProfile) : null;
+  const [profileIsPublic, setProfileIsPublic] = useState(
+    freelancerProfile?.profile_is_public ?? true
+  );
+
+  const privacyMutation = useMutation({
+    mutationFn: (isPublic: boolean) =>
+      apiRequest(`/api/freelancer/${user?.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ profile_is_public: isPublic }),
+      }),
+    onSuccess: (_data, isPublic) => {
+      setProfileIsPublic(isPublic);
+      queryClient.invalidateQueries({ queryKey: ["/api/freelancer/profile", user?.id] });
+      toast({
+        title: isPublic ? "Profile set to public" : "Profile set to private",
+        description: isPublic
+          ? "Anyone can now view your CV and documents without logging in."
+          : "Only signed-in employers can view your CV and documents.",
+      });
+    },
+    onError: () => {
+      toast({ title: "Failed to update privacy setting", variant: "destructive" });
+    },
+  });
+
   const hasProfileContent = (() => {
     if (!profile) return false;
     if (userType === "recruiter") return !!(profile as RecruiterProfile).company_name;
@@ -273,6 +302,22 @@ export function ProfileForm({
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              {userType === "freelancer" && user?.id && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={profileIsPublic}
+                    onCheckedChange={(checked) => privacyMutation.mutate(checked)}
+                    disabled={privacyMutation.isPending}
+                    id="profile-visibility"
+                  />
+                  <label
+                    htmlFor="profile-visibility"
+                    className="cursor-pointer select-none text-sm font-medium"
+                  >
+                    {profileIsPublic ? "Public" : "Private"}
+                  </label>
+                </div>
+              )}
               {userType === "freelancer" && user?.id && <ShareProfileButton userId={user.id} />}
               {!readOnly && (
                 <Button
