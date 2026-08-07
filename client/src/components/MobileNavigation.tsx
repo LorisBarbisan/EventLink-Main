@@ -1,15 +1,16 @@
 import { EventLinkLogo } from "@/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
 import { isManagerTeamMember } from "@/lib/employerContext";
-import { MessageSquare, Plus, Star } from "lucide-react";
+import { MessageSquare, Plus } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 interface MobileNavigationProps {
   onFeedbackClick: () => void;
-  onInviteClick?: () => void;
 }
 
-export const MobileNavigation = ({ onFeedbackClick, onInviteClick }: MobileNavigationProps) => {
+// Note: the Insurance Offers and Build My Reputation buttons live in the
+// header's own compact mobile row, not in this menu.
+export const MobileNavigation = ({ onFeedbackClick }: MobileNavigationProps) => {
   const [, setLocation] = useLocation();
   const { user, signOut } = useAuth();
 
@@ -82,18 +83,6 @@ export const MobileNavigation = ({ onFeedbackClick, onInviteClick }: MobileNavig
           >
             <Plus className="h-4 w-4" />
             Post New Job
-          </button>
-        )}
-
-        {/* Invite Clients button - only for freelancers */}
-        {user?.role === "freelancer" && onInviteClick && (
-          <button
-            onClick={onInviteClick}
-            className="flex w-full items-center gap-2 rounded-md bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-3 text-left font-medium text-white shadow-sm transition-colors hover:from-amber-600 hover:to-orange-700"
-            data-testid="mobile-button-invite-clients"
-          >
-            <Star className="h-4 w-4 flex-shrink-0 fill-white" />
-            Build My Reputation
           </button>
         )}
 
