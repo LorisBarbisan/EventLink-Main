@@ -225,7 +225,12 @@ export default function SimplifiedFreelancerDashboard() {
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button
             size="sm"
-            onClick={() => handleTabChange("posted-jobs")}
+            onClick={() => {
+              handleTabChange("posted-jobs");
+              const url = new URL(window.location.href);
+              url.searchParams.set("openForm", "1");
+              window.history.replaceState({}, "", url.toString());
+            }}
             className="bg-gradient-to-r from-[#7B5EA7] to-[#9B7DC7] text-white hover:from-[#6a4f94] hover:to-[#8a6cb6]"
           >
             <Plus className="mr-1.5 h-3.5 w-3.5" />

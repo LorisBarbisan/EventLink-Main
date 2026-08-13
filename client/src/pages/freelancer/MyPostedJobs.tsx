@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { CountrySelect } from "@/components/ui/country-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -14,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,14 +64,31 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
   closed: { label: "Closed", color: "text-red-600", bg: "bg-red-100" },
 };
 
+const CURRENCIES = [
+  { code: "GBP", symbol: "£", label: "GBP (£)" },
+  { code: "USD", symbol: "$", label: "USD ($)" },
+  { code: "EUR", symbol: "€", label: "EUR (€)" },
+  { code: "AUD", symbol: "A$", label: "AUD (A$)" },
+  { code: "CAD", symbol: "C$", label: "CAD (C$)" },
+  { code: "ZAR", symbol: "R", label: "ZAR (R)" },
+  { code: "SEK", symbol: "kr", label: "SEK (kr)" },
+  { code: "NOK", symbol: "kr", label: "NOK (kr)" },
+  { code: "DKK", symbol: "kr", label: "DKK (kr)" },
+  { code: "JPY", symbol: "¥", label: "JPY (¥)" },
+  { code: "AED", symbol: "د.إ", label: "AED (د.إ)" },
+];
+
 interface PostJobFormData {
   title: string;
   location: string;
   country: string;
-  type: string;
+  currency: string;
   rate: string;
   description: string;
   event_date: string;
+  end_date: string;
+  start_time: string;
+  end_time: string;
   company: string;
 }
 
@@ -77,10 +96,13 @@ const EMPTY_FORM: PostJobFormData = {
   title: "",
   location: "",
   country: "",
-  type: "freelance",
+  currency: "GBP",
   rate: "",
   description: "",
   event_date: "",
+  end_date: "",
+  start_time: "",
+  end_time: "",
   company: "",
 };
 
@@ -92,6 +114,17 @@ export default function MyPostedJobs() {
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [form, setForm] = useState<PostJobFormData>(EMPTY_FORM);
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("openForm") === "1") {
+      setEditingJob(null);
+      setForm(EMPTY_FORM);
+      setDialogOpen(true);
+      params.delete("openForm");
+      window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  }, []);
 
   const { data: postedJobs, isLoading } = useQuery<Job[]>({
     queryKey: ["/api/jobs/my-posted"],
@@ -236,23 +269,30 @@ export default function MyPostedJobs() {
       title: job.title,
       location: job.location,
       country: job.country || "",
-      type: job.type,
+      currency: (job as any).currency || "GBP",
       rate: job.rate,
       description: job.description,
       event_date: job.event_date || "",
+      end_date: (job as any).end_date || "",
+      start_time: (job as any).start_time || "",
+      end_time: (job as any).end_time || "",
       company: job.company,
     });
     setDialogOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const [showAdditional, setShowAdditional] = useState(false);
+
+  const handleSubmit = (status: "private" | "active") => {
     if (editingJob) {
-      updateMutation.mutate({ jobId: editingJob.id, data: form });
+      updateMutation.mutate({ jobId: editingJob.id, data: { ...form, status } });
     } else {
-      createMutation.mutate(form);
+      createMutation.mutate({ ...form, status });
     }
   };
+
+  const currencySymbol = CURRENCIES.find((c) => c.code === form.currency)?.symbol || "£";
+  const isValid = !!(form.title && form.location && form.rate && form.event_date);
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
@@ -494,6 +534,7 @@ export default function MyPostedJobs() {
           if (!open) {
             setEditingJob(null);
             setForm(EMPTY_FORM);
+            setShowAdditional(false);
           }
         }}
       >
@@ -501,88 +542,71 @@ export default function MyPostedJobs() {
           <DialogHeader>
             <DialogTitle>{editingJob ? "Edit Job" : "Post a Job"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          <div className="space-y-4 pt-2">
+            {/* Title */}
             <div className="space-y-1.5">
-              <Label htmlFor="title">Job title *</Label>
+              <Label htmlFor="title">Job Title *</Label>
               <Input
                 id="title"
-                placeholder="e.g. Sound Engineer needed for wedding"
+                placeholder="e.g. Sound Engineer for wedding"
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                required
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="company">
-                Event / company name{" "}
-                <span className="font-normal text-gray-400">
-                  (optional — defaults to your name)
-                </span>
-              </Label>
-              <Input
-                id="company"
-                placeholder="e.g. The Grand Wedding Co"
-                value={form.company}
-                onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
-              />
-            </div>
-
+            {/* Country + Location */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="location">Location *</Label>
-                <Input
-                  id="location"
-                  placeholder="e.g. London"
-                  value={form.location}
-                  onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-                  required
-                />
-              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="country">Country *</Label>
-                <Input
+                <CountrySelect
                   id="country"
-                  placeholder="e.g. United Kingdom"
                   value={form.country}
-                  onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
-                  required
+                  onChange={(v) => setForm((f) => ({ ...f, country: v }))}
+                  placeholder="Select country..."
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="location">City / Location *</Label>
+                <GlobalLocationInput
+                  id="location"
+                  value={form.location}
+                  onChange={(v) => setForm((f) => ({ ...f, location: v }))}
+                  placeholder="Start typing a city..."
                 />
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="rate">Rate *</Label>
-              <Input
-                id="rate"
-                placeholder="e.g. £200/day"
-                value={form.rate}
-                onChange={(e) => setForm((f) => ({ ...f, rate: e.target.value }))}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+            {/* Currency + Rate + Date */}
+            <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="type">Job type</Label>
+                <Label htmlFor="currency">Currency</Label>
                 <Select
-                  value={form.type}
-                  onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}
+                  value={form.currency}
+                  onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}
                 >
-                  <SelectTrigger id="type">
+                  <SelectTrigger id="currency">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="freelance">Freelance</SelectItem>
-                    <SelectItem value="contract">Contract</SelectItem>
-                    <SelectItem value="part-time">Part-time</SelectItem>
-                    <SelectItem value="full-time">Full-time</SelectItem>
-                    <SelectItem value="temporary">Temporary</SelectItem>
+                    {CURRENCIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="event_date">Event date</Label>
+                <Label htmlFor="rate">Rate * ({currencySymbol})</Label>
+                <Input
+                  id="rate"
+                  placeholder="300"
+                  value={form.rate}
+                  onChange={(e) => setForm((f) => ({ ...f, rate: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="event_date">Start Date *</Label>
                 <Input
                   id="event_date"
                   type="date"
@@ -592,26 +616,103 @@ export default function MyPostedJobs() {
               </div>
             </div>
 
+            {/* Company (optional) */}
             <div className="space-y-1.5">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="company">
+                Event / Company Name{" "}
+                <span className="font-normal text-muted-foreground">(optional)</span>
+              </Label>
+              <Input
+                id="company"
+                placeholder="e.g. The Grand Wedding Co"
+                value={form.company}
+                onChange={(e) => setForm((f) => ({ ...f, company: e.target.value }))}
+              />
+            </div>
+
+            {/* Description — always visible */}
+            <div className="space-y-1.5">
+              <Label htmlFor="description">Job Description</Label>
               <Textarea
                 id="description"
                 placeholder="Describe the role, requirements, and what you're looking for..."
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                rows={5}
+                rows={4}
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+            {/* Additional details toggle */}
+            <button
+              type="button"
+              onClick={() => setShowAdditional((s) => !s)}
+              className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
+            >
+              {showAdditional ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronUp className="h-4 w-4" />
+              )}
+              Additional Details (optional)
+            </button>
+
+            {showAdditional && (
+              <div className="space-y-4 border-t pt-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="end_date">End Date</Label>
+                    <Input
+                      id="end_date"
+                      type="date"
+                      value={form.end_date}
+                      onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="start_time">Start Time</Label>
+                    <Input
+                      id="start_time"
+                      type="time"
+                      value={form.start_time}
+                      onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="end_time">End Time</Label>
+                    <Input
+                      id="end_time"
+                      type="time"
+                      value={form.end_time}
+                      onChange={(e) => setForm((f) => ({ ...f, end_time: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2">
+              <Button
+                onClick={() => handleSubmit("private")}
+                disabled={isPending || !isValid}
+                variant="outline"
+              >
+                {isPending ? "Saving..." : editingJob ? "Save Changes" : "Save as Draft"}
+              </Button>
+              <Button
+                onClick={() => handleSubmit("active")}
+                disabled={isPending || !isValid}
+                className="bg-gradient-to-r from-[#7B5EA7] to-[#9B7DC7] text-white hover:from-[#6a4f94] hover:to-[#8a6cb6]"
+              >
+                {isPending ? "Publishing..." : editingJob ? "Save & Publish" : "Publish Now"}
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? "Saving..." : editingJob ? "Save changes" : "Save as draft"}
-              </Button>
             </div>
-          </form>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

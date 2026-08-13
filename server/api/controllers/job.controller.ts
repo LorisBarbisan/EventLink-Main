@@ -210,13 +210,6 @@ export async function createFreelancerJob(req: Request, res: Response) {
   try {
     const user = (req as any).user;
 
-    const fullUser = await storage.getUser(user.id);
-    if (!fullUser?.email_verified || fullUser.status !== "active") {
-      return res.status(403).json({
-        error: "Your account must be email-verified and active to post jobs.",
-      });
-    }
-
     const profile = await storage.getFreelancerProfile(user.id);
     if (!profile) {
       return res.status(403).json({
