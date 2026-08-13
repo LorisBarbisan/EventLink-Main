@@ -34,6 +34,8 @@ import {
   Camera,
   CheckCircle,
   Clock,
+  Globe,
+  Lock,
   Mail,
   MapPin,
   MessageCircle,
@@ -111,6 +113,8 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
   const [hasProfile, setHasProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [profileIsPublic, setProfileIsPublic] = useState(false);
+  const [togglingPrivacy, setTogglingPrivacy] = useState(false);
   const [newSkill, setNewSkill] = useState("");
   const [activeTab, setActiveTab] = useState("profile");
   const [lastViewedJobs, setLastViewedJobs] = useState<number>(() => {
@@ -207,6 +211,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
             cv_file_url: data.cv_file_url,
           });
         }
+        setProfileIsPublic(data.profile_is_public ?? false);
         setHasProfile(true);
       }
     } catch (error) {
@@ -222,6 +227,28 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
   // Used after CV parsing so the auto-applied fields are always shown.
   const forceRefetchProfile = async () => {
     await fetchFreelancerProfile(true);
+  };
+
+  const toggleProfilePrivacy = async () => {
+    setTogglingPrivacy(true);
+    const newValue = !profileIsPublic;
+    try {
+      await apiRequest(`/api/freelancer/${profile.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ profile_is_public: newValue }),
+      });
+      setProfileIsPublic(newValue);
+      toast({
+        title: newValue ? "Profile set to public" : "Profile set to private",
+        description: newValue
+          ? "Anyone can now view your CV and documents without logging in."
+          : "Only signed-in employers can view your CV and documents.",
+      });
+    } catch {
+      toast({ title: "Failed to update privacy setting", variant: "destructive" });
+    } finally {
+      setTogglingPrivacy(false);
+    }
   };
 
   const saveProfile = async () => {
@@ -439,6 +466,27 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                {hasProfile && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleProfilePrivacy}
+                    disabled={togglingPrivacy}
+                    className="gap-1.5 text-xs"
+                    title={
+                      profileIsPublic
+                        ? "Profile is public — click to make private"
+                        : "Profile is private — click to make public"
+                    }
+                  >
+                    {profileIsPublic ? (
+                      <Globe className="h-3.5 w-3.5 text-green-600" />
+                    ) : (
+                      <Lock className="h-3.5 w-3.5 text-gray-500" />
+                    )}
+                    {profileIsPublic ? "Public" : "Private"}
+                  </Button>
+                )}
                 {hasProfile && <ShareProfileButton userId={parseInt(profile.id)} />}
                 <div className="flex items-center gap-2">
                   <div

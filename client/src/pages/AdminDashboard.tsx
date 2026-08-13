@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TabBadge } from "@/components/ui/tab-badge";
+import { CountrySelect } from "@/components/ui/country-select";
 import {
   Table,
   TableBody,
@@ -122,6 +123,7 @@ interface User {
   created_at: string;
   last_login_at?: string;
   profile_status?: "no_profile" | "incomplete" | "complete";
+  profile_country?: string | null;
   job_alerts_opt_out?: boolean;
   job_alert_frequency_preference?: "instant" | "weekly" | "none";
 }
@@ -218,6 +220,7 @@ function AdminDashboardContent() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [profileStatusFilter, setProfileStatusFilter] = useState("all");
+  const [userCountryFilter, setUserCountryFilter] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -246,7 +249,8 @@ function AdminDashboardContent() {
   // Jobs Tab State
   const [jobSearch, setJobSearch] = useState("");
   const [jobStatusFilter, setJobStatusFilter] = useState("all");
-  const [jobTypeFilter, setJobTypeFilter] = useState("all");
+  const [jobTypeFilter, setJobTypeFilter] = useState("internal");
+  const [jobCountryFilter, setJobCountryFilter] = useState("all");
   const [jobSortBy, setJobSortBy] = useState("company");
   const [jobSortOrder, setJobSortOrder] = useState<"asc" | "desc">("desc");
   const [jobCurrentPage, setJobCurrentPage] = useState(1);
@@ -432,6 +436,7 @@ function AdminDashboardContent() {
       profileStatusFilter,
       sortBy,
       sortOrder,
+      userCountryFilter,
     ],
     queryFn: () => {
       const params = new URLSearchParams();
@@ -441,6 +446,7 @@ function AdminDashboardContent() {
       if (roleFilter !== "all") params.append("role", roleFilter);
       if (statusFilter !== "all") params.append("status", statusFilter);
       if (profileStatusFilter !== "all") params.append("profileStatus", profileStatusFilter);
+      if (userCountryFilter.trim()) params.append("country", userCountryFilter.trim());
       params.append("sortBy", sortBy);
       params.append("sortOrder", sortOrder);
       return apiRequest(`/api/admin/users?${params.toString()}`);
@@ -527,6 +533,7 @@ function AdminDashboardContent() {
       jobSearch,
       jobStatusFilter,
       jobTypeFilter,
+      jobCountryFilter,
       jobSortBy,
       jobSortOrder,
     ],
@@ -537,6 +544,8 @@ function AdminDashboardContent() {
       if (jobSearch) params.append("search", jobSearch);
       if (jobStatusFilter !== "all") params.append("status", jobStatusFilter);
       if (jobTypeFilter !== "all") params.append("type", jobTypeFilter);
+      if (jobCountryFilter && jobCountryFilter !== "all")
+        params.append("country", jobCountryFilter);
       params.append("sortBy", jobSortBy);
       params.append("sortOrder", jobSortOrder);
       return apiRequest(`/api/admin/jobs?${params.toString()}`);
@@ -741,7 +750,7 @@ function AdminDashboardContent() {
 
   useEffect(() => {
     setJobCurrentPage(1);
-  }, [jobSearch, jobStatusFilter, jobTypeFilter, jobSortBy, jobSortOrder]);
+  }, [jobSearch, jobStatusFilter, jobTypeFilter, jobCountryFilter, jobSortBy, jobSortOrder]);
 
   // Automatically mark notifications as read when the relevant tab is active
   useEffect(() => {
@@ -931,68 +940,70 @@ function AdminDashboardContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 gap-1 p-1 sm:grid-cols-8">
-          <TabsTrigger
-            value="overview"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
-          >
-            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Overview</span>
-            <span className="sm:hidden">Stats</span>
+        {/* Mobile: dropdown tab selector */}
+        <div className="sm:hidden">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="overview">Overview</SelectItem>
+              <SelectItem value="feedback">
+                Feedback{counts.feedback > 0 ? ` (${counts.feedback})` : ""}
+              </SelectItem>
+              <SelectItem value="moderation">Moderation</SelectItem>
+              <SelectItem value="contact">
+                Contact{counts.contact_messages > 0 ? ` (${counts.contact_messages})` : ""}
+              </SelectItem>
+              <SelectItem value="jobs">Jobs</SelectItem>
+              <SelectItem value="users">Users</SelectItem>
+              <SelectItem value="teams">Teams</SelectItem>
+              <SelectItem value="admin-management">Admin</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Desktop: tab bar */}
+        <TabsList className="hidden w-full grid-cols-8 gap-1 p-1 sm:grid">
+          <TabsTrigger value="overview" className="flex items-center justify-center gap-2 text-sm">
+            <TrendingUp className="h-4 w-4" />
+            Overview
           </TabsTrigger>
-          <TabsTrigger
-            value="feedback"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
-          >
-            <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Feedback</span>
-            <span className="sm:hidden">Feed.</span>
+          <TabsTrigger value="feedback" className="flex items-center justify-center gap-2 text-sm">
+            <MessageSquare className="h-4 w-4" />
+            Feedback
             <TabBadge count={counts.feedback} />
           </TabsTrigger>
           <TabsTrigger
             value="moderation"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
+            className="flex items-center justify-center gap-2 text-sm"
           >
-            <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Moderation</span>
-            <span className="sm:hidden">Mod.</span>
+            <Shield className="h-4 w-4" />
+            Moderation
           </TabsTrigger>
-          <TabsTrigger
-            value="contact"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
-          >
-            <Mail className="h-3 w-3 sm:h-4 sm:w-4" />
+          <TabsTrigger value="contact" className="flex items-center justify-center gap-2 text-sm">
+            <Mail className="h-4 w-4" />
             Contact
             <TabBadge count={counts.contact_messages} />
           </TabsTrigger>
-          <TabsTrigger
-            value="jobs"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
-          >
-            <Briefcase className="h-3 w-3 sm:h-4 sm:w-4" />
+          <TabsTrigger value="jobs" className="flex items-center justify-center gap-2 text-sm">
+            <Briefcase className="h-4 w-4" />
             Jobs
           </TabsTrigger>
-          <TabsTrigger
-            value="users"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
-          >
-            <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+          <TabsTrigger value="users" className="flex items-center justify-center gap-2 text-sm">
+            <Users className="h-4 w-4" />
             Users
           </TabsTrigger>
-          <TabsTrigger
-            value="teams"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
-          >
-            <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
+          <TabsTrigger value="teams" className="flex items-center justify-center gap-2 text-sm">
+            <Building2 className="h-4 w-4" />
             Teams
           </TabsTrigger>
           <TabsTrigger
             value="admin-management"
-            className="flex items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm"
+            className="flex items-center justify-center gap-2 text-sm"
           >
-            <UserCheck className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline">Admin</span>
-            <span className="sm:hidden">Adm.</span>
+            <UserCheck className="h-4 w-4" />
+            Admin
           </TabsTrigger>
         </TabsList>
 
@@ -1448,16 +1459,24 @@ function AdminDashboardContent() {
                     </Select>
 
                     <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Type" />
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder="Source" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="internal">EventLink only</SelectItem>
+                        <SelectItem value="all">All (incl. imported)</SelectItem>
+                        <SelectItem value="external">Imported only</SelectItem>
                         <SelectItem value="published">Published</SelectItem>
                         <SelectItem value="private">Private</SelectItem>
-                        <SelectItem value="freelancer">Freelancer-posted</SelectItem>
                       </SelectContent>
                     </Select>
+
+                    <CountrySelect
+                      value={jobCountryFilter === "all" ? "" : jobCountryFilter}
+                      onChange={(v) => setJobCountryFilter(v || "all")}
+                      placeholder="All countries"
+                      className="w-[160px]"
+                    />
 
                     <Select value={jobSortBy} onValueChange={setJobSortBy}>
                       <SelectTrigger className="w-[160px]">
@@ -1483,20 +1502,20 @@ function AdminDashboardContent() {
                     </Select>
                   </div>
 
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Title</TableHead>
-                          <TableHead>Company</TableHead>
-                          <TableHead>Location</TableHead>
+                          <TableHead className="hidden sm:table-cell">Company</TableHead>
+                          <TableHead className="hidden md:table-cell">Location</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Applications</TableHead>
-                          <TableHead>Hired</TableHead>
-                          <TableHead>Notified</TableHead>
-                          <TableHead>Event Date</TableHead>
-                          <TableHead>Posted By</TableHead>
-                          <TableHead>Created</TableHead>
+                          <TableHead className="hidden md:table-cell">Applications</TableHead>
+                          <TableHead className="hidden lg:table-cell">Hired</TableHead>
+                          <TableHead className="hidden lg:table-cell">Notified</TableHead>
+                          <TableHead className="hidden sm:table-cell">Event Date</TableHead>
+                          <TableHead className="hidden lg:table-cell">Posted By</TableHead>
+                          <TableHead className="hidden lg:table-cell">Created</TableHead>
                           <TableHead></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1509,26 +1528,19 @@ function AdminDashboardContent() {
                               onClick={() => setSelectedJobId(job.id)}
                             >
                               <TableCell
-                                className="max-w-[200px] py-2 font-medium"
+                                className="max-w-[200px] truncate py-2 font-medium"
                                 title={job.title}
                               >
-                                <div className="flex items-center gap-1.5">
-                                  <span className="truncate">{job.title}</span>
-                                  {(job as any).is_freelancer_posted && (
-                                    <Badge className="shrink-0 bg-[#7B5EA7]/10 px-1.5 text-[10px] text-[#7B5EA7] hover:bg-[#7B5EA7]/20">
-                                      FL
-                                    </Badge>
-                                  )}
-                                </div>
+                                {job.title}
                               </TableCell>
                               <TableCell
-                                className="max-w-[150px] truncate py-2"
+                                className="hidden max-w-[150px] truncate py-2 sm:table-cell"
                                 title={job.company}
                               >
                                 {job.company}
                               </TableCell>
                               <TableCell
-                                className="max-w-[120px] truncate py-2"
+                                className="hidden max-w-[120px] truncate py-2 md:table-cell"
                                 title={job.location}
                               >
                                 {job.location}
@@ -1551,10 +1563,10 @@ function AdminDashboardContent() {
                                   {job.status}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="py-2 text-center">
+                              <TableCell className="hidden py-2 text-center md:table-cell">
                                 <Badge variant="secondary">{job.application_count}</Badge>
                               </TableCell>
-                              <TableCell className="py-2 text-center">
+                              <TableCell className="hidden py-2 text-center lg:table-cell">
                                 {job.hired_count > 0 ? (
                                   <Badge
                                     variant="default"
@@ -1566,7 +1578,7 @@ function AdminDashboardContent() {
                                   <span className="text-xs text-muted-foreground">0</span>
                                 )}
                               </TableCell>
-                              <TableCell className="py-2 text-center">
+                              <TableCell className="hidden py-2 text-center lg:table-cell">
                                 {job.closure_email_count > 0 ? (
                                   <Badge
                                     variant="secondary"
@@ -1578,30 +1590,17 @@ function AdminDashboardContent() {
                                   <span className="text-xs text-muted-foreground">—</span>
                                 )}
                               </TableCell>
-                              <TableCell className="py-2 text-xs">
+                              <TableCell className="hidden py-2 text-xs sm:table-cell">
                                 {job.event_date || "-"}
                                 {job.end_date ? ` - ${job.end_date}` : ""}
                               </TableCell>
                               <TableCell
-                                className="max-w-[160px] py-2 text-xs"
+                                className="hidden max-w-[150px] truncate py-2 text-xs lg:table-cell"
                                 title={job.recruiter_name || job.recruiter_email || "External"}
                               >
-                                {(job as any).is_freelancer_posted ? (
-                                  <div className="flex items-center gap-1">
-                                    <span className="truncate">
-                                      {job.recruiter_name || job.recruiter_email || "Freelancer"}
-                                    </span>
-                                    <Badge className="shrink-0 bg-[#7B5EA7]/10 px-1 text-[10px] text-[#7B5EA7] hover:bg-[#7B5EA7]/20">
-                                      FL
-                                    </Badge>
-                                  </div>
-                                ) : (
-                                  <span className="truncate">
-                                    {job.recruiter_name || job.recruiter_email || "External"}
-                                  </span>
-                                )}
+                                {job.recruiter_name || job.recruiter_email || "External"}
                               </TableCell>
-                              <TableCell className="py-2 text-xs">
+                              <TableCell className="hidden py-2 text-xs lg:table-cell">
                                 {new Date(job.created_at).toLocaleDateString()}
                               </TableCell>
                               <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
@@ -1767,27 +1766,12 @@ function AdminDashboardContent() {
                               )}
                             <div>
                               <p className="text-sm text-muted-foreground">Posted By</p>
-                              <p className="flex items-center gap-1.5 font-medium">
+                              <p className="font-medium">
                                 {jobDetailData.job.recruiter_name || "External"}
-                                {(jobDetailData.job as any).is_freelancer_posted && (
-                                  <Badge className="bg-[#7B5EA7]/10 px-1.5 text-[10px] text-[#7B5EA7] hover:bg-[#7B5EA7]/20">
-                                    Freelancer
-                                  </Badge>
-                                )}
                               </p>
                               {jobDetailData.job.recruiter_email && (
                                 <p className="text-xs text-muted-foreground">
-                                  {(jobDetailData.job as any).is_freelancer_posted &&
-                                  (jobDetailData.job as any).posted_by_user_id ? (
-                                    <a
-                                      href={`/profile/${(jobDetailData.job as any).posted_by_user_id}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline"
-                                    >
-                                      {jobDetailData.job.recruiter_email}
-                                    </a>
-                                  ) : jobDetailData.job.recruiter_id ? (
+                                  {jobDetailData.job.recruiter_id ? (
                                     <a
                                       href={`/profile/${jobDetailData.job.recruiter_id}`}
                                       target="_blank"
@@ -2300,6 +2284,13 @@ function AdminDashboardContent() {
                         </SelectContent>
                       </Select>
 
+                      <CountrySelect
+                        value={userCountryFilter}
+                        onChange={(v) => setUserCountryFilter(v)}
+                        placeholder="All countries"
+                        className="h-9 w-full text-xs sm:text-sm"
+                      />
+
                       <Select value={sortBy} onValueChange={setSortBy}>
                         <SelectTrigger className="h-9 w-full text-xs sm:text-sm">
                           <SelectValue placeholder="Sort by" />
@@ -2329,18 +2320,18 @@ function AdminDashboardContent() {
                     </div>
                   </div>
 
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Name</TableHead>
-                          <TableHead>Email</TableHead>
+                          <TableHead className="hidden sm:table-cell">Email</TableHead>
                           <TableHead>Role</TableHead>
-                          <TableHead>Profile</TableHead>
+                          <TableHead className="hidden md:table-cell">Profile</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Joined</TableHead>
-                          <TableHead>Last Login</TableHead>
-                          <TableHead>Job Alerts</TableHead>
+                          <TableHead className="hidden md:table-cell">Joined</TableHead>
+                          <TableHead className="hidden lg:table-cell">Last Login</TableHead>
+                          <TableHead className="hidden lg:table-cell">Country</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2353,7 +2344,7 @@ function AdminDashboardContent() {
                                   ? `${rowUser.first_name || ""} ${rowUser.last_name || ""}`.trim()
                                   : "N/A"}
                               </TableCell>
-                              <TableCell className="py-2">
+                              <TableCell className="hidden py-2 sm:table-cell">
                                 {rowUser.role === "recruiter" ? (
                                   <button
                                     className="text-left text-primary hover:underline"
@@ -2384,7 +2375,7 @@ function AdminDashboardContent() {
                                   {rowUser.role === "recruiter" ? "employer" : rowUser.role}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="py-2">
+                              <TableCell className="hidden py-2 md:table-cell">
                                 {rowUser.role === "freelancer" ? (
                                   rowUser.profile_status === "complete" ? (
                                     <Badge
@@ -2424,10 +2415,10 @@ function AdminDashboardContent() {
                                   </span>
                                 )}
                               </TableCell>
-                              <TableCell className="py-2">
+                              <TableCell className="hidden py-2 md:table-cell">
                                 {new Date(rowUser.created_at).toLocaleDateString()}
                               </TableCell>
-                              <TableCell className="py-2">
+                              <TableCell className="hidden py-2 lg:table-cell">
                                 {rowUser.last_login_at
                                   ? new Date(rowUser.last_login_at).toLocaleString([], {
                                       year: "numeric",
@@ -2438,24 +2429,9 @@ function AdminDashboardContent() {
                                     })
                                   : "Never"}
                               </TableCell>
-                              <TableCell className="py-2">
-                                {rowUser.role === "freelancer" ? (
-                                  rowUser.job_alerts_opt_out ? (
-                                    <Badge variant="destructive" className="text-xs">
-                                      Opted Out
-                                    </Badge>
-                                  ) : rowUser.job_alert_frequency_preference === "none" ? (
-                                    <Badge variant="secondary" className="text-xs">
-                                      None
-                                    </Badge>
-                                  ) : (
-                                    <Badge
-                                      variant="outline"
-                                      className="border-green-500 text-xs text-green-700"
-                                    >
-                                      {rowUser.job_alert_frequency_preference || "instant"}
-                                    </Badge>
-                                  )
+                              <TableCell className="hidden py-2 lg:table-cell">
+                                {rowUser.profile_country ? (
+                                  <span className="text-xs">{rowUser.profile_country}</span>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">-</span>
                                 )}
