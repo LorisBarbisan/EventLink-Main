@@ -222,7 +222,7 @@ export default function GuestApplicationView() {
                     {data.freelancer.email && (
                       <Button variant="outline" asChild>
                         <a
-                          href={`mailto:${data.freelancer.email}?subject=Re: your application for ${encodeURIComponent(data.job.title)}`}
+                          href={`mailto:${data.freelancer.email}?subject=${encodeURIComponent(`Re: your application for "${data.job.title}"`)}`}
                         >
                           <Mail className="mr-2 h-4 w-4" />
                           Reply by Email
