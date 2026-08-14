@@ -1229,3 +1229,21 @@ export const insertJobDraftSchema = createInsertSchema(job_drafts).omit({
 
 export type JobDraft = typeof job_drafts.$inferSelect;
 export type InsertJobDraft = z.infer<typeof insertJobDraftSchema>;
+
+// One-time token that lets a guest view a specific application without logging in
+export const guest_application_tokens = pgTable("guest_application_tokens", {
+  id: serial("id").primaryKey(),
+  token_hash: text("token_hash").notNull().unique(),
+  application_id: integer("application_id")
+    .notNull()
+    .references(() => job_applications.id, { onDelete: "cascade" }),
+  job_id: integer("job_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  guest_email: text("guest_email").notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expires_at: timestamp("expires_at", { withTimezone: true }).notNull(),
+  viewed_at: timestamp("viewed_at", { withTimezone: true }),
+});
+
+export type GuestApplicationToken = typeof guest_application_tokens.$inferSelect;

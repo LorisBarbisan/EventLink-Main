@@ -68,6 +68,8 @@ import {
   teamMembers,
   job_drafts,
   type JobDraft,
+  guest_application_tokens,
+  type GuestApplicationToken,
   type User,
 } from "@shared/schema";
 import {
@@ -660,6 +662,15 @@ export interface IStorage {
   }): Promise<JobDraft>;
   getJobDraftByTokenHash(tokenHash: string): Promise<JobDraft | undefined>;
   consumeJobDraft(draftId: number, publishedJobId: number): Promise<void>;
+  createGuestApplicationToken(data: {
+    token_hash: string;
+    application_id: number;
+    job_id: number;
+    guest_email: string;
+    expires_at: Date;
+  }): Promise<GuestApplicationToken>;
+  getGuestApplicationToken(tokenHash: string): Promise<GuestApplicationToken | undefined>;
+  markGuestApplicationTokenViewed(tokenHash: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5800,6 +5811,33 @@ export class DatabaseStorage implements IStorage {
       .update(job_drafts)
       .set({ consumed_at: new Date(), published_job_id: publishedJobId })
       .where(eq(job_drafts.id, draftId));
+  }
+
+  async createGuestApplicationToken(data: {
+    token_hash: string;
+    application_id: number;
+    job_id: number;
+    guest_email: string;
+    expires_at: Date;
+  }): Promise<GuestApplicationToken> {
+    const [token] = await db.insert(guest_application_tokens).values(data).returning();
+    return token;
+  }
+
+  async getGuestApplicationToken(tokenHash: string): Promise<GuestApplicationToken | undefined> {
+    const [token] = await db
+      .select()
+      .from(guest_application_tokens)
+      .where(eq(guest_application_tokens.token_hash, tokenHash))
+      .limit(1);
+    return token;
+  }
+
+  async markGuestApplicationTokenViewed(tokenHash: string): Promise<void> {
+    await db
+      .update(guest_application_tokens)
+      .set({ viewed_at: new Date() })
+      .where(eq(guest_application_tokens.token_hash, tokenHash));
   }
 }
 

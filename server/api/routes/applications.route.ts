@@ -13,10 +13,13 @@ import {
   shortlistApplication,
   withdrawInvitation,
 } from "../controllers/applications.controller";
+import { getGuestApplicationView } from "../controllers/guest-application.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { resolveCompanyId } from "../middleware/team.middleware";
 
 export function registerApplicationRoutes(app: Express) {
+  // Guest application view — no auth, token-gated
+  app.get("/api/applications/guest-view", getGuestApplicationView);
   // Respond to invitation (Accept/Decline)
   app.post("/api/applications/:applicationId/respond", authenticateJWT, respondToInvitation);
 

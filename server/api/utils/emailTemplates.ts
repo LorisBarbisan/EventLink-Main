@@ -149,8 +149,7 @@ export function applicationUpdateEmail(data: {
     message: "Application status update",
   };
 
-  const hasDocuments =
-    data.status === "hired" && data.documents && data.documents.length > 0;
+  const hasDocuments = data.status === "hired" && data.documents && data.documents.length > 0;
 
   const documentLinksHtml = hasDocuments
     ? `
@@ -162,9 +161,9 @@ export function applicationUpdateEmail(data: {
           The employer has attached the following documents:
         </p>
         ${data
-          .documents!.filter(doc => doc.downloadUrl)
+          .documents!.filter((doc) => doc.downloadUrl)
           .map(
-            doc => `
+            (doc) => `
           <table cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
             <tr>
               <td style="background-color:#D8690E;border-radius:6px;">
@@ -236,9 +235,11 @@ export function newApplicationEmail(data: {
     <p>
       Review their profile and application to find the perfect candidate for your event.
     </p>
-    <p>
-      <a href="${data.applicationUrl}" class="button">Review Application</a>
-    </p>
+    <table cellpadding="0" cellspacing="0" style="margin:16px 0;">
+      <tr><td style="background:linear-gradient(135deg,#D8690E,#ff8c42);border-radius:6px;">
+        <a href="${data.applicationUrl}" style="display:inline-block;padding:12px 28px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">Review Application</a>
+      </td></tr>
+    </table>
     <p style="color: #666; font-size: 14px;">
       Respond quickly to secure top talent for your event!
     </p>
@@ -440,10 +441,10 @@ export function invitationEmail(data: {
 /**
  * Welcome email for new freelancer registrations
  */
-export function freelancerWelcomeEmail(data: {
-  firstName: string;
-  unsubscribeUrl: string;
-}): { subject: string; html: string } {
+export function freelancerWelcomeEmail(data: { firstName: string; unsubscribeUrl: string }): {
+  subject: string;
+  html: string;
+} {
   return {
     subject: "Welcome to EventLink — here's how to get found by employers",
     html: `<!DOCTYPE html>
@@ -525,10 +526,10 @@ export function freelancerWelcomeEmail(data: {
 /**
  * Welcome email for new employer/recruiter registrations
  */
-export function employerWelcomeEmail(data: {
-  firstName: string;
-  unsubscribeUrl: string;
-}): { subject: string; html: string } {
+export function employerWelcomeEmail(data: { firstName: string; unsubscribeUrl: string }): {
+  subject: string;
+  html: string;
+} {
   return {
     subject: "Welcome to EventLink — post your first job and reach verified crew",
     html: `<!DOCTYPE html>
@@ -626,13 +627,16 @@ export function batchJobNotifyEmail(data: {
 }): { subject: string; html: string } {
   const jobCount = data.jobs.length;
 
-  const subject = data.isUrgent && jobCount === 1
-    ? `Urgent — ${data.jobs[0].title} needed in ${data.jobs[0].location} ${data.jobs[0].eventDate}`
-    : jobCount === 1
-    ? `New job on EventLink — ${data.jobs[0].title} in ${data.jobs[0].location}`
-    : `${jobCount} new jobs on EventLink matching your profile`;
+  const subject =
+    data.isUrgent && jobCount === 1
+      ? `Urgent — ${data.jobs[0].title} needed in ${data.jobs[0].location} ${data.jobs[0].eventDate}`
+      : jobCount === 1
+        ? `New job on EventLink — ${data.jobs[0].title} in ${data.jobs[0].location}`
+        : `${jobCount} new jobs on EventLink matching your profile`;
 
-  const jobCards = data.jobs.map(job => `
+  const jobCards = data.jobs
+    .map(
+      (job) => `
     <div style="border:1px solid #e5e5e5; border-radius:8px; padding:16px 20px; margin:16px 0; background:#fafafa;">
       <p style="margin:0 0 6px 0; font-size:16px; font-weight:600; color:#D8690E;">${job.title}</p>
       <p style="margin:0 0 4px 0; color:#444;">${job.employerName} &middot; ${job.location} &middot; ${job.payRate}</p>
@@ -640,7 +644,9 @@ export function batchJobNotifyEmail(data: {
       ${job.descriptionPreview ? `<p style="margin:0 0 10px 0; font-size:14px; color:#444;">${job.descriptionPreview}</p>` : ""}
       <a href="${job.jobUrl}" style="display:inline-block; padding:8px 20px; background:linear-gradient(135deg,#D8690E 0%,#ff8c42 100%); color:#fff; text-decoration:none; border-radius:6px; font-weight:600; font-size:14px;">View &amp; Apply &rarr;</a>
     </div>
-  `).join("");
+  `
+    )
+    .join("");
 
   const content = `
     <p>Hi ${data.recipientFirstName},</p>
