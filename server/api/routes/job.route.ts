@@ -1,4 +1,5 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
+import rateLimit from "express-rate-limit";
 import {
   closeJob,
   createJob,
@@ -20,9 +21,37 @@ import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.mid
 import { requireRole } from "../middleware/role.middleware";
 import { resolveCompanyId, resolveCompanyIdOptional } from "../middleware/team.middleware";
 
+// IP-based: max 5 submissions per hour per IP
+const guestJobIpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: "Too many job submissions from this IP. Please try again in an hour." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Email-based: max 2 submissions per day per email address
+const guestJobEmailLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 2,
+  keyGenerator: (req: Request) => {
+    const email = (req.body?.contact_email as string | undefined) ?? "";
+    return email.toLowerCase().trim() || req.ip || "unknown";
+  },
+  message: {
+    error: "This email address has already submitted the maximum number of job posts today.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req: Request) => {
+    // If no email in body, fall through to IP limiter only
+    return !req.body?.contact_email;
+  },
+});
+
 export function registerJobRoutes(app: Express) {
-  // Guest job submission (no auth required)
-  app.post("/api/jobs/guest", submitGuestJob);
+  // Guest job submission (no auth required) — rate limited by IP and email
+  app.post("/api/jobs/guest", guestJobIpLimiter, guestJobEmailLimiter, submitGuestJob);
   app.get("/api/jobs/guest/confirm", confirmGuestJob);
 
   // Get job by ID
