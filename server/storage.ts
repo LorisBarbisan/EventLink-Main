@@ -621,6 +621,10 @@ export interface IStorage {
   setJobNotificationSentAt(jobId: number): Promise<void>;
   setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void>;
 
+  // Guest job nudge
+  getDraftsReadyForNudge(minAgeHours: number): Promise<JobDraft[]>;
+  markDraftNudgeSent(draftId: number, newTokenHash: string): Promise<void>;
+
   // Guest job moderation
   getPendingGuestJobs(): Promise<(Job & { contact_email: string | null })[]>;
   moderateJob(
@@ -5606,6 +5610,30 @@ export class DatabaseStorage implements IStorage {
       members: membersList,
       jobs: enrichedJobs,
     };
+  }
+
+  // ── Guest job nudge ───────────────────────────────────────────────────────────
+
+  async getDraftsReadyForNudge(minAgeHours: number): Promise<JobDraft[]> {
+    const cutoff = new Date(Date.now() - minAgeHours * 3_600_000);
+    return db
+      .select()
+      .from(job_drafts)
+      .where(
+        and(
+          isNull(job_drafts.consumed_at),
+          isNull(job_drafts.nudge_sent_at),
+          gt(job_drafts.expires_at, new Date()), // not yet expired
+          sql`${job_drafts.created_at} <= ${cutoff}`
+        )
+      );
+  }
+
+  async markDraftNudgeSent(draftId: number, newTokenHash: string): Promise<void> {
+    await db
+      .update(job_drafts)
+      .set({ nudge_sent_at: new Date(), token_hash: newTokenHash })
+      .where(eq(job_drafts.id, draftId));
   }
 
   // ── Guest job moderation ─────────────────────────────────────────────────────
