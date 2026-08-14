@@ -21,10 +21,10 @@ import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.mid
 import { requireRole } from "../middleware/role.middleware";
 import { resolveCompanyId, resolveCompanyIdOptional } from "../middleware/team.middleware";
 
-// IP-based: max 5 submissions per hour per IP
+// IP-based: max 20 submissions per hour per IP
 const guestJobIpLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: 20,
   message: { error: "Too many job submissions from this IP. Please try again in an hour." },
   standardHeaders: true,
   legacyHeaders: false,
