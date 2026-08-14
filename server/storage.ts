@@ -621,6 +621,15 @@ export interface IStorage {
   setJobNotificationSentAt(jobId: number): Promise<void>;
   setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void>;
 
+  // Guest job moderation
+  getPendingGuestJobs(): Promise<(Job & { contact_email: string | null })[]>;
+  moderateJob(
+    jobId: number,
+    decision: "approved" | "rejected",
+    moderatorUserId: number,
+    note?: string
+  ): Promise<Job>;
+
   // Guest job drafts
   createJobDraft(data: {
     payload: object;
@@ -5597,6 +5606,44 @@ export class DatabaseStorage implements IStorage {
       members: membersList,
       jobs: enrichedJobs,
     };
+  }
+
+  // ── Guest job moderation ─────────────────────────────────────────────────────
+
+  async getPendingGuestJobs(): Promise<(Job & { contact_email: string | null })[]> {
+    const rows = await db
+      .select({
+        job: jobs,
+        contact_email: users.email,
+      })
+      .from(jobs)
+      .leftJoin(users, eq(jobs.posted_by_user_id, users.id))
+      .where(
+        and(eq(jobs.poster_type as any, "guest"), eq(jobs.moderation_status as any, "pending"))
+      )
+      .orderBy(asc(jobs.created_at));
+    return rows.map((r) => ({ ...r.job, contact_email: r.contact_email ?? null }));
+  }
+
+  async moderateJob(
+    jobId: number,
+    decision: "approved" | "rejected",
+    moderatorUserId: number,
+    note?: string
+  ): Promise<Job> {
+    const newStatus = decision === "approved" ? "active" : "closed";
+    const [updated] = await db
+      .update(jobs)
+      .set({
+        moderation_status: decision as any,
+        moderated_at: new Date(),
+        moderated_by_user_id: moderatorUserId,
+        moderation_note: note ?? null,
+        status: newStatus as any,
+      })
+      .where(eq(jobs.id, jobId))
+      .returning();
+    return updated;
   }
 
   // ── Guest job drafts ────────────────────────────────────────────────────────

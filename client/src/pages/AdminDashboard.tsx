@@ -258,6 +258,11 @@ function AdminDashboardContent() {
 
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
+  // Guest job moderation state
+  const [moderateJobId, setModerateJobId] = useState<number | null>(null);
+  const [moderateDecision, setModerateDecision] = useState<"approved" | "rejected" | null>(null);
+  const [moderateNote, setModerateNote] = useState("");
+
   // Teams Tab State
   const [teamsSearch, setTeamsSearch] = useState("");
   const [teamsPage, setTeamsPage] = useState(1);
@@ -597,6 +602,62 @@ function AdminDashboardContent() {
     queryFn: () => apiRequest(`/api/admin/jobs/${selectedJobId}`),
     enabled: selectedJobId !== null,
     retry: 1,
+  });
+
+  // Pending guest jobs moderation queue
+  const { data: pendingGuestJobsData, isLoading: pendingGuestJobsLoading } = useQuery<{
+    jobs: Array<{
+      id: number;
+      title: string;
+      company: string;
+      location: string;
+      country?: string | null;
+      rate: string;
+      description: string;
+      event_date?: string | null;
+      created_at: string;
+      contact_email: string | null;
+    }>;
+    total: number;
+  }>({
+    queryKey: ["/api/admin/jobs/pending-guest"],
+    queryFn: () => apiRequest("/api/admin/jobs/pending-guest"),
+    staleTime: 0,
+  });
+
+  const moderateJobMutation = useMutation({
+    mutationFn: async ({
+      jobId,
+      decision,
+      note,
+    }: {
+      jobId: number;
+      decision: "approved" | "rejected";
+      note?: string;
+    }) => {
+      await apiRequest(`/api/admin/jobs/${jobId}/moderate`, {
+        method: "POST",
+        body: JSON.stringify({ decision, note }),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/jobs/pending-guest"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/jobs"] });
+      setModerateJobId(null);
+      setModerateDecision(null);
+      setModerateNote("");
+      toast({
+        title: "Job moderated",
+        description:
+          moderateDecision === "approved"
+            ? "Job approved and published."
+            : "Job rejected and closed.",
+      });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to moderate job.", variant: "destructive" });
+    },
   });
 
   // Teams queries
@@ -951,7 +1012,10 @@ function AdminDashboardContent() {
               <SelectItem value="feedback">
                 Feedback{counts.feedback > 0 ? ` (${counts.feedback})` : ""}
               </SelectItem>
-              <SelectItem value="moderation">Moderation</SelectItem>
+              <SelectItem value="moderation">
+                Moderation
+                {(pendingGuestJobsData?.total ?? 0) > 0 ? ` (${pendingGuestJobsData!.total})` : ""}
+              </SelectItem>
               <SelectItem value="contact">
                 Contact{counts.contact_messages > 0 ? ` (${counts.contact_messages})` : ""}
               </SelectItem>
@@ -980,6 +1044,7 @@ function AdminDashboardContent() {
           >
             <Shield className="h-4 w-4" />
             Moderation
+            <TabBadge count={pendingGuestJobsData?.total ?? 0} />
           </TabsTrigger>
           <TabsTrigger value="contact" className="flex items-center justify-center gap-2 text-sm">
             <Mail className="h-4 w-4" />
@@ -1270,6 +1335,151 @@ function AdminDashboardContent() {
         </TabsContent>
 
         <TabsContent value="moderation" className="space-y-6">
+          {/* Guest job moderation queue */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Guest Job Queue
+                {(pendingGuestJobsData?.total ?? 0) > 0 && (
+                  <Badge className="ml-1 bg-amber-500 hover:bg-amber-600">
+                    {pendingGuestJobsData!.total}
+                  </Badge>
+                )}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Jobs submitted by guests awaiting review before going live
+              </p>
+            </CardHeader>
+            <CardContent>
+              {pendingGuestJobsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+                </div>
+              ) : !pendingGuestJobsData?.jobs.length ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  No guest jobs pending review.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {pendingGuestJobsData.jobs.map((job) => (
+                    <div key={job.id} className="space-y-3 rounded-lg border border-border p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="truncate font-semibold">{job.title}</span>
+                            <Badge variant="outline" className="shrink-0 text-xs">
+                              {job.company}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {job.location}
+                            {job.country ? `, ${job.country}` : ""} &middot; {job.rate}
+                            {job.event_date ? ` &middot; ${job.event_date}` : ""}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Contact: <span className="font-medium">{job.contact_email ?? "—"}</span>
+                            &nbsp;&middot; Submitted{" "}
+                            {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                          </p>
+                          {job.description && (
+                            <p className="line-clamp-3 pt-1 text-sm text-foreground/80">
+                              {job.description}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <Button
+                            size="sm"
+                            className="h-8 bg-green-600 text-white hover:bg-green-700"
+                            onClick={() => {
+                              setModerateJobId(job.id);
+                              setModerateDecision("approved");
+                              setModerateNote("");
+                            }}
+                          >
+                            <Check className="mr-1 h-3.5 w-3.5" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-8"
+                            onClick={() => {
+                              setModerateJobId(job.id);
+                              setModerateDecision("rejected");
+                              setModerateNote("");
+                            }}
+                          >
+                            <X className="mr-1 h-3.5 w-3.5" />
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Moderation confirm dialog */}
+          <AlertDialog
+            open={moderateJobId !== null}
+            onOpenChange={(open) => {
+              if (!open) {
+                setModerateJobId(null);
+                setModerateDecision(null);
+                setModerateNote("");
+              }
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {moderateDecision === "approved" ? "Approve job post?" : "Reject job post?"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {moderateDecision === "approved"
+                    ? "The job will be published immediately and visible to all freelancers."
+                    : "The job will be closed and the poster will not be notified automatically."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="py-2">
+                <label className="text-sm font-medium">Note (optional)</label>
+                <Textarea
+                  className="mt-1"
+                  rows={2}
+                  placeholder="Internal note about this decision…"
+                  value={moderateNote}
+                  onChange={(e) => setModerateNote(e.target.value)}
+                />
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className={
+                    moderateDecision === "approved"
+                      ? "bg-green-600 text-white hover:bg-green-700"
+                      : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  }
+                  onClick={() => {
+                    if (moderateJobId && moderateDecision) {
+                      moderateJobMutation.mutate({
+                        jobId: moderateJobId,
+                        decision: moderateDecision,
+                        note: moderateNote || undefined,
+                      });
+                    }
+                  }}
+                >
+                  {moderateDecision === "approved" ? "Approve & Publish" : "Reject"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Existing content moderation (reported ratings) */}
           <Card>
             <CardHeader>
               <CardTitle>Content Moderation</CardTitle>
