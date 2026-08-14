@@ -23,7 +23,7 @@ export async function sendGuestJobMagicLink({
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 0;">
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
-        <tr><td style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:28px 36px;">
+        <tr><td style="background:linear-gradient(135deg,#D8690E,#ff8c42);padding:28px 36px;">
           <p style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">EventLink</p>
         </td></tr>
         <tr><td style="padding:36px;">
@@ -34,7 +34,7 @@ export async function sendGuestJobMagicLink({
             Click the button below to confirm and publish it. This link expires in&nbsp;24&nbsp;hours.
           </p>
           <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
-            <tr><td style="background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:6px;">
+            <tr><td style="background:linear-gradient(135deg,#D8690E,#ff8c42);border-radius:6px;">
               <a href="${confirmUrl}" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
                 Confirm &amp; Publish Job
               </a>
@@ -43,7 +43,7 @@ export async function sendGuestJobMagicLink({
           <p style="margin:0 0 8px;font-size:12px;color:#9ca3af;">
             Or copy this link into your browser:
           </p>
-          <p style="margin:0 0 24px;font-size:12px;color:#7c3aed;word-break:break-all;">${confirmUrl}</p>
+          <p style="margin:0 0 24px;font-size:12px;color:#D8690E;word-break:break-all;">${confirmUrl}</p>
           <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;">
           <p style="margin:0;font-size:12px;color:#9ca3af;">
             If you didn&rsquo;t submit a job post, you can safely ignore this email.
@@ -85,7 +85,7 @@ export async function sendGuestJobPublishedConfirmation({
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 0;">
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
-        <tr><td style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:28px 36px;">
+        <tr><td style="background:linear-gradient(135deg,#D8690E,#ff8c42);padding:28px 36px;">
           <p style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">EventLink</p>
         </td></tr>
         <tr><td style="padding:36px;">
@@ -95,7 +95,7 @@ export async function sendGuestJobPublishedConfirmation({
             <strong>&ldquo;${jobTitle}&rdquo;</strong> is now live on EventLink and visible to freelancers.
           </p>
           <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
-            <tr><td style="background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:6px;">
+            <tr><td style="background:linear-gradient(135deg,#D8690E,#ff8c42);border-radius:6px;">
               <a href="${jobUrl}" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
                 View Your Job Post
               </a>
@@ -103,7 +103,7 @@ export async function sendGuestJobPublishedConfirmation({
           </table>
           <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.6;">
             Want to manage applications and re-post jobs in future?
-            <a href="${BASE_URL}/register" style="color:#7c3aed;text-decoration:none;">Create a free account</a>
+            <a href="${BASE_URL}/auth" style="color:#D8690E;text-decoration:none;">Create a free account</a>
             using the same email address and your post will be linked automatically.
           </p>
           <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;">
@@ -119,7 +119,7 @@ export async function sendGuestJobPublishedConfirmation({
     to,
     subject: `Your job "${jobTitle}" is now live on EventLink`,
     html,
-    text: `Hi ${contactName},\n\n"${jobTitle}" is now live on EventLink.\nView it here: ${jobUrl}\n\nWant to manage it? Create a free account at ${BASE_URL}/register using the same email.`,
+    text: `Hi ${contactName},\n\n"${jobTitle}" is now live on EventLink.\nView it here: ${jobUrl}\n\nWant to manage it? Create a free account at ${BASE_URL}/auth using the same email.`,
   });
 }
 
@@ -144,7 +144,7 @@ export async function sendGuestJobNudge({
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:32px 0;">
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
-        <tr><td style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:28px 36px;">
+        <tr><td style="background:linear-gradient(135deg,#D8690E,#ff8c42);padding:28px 36px;">
           <p style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">EventLink</p>
         </td></tr>
         <tr><td style="padding:36px;">
@@ -156,14 +156,14 @@ export async function sendGuestJobNudge({
             you click the button below.
           </p>
           <table cellpadding="0" cellspacing="0" style="margin:0 0 32px;">
-            <tr><td style="background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:6px;">
+            <tr><td style="background:linear-gradient(135deg,#D8690E,#ff8c42);border-radius:6px;">
               <a href="${confirmUrl}" style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
                 Confirm &amp; Publish Job
               </a>
             </td></tr>
           </table>
           <p style="margin:0 0 8px;font-size:12px;color:#9ca3af;">Or copy this link:</p>
-          <p style="margin:0 0 24px;font-size:12px;color:#7c3aed;word-break:break-all;">${confirmUrl}</p>
+          <p style="margin:0 0 24px;font-size:12px;color:#D8690E;word-break:break-all;">${confirmUrl}</p>
           <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;">
           <p style="margin:0;font-size:12px;color:#9ca3af;">
             This is a one-time reminder. The link expires 24&nbsp;hours after your original
