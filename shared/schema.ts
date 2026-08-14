@@ -57,6 +57,8 @@ export const users = pgTable(
     job_alert_frequency_preference: text("job_alert_frequency_preference")
       .default("instant")
       .$type<"instant" | "weekly" | "none">(), // 'instant' = include in batch, 'none' = no automated emails
+    created_via: text("created_via"), // 'email' | 'google' | 'guest_job_post' | etc.
+    posting_suspended_at: timestamp("posting_suspended_at", { withTimezone: true }), // Set when admin suspends guest posting ability
   },
   (table) => ({
     statusCheck: check(
@@ -189,6 +191,19 @@ export const jobs = pgTable("jobs", {
   notification_sent_at: timestamp("notification_sent_at", { withTimezone: true }), // When automated batch notification was sent
   is_urgent: boolean("is_urgent").default(false), // true when event date is within 48h of publication
   is_freelancer_posted: boolean("is_freelancer_posted").default(false).notNull(),
+  poster_type: text("poster_type")
+    .notNull()
+    .default("company")
+    .$type<"company" | "freelancer" | "guest">(),
+  moderation_status: text("moderation_status")
+    .notNull()
+    .default("approved")
+    .$type<"pending" | "approved" | "rejected">(),
+  moderated_at: timestamp("moderated_at", { withTimezone: true }),
+  moderated_by_user_id: integer("moderated_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  moderation_note: text("moderation_note"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -1174,3 +1189,43 @@ export const jobDocuments = pgTable(
 
 export type JobDocument = typeof jobDocuments.$inferSelect;
 export type InsertJobDocument = typeof jobDocuments.$inferInsert;
+
+// ============================================================
+// Guest Job Posting — Draft holding area (Phase 1)
+// ============================================================
+
+export const job_drafts = pgTable(
+  "job_drafts",
+  {
+    id: serial("id").primaryKey(),
+    payload: jsonb("payload").notNull(), // Full job form data
+    contact_name: text("contact_name").notNull(),
+    contact_email: text("contact_email").notNull(), // Stored lowercase
+    token_hash: text("token_hash").notNull().unique(), // SHA-256 of the magic-link token
+    ip_address: text("ip_address"),
+    user_agent: text("user_agent"),
+    terms_version: text("terms_version").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    expires_at: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumed_at: timestamp("consumed_at", { withTimezone: true }), // Stamped when magic link is clicked
+    published_job_id: integer("published_job_id").references(() => jobs.id, {
+      onDelete: "set null",
+    }),
+    nudge_sent_at: timestamp("nudge_sent_at", { withTimezone: true }), // When reminder email was sent
+  },
+  (table) => ({
+    emailIdx: index("job_drafts_email_idx").on(table.contact_email),
+    expiryIdx: index("job_drafts_expiry_idx").on(table.expires_at),
+  })
+);
+
+export const insertJobDraftSchema = createInsertSchema(job_drafts).omit({
+  id: true,
+  created_at: true,
+  consumed_at: true,
+  published_job_id: true,
+  nudge_sent_at: true,
+});
+
+export type JobDraft = typeof job_drafts.$inferSelect;
+export type InsertJobDraft = z.infer<typeof insertJobDraftSchema>;

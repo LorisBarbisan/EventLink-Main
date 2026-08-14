@@ -66,6 +66,8 @@ import {
   reference_requests,
   reference_reports,
   teamMembers,
+  job_drafts,
+  type JobDraft,
   type User,
 } from "@shared/schema";
 import {
@@ -618,6 +620,20 @@ export interface IStorage {
   }>;
   setJobNotificationSentAt(jobId: number): Promise<void>;
   setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void>;
+
+  // Guest job drafts
+  createJobDraft(data: {
+    payload: object;
+    contact_name: string;
+    contact_email: string;
+    token_hash: string;
+    ip_address?: string;
+    user_agent?: string;
+    terms_version: string;
+    expires_at: Date;
+  }): Promise<JobDraft>;
+  getJobDraftByTokenHash(tokenHash: string): Promise<JobDraft | undefined>;
+  consumeJobDraft(draftId: number, publishedJobId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5581,6 +5597,50 @@ export class DatabaseStorage implements IStorage {
       members: membersList,
       jobs: enrichedJobs,
     };
+  }
+
+  // ── Guest job drafts ────────────────────────────────────────────────────────
+
+  async createJobDraft(data: {
+    payload: object;
+    contact_name: string;
+    contact_email: string;
+    token_hash: string;
+    ip_address?: string;
+    user_agent?: string;
+    terms_version: string;
+    expires_at: Date;
+  }): Promise<JobDraft> {
+    const [draft] = await db
+      .insert(job_drafts)
+      .values({
+        payload: data.payload,
+        contact_name: data.contact_name,
+        contact_email: data.contact_email.toLowerCase(),
+        token_hash: data.token_hash,
+        ip_address: data.ip_address ?? null,
+        user_agent: data.user_agent ?? null,
+        terms_version: data.terms_version,
+        expires_at: data.expires_at,
+      })
+      .returning();
+    return draft;
+  }
+
+  async getJobDraftByTokenHash(tokenHash: string): Promise<JobDraft | undefined> {
+    const [draft] = await db
+      .select()
+      .from(job_drafts)
+      .where(eq(job_drafts.token_hash, tokenHash))
+      .limit(1);
+    return draft;
+  }
+
+  async consumeJobDraft(draftId: number, publishedJobId: number): Promise<void> {
+    await db
+      .update(job_drafts)
+      .set({ consumed_at: new Date(), published_job_id: publishedJobId })
+      .where(eq(job_drafts.id, draftId));
   }
 }
 

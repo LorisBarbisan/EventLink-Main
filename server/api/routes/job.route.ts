@@ -15,11 +15,16 @@ import {
   trackJobLinkView,
   updateJob,
 } from "../controllers/job.controller";
+import { submitGuestJob, confirmGuestJob } from "../controllers/guest-job.controller";
 import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { resolveCompanyId, resolveCompanyIdOptional } from "../middleware/team.middleware";
 
 export function registerJobRoutes(app: Express) {
+  // Guest job submission (no auth required)
+  app.post("/api/jobs/guest", submitGuestJob);
+  app.get("/api/jobs/guest/confirm", confirmGuestJob);
+
   // Get job by ID
   app.get("/api/jobs/:id", authenticateOptionalJWT, resolveCompanyIdOptional, getJobById);
 
