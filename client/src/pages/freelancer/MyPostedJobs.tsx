@@ -90,6 +90,7 @@ interface PostJobFormData {
   start_time: string;
   end_time: string;
   company: string;
+  status?: "active" | "private";
 }
 
 const EMPTY_FORM: PostJobFormData = {

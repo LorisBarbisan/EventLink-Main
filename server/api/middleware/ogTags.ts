@@ -241,6 +241,20 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
     return next();
   }
 
+  if (req.path === "/post-job") {
+    const baseUrl = getBaseUrl(req);
+    const html = buildOgHtml({
+      url: `${baseUrl}/post-job`,
+      title: escapeHtml("Post a Job | EventLink"),
+      description: escapeHtml(
+        "Hiring for an event? Post a job on EventLink in minutes — no account needed. Reach freelance event professionals across the UK."
+      ),
+      imageUrl: `${baseUrl}/og-image.png`,
+      linkText: "Post a job on EventLink",
+    });
+    return res.status(200).set({ "Content-Type": "text/html" }).end(html);
+  }
+
   const jobIdMatch = req.path.match(/^\/jobs\/(\d+)$/);
   const jobSlugMatch = req.path.match(/^\/jobs\/([a-z][a-z0-9-]+)$/);
   const profileIdMatch = req.path.match(/^\/profile\/(\d+)$/);

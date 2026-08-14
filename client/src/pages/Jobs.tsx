@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Briefcase,
   Calendar as CalendarIcon,
   ChevronDown,
   ChevronLeft,
@@ -357,6 +358,24 @@ export default function Jobs() {
             looking for technical crew.
           </p>
         </div>
+
+        {/* Post-a-Job CTA — shown to guests and freelancers */}
+        {(!currentUser || currentUser.role !== "recruiter") && (
+          <div className="mb-8 flex flex-col items-start justify-between gap-4 rounded-lg border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center">
+            <div>
+              <p className="font-semibold text-foreground">Hiring for an event?</p>
+              <p className="text-sm text-muted-foreground">
+                Post a job in minutes — no account required.
+              </p>
+            </div>
+            <Button asChild size="sm" className="shrink-0">
+              <a href="/post-job">
+                <Briefcase className="mr-2 h-4 w-4" />
+                Post a Job
+              </a>
+            </Button>
+          </div>
+        )}
 
         {/* Search and Filters */}
         <Card className="mb-8">

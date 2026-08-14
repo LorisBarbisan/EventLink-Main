@@ -1266,8 +1266,8 @@ export default function Profile() {
                         )}
                       </div>
                       <p className="mb-2 text-xl font-semibold text-primary">
-                        {recruiterProfile.company_type
-                          .replace(/_/g, " ")
+                        {recruiterProfile?.company_type
+                          ?.replace(/_/g, " ")
                           .replace(/\b\w/g, (l) => l.toUpperCase())}
                       </p>
                       <div className="flex items-center gap-4 text-muted-foreground">

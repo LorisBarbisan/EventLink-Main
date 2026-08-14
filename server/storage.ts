@@ -462,7 +462,7 @@ export interface IStorage {
     jobs: Array<{
       id: number;
       title: string;
-      status: string;
+      status: string | null;
       is_published: boolean;
       created_at: Date;
       application_count: number;
@@ -537,7 +537,7 @@ export interface IStorage {
   createCvParsedData(data: InsertCvParsedData): Promise<CvParsedData>;
   updateCvParsedData(
     userId: number,
-    data: Partial<InsertCvParsedData>
+    data: Partial<CvParsedData>
   ): Promise<CvParsedData | undefined>;
   deleteCvParsedData(userId: number): Promise<void>;
 
@@ -620,6 +620,19 @@ export interface IStorage {
   }>;
   setJobNotificationSentAt(jobId: number): Promise<void>;
   setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void>;
+
+  // Guest account upgrade
+  upgradeGuestAccount(
+    userId: number,
+    data: {
+      password: string;
+      first_name: string;
+      last_name: string;
+      role: "freelancer" | "recruiter";
+      email_verification_token: string;
+      email_verification_expires: Date;
+    }
+  ): Promise<void>;
 
   // Guest job nudge
   getDraftsReadyForNudge(minAgeHours: number): Promise<JobDraft[]>;
@@ -768,7 +781,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserStatus(userId: number, status: string): Promise<User> {
-    const updates: Partial<InsertUser> = { status, updated_at: new Date() };
+    const updates: Partial<User> = { status, updated_at: new Date() };
 
     // If activating, also verify email if not already verified
     if (status === "active") {
@@ -1434,7 +1447,7 @@ export class DatabaseStorage implements IStorage {
       );
     });
 
-    return safeResult;
+    return safeResult as unknown as FreelancerProfile[];
   }
 
   async getAllRecruiterProfiles(): Promise<RecruiterProfile[]> {
@@ -1459,7 +1472,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(recruiter_profiles.user_id, users.id))
       .where(isNull(users.deleted_at)); // Only non-deleted users
 
-    return result;
+    return result as unknown as RecruiterProfile[];
   }
 
   async searchFreelancers(filters: {
@@ -1634,7 +1647,9 @@ export class DatabaseStorage implements IStorage {
       );
 
       return {
-        results: resultsWithRatings,
+        results: resultsWithRatings as unknown as Array<
+          FreelancerProfile & { average_rating: number; rating_count: number }
+        >,
         total,
         page,
         totalPages,
@@ -2435,7 +2450,7 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(job_applications.applied_at));
-    return result as JobApplication[];
+    return result as unknown as JobApplication[];
   }
 
   async getJobApplications(jobId: number): Promise<JobApplication[]> {
@@ -2464,7 +2479,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(eq(job_applications.job_id, jobId), eq(job_applications.recruiter_deleted, false))
       );
-    return result as JobApplication[];
+    return result as unknown as JobApplication[];
   }
 
   async getJobApplicationsByFreelancer(freelancerId: number): Promise<JobApplication[]> {
@@ -2548,7 +2563,7 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(job_applications.applied_at));
-    return result as JobApplication[];
+    return result as unknown as JobApplication[];
   }
 
   async getJobApplicationById(applicationId: number): Promise<JobApplication | undefined> {
@@ -2816,6 +2831,14 @@ export class DatabaseStorage implements IStorage {
         last_login_at: null,
         deleted_at: row.otherUserDeleted,
         status: "pending",
+        welcome_email_sent: false,
+        marketing_emails_opt_out: false,
+        unsubscribe_token: null,
+        job_alerts_opt_out: null,
+        last_job_alert_sent_at: null,
+        job_alert_frequency_preference: "instant" as const,
+        created_via: null,
+        posting_suspended_at: null,
         created_at: new Date(),
         updated_at: new Date(),
       },
@@ -2962,6 +2985,14 @@ export class DatabaseStorage implements IStorage {
             last_login_at: null,
             deleted_at: null,
             status: "pending",
+            welcome_email_sent: false,
+            marketing_emails_opt_out: false,
+            unsubscribe_token: null,
+            job_alerts_opt_out: null,
+            last_job_alert_sent_at: null,
+            job_alert_frequency_preference: "instant" as const,
+            created_via: null,
+            posting_suspended_at: null,
             created_at: new Date(),
             updated_at: new Date(),
           },
@@ -3062,6 +3093,14 @@ export class DatabaseStorage implements IStorage {
             last_login_at: null,
             deleted_at: null,
             status: "pending",
+            welcome_email_sent: false,
+            marketing_emails_opt_out: false,
+            unsubscribe_token: null,
+            job_alerts_opt_out: null,
+            last_job_alert_sent_at: null,
+            job_alert_frequency_preference: "instant" as const,
+            created_via: null,
+            posting_suspended_at: null,
             created_at: new Date(),
             updated_at: new Date(),
           },
@@ -3826,7 +3865,7 @@ export class DatabaseStorage implements IStorage {
       if (filters.status === "flagged") {
         conditions.push(or(eq(ratings.status, "flagged"), eq(ratings.flag, "reported")));
       } else {
-        conditions.push(eq(ratings.status, filters.status));
+        conditions.push(eq(ratings.status, filters.status as any));
       }
     }
 
@@ -4529,7 +4568,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (role && role !== "all") {
-      conditions.push(eq(users.role, role));
+      conditions.push(eq(users.role, role as any));
     }
 
     if (status && status !== "all") {
@@ -4569,7 +4608,7 @@ export class DatabaseStorage implements IStorage {
     const computeProfileStatus = (
       userId: number,
       userRole: string,
-      profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }>
+      profileMap: Map<number, { hasProfile: boolean; isComplete: boolean; country: string | null }>
     ): string | undefined => {
       if (userRole !== "freelancer") return undefined;
       const profileInfo = profileMap.get(userId);
@@ -4619,7 +4658,10 @@ export class DatabaseStorage implements IStorage {
 
       // Get all their profiles
       const allFreelancerIds = allFreelancers.map((u) => u.id);
-      let profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+      let profileMap: Map<
+        number,
+        { hasProfile: boolean; isComplete: boolean; country: string | null }
+      > = new Map();
 
       if (allFreelancerIds.length > 0) {
         const profiles = await db
@@ -4665,7 +4707,10 @@ export class DatabaseStorage implements IStorage {
     // Get profile status for freelancer users in the result set
     const freelancerIds = usersResult.filter((u) => u.role === "freelancer").map((u) => u.id);
 
-    let profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+    let profileMap: Map<
+      number,
+      { hasProfile: boolean; isComplete: boolean; country: string | null }
+    > = new Map();
 
     if (freelancerIds.length > 0) {
       const profiles = await db
@@ -4902,7 +4947,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCvParsedData(data: InsertCvParsedData): Promise<CvParsedData> {
-    const result = await db.insert(cv_parsed_data).values(data).returning();
+    const result = await db
+      .insert(cv_parsed_data)
+      .values(data as any)
+      .returning();
     if (!result[0]) {
       throw new Error("Failed to create CV parsed data");
     }
@@ -4911,7 +4959,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateCvParsedData(
     userId: number,
-    data: Partial<InsertCvParsedData>
+    data: Partial<CvParsedData>
   ): Promise<CvParsedData | undefined> {
     const result = await db
       .update(cv_parsed_data)
@@ -4926,7 +4974,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createJobLinkView(view: InsertJobLinkView): Promise<JobLinkView> {
-    const result = await db.insert(job_link_views).values(view).returning();
+    const result = await db
+      .insert(job_link_views)
+      .values(view as any)
+      .returning();
     if (!result[0]) {
       throw new Error("Failed to create job link view");
     }
@@ -5004,7 +5055,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(jobs.recruiter_id, recruiterId), eq(job_applications.status, "hired")));
     const workedWithIds = workedWithRows.map((r) => r.freelancer_id);
 
-    const allIds = [...new Set([...savedIds, ...workedWithIds])];
+    const allIds = Array.from(new Set([...savedIds, ...workedWithIds]));
     if (allIds.length === 0) return [];
 
     const tab = filters?.tab || "all";
@@ -5080,7 +5131,10 @@ export class DatabaseStorage implements IStorage {
   async createFreelancerReference(
     data: InsertFreelancerReference & { badge_result: string; is_flagged: boolean }
   ): Promise<FreelancerReference> {
-    const rows = await db.insert(freelancer_references).values(data).returning();
+    const rows = await db
+      .insert(freelancer_references)
+      .values(data as any)
+      .returning();
     return rows[0];
   }
 
@@ -5457,7 +5511,7 @@ export class DatabaseStorage implements IStorage {
     jobs: Array<{
       id: number;
       title: string;
-      status: string;
+      status: string | null;
       is_published: boolean;
       created_at: Date;
       application_count: number;
@@ -5610,6 +5664,36 @@ export class DatabaseStorage implements IStorage {
       members: membersList,
       jobs: enrichedJobs,
     };
+  }
+
+  // ── Guest account upgrade ─────────────────────────────────────────────────────
+
+  async upgradeGuestAccount(
+    userId: number,
+    data: {
+      password: string;
+      first_name: string;
+      last_name: string;
+      role: "freelancer" | "recruiter";
+      email_verification_token: string;
+      email_verification_expires: Date;
+    }
+  ): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        password: data.password,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        role: data.role,
+        status: "pending",
+        email_verified: false,
+        email_verification_token: data.email_verification_token,
+        email_verification_expires: data.email_verification_expires,
+        created_via: "email",
+        updated_at: new Date(),
+      })
+      .where(eq(users.id, userId));
   }
 
   // ── Guest job nudge ───────────────────────────────────────────────────────────

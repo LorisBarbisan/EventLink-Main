@@ -47,18 +47,16 @@ export function canManageTeam(teamRole: string | undefined): boolean {
 }
 
 /** Company id for employer API requests (owner id or invited company's owner id). */
-export function getEmployerCompanyId(req: {
-  companyId?: number;
-  user?: { id: number };
-}): number {
+export function getEmployerCompanyId(req: { companyId?: number; user?: { id: number } }): number {
   return req.companyId ?? req.user?.id ?? 0;
 }
 
 /** Whether the request may act on data owned by the company (jobs, applications, crew, etc.). */
 export function ownsEmployerCompany(
   req: { companyId?: number; user?: { id: number; role?: string } },
-  companyOwnerId: number
+  companyOwnerId: number | null
 ): boolean {
+  if (companyOwnerId === null) return false;
   const user = req.user;
   if (!user) return false;
   if (user.role === "admin") return true;

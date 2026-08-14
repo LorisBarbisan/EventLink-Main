@@ -797,7 +797,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                       freelancerProfile.cv_file_name
                         ? {
                             fileName: freelancerProfile.cv_file_name,
-                            fileType: freelancerProfile.cv_file_type,
                             fileSize: freelancerProfile.cv_file_size,
                             fileUrl: freelancerProfile.cv_file_url,
                           }

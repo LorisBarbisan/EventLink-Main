@@ -18,6 +18,7 @@ export function registerSeoRoutes(app: Express) {
         { url: `${BASE_URL}/`, priority: "1.0" },
         { url: `${BASE_URL}/jobs`, priority: "0.9" },
         { url: `${BASE_URL}/freelancers`, priority: "0.9" },
+        { url: `${BASE_URL}/post-job`, priority: "0.8" },
         { url: `${BASE_URL}/how-it-works`, priority: "0.7" },
         { url: `${BASE_URL}/about`, priority: "0.6" },
         { url: `${BASE_URL}/faq`, priority: "0.5" },
@@ -26,15 +27,15 @@ export function registerSeoRoutes(app: Express) {
 
       // Individual job pages — use slug URL if available, else numeric ID
       const jobPages = allJobs
-        .filter(j => j.status === "active" && j.type !== "external")
-        .map(j => ({
+        .filter((j) => j.status === "active" && j.type !== "external")
+        .map((j) => ({
           url: j.slug ? `${BASE_URL}/jobs/${j.slug}` : `${BASE_URL}/jobs/${j.id}`,
           priority: "0.8",
           lastmod: j.updated_at ? new Date(j.updated_at).toISOString().split("T")[0] : now,
         }));
 
       // Individual freelancer profile pages — use canonical /profile/:userId URL
-      const profilePages = allProfiles.map(p => ({
+      const profilePages = allProfiles.map((p) => ({
         url: `${BASE_URL}/profile/${p.user_id}`,
         priority: "0.7",
         lastmod: p.updated_at ? new Date(p.updated_at).toISOString().split("T")[0] : now,
@@ -46,7 +47,7 @@ export function registerSeoRoutes(app: Express) {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${allEntries
   .map(
-    e => `  <url>
+    (e) => `  <url>
     <loc>${e.url}</loc>
     <lastmod>${(e as any).lastmod || now}</lastmod>
     <priority>${e.priority}</priority>
@@ -70,7 +71,7 @@ ${allEntries
       const job = await storage.getJobBySlug(req.params.slug);
       if (!job) return res.status(404).json({ error: "Job not found" });
       res.json(job);
-    } catch (err) {
+    } catch {
       res.status(500).json({ error: "Server error" });
     }
   });
