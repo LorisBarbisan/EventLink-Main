@@ -204,6 +204,22 @@ export default function GuestApplicationView() {
                     </div>
                   )}
 
+                  {/* Contact */}
+                  {data.freelancer.email && (
+                    <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50">
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Contact
+                      </p>
+                      <a
+                        href={`mailto:${data.freelancer.email}?subject=${encodeURIComponent(`Re: your application for "${data.job.title}"`)}`}
+                        className="flex items-center gap-2 text-sm font-medium text-purple-600 hover:underline dark:text-purple-400"
+                      >
+                        <Mail className="h-4 w-4 shrink-0" />
+                        {data.freelancer.email}
+                      </a>
+                    </div>
+                  )}
+
                   {/* Actions */}
                   <div className="flex flex-wrap gap-3">
                     <Button
@@ -219,16 +235,6 @@ export default function GuestApplicationView() {
                         View Full Profile
                       </a>
                     </Button>
-                    {data.freelancer.email && (
-                      <Button variant="outline" asChild>
-                        <a
-                          href={`mailto:${data.freelancer.email}?subject=${encodeURIComponent(`Re: your application for "${data.job.title}"`)}`}
-                        >
-                          <Mail className="mr-2 h-4 w-4" />
-                          Reply by Email
-                        </a>
-                      </Button>
-                    )}
                   </div>
                 </CardContent>
               </Card>
