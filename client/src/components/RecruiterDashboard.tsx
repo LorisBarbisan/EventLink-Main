@@ -113,7 +113,7 @@ export default function SimplifiedRecruiterDashboard() {
 
   const [appSearch, setAppSearch] = useState("");
   const [appStatusFilter, setAppStatusFilter] = useState<
-    "all" | "applied" | "hired" | "invited" | "rejected" | "declined"
+    "all" | "applied" | "hired" | "invited" | "rejected" | "hidden"
   >("all");
 
   // Get badge counts for tabs
@@ -262,6 +262,16 @@ export default function SimplifiedRecruiterDashboard() {
         // Only show applications that have valid job data
         return app.job_title && app.job_company;
       });
+    },
+  });
+
+  // Fetch hidden applications (recruiter-hidden, live jobs) — only when the Hidden filter is active
+  const { data: hiddenApplications = [], isLoading: hiddenApplicationsLoading } = useQuery({
+    queryKey: ["/api/recruiter", effectiveCompanyId, "applications", "hidden"],
+    queryFn: () => apiRequest(`/api/recruiter/${effectiveCompanyId}/applications/hidden`),
+    enabled: !!effectiveCompanyId && activeTab === "applications" && appStatusFilter === "hidden",
+    select: (data) => {
+      return data.filter((app: JobApplication) => app.job_title && app.job_company);
     },
   });
 
@@ -1378,29 +1388,40 @@ export default function SimplifiedRecruiterDashboard() {
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              {(["all", "applied", "invited", "hired", "rejected", "declined"] as const).map(
-                (s) => (
-                  <Button
-                    key={s}
-                    variant={appStatusFilter === s ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setAppStatusFilter(s)}
-                    className={appStatusFilter === s ? "bg-orange-500 hover:bg-orange-600" : ""}
-                  >
-                    {s === "rejected" ? "Declined" : s.charAt(0).toUpperCase() + s.slice(1)}
-                  </Button>
-                )
-              )}
+              {(["all", "applied", "invited", "hired", "rejected", "hidden"] as const).map((s) => (
+                <Button
+                  key={s}
+                  variant={appStatusFilter === s ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAppStatusFilter(s)}
+                  className={appStatusFilter === s ? "bg-orange-500 hover:bg-orange-600" : ""}
+                >
+                  {s === "rejected" ? "Declined" : s.charAt(0).toUpperCase() + s.slice(1)}
+                </Button>
+              ))}
             </div>
           </div>
 
-          {applicationsLoading ? (
+          {(appStatusFilter === "hidden" ? hiddenApplicationsLoading : applicationsLoading) ? (
             <div className="flex justify-center p-8">
               <div>Loading applications...</div>
             </div>
           ) : (
             (() => {
-              const filteredApps = applications.filter((app: JobApplication) => {
+              const isHiddenView = appStatusFilter === "hidden";
+              // Applications for closed jobs are removed from the Applications tab
+              // entirely — those records stay accessible from the My Jobs tab. This
+              // keeps the Applications tab scoped to active jobs. (The Hidden view
+              // already only returns live-job applications from the server.)
+              const closedJobIds = new Set(
+                (myJobs as Job[]).filter((j) => j.status === "closed").map((j) => j.id)
+              );
+              // The Hidden filter draws from a dedicated query (recruiter-hidden
+              // applications on live jobs); every other filter uses the main list.
+              const sourceApps: JobApplication[] = isHiddenView
+                ? hiddenApplications
+                : applications.filter((app: JobApplication) => !closedJobIds.has(app.job_id));
+              const filteredApps = sourceApps.filter((app: JobApplication) => {
                 const searchLower = appSearch.toLowerCase().trim();
                 const freelancerName =
                   `${app.freelancer_profile?.first_name || ""} ${app.freelancer_profile?.last_name || ""}`.toLowerCase();
@@ -1409,7 +1430,15 @@ export default function SimplifiedRecruiterDashboard() {
                   freelancerName.includes(searchLower) ||
                   (app.job_title || "").toLowerCase().includes(searchLower) ||
                   (app.job_company || "").toLowerCase().includes(searchLower);
-                const matchesStatus = appStatusFilter === "all" || app.status === appStatusFilter;
+                // "Declined" covers both employer-declined (rejected) and
+                // freelancer-declined invitations. "Hidden" is served by its own
+                // source above, so it always matches here.
+                const matchesStatus =
+                  appStatusFilter === "all" ||
+                  isHiddenView ||
+                  (appStatusFilter === "rejected"
+                    ? app.status === "rejected" || app.status === "declined"
+                    : app.status === appStatusFilter);
                 return matchesSearch && matchesStatus;
               });
               return filteredApps.length > 0 ? (
@@ -1423,12 +1452,22 @@ export default function SimplifiedRecruiterDashboard() {
                     />
                   ))}
                 </div>
-              ) : applications.length > 0 ? (
+              ) : sourceApps.length > 0 ? (
                 <Card>
                   <CardContent className="p-8 text-center">
                     <Search className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
                     <h3 className="mb-2 text-lg font-medium">No Matching Applications</h3>
                     <p className="text-muted-foreground">Try adjusting your search or filters.</p>
+                  </CardContent>
+                </Card>
+              ) : isHiddenView ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                    <h3 className="mb-2 text-lg font-medium">No Hidden Applications</h3>
+                    <p className="text-muted-foreground">
+                      Applications you hide from live jobs will appear here.
+                    </p>
                   </CardContent>
                 </Card>
               ) : (
