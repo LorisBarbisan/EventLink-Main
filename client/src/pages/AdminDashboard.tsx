@@ -519,6 +519,7 @@ function AdminDashboardContent() {
       application_count: number;
       hired_count: number;
       closure_email_count: number;
+      notified_email_count: number;
       recruiter_email?: string;
       recruiter_name?: string;
     }>;
@@ -1579,10 +1580,23 @@ function AdminDashboardContent() {
                                 )}
                               </TableCell>
                               <TableCell className="hidden py-2 text-center lg:table-cell">
-                                {job.closure_email_count > 0 ? (
+                                {job.notified_email_count > 0 ? (
                                   <Badge
                                     variant="secondary"
                                     className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                                    title={
+                                      job.closure_email_count > 0
+                                        ? `${job.notified_email_count} notified by email · ${job.closure_email_count} closure email(s) sent`
+                                        : `${job.notified_email_count} freelancer(s) notified by email`
+                                    }
+                                  >
+                                    ✉ {job.notified_email_count} notified
+                                  </Badge>
+                                ) : job.closure_email_count > 0 ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                                    title={`${job.closure_email_count} closure email(s) sent to unsuccessful applicants`}
                                   >
                                     ✉ {job.closure_email_count} notified
                                   </Badge>

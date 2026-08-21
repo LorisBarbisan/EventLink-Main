@@ -225,6 +225,7 @@ export interface IStorage {
       application_count: number;
       hired_count: number;
       closure_email_count: number;
+      notified_email_count: number;
       recruiter_email?: string;
       recruiter_name?: string;
     })[];
@@ -282,6 +283,7 @@ export interface IStorage {
   // Soft delete methods for applications
   softDeleteApplication(applicationId: number, userRole: "freelancer" | "recruiter"): Promise<void>;
   getRecruiterApplications(recruiterId: number): Promise<JobApplication[]>;
+  getRecruiterHiddenApplications(recruiterId: number): Promise<JobApplication[]>;
 
   // Messaging management
   getOrCreateConversation(userOneId: number, userTwoId: number): Promise<Conversation>;
@@ -1674,6 +1676,7 @@ export class DatabaseStorage implements IStorage {
       application_count: number;
       hired_count: number;
       closure_email_count: number;
+      notified_email_count: number;
       recruiter_email?: string;
       recruiter_name?: string;
     })[];
@@ -1784,6 +1787,32 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Count how many distinct users were notified by email about each job
+    // (job-alert / "Notify freelancers" emails logged against the job).
+    const notifiedCounts: Map<number, number> = new Map();
+    if (jobIds.length > 0) {
+      const notifyStats = await db
+        .select({
+          job_id: email_notification_logs.related_entity_id,
+          notified: sql<number>`count(distinct ${email_notification_logs.user_id})`,
+        })
+        .from(email_notification_logs)
+        .where(
+          and(
+            eq(email_notification_logs.related_entity_type, "job"),
+            inArray(email_notification_logs.related_entity_id, jobIds),
+            eq(email_notification_logs.status, "sent")
+          )
+        )
+        .groupBy(email_notification_logs.related_entity_id);
+
+      for (const row of notifyStats) {
+        if (row.job_id !== null) {
+          notifiedCounts.set(row.job_id, Number(row.notified));
+        }
+      }
+    }
+
     const recruiterIds = jobRows
       .map((j) => j.recruiter_id)
       .filter((id): id is number => id !== null);
@@ -1817,6 +1846,7 @@ export class DatabaseStorage implements IStorage {
         application_count: counts.total,
         hired_count: counts.hired,
         closure_email_count: counts.closureEmailCount,
+        notified_email_count: notifiedCounts.get(job.id) ?? 0,
         recruiter_email: recruiter?.email,
         recruiter_name: recruiter?.name,
       };
@@ -2373,6 +2403,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecruiterApplications(recruiterId: number): Promise<JobApplication[]> {
+    return this.getRecruiterApplicationsInternal(recruiterId, false);
+  }
+
+  // Applications the recruiter has hidden (soft-deleted from their view) that
+  // still belong to a live (active) job — surfaced under the "Hidden" filter.
+  async getRecruiterHiddenApplications(recruiterId: number): Promise<JobApplication[]> {
+    return this.getRecruiterApplicationsInternal(recruiterId, true);
+  }
+
+  private async getRecruiterApplicationsInternal(
+    recruiterId: number,
+    onlyHidden: boolean
+  ): Promise<JobApplication[]> {
+    const conditions = [
+      eq(jobs.recruiter_id, recruiterId),
+      eq(job_applications.freelancer_deleted, false),
+    ];
+
+    if (onlyHidden) {
+      // Hidden applications belonging to live (active) jobs only
+      conditions.push(eq(job_applications.recruiter_deleted, true));
+      conditions.push(eq(jobs.status, "active"));
+    } else {
+      conditions.push(eq(job_applications.recruiter_deleted, false));
+    }
+
     const result = await db
       .select({
         id: job_applications.id,
@@ -2418,13 +2474,7 @@ export class DatabaseStorage implements IStorage {
         freelancer_profiles,
         eq(freelancer_profiles.user_id, job_applications.freelancer_id)
       )
-      .where(
-        and(
-          eq(jobs.recruiter_id, recruiterId),
-          eq(job_applications.recruiter_deleted, false),
-          eq(job_applications.freelancer_deleted, false)
-        )
-      )
+      .where(and(...conditions))
       .orderBy(desc(job_applications.applied_at));
     return result as JobApplication[];
   }
@@ -3208,11 +3258,19 @@ export class DatabaseStorage implements IStorage {
     );
 
     // Recruiters: application tab = job_update on applications. Freelancers: application_update only.
+    // Applications for closed jobs are removed from the Applications tab, so their
+    // alerts must not be counted in the Applications badge either.
+    const applicationNotForClosedJob = sql`NOT EXISTS (
+      SELECT 1 FROM job_applications ja
+      JOIN jobs j ON j.id = ja.job_id
+      WHERE ja.id = ${notifications.related_entity_id} AND j.status = 'closed'
+    )`;
     const applicationsWhere = isRecruiter
       ? and(
           baseUnread,
           eq(notifications.type, "job_update"),
-          eq(notifications.related_entity_type, "application")
+          eq(notifications.related_entity_type, "application"),
+          applicationNotForClosedJob
         )
       : and(baseUnread, eq(notifications.type, "application_update"));
 
