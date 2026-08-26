@@ -21,7 +21,7 @@ export function InsuranceOffersDialog({ open, onOpenChange, mode }: InsuranceOff
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Full-screen scrollable on mobile; constrained, centred on desktop. */}
-      <DialogContent className="h-[100dvh] max-h-[100dvh] max-w-none overflow-y-auto rounded-none sm:h-auto sm:max-h-[85vh] sm:max-w-lg sm:rounded-lg">
+      <DialogContent className="h-[100dvh] max-h-[100dvh] max-w-none overflow-y-auto rounded-none sm:h-auto sm:max-h-[85vh] sm:max-w-3xl sm:rounded-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" />
@@ -35,20 +35,24 @@ export function InsuranceOffersDialog({ open, onOpenChange, mode }: InsuranceOff
         </DialogHeader>
 
         {mode === "offers" ? (
-          <div className="mt-2 flex flex-col gap-4">
-            {INSURANCE_ADVERTS.map((advert) => (
-              <a
-                key={advert.id}
-                href={advert.url}
-                target="_blank"
-                rel="noopener noreferrer sponsored"
-                data-testid={`insurance-advert-${advert.id}`}
-                className="block overflow-hidden rounded-xl ring-1 ring-border transition-shadow hover:shadow-lg"
-              >
-                <img src={advert.imageUrl} alt={advert.alt} className="block h-auto w-full" />
-              </a>
-            ))}
-            <p className="text-xs text-muted-foreground">
+          <div className="mt-2">
+            {/* Stacked on mobile; side by side on desktop, auto-fitting however
+                many adverts exist (two now, three when the next partner lands). */}
+            <div className="grid grid-cols-1 gap-4 sm:auto-cols-fr sm:grid-flow-col sm:grid-cols-none">
+              {INSURANCE_ADVERTS.map((advert) => (
+                <a
+                  key={advert.id}
+                  href={advert.url}
+                  target="_blank"
+                  rel="noopener noreferrer sponsored"
+                  data-testid={`insurance-advert-${advert.id}`}
+                  className="block overflow-hidden rounded-xl ring-1 ring-border transition-shadow hover:shadow-lg"
+                >
+                  <img src={advert.imageUrl} alt={advert.alt} className="block h-auto w-full" />
+                </a>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
               EventLink may earn a commission from partners. Offers are provided by third parties;
               always review the policy details before purchasing.
             </p>
