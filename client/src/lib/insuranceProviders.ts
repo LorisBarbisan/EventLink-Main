@@ -1,65 +1,27 @@
-// Insurance partners offered to UK freelancers. First version: a hardcoded
-// list rendered as banners/tiles in the InsuranceOffersDialog.
-//
-// NOTE: partners, cover types, prices, discounts, and URLs below are
-// PLACEHOLDER examples for the UI. Confirm each partnership and its real
-// figures + affiliate/referral URL before promoting real offers.
+// Insurance advert banners shown to UK freelancers in the InsuranceOffersDialog.
+// Each is a clickable image linking out to the partner's offer page.
+// Images live in client/public/insurance/ and are served from the site root.
 
-export interface InsuranceProvider {
+export interface InsuranceAdvert {
   id: string;
-  name: string;
-  /** Type of cover offered, e.g. "Public liability insurance". */
-  coverType: string;
-  /** Concrete price anchor, e.g. "From £37/year" or "From £5/month". */
-  priceLine: string;
-  /** The member-discount headline, e.g. "10% off for EventLink members". */
-  discount: string;
-  /** Outbound link to the provider's offer page. */
+  /** Path under client/public (served from the site root). */
+  imageUrl: string;
+  alt: string;
+  /** Outbound link to the partner offer page (opens in a new tab). */
   url: string;
-  /**
-   * Optional logo image URL. When absent the tile shows an initials
-   * fallback — drop a real logo path here once assets are supplied.
-   */
-  logoUrl?: string;
-  /** Tailwind class for the tile's top accent bar. */
-  accentClassName: string;
 }
 
-export const INSURANCE_PROVIDERS: InsuranceProvider[] = [
+export const INSURANCE_ADVERTS: InsuranceAdvert[] = [
   {
-    id: "hiscox",
-    name: "Hiscox",
-    coverType: "Public liability & professional indemnity",
-    priceLine: "From £5/month",
-    discount: "15% off your first year for members",
-    url: "https://www.hiscox.co.uk/",
-    accentClassName: "border-t-blue-500",
+    id: "short-term-public-liability",
+    imageUrl: "/insurance/mode-short-term-public-liability.png",
+    alt: "Mode Insurance — exclusive 10% discount on Short Term Public Liability for EventLink members. Use code Elink10.",
+    url: "https://modeinsurance.co.uk/short-term-public-liability/?utm_source=eventlink&utm_medium=ad&utm_campaign=short-term",
   },
   {
-    id: "simply-business",
-    name: "Simply Business",
-    coverType: "Public liability insurance",
-    priceLine: "Compare quotes free",
-    discount: "Exclusive EventLink member rates",
-    url: "https://www.simplybusiness.co.uk/",
-    accentClassName: "border-t-emerald-500",
-  },
-  {
-    id: "zego",
-    name: "Zego",
-    coverType: "Pay-as-you-go event cover",
-    priceLine: "From £2/day",
-    discount: "10% off flexible cover for members",
-    url: "https://www.zego.com/",
-    accentClassName: "border-t-purple-500",
-  },
-  {
-    id: "insurance4events",
-    name: "Insurance4Events",
-    coverType: "Equipment & single-event cover",
-    priceLine: "From £37/year",
-    discount: "Members save on equipment cover",
-    url: "https://www.insurance4events.co.uk/",
-    accentClassName: "border-t-amber-500",
+    id: "equipment-insurance",
+    imageUrl: "/insurance/mode-equipment-insurance.png",
+    alt: "Mode Insurance — exclusive 10% discount on Equipment Insurance for EventLink members. Use code Elink10.",
+    url: "https://modeinsurance.co.uk/equipment-insurance/?utm_source=eventlink&utm_medium=ad&utm_campaign=equipment",
   },
 ];
