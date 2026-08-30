@@ -27,15 +27,24 @@ function masterTemplate(content: string): string {
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .header {
-      background: linear-gradient(135deg, #D8690E 0%, #ff8c42 100%);
-      padding: 32px 24px;
-      text-align: center;
+      background-color: #1B2A4A;
+      padding: 28px 36px 20px 36px;
+      border-bottom: 4px solid #D8690E;
+      text-align: left;
     }
     .logo {
-      font-size: 32px;
+      font-size: 22px;
       font-weight: bold;
-      color: #ffffff;
+      color: #D8690E;
+      letter-spacing: 1px;
       margin: 0;
+    }
+    .strapline {
+      margin: 4px 0 0 0;
+      font-size: 12px;
+      color: #9CA3AF;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     .content {
       padding: 32px 24px;
@@ -77,7 +86,8 @@ function masterTemplate(content: string): string {
 <body>
   <div class="email-container">
     <div class="header">
-      <h1 class="logo">EventLink</h1>
+      <p class="logo">EventLink</p>
+      <p class="strapline">Event Industry Professional Network</p>
     </div>
     <div class="content">
       ${content}
@@ -149,8 +159,7 @@ export function applicationUpdateEmail(data: {
     message: "Application status update",
   };
 
-  const hasDocuments =
-    data.status === "hired" && data.documents && data.documents.length > 0;
+  const hasDocuments = data.status === "hired" && data.documents && data.documents.length > 0;
 
   const documentLinksHtml = hasDocuments
     ? `
@@ -162,9 +171,9 @@ export function applicationUpdateEmail(data: {
           The employer has attached the following documents:
         </p>
         ${data
-          .documents!.filter(doc => doc.downloadUrl)
+          .documents!.filter((doc) => doc.downloadUrl)
           .map(
-            doc => `
+            (doc) => `
           <table cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
             <tr>
               <td style="background-color:#D8690E;border-radius:6px;">
@@ -440,10 +449,10 @@ export function invitationEmail(data: {
 /**
  * Welcome email for new freelancer registrations
  */
-export function freelancerWelcomeEmail(data: {
-  firstName: string;
-  unsubscribeUrl: string;
-}): { subject: string; html: string } {
+export function freelancerWelcomeEmail(data: { firstName: string; unsubscribeUrl: string }): {
+  subject: string;
+  html: string;
+} {
   return {
     subject: "Welcome to EventLink — here's how to get found by employers",
     html: `<!DOCTYPE html>
@@ -454,8 +463,9 @@ export function freelancerWelcomeEmail(data: {
 </head>
 <body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 0;">
 
-  <div style="background: linear-gradient(135deg, #D8690E 0%, #ff8c42 100%); padding: 28px 24px; text-align: center; border-radius: 8px 8px 0 0;">
-    <p style="margin: 0; font-size: 28px; font-weight: bold; color: #ffffff; letter-spacing: 0.5px;">EventLink</p>
+  <div style="background-color:#1B2A4A; padding:28px 36px 20px 36px; border-bottom:4px solid #D8690E; border-radius:8px 8px 0 0;">
+    <p style="margin:0; font-size:22px; font-weight:bold; color:#D8690E; letter-spacing:1px;">EventLink</p>
+    <p style="margin:4px 0 0 0; font-size:12px; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.5px;">Event Industry Professional Network</p>
   </div>
 
   <div style="padding: 28px 24px;">
@@ -525,10 +535,10 @@ export function freelancerWelcomeEmail(data: {
 /**
  * Welcome email for new employer/recruiter registrations
  */
-export function employerWelcomeEmail(data: {
-  firstName: string;
-  unsubscribeUrl: string;
-}): { subject: string; html: string } {
+export function employerWelcomeEmail(data: { firstName: string; unsubscribeUrl: string }): {
+  subject: string;
+  html: string;
+} {
   return {
     subject: "Welcome to EventLink — post your first job and reach verified crew",
     html: `<!DOCTYPE html>
@@ -539,8 +549,9 @@ export function employerWelcomeEmail(data: {
 </head>
 <body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 0;">
 
-  <div style="background: linear-gradient(135deg, #D8690E 0%, #ff8c42 100%); padding: 28px 24px; text-align: center; border-radius: 8px 8px 0 0;">
-    <p style="margin: 0; font-size: 28px; font-weight: bold; color: #ffffff; letter-spacing: 0.5px;">EventLink</p>
+  <div style="background-color:#1B2A4A; padding:28px 36px 20px 36px; border-bottom:4px solid #D8690E; border-radius:8px 8px 0 0;">
+    <p style="margin:0; font-size:22px; font-weight:bold; color:#D8690E; letter-spacing:1px;">EventLink</p>
+    <p style="margin:4px 0 0 0; font-size:12px; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.5px;">Event Industry Professional Network</p>
   </div>
 
   <div style="padding: 28px 24px;">
@@ -626,13 +637,16 @@ export function batchJobNotifyEmail(data: {
 }): { subject: string; html: string } {
   const jobCount = data.jobs.length;
 
-  const subject = data.isUrgent && jobCount === 1
-    ? `Urgent — ${data.jobs[0].title} needed in ${data.jobs[0].location} ${data.jobs[0].eventDate}`
-    : jobCount === 1
-    ? `New job on EventLink — ${data.jobs[0].title} in ${data.jobs[0].location}`
-    : `${jobCount} new jobs on EventLink matching your profile`;
+  const subject =
+    data.isUrgent && jobCount === 1
+      ? `Urgent — ${data.jobs[0].title} needed in ${data.jobs[0].location} ${data.jobs[0].eventDate}`
+      : jobCount === 1
+        ? `New job on EventLink — ${data.jobs[0].title} in ${data.jobs[0].location}`
+        : `${jobCount} new jobs on EventLink matching your profile`;
 
-  const jobCards = data.jobs.map(job => `
+  const jobCards = data.jobs
+    .map(
+      (job) => `
     <div style="border:1px solid #e5e5e5; border-radius:8px; padding:16px 20px; margin:16px 0; background:#fafafa;">
       <p style="margin:0 0 6px 0; font-size:16px; font-weight:600; color:#D8690E;">${job.title}</p>
       <p style="margin:0 0 4px 0; color:#444;">${job.employerName} &middot; ${job.location} &middot; ${job.payRate}</p>
@@ -640,7 +654,9 @@ export function batchJobNotifyEmail(data: {
       ${job.descriptionPreview ? `<p style="margin:0 0 10px 0; font-size:14px; color:#444;">${job.descriptionPreview}</p>` : ""}
       <a href="${job.jobUrl}" style="display:inline-block; padding:8px 20px; background:linear-gradient(135deg,#D8690E 0%,#ff8c42 100%); color:#fff; text-decoration:none; border-radius:6px; font-weight:600; font-size:14px;">View &amp; Apply &rarr;</a>
     </div>
-  `).join("");
+  `
+    )
+    .join("");
 
   const content = `
     <p>Hi ${data.recipientFirstName},</p>
