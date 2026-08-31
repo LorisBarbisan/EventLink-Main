@@ -78,8 +78,11 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
               </button>
             </nav>
 
+            {/* Divider separating the nav links from the auth / user actions */}
+            <div className="hidden h-6 w-px bg-gray-300 sm:block" aria-hidden="true" />
+
             {/* Actions */}
-            <div className="flex flex-shrink-0 items-center justify-end space-x-1 sm:space-x-3">
+            <div className="flex flex-shrink-0 items-center justify-end space-x-2 sm:space-x-3">
               {/* Insurance offers — UK freelancers get offers; freelancers
                 without a profile get a prompt to create one */}
               {insuranceAccess !== "hidden" && (
