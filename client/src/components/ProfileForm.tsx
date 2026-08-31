@@ -301,7 +301,7 @@ export function ProfileForm({
                     : "Your company information and details"}
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {userType === "freelancer" && user?.id && (
                 <div className="flex items-center gap-2">
                   <Switch
