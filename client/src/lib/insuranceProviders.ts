@@ -7,11 +7,19 @@ export interface InsuranceAdvert {
   /** Path under client/public (served from the site root). */
   imageUrl: string;
   alt: string;
-  /** Outbound link to the partner offer page (opens in a new tab). */
-  url: string;
+  /** Outbound link to the partner offer page (opens in a new tab). Omit while
+   * the partner link is still pending — the advert then shows but isn't clickable. */
+  url?: string;
 }
 
 export const INSURANCE_ADVERTS: InsuranceAdvert[] = [
+  {
+    id: "insure4music-public-liability",
+    imageUrl: "/insurance/insure4music-public-liability.png",
+    alt: "Ripe insure4music — 55% off Public Liability Insurance and more for EventLink members.",
+    // TODO: partner link to follow — advert is non-clickable until this is set.
+    url: undefined,
+  },
   {
     id: "short-term-public-liability",
     imageUrl: "/insurance/mode-short-term-public-liability.png",

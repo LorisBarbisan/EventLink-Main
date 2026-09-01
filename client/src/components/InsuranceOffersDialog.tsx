@@ -39,18 +39,28 @@ export function InsuranceOffersDialog({ open, onOpenChange, mode }: InsuranceOff
             {/* Stacked on mobile; side by side on desktop, auto-fitting however
                 many adverts exist (two now, three when the next partner lands). */}
             <div className="grid grid-cols-1 gap-4 sm:auto-cols-fr sm:grid-flow-col sm:grid-cols-none">
-              {INSURANCE_ADVERTS.map((advert) => (
-                <a
-                  key={advert.id}
-                  href={advert.url}
-                  target="_blank"
-                  rel="noopener noreferrer sponsored"
-                  data-testid={`insurance-advert-${advert.id}`}
-                  className="block overflow-hidden rounded-xl ring-1 ring-border transition-shadow hover:shadow-lg"
-                >
-                  <img src={advert.imageUrl} alt={advert.alt} className="block h-auto w-full" />
-                </a>
-              ))}
+              {INSURANCE_ADVERTS.map((advert) =>
+                advert.url ? (
+                  <a
+                    key={advert.id}
+                    href={advert.url}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                    data-testid={`insurance-advert-${advert.id}`}
+                    className="block overflow-hidden rounded-xl ring-1 ring-border transition-shadow hover:shadow-lg"
+                  >
+                    <img src={advert.imageUrl} alt={advert.alt} className="block h-auto w-full" />
+                  </a>
+                ) : (
+                  <div
+                    key={advert.id}
+                    data-testid={`insurance-advert-${advert.id}`}
+                    className="block overflow-hidden rounded-xl ring-1 ring-border"
+                  >
+                    <img src={advert.imageUrl} alt={advert.alt} className="block h-auto w-full" />
+                  </div>
+                )
+              )}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
               EventLink may earn a commission from partners. Offers are provided by third parties;
