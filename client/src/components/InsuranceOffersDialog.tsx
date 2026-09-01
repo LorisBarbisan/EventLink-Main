@@ -21,7 +21,7 @@ export function InsuranceOffersDialog({ open, onOpenChange, mode }: InsuranceOff
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Full-screen scrollable on mobile; constrained, centred on desktop. */}
-      <DialogContent className="h-[100dvh] max-h-[100dvh] max-w-none overflow-y-auto rounded-none sm:h-auto sm:max-h-[85vh] sm:max-w-3xl sm:rounded-lg">
+      <DialogContent className="h-[100dvh] max-h-[100dvh] max-w-none overflow-y-auto rounded-none sm:h-auto sm:max-h-[85vh] sm:max-w-6xl sm:rounded-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" />
