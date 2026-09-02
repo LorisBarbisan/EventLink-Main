@@ -5241,7 +5241,8 @@ export class DatabaseStorage implements IStorage {
   async getAdminTeams(
     page: number,
     limit: number,
-    search?: string
+    search?: string,
+    sort?: string
   ): Promise<{
     teams: Array<{
       company_user_id: number;
@@ -5293,7 +5294,15 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
       .where(whereClause)
-      .orderBy(desc(users.created_at))
+      .orderBy(
+        sort === "oldest"
+          ? asc(users.created_at)
+          : sort === "company"
+            ? asc(recruiter_profiles.company_name)
+            : sort === "email"
+              ? asc(users.email)
+              : desc(users.created_at)
+      )
       .limit(limit)
       .offset(offset);
 

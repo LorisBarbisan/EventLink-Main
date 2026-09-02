@@ -205,6 +205,12 @@ function AdminDashboardContent() {
     type: "all",
   });
 
+  // Contact tab filters (client-side; contact messages are fetched as a full list)
+  const [contactFilters, setContactFilters] = useState({
+    status: "all",
+    search: "",
+  });
+
   // Contact message reply state
   const [, setSelectedContactMessage] = useState<ContactMessage | null>(null);
   const [contactReply, setContactReply] = useState("");
@@ -260,6 +266,7 @@ function AdminDashboardContent() {
 
   // Teams Tab State
   const [teamsSearch, setTeamsSearch] = useState("");
+  const [teamsSort, setTeamsSort] = useState("newest");
   const [teamsPage, setTeamsPage] = useState(1);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
@@ -620,12 +627,13 @@ function AdminDashboardContent() {
     page: number;
     limit: number;
   }>({
-    queryKey: ["/api/admin/teams", teamsPage, teamsSearch],
+    queryKey: ["/api/admin/teams", teamsPage, teamsSearch, teamsSort],
     queryFn: () => {
       const params = new URLSearchParams();
       params.append("page", teamsPage.toString());
       params.append("limit", "20");
       if (teamsSearch.trim()) params.append("search", teamsSearch.trim());
+      if (teamsSort !== "newest") params.append("sort", teamsSort);
       return apiRequest(`/api/admin/teams?${params.toString()}`);
     },
     enabled: activeTab === "teams",
@@ -740,6 +748,16 @@ function AdminDashboardContent() {
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: true,
+  });
+
+  // Contact messages filtered client-side by status + search
+  const filteredContactMessages = (contactMessages ?? []).filter((m) => {
+    if (contactFilters.status !== "all" && m.status !== contactFilters.status) return false;
+    const q = contactFilters.search.trim().toLowerCase();
+    if (q && !`${m.name} ${m.email} ${m.subject} ${m.message}`.toLowerCase().includes(q)) {
+      return false;
+    }
+    return true;
   });
 
   const totalPages = usersData?.totalPages || 1;
@@ -1288,10 +1306,43 @@ function AdminDashboardContent() {
         <TabsContent value="contact" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Contact Messages</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Messages submitted through the Contact Us form
-              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle>Contact Messages</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Messages submitted through the Contact Us form
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Select
+                    value={contactFilters.status}
+                    onValueChange={(value) =>
+                      setContactFilters((prev) => ({ ...prev, status: value }))
+                    }
+                  >
+                    <SelectTrigger className="w-full sm:w-[150px]">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="replied">Replied</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search name, email, subject..."
+                      value={contactFilters.search}
+                      onChange={(e) =>
+                        setContactFilters((prev) => ({ ...prev, search: e.target.value }))
+                      }
+                      className="pl-8"
+                    />
+                  </div>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {contactMessagesLoading && !contactMessages ? (
@@ -1304,8 +1355,12 @@ function AdminDashboardContent() {
                     <div className="py-8 text-center text-muted-foreground">
                       No contact messages yet.
                     </div>
+                  ) : filteredContactMessages.length === 0 ? (
+                    <div className="py-8 text-center text-muted-foreground">
+                      No contact messages match your filters.
+                    </div>
                   ) : (
-                    contactMessages.map((message: ContactMessage) => (
+                    filteredContactMessages.map((message: ContactMessage) => (
                       <div
                         key={message.id}
                         className="space-y-3 rounded-lg border border-border p-4"
@@ -2339,13 +2394,13 @@ function AdminDashboardContent() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Name</TableHead>
-                          <TableHead className="hidden sm:table-cell">Email</TableHead>
+                          <TableHead>Email</TableHead>
                           <TableHead>Role</TableHead>
-                          <TableHead className="hidden md:table-cell">Profile</TableHead>
+                          <TableHead>Profile</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead className="hidden md:table-cell">Joined</TableHead>
-                          <TableHead className="hidden lg:table-cell">Last Login</TableHead>
-                          <TableHead className="hidden lg:table-cell">Country</TableHead>
+                          <TableHead>Joined</TableHead>
+                          <TableHead>Last Login</TableHead>
+                          <TableHead>Country</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2358,7 +2413,7 @@ function AdminDashboardContent() {
                                   ? `${rowUser.first_name || ""} ${rowUser.last_name || ""}`.trim()
                                   : "N/A"}
                               </TableCell>
-                              <TableCell className="hidden py-2 sm:table-cell">
+                              <TableCell className="py-2">
                                 {rowUser.role === "recruiter" ? (
                                   <button
                                     className="text-left text-primary hover:underline"
@@ -2389,7 +2444,7 @@ function AdminDashboardContent() {
                                   {rowUser.role === "recruiter" ? "employer" : rowUser.role}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="hidden py-2 md:table-cell">
+                              <TableCell className="py-2">
                                 {rowUser.role === "freelancer" ? (
                                   rowUser.profile_status === "complete" ? (
                                     <Badge
@@ -2429,10 +2484,10 @@ function AdminDashboardContent() {
                                   </span>
                                 )}
                               </TableCell>
-                              <TableCell className="hidden py-2 md:table-cell">
+                              <TableCell className="py-2">
                                 {new Date(rowUser.created_at).toLocaleDateString()}
                               </TableCell>
-                              <TableCell className="hidden py-2 lg:table-cell">
+                              <TableCell className="py-2">
                                 {rowUser.last_login_at
                                   ? new Date(rowUser.last_login_at).toLocaleString([], {
                                       year: "numeric",
@@ -2443,7 +2498,7 @@ function AdminDashboardContent() {
                                     })
                                   : "Never"}
                               </TableCell>
-                              <TableCell className="hidden py-2 lg:table-cell">
+                              <TableCell className="py-2">
                                 {rowUser.profile_country ? (
                                   <span className="text-xs">{rowUser.profile_country}</span>
                                 ) : (
@@ -2592,17 +2647,36 @@ function AdminDashboardContent() {
                     Back to Companies
                   </Button>
                 ) : (
-                  <div className="relative w-full sm:w-72">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search companies, emails..."
-                      value={teamsSearch}
-                      onChange={(e) => {
-                        setTeamsSearch(e.target.value);
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                    <div className="relative w-full sm:w-72">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search companies, emails..."
+                        value={teamsSearch}
+                        onChange={(e) => {
+                          setTeamsSearch(e.target.value);
+                          setTeamsPage(1);
+                        }}
+                        className="pl-8"
+                      />
+                    </div>
+                    <Select
+                      value={teamsSort}
+                      onValueChange={(value) => {
+                        setTeamsSort(value);
                         setTeamsPage(1);
                       }}
-                      className="pl-8"
-                    />
+                    >
+                      <SelectTrigger className="w-full sm:w-[160px]">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="newest">Newest first</SelectItem>
+                        <SelectItem value="oldest">Oldest first</SelectItem>
+                        <SelectItem value="company">Company A–Z</SelectItem>
+                        <SelectItem value="email">Owner email A–Z</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
               </div>
