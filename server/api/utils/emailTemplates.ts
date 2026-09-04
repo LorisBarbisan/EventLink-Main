@@ -683,7 +683,7 @@ export function profileNudgeEmail2(data: { unsubscribeUrl: string }): {
       bodyHtml: `
   <p>You can now get <strong>55% off public liability cover with Ripe</strong>.</p>
 
-  <p>Create your account to unlock this offer. This is just one of the perks waiting for you on EventLink 😉</p>`,
+  <p>Create your profile to unlock this offer. This is just one of the perks waiting for you on EventLink 😉</p>`,
       footerHtml: `${RIPE_DISCLAIMER}
   <p style="margin-top:8px;"><strong>The EventLink Team</strong></p>`,
     }),
