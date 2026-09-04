@@ -40,7 +40,12 @@ async function runNudgeStage(stage: NudgeStage): Promise<void> {
   ];
 
   if (stage === 1) {
+    // Signed up at least 7 days ago, but only recent signups — the upper bound
+    // keeps this a drip for NEW users and stops the first run blasting the
+    // entire existing backlog of old no-profile accounts. A user's first
+    // qualifying Wednesday lands them at ~7–13 days old, so 14 days covers it.
     conditions.push(sql`${users.created_at} <= now() - interval '7 days'`);
+    conditions.push(sql`${users.created_at} >= now() - interval '14 days'`);
     conditions.push(
       or(isNull(profile_nudge_emails.id), isNull(profile_nudge_emails.nudge_1_sent_at))!
     );
