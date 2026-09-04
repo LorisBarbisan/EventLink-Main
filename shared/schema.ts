@@ -623,6 +623,22 @@ export const email_notification_logs = pgTable("email_notification_logs", {
   sent_at: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Tracks the "complete your profile" nudge drip series sent to freelancers who
+// signed up but have not created a profile. One row per user, created on the
+// first nudge. Kept in its own table so the scheduler's tracking never touches
+// the users select path.
+export const profile_nudge_emails = pgTable("profile_nudge_emails", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  nudge_1_sent_at: timestamp("nudge_1_sent_at", { withTimezone: true }),
+  nudge_2_sent_at: timestamp("nudge_2_sent_at", { withTimezone: true }),
+  nudge_3_sent_at: timestamp("nudge_3_sent_at", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // CV parsed data - stores extracted information from CV in draft state until confirmed
 export const cv_parsed_data = pgTable("cv_parsed_data", {
   id: serial("id").primaryKey(),
