@@ -454,7 +454,7 @@ export function freelancerWelcomeEmail(data: { firstName: string; unsubscribeUrl
   html: string;
 } {
   return {
-    subject: "Welcome to EventLink — here's how to get found by employers",
+    subject: "Welcome to EventLink 👋",
     html: `<!DOCTYPE html>
 <html>
 <head>
@@ -463,6 +463,8 @@ export function freelancerWelcomeEmail(data: { firstName: string; unsubscribeUrl
 </head>
 <body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 0;">
 
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent; height:0; width:0;">Your next event opportunity could start with your profile.</div>
+
   <div style="background-color:#1B2A4A; padding:28px 36px 20px 36px; border-bottom:4px solid #D8690E; border-radius:8px 8px 0 0;">
     <p style="margin:0; font-size:22px; font-weight:bold; color:#D8690E; letter-spacing:1px;">EventLink</p>
     <p style="margin:4px 0 0 0; font-size:12px; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.5px;">Event Industry Professional Network</p>
@@ -470,24 +472,19 @@ export function freelancerWelcomeEmail(data: { firstName: string; unsubscribeUrl
 
   <div style="padding: 28px 24px;">
 
-  <p>Hi ${data.firstName},</p>
+  <p>Welcome to EventLink ${data.firstName}! We're here to help you get discovered, showcase your experience and connect with people hiring across the events industry.</p>
 
-  <p>Welcome to EventLink — the UK's verified event crew platform.</p>
+  <p><strong>Your first step? Create your EventLink profile.</strong></p>
 
-  <p>You've signed up. Now one step makes all the difference: <strong>completing your profile.</strong></p>
+  <p>Add your experience, skills and the kind of work you do so event companies can quickly understand who you are and what you bring to the table.</p>
 
-  <p>Until your profile is live, you're invisible to the production companies, AV suppliers, and venues searching for crew on EventLink right now. A completed profile changes that — and it takes less than three minutes if you upload your CV and let the AI parser do the work.</p>
-
-  <p>Watch this short tutorial to see exactly how it's done:</p>
-
-  <a href="https://www.youtube.com/watch?v=-V_xTPkC8UA" target="_blank" style="display:block; margin: 24px 0;">
-    <img
-      src="https://img.youtube.com/vi/-V_xTPkC8UA/maxresdefault.jpg"
-      alt="Watch: How to Create Your Freelancer Profile on EventLink"
-      width="560"
-      style="width:100%; max-width:560px; border-radius:8px; border:3px solid #4F46E5; display:block;"
-    />
-  </a>
+  <p>With your profile in place, you can:</p>
+  <ul style="padding-left:20px; line-height:1.8;">
+    <li>Showcase your experience in one place</li>
+    <li>Build your presence within the events community</li>
+    <li>Connect with event companies and industry professionals</li>
+    <li>Access opportunities and member benefits through EventLink</li>
+  </ul>
 
   <p style="margin: 24px 0;">
     <a href="https://eventlink.one/dashboard" style="background-color:#4F46E5; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block;">
@@ -495,28 +492,10 @@ export function freelancerWelcomeEmail(data: { firstName: string; unsubscribeUrl
     </a>
   </p>
 
-  <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
+  <p>It only takes a few minutes to get started.</p>
 
-  <p style="font-size:14px; color:#374151;"><strong>What your profile gives you:</strong></p>
-  <ul style="font-size:14px; color:#374151; padding-left:20px; line-height:1.8;">
-    <li>Visibility in employer searches by role and location</li>
-    <li>A verified badge for credentials — SIA, DBS, First Aid and more</li>
-    <li>A reliability score built from real employer ratings</li>
-    <li>LinkedIn-verified references that travel with you</li>
-    <li>A shareable profile link you can send instead of a CV</li>
-  </ul>
-
-  <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
-
-  <p>The events industry is busy. Employers are posting jobs. Make sure you're there when they search.</p>
-
-  <p>Loris<br>
-  Founder, EventLink<br>
-  <a href="https://eventlink.one" style="color:#4F46E5;">eventlink.one</a></p>
-
-  <p style="font-size:13px; color:#6B7280;">
-    P.S. Once your profile is live, use the <strong>Build My Reputation</strong> tool to collect verified references from past clients. It takes them 45 seconds to complete and it's the single most powerful thing on your profile.
-  </p>
+  <p>See you on EventLink,<br>
+  <strong>The EventLink Team</strong></p>
 
   <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
 
