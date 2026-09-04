@@ -597,6 +597,122 @@ export function employerWelcomeEmail(data: { firstName: string; unsubscribeUrl: 
 }
 
 /**
+ * Shared wrapper for the "complete your profile" nudge drip series.
+ * Navy header, hidden preheader, blue CTA to the dashboard (same link as the
+ * welcome email), and the standard unsubscribe footer.
+ */
+function profileNudgeEmail(opts: {
+  preheader: string;
+  bodyHtml: string;
+  unsubscribeUrl: string;
+  /** Optional content between the CTA button and the unsubscribe footer. */
+  footerHtml?: string;
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 0;">
+
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent; height:0; width:0;">${opts.preheader}</div>
+
+  <div style="background-color:#1B2A4A; padding:28px 36px 20px 36px; border-bottom:4px solid #D8690E; border-radius:8px 8px 0 0;">
+    <p style="margin:0; font-size:22px; font-weight:bold; color:#D8690E; letter-spacing:1px;">EventLink</p>
+    <p style="margin:4px 0 0 0; font-size:12px; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.5px;">Event Industry Professional Network</p>
+  </div>
+
+  <div style="padding: 28px 24px;">
+
+  ${opts.bodyHtml}
+
+  <p style="margin: 24px 0;">
+    <a href="https://eventlink.one/dashboard" style="background-color:#4F46E5; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block;">
+      Create your profile →
+    </a>
+  </p>
+
+  ${opts.footerHtml ?? ""}
+
+  <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
+
+  <p style="font-size:11px; color:#9CA3AF; text-align:center;">
+    You're receiving this because you created an account on EventLink.<br>
+    <a href="${opts.unsubscribeUrl}" style="color:#9CA3AF;">Unsubscribe</a>
+  </p>
+
+  </div>
+
+</body>
+</html>`;
+}
+
+const RIPE_DISCLAIMER = `<p style="font-size:12px; color:#6B7280; margin-top:20px;">Cover is provided by Ripe, not EventLink. Terms and eligibility apply.</p>`;
+
+/** Profile nudge 1 — sent the Wednesday after a freelancer is 7+ days old with no profile. */
+export function profileNudgeEmail1(data: { unsubscribeUrl: string }): {
+  subject: string;
+  html: string;
+} {
+  return {
+    subject: "Let's get you set up on EventLink",
+    html: profileNudgeEmail({
+      preheader: "Your EventLink profile is ready to set up.",
+      unsubscribeUrl: data.unsubscribeUrl,
+      bodyHtml: `
+  <p>Your EventLink profile is ready when you are.</p>
+
+  <p>Once you're set up, you'll have a place to show what you do, stay connected with the industry and make the most of what EventLink has to offer freelancers. Best of all, it only takes a few minutes to get started.</p>`,
+      footerHtml: `<p>See you on EventLink,<br>
+  <strong>The EventLink Team</strong></p>`,
+    }),
+  };
+}
+
+/** Profile nudge 2 — sent the following Sunday if still no profile. */
+export function profileNudgeEmail2(data: { unsubscribeUrl: string }): {
+  subject: string;
+  html: string;
+} {
+  return {
+    subject: "Your EventLink profile comes with more 👀",
+    html: profileNudgeEmail({
+      preheader: "Create your free profile to access 55% off public liability cover with Ripe.",
+      unsubscribeUrl: data.unsubscribeUrl,
+      bodyHtml: `
+  <p>You can now get <strong>55% off public liability cover with Ripe</strong>.</p>
+
+  <p>Create your account to unlock this offer. This is just one of the perks waiting for you on EventLink 😉</p>`,
+      footerHtml: `${RIPE_DISCLAIMER}
+  <p style="margin-top:8px;"><strong>The EventLink Team</strong></p>`,
+    }),
+  };
+}
+
+/** Profile nudge 3 — sent the following Tuesday if still no profile. */
+export function profileNudgeEmail3(data: { unsubscribeUrl: string }): {
+  subject: string;
+  html: string;
+} {
+  return {
+    subject: "You didn't miss this, did you? 👀",
+    html: profileNudgeEmail({
+      preheader:
+        "Create your free EventLink profile and get 55% off public liability cover with Ripe.",
+      unsubscribeUrl: data.unsubscribeUrl,
+      bodyHtml: `
+  <p>EventLink members can get <strong>55% off public liability cover with Ripe</strong>.</p>
+
+  <p>If you haven't created your profile yet, now's a good time to do it. It only takes a few minutes to join, and this is just one of the benefits waiting for you.</p>`,
+      footerHtml: `<p style="margin-top:20px;">And yes, there's more to come 😉</p>
+  ${RIPE_DISCLAIMER}
+  <p style="margin-top:8px;"><strong>The EventLink Team</strong></p>`,
+    }),
+  };
+}
+
+/**
  * Batch job notification email template (automated batch window sends)
  */
 export function batchJobNotifyEmail(data: {
