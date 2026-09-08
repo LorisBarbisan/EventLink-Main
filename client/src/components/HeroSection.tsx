@@ -19,12 +19,11 @@ export const HeroSection = () => {
               loading="eager"
               decoding="sync"
             />
-            <span className="text-3xl font-bold text-gray-800 dark:text-gray-200">EventLink</span>
           </div>
 
           <h1 className="text-center text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
-            EventLink: <span className="text-primary">the freelance events</span>
-            <span className="text-accent"> crew network</span>
+            EventLink: the freelance <span className="text-accent">events</span> crew{" "}
+            <span className="text-primary">network</span>
           </h1>
 
           <p className="text-xl leading-relaxed text-muted-foreground">
