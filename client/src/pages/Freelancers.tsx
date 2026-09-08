@@ -22,10 +22,15 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 const EVENTLINK_PROMOTIONAL_EMAIL = "eventlink@eventlink.one";
 
 export default function Freelancers() {
+  usePageSeo(
+    "Find Freelance Event Crew | EventLink",
+    "Search vetted freelance event crew on EventLink."
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");

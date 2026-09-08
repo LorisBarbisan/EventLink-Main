@@ -23,8 +23,8 @@ export const HeroSection = () => {
           </div>
 
           <h1 className="text-center text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
-            The Home of <span className="text-primary">Event</span>
-            <span className="text-accent"> Professionals</span>
+            EventLink: <span className="text-primary">the freelance events</span>
+            <span className="text-accent"> crew network</span>
           </h1>
 
           <p className="text-xl leading-relaxed text-muted-foreground">

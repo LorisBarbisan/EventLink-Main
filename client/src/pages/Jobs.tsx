@@ -33,8 +33,13 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 export default function Jobs() {
+  usePageSeo(
+    "Event Crew Jobs | EventLink",
+    "Browse event industry jobs on EventLink, the freelance events crew network."
+  );
   const { toast } = useToast();
   const { user: currentUser, loading: userLoading } = useAuth();
   const queryClient = useQueryClient();
