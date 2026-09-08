@@ -2,19 +2,46 @@ import type { NextFunction, Request, Response } from "express";
 import { storage } from "../../storage";
 
 const CRAWLER_USER_AGENTS = [
+  // Social / link unfurlers
   "facebookexternalhit",
   "Facebot",
+  "meta-externalagent",
   "LinkedInBot",
   "Twitterbot",
   "WhatsApp",
   "Slackbot",
   "TelegramBot",
   "Discordbot",
-  "Googlebot",
-  "bingbot",
   "Pinterestbot",
   "vkShare",
   "Embedly",
+  // Search engines
+  "Googlebot",
+  "bingbot",
+  "YandexBot",
+  "DuckDuckBot",
+  "Baiduspider",
+  "Applebot",
+  "PetalBot",
+  // AI crawlers — these generally don't run JavaScript, so they need the
+  // server-rendered version to see any content at all.
+  "PerplexityBot",
+  "Perplexity-User",
+  "GPTBot",
+  "ChatGPT-User",
+  "OAI-SearchBot",
+  "ClaudeBot",
+  "Claude-Web",
+  "anthropic-ai",
+  "Google-Extended",
+  "Amazonbot",
+  "Bytespider",
+  "CCBot",
+  "cohere-ai",
+  // SEO audit crawlers
+  "AhrefsBot",
+  "SemrushBot",
+  "DataForSeoBot",
 ];
 
 function isCrawler(userAgent: string | undefined): boolean {
