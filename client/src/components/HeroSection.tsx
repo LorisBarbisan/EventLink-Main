@@ -22,7 +22,8 @@ export const HeroSection = () => {
           </div>
 
           <h1 className="text-center text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
-            EventLink: the freelance <span className="text-accent">events</span> crew{" "}
+            EventLink: <span className="text-primary">the freelance</span>{" "}
+            <span className="text-accent">events crew</span>{" "}
             <span className="text-primary">network</span>
           </h1>
 
