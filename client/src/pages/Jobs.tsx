@@ -33,8 +33,13 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 export default function Jobs() {
+  usePageSeo(
+    "Event Crew Jobs | EventLink",
+    "Browse event industry jobs on EventLink, the freelance events crew network."
+  );
   const { toast } = useToast();
   const { user: currentUser, loading: userLoading } = useAuth();
   const queryClient = useQueryClient();
@@ -347,7 +352,8 @@ export default function Jobs() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="mb-4 text-3xl font-bold sm:text-4xl">
-            <span className="text-primary">Find</span> <span className="text-accent">Jobs</span>
+            <span className="text-primary">Event Crew</span>{" "}
+            <span className="text-accent">Jobs</span>
           </h1>
           <p className="text-base text-muted-foreground sm:text-lg">
             Discover exciting opportunities in the events industry. Connect with top companies

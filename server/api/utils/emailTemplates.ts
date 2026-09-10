@@ -27,15 +27,24 @@ function masterTemplate(content: string): string {
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .header {
-      background: linear-gradient(135deg, #D8690E 0%, #ff8c42 100%);
-      padding: 32px 24px;
-      text-align: center;
+      background-color: #1B2A4A;
+      padding: 28px 36px 20px 36px;
+      border-bottom: 4px solid #D8690E;
+      text-align: left;
     }
     .logo {
-      font-size: 32px;
+      font-size: 22px;
       font-weight: bold;
-      color: #ffffff;
+      color: #D8690E;
+      letter-spacing: 1px;
       margin: 0;
+    }
+    .strapline {
+      margin: 4px 0 0 0;
+      font-size: 12px;
+      color: #9CA3AF;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     .content {
       padding: 32px 24px;
@@ -77,7 +86,8 @@ function masterTemplate(content: string): string {
 <body>
   <div class="email-container">
     <div class="header">
-      <h1 class="logo">EventLink</h1>
+      <p class="logo">EventLink</p>
+      <p class="strapline">Event Industry Professional Network</p>
     </div>
     <div class="content">
       ${content}
@@ -149,8 +159,7 @@ export function applicationUpdateEmail(data: {
     message: "Application status update",
   };
 
-  const hasDocuments =
-    data.status === "hired" && data.documents && data.documents.length > 0;
+  const hasDocuments = data.status === "hired" && data.documents && data.documents.length > 0;
 
   const documentLinksHtml = hasDocuments
     ? `
@@ -162,9 +171,9 @@ export function applicationUpdateEmail(data: {
           The employer has attached the following documents:
         </p>
         ${data
-          .documents!.filter(doc => doc.downloadUrl)
+          .documents!.filter((doc) => doc.downloadUrl)
           .map(
-            doc => `
+            (doc) => `
           <table cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
             <tr>
               <td style="background-color:#D8690E;border-radius:6px;">
@@ -440,12 +449,12 @@ export function invitationEmail(data: {
 /**
  * Welcome email for new freelancer registrations
  */
-export function freelancerWelcomeEmail(data: {
-  firstName: string;
-  unsubscribeUrl: string;
-}): { subject: string; html: string } {
+export function freelancerWelcomeEmail(data: { firstName: string; unsubscribeUrl: string }): {
+  subject: string;
+  html: string;
+} {
   return {
-    subject: "Welcome to EventLink — here's how to get found by employers",
+    subject: "Welcome to EventLink 👋",
     html: `<!DOCTYPE html>
 <html>
 <head>
@@ -454,30 +463,28 @@ export function freelancerWelcomeEmail(data: {
 </head>
 <body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 0;">
 
-  <div style="background: linear-gradient(135deg, #D8690E 0%, #ff8c42 100%); padding: 28px 24px; text-align: center; border-radius: 8px 8px 0 0;">
-    <p style="margin: 0; font-size: 28px; font-weight: bold; color: #ffffff; letter-spacing: 0.5px;">EventLink</p>
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent; height:0; width:0;">Your next event opportunity could start with your profile.</div>
+
+  <div style="background-color:#1B2A4A; padding:28px 36px 20px 36px; border-bottom:4px solid #D8690E; border-radius:8px 8px 0 0;">
+    <p style="margin:0; font-size:22px; font-weight:bold; color:#D8690E; letter-spacing:1px;">EventLink</p>
+    <p style="margin:4px 0 0 0; font-size:12px; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.5px;">Event Industry Professional Network</p>
   </div>
 
   <div style="padding: 28px 24px;">
 
-  <p>Hi ${data.firstName},</p>
+  <p>Welcome to EventLink ${data.firstName}! We're here to help you get discovered, showcase your experience and connect with people hiring across the events industry.</p>
 
-  <p>Welcome to EventLink — the UK's verified event crew platform.</p>
+  <p><strong>Your first step? Create your EventLink profile.</strong></p>
 
-  <p>You've signed up. Now one step makes all the difference: <strong>completing your profile.</strong></p>
+  <p>Add your experience, skills and the kind of work you do so event companies can quickly understand who you are and what you bring to the table.</p>
 
-  <p>Until your profile is live, you're invisible to the production companies, AV suppliers, and venues searching for crew on EventLink right now. A completed profile changes that — and it takes less than three minutes if you upload your CV and let the AI parser do the work.</p>
-
-  <p>Watch this short tutorial to see exactly how it's done:</p>
-
-  <a href="https://www.youtube.com/watch?v=-V_xTPkC8UA" target="_blank" style="display:block; margin: 24px 0;">
-    <img
-      src="https://img.youtube.com/vi/-V_xTPkC8UA/maxresdefault.jpg"
-      alt="Watch: How to Create Your Freelancer Profile on EventLink"
-      width="560"
-      style="width:100%; max-width:560px; border-radius:8px; border:3px solid #4F46E5; display:block;"
-    />
-  </a>
+  <p>With your profile in place, you can:</p>
+  <ul style="padding-left:20px; line-height:1.8;">
+    <li>Showcase your experience in one place</li>
+    <li>Build your presence within the events community</li>
+    <li>Connect with event companies and industry professionals</li>
+    <li>Access opportunities and member benefits through EventLink</li>
+  </ul>
 
   <p style="margin: 24px 0;">
     <a href="https://eventlink.one/dashboard" style="background-color:#4F46E5; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block;">
@@ -485,28 +492,10 @@ export function freelancerWelcomeEmail(data: {
     </a>
   </p>
 
-  <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
+  <p>It only takes a few minutes to get started.</p>
 
-  <p style="font-size:14px; color:#374151;"><strong>What your profile gives you:</strong></p>
-  <ul style="font-size:14px; color:#374151; padding-left:20px; line-height:1.8;">
-    <li>Visibility in employer searches by role and location</li>
-    <li>A verified badge for credentials — SIA, DBS, First Aid and more</li>
-    <li>A reliability score built from real employer ratings</li>
-    <li>LinkedIn-verified references that travel with you</li>
-    <li>A shareable profile link you can send instead of a CV</li>
-  </ul>
-
-  <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
-
-  <p>The events industry is busy. Employers are posting jobs. Make sure you're there when they search.</p>
-
-  <p>Loris<br>
-  Founder, EventLink<br>
-  <a href="https://eventlink.one" style="color:#4F46E5;">eventlink.one</a></p>
-
-  <p style="font-size:13px; color:#6B7280;">
-    P.S. Once your profile is live, use the <strong>Build My Reputation</strong> tool to collect verified references from past clients. It takes them 45 seconds to complete and it's the single most powerful thing on your profile.
-  </p>
+  <p>See you on EventLink,<br>
+  <strong>The EventLink Team</strong></p>
 
   <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
 
@@ -525,10 +514,10 @@ export function freelancerWelcomeEmail(data: {
 /**
  * Welcome email for new employer/recruiter registrations
  */
-export function employerWelcomeEmail(data: {
-  firstName: string;
-  unsubscribeUrl: string;
-}): { subject: string; html: string } {
+export function employerWelcomeEmail(data: { firstName: string; unsubscribeUrl: string }): {
+  subject: string;
+  html: string;
+} {
   return {
     subject: "Welcome to EventLink — post your first job and reach verified crew",
     html: `<!DOCTYPE html>
@@ -539,8 +528,9 @@ export function employerWelcomeEmail(data: {
 </head>
 <body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 0;">
 
-  <div style="background: linear-gradient(135deg, #D8690E 0%, #ff8c42 100%); padding: 28px 24px; text-align: center; border-radius: 8px 8px 0 0;">
-    <p style="margin: 0; font-size: 28px; font-weight: bold; color: #ffffff; letter-spacing: 0.5px;">EventLink</p>
+  <div style="background-color:#1B2A4A; padding:28px 36px 20px 36px; border-bottom:4px solid #D8690E; border-radius:8px 8px 0 0;">
+    <p style="margin:0; font-size:22px; font-weight:bold; color:#D8690E; letter-spacing:1px;">EventLink</p>
+    <p style="margin:4px 0 0 0; font-size:12px; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.5px;">Event Industry Professional Network</p>
   </div>
 
   <div style="padding: 28px 24px;">
@@ -607,6 +597,122 @@ export function employerWelcomeEmail(data: {
 }
 
 /**
+ * Shared wrapper for the "complete your profile" nudge drip series.
+ * Navy header, hidden preheader, blue CTA to the dashboard (same link as the
+ * welcome email), and the standard unsubscribe footer.
+ */
+function profileNudgeEmail(opts: {
+  preheader: string;
+  bodyHtml: string;
+  unsubscribeUrl: string;
+  /** Optional content between the CTA button and the unsubscribe footer. */
+  footerHtml?: string;
+}): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial, sans-serif; font-size: 15px; color: #1F2937; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 0;">
+
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent; height:0; width:0;">${opts.preheader}</div>
+
+  <div style="background-color:#1B2A4A; padding:28px 36px 20px 36px; border-bottom:4px solid #D8690E; border-radius:8px 8px 0 0;">
+    <p style="margin:0; font-size:22px; font-weight:bold; color:#D8690E; letter-spacing:1px;">EventLink</p>
+    <p style="margin:4px 0 0 0; font-size:12px; color:#9CA3AF; text-transform:uppercase; letter-spacing:0.5px;">Event Industry Professional Network</p>
+  </div>
+
+  <div style="padding: 28px 24px;">
+
+  ${opts.bodyHtml}
+
+  <p style="margin: 24px 0;">
+    <a href="https://eventlink.one/dashboard" style="background-color:#4F46E5; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block;">
+      Create your profile →
+    </a>
+  </p>
+
+  ${opts.footerHtml ?? ""}
+
+  <hr style="border:none; border-top:1px solid #E5E7EB; margin:24px 0;">
+
+  <p style="font-size:11px; color:#9CA3AF; text-align:center;">
+    You're receiving this because you created an account on EventLink.<br>
+    <a href="${opts.unsubscribeUrl}" style="color:#9CA3AF;">Unsubscribe</a>
+  </p>
+
+  </div>
+
+</body>
+</html>`;
+}
+
+const RIPE_DISCLAIMER = `<p style="font-size:12px; color:#6B7280; margin-top:20px;">Cover is provided by Ripe, not EventLink. Terms and eligibility apply.</p>`;
+
+/** Profile nudge 1 — sent the Wednesday after a freelancer is 7+ days old with no profile. */
+export function profileNudgeEmail1(data: { unsubscribeUrl: string }): {
+  subject: string;
+  html: string;
+} {
+  return {
+    subject: "Let's get you set up on EventLink",
+    html: profileNudgeEmail({
+      preheader: "Your EventLink profile is ready to set up.",
+      unsubscribeUrl: data.unsubscribeUrl,
+      bodyHtml: `
+  <p>Your EventLink profile is ready when you are.</p>
+
+  <p>Once you're set up, you'll have a place to show what you do, stay connected with the industry and make the most of what EventLink has to offer freelancers. Best of all, it only takes a few minutes to get started.</p>`,
+      footerHtml: `<p>See you on EventLink,<br>
+  <strong>The EventLink Team</strong></p>`,
+    }),
+  };
+}
+
+/** Profile nudge 2 — sent the following Sunday if still no profile. */
+export function profileNudgeEmail2(data: { unsubscribeUrl: string }): {
+  subject: string;
+  html: string;
+} {
+  return {
+    subject: "Your EventLink profile comes with more 👀",
+    html: profileNudgeEmail({
+      preheader: "Create your free profile to access 55% off public liability cover with Ripe.",
+      unsubscribeUrl: data.unsubscribeUrl,
+      bodyHtml: `
+  <p>You can now get <strong>55% off public liability cover with Ripe</strong>.</p>
+
+  <p>Create your profile to unlock this offer. This is just one of the perks waiting for you on EventLink 😉</p>`,
+      footerHtml: `${RIPE_DISCLAIMER}
+  <p style="margin-top:8px;"><strong>The EventLink Team</strong></p>`,
+    }),
+  };
+}
+
+/** Profile nudge 3 — sent the following Tuesday if still no profile. */
+export function profileNudgeEmail3(data: { unsubscribeUrl: string }): {
+  subject: string;
+  html: string;
+} {
+  return {
+    subject: "You didn't miss this, did you? 👀",
+    html: profileNudgeEmail({
+      preheader:
+        "Create your free EventLink profile and get 55% off public liability cover with Ripe.",
+      unsubscribeUrl: data.unsubscribeUrl,
+      bodyHtml: `
+  <p>EventLink members can get <strong>55% off public liability cover with Ripe</strong>.</p>
+
+  <p>If you haven't created your profile yet, now's a good time to do it. It only takes a few minutes to join, and this is just one of the benefits waiting for you.</p>`,
+      footerHtml: `<p style="margin-top:20px;">And yes, there's more to come 😉</p>
+  ${RIPE_DISCLAIMER}
+  <p style="margin-top:8px;"><strong>The EventLink Team</strong></p>`,
+    }),
+  };
+}
+
+/**
  * Batch job notification email template (automated batch window sends)
  */
 export function batchJobNotifyEmail(data: {
@@ -626,13 +732,16 @@ export function batchJobNotifyEmail(data: {
 }): { subject: string; html: string } {
   const jobCount = data.jobs.length;
 
-  const subject = data.isUrgent && jobCount === 1
-    ? `Urgent — ${data.jobs[0].title} needed in ${data.jobs[0].location} ${data.jobs[0].eventDate}`
-    : jobCount === 1
-    ? `New job on EventLink — ${data.jobs[0].title} in ${data.jobs[0].location}`
-    : `${jobCount} new jobs on EventLink matching your profile`;
+  const subject =
+    data.isUrgent && jobCount === 1
+      ? `Urgent — ${data.jobs[0].title} needed in ${data.jobs[0].location} ${data.jobs[0].eventDate}`
+      : jobCount === 1
+        ? `New job on EventLink — ${data.jobs[0].title} in ${data.jobs[0].location}`
+        : `${jobCount} new jobs on EventLink matching your profile`;
 
-  const jobCards = data.jobs.map(job => `
+  const jobCards = data.jobs
+    .map(
+      (job) => `
     <div style="border:1px solid #e5e5e5; border-radius:8px; padding:16px 20px; margin:16px 0; background:#fafafa;">
       <p style="margin:0 0 6px 0; font-size:16px; font-weight:600; color:#D8690E;">${job.title}</p>
       <p style="margin:0 0 4px 0; color:#444;">${job.employerName} &middot; ${job.location} &middot; ${job.payRate}</p>
@@ -640,7 +749,9 @@ export function batchJobNotifyEmail(data: {
       ${job.descriptionPreview ? `<p style="margin:0 0 10px 0; font-size:14px; color:#444;">${job.descriptionPreview}</p>` : ""}
       <a href="${job.jobUrl}" style="display:inline-block; padding:8px 20px; background:linear-gradient(135deg,#D8690E 0%,#ff8c42 100%); color:#fff; text-decoration:none; border-radius:6px; font-weight:600; font-size:14px;">View &amp; Apply &rarr;</a>
     </div>
-  `).join("");
+  `
+    )
+    .join("");
 
   const content = `
     <p>Hi ${data.recipientFirstName},</p>

@@ -2,19 +2,46 @@ import type { NextFunction, Request, Response } from "express";
 import { storage } from "../../storage";
 
 const CRAWLER_USER_AGENTS = [
+  // Social / link unfurlers
   "facebookexternalhit",
   "Facebot",
+  "meta-externalagent",
   "LinkedInBot",
   "Twitterbot",
   "WhatsApp",
   "Slackbot",
   "TelegramBot",
   "Discordbot",
-  "Googlebot",
-  "bingbot",
   "Pinterestbot",
   "vkShare",
   "Embedly",
+  // Search engines
+  "Googlebot",
+  "bingbot",
+  "YandexBot",
+  "DuckDuckBot",
+  "Baiduspider",
+  "Applebot",
+  "PetalBot",
+  // AI crawlers — these generally don't run JavaScript, so they need the
+  // server-rendered version to see any content at all.
+  "PerplexityBot",
+  "Perplexity-User",
+  "GPTBot",
+  "ChatGPT-User",
+  "OAI-SearchBot",
+  "ClaudeBot",
+  "Claude-Web",
+  "anthropic-ai",
+  "Google-Extended",
+  "Amazonbot",
+  "Bytespider",
+  "CCBot",
+  "cohere-ai",
+  // SEO audit crawlers
+  "AhrefsBot",
+  "SemrushBot",
+  "DataForSeoBot",
 ];
 
 function isCrawler(userAgent: string | undefined): boolean {
@@ -141,6 +168,86 @@ function buildOgHtml(opts: {
 </body>
 </html>`;
 }
+
+// Server-rendered HTML for static marketing routes, so crawlers that don't run
+// JavaScript (Bing, most AI crawlers) get per-page title/description/H1 instead
+// of the SPA shell's homepage metadata. H1s mirror the live page headings.
+function buildStaticPageHtml(opts: {
+  url: string;
+  title: string;
+  description: string;
+  h1: string;
+  bodyHtml: string;
+  imageUrl: string;
+}): string {
+  const { url, title, description, h1, bodyHtml, imageUrl } = opts;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(title)}</title>
+  <meta name="description" content="${escapeHtml(description)}" />
+  <link rel="canonical" href="${escapeHtml(url)}" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${escapeHtml(url)}" />
+  <meta property="og:title" content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta property="og:image" content="${escapeHtml(imageUrl)}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="EventLink" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(title)}" />
+  <meta name="twitter:description" content="${escapeHtml(description)}" />
+  <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />
+</head>
+<body>
+  <h1>${escapeHtml(h1)}</h1>
+  ${bodyHtml}
+</body>
+</html>`;
+}
+
+const STATIC_PAGES: Record<
+  string,
+  { title: string; description: string; h1: string; bodyHtml: string }
+> = {
+  "/": {
+    title: "EventLink | Freelance Events Crew Network",
+    description:
+      "EventLink is a freelance events crew network — employers find vetted crew fast; freelancers find event jobs and build their reputation.",
+    h1: "EventLink: the freelance events crew network",
+    bodyHtml: `<p>EventLink is where freelance event professionals build trusted profiles, showcase their experience, and connect with the companies that power live events.</p>
+  <ul>
+    <li><a href="/jobs">Event crew jobs</a></li>
+    <li><a href="/freelancers">Find freelance event crew</a></li>
+    <li><a href="/how-it-works">How EventLink works</a></li>
+  </ul>`,
+  },
+  "/how-it-works": {
+    title: "How EventLink Works | Freelance Events Crew Network",
+    description: "See how EventLink connects freelance event crew with employers, step by step.",
+    h1: "How EventLink Works",
+    bodyHtml: `<p>EventLink connects event professionals with opportunities across the events industry. Freelancers build a profile and find work; employers post jobs and hire skilled crew.</p>`,
+  },
+  "/jobs": {
+    title: "Event Crew Jobs | EventLink",
+    description: "Browse event industry jobs on EventLink, the freelance events crew network.",
+    h1: "Event Crew Jobs",
+    bodyHtml: `<p>Discover event industry jobs on EventLink and connect with top companies hiring freelance event crew across the UK.</p>`,
+  },
+  "/freelancers": {
+    title: "Find Freelance Event Crew | EventLink",
+    description: "Search vetted freelance event crew on EventLink.",
+    h1: "Find Freelance Event Crew",
+    bodyHtml: `<p>Search and hire vetted freelance event crew on EventLink. Browse profiles and connect with skilled technical professionals for your events.</p>`,
+  },
+};
 
 function buildProfilePageHtml(opts: {
   url: string;
@@ -356,6 +463,18 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
         console.error("OG employer error:", err);
         next();
       });
+    return;
+  }
+
+  const staticPage = STATIC_PAGES[req.path];
+  if (staticPage) {
+    const baseUrl = getBaseUrl(req);
+    const html = buildStaticPageHtml({
+      url: `${baseUrl}${req.path}`,
+      imageUrl: `${baseUrl}/og-image.png`,
+      ...staticPage,
+    });
+    res.status(200).set({ "Content-Type": "text/html" }).end(html);
     return;
   }
 
