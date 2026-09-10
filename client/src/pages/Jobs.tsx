@@ -352,7 +352,8 @@ export default function Jobs() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="mb-4 text-3xl font-bold sm:text-4xl">
-            <span className="text-primary">Find</span> <span className="text-accent">Jobs</span>
+            <span className="text-primary">Event Crew</span>{" "}
+            <span className="text-accent">Jobs</span>
           </h1>
           <p className="text-base text-muted-foreground sm:text-lg">
             Discover exciting opportunities in the events industry. Connect with top companies

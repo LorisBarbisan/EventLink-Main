@@ -49,7 +49,7 @@ export default function HowItWorks() {
         {/* Header Section */}
         <div className="mx-auto mb-16 max-w-4xl text-center">
           <h1 className="mb-6 bg-gradient-to-r from-primary to-orange-600 bg-clip-text text-4xl font-bold text-transparent md:text-5xl">
-            How Does It Work?
+            How EventLink Works
           </h1>
           <p className="text-xl leading-relaxed text-muted-foreground">
             EventLink connects event professionals with opportunities across the events industry.

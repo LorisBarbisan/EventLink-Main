@@ -156,7 +156,8 @@ export default function Freelancers() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="mb-4 text-4xl font-bold">
-            <span className="text-primary">Find</span> <span className="text-accent">Crew</span>
+            <span className="text-primary">Find Freelance</span>{" "}
+            <span className="text-accent">Event Crew</span>
           </h1>
           <p className="text-lg text-muted-foreground">
             Connect with skilled technical professionals for your events. Browse profiles and hire
