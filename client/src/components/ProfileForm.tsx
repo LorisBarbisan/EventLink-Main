@@ -18,6 +18,11 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { CountrySelect } from "@/components/ui/country-select";
+import {
+  StateProvinceSelect,
+  countryNeedsStateProvince,
+  STATE_PROVINCE_COUNTRIES,
+} from "@/components/ui/state-province-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -128,6 +133,7 @@ export function ProfileForm({
           bio: freelancerProfile?.bio || "",
           location: freelancerProfile?.location || "",
           country: freelancerProfile?.country || "",
+          state_province: freelancerProfile?.state_province || "",
           experience_years: freelancerProfile?.experience_years?.toString() || "",
           skills: freelancerProfile?.skills || [],
           portfolio_url: freelancerProfile?.portfolio_url || "",
@@ -144,6 +150,7 @@ export function ProfileForm({
           company_type: recruiterProfile?.company_type || "",
           location: recruiterProfile?.location || "",
           country: recruiterProfile?.country || "",
+          state_province: recruiterProfile?.state_province || "",
           description: recruiterProfile?.description || "",
           website_url: recruiterProfile?.website_url || "",
           linkedin_url: recruiterProfile?.linkedin_url || "",
@@ -233,7 +240,8 @@ export function ProfileForm({
         fd.last_name?.trim() &&
         fd.title?.trim() &&
         fd.location?.trim() &&
-        fd.country?.trim()
+        fd.country?.trim() &&
+        (!countryNeedsStateProvince(fd.country) || fd.state_province?.trim())
       );
     })();
 
@@ -246,10 +254,24 @@ export function ProfileForm({
       if (!fd.title?.trim()) missing.push("Professional Title");
       if (!fd.location?.trim()) missing.push("Location");
       if (!fd.country?.trim()) missing.push("Country");
+      const stateCfg = STATE_PROVINCE_COUNTRIES[fd.country];
+      if (stateCfg && !fd.state_province?.trim()) missing.push(stateCfg.label);
       if (missing.length > 0) {
         toast({
           title: "Required fields missing",
           description: `Please fill in: ${missing.join(", ")}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    if (userType === "recruiter") {
+      const fd = formData as RecruiterFormData;
+      const stateCfg = STATE_PROVINCE_COUNTRIES[fd.country];
+      if (stateCfg && !fd.state_province?.trim()) {
+        toast({
+          title: "Required field missing",
+          description: `Please select your ${stateCfg.label}.`,
           variant: "destructive",
         });
         return;
@@ -741,6 +763,22 @@ function FreelancerFormFields({
         />
       </div>
 
+      {countryNeedsStateProvince(formData.country) && (
+        <div className="grid grid-cols-1 gap-4">
+          <div>
+            <Label htmlFor="state_province">
+              {STATE_PROVINCE_COUNTRIES[formData.country].label} *
+            </Label>
+            <StateProvinceSelect
+              id="state_province"
+              country={formData.country}
+              value={formData.state_province}
+              onChange={(v) => onInputChange("state_province", v)}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4">
         <div>
           <Label htmlFor="experience_years">Years of Experience (Optional)</Label>
@@ -982,6 +1020,20 @@ function RecruiterFormFields({
           onChange={(v) => onInputChange("country", v)}
         />
       </div>
+
+      {countryNeedsStateProvince(formData.country) && (
+        <div>
+          <Label htmlFor="state_province">
+            {STATE_PROVINCE_COUNTRIES[formData.country].label} *
+          </Label>
+          <StateProvinceSelect
+            id="state_province"
+            country={formData.country}
+            value={formData.state_province}
+            onChange={(v) => onInputChange("state_province", v)}
+          />
+        </div>
+      )}
 
       <div>
         <Label htmlFor="description">Company Description</Label>

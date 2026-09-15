@@ -99,6 +99,7 @@ export const freelancer_profiles = pgTable(
     bio: text("bio"),
     location: text("location"),
     country: text("country"),
+    state_province: text("state_province"), // US state / Canadian province or territory (required for those countries)
     experience_years: integer("experience_years"),
     skills: text("skills").array(),
     portfolio_url: text("portfolio_url"),
@@ -140,6 +141,7 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
   company_type: text("company_type"),
   location: text("location"),
   country: text("country"),
+  state_province: text("state_province"), // US state / Canadian province or territory (required for those countries)
   description: text("description"),
   website_url: text("website_url"),
   linkedin_url: text("linkedin_url"),

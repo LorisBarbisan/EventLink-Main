@@ -1096,6 +1096,7 @@ export class DatabaseStorage implements IStorage {
       bio: profile.bio,
       location: profile.location,
       country: resolvedCountry,
+      state_province: profile.state_province,
       experience_years: profile.experience_years,
       skills: profile.skills,
       portfolio_url: profile.portfolio_url,
@@ -1127,6 +1128,7 @@ export class DatabaseStorage implements IStorage {
     if (profile.bio !== undefined) updateData.bio = profile.bio;
     if (profile.location !== undefined) updateData.location = profile.location;
     if (profile.country !== undefined) updateData.country = profile.country;
+    if (profile.state_province !== undefined) updateData.state_province = profile.state_province;
     if (profile.experience_years !== undefined)
       updateData.experience_years = profile.experience_years;
     if (profile.skills !== undefined) updateData.skills = profile.skills;
@@ -1341,6 +1343,7 @@ export class DatabaseStorage implements IStorage {
     if (profile.company_type !== undefined) updateData.company_type = profile.company_type;
     if (profile.location !== undefined) updateData.location = profile.location;
     if (profile.country !== undefined) updateData.country = profile.country;
+    if (profile.state_province !== undefined) updateData.state_province = profile.state_province;
     if (profile.description !== undefined) updateData.description = profile.description;
     if (profile.website_url !== undefined) updateData.website_url = profile.website_url;
     if (profile.linkedin_url !== undefined) updateData.linkedin_url = profile.linkedin_url;
