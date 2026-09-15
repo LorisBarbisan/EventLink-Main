@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { storage } from "../../storage";
+import { faqData, buildFaqSchema } from "@shared/faqData";
 
 const CRAWLER_USER_AGENTS = [
   // Social / link unfurlers
@@ -209,6 +210,76 @@ function buildStaticPageHtml(opts: {
 <body>
   <h1>${escapeHtml(h1)}</h1>
   ${bodyHtml}
+</body>
+</html>`;
+}
+
+// Server-rendered Help Centre for crawlers. Emits the FAQPage JSON-LD schema AND
+// the visible Q&A as real HTML, so non-JS engines (Bing, Perplexity, etc.) get the
+// structured data and answers that the React page only injects client-side.
+function buildFaqPageHtml(baseUrl: string): string {
+  const url = `${baseUrl}/faq`;
+  const title = "Help Centre - Frequently Asked Questions | EventLink";
+  const description =
+    "Find answers to frequently asked questions about EventLink - the premier platform connecting event professionals with opportunities across the events industry.";
+  const schemaJson = JSON.stringify(buildFaqSchema());
+
+  const sections = faqData
+    .map((category) => {
+      const items = category.questions
+        .map((q) => {
+          const answer = q.answerLink
+            ? q.answer.replace(
+                q.answerLink.text,
+                `<a href="${escapeHtml(q.answerLink.url)}">${escapeHtml(q.answerLink.text)}</a>`
+              )
+            : escapeHtml(q.answer);
+          return `      <div>
+        <h3>${escapeHtml(q.question)}</h3>
+        <p>${answer}</p>
+      </div>`;
+        })
+        .join("\n");
+      return `    <section>
+      <h2>${escapeHtml(category.category)}</h2>
+${items}
+    </section>`;
+    })
+    .join("\n");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(title)}</title>
+  <meta name="description" content="${escapeHtml(description)}" />
+  <link rel="canonical" href="${escapeHtml(url)}" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${escapeHtml(url)}" />
+  <meta property="og:title" content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta property="og:image" content="${escapeHtml(baseUrl)}/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="EventLink" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(title)}" />
+  <meta name="twitter:description" content="${escapeHtml(description)}" />
+  <meta name="twitter:image" content="${escapeHtml(baseUrl)}/og-image.png" />
+
+  <script type="application/ld+json">${schemaJson}</script>
+</head>
+<body>
+  <main>
+    <h1>Help Centre</h1>
+    <p>Find answers to frequently asked questions about EventLink.</p>
+${sections}
+  </main>
 </body>
 </html>`;
 }
@@ -463,6 +534,12 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
         console.error("OG employer error:", err);
         next();
       });
+    return;
+  }
+
+  if (req.path === "/faq") {
+    const baseUrl = getBaseUrl(req);
+    res.status(200).set({ "Content-Type": "text/html" }).end(buildFaqPageHtml(baseUrl));
     return;
   }
 
