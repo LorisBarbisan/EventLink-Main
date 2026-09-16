@@ -2,7 +2,7 @@ import { EventLinkLogo } from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
-import { CREW_ROLES, CREW_LANDING_PAGES } from "@shared/crewLandingPages";
+import { CREW_LANDING_PAGES } from "@shared/crewLandingPages";
 
 export const Footer = () => {
   const [, setLocation] = useLocation();
@@ -158,31 +158,23 @@ export const Footer = () => {
             </div>
           </div>
 
-          {/* Browse freelance crew — internal links to the role×city landing pages */}
-          <div className="mt-4 border-t pt-4">
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Browse Freelance Crew
-            </h4>
-            <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-3">
-              {CREW_ROLES.map((role) => (
-                <div key={role.slug}>
-                  <p className="mb-1 text-xs font-medium text-foreground">{role.heading}</p>
-                  <ul className="space-y-1 text-xs text-muted-foreground">
-                    {CREW_LANDING_PAGES.filter((p) => p.role.slug === role.slug).map((p) => (
-                      <li key={p.slug}>
-                        <Link
-                          to={p.path}
-                          className="hover:text-foreground"
-                          data-testid={`footer-link-crew-${p.slug}`}
-                        >
-                          {role.heading} in {p.city.name}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+          {/* Browse freelance crew — subtle inline internal links to the landing pages */}
+          <div className="mt-3 border-t pt-3">
+            <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[11px] leading-relaxed text-muted-foreground/70">
+              <span className="font-medium">Browse crew:</span>
+              {CREW_LANDING_PAGES.map((p, i) => (
+                <span key={p.slug} className="flex items-center gap-x-2">
+                  <Link
+                    to={p.path}
+                    className="hover:text-foreground hover:underline"
+                    data-testid={`footer-link-crew-${p.slug}`}
+                  >
+                    {p.role.heading} in {p.city.name}
+                  </Link>
+                  {i < CREW_LANDING_PAGES.length - 1 && <span aria-hidden="true">·</span>}
+                </span>
               ))}
-            </div>
+            </p>
           </div>
         </div>
       </div>
