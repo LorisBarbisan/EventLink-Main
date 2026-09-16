@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "../../storage";
+import { CREW_LANDING_PAGES } from "@shared/crewLandingPages";
 
 const BASE_URL = "https://eventlink.one";
 
@@ -27,6 +28,12 @@ export function registerSeoRoutes(app: Express) {
         { url: `${BASE_URL}/contact-us`, priority: "0.4" },
       ];
 
+      // SEO role×city landing pages (e.g. /freelance-crew/av-technician-london)
+      const crewLandingPages = CREW_LANDING_PAGES.map((p) => ({
+        url: `${BASE_URL}${p.path}`,
+        priority: "0.8",
+      }));
+
       // Individual job pages — use slug URL if available, else numeric ID
       const jobPages = allJobs
         .filter((j) => j.status === "active" && j.type !== "external")
@@ -43,7 +50,7 @@ export function registerSeoRoutes(app: Express) {
         lastmod: p.updated_at ? new Date(p.updated_at).toISOString().split("T")[0] : now,
       }));
 
-      const allEntries = [...staticPages, ...jobPages, ...profilePages];
+      const allEntries = [...staticPages, ...crewLandingPages, ...jobPages, ...profilePages];
 
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

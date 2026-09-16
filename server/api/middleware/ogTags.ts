@@ -1,6 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
 import { storage } from "../../storage";
 import { faqData, buildFaqSchema } from "@shared/faqData";
+import {
+  getCrewLandingPage,
+  getRelatedCrewPages,
+  type CrewLandingPage,
+} from "@shared/crewLandingPages";
 
 const CRAWLER_USER_AGENTS = [
   // Social / link unfurlers
@@ -237,6 +242,97 @@ function buildStaticPageHtml(opts: {
 <body>
   <h1>${escapeHtml(h1)}</h1>
   ${bodyHtml}
+</body>
+</html>`;
+}
+
+// Server-rendered "freelance crew" landing page for crawlers. Emits the H1,
+// intro copy, a list of matching freelancer profiles as real internal links, and
+// cross-links to sibling landing pages — so non-JS engines see substantive,
+// interlinked content rather than the SPA shell.
+function buildCrewLandingHtml(opts: {
+  baseUrl: string;
+  page: CrewLandingPage;
+  freelancers: Array<{
+    user_id: number;
+    first_name?: string | null;
+    last_name?: string | null;
+    title?: string | null;
+    location?: string | null;
+    slug?: string | null;
+  }>;
+}): string {
+  const { baseUrl, page, freelancers } = opts;
+  const url = `${baseUrl}${page.path}`;
+
+  const profileItems = freelancers
+    .map((f) => {
+      const name = `${f.first_name || ""} ${f.last_name || ""}`.trim() || "Freelancer";
+      const profileUrl = f.slug
+        ? `${baseUrl}/freelancers/${f.slug}`
+        : `${baseUrl}/profile/${f.user_id}`;
+      const label = f.title ? `${name} — ${f.title}` : name;
+      return `      <li><a href="${escapeHtml(profileUrl)}">${escapeHtml(label)}</a>${
+        f.location ? ` — ${escapeHtml(f.location)}` : ""
+      }</li>`;
+    })
+    .join("\n");
+
+  const relatedItems = getRelatedCrewPages(page)
+    .map(
+      (r) =>
+        `      <li><a href="${escapeHtml(`${baseUrl}${r.path}`)}">Freelance ${escapeHtml(
+          r.role.heading
+        )} in ${escapeHtml(r.city.name)}</a></li>`
+    )
+    .join("\n");
+
+  const profilesSection = freelancers.length
+    ? `    <h2>${escapeHtml(page.role.heading)} available in ${escapeHtml(page.city.name)}</h2>
+    <ul>
+${profileItems}
+    </ul>`
+    : `    <p>New ${escapeHtml(page.role.descLabel)} join EventLink every week — <a href="${escapeHtml(
+        `${baseUrl}/freelancers`
+      )}">browse all crew</a>.</p>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(page.title)}</title>
+  <meta name="description" content="${escapeHtml(page.metaDescription)}" />
+  <link rel="canonical" href="${escapeHtml(url)}" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${escapeHtml(url)}" />
+  <meta property="og:title" content="${escapeHtml(page.title)}" />
+  <meta property="og:description" content="${escapeHtml(page.metaDescription)}" />
+  <meta property="og:image" content="${escapeHtml(baseUrl)}/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:site_name" content="EventLink" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(page.title)}" />
+  <meta name="twitter:description" content="${escapeHtml(page.metaDescription)}" />
+  <meta name="twitter:image" content="${escapeHtml(baseUrl)}/og-image.png" />
+</head>
+<body>
+  <main>
+    <h1>${escapeHtml(page.h1)}</h1>
+    <p>${escapeHtml(page.intro)}</p>
+    <p>${escapeHtml(page.howItWorks)}</p>
+    <p><a href="${escapeHtml(`${baseUrl}/freelancers`)}">${escapeHtml(page.browseCtaLabel)}</a></p>
+${profilesSection}
+    <h2>Related searches</h2>
+    <ul>
+${relatedItems}
+    </ul>
+  </main>
 </body>
 </html>`;
 }
@@ -576,6 +672,31 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
       })
       .catch((err) => {
         console.error("OG employer error:", err);
+        next();
+      });
+    return;
+  }
+
+  const crewMatch = req.path.match(/^\/freelance-crew\/([a-z0-9-]+)$/);
+  if (crewMatch) {
+    const page = getCrewLandingPage(crewMatch[1]);
+    if (!page) {
+      return res.status(404).set({ "Content-Type": "text/html" }).end(buildNotFoundHtml());
+    }
+    const baseUrl = getBaseUrl(req);
+    storage
+      .searchFreelancers({
+        keyword: page.role.searchKeyword || undefined,
+        location: page.city.searchLocation,
+        page: 1,
+        limit: 24,
+      })
+      .then((search) => {
+        const html = buildCrewLandingHtml({ baseUrl, page, freelancers: search.results });
+        res.status(200).set({ "Content-Type": "text/html" }).end(html);
+      })
+      .catch((err) => {
+        console.error("OG crew landing error:", err);
         next();
       });
     return;

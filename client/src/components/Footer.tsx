@@ -2,6 +2,7 @@ import { EventLinkLogo } from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
+import { CREW_ROLES, CREW_LANDING_PAGES } from "@shared/crewLandingPages";
 
 export const Footer = () => {
   const [, setLocation] = useLocation();
@@ -154,6 +155,33 @@ export const Footer = () => {
                   </Link>
                 </li>
               </ul>
+            </div>
+          </div>
+
+          {/* Browse freelance crew — internal links to the role×city landing pages */}
+          <div className="mt-4 border-t pt-4">
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Browse Freelance Crew
+            </h4>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-3">
+              {CREW_ROLES.map((role) => (
+                <div key={role.slug}>
+                  <p className="mb-1 text-xs font-medium text-foreground">{role.heading}</p>
+                  <ul className="space-y-1 text-xs text-muted-foreground">
+                    {CREW_LANDING_PAGES.filter((p) => p.role.slug === role.slug).map((p) => (
+                      <li key={p.slug}>
+                        <Link
+                          to={p.path}
+                          className="hover:text-foreground"
+                          data-testid={`footer-link-crew-${p.slug}`}
+                        >
+                          {role.heading} in {p.city.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           </div>
         </div>
