@@ -94,13 +94,40 @@ function buildJobDescription(job: {
 }
 
 function buildProfileDescription(profile: {
+  first_name?: string | null;
+  last_name?: string | null;
   title?: string | null;
   location?: string | null;
   bio?: string | null;
   skills?: string[] | null;
   superpower?: string | null;
   availability_status?: string | null;
+  experience_years?: number | null;
 }): string {
+  const fullName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
+  const role = profile.title || profile.superpower;
+
+  // Preferred SEO form, e.g.
+  // "Paul Baird is a Video Engineer in Manchester with 30 years' experience, available on EventLink."
+  if (fullName && role) {
+    let sentence = `${fullName} is a ${role}`;
+    if (profile.location) sentence += ` in ${profile.location}`;
+    // Guard against the seed record's sentinel 999 years (noindexed anyway).
+    if (
+      profile.experience_years &&
+      profile.experience_years > 0 &&
+      profile.experience_years < 100
+    ) {
+      sentence += ` with ${profile.experience_years} year${
+        profile.experience_years === 1 ? "" : "s"
+      }' experience`;
+    }
+    sentence +=
+      profile.availability_status === "available" ? ", available on EventLink." : " on EventLink.";
+    return sentence;
+  }
+
+  // Fallback for profiles missing both title and superpower.
   const parts: string[] = [];
   if (profile.title) parts.push(profile.title);
   if (profile.location) parts.push(profile.location);
@@ -332,6 +359,7 @@ function buildProfilePageHtml(opts: {
   availabilityStatus: string | null | undefined;
   experienceYears: number | null | undefined;
   description: string;
+  noindex: boolean;
 }): string {
   const {
     url,
@@ -345,6 +373,7 @@ function buildProfilePageHtml(opts: {
     availabilityStatus,
     experienceYears,
     description,
+    noindex,
   } = opts;
 
   const availabilityText =
@@ -369,6 +398,7 @@ function buildProfilePageHtml(opts: {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  ${noindex ? '<meta name="robots" content="noindex" />' : ""}
   <title>${metaTitle}</title>
   <meta name="description" content="${metaDesc}" />
   <link rel="canonical" href="${escapeHtml(url)}" />
@@ -450,9 +480,10 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
 
   const handleProfile = (profileFn: () => Promise<any>, userId?: number) => {
     profileFn()
-      .then((profile) => {
+      .then(async (profile) => {
+        // Non-existent profile → real HTTP 404 (not a 200 "not found" shell).
         if (!profile) {
-          return res.status(200).set({ "Content-Type": "text/html" }).end(buildFallbackHtml());
+          return res.status(404).set({ "Content-Type": "text/html" }).end(buildNotFoundHtml());
         }
         const uid = userId ?? profile.user_id;
         const baseUrl = getBaseUrl(req);
@@ -465,6 +496,18 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
           : `${baseUrl}/og-image.png`;
         const fullName =
           `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Freelancer";
+
+        // Index only substantive, non-demo profiles: a non-empty bio, at least one
+        // skill, or at least one reference. Reference count is only queried when
+        // both bio and skills are empty (the expensive path is rarely hit).
+        const hasBio = !!(profile.bio && profile.bio.trim());
+        const hasSkills = Array.isArray(profile.skills) && profile.skills.length > 0;
+        let hasReferences = false;
+        if (!hasBio && !hasSkills && !profile.is_demo) {
+          hasReferences = (await storage.getFreelancerReferenceCount(uid)) > 0;
+        }
+        const noindex = !!profile.is_demo || !(hasBio || hasSkills || hasReferences);
+
         const html = buildProfilePageHtml({
           url: profileUrl,
           imageUrl: ogImageUrl,
@@ -477,6 +520,7 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
           availabilityStatus: profile.availability_status,
           experienceYears: profile.experience_years,
           description: buildProfileDescription(profile),
+          noindex,
         });
         res.status(200).set({ "Content-Type": "text/html" }).end(html);
       })
@@ -556,6 +600,23 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
   }
 
   next();
+}
+
+// Minimal noindex page for a genuinely non-existent profile, served with a 404.
+function buildNotFoundHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="robots" content="noindex" />
+  <title>Profile Not Found | EventLink</title>
+</head>
+<body>
+  <h1>Profile Not Found</h1>
+  <p>This profile does not exist or is no longer available on EventLink.</p>
+  <a href="https://eventlink.one/freelancers">Browse freelancers on EventLink</a>
+</body>
+</html>`;
 }
 
 function buildFallbackHtml(): string {
