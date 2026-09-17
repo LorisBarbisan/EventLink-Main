@@ -4,17 +4,11 @@ import { eq, and, ne } from "drizzle-orm";
 import { sendEmail } from "../utils/emailService";
 
 export async function sendJobClosureEmails(jobId: number): Promise<void> {
-
   // Guard: skip if closure emails already sent for this job
   const alreadySent = await db
     .select()
     .from(job_applications)
-    .where(
-      and(
-        eq(job_applications.job_id, jobId),
-        eq(job_applications.closure_email_sent, true)
-      )
-    )
+    .where(and(eq(job_applications.job_id, jobId), eq(job_applications.closure_email_sent, true)))
     .limit(1);
 
   if (alreadySent.length > 0) {
@@ -130,7 +124,7 @@ Unsubscribe: ${unsubscribeLink}
           <!-- Header -->
           <tr>
             <td style="background-color:#1B2A4A;padding:28px 36px 20px 36px;border-bottom:4px solid #D8690E;">
-              <p style="margin:0;font-size:22px;font-weight:bold;color:#D8690E;letter-spacing:1px;">EVENTLINK</p>
+              <p style="margin:0;font-size:22px;font-weight:bold;color:#D8690E;letter-spacing:1px;">EventLink</p>
               <p style="margin:4px 0 0 0;font-size:12px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.5px;">Event Industry Professional Network</p>
             </td>
           </tr>

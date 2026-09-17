@@ -1095,8 +1095,9 @@ export async function getAdminTeams(req: Request, res: Response) {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const search = (req.query.search as string) || undefined;
+    const sort = (req.query.sort as string) || undefined;
 
-    const { teams, total } = await storage.getAdminTeams(page, limit, search);
+    const { teams, total } = await storage.getAdminTeams(page, limit, search, sort);
 
     res.json({
       teams,
