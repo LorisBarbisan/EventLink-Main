@@ -99,6 +99,7 @@ export const freelancer_profiles = pgTable(
     bio: text("bio"),
     location: text("location"),
     country: text("country"),
+    state_province: text("state_province"), // US state / Canadian province or territory (required for those countries)
     experience_years: integer("experience_years"),
     skills: text("skills").array(),
     portfolio_url: text("portfolio_url"),
@@ -116,6 +117,7 @@ export const freelancer_profiles = pgTable(
     reference_token: text("reference_token"), // UUID for public reference request link
     slug: text("slug"), // SEO-friendly URL slug e.g. james-harris-sound-engineer
     custom_slug: text("custom_slug"), // User-chosen vanity URL e.g. john-smith
+    is_demo: boolean("is_demo").notNull().default(false), // Internal seed/demo/test record — excluded from public search results and the sitemap
     // Structured CV-derived fields (confirmed by freelancer from CV parsing)
     work_history: jsonb("work_history"), // JSON array of {jobTitle, company, dates, details}
     education_history: jsonb("education_history"), // JSON array of {qualification, institution, dates}
@@ -140,6 +142,7 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
   company_type: text("company_type"),
   location: text("location"),
   country: text("country"),
+  state_province: text("state_province"), // US state / Canadian province or territory (required for those countries)
   description: text("description"),
   website_url: text("website_url"),
   linkedin_url: text("linkedin_url"),
@@ -621,6 +624,22 @@ export const email_notification_logs = pgTable("email_notification_logs", {
   related_entity_id: integer("related_entity_id"), // ID of related entity (job, application, etc.)
   metadata: text("metadata"), // JSON string for additional data
   sent_at: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Tracks the "complete your profile" nudge drip series sent to freelancers who
+// signed up but have not created a profile. One row per user, created on the
+// first nudge. Kept in its own table so the scheduler's tracking never touches
+// the users select path.
+export const profile_nudge_emails = pgTable("profile_nudge_emails", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  nudge_1_sent_at: timestamp("nudge_1_sent_at", { withTimezone: true }),
+  nudge_2_sent_at: timestamp("nudge_2_sent_at", { withTimezone: true }),
+  nudge_3_sent_at: timestamp("nudge_3_sent_at", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // CV parsed data - stores extracted information from CV in draft state until confirmed

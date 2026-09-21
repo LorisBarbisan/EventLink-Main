@@ -21,11 +21,17 @@ import {
   User,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
+import { usePageSeo } from "@/hooks/usePageSeo";
+import { CREW_ROLES, CREW_LANDING_PAGES } from "@shared/crewLandingPages";
 
 const EVENTLINK_PROMOTIONAL_EMAIL = "eventlink@eventlink.one";
 
 export default function Freelancers() {
+  usePageSeo(
+    "Find Freelance Event Crew | EventLink",
+    "Search vetted freelance event crew on EventLink."
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
@@ -151,13 +157,43 @@ export default function Freelancers() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="mb-4 text-4xl font-bold">
-            <span className="text-primary">Find</span> <span className="text-accent">Crew</span>
+            <span className="text-primary">Find Freelance</span>{" "}
+            <span className="text-accent">Event Crew</span>
           </h1>
           <p className="text-lg text-muted-foreground">
             Connect with skilled technical professionals for your events. Browse profiles and hire
             the best crew for your projects.
           </p>
         </div>
+
+        {/* Browse by city & role — links to the SEO landing pages */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="text-lg">Popular searches</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
+              {CREW_ROLES.map((role) => (
+                <div key={role.slug}>
+                  <p className="mb-1 text-sm font-semibold">{role.heading}</p>
+                  <ul className="space-y-1 text-sm text-muted-foreground">
+                    {CREW_LANDING_PAGES.filter((p) => p.role.slug === role.slug).map((p) => (
+                      <li key={p.slug}>
+                        <Link
+                          to={p.path}
+                          className="hover:text-foreground hover:underline"
+                          data-testid={`browse-crew-${p.slug}`}
+                        >
+                          {role.heading} in {p.city.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Search and Filters */}
         <Card className="mb-8">

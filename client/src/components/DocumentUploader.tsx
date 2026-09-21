@@ -442,7 +442,10 @@ export function DocumentUploader({
                     <FileText className="h-4 w-4 text-primary" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <Badge variant="secondary" className="mb-1">
+                    <Badge
+                      variant="secondary"
+                      className="mb-1 max-w-full whitespace-normal break-words rounded-md"
+                    >
                       {doc.document_type === "Other" && doc.custom_type_name
                         ? doc.custom_type_name
                         : DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type}

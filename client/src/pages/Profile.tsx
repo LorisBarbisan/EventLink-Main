@@ -521,6 +521,54 @@ export default function Profile() {
 
   const { toast } = useToast();
 
+  // SEO: give complete public freelancer profiles a per-profile <title>, and add a
+  // noindex robots tag to shell states (non-existent profile, or a "Complete Your
+  // Profile" placeholder). Non-JS crawlers are handled server-side by
+  // ogTagMiddleware; this covers the SPA (real users and JS-rendering bots).
+  useEffect(() => {
+    if (authLoading || loading) return;
+
+    const setRobotsNoindex = (on: boolean) => {
+      let tag = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
+      if (on) {
+        if (!tag) {
+          tag = document.createElement("meta");
+          tag.name = "robots";
+          document.head.appendChild(tag);
+        }
+        tag.setAttribute("content", "noindex");
+      } else if (tag) {
+        tag.remove();
+      }
+    };
+
+    const isFreelancerShell =
+      !!profile && profile.role === "freelancer" && !freelancerProfile && profileDataLoaded;
+    const isRecruiterShell =
+      !!profile &&
+      (profile.role === "recruiter" || (profile.role === "admin" && !freelancerProfile)) &&
+      !recruiterProfile;
+    const isShell = !profile || isFreelancerShell || isRecruiterShell;
+
+    if (isShell) {
+      setRobotsNoindex(true);
+    } else {
+      if (freelancerProfile) {
+        const name =
+          `${freelancerProfile.first_name || ""} ${freelancerProfile.last_name || ""}`.trim();
+        document.title =
+          name && freelancerProfile.title
+            ? `${name} — ${freelancerProfile.title} | EventLink`
+            : name
+              ? `${name} | EventLink`
+              : "Freelancer Profile | EventLink";
+      }
+      setRobotsNoindex(false);
+    }
+
+    return () => setRobotsNoindex(false);
+  }, [authLoading, loading, profile, freelancerProfile, recruiterProfile, profileDataLoaded]);
+
   const getProfileUrl = (includeToken = false) => {
     const base = window.location.origin;
     const slug = freelancerProfile?.custom_slug || freelancerProfile?.slug;
