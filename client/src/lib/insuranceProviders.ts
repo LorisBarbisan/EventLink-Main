@@ -17,8 +17,7 @@ export const INSURANCE_ADVERTS: InsuranceAdvert[] = [
     id: "insure4music-public-liability",
     imageUrl: "/insurance/insure4music-public-liability.png",
     alt: "Ripe insure4music — 55% off Public Liability Insurance and more for EventLink members.",
-    // TODO: partner link to follow — advert is non-clickable until this is set.
-    url: undefined,
+    url: "https://www.insure4music.co.uk/?ref=i4mparteventlink",
   },
   {
     id: "short-term-public-liability",
