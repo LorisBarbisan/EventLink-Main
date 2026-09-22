@@ -785,16 +785,33 @@ function addSheet(
 // Export all admin dashboard data as a multi-sheet XLSX workbook
 export async function exportAdminXLSX(req: Request, res: Response) {
   try {
-    const [analytics, usersResult, jobsResult, feedbackList, contactList, adminUsers, ratingsAll] =
-      await Promise.all([
-        storage.getAdminAnalytics(),
-        storage.getAllUsers(1, 100000),
-        storage.getAdminJobs(1, 100000),
-        storage.getAllFeedback(),
-        storage.getAllContactMessages(),
-        storage.getAdminUsers(),
-        storage.getAllRatings(),
-      ]);
+    const [
+      analytics,
+      usersResult,
+      jobsResult,
+      feedbackList,
+      contactList,
+      adminUsers,
+      ratingsAll,
+      recruiterProfiles,
+    ] = await Promise.all([
+      storage.getAdminAnalytics(),
+      storage.getAllUsers(1, 100000),
+      storage.getAdminJobs(1, 100000),
+      storage.getAllFeedback(),
+      storage.getAllContactMessages(),
+      storage.getAdminUsers(),
+      storage.getAllRatings(),
+      storage.getAllRecruiterProfiles(),
+    ]);
+
+    // Country per user: freelancers already carry profile_country from getAllUsers;
+    // employers' country lives on their recruiter profile, so merge that in too.
+    const recruiterCountryByUserId = new Map<number, string>(
+      (recruiterProfiles || [])
+        .filter((r: any) => r.country)
+        .map((r: any) => [r.user_id, r.country as string])
+    );
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "EventLink Admin";
@@ -828,6 +845,7 @@ export async function exportAdminXLSX(req: Request, res: Response) {
         "Full Name",
         "Email",
         "Role",
+        "Country",
         "Status",
         "Email Verified",
         "Join Date",
@@ -838,6 +856,7 @@ export async function exportAdminXLSX(req: Request, res: Response) {
         `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim(),
         u.email,
         u.role === "recruiter" ? "employer" : (u.role ?? ""),
+        u.profile_country ?? recruiterCountryByUserId.get(u.id) ?? "",
         u.status ?? "",
         u.email_verified ? "Yes" : "No",
         fmtDate(u.created_at),
