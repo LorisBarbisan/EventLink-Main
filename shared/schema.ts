@@ -57,6 +57,14 @@ export const users = pgTable(
     job_alert_frequency_preference: text("job_alert_frequency_preference")
       .default("instant")
       .$type<"instant" | "weekly" | "none">(), // 'instant' = include in batch, 'none' = no automated emails
+    // Stripe / subscription columns. These live in the production database but
+    // were added outside Drizzle, so they were never in this schema — declaring
+    // them here keeps `drizzle-kit push` from proposing to DROP them (which would
+    // lose Stripe/subscription data). Types mirror the live columns exactly.
+    stripe_customer_id: text("stripe_customer_id"),
+    stripe_subscription_id: text("stripe_subscription_id"),
+    subscription_tier: text("subscription_tier").default("free"),
+    subscription_expires_at: timestamp("subscription_expires_at", { withTimezone: true }),
   },
   (table) => ({
     statusCheck: check(
