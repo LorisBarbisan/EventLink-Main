@@ -5,7 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import {
+  ArrowLeft,
   Briefcase,
+  ChevronRight,
   Download,
   ExternalLink,
   FileText,
@@ -14,6 +16,8 @@ import {
   Star,
   User,
 } from "lucide-react";
+import { useState } from "react";
+import { JobDetailPanel } from "./JobDetailPanel";
 
 export interface CrewJob {
   job_id: number;
@@ -70,6 +74,7 @@ function formatDate(value?: string | null): string | null {
 export function CrewMemberModal({ freelancer, jobs, open, onClose, onViewFullProfile }: Props) {
   const { toast } = useToast();
   const userId = freelancer?.user_id;
+  const [viewingJobId, setViewingJobId] = useState<number | null>(null);
 
   const { data: profile, isLoading: profileLoading } = useQuery<any>({
     queryKey: ["/api/freelancer", userId],
@@ -126,188 +131,217 @@ export function CrewMemberModal({ freelancer, jobs, open, onClose, onViewFullPro
   const hasCV = !!profile?.cv_file_url;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) {
+          setViewingJobId(null);
+          onClose();
+        }
+      }}
+    >
       <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="sr-only">{name} — crew preview</DialogTitle>
         </DialogHeader>
 
-        {/* Profile header */}
-        <div className="flex items-start gap-4">
-          {photo ? (
-            <img
-              src={photo}
-              alt={name}
-              className="h-16 w-16 flex-shrink-0 rounded-full bg-white object-cover"
-            />
-          ) : (
-            <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-orange-100">
-              <User className="h-8 w-8 text-orange-600" />
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-bold">{name}</h2>
-            {title && <p className="text-sm text-muted-foreground">{title}</p>}
-            <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              {locationLabel && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {locationLabel}
-                </span>
-              )}
-              {rating > 0 && (
-                <span className="flex items-center gap-1">
-                  <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-                  {Number(rating).toFixed(1)}
-                </span>
-              )}
-              {typeof experienceYears === "number" && experienceYears > 0 && (
-                <span>
-                  {experienceYears} yr{experienceYears === 1 ? "" : "s"} experience
-                </span>
-              )}
-            </div>
+        {viewingJobId !== null ? (
+          <div className="space-y-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setViewingJobId(null)}
+              className="-ml-2 w-fit"
+            >
+              <ArrowLeft className="mr-1.5 h-4 w-4" />
+              Back to {name}
+            </Button>
+            <JobDetailPanel jobId={viewingJobId} />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onViewFullProfile(freelancer.user_id)}
-            className="flex-shrink-0"
-          >
-            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-            Full profile
-          </Button>
-        </div>
+        ) : (
+          <>
+            {/* Profile header */}
+            <div className="flex items-start gap-4">
+              {photo ? (
+                <img
+                  src={photo}
+                  alt={name}
+                  className="h-16 w-16 flex-shrink-0 rounded-full bg-white object-cover"
+                />
+              ) : (
+                <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-orange-100">
+                  <User className="h-8 w-8 text-orange-600" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-bold">{name}</h2>
+                {title && <p className="text-sm text-muted-foreground">{title}</p>}
+                <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  {locationLabel && (
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {locationLabel}
+                    </span>
+                  )}
+                  {rating > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                      {Number(rating).toFixed(1)}
+                    </span>
+                  )}
+                  {typeof experienceYears === "number" && experienceYears > 0 && (
+                    <span>
+                      {experienceYears} yr{experienceYears === 1 ? "" : "s"} experience
+                    </span>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onViewFullProfile(freelancer.user_id)}
+                className="flex-shrink-0"
+              >
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                Full profile
+              </Button>
+            </div>
 
-        {/* Superpower / bio */}
-        {(superpower || bio) && (
-          <div className="mt-4 space-y-2">
-            {superpower && (
-              <p className="text-sm">
-                <span className="font-medium">Superpower:</span> {superpower}
-              </p>
+            {/* Superpower / bio */}
+            {(superpower || bio) && (
+              <div className="mt-4 space-y-2">
+                {superpower && (
+                  <p className="text-sm">
+                    <span className="font-medium">Superpower:</span> {superpower}
+                  </p>
+                )}
+                {bio && <p className="whitespace-pre-wrap text-sm text-muted-foreground">{bio}</p>}
+              </div>
             )}
-            {bio && <p className="whitespace-pre-wrap text-sm text-muted-foreground">{bio}</p>}
-          </div>
-        )}
 
-        {/* Skills */}
-        {skills.length > 0 && (
-          <div className="mt-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Skills
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {skills.map((skill, idx) => (
-                <Badge key={idx} variant="secondary" className="text-xs">
-                  {skill}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* CV & documents */}
-        <div className="mt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            CV &amp; documents
-          </p>
-          {profileLoading || documentsLoading ? (
-            <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-            </div>
-          ) : !hasCV && documents.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No CV or documents uploaded.</p>
-          ) : (
-            <div className="space-y-2">
-              {hasCV && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    authedDownload(`/api/cv/download/${freelancer.user_id}`, profile?.cv_file_type)
-                  }
-                  className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <FileText className="h-4 w-4 flex-shrink-0 text-orange-600" />
-                    <span className="truncate font-medium">
-                      {profile?.cv_file_name || "Curriculum Vitae"}
-                    </span>
-                    <Badge variant="outline" className="flex-shrink-0 text-[10px]">
-                      CV
+            {/* Skills */}
+            {skills.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Skills
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {skills.map((skill, idx) => (
+                    <Badge key={idx} variant="secondary" className="text-xs">
+                      {skill}
                     </Badge>
-                  </span>
-                  <Download className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                </button>
-              )}
-              {documents.map((doc) => {
-                const typeLabel =
-                  doc.document_type === "other" && doc.custom_type_name
-                    ? doc.custom_type_name
-                    : DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type;
-                return (
-                  <button
-                    key={doc.id}
-                    type="button"
-                    onClick={() =>
-                      authedDownload(`/api/documents/${doc.id}/download`, doc.file_type)
-                    }
-                    className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <FileText className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                      <span className="truncate font-medium">{doc.original_filename}</span>
-                      <Badge variant="outline" className="flex-shrink-0 text-[10px]">
-                        {typeLabel}
-                      </Badge>
-                    </span>
-                    <Download className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {/* Jobs done for this employer */}
-        <div className="mt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Jobs done for you {jobs.length > 0 && `(${jobs.length})`}
-          </p>
-          {jobs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No completed jobs with this freelancer yet.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {jobs.map((job) => {
-                const date = formatDate(job.applied_at);
-                return (
-                  <a
-                    key={job.job_id}
-                    href={`/jobs/${job.job_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <Briefcase className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                      <span className="min-w-0">
-                        <span className="block truncate font-medium">{job.job_title || "Job"}</span>
-                        {(job.job_company || date) && (
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {[job.job_company, date].filter(Boolean).join(" · ")}
-                          </span>
-                        )}
+            {/* CV & documents */}
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                CV &amp; documents
+              </p>
+              {profileLoading || documentsLoading ? (
+                <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                </div>
+              ) : !hasCV && documents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No CV or documents uploaded.</p>
+              ) : (
+                <div className="space-y-2">
+                  {hasCV && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        authedDownload(
+                          `/api/cv/download/${freelancer.user_id}`,
+                          profile?.cv_file_type
+                        )
+                      }
+                      className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <FileText className="h-4 w-4 flex-shrink-0 text-orange-600" />
+                        <span className="truncate font-medium">
+                          {profile?.cv_file_name || "Curriculum Vitae"}
+                        </span>
+                        <Badge variant="outline" className="flex-shrink-0 text-[10px]">
+                          CV
+                        </Badge>
                       </span>
-                    </span>
-                    <ExternalLink className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                  </a>
-                );
-              })}
+                      <Download className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                    </button>
+                  )}
+                  {documents.map((doc) => {
+                    const typeLabel =
+                      doc.document_type === "other" && doc.custom_type_name
+                        ? doc.custom_type_name
+                        : DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type;
+                    return (
+                      <button
+                        key={doc.id}
+                        type="button"
+                        onClick={() =>
+                          authedDownload(`/api/documents/${doc.id}/download`, doc.file_type)
+                        }
+                        className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <FileText className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                          <span className="truncate font-medium">{doc.original_filename}</span>
+                          <Badge variant="outline" className="flex-shrink-0 text-[10px]">
+                            {typeLabel}
+                          </Badge>
+                        </span>
+                        <Download className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+
+            {/* Jobs done for this employer */}
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Jobs done for you {jobs.length > 0 && `(${jobs.length})`}
+              </p>
+              {jobs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No completed jobs with this freelancer yet.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {jobs.map((job) => {
+                    const date = formatDate(job.applied_at);
+                    return (
+                      <button
+                        key={job.job_id}
+                        type="button"
+                        onClick={() => setViewingJobId(job.job_id)}
+                        className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <Briefcase className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">
+                              {job.job_title || "Job"}
+                            </span>
+                            {(job.job_company || date) && (
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {[job.job_company, date].filter(Boolean).join(" · ")}
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
