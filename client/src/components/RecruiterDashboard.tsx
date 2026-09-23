@@ -44,6 +44,7 @@ import {
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
+import { CrewMemberModal, type CrewMember } from "./CrewMemberModal";
 import { InviteFreelancerModal } from "./InviteFreelancerModal";
 import { InvitedFreelancersDialog } from "./InvitedFreelancersDialog";
 import { JobCard } from "./JobCard";
@@ -93,6 +94,7 @@ export default function SimplifiedRecruiterDashboard() {
     id: number;
     title: string;
   } | null>(null);
+  const [selectedCrewMember, setSelectedCrewMember] = useState<CrewMember | null>(null);
 
   const [crewTab, setCrewTab] = useState<"all" | "saved" | "worked">("all");
   const [crewSearch, setCrewSearch] = useState("");
@@ -899,7 +901,7 @@ export default function SimplifiedRecruiterDashboard() {
                     <Card
                       key={freelancer.user_id}
                       className="cursor-pointer transition-shadow hover:shadow-md"
-                      onClick={() => setLocation(`/profile/${freelancer.user_id}`)}
+                      onClick={() => setSelectedCrewMember(freelancer as CrewMember)}
                     >
                       <CardContent className="p-4">
                         <div className="mb-3 flex items-start justify-between">
@@ -1528,6 +1530,38 @@ export default function SimplifiedRecruiterDashboard() {
           invitedApplications={getInvitedApplicationsForJob(viewInvitedJob.id)}
         />
       )}
+
+      {/* Crew member preview */}
+      <CrewMemberModal
+        freelancer={selectedCrewMember}
+        open={!!selectedCrewMember}
+        onClose={() => setSelectedCrewMember(null)}
+        onViewFullProfile={(id) => {
+          setSelectedCrewMember(null);
+          setLocation(`/profile/${id}`);
+        }}
+        jobs={
+          selectedCrewMember
+            ? applications
+                .filter(
+                  (app: JobApplication) =>
+                    app.freelancer_id === selectedCrewMember.user_id && app.status === "hired"
+                )
+                .map((app: JobApplication) => ({
+                  job_id: app.job_id,
+                  job_title: app.job_title,
+                  job_company: app.job_company,
+                  status: app.status,
+                  applied_at:
+                    typeof app.applied_at === "string"
+                      ? app.applied_at
+                      : app.applied_at
+                        ? new Date(app.applied_at).toISOString()
+                        : null,
+                }))
+            : []
+        }
+      />
     </div>
   );
 }
