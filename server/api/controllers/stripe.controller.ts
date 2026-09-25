@@ -15,12 +15,7 @@ export async function createCheckoutSession(req: Request, res: Response) {
     const user = (req as any).user;
     if (!user) return res.status(401).json({ error: "Unauthorised" });
 
-    const { period } = req.body as { period: "monthly" | "annual" };
-    const priceId =
-      period === "annual"
-        ? process.env.STRIPE_PRICE_ID_ANNUAL
-        : process.env.STRIPE_PRICE_ID_MONTHLY;
-
+    const priceId = process.env.STRIPE_PRICE_ID_ANNUAL;
     if (!priceId) return res.status(500).json({ error: "Stripe price not configured" });
 
     const stripe = getStripe();

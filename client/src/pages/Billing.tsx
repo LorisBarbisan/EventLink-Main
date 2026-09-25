@@ -7,6 +7,7 @@ import { Check, Loader2, X, Zap } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
+
 const FREE_FEATURES = [
   { label: "Create your profile", included: true },
   { label: "Browse & apply for jobs", included: true },
@@ -35,16 +36,10 @@ const PRO_FEATURES = [
   { label: "Profile analytics", included: true },
 ];
 
-const MONTHLY_PRICE = 4.99;
 const ANNUAL_PRICE = 49.99;
 const ANNUAL_MONTHLY_EQUIV = (ANNUAL_PRICE / 12).toFixed(2);
-const ANNUAL_SAVING = (MONTHLY_PRICE * 12 - ANNUAL_PRICE).toFixed(2);
-const ANNUAL_SAVING_PCT = Math.round(
-  ((MONTHLY_PRICE * 12 - ANNUAL_PRICE) / (MONTHLY_PRICE * 12)) * 100
-);
 
 export default function Billing() {
-  const [annual, setAnnual] = useState(false);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const isPro = useIsPro();
@@ -78,7 +73,7 @@ export default function Billing() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
-        body: JSON.stringify({ period: annual ? "annual" : "monthly" }),
+        body: JSON.stringify({ period: "annual" }),
       });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
@@ -98,32 +93,6 @@ export default function Billing() {
             Card, and tools that help you stand out.
           </p>
 
-          {/* Billing toggle */}
-          <div className="mt-8 inline-flex items-center gap-3 rounded-full border bg-muted/40 p-1.5">
-            <button
-              onClick={() => setAnnual(false)}
-              className={`rounded-full px-5 py-1.5 text-sm font-medium transition-all ${
-                !annual
-                  ? "bg-white text-foreground shadow dark:bg-background"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setAnnual(true)}
-              className={`flex items-center gap-2 rounded-full px-5 py-1.5 text-sm font-medium transition-all ${
-                annual
-                  ? "bg-white text-foreground shadow dark:bg-background"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Annual
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/40 dark:text-green-400">
-                Save {ANNUAL_SAVING_PCT}%
-              </span>
-            </button>
-          </div>
         </div>
 
         {/* Cards */}
@@ -182,33 +151,15 @@ export default function Billing() {
                 Pro
               </p>
               <div className="flex items-end gap-1">
-                {annual ? (
-                  <>
-                    <span className="text-4xl font-bold">£{ANNUAL_MONTHLY_EQUIV}</span>
-                    <span className="mb-1 text-muted-foreground">/ mo</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-4xl font-bold">£{MONTHLY_PRICE.toFixed(2)}</span>
-                    <span className="mb-1 text-muted-foreground">/ mo</span>
-                  </>
-                )}
+                <span className="text-4xl font-bold">£{ANNUAL_MONTHLY_EQUIV}</span>
+                <span className="mb-1 text-muted-foreground">/ mo</span>
               </div>
 
-              {annual ? (
-                <div className="mt-2 space-y-0.5">
-                  <p className="text-sm text-muted-foreground">
-                    Billed as <strong className="text-foreground">£{ANNUAL_PRICE} / year</strong>
-                  </p>
-                  <p className="text-sm font-medium text-green-600 dark:text-green-400">
-                    You save £{ANNUAL_SAVING} — that&apos;s 2 months free
-                  </p>
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Billed monthly. Switch to annual and save £{ANNUAL_SAVING}/yr.
+              <div className="mt-2 space-y-0.5">
+                <p className="text-sm text-muted-foreground">
+                  Billed as <strong className="text-foreground">£{ANNUAL_PRICE} / year</strong>
                 </p>
-              )}
+              </div>
             </div>
 
             <Button
@@ -237,8 +188,8 @@ export default function Billing() {
 
         {/* Footer note */}
         <p className="mt-10 text-center text-xs text-muted-foreground">
-          All prices are in GBP and include VAT where applicable. You can cancel your subscription
-          at any time. Payments are processed securely by{" "}
+          All prices are in GBP and include VAT where applicable. Billed annually. You can cancel
+          your subscription at any time. Payments are processed securely by{" "}
           <span className="font-medium text-foreground">Stripe</span>.
         </p>
       </div>

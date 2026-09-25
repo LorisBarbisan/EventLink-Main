@@ -7,6 +7,7 @@ import {
   getFreelancerBookings,
   getJobApplications,
   getRecruiterApplications,
+  getRecruiterHiddenApplications,
   inviteFreelancer,
   rejectApplication,
   respondToInvitation,
@@ -42,15 +43,43 @@ export function registerApplicationRoutes(app: Express) {
     getRecruiterApplications
   );
 
+  // Get recruiter's hidden applications (live jobs only)
+  app.get(
+    "/api/recruiter/:recruiterId/applications/hidden",
+    authenticateJWT,
+    resolveCompanyId,
+    getRecruiterHiddenApplications
+  );
+
   // Accept application
-  app.put("/api/applications/:applicationId/accept", authenticateJWT, resolveCompanyId, acceptApplication);
+  app.put(
+    "/api/applications/:applicationId/accept",
+    authenticateJWT,
+    resolveCompanyId,
+    acceptApplication
+  );
 
   // Reject application
-  app.put("/api/applications/:applicationId/reject", authenticateJWT, resolveCompanyId, rejectApplication);
+  app.put(
+    "/api/applications/:applicationId/reject",
+    authenticateJWT,
+    resolveCompanyId,
+    rejectApplication
+  );
 
   // Withdraw an invitation (employer only)
-  app.delete("/api/applications/:applicationId/invite", authenticateJWT, resolveCompanyId, withdrawInvitation);
+  app.delete(
+    "/api/applications/:applicationId/invite",
+    authenticateJWT,
+    resolveCompanyId,
+    withdrawInvitation
+  );
 
   // Delete application (soft delete with role-based permissions)
-  app.delete("/api/applications/:applicationId", authenticateJWT, resolveCompanyId, deleteApplication);
+  app.delete(
+    "/api/applications/:applicationId",
+    authenticateJWT,
+    resolveCompanyId,
+    deleteApplication
+  );
 }

@@ -38,6 +38,7 @@ import { registerQRRoutes } from "./api/routes/qr.route.js";
 import { registerSlugRoutes } from "./api/routes/slug.route.js";
 import { registerStripeRoutes } from "./api/routes/stripe.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
+import { JWT_SECRET, SESSION_SECRET } from "./api/config/env.js";
 import { wsService } from "./api/websocket/websocketService";
 
 export async function registerRoutes(
@@ -168,11 +169,7 @@ export async function registerRoutes(
   app.use(
     session({
       ...sessionStoreConfig,
-      secret: (() => {
-        const secret = process.env.SESSION_SECRET;
-        if (!secret) throw new Error("SESSION_SECRET is required");
-        return secret;
-      })(),
+      secret: SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
       name: "eventlink.sid", // Custom session name for security
@@ -551,11 +548,6 @@ export async function registerRoutes(
           authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
 
         if (token) {
-          const JWT_SECRET = (() => {
-            const secret = process.env.JWT_SECRET;
-            if (!secret) throw new Error("JWT_SECRET is required");
-            return secret;
-          })();
           const decoded = jwt.verify(token, JWT_SECRET);
           if (decoded && typeof decoded === "object") {
             const user = await storage.getUser((decoded as any).id);

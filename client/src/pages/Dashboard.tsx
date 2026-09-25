@@ -61,6 +61,12 @@ export default function Dashboard() {
       return;
     }
 
+    // Admins land directly on the admin dashboard rather than the recruiter view
+    if (user.role === "admin") {
+      setLocation("/admin");
+      return;
+    }
+
     // User exists, fetch profile
     fetchProfile();
   }, [user, authLoading, setLocation, fetchProfile]);
@@ -97,10 +103,16 @@ export default function Dashboard() {
     );
   }
 
+  // Admins are redirected to /admin in the effect above — render nothing here
+  // to avoid briefly flashing the recruiter dashboard.
+  if (profile.role === "admin") {
+    return null;
+  }
+
   // Determine which dashboard to show based on role
   // Default to freelancer if role is undefined/null to prevent wrong dashboard
   const showFreelancerDashboard = profile.role === "freelancer";
-  const showRecruiterDashboard = profile.role === "recruiter" || profile.role === "admin";
+  const showRecruiterDashboard = profile.role === "recruiter";
 
   if (!showFreelancerDashboard && !showRecruiterDashboard) {
     console.error("⚠️ Unknown user role:", profile.role, "- Defaulting to FreelancerDashboard");

@@ -1,9 +1,10 @@
-import { conversations, insertMessageSchema, bookings, bookingStatusHistory } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { conversations, insertMessageSchema } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { storage } from "../../storage.js";
 import { db } from "../config/db.js";
 import { emailService } from "../utils/emailNotificationService.js";
+import { syncBookingForApplication } from "../services/booking-lifecycle.service.js";
 
 // Get all conversations for the current user
 export async function getConversations(req: Request, res: Response) {
@@ -34,7 +35,7 @@ export async function getConversationMessages(req: Request, res: Response) {
 
     // First verify that the user is a participant in this conversation
     const userConversations = await storage.getConversationsByUserId((req as any).user.id);
-    const isParticipant = userConversations.some(conv => conv.id === conversationId);
+    const isParticipant = userConversations.some((conv) => conv.id === conversationId);
 
     if (!isParticipant) {
       return res.status(403).json({ error: "You are not a participant in this conversation" });
@@ -86,7 +87,7 @@ export async function markConversationMessagesAsRead(req: Request, res: Response
 
     // Ensure user participates in this conversation
     const userConversations = await storage.getConversationsByUserId((req as any).user.id);
-    const isParticipant = userConversations.some(conv => conv.id === conversationId);
+    const isParticipant = userConversations.some((conv) => conv.id === conversationId);
     if (!isParticipant)
       return res.status(403).json({ error: "You are not a participant in this conversation" });
 
@@ -96,17 +97,17 @@ export async function markConversationMessagesAsRead(req: Request, res: Response
     // Mark related message notifications as read for this conversation
     try {
       const notifications = await storage.getUserNotifications((req as any).user.id);
-      const messageNotifications = notifications.filter(n => {
+      const messageNotifications = notifications.filter((n) => {
         if (n.type !== "new_message") return false;
         try {
           const meta = n.metadata ? JSON.parse(n.metadata) : {};
           return Number(meta.conversation_id) === conversationId;
-        } catch (err) {
+        } catch {
           return false;
         }
       });
 
-      await Promise.all(messageNotifications.map(n => storage.markNotificationAsRead(n.id)));
+      await Promise.all(messageNotifications.map((n) => storage.markNotificationAsRead(n.id)));
     } catch (notifErr) {
       console.error("Failed to mark related message notifications as read:", notifErr);
     }
@@ -272,7 +273,7 @@ export async function startConversation(req: Request, res: Response) {
             messagePreview: initialMessage.substring(0, 100),
             conversationId: conversation.id,
           })
-          .catch(error => {
+          .catch((error) => {
             console.error("Failed to send message notification email:", error);
             // Don't fail the request if email fails
           });
@@ -282,44 +283,16 @@ export async function startConversation(req: Request, res: Response) {
       }
     }
 
-    // Step 9 — Auto-create booking when recruiter/employer contacts a freelancer about a job
+    // Step 9 — Keep the employer booking pipeline in sync when a recruiter
+    // contacts a freelancer about a job (conversation started -> Enquired).
     if (jobId && (req as any).user.role === "recruiter" && recipient.role === "freelancer") {
-      try {
-        const [existingBooking] = await db
-          .select()
-          .from(bookings)
-          .where(
-            and(
-              eq(bookings.jobId, jobId),
-              eq(bookings.freelancerId, userTwoId)
-            )
-          );
-
-        if (!existingBooking) {
-          const [newBooking] = await db
-            .insert(bookings)
-            .values({
-              jobId,
-              employerId: (req as any).user.id,
-              freelancerId: userTwoId,
-              status: "enquired",
-            })
-            .returning();
-
-          await db.insert(bookingStatusHistory).values({
-            bookingId: newBooking.id,
-            fromStatus: null,
-            toStatus: "enquired",
-            changedById: (req as any).user.id,
-            note: "Booking created automatically on first message",
-          });
-
-          console.log(`📋 Auto-created booking #${newBooking.id} for job ${jobId} with freelancer ${userTwoId}`);
-        }
-      } catch (bookingError) {
-        console.error("Auto-booking creation failed (non-fatal):", bookingError);
-        // Non-fatal — don't fail the conversation creation
-      }
+      await syncBookingForApplication({
+        jobId,
+        freelancerId: userTwoId,
+        targetStatus: "enquired",
+        changedById: (req as any).user.id,
+        note: "Conversation started",
+      });
     }
 
     res.status(201).json({ id: conversation.id, message: newMessage });
@@ -558,7 +531,7 @@ export async function sendMessage(req: Request, res: Response) {
               messagePreview: content ? content.substring(0, 100) : "[Attachment]",
               conversationId: conversation_id,
             })
-            .catch(error => {
+            .catch((error) => {
               console.error("Failed to send message notification email:", error);
               // Don't fail the request if email fails
             });
@@ -611,7 +584,7 @@ export async function deleteMessage(req: Request, res: Response) {
     let hasAccess = false;
     for (const conversation of conversations) {
       const messages = await storage.getConversationMessages(conversation.id);
-      const targetMessage = messages.find(m => m.id === messageId);
+      const targetMessage = messages.find((m) => m.id === messageId);
       if (targetMessage) {
         hasAccess = true;
         break;
@@ -652,7 +625,7 @@ export async function deleteConversation(req: Request, res: Response) {
 
     // Verify that the user is a participant in this conversation
     const userConversations = await storage.getConversationsByUserId((req as any).user.id);
-    const conversation = userConversations.find(conv => conv.id === conversationId);
+    const conversation = userConversations.find((conv) => conv.id === conversationId);
 
     if (!conversation) {
       return res.status(404).json({ error: "Conversation not found or access denied" });

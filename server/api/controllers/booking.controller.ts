@@ -10,10 +10,16 @@ import {
   bookingStatusHistory,
   jobs,
   users,
+  freelancer_profiles,
+  recruiter_profiles,
   type BookingStatus,
   bookingStatusValues,
 } from "../../../shared/schema";
 import { eq, and, desc, or } from "drizzle-orm";
+
+// The platform stores no phone numbers; the client renders phone conditionally,
+// so booking endpoints return null to keep the response shape stable.
+const NO_PHONE: string | null = null;
 
 // ── Valid status transitions ───────────────────────────────
 const VALID_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
@@ -42,14 +48,14 @@ export async function createBooking(req: Request, res: Response) {
     const [job] = await db
       .select()
       .from(jobs)
-      .where(and(eq(jobs.id, jobId), eq(jobs.employerId, employerId)));
+      .where(and(eq(jobs.id, jobId), eq(jobs.recruiter_id, employerId)));
 
     if (!job) {
       return res.status(403).json({ error: "Job not found or not owned by you" });
     }
 
     const [freelancer] = await db
-      .select({ id: users.id, role: users.role, firstName: users.firstName })
+      .select({ id: users.id })
       .from(users)
       .where(and(eq(users.id, freelancerId), eq(users.role, "freelancer")));
 
@@ -104,30 +110,44 @@ export async function getEmployerBookings(req: Request, res: Response) {
   try {
     const employerId = req.companyId ?? req.user!.id;
 
-    const results = await db
+    const rows = await db
       .select({
         booking: bookings,
         job: {
           id: jobs.id,
           title: jobs.title,
           location: jobs.location,
-          eventDate: jobs.eventDate,
-          payRate: jobs.payRate,
+          eventDate: jobs.event_date,
+          payRate: jobs.rate,
         },
         freelancer: {
           id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          firstName: users.first_name,
+          lastName: users.last_name,
           email: users.email,
-          phone: users.phone,
-          profilePicture: users.profilePicture,
+          accountPhotoUrl: users.profile_photo_url,
+          profilePhotoUrl: freelancer_profiles.profile_photo_url,
         },
       })
       .from(bookings)
       .innerJoin(jobs, eq(bookings.jobId, jobs.id))
       .innerJoin(users, eq(bookings.freelancerId, users.id))
+      .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
       .where(eq(bookings.employerId, employerId))
       .orderBy(desc(bookings.updatedAt));
+
+    const results = rows.map(({ booking, job, freelancer }) => ({
+      booking,
+      job,
+      freelancer: {
+        id: freelancer.id,
+        firstName: freelancer.firstName,
+        lastName: freelancer.lastName,
+        email: freelancer.email,
+        phone: NO_PHONE,
+        profilePicture: freelancer.profilePhotoUrl ?? freelancer.accountPhotoUrl,
+      },
+    }));
 
     return res.json(results);
   } catch (error) {
@@ -141,29 +161,43 @@ export async function getFreelancerBookings(req: Request, res: Response) {
   try {
     const freelancerId = req.user!.id;
 
-    const results = await db
+    const rows = await db
       .select({
         booking: bookings,
         job: {
           id: jobs.id,
           title: jobs.title,
           location: jobs.location,
-          eventDate: jobs.eventDate,
-          payRate: jobs.payRate,
+          eventDate: jobs.event_date,
+          payRate: jobs.rate,
         },
         employer: {
           id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          companyName: users.companyName,
-          profilePicture: users.profilePicture,
+          firstName: users.first_name,
+          lastName: users.last_name,
+          companyName: recruiter_profiles.company_name,
+          accountPhotoUrl: users.profile_photo_url,
+          companyLogoUrl: recruiter_profiles.company_logo_url,
         },
       })
       .from(bookings)
       .innerJoin(jobs, eq(bookings.jobId, jobs.id))
       .innerJoin(users, eq(bookings.employerId, users.id))
+      .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
       .where(eq(bookings.freelancerId, freelancerId))
       .orderBy(desc(bookings.updatedAt));
+
+    const results = rows.map(({ booking, job, employer }) => ({
+      booking,
+      job,
+      employer: {
+        id: employer.id,
+        firstName: employer.firstName,
+        lastName: employer.lastName,
+        companyName: employer.companyName,
+        profilePicture: employer.companyLogoUrl ?? employer.accountPhotoUrl,
+      },
+    }));
 
     return res.json(results);
   } catch (error) {
@@ -182,23 +216,22 @@ export async function getBookingById(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid booking ID" });
     }
 
-    const [result] = await db
+    const [row] = await db
       .select({
         booking: bookings,
         job: {
           id: jobs.id,
           title: jobs.title,
           location: jobs.location,
-          eventDate: jobs.eventDate,
-          payRate: jobs.payRate,
+          eventDate: jobs.event_date,
+          payRate: jobs.rate,
           description: jobs.description,
         },
         freelancer: {
           id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          firstName: users.first_name,
+          lastName: users.last_name,
           email: users.email,
-          phone: users.phone,
         },
       })
       .from(bookings)
@@ -211,9 +244,14 @@ export async function getBookingById(req: Request, res: Response) {
         )
       );
 
-    if (!result) {
+    if (!row) {
       return res.status(404).json({ error: "Booking not found or access denied" });
     }
+
+    const result = {
+      ...row,
+      freelancer: { ...row.freelancer, phone: NO_PHONE },
+    };
 
     const history = await db
       .select()
@@ -358,29 +396,43 @@ export async function getBookingsByJob(req: Request, res: Response) {
     const [job] = await db
       .select()
       .from(jobs)
-      .where(and(eq(jobs.id, jobId), eq(jobs.employerId, employerId)));
+      .where(and(eq(jobs.id, jobId), eq(jobs.recruiter_id, employerId)));
 
     if (!job) {
       return res.status(403).json({ error: "Job not found or not owned by you" });
     }
 
-    const results = await db
+    const rows = await db
       .select({
         booking: bookings,
         freelancer: {
           id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
+          firstName: users.first_name,
+          lastName: users.last_name,
           email: users.email,
-          phone: users.phone,
-          profilePicture: users.profilePicture,
-          primaryRole: users.primaryRole,
+          accountPhotoUrl: users.profile_photo_url,
+          profilePhotoUrl: freelancer_profiles.profile_photo_url,
+          primaryRole: freelancer_profiles.title,
         },
       })
       .from(bookings)
       .innerJoin(users, eq(bookings.freelancerId, users.id))
+      .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
       .where(eq(bookings.jobId, jobId))
       .orderBy(desc(bookings.createdAt));
+
+    const results = rows.map(({ booking, freelancer }) => ({
+      booking,
+      freelancer: {
+        id: freelancer.id,
+        firstName: freelancer.firstName,
+        lastName: freelancer.lastName,
+        email: freelancer.email,
+        phone: NO_PHONE,
+        profilePicture: freelancer.profilePhotoUrl ?? freelancer.accountPhotoUrl,
+        primaryRole: freelancer.primaryRole,
+      },
+    }));
 
     return res.json(results);
   } catch (error) {

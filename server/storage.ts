@@ -222,12 +222,14 @@ export interface IStorage {
     status?: string,
     type?: string,
     sortBy?: string,
-    sortOrder?: "asc" | "desc"
+    sortOrder?: "asc" | "desc",
+    country?: string
   ): Promise<{
     jobs: (Job & {
       application_count: number;
       hired_count: number;
       closure_email_count: number;
+      notified_email_count: number;
       recruiter_email?: string;
       recruiter_name?: string;
     })[];
@@ -254,6 +256,8 @@ export interface IStorage {
 
   // Get all freelancer profiles for listings
   getAllFreelancerProfiles(): Promise<FreelancerProfile[]>;
+  getSitemapFreelancerProfiles(): Promise<Array<{ user_id: number; updated_at: Date }>>;
+  getFreelancerReferenceCount(userId: number): Promise<number>;
   getAllRecruiterProfiles(): Promise<RecruiterProfile[]>;
   searchFreelancers(filters: {
     keyword?: string;
@@ -286,6 +290,7 @@ export interface IStorage {
   // Soft delete methods for applications
   softDeleteApplication(applicationId: number, userRole: "freelancer" | "recruiter"): Promise<void>;
   getRecruiterApplications(recruiterId: number): Promise<JobApplication[]>;
+  getRecruiterHiddenApplications(recruiterId: number): Promise<JobApplication[]>;
 
   // Messaging management
   getOrCreateConversation(userOneId: number, userTwoId: number): Promise<Conversation>;
@@ -402,7 +407,8 @@ export interface IStorage {
     status?: string,
     sortBy?: string,
     sortOrder?: "asc" | "desc",
-    profileStatus?: string
+    profileStatus?: string,
+    country?: string
   ): Promise<{ users: (User & { profile_status?: string })[]; total: number }>;
   updateUserStatus(userId: number, status: string): Promise<User>;
 
@@ -1106,6 +1112,17 @@ export class DatabaseStorage implements IStorage {
         })
       : null;
 
+    // Resolve country from city if not provided
+    let resolvedCountry = profile.country;
+    if (!resolvedCountry && profile.location) {
+      try {
+        const { geocodeCity } = await import("./api/utils/backfill-slugs.js");
+        resolvedCountry = (await geocodeCity(profile.location)) ?? undefined;
+      } catch {
+        // non-fatal — country stays empty
+      }
+    }
+
     const profileData = {
       user_id: profile.user_id,
       first_name: profile.first_name,
@@ -1114,7 +1131,8 @@ export class DatabaseStorage implements IStorage {
       superpower: profile.superpower,
       bio: profile.bio,
       location: profile.location,
-      country: profile.country,
+      country: resolvedCountry,
+      state_province: profile.state_province,
       experience_years: profile.experience_years,
       skills: profile.skills,
       portfolio_url: profile.portfolio_url,
@@ -1146,6 +1164,7 @@ export class DatabaseStorage implements IStorage {
     if (profile.bio !== undefined) updateData.bio = profile.bio;
     if (profile.location !== undefined) updateData.location = profile.location;
     if (profile.country !== undefined) updateData.country = profile.country;
+    if (profile.state_province !== undefined) updateData.state_province = profile.state_province;
     if (profile.experience_years !== undefined)
       updateData.experience_years = profile.experience_years;
     if (profile.skills !== undefined) updateData.skills = profile.skills;
@@ -1164,6 +1183,9 @@ export class DatabaseStorage implements IStorage {
       );
       updateData.profile_photo_url = profile.profile_photo_url;
     }
+
+    if ((profile as any).profile_is_public !== undefined)
+      updateData.profile_is_public = (profile as any).profile_is_public;
 
     // CV fields
     if (profile.cv_file_url !== undefined) updateData.cv_file_url = profile.cv_file_url;
@@ -1366,6 +1388,7 @@ export class DatabaseStorage implements IStorage {
     if (profile.company_type !== undefined) updateData.company_type = profile.company_type;
     if (profile.location !== undefined) updateData.location = profile.location;
     if (profile.country !== undefined) updateData.country = profile.country;
+    if (profile.state_province !== undefined) updateData.state_province = profile.state_province;
     if (profile.description !== undefined) updateData.description = profile.description;
     if (profile.website_url !== undefined) updateData.website_url = profile.website_url;
     if (profile.linkedin_url !== undefined) updateData.linkedin_url = profile.linkedin_url;
@@ -1430,6 +1453,58 @@ export class DatabaseStorage implements IStorage {
     return safeResult;
   }
 
+  // Freelancer profiles eligible for the sitemap: real, public, non-demo records
+  // that have actual content (a bio, at least one skill, or at least one
+  // non-flagged reference). Bare "Complete Your Profile" shells are excluded.
+  async getSitemapFreelancerProfiles(): Promise<Array<{ user_id: number; updated_at: Date }>> {
+    const refCountsSq = db
+      .select({
+        freelancer_id: freelancer_references.freelancer_id,
+        ref_count: sql<number>`COUNT(*)::int`.as("ref_count"),
+      })
+      .from(freelancer_references)
+      .where(eq(freelancer_references.is_flagged, false))
+      .groupBy(freelancer_references.freelancer_id)
+      .as("ref_counts");
+
+    return db
+      .select({
+        user_id: freelancer_profiles.user_id,
+        updated_at: freelancer_profiles.updated_at,
+      })
+      .from(freelancer_profiles)
+      .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
+      .leftJoin(refCountsSq, eq(freelancer_profiles.user_id, refCountsSq.freelancer_id))
+      .where(
+        and(
+          isNull(users.deleted_at),
+          sql`${users.email} NOT LIKE 'deleted_%'`,
+          eq(freelancer_profiles.is_demo, false),
+          eq(freelancer_profiles.profile_is_public, true),
+          sql`(
+            (${freelancer_profiles.bio} IS NOT NULL AND btrim(${freelancer_profiles.bio}) <> '')
+            OR (${freelancer_profiles.skills} IS NOT NULL AND array_length(${freelancer_profiles.skills}, 1) > 0)
+            OR COALESCE(${refCountsSq.ref_count}, 0) > 0
+          )`
+        )
+      );
+  }
+
+  // Count of non-flagged references for a freelancer — used to decide whether a
+  // profile page is substantive enough to be indexed by crawlers.
+  async getFreelancerReferenceCount(userId: number): Promise<number> {
+    const rows = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(freelancer_references)
+      .where(
+        and(
+          eq(freelancer_references.freelancer_id, userId),
+          eq(freelancer_references.is_flagged, false)
+        )
+      );
+    return rows[0]?.count ?? 0;
+  }
+
   async getAllRecruiterProfiles(): Promise<RecruiterProfile[]> {
     // Join with users table to filter out deleted users
     const result = await db
@@ -1483,6 +1558,9 @@ export class DatabaseStorage implements IStorage {
 
       // Only show profiles from non-deleted users
       conditions.push(isNull(users.deleted_at));
+
+      // Never surface internal seed/demo/test records in public search results
+      conditions.push(eq(freelancer_profiles.is_demo, false));
 
       if (keyword?.trim()) {
         conditions.push(freelancerKeywordCondition(keyword));
@@ -1703,12 +1781,14 @@ export class DatabaseStorage implements IStorage {
     status?: string,
     type?: string,
     sortBy?: string,
-    sortOrder?: "asc" | "desc"
+    sortOrder?: "asc" | "desc",
+    country?: string
   ): Promise<{
     jobs: (Job & {
       application_count: number;
       hired_count: number;
       closure_email_count: number;
+      notified_email_count: number;
       recruiter_email?: string;
       recruiter_name?: string;
     })[];
@@ -1742,6 +1822,10 @@ export class DatabaseStorage implements IStorage {
       } else if (type === "internal") {
         conditions.push(isNull(jobs.external_source));
       }
+    }
+
+    if (country && country !== "all") {
+      conditions.push(ilike(jobs.country, country.trim()));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -1815,6 +1899,32 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Count how many distinct users were notified by email about each job
+    // (job-alert / "Notify freelancers" emails logged against the job).
+    const notifiedCounts: Map<number, number> = new Map();
+    if (jobIds.length > 0) {
+      const notifyStats = await db
+        .select({
+          job_id: email_notification_logs.related_entity_id,
+          notified: sql<number>`count(distinct ${email_notification_logs.user_id})`,
+        })
+        .from(email_notification_logs)
+        .where(
+          and(
+            eq(email_notification_logs.related_entity_type, "job"),
+            inArray(email_notification_logs.related_entity_id, jobIds),
+            eq(email_notification_logs.status, "sent")
+          )
+        )
+        .groupBy(email_notification_logs.related_entity_id);
+
+      for (const row of notifyStats) {
+        if (row.job_id !== null) {
+          notifiedCounts.set(row.job_id, Number(row.notified));
+        }
+      }
+    }
+
     const recruiterIds = jobRows
       .map((j) => j.recruiter_id)
       .filter((id): id is number => id !== null);
@@ -1848,6 +1958,7 @@ export class DatabaseStorage implements IStorage {
         application_count: counts.total,
         hired_count: counts.hired,
         closure_email_count: counts.closureEmailCount,
+        notified_email_count: notifiedCounts.get(job.id) ?? 0,
         recruiter_email: recruiter?.email,
         recruiter_name: recruiter?.name,
       };
@@ -2242,20 +2353,27 @@ export class DatabaseStorage implements IStorage {
         .where(and(...conditions));
 
       // Sort with EventLink jobs first (external_source IS NULL), then external jobs
-      // Within each group, sort by created_at or posted_date DESC (most recent first)
+      // Within each group, sort by posted_date/created_at DESC (most recent first).
+      // The comparator must never return NaN: an inconsistent comparator makes
+      // Array.sort unstable and can break the EventLink-first grouping.
+      const effectiveDate = (job: Job): number => {
+        if (job.posted_date) {
+          // External feeds send UK-style DD/MM/YYYY, which Date.parse reads as MM/DD
+          const ukDate = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(job.posted_date);
+          const parsed = ukDate
+            ? Date.parse(`${ukDate[3]}-${ukDate[2]}-${ukDate[1]}`)
+            : Date.parse(job.posted_date);
+          if (!Number.isNaN(parsed)) return parsed;
+        }
+        const created = new Date(job.created_at).getTime();
+        return Number.isNaN(created) ? 0 : created;
+      };
+
       const sortedResults = results.sort((a, b) => {
-        // First priority: EventLink jobs (no external_source) come first
         const aIsEventLink = !a.external_source;
         const bIsEventLink = !b.external_source;
-
-        if (aIsEventLink && !bIsEventLink) return -1;
-        if (!aIsEventLink && bIsEventLink) return 1;
-
-        // Second priority: sort by date (most recent first)
-        // Use posted_date for external jobs, created_at for EventLink jobs
-        const aDate = a.posted_date ? new Date(a.posted_date) : new Date(a.created_at);
-        const bDate = b.posted_date ? new Date(b.posted_date) : new Date(b.created_at);
-        return bDate.getTime() - aDate.getTime();
+        if (aIsEventLink !== bIsEventLink) return aIsEventLink ? -1 : 1;
+        return effectiveDate(b) - effectiveDate(a);
       });
 
       return sortedResults;
@@ -2397,6 +2515,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecruiterApplications(recruiterId: number): Promise<JobApplication[]> {
+    return this.getRecruiterApplicationsInternal(recruiterId, false);
+  }
+
+  // Applications the recruiter has hidden (soft-deleted from their view) that
+  // still belong to a live (active) job — surfaced under the "Hidden" filter.
+  async getRecruiterHiddenApplications(recruiterId: number): Promise<JobApplication[]> {
+    return this.getRecruiterApplicationsInternal(recruiterId, true);
+  }
+
+  private async getRecruiterApplicationsInternal(
+    recruiterId: number,
+    onlyHidden: boolean
+  ): Promise<JobApplication[]> {
+    const conditions = [
+      eq(jobs.recruiter_id, recruiterId),
+      eq(job_applications.freelancer_deleted, false),
+    ];
+
+    if (onlyHidden) {
+      // Hidden applications belonging to live (active) jobs only
+      conditions.push(eq(job_applications.recruiter_deleted, true));
+      conditions.push(eq(jobs.status, "active"));
+    } else {
+      conditions.push(eq(job_applications.recruiter_deleted, false));
+    }
+
     const result = await db
       .select({
         id: job_applications.id,
@@ -2442,13 +2586,7 @@ export class DatabaseStorage implements IStorage {
         freelancer_profiles,
         eq(freelancer_profiles.user_id, job_applications.freelancer_id)
       )
-      .where(
-        and(
-          eq(jobs.recruiter_id, recruiterId),
-          eq(job_applications.recruiter_deleted, false),
-          eq(job_applications.freelancer_deleted, false)
-        )
-      )
+      .where(and(...conditions))
       .orderBy(desc(job_applications.applied_at));
     return result as JobApplication[];
   }
@@ -3232,11 +3370,19 @@ export class DatabaseStorage implements IStorage {
     );
 
     // Recruiters: application tab = job_update on applications. Freelancers: application_update only.
+    // Applications for closed jobs are removed from the Applications tab, so their
+    // alerts must not be counted in the Applications badge either.
+    const applicationNotForClosedJob = sql`NOT EXISTS (
+      SELECT 1 FROM job_applications ja
+      JOIN jobs j ON j.id = ja.job_id
+      WHERE ja.id = ${notifications.related_entity_id} AND j.status = 'closed'
+    )`;
     const applicationsWhere = isRecruiter
       ? and(
           baseUnread,
           eq(notifications.type, "job_update"),
-          eq(notifications.related_entity_type, "application")
+          eq(notifications.related_entity_type, "application"),
+          applicationNotForClosedJob
         )
       : and(baseUnread, eq(notifications.type, "application_update"));
 
@@ -4412,7 +4558,8 @@ export class DatabaseStorage implements IStorage {
     status?: string,
     sortBy?: string,
     sortOrder?: "asc" | "desc",
-    profileStatus?: string
+    profileStatus?: string,
+    country?: string
   ): Promise<{ users: (User & { profile_status?: string })[]; total: number }> {
     const offset = (page - 1) * limit;
 
@@ -4435,6 +4582,15 @@ export class DatabaseStorage implements IStorage {
 
     if (status && status !== "all") {
       conditions.push(eq(users.status, status));
+    }
+
+    if (country && country.trim() !== "") {
+      const matchingProfileUserIds = await db
+        .select({ user_id: freelancer_profiles.user_id })
+        .from(freelancer_profiles)
+        .where(ilike(freelancer_profiles.country, `%${country.trim()}%`));
+      const ids = matchingProfileUserIds.map((r) => r.user_id);
+      conditions.push(ids.length > 0 ? inArray(users.id, ids) : sql`1=0`);
     }
 
     // Determine sort column and direction
@@ -4477,15 +4633,21 @@ export class DatabaseStorage implements IStorage {
         title: string | null;
         bio: string | null;
         skills: string[] | null;
+        country: string | null;
       }[]
     ) => {
-      const map: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+      const map: Map<number, { hasProfile: boolean; isComplete: boolean; country: string | null }> =
+        new Map();
       for (const profile of profiles) {
         const hasTitle = profile.title && profile.title.trim() !== "";
         const hasBio = profile.bio && profile.bio.trim() !== "";
         const hasSkills = profile.skills && profile.skills.length > 0;
         const isComplete = hasTitle && hasBio && hasSkills;
-        map.set(profile.user_id, { hasProfile: true, isComplete: !!isComplete });
+        map.set(profile.user_id, {
+          hasProfile: true,
+          isComplete: !!isComplete,
+          country: profile.country ?? null,
+        });
       }
       return map;
     };
@@ -4514,6 +4676,7 @@ export class DatabaseStorage implements IStorage {
             title: freelancer_profiles.title,
             bio: freelancer_profiles.bio,
             skills: freelancer_profiles.skills,
+            country: freelancer_profiles.country,
           })
           .from(freelancer_profiles)
           .where(inArray(freelancer_profiles.user_id, allFreelancerIds));
@@ -4525,6 +4688,7 @@ export class DatabaseStorage implements IStorage {
       const allWithStatus = allFreelancers.map((user) => ({
         ...user,
         profile_status: computeProfileStatus(user.id, user.role, profileMap),
+        profile_country: profileMap.get(user.id)?.country ?? null,
       }));
 
       const filtered = allWithStatus.filter((u) => u.profile_status === profileStatus);
@@ -4558,6 +4722,7 @@ export class DatabaseStorage implements IStorage {
           title: freelancer_profiles.title,
           bio: freelancer_profiles.bio,
           skills: freelancer_profiles.skills,
+          country: freelancer_profiles.country,
         })
         .from(freelancer_profiles)
         .where(inArray(freelancer_profiles.user_id, freelancerIds));
@@ -4565,10 +4730,11 @@ export class DatabaseStorage implements IStorage {
       profileMap = buildProfileMap(profiles);
     }
 
-    // Add profile_status to each user
+    // Add profile_status and profile_country to each user
     const usersWithProfileStatus = usersResult.map((user) => ({
       ...user,
       profile_status: computeProfileStatus(user.id, user.role, profileMap),
+      profile_country: profileMap.get(user.id)?.country ?? null,
     }));
 
     return {
@@ -5187,7 +5353,8 @@ export class DatabaseStorage implements IStorage {
   async getAdminTeams(
     page: number,
     limit: number,
-    search?: string
+    search?: string,
+    sort?: string
   ): Promise<{
     teams: Array<{
       company_user_id: number;
@@ -5239,7 +5406,15 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
       .where(whereClause)
-      .orderBy(desc(users.created_at))
+      .orderBy(
+        sort === "oldest"
+          ? asc(users.created_at)
+          : sort === "company"
+            ? asc(recruiter_profiles.company_name)
+            : sort === "email"
+              ? asc(users.email)
+              : desc(users.created_at)
+      )
       .limit(limit)
       .offset(offset);
 

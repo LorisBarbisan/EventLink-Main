@@ -10,50 +10,20 @@ import {
   MessageCircle,
   Phone,
   Shield,
-  Star,
   UserPlus,
   Users,
 } from "lucide-react";
-import { useEffect } from "react";
+import { usePageSeo } from "@/hooks/usePageSeo";
 import { useLocation } from "wouter";
 
 export default function HowItWorks() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
 
-  // Set SEO metadata for this page
-  useEffect(() => {
-    // Update document title
-    document.title = "How Does It Work - EventLink | Event Industry Professional Network";
-
-    // Update meta description
-    const metaDescription = document.querySelector('meta[name="description"]');
-    if (metaDescription) {
-      metaDescription.setAttribute(
-        "content",
-        "Learn how EventLink connects freelance event professionals with event opportunities. Step-by-step guide for both freelancers and employers in the events industry."
-      );
-    } else {
-      // Create meta description if it doesn't exist
-      const meta = document.createElement("meta");
-      meta.name = "description";
-      meta.content =
-        "Learn how EventLink connects freelance event professionals with event opportunities. Step-by-step guide for both freelancers and employers in the events industry.";
-      document.head.appendChild(meta);
-    }
-
-    // Cleanup: Reset to default title when component unmounts
-    return () => {
-      document.title = "EventLink - Event Industry Professional Network";
-      const metaDesc = document.querySelector('meta[name="description"]');
-      if (metaDesc) {
-        metaDesc.setAttribute(
-          "content",
-          "Connecting technical professionals with event opportunities across the events industry."
-        );
-      }
-    };
-  }, []);
+  usePageSeo(
+    "How EventLink Works | Freelance Events Crew Network",
+    "See how EventLink connects freelance event crew with employers, step by step."
+  );
 
   const handleFreelancerCTA = () => {
     if (user) {
@@ -77,49 +47,48 @@ export default function HowItWorks() {
     <Layout>
       <div className="container mx-auto px-4 py-12">
         {/* Header Section */}
-        <div className="text-center max-w-4xl mx-auto mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-primary to-orange-600 bg-clip-text text-transparent">
-            How Does It Work?
+        <div className="mx-auto mb-16 max-w-4xl text-center">
+          <h1 className="mb-6 bg-gradient-to-r from-primary to-orange-600 bg-clip-text text-4xl font-bold text-transparent md:text-5xl">
+            How EventLink Works
           </h1>
-          <p className="text-xl text-muted-foreground leading-relaxed">
+          <p className="text-xl leading-relaxed text-muted-foreground">
             EventLink connects event professionals with opportunities across the events industry.
-            Whether you're a freelancer looking for work or an employer seeking skilled
+            Whether you&apos;re a freelancer looking for work or an employer seeking skilled
             professionals, we make the process simple and efficient.
           </p>
         </div>
 
         {/* Main Content Grid */}
-        <div className="max-w-7xl mx-auto space-y-6">
-
+        <div className="mx-auto max-w-7xl space-y-6">
           {/* Section headers */}
-          <div className="grid lg:grid-cols-2 gap-12 mb-2">
+          <div className="mb-2 grid gap-12 lg:grid-cols-2">
             <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <UserPlus className="w-8 h-8 text-white" />
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600">
+                <UserPlus className="h-8 w-8 text-white" />
               </div>
-              <h2 className="text-3xl font-bold mb-4 text-foreground">For Freelancers</h2>
+              <h2 className="mb-4 text-3xl font-bold text-foreground">For Freelancers</h2>
               <p className="text-muted-foreground">Build your career in the events industry</p>
             </div>
             <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-white" />
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600">
+                <Users className="h-8 w-8 text-white" />
               </div>
-              <h2 className="text-3xl font-bold mb-4 text-foreground">For Employers</h2>
+              <h2 className="mb-4 text-3xl font-bold text-foreground">For Employers</h2>
               <p className="text-muted-foreground">Find the perfect event professionals</p>
             </div>
           </div>
 
           {/* Row 1 */}
-          <div className="grid lg:grid-cols-2 gap-12 items-stretch">
-            <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow h-full">
+          <div className="grid items-stretch gap-12 lg:grid-cols-2">
+            <Card className="h-full border-l-4 border-l-blue-500 shadow-md transition-shadow hover:shadow-lg">
               <CardContent className="p-6">
                 <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                    <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="flex flex-col">
-                    <h3 className="text-xl font-semibold mb-2">Create Your Profile</h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
+                    <h3 className="mb-2 text-xl font-semibold">Create Your Profile</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
                       Register for free, upload your CV, and highlight your skills. Showcase your
                       expertise in AV, event management, technical production, or other event
                       specialties.
@@ -128,7 +97,7 @@ export default function HowItWorks() {
                       href="https://youtu.be/-V_xTPkC8UA"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-2 text-sm text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300 self-start"
+                      className="mt-2 self-start text-sm text-blue-600 underline hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                     >
                       Watch the tutorial
                     </a>
@@ -136,15 +105,15 @@ export default function HowItWorks() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-orange-500 shadow-md hover:shadow-lg transition-shadow h-full">
+            <Card className="h-full border-l-4 border-l-orange-500 shadow-md transition-shadow hover:shadow-lg">
               <CardContent className="p-6">
                 <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <BriefcaseIcon className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30">
+                    <BriefcaseIcon className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                   </div>
                   <div className="flex flex-col">
-                    <h3 className="text-xl font-semibold mb-2">post jobs</h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
+                    <h3 className="mb-2 text-xl font-semibold">post jobs</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
                       Share event roles quickly and for free. Detail your requirements, location,
                       budget, and timeline to attract the right candidates for your events.
                     </p>
@@ -152,7 +121,7 @@ export default function HowItWorks() {
                       href="https://youtu.be/2JxKSwMq5hE"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-2 text-sm text-orange-600 dark:text-orange-400 underline hover:text-orange-700 dark:hover:text-orange-300 self-start"
+                      className="mt-2 self-start text-sm text-orange-600 underline hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
                     >
                       Watch the tutorial
                     </a>
@@ -163,35 +132,35 @@ export default function HowItWorks() {
           </div>
 
           {/* Row 2 */}
-          <div className="grid lg:grid-cols-2 gap-12 items-stretch">
-            <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow h-full">
+          <div className="grid items-stretch gap-12 lg:grid-cols-2">
+            <Card className="h-full border-l-4 border-l-blue-500 shadow-md transition-shadow hover:shadow-lg">
               <CardContent className="p-6">
                 <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Shield className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                    <Shield className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="flex flex-col">
-                    <h3 className="text-xl font-semibold mb-2">Build Trust</h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      Invite previous clients to recommend you on EventLink and build
-                      credibility through visible references. Strengthen your profile
-                      and show new clients they can rely on you.
+                    <h3 className="mb-2 text-xl font-semibold">Build Trust</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      Invite previous clients to recommend you on EventLink and build credibility
+                      through visible references. Strengthen your profile and show new clients they
+                      can rely on you.
                     </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-orange-500 shadow-md hover:shadow-lg transition-shadow h-full">
+            <Card className="h-full border-l-4 border-l-orange-500 shadow-md transition-shadow hover:shadow-lg">
               <CardContent className="p-6">
                 <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Users className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30">
+                    <Users className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                   </div>
                   <div className="flex flex-col">
-                    <h3 className="text-xl font-semibold mb-2">Browse Freelancer Profiles</h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      Discover qualified AV techs, event crew, and specialists with ease. Filter
-                      by location, skills, experience, and availability to find your ideal team.
+                    <h3 className="mb-2 text-xl font-semibold">Browse Freelancer Profiles</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      Discover qualified AV techs, event crew, and specialists with ease. Filter by
+                      location, skills, experience, and availability to find your ideal team.
                     </p>
                   </div>
                 </div>
@@ -200,33 +169,32 @@ export default function HowItWorks() {
           </div>
 
           {/* Row 3 */}
-          <div className="grid lg:grid-cols-2 gap-12 items-stretch">
-            <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow h-full">
+          <div className="grid items-stretch gap-12 lg:grid-cols-2">
+            <Card className="h-full border-l-4 border-l-blue-500 shadow-md transition-shadow hover:shadow-lg">
               <CardContent className="p-6">
                 <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Bell className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                    <Bell className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="flex flex-col">
-                    <h3 className="text-xl font-semibold mb-2">Get Notified</h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      Set your preferences and receive alerts when roles matching your skills
-                      and location go live. Stay ready to apply when the right opportunity
-                      appears.
+                    <h3 className="mb-2 text-xl font-semibold">Get Notified</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      Set your preferences and receive alerts when roles matching your skills and
+                      location go live. Stay ready to apply when the right opportunity appears.
                     </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-orange-500 shadow-md hover:shadow-lg transition-shadow h-full">
+            <Card className="h-full border-l-4 border-l-orange-500 shadow-md transition-shadow hover:shadow-lg">
               <CardContent className="p-6">
                 <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Phone className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30">
+                    <Phone className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                   </div>
                   <div className="flex flex-col">
-                    <h3 className="text-xl font-semibold mb-2">Connect & Hire</h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
+                    <h3 className="mb-2 text-xl font-semibold">Connect & Hire</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
                       Review applications, message candidates directly, and confirm bookings.
                       Streamline your hiring process with our integrated communication tools.
                     </p>
@@ -237,16 +205,16 @@ export default function HowItWorks() {
           </div>
 
           {/* Row 4 */}
-          <div className="grid lg:grid-cols-2 gap-12 items-stretch">
-            <Card className="border-l-4 border-l-blue-500 shadow-md hover:shadow-lg transition-shadow h-full">
+          <div className="grid items-stretch gap-12 lg:grid-cols-2">
+            <Card className="h-full border-l-4 border-l-blue-500 shadow-md transition-shadow hover:shadow-lg">
               <CardContent className="p-6">
                 <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <MessageCircle className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                    <MessageCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="flex flex-col">
-                    <h3 className="text-xl font-semibold mb-2">Communicate Easily</h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
+                    <h3 className="mb-2 text-xl font-semibold">Communicate Easily</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
                       Use our internal messaging system to stay connected with employers. Discuss
                       project details, negotiate terms, and confirm bookings all in one place.
                     </p>
@@ -254,15 +222,15 @@ export default function HowItWorks() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-orange-500 shadow-md hover:shadow-lg transition-shadow h-full">
+            <Card className="h-full border-l-4 border-l-orange-500 shadow-md transition-shadow hover:shadow-lg">
               <CardContent className="p-6">
                 <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Award className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30">
+                    <Award className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                   </div>
                   <div className="flex flex-col">
-                    <h3 className="text-xl font-semibold mb-2">Build Your Trusted Crew</h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
+                    <h3 className="mb-2 text-xl font-semibold">Build Your Trusted Crew</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
                       Rate freelancers and re-hire the best professionals for future projects.
                       Create a reliable network of event specialists you can count on.
                     </p>
@@ -273,12 +241,12 @@ export default function HowItWorks() {
           </div>
 
           {/* CTA buttons */}
-          <div className="grid lg:grid-cols-2 gap-12 pt-2">
+          <div className="grid gap-12 pt-2 lg:grid-cols-2">
             <div className="text-center">
               <Button
                 onClick={handleFreelancerCTA}
                 size="lg"
-                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-3 text-lg font-semibold"
+                className="bg-gradient-to-r from-blue-500 to-blue-600 px-8 py-3 text-lg font-semibold text-white hover:from-blue-600 hover:to-blue-700"
                 data-testid="button-create-profile"
               >
                 Create Your Profile
@@ -288,24 +256,23 @@ export default function HowItWorks() {
               <Button
                 onClick={handleRecruiterCTA}
                 size="lg"
-                className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-8 py-3 text-lg font-semibold"
+                className="bg-gradient-to-r from-orange-500 to-orange-600 px-8 py-3 text-lg font-semibold text-white hover:from-orange-600 hover:to-orange-700"
                 data-testid="button-post-job"
               >
                 Post a Job
               </Button>
             </div>
           </div>
-
         </div>
 
         {/* Bottom CTA Section */}
-        <div className="text-center mt-16 pt-12 border-t border-border">
-          <h3 className="text-2xl font-bold mb-4">Ready to Get Started?</h3>
-          <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
+        <div className="mt-16 border-t border-border pt-12 text-center">
+          <h3 className="mb-4 text-2xl font-bold">Ready to Get Started?</h3>
+          <p className="mx-auto mb-8 max-w-2xl text-muted-foreground">
             Join thousands of event professionals who are already using EventLink to grow their
             careers and find the perfect team members.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col justify-center gap-4 sm:flex-row">
             <Button
               onClick={handleFreelancerCTA}
               size="lg"

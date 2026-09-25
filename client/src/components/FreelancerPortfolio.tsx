@@ -73,7 +73,7 @@ function PostCard({
 
   return (
     <div
-      className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
+      className="group relative cursor-pointer rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
       onClick={post.type === "video" ? handleClick : undefined}
     >
       {/* Media area */}

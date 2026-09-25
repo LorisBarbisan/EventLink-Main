@@ -187,6 +187,7 @@ export async function getAdminJobs(req: Request, res: Response) {
     const type = (req.query.type as string) || undefined;
     const sortBy = (req.query.sortBy as string) || "created_at";
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+    const country = (req.query.country as string) || undefined;
 
     const { jobs, total } = await storage.getAdminJobs(
       page,
@@ -195,7 +196,8 @@ export async function getAdminJobs(req: Request, res: Response) {
       status,
       type,
       sortBy,
-      sortOrder
+      sortOrder,
+      country
     );
 
     res.json({
@@ -239,6 +241,7 @@ export async function getAllUsers(req: Request, res: Response) {
     const sortBy = (req.query.sortBy as string) || "created_at";
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
     const profileStatus = (req.query.profileStatus as string) || undefined;
+    const country = (req.query.country as string) || undefined;
 
     const { users, total } = await storage.getAllUsers(
       page,
@@ -248,7 +251,8 @@ export async function getAllUsers(req: Request, res: Response) {
       status,
       sortBy,
       sortOrder,
-      profileStatus
+      profileStatus,
+      country
     );
 
     // Remove sensitive information
@@ -781,16 +785,33 @@ function addSheet(
 // Export all admin dashboard data as a multi-sheet XLSX workbook
 export async function exportAdminXLSX(req: Request, res: Response) {
   try {
-    const [analytics, usersResult, jobsResult, feedbackList, contactList, adminUsers, ratingsAll] =
-      await Promise.all([
-        storage.getAdminAnalytics(),
-        storage.getAllUsers(1, 100000),
-        storage.getAdminJobs(1, 100000),
-        storage.getAllFeedback(),
-        storage.getAllContactMessages(),
-        storage.getAdminUsers(),
-        storage.getAllRatings(),
-      ]);
+    const [
+      analytics,
+      usersResult,
+      jobsResult,
+      feedbackList,
+      contactList,
+      adminUsers,
+      ratingsAll,
+      recruiterProfiles,
+    ] = await Promise.all([
+      storage.getAdminAnalytics(),
+      storage.getAllUsers(1, 100000),
+      storage.getAdminJobs(1, 100000),
+      storage.getAllFeedback(),
+      storage.getAllContactMessages(),
+      storage.getAdminUsers(),
+      storage.getAllRatings(),
+      storage.getAllRecruiterProfiles(),
+    ]);
+
+    // Country per user: freelancers already carry profile_country from getAllUsers;
+    // employers' country lives on their recruiter profile, so merge that in too.
+    const recruiterCountryByUserId = new Map<number, string>(
+      (recruiterProfiles || [])
+        .filter((r: any) => r.country)
+        .map((r: any) => [r.user_id, r.country as string])
+    );
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "EventLink Admin";
@@ -824,6 +845,7 @@ export async function exportAdminXLSX(req: Request, res: Response) {
         "Full Name",
         "Email",
         "Role",
+        "Country",
         "Status",
         "Email Verified",
         "Join Date",
@@ -834,6 +856,7 @@ export async function exportAdminXLSX(req: Request, res: Response) {
         `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim(),
         u.email,
         u.role === "recruiter" ? "employer" : (u.role ?? ""),
+        u.profile_country ?? recruiterCountryByUserId.get(u.id) ?? "",
         u.status ?? "",
         u.email_verified ? "Yes" : "No",
         fmtDate(u.created_at),
@@ -1031,7 +1054,7 @@ export async function sendBulkMessages(req: Request, res: Response) {
           conversation_id: conversation.id,
           sender_id: adminUser.id,
           content: message.trim(),
-          is_system: false,
+          is_system_message: false,
         });
 
         const conversationUrl = `/dashboard?tab=messages&conversationId=${conversation.id}`;
@@ -1041,7 +1064,7 @@ export async function sendBulkMessages(req: Request, res: Response) {
           type: "new_message",
           title: "New Message from EventLink",
           message: `You have a new message from ${adminName}`,
-          data: JSON.stringify({ conversation_id: conversation.id }),
+          metadata: JSON.stringify({ conversation_id: conversation.id }),
           action_url: conversationUrl,
         });
 
@@ -1091,8 +1114,9 @@ export async function getAdminTeams(req: Request, res: Response) {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const search = (req.query.search as string) || undefined;
+    const sort = (req.query.sort as string) || undefined;
 
-    const { teams, total } = await storage.getAdminTeams(page, limit, search);
+    const { teams, total } = await storage.getAdminTeams(page, limit, search, sort);
 
     res.json({
       teams,

@@ -1,4 +1,4 @@
-import { insertUserSchema, teamMembers } from "@shared/schema";
+import { insertUserSchema, teamMembers, users } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import type { Request, Response } from "express";
@@ -21,8 +21,8 @@ import {
   sendWelcomeEmail,
 } from "../utils/emailService";
 import { resolveTeamContextForUser } from "../utils/team.util";
+import { JWT_SECRET } from "../config/env";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "eventlink-secret-key";
 const OAUTH_PENDING_SECRET = JWT_SECRET + "-oauth-pending";
 const OAUTH_PENDING_EXPIRY = "10m";
 
@@ -60,7 +60,6 @@ function verifyPendingOAuthToken(token: string): {
 export async function handleGoogleCallback(req: Request, res: Response) {
   try {
     const code = req.query.code as string;
-    const state = req.query.state as string;
     const error = req.query.error as string;
 
     if (error) {
@@ -135,15 +134,6 @@ export async function handleGoogleCallback(req: Request, res: Response) {
     const firstName = userInfo.given_name || "";
     const lastName = userInfo.family_name || "";
     const picture = userInfo.picture || "";
-
-    // Parse role from state (reserved for future use)
-    try {
-      if (state) {
-        JSON.parse(Buffer.from(state, "base64").toString());
-      }
-    } catch {
-      // ignore malformed state
-    }
 
     // Step 3: Find or create user
     let user = await storage.getUserBySocialProvider("google", googleId);

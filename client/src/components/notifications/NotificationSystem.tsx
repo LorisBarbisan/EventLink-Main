@@ -123,9 +123,9 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
     // Navigate to action URL if provided, or derive from notification data for new_message type
     let targetUrl = notification.action_url;
 
-    if (!targetUrl && notification.type === "new_message" && notification.data) {
+    if (!targetUrl && notification.type === "new_message" && notification.metadata) {
       try {
-        const parsed = JSON.parse(notification.data);
+        const parsed = JSON.parse(notification.metadata);
         if (parsed.conversation_id) {
           targetUrl = `/dashboard?tab=messages&conversationId=${parsed.conversation_id}`;
         }

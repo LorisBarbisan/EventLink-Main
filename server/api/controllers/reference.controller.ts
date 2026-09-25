@@ -2,27 +2,55 @@ import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { sendEmail } from "../utils/emailService";
 import { getOrigin } from "../utils/auth.util";
+import { SESSION_SECRET } from "../config/env";
 import crypto from "crypto";
 
 const FRONTEND_BASE = process.env.FRONTEND_URL || "https://app.eventlink.one";
 
 const HIGH_TRUST_DOMAINS = [
-  "aeg.com", "livenation.com", "bbc.co.uk", "itv.com", "sky.com",
-  "prg.com", "neg.earth", "sseaudio.com", "whitelight.ltd.uk", "starlightdesign.com",
-  "caa.com", "wmeagency.com", "paradigmagency.com", "creativeartsagency.com",
-  "fremantle.com", "endemolshine.com", "img.com", "octagon.com",
-  "nhs.uk", "gov.uk", "ac.uk", "edu",
+  "aeg.com",
+  "livenation.com",
+  "bbc.co.uk",
+  "itv.com",
+  "sky.com",
+  "prg.com",
+  "neg.earth",
+  "sseaudio.com",
+  "whitelight.ltd.uk",
+  "starlightdesign.com",
+  "caa.com",
+  "wmeagency.com",
+  "paradigmagency.com",
+  "creativeartsagency.com",
+  "fremantle.com",
+  "endemolshine.com",
+  "img.com",
+  "octagon.com",
+  "nhs.uk",
+  "gov.uk",
+  "ac.uk",
+  "edu",
 ];
 
 const LOW_TRUST_DOMAINS = [
-  "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
-  "protonmail.com", "icloud.com", "mail.com", "zoho.com", "yandex.com",
-  "live.com", "msn.com", "googlemail.com",
+  "gmail.com",
+  "yahoo.com",
+  "hotmail.com",
+  "outlook.com",
+  "aol.com",
+  "protonmail.com",
+  "icloud.com",
+  "mail.com",
+  "zoho.com",
+  "yandex.com",
+  "live.com",
+  "msn.com",
+  "googlemail.com",
 ];
 
 function getDomainTrustLevel(email: string): { domain: string; level: "high" | "medium" | "low" } {
   const domain = email.split("@")[1]?.toLowerCase() || "";
-  if (HIGH_TRUST_DOMAINS.some(d => domain === d || domain.endsWith(`.${d}`))) {
+  if (HIGH_TRUST_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`))) {
     return { domain, level: "high" };
   }
   if (LOW_TRUST_DOMAINS.includes(domain)) {
@@ -67,8 +95,7 @@ async function runFraudChecks(
     flags.push("rapid_submission_pattern");
   }
 
-  const { level } = getDomainTrustLevel(refereeEmail);
-  const recentFromDomain = recentRefs.filter(r => {
+  const recentFromDomain = recentRefs.filter((r) => {
     const d = r.referee_email?.split("@")[1]?.toLowerCase();
     return d && LOW_TRUST_DOMAINS.includes(d);
   });
@@ -106,8 +133,14 @@ export async function submitReference(req: Request, res: Response) {
     }
 
     const {
-      referee_name, referee_organisation, referee_email, referee_role,
-      q1_confirmed, q2_rating, q3_would_work_again, comment,
+      referee_name,
+      referee_organisation,
+      referee_email,
+      referee_role,
+      q1_confirmed,
+      q2_rating,
+      q3_would_work_again,
+      comment,
     } = req.body;
 
     const authenticatedUserId = (req as any).user?.id || null;
@@ -215,16 +248,23 @@ export async function submitReference(req: Request, res: Response) {
         const refereeName = referee_name || "Someone";
         const fromOrg = referee_organisation ? ` from ${referee_organisation}` : "";
         const badgeLabel =
-          badge_result === "highly_recommended" ? "Verified & Highly Recommended" :
-          badge_result === "recommended" ? "Verified & Recommended" :
-          badge_result === "work_history_confirmed" ? "Work History Confirmed" :
-          null;
-        const publicBadge = badgeLabel ? `<p style="margin:12px 0">You earned a new badge: <strong>${badgeLabel}</strong></p>` : "";
+          badge_result === "highly_recommended"
+            ? "Verified & Highly Recommended"
+            : badge_result === "recommended"
+              ? "Verified & Recommended"
+              : badge_result === "work_history_confirmed"
+                ? "Work History Confirmed"
+                : null;
+        const publicBadge = badgeLabel
+          ? `<p style="margin:12px 0">You earned a new badge: <strong>${badgeLabel}</strong></p>`
+          : "";
 
         const verificationLabel =
-          verification_type === "eventlink_member" ? "EventLink Member Verified" :
-          verification_type === "email" ? "Email Verified" :
-          "Pending Email Verification";
+          verification_type === "eventlink_member"
+            ? "EventLink Member Verified"
+            : verification_type === "email"
+              ? "Email Verified"
+              : "Pending Email Verification";
 
         await sendEmail({
           to: freelancerUser.email,
@@ -260,7 +300,8 @@ export async function submitReference(req: Request, res: Response) {
       try {
         const requests = await storage.getReferenceRequests(freelancer.userId);
         const matchingRequest = requests.find(
-          r => r.referee_email.toLowerCase() === referee_email.toLowerCase() && r.status === "pending"
+          (r) =>
+            r.referee_email.toLowerCase() === referee_email.toLowerCase() && r.status === "pending"
         );
         if (matchingRequest) {
           await storage.updateReferenceRequest(matchingRequest.id, {
@@ -297,7 +338,8 @@ export async function verifyRefereeEmail(req: Request, res: Response) {
     const { eq } = await import("drizzle-orm");
     const { freelancer_references } = await import("@shared/schema");
 
-    const refs = await db.select()
+    const refs = await db
+      .select()
       .from(freelancer_references)
       .where(eq(freelancer_references.verification_token, token))
       .limit(1);
@@ -313,7 +355,8 @@ export async function verifyRefereeEmail(req: Request, res: Response) {
       return res.redirect("/reference-verified?status=invalid");
     }
 
-    await db.update(freelancer_references)
+    await db
+      .update(freelancer_references)
       .set({
         verification_type: "email",
         verified_email: ref.referee_email,
@@ -330,17 +373,15 @@ export async function verifyRefereeEmail(req: Request, res: Response) {
 }
 
 function signLinkedInState(payload: Record<string, string>): string {
-  const secret = process.env.LINKEDIN_CLIENT_SECRET || process.env.SESSION_SECRET || "fallback-secret";
   const data = JSON.stringify(payload);
-  const signature = crypto.createHmac("sha256", secret).update(data).digest("base64url");
+  const signature = crypto.createHmac("sha256", SESSION_SECRET).update(data).digest("base64url");
   return Buffer.from(JSON.stringify({ d: data, s: signature })).toString("base64url");
 }
 
 function verifyLinkedInState(state: string): Record<string, string> | null {
   try {
-    const secret = process.env.LINKEDIN_CLIENT_SECRET || process.env.SESSION_SECRET || "fallback-secret";
     const { d, s } = JSON.parse(Buffer.from(state, "base64url").toString());
-    const expected = crypto.createHmac("sha256", secret).update(d).digest("base64url");
+    const expected = crypto.createHmac("sha256", SESSION_SECRET).update(d).digest("base64url");
     if (s !== expected) return null;
     const payload = JSON.parse(d);
     if (payload.exp && Date.now() > parseInt(payload.exp)) return null;
@@ -367,7 +408,10 @@ export async function startLinkedInReferenceAuth(req: Request, res: Response) {
       return res.redirect("/reference-verified?status=invalid");
     }
 
-    if (reference.verification_type === "linkedin" || reference.verification_type === "eventlink_member") {
+    if (
+      reference.verification_type === "linkedin" ||
+      reference.verification_type === "eventlink_member"
+    ) {
       return res.redirect("/reference-verified?status=success&method=linkedin");
     }
 
@@ -421,7 +465,10 @@ export async function linkedInReferenceCallback(req: Request, res: Response) {
       return res.redirect("/reference-verified?status=invalid");
     }
 
-    if (reference.verification_type === "linkedin" || reference.verification_type === "eventlink_member") {
+    if (
+      reference.verification_type === "linkedin" ||
+      reference.verification_type === "eventlink_member"
+    ) {
       return res.redirect("/reference-verified?status=success&method=linkedin");
     }
 
@@ -465,7 +512,8 @@ export async function linkedInReferenceCallback(req: Request, res: Response) {
 
     const userInfo = await userInfoRes.json();
 
-    const linkedinName = [userInfo.given_name, userInfo.family_name].filter(Boolean).join(" ") || null;
+    const linkedinName =
+      [userInfo.given_name, userInfo.family_name].filter(Boolean).join(" ") || null;
 
     await storage.updateReferenceVerification(referenceId, {
       verification_type: "linkedin",
@@ -490,7 +538,9 @@ export async function getMyReferenceToken(req: Request, res: Response) {
     const userId = (req as any).user?.id;
     if (!userId) return res.status(401).json({ error: "Not authenticated" });
     const token = await storage.getOrCreateReferenceToken(userId);
-    const protocol = ((req.headers["x-forwarded-proto"] as string) || req.protocol || "https").split(",")[0].trim();
+    const protocol = ((req.headers["x-forwarded-proto"] as string) || req.protocol || "https")
+      .split(",")[0]
+      .trim();
     const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "eventlink.one";
     const baseUrl = `${protocol}://${host}`;
     res.json({ token, url: `${baseUrl}/reference/${token}` });
@@ -505,7 +555,7 @@ export async function getPublicReferences(req: Request, res: Response) {
     const freelancerId = parseInt(req.params.freelancerId);
     if (isNaN(freelancerId)) return res.status(400).json({ error: "Invalid freelancer ID" });
     const references = await storage.getPublicReferences(freelancerId);
-    const sanitized = references.map(ref => ({
+    const sanitized = references.map((ref) => ({
       id: ref.id,
       freelancer_id: ref.freelancer_id,
       referee_name: ref.referee_name,
@@ -558,7 +608,8 @@ export async function createReferenceRequest(req: Request, res: Response) {
 
     try {
       const referenceUrl = `${FRONTEND_BASE}/reference/${token}`;
-      const freelancerName = [user.first_name, user.last_name].filter(Boolean).join(" ") || "A colleague";
+      const freelancerName =
+        [user.first_name, user.last_name].filter(Boolean).join(" ") || "A colleague";
       await sendEmail({
         to: referee_email,
         subject: `${freelancerName} has requested a professional reference`,
@@ -604,8 +655,8 @@ export async function getReferenceRequests(req: Request, res: Response) {
 
     const requests = await storage.getReferenceRequests(userId);
     const total = requests.length;
-    const completed = requests.filter(r => r.status === "completed").length;
-    const pending = requests.filter(r => r.status === "pending").length;
+    const completed = requests.filter((r) => r.status === "completed").length;
+    const pending = requests.filter((r) => r.status === "pending").length;
 
     res.json({
       requests,
@@ -628,7 +679,8 @@ export async function cancelReferenceRequest(req: Request, res: Response) {
     const request = await storage.getReferenceRequestById(requestId);
     if (!request) return res.status(404).json({ error: "Request not found" });
     if (request.freelancer_id !== userId) return res.status(403).json({ error: "Not authorized" });
-    if (request.status !== "pending") return res.status(400).json({ error: "Can only cancel pending requests" });
+    if (request.status !== "pending")
+      return res.status(400).json({ error: "Can only cancel pending requests" });
 
     const updated = await storage.updateReferenceRequest(requestId, { status: "cancelled" });
     res.json(updated);
@@ -649,13 +701,16 @@ export async function sendReferenceReminder(req: Request, res: Response) {
     const request = await storage.getReferenceRequestById(requestId);
     if (!request) return res.status(404).json({ error: "Request not found" });
     if (request.freelancer_id !== userId) return res.status(403).json({ error: "Not authorized" });
-    if (request.status !== "pending") return res.status(400).json({ error: "Can only remind for pending requests" });
-    if (request.reminder_sent) return res.status(400).json({ error: "Reminder has already been sent" });
+    if (request.status !== "pending")
+      return res.status(400).json({ error: "Can only remind for pending requests" });
+    if (request.reminder_sent)
+      return res.status(400).json({ error: "Reminder has already been sent" });
 
     const user = await storage.getUser(userId);
     const token = await storage.getOrCreateReferenceToken(userId);
     const referenceUrl = `https://eventlink.one/reference/${token}`;
-    const freelancerName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "A colleague";
+    const freelancerName =
+      [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "A colleague";
 
     try {
       await sendEmail({

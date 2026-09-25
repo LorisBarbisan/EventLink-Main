@@ -244,18 +244,16 @@ export class EmailNotificationService {
       const jobLocation = (job.location || "").trim();
       const radiusKm = filter.location_radius_km || 30;
 
-      const hasMatchingLocation = filter.locations.some(
-        (filterLocation: string) => {
-          const geoResult = isWithinRadius(filterLocation, jobLocation, radiusKm);
-          if (geoResult !== null) {
-            return geoResult;
-          }
-          return (
-            jobLocation.toLowerCase().includes(filterLocation.toLowerCase()) ||
-            filterLocation.toLowerCase().includes(jobLocation.toLowerCase())
-          );
+      const hasMatchingLocation = filter.locations.some((filterLocation: string) => {
+        const geoResult = isWithinRadius(filterLocation, jobLocation, radiusKm);
+        if (geoResult !== null) {
+          return geoResult;
         }
-      );
+        return (
+          jobLocation.toLowerCase().includes(filterLocation.toLowerCase()) ||
+          filterLocation.toLowerCase().includes(jobLocation.toLowerCase())
+        );
+      });
       if (!hasMatchingLocation) {
         return false;
       }
@@ -321,6 +319,12 @@ export class EmailNotificationService {
         undefined
       );
 
+      // Build a country map from profiles to avoid N+1 lookups
+      const allProfiles = await storage.getAllFreelancers();
+      const profileCountryByUserId = new Map<number, string | null>(
+        allProfiles.map((p: any) => [p.user_id as number, (p.country as string | null) ?? null])
+      );
+
       for (const user of freelancerUsers) {
         try {
           // Skip unverified users
@@ -331,10 +335,15 @@ export class EmailNotificationService {
 
           if (filters.length > 0) {
             // Filters exist — only notify if the job matches at least one
-            const matchesFilter = filters.some(filter => this.jobMatchesFilters(job, filter));
+            const matchesFilter = filters.some((filter) => this.jobMatchesFilters(job, filter));
             if (!matchesFilter) continue;
+          } else {
+            // No custom filters — apply country-level guard so a UK freelancer
+            // without saved preferences doesn't get notified about NZ jobs
+            const jobCountry = (job.country as string | null)?.toLowerCase().trim();
+            const freelancerCountry = profileCountryByUserId.get(user.id)?.toLowerCase().trim();
+            if (jobCountry && freelancerCountry && jobCountry !== freelancerCountry) continue;
           }
-          // filters.length === 0 → no preferences set → notify for every job
 
           // Build display name: user record fields first, then fall back to email
           const firstName = user.first_name || "";

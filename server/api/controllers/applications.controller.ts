@@ -8,6 +8,10 @@ import {
 import { getEmployerCompanyId, ownsEmployerCompany } from "../utils/team.util";
 import { getJobDocumentsWithUrls } from "./job-document.controller";
 import { emailService } from "../utils/emailService";
+import {
+  syncBookingForApplication,
+  removeBookingFromPipeline,
+} from "../services/booking-lifecycle.service";
 
 // Get freelancer bookings (accepted applications)
 export async function getFreelancerBookings(req: Request, res: Response) {
@@ -24,7 +28,7 @@ export async function getFreelancerBookings(req: Request, res: Response) {
 
     const applications = await storage.getFreelancerApplications(freelancerId);
     // Filter only hired applications for bookings
-    const bookings = applications.filter(app => app.status === "hired");
+    const bookings = applications.filter((app) => app.status === "hired");
 
     res.json(bookings);
   } catch (error) {
@@ -78,7 +82,7 @@ export async function applyToJob(req: Request, res: Response) {
       // Continue with empty array if fetch fails - allow application to proceed
     }
 
-    const alreadyApplied = existingApplications.some(app => app.job_id === jobId);
+    const alreadyApplied = existingApplications.some((app) => app.job_id === jobId);
 
     if (alreadyApplied) {
       return res.status(400).json({ error: "You have already applied to this job" });
@@ -201,6 +205,30 @@ export async function getRecruiterApplications(req: Request, res: Response) {
   }
 }
 
+// Get applications the recruiter has hidden (soft-deleted) for live jobs
+export async function getRecruiterHiddenApplications(req: Request, res: Response) {
+  try {
+    const recruiterId = parseInt(req.params.recruiterId);
+
+    const reqUser = (req as any).user;
+    const effectiveCompanyId = (req as any).companyId ?? reqUser?.id;
+    if (
+      !reqUser ||
+      (reqUser.id !== recruiterId && effectiveCompanyId !== recruiterId && reqUser.role !== "admin")
+    ) {
+      return res.status(403).json({ error: "Not authorized to view these applications" });
+    }
+
+    const applications = await storage.getRecruiterHiddenApplications(recruiterId);
+
+    res.set("Cache-Control", "no-store");
+    res.json(applications);
+  } catch (error) {
+    console.error("Get recruiter hidden applications error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Accept application
 export async function acceptApplication(req: Request, res: Response) {
   try {
@@ -223,6 +251,15 @@ export async function acceptApplication(req: Request, res: Response) {
 
     // Mark application as hired (this also automatically closes the job)
     await storage.updateApplicationStatus(applicationId, "hired");
+
+    // Advance the employer booking to Confirmed (or Completed if the event has passed)
+    await syncBookingForApplication({
+      jobId: application.job_id,
+      freelancerId: application.freelancer_id,
+      targetStatus: "confirmed",
+      changedById: (req as any).user.id,
+      note: "Freelancer hired",
+    });
 
     // Create notification for freelancer
     await storage.createNotification({
@@ -254,11 +291,12 @@ export async function acceptApplication(req: Request, res: Response) {
         }
 
         // Fetch any documents attached to this job
-        let jobDocs: Array<{ fileName: string; downloadUrl: string | null; documentType: string }> = [];
+        let jobDocs: Array<{ fileName: string; downloadUrl: string | null; documentType: string }> =
+          [];
         try {
           const baseUrl = `${req.protocol}://${req.get("host")}`;
           const docs = await getJobDocumentsWithUrls(application.job_id, baseUrl);
-          jobDocs = docs.map(d => ({
+          jobDocs = docs.map((d) => ({
             fileName: d.fileName,
             downloadUrl: d.downloadUrl,
             documentType: d.documentType,
@@ -278,7 +316,7 @@ export async function acceptApplication(req: Request, res: Response) {
             applicationId: applicationId,
             documents: jobDocs.length > 0 ? jobDocs : undefined,
           })
-          .catch(error => {
+          .catch((error) => {
             console.error("Failed to send application update email:", error);
           });
       }
@@ -328,6 +366,12 @@ export async function rejectApplication(req: Request, res: Response) {
 
     await storage.updateApplicationStatus(applicationId, "rejected", req.body.message);
 
+    // Remove any employer booking for this applicant from the pipeline
+    await removeBookingFromPipeline({
+      jobId: application.job_id,
+      freelancerId: application.freelancer_id,
+    });
+
     // Create notification for freelancer
     await storage.createNotification({
       user_id: application.freelancer_id,
@@ -368,7 +412,7 @@ export async function rejectApplication(req: Request, res: Response) {
             status: "Not Selected",
             applicationId: applicationId,
           })
-          .catch(error => {
+          .catch((error) => {
             console.error("Failed to send application update email:", error);
           });
       }
@@ -479,12 +523,14 @@ export async function inviteFreelancer(req: Request, res: Response) {
     }
 
     if (job.status === "closed") {
-      return res.status(400).json({ error: "This job is closed and no longer accepting invitations" });
+      return res
+        .status(400)
+        .json({ error: "This job is closed and no longer accepting invitations" });
     }
 
     // Check if already applied/invited
     const existingApplications = await storage.getFreelancerApplications(freelancerId);
-    const alreadyApplied = existingApplications.some(app => app.job_id === jobId);
+    const alreadyApplied = existingApplications.some((app) => app.job_id === jobId);
 
     if (alreadyApplied) {
       return res
@@ -506,6 +552,15 @@ export async function inviteFreelancer(req: Request, res: Response) {
     }
 
     const application = await storage.createJobApplication(result.data);
+
+    // Add the invited freelancer to the employer booking pipeline as Enquired
+    await syncBookingForApplication({
+      jobId,
+      freelancerId,
+      targetStatus: "enquired",
+      changedById: (req as any).user.id,
+      note: "Invitation sent",
+    });
 
     // Create notification for freelancer
     await storage.createNotification({
@@ -574,7 +629,8 @@ export async function inviteFreelancer(req: Request, res: Response) {
 export async function withdrawInvitation(req: Request, res: Response) {
   try {
     const applicationId = parseInt(req.params.applicationId);
-    if (Number.isNaN(applicationId)) return res.status(400).json({ error: "Invalid application ID" });
+    if (Number.isNaN(applicationId))
+      return res.status(400).json({ error: "Invalid application ID" });
     if (!(req as any).user) return res.status(401).json({ error: "Not authenticated" });
 
     const application = await storage.getJobApplicationById(applicationId);
@@ -592,6 +648,12 @@ export async function withdrawInvitation(req: Request, res: Response) {
     // Delete the invitation application record
     await storage.softDeleteApplication(applicationId, "recruiter");
 
+    // Remove the withdrawn invitation from the employer booking pipeline
+    await removeBookingFromPipeline({
+      jobId: application.job_id,
+      freelancerId: application.freelancer_id,
+    });
+
     // In-app notification to freelancer
     await storage.createNotification({
       user_id: application.freelancer_id,
@@ -602,7 +664,11 @@ export async function withdrawInvitation(req: Request, res: Response) {
       related_entity_type: "application",
       related_entity_id: applicationId,
       action_url: "/dashboard?tab=jobs",
-      metadata: JSON.stringify({ application_id: applicationId, job_id: job.id, type: "invitation_withdrawn" }),
+      metadata: JSON.stringify({
+        application_id: applicationId,
+        job_id: job.id,
+        type: "invitation_withdrawn",
+      }),
     });
 
     // Email notification (non-blocking)
@@ -611,7 +677,8 @@ export async function withdrawInvitation(req: Request, res: Response) {
       if (freelancer) {
         let freelancerName = freelancer.email;
         const fp = await storage.getFreelancerProfile(application.freelancer_id);
-        if (fp?.first_name || fp?.last_name) freelancerName = `${fp.first_name || ""} ${fp.last_name || ""}`.trim();
+        if (fp?.first_name || fp?.last_name)
+          freelancerName = `${fp.first_name || ""} ${fp.last_name || ""}`.trim();
 
         await emailService.sendApplicationUpdateNotification({
           recipientId: application.freelancer_id,
@@ -701,6 +768,14 @@ export async function respondToInvitation(req: Request, res: Response) {
     // Let's rely on adding a method to storage.ts
 
     await storage.updateInvitationResponse(applicationId, status, responseMessage);
+
+    // If the freelancer declined the invitation, drop it from the employer pipeline
+    if (status === "declined") {
+      await removeBookingFromPipeline({
+        jobId: application.job_id,
+        freelancerId: application.freelancer_id,
+      });
+    }
 
     // Notify recruiter
     const job = await storage.getJobById(application.job_id);

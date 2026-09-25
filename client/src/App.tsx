@@ -6,8 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { WebSocketProvider } from "@/contexts/WebSocketContext";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { AuthProvider } from "@/hooks/useAuth";
-import { initGA } from "@/lib/analytics";
+import { getCookieConsent, initTrackers } from "@/lib/cookieConsent";
 import { queryClient } from "@/lib/queryClient";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect } from "react";
 import { Route, Switch } from "wouter";
@@ -22,6 +23,7 @@ const About = lazy(() => import("./pages/About"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const Freelancers = lazy(() => import("./pages/Freelancers"));
+const CrewLanding = lazy(() => import("./pages/CrewLanding"));
 const HowItWorks = lazy(() => import("./pages/HowItWorks"));
 const Index = lazy(() => import("./pages/Index"));
 const JobDetail = lazy(() => import("./pages/JobDetail"));
@@ -76,6 +78,8 @@ function AppRouter() {
           <Route path="/jobs/:id" component={JobDetail} />
           <Route path="/jobs" component={Jobs} />
           <Route path="/freelancers" component={Freelancers} />
+          {/* SEO role×city landing pages e.g. /freelance-crew/av-technician-london */}
+          <Route path="/freelance-crew/:slug" component={CrewLanding} />
           <Route path="/ratings" component={RatingDashboard} />
           <Route path="/admin" component={AdminDashboard} />
           <Route path="/how-it-works" component={HowItWorks} />
@@ -102,14 +106,9 @@ function AppRouter() {
 
 function App() {
   useEffect(() => {
-    if (!import.meta.env.VITE_GA_MEASUREMENT_ID) {
-      console.warn("Missing required Google Analytics key: VITE_GA_MEASUREMENT_ID");
-    } else {
-      initGA();
-      console.log(
-        "✅ Google Analytics initialized with ID:",
-        import.meta.env.VITE_GA_MEASUREMENT_ID
-      );
+    // Analytics/advertising trackers only run for visitors who opted in
+    if (getCookieConsent() === "accepted") {
+      initTrackers();
     }
   }, []);
 
@@ -122,6 +121,7 @@ function App() {
             <Sonner />
             <LiveNotificationPopups />
             <TabNotificationManager />
+            <CookieConsentBanner />
             <AppRouter />
           </TooltipProvider>
         </WebSocketProvider>

@@ -37,12 +37,14 @@ export interface FreelancerProfile {
   bio?: string;
   location?: string;
   country?: string;
+  state_province?: string;
   experience_years?: number;
   skills: string[];
   portfolio_url?: string;
   linkedin_url?: string;
   website_url?: string;
   availability_status: "available" | "busy" | "unavailable";
+  profile_is_public?: boolean;
   profile_photo_url?: string;
   cv_file_name?: string;
   cv_file_type?: string;
@@ -60,6 +62,7 @@ export interface RecruiterProfile {
   company_type: string;
   location: string;
   country?: string;
+  state_province?: string;
   description: string;
   website_url?: string;
   linkedin_url?: string;
@@ -143,6 +146,7 @@ export interface FreelancerFormData {
   bio: string;
   location: string;
   country: string;
+  state_province: string;
   experience_years: string;
   skills: string[];
   portfolio_url: string;
@@ -166,6 +170,7 @@ export interface RecruiterFormData {
   company_type: string;
   location: string;
   country: string;
+  state_province: string;
   description: string;
   website_url: string;
   linkedin_url: string;

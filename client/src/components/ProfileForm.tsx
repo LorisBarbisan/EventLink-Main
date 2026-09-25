@@ -18,8 +18,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { CountrySelect } from "@/components/ui/country-select";
+import {
+  StateProvinceSelect,
+  countryNeedsStateProvince,
+  STATE_PROVINCE_COUNTRIES,
+} from "@/components/ui/state-province-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,7 +39,7 @@ import type {
   RecruiterFormData,
   RecruiterProfile,
 } from "@shared/types";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   ChevronRight,
@@ -46,6 +52,7 @@ import {
   User,
   X,
 } from "lucide-react";
+import { ShareProfileButton } from "@/components/ShareProfileButton";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RatingDisplay } from "./StarRating";
 
@@ -68,6 +75,41 @@ export function ProfileForm({
   readOnly = false,
 }: ProfileFormProps) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const freelancerProfile = userType === "freelancer" ? (profile as FreelancerProfile) : null;
+  const [profileIsPublic, setProfileIsPublic] = useState(
+    freelancerProfile?.profile_is_public ?? true
+  );
+
+  const privacyMutation = useMutation({
+    mutationFn: (isPublic: boolean) =>
+      apiRequest(`/api/freelancer/${user?.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ profile_is_public: isPublic }),
+      }),
+    onSuccess: (_data, isPublic) => {
+      setProfileIsPublic(isPublic);
+      queryClient.invalidateQueries({ queryKey: ["/api/freelancer/profile", user?.id] });
+      toast({
+        title: isPublic ? "Profile set to public" : "Profile set to private",
+        description: isPublic
+          ? "Anyone can now view your CV and documents without logging in."
+          : "Only signed-in employers can view your CV and documents.",
+      });
+    },
+    onError: () => {
+      toast({ title: "Failed to update privacy setting", variant: "destructive" });
+    },
+  });
+
+  const hasProfileContent = (() => {
+    if (!profile) return false;
+    if (userType === "recruiter") return !!(profile as RecruiterProfile).company_name;
+    return !!(profile as FreelancerProfile).first_name;
+  })();
+
+  const [isEditing, setIsEditing] = useState(!readOnly && !hasProfileContent);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const draftKey = user?.id
     ? `${DRAFT_STORAGE_KEY_PREFIX}${userType}_${user.id}`
@@ -88,6 +130,7 @@ export function ProfileForm({
           bio: freelancerProfile?.bio || "",
           location: freelancerProfile?.location || "",
           country: freelancerProfile?.country || "",
+          state_province: freelancerProfile?.state_province || "",
           experience_years: freelancerProfile?.experience_years?.toString() || "",
           skills: freelancerProfile?.skills || [],
           portfolio_url: freelancerProfile?.portfolio_url || "",
@@ -108,6 +151,7 @@ export function ProfileForm({
           company_type: recruiterProfile?.company_type || "",
           location: recruiterProfile?.location || "",
           country: recruiterProfile?.country || "",
+          state_province: recruiterProfile?.state_province || "",
           description: recruiterProfile?.description || "",
           website_url: recruiterProfile?.website_url || "",
           linkedin_url: recruiterProfile?.linkedin_url || "",
@@ -198,7 +242,8 @@ export function ProfileForm({
         fd.last_name?.trim() &&
         fd.title?.trim() &&
         fd.location?.trim() &&
-        fd.country?.trim()
+        fd.country?.trim() &&
+        (!countryNeedsStateProvince(fd.country) || fd.state_province?.trim())
       );
     })();
 
@@ -211,10 +256,24 @@ export function ProfileForm({
       if (!fd.title?.trim()) missing.push("Professional Title");
       if (!fd.location?.trim()) missing.push("Location");
       if (!fd.country?.trim()) missing.push("Country");
+      const stateCfg = STATE_PROVINCE_COUNTRIES[fd.country];
+      if (stateCfg && !fd.state_province?.trim()) missing.push(stateCfg.label);
       if (missing.length > 0) {
         toast({
           title: "Required fields missing",
           description: `Please fill in: ${missing.join(", ")}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    if (userType === "recruiter") {
+      const fd = formData as RecruiterFormData;
+      const stateCfg = STATE_PROVINCE_COUNTRIES[fd.country];
+      if (stateCfg && !fd.state_province?.trim()) {
+        toast({
+          title: "Required field missing",
+          description: `Please select your ${stateCfg.label}.`,
           variant: "destructive",
         });
         return;
@@ -252,14 +311,48 @@ export function ProfileForm({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>
-            {userType === "freelancer" ? "Freelancer Profile" : "Company Profile"}
-          </CardTitle>
-          <CardDescription>
-            {userType === "recruiter"
-              ? "Company information (view only — contact the owner to make changes)"
-              : "Your professional information and skills"}
-          </CardDescription>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex-1">
+              <CardTitle>
+                {userType === "freelancer" ? "Freelancer Profile" : "Company Profile"}
+              </CardTitle>
+              <CardDescription>
+                {userType === "freelancer"
+                  ? "Your professional information and skills"
+                  : readOnly
+                    ? "Company information (view only — contact the owner to make changes)"
+                    : "Your company information and details"}
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {userType === "freelancer" && user?.id && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={profileIsPublic}
+                    onCheckedChange={(checked) => privacyMutation.mutate(checked)}
+                    disabled={privacyMutation.isPending}
+                    id="profile-visibility"
+                  />
+                  <label
+                    htmlFor="profile-visibility"
+                    className="cursor-pointer select-none text-sm font-medium"
+                  >
+                    {profileIsPublic ? "Public" : "Private"}
+                  </label>
+                </div>
+              )}
+              {userType === "freelancer" && user?.id && <ShareProfileButton userId={user.id} />}
+              {!readOnly && (
+                <Button
+                  onClick={() => setIsEditing(true)}
+                  data-testid="button-edit-profile"
+                  className="shrink-0"
+                >
+                  Edit Profile
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {userType === "freelancer" ? (
@@ -700,6 +793,22 @@ function FreelancerProfileFields({
           required
         />
       </div>
+
+      {countryNeedsStateProvince(formData.country) && (
+        <div className="grid grid-cols-1 gap-4">
+          <div>
+            <Label htmlFor="state_province">
+              {STATE_PROVINCE_COUNTRIES[formData.country].label} *
+            </Label>
+            <StateProvinceSelect
+              id="state_province"
+              country={formData.country}
+              value={formData.state_province}
+              onChange={(v) => onInputChange("state_province", v)}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4">
         <div>
@@ -1426,6 +1535,20 @@ function RecruiterFormFields({
           onChange={(v) => onInputChange("country", v)}
         />
       </div>
+
+      {countryNeedsStateProvince(formData.country) && (
+        <div>
+          <Label htmlFor="state_province">
+            {STATE_PROVINCE_COUNTRIES[formData.country].label} *
+          </Label>
+          <StateProvinceSelect
+            id="state_province"
+            country={formData.country}
+            value={formData.state_province}
+            onChange={(v) => onInputChange("state_province", v)}
+          />
+        </div>
+      )}
 
       <div>
         <Label htmlFor="description">Company Description</Label>
