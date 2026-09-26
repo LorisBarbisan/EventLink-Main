@@ -2127,7 +2127,7 @@ export class DatabaseStorage implements IStorage {
     const jobRows = await db
       .select()
       .from(jobs)
-      .where(and(eq(jobs.posted_by_user_id, userId), eq(jobs.is_freelancer_posted, true)))
+      .where(and(eq(jobs.posted_by_user_id, userId), eq(jobs.poster_type, "freelancer")))
       .orderBy(desc(jobs.created_at));
 
     if (jobRows.length === 0) return [];
