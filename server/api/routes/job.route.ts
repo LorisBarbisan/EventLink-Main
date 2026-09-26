@@ -54,20 +54,11 @@ export function registerJobRoutes(app: Express) {
   app.post("/api/jobs/guest", guestJobIpLimiter, guestJobEmailLimiter, submitGuestJob);
   app.get("/api/jobs/guest/confirm", confirmGuestJob);
 
-  // Get job by ID
-  app.get("/api/jobs/:id", authenticateOptionalJWT, resolveCompanyIdOptional, getJobById);
-
   // Get job posting presets
   app.get("/api/jobs/presets", getJobPresets);
 
   // Get jobs by recruiter
   app.get("/api/jobs/recruiter/:recruiterId", getJobsByRecruiter);
-
-  // Track job link view (public, no auth required)
-  app.post("/api/jobs/:id/link-view", trackJobLinkView);
-
-  // Get job link view count (authenticated - recruiter/admin only)
-  app.get("/api/jobs/:id/link-views", authenticateJWT, getJobLinkViewCount);
 
   // Create new job (recruiter / employer)
   app.post("/api/jobs", authenticateJWT, resolveCompanyId, createJob);
@@ -77,6 +68,15 @@ export function registerJobRoutes(app: Express) {
 
   // Get jobs the current freelancer has posted themselves
   app.get("/api/jobs/my-posted", authenticateJWT, requireRole("freelancer"), getMyPostedJobs);
+
+  // Track job link view (public, no auth required)
+  app.post("/api/jobs/:id/link-view", trackJobLinkView);
+
+  // Get job link view count (authenticated - recruiter/admin only)
+  app.get("/api/jobs/:id/link-views", authenticateJWT, getJobLinkViewCount);
+
+  // Get job by ID — must come after all specific /api/jobs/* routes
+  app.get("/api/jobs/:id", authenticateOptionalJWT, resolveCompanyIdOptional, getJobById);
 
   // Public: active jobs posted by a specific freelancer (profile page)
   app.get("/api/freelancer/:userId/posted-jobs", getFreelancerPublicPostedJobs);
