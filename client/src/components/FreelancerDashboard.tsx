@@ -277,7 +277,7 @@ export default function SimplifiedFreelancerDashboard() {
             <ShieldCheck className="h-4 w-4" />
             References
           </TabsTrigger>
-          <TabsTrigger value="posted-jobs">Post a Job</TabsTrigger>
+          <TabsTrigger value="posted-jobs">My Jobs</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
