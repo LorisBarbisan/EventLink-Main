@@ -57,7 +57,7 @@ export async function sendGuestJobPublishedConfirmation({
     to,
     subject,
     html,
-    text: `Hi ${contactName},\n\n"${jobTitle}" is now live on EventLink.\nView it here: ${jobUrl}\n\nSet a password to manage your job and applications: ${setPasswordUrl}`,
+    text: `Hi ${contactName},\n\n"${jobTitle}" is now live on EventLink.\nView it here: ${jobUrl}\n\nUse the button in this email to set a password and manage your job.`,
   });
 }
 
@@ -118,6 +118,6 @@ export async function sendGuestApplicationNotification({
     to,
     subject,
     html,
-    text: `Hi ${contactName},\n\n${freelancerName}${freelancerTitle ? ` (${freelancerTitle})` : ""} has applied to your job "${jobTitle}" on EventLink.\n\nView their application here:\n${viewUrl}\n\nSet a password to manage all your applications: ${setPasswordUrl}`,
+    text: `Hi ${contactName},\n\n${freelancerName}${freelancerTitle ? ` (${freelancerTitle})` : ""} has applied to your job "${jobTitle}" on EventLink.\n\nUse the buttons in this email to view their application and set a password to manage all your applications.`,
   });
 }
