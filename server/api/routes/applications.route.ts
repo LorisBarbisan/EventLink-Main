@@ -7,6 +7,7 @@ import {
   getFreelancerBookings,
   getJobApplications,
   getRecruiterApplications,
+  getRecruiterHiddenApplications,
   inviteFreelancer,
   rejectApplication,
   respondToInvitation,
@@ -44,6 +45,14 @@ export function registerApplicationRoutes(app: Express) {
     authenticateJWT,
     resolveCompanyId,
     getRecruiterApplications
+  );
+
+  // Get recruiter's hidden applications (live jobs only)
+  app.get(
+    "/api/recruiter/:recruiterId/applications/hidden",
+    authenticateJWT,
+    resolveCompanyId,
+    getRecruiterHiddenApplications
   );
 
   // Accept application

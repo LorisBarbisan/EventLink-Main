@@ -207,6 +207,30 @@ export async function getRecruiterApplications(req: Request, res: Response) {
   }
 }
 
+// Get applications the recruiter has hidden (soft-deleted) for live jobs
+export async function getRecruiterHiddenApplications(req: Request, res: Response) {
+  try {
+    const recruiterId = parseInt(req.params.recruiterId);
+
+    const reqUser = (req as any).user;
+    const effectiveCompanyId = (req as any).companyId ?? reqUser?.id;
+    if (
+      !reqUser ||
+      (reqUser.id !== recruiterId && effectiveCompanyId !== recruiterId && reqUser.role !== "admin")
+    ) {
+      return res.status(403).json({ error: "Not authorized to view these applications" });
+    }
+
+    const applications = await storage.getRecruiterHiddenApplications(recruiterId);
+
+    res.set("Cache-Control", "no-store");
+    res.json(applications);
+  } catch (error) {
+    console.error("Get recruiter hidden applications error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Accept application
 export async function acceptApplication(req: Request, res: Response) {
   try {

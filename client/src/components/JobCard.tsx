@@ -359,6 +359,19 @@ export function JobCard({
               <span className="mr-2 self-center text-xs font-medium text-red-600">Closed</span>
             )}
 
+            {/* Closed jobs stay accessible: open the full applicant list (same as admin) */}
+            {isClosed && onViewDetail && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                onClick={() => onViewDetail(job.id)}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                View Applicants
+              </Button>
+            )}
+
             {/* 1. Post / Unpost */}
             {isUnposted && onPublish && (
               <AlertDialog>
