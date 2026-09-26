@@ -126,6 +126,17 @@ export async function notifyJobPosterOfNewApplication(params: {
 
       const viewUrl = `${BASE_URL}/applications/guest-view?token=${rawToken}`;
 
+      // Generate set-password token so the guest can claim their account
+      let setPasswordToken: string | undefined;
+      try {
+        const spRaw = randomBytes(32).toString("hex");
+        const spExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        await storage.setPasswordResetToken(recruiter.email, spRaw, spExpires);
+        setPasswordToken = spRaw;
+      } catch (spErr) {
+        console.error("Failed to generate set-password token for guest application email:", spErr);
+      }
+
       await sendGuestApplicationNotification({
         to: recruiter.email,
         contactName,
@@ -134,6 +145,7 @@ export async function notifyJobPosterOfNewApplication(params: {
         freelancerTitle,
         coverLetterPreview,
         viewUrl,
+        setPasswordToken,
       });
     } catch (emailError) {
       console.error("Failed to send guest application notification:", emailError);

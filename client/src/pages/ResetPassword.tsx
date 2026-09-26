@@ -17,6 +17,7 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [token, setToken] = useState("");
+  const [isSetMode, setIsSetMode] = useState(false);
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
   const { toast } = useToast();
 
@@ -30,6 +31,7 @@ export default function ResetPassword() {
     } else {
       setTokenValid(false);
     }
+    setIsSetMode(params.get("mode") === "set");
   }, [searchString]);
 
   const validatePassword = (pwd: string): string[] => {
@@ -118,23 +120,21 @@ export default function ResetPassword() {
   // Invalid or missing token
   if (tokenValid === false) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
         <div className="w-full max-w-md">
           <Card className="border-border/50 shadow-xl">
             <CardHeader className="text-center">
-              <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-8 h-8 text-destructive" />
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+                <Shield className="h-8 w-8 text-destructive" />
               </div>
-              <CardTitle className="text-destructive">Invalid Reset Link</CardTitle>
-              <CardDescription>
-                This link is invalid or expired. Please request a new password reset.
-              </CardDescription>
+              <CardTitle className="text-destructive">Invalid Link</CardTitle>
+              <CardDescription>This link is invalid or has expired.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="text-center">
                 <Button
                   onClick={() => setLocation("/forgot-password")}
-                  className="w-full mb-2"
+                  className="mb-2 w-full"
                   data-testid="button-request-new-reset"
                 >
                   Request New Reset Link
@@ -156,24 +156,26 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
       <div className="w-full max-w-md">
         <Card className="border-border/50 shadow-xl">
           <CardHeader>
-            <div className="flex items-center gap-2 mb-4">
+            <div className="mb-4 flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setLocation("/auth")}
                 data-testid="button-back"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="h-4 w-4" />
               </Button>
               <span className="text-sm text-muted-foreground">Back to Sign In</span>
             </div>
-            <CardTitle>Create New Password</CardTitle>
+            <CardTitle>{isSetMode ? "Set Your Password" : "Create New Password"}</CardTitle>
             <CardDescription>
-              Enter your new password below. Make sure it's strong and secure.
+              {isSetMode
+                ? "Create a password to access your EventLink account and manage your jobs."
+                : "Enter your new password below. Make sure it's strong and secure."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -186,7 +188,7 @@ export default function ResetPassword() {
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter new password"
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    onChange={(e) => setPassword(e.target.value)}
                     required
                     data-testid="input-new-password"
                     className={passwordErrors.length > 0 && password ? "border-destructive" : ""}
@@ -218,7 +220,7 @@ export default function ResetPassword() {
                         className={`flex items-center gap-1 ${password.length >= 8 ? "text-success" : "text-muted-foreground"}`}
                       >
                         <Check
-                          className={`w-3 h-3 ${password.length >= 8 ? "text-success" : "text-muted-foreground"}`}
+                          className={`h-3 w-3 ${password.length >= 8 ? "text-success" : "text-muted-foreground"}`}
                         />
                         At least 8 characters
                       </div>
@@ -226,7 +228,7 @@ export default function ResetPassword() {
                         className={`flex items-center gap-1 ${/[A-Z]/.test(password) ? "text-success" : "text-muted-foreground"}`}
                       >
                         <Check
-                          className={`w-3 h-3 ${/[A-Z]/.test(password) ? "text-success" : "text-muted-foreground"}`}
+                          className={`h-3 w-3 ${/[A-Z]/.test(password) ? "text-success" : "text-muted-foreground"}`}
                         />
                         One uppercase letter
                       </div>
@@ -234,7 +236,7 @@ export default function ResetPassword() {
                         className={`flex items-center gap-1 ${/[0-9]/.test(password) ? "text-success" : "text-muted-foreground"}`}
                       >
                         <Check
-                          className={`w-3 h-3 ${/[0-9]/.test(password) ? "text-success" : "text-muted-foreground"}`}
+                          className={`h-3 w-3 ${/[0-9]/.test(password) ? "text-success" : "text-muted-foreground"}`}
                         />
                         One number
                       </div>
@@ -251,7 +253,7 @@ export default function ResetPassword() {
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm new password"
                     value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     data-testid="input-confirm-password"
                     className={
@@ -288,7 +290,7 @@ export default function ResetPassword() {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-primary hover:bg-primary-hover"
+                className="bg-gradient-primary hover:bg-primary-hover w-full"
                 disabled={
                   loading ||
                   !password.trim() ||
@@ -298,7 +300,13 @@ export default function ResetPassword() {
                 }
                 data-testid="button-reset-password"
               >
-                {loading ? "Resetting Password..." : "Reset Password"}
+                {loading
+                  ? isSetMode
+                    ? "Setting Password..."
+                    : "Resetting Password..."
+                  : isSetMode
+                    ? "Set Password"
+                    : "Reset Password"}
               </Button>
             </form>
           </CardContent>

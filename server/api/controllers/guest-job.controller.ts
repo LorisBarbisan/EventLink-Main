@@ -187,12 +187,24 @@ export async function confirmGuestJob(req: Request, res: Response) {
 
     await storage.consumeJobDraft(draft.id, job.id);
 
+    // ── generate set-password token for the guest account ───────────────────
+    let setPasswordToken: string | undefined;
+    try {
+      const rawToken = randomBytes(32).toString("hex");
+      const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      await storage.setPasswordResetToken(draft.contact_email, rawToken, expires);
+      setPasswordToken = rawToken;
+    } catch (err) {
+      console.error("Failed to generate set-password token for guest:", err);
+    }
+
     // ── send "you're live" email ─────────────────────────────────────────────
     sendGuestJobPublishedConfirmation({
       to: draft.contact_email,
       contactName: draft.contact_name,
       jobTitle: job.title,
       jobId: job.id,
+      setPasswordToken,
     }).catch((err) => console.error("Guest job published confirmation email failed:", err));
 
     return res.status(201).json({
