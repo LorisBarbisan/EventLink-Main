@@ -1409,9 +1409,18 @@ export default function SimplifiedRecruiterDashboard() {
           ) : (
             (() => {
               const isHiddenView = appStatusFilter === "hidden";
+              // Applications for closed jobs are removed from the Applications tab
+              // entirely — those records stay accessible from the My Jobs tab. This
+              // keeps the Applications tab scoped to active jobs. (The Hidden view
+              // already only returns live-job applications from the server.)
+              const closedJobIds = new Set(
+                (myJobs as Job[]).filter((j) => j.status === "closed").map((j) => j.id)
+              );
               // The Hidden filter draws from a dedicated query (recruiter-hidden
               // applications on live jobs); every other filter uses the main list.
-              const sourceApps: JobApplication[] = isHiddenView ? hiddenApplications : applications;
+              const sourceApps: JobApplication[] = isHiddenView
+                ? hiddenApplications
+                : applications.filter((app: JobApplication) => !closedJobIds.has(app.job_id));
               const filteredApps = sourceApps.filter((app: JobApplication) => {
                 const searchLower = appSearch.toLowerCase().trim();
                 const freelancerName =
@@ -1422,8 +1431,8 @@ export default function SimplifiedRecruiterDashboard() {
                   (app.job_title || "").toLowerCase().includes(searchLower) ||
                   (app.job_company || "").toLowerCase().includes(searchLower);
                 // "Declined" covers both employer-declined (rejected) and
-                // freelancer-declined invitations. "Hidden" is handled by the
-                // dedicated source above, so it always matches here.
+                // freelancer-declined invitations. "Hidden" is served by its own
+                // source above, so it always matches here.
                 const matchesStatus =
                   appStatusFilter === "all" ||
                   isHiddenView ||

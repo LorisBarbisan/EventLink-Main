@@ -2570,7 +2570,7 @@ export class DatabaseStorage implements IStorage {
     ];
 
     if (onlyHidden) {
-      // Hidden applications belonging to live jobs only
+      // Hidden applications belonging to live (active) jobs only
       conditions.push(eq(job_applications.recruiter_deleted, true));
       conditions.push(eq(jobs.status, "active"));
     } else {
@@ -3430,11 +3430,19 @@ export class DatabaseStorage implements IStorage {
     );
 
     // Recruiters: application tab = job_update on applications. Freelancers: application_update only.
+    // Applications for closed jobs are removed from the Applications tab, so their
+    // alerts must not be counted in the Applications badge either.
+    const applicationNotForClosedJob = sql`NOT EXISTS (
+      SELECT 1 FROM job_applications ja
+      JOIN jobs j ON j.id = ja.job_id
+      WHERE ja.id = ${notifications.related_entity_id} AND j.status = 'closed'
+    )`;
     const applicationsWhere = isRecruiter
       ? and(
           baseUnread,
           eq(notifications.type, "job_update"),
-          eq(notifications.related_entity_type, "application")
+          eq(notifications.related_entity_type, "application"),
+          applicationNotForClosedJob
         )
       : and(baseUnread, eq(notifications.type, "application_update"));
 
