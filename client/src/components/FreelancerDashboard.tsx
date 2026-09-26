@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MyJobs from "@/pages/freelancer/MyJobs";
+import MyPostedJobs from "@/pages/freelancer/MyPostedJobs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
@@ -21,6 +22,7 @@ import {
   Clock,
   Copy,
   Mail,
+  Plus,
   Send,
   Share2,
   ShieldCheck,
@@ -220,7 +222,20 @@ export default function SimplifiedFreelancerDashboard() {
           </p>
           <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button
+            size="sm"
+            onClick={() => {
+              handleTabChange("posted-jobs");
+              const url = new URL(window.location.href);
+              url.searchParams.set("openForm", "1");
+              window.history.replaceState({}, "", url.toString());
+            }}
+            className="bg-gradient-to-r from-[#7B5EA7] to-[#9B7DC7] text-white hover:from-[#6a4f94] hover:to-[#8a6cb6]"
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Post a Job
+          </Button>
           <Button size="sm" variant="outline" onClick={handleShareProfile}>
             {linkCopied ? (
               <>
@@ -244,7 +259,7 @@ export default function SimplifiedFreelancerDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
             My Applications
@@ -262,6 +277,7 @@ export default function SimplifiedFreelancerDashboard() {
             <ShieldCheck className="h-4 w-4" />
             References
           </TabsTrigger>
+          <TabsTrigger value="posted-jobs">My Jobs</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -462,6 +478,11 @@ export default function SimplifiedFreelancerDashboard() {
         {/* References Tab */}
         <TabsContent value="references" className="space-y-6">
           <ReferenceRequestsSection userId={user.id} />
+        </TabsContent>
+
+        {/* Post a Job Tab */}
+        <TabsContent value="posted-jobs">
+          <MyPostedJobs />
         </TabsContent>
       </Tabs>
     </div>

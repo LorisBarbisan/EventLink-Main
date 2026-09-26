@@ -22,6 +22,7 @@ export function registerSeoRoutes(app: Express) {
         { url: `${BASE_URL}/`, priority: "1.0" },
         { url: `${BASE_URL}/jobs`, priority: "0.9" },
         { url: `${BASE_URL}/freelancers`, priority: "0.9" },
+        { url: `${BASE_URL}/post-job`, priority: "0.8" },
         { url: `${BASE_URL}/how-it-works`, priority: "0.7" },
         { url: `${BASE_URL}/about`, priority: "0.6" },
         { url: `${BASE_URL}/faq`, priority: "0.5" },

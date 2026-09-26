@@ -230,6 +230,37 @@ export async function getAdminJobDetail(req: Request, res: Response) {
   }
 }
 
+// Get pending guest jobs awaiting moderation (admin only)
+export async function getPendingGuestJobs(req: Request, res: Response) {
+  try {
+    const jobs = await storage.getPendingGuestJobs();
+    res.json({ jobs, total: jobs.length });
+  } catch (error) {
+    console.error("getPendingGuestJobs error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Approve or reject a guest job (admin only)
+export async function moderateGuestJob(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.id);
+    if (isNaN(jobId)) {
+      return res.status(400).json({ error: "Invalid job ID" });
+    }
+    const { decision, note } = req.body as { decision: string; note?: string };
+    if (decision !== "approved" && decision !== "rejected") {
+      return res.status(400).json({ error: "decision must be 'approved' or 'rejected'" });
+    }
+    const moderatorId = (req as any).user?.id;
+    const job = await storage.moderateJob(jobId, decision, moderatorId, note);
+    res.json(job);
+  } catch (error) {
+    console.error("moderateGuestJob error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Get all users (admin only)
 export async function getAllUsers(req: Request, res: Response) {
   try {

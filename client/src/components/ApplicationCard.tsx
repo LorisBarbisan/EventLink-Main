@@ -956,7 +956,9 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     </Dialog>
 
                     {/* Message button for freelancers */}
-                    {application.recruiter_id && (
+                    {(application.recruiter_id ||
+                      (application.job_is_freelancer_posted &&
+                        application.job_posted_by_user_id)) && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -964,7 +966,9 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         data-testid={`button-message-recruiter-${application.id}`}
                       >
                         <MessageCircle className="mr-1 h-4 w-4" />
-                        Message Employer
+                        {application.job_is_freelancer_posted
+                          ? "Message Poster"
+                          : "Message Employer"}
                       </Button>
                     )}
 
@@ -1365,16 +1369,22 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
         />
       )}
 
-      {/* Message Modal for freelancers to message recruiters */}
-      {userType === "freelancer" && application.recruiter_id && (
-        <MessageModal
-          isOpen={showMessageModal}
-          onClose={() => setShowMessageModal(false)}
-          recipientId={application.recruiter_id!}
-          recipientName={application.job_company || "Employer"}
-          senderId={currentUserId}
-        />
-      )}
+      {/* Message Modal for freelancers to message recruiters or freelancer-posters */}
+      {userType === "freelancer" &&
+        (application.recruiter_id ||
+          (application.job_is_freelancer_posted && application.job_posted_by_user_id)) && (
+          <MessageModal
+            isOpen={showMessageModal}
+            onClose={() => setShowMessageModal(false)}
+            recipientId={
+              application.job_is_freelancer_posted && application.job_posted_by_user_id
+                ? application.job_posted_by_user_id
+                : application.recruiter_id!
+            }
+            recipientName={application.job_company || "Employer"}
+            senderId={currentUserId}
+          />
+        )}
 
       {/* Message Modal for recruiters to message freelancers */}
       {userType === "recruiter" && application.freelancer_id && application.freelancer_profile && (

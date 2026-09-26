@@ -22,6 +22,7 @@ interface MessageModalProps {
   onClose: () => void;
   recipientId: number;
   recipientName: string;
+  senderId?: number;
 }
 
 export function MessageModal({ isOpen, onClose, recipientId, recipientName }: MessageModalProps) {

@@ -245,9 +245,11 @@ export function newApplicationEmail(data: {
     <p>
       Review their profile and application to find the perfect candidate for your event.
     </p>
-    <p>
-      <a href="${data.applicationUrl}" class="button">Review Application</a>
-    </p>
+    <table cellpadding="0" cellspacing="0" style="margin:16px 0;">
+      <tr><td style="background:linear-gradient(135deg,#D8690E,#ff8c42);border-radius:6px;">
+        <a href="${data.applicationUrl}" style="display:inline-block;padding:12px 28px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">Review Application</a>
+      </td></tr>
+    </table>
     <p style="color: #666; font-size: 14px;">
       Respond quickly to secure top talent for your event!
     </p>

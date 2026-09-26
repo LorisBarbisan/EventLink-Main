@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import eventlinkLogo from "@assets/E8-Logo-Orange-New.png";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Briefcase } from "lucide-react";
 import { Link } from "wouter";
 
 export const HeroSection = () => {
@@ -42,6 +42,17 @@ export const HeroSection = () => {
               <Link to="/auth?tab=signup" data-testid="button-get-started">
                 Get Started
                 <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="px-8 text-lg transition-all duration-200"
+              asChild
+            >
+              <Link to="/post-job">
+                <Briefcase className="mr-2 h-5 w-5" />
+                Post a Job
               </Link>
             </Button>
           </div>

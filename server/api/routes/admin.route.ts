@@ -17,7 +17,9 @@ import {
   getAnalyticsOverview,
   getFeedbackStats,
   getNotifyFreelancersPreview,
+  getPendingGuestJobs,
   grantAdminAccess,
+  moderateGuestJob,
   notifyFreelancersForJob,
   retriggerJobAlerts,
   revokeAdminAccess,
@@ -46,6 +48,10 @@ export function registerAdminRoutes(app: Express) {
 
   // Send reply to contact message (admin only)
   app.post("/api/admin/contact-messages/:id/reply", requireAdminAuth, sendContactReply);
+
+  // Guest job moderation queue (admin only)
+  app.get("/api/admin/jobs/pending-guest", requireAdminAuth, getPendingGuestJobs);
+  app.post("/api/admin/jobs/:id/moderate", requireAdminAuth, moderateGuestJob);
 
   // Get all jobs (admin only)
   app.get("/api/admin/jobs", requireAdminAuth, getAdminJobs);

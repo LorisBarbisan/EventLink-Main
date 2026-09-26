@@ -155,7 +155,7 @@ export class CVParserService {
         userId,
         parsedData,
         cvFileUrl,
-        sections as Record<string, string>
+        sections as unknown as Record<string, string>
       );
 
       // Only broadcast if we actually persisted results (not a stale/superseded parse)

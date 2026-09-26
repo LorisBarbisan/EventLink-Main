@@ -66,6 +66,10 @@ import {
   reference_requests,
   reference_reports,
   teamMembers,
+  job_drafts,
+  type JobDraft,
+  guest_application_tokens,
+  type GuestApplicationToken,
   type User,
 } from "@shared/schema";
 import {
@@ -177,6 +181,11 @@ export interface IStorage {
   // Job management
   getAllJobs(): Promise<Job[]>;
   getJobsByRecruiterId(recruiterId: number): Promise<Job[]>;
+  getFreelancerPostedJobs(
+    userId: number
+  ): Promise<
+    (Job & { application_count: number; shortlisted_count: number; hired_count: number })[]
+  >;
   getJobById(jobId: number): Promise<Job | undefined>;
   createJob(job: InsertJob): Promise<Job>;
   /** Persist posted_by_user_id from recruiter_id when missing (legacy rows). */
@@ -459,7 +468,7 @@ export interface IStorage {
     jobs: Array<{
       id: number;
       title: string;
-      status: string;
+      status: string | null;
       is_published: boolean;
       created_at: Date;
       application_count: number;
@@ -534,7 +543,7 @@ export interface IStorage {
   createCvParsedData(data: InsertCvParsedData): Promise<CvParsedData>;
   updateCvParsedData(
     userId: number,
-    data: Partial<InsertCvParsedData>
+    data: Partial<CvParsedData>
   ): Promise<CvParsedData | undefined>;
   deleteCvParsedData(userId: number): Promise<void>;
 
@@ -617,6 +626,55 @@ export interface IStorage {
   }>;
   setJobNotificationSentAt(jobId: number): Promise<void>;
   setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void>;
+
+  // Guest account upgrade
+  upgradeGuestAccount(
+    userId: number,
+    data: {
+      password: string;
+      first_name: string;
+      last_name: string;
+      role: "freelancer" | "recruiter";
+      email_verification_token: string;
+      email_verification_expires: Date;
+    }
+  ): Promise<void>;
+
+  // Guest job nudge
+  getDraftsReadyForNudge(minAgeHours: number): Promise<JobDraft[]>;
+  markDraftNudgeSent(draftId: number, newTokenHash: string): Promise<void>;
+
+  // Guest job moderation
+  getPendingGuestJobs(): Promise<(Job & { contact_email: string | null })[]>;
+  moderateJob(
+    jobId: number,
+    decision: "approved" | "rejected",
+    moderatorUserId: number,
+    note?: string
+  ): Promise<Job>;
+
+  // Guest job drafts
+  createJobDraft(data: {
+    payload: object;
+    contact_name: string;
+    contact_email: string;
+    token_hash: string;
+    ip_address?: string;
+    user_agent?: string;
+    terms_version: string;
+    expires_at: Date;
+  }): Promise<JobDraft>;
+  getJobDraftByTokenHash(tokenHash: string): Promise<JobDraft | undefined>;
+  consumeJobDraft(draftId: number, publishedJobId: number): Promise<void>;
+  createGuestApplicationToken(data: {
+    token_hash: string;
+    application_id: number;
+    job_id: number;
+    guest_email: string;
+    expires_at: Date;
+  }): Promise<GuestApplicationToken>;
+  getGuestApplicationToken(tokenHash: string): Promise<GuestApplicationToken | undefined>;
+  markGuestApplicationTokenViewed(tokenHash: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -738,7 +796,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserStatus(userId: number, status: string): Promise<User> {
-    const updates: Partial<InsertUser> = { status, updated_at: new Date() };
+    const updates: Partial<User> = { status, updated_at: new Date() };
 
     // If activating, also verify email if not already verified
     if (status === "active") {
@@ -1407,7 +1465,7 @@ export class DatabaseStorage implements IStorage {
       );
     });
 
-    return safeResult;
+    return safeResult as unknown as FreelancerProfile[];
   }
 
   // Freelancer profiles eligible for the sitemap: real, public, non-demo records
@@ -1484,7 +1542,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(recruiter_profiles.user_id, users.id))
       .where(isNull(users.deleted_at)); // Only non-deleted users
 
-    return result;
+    return result as unknown as RecruiterProfile[];
   }
 
   async searchFreelancers(filters: {
@@ -1662,7 +1720,9 @@ export class DatabaseStorage implements IStorage {
       );
 
       return {
-        results: resultsWithRatings,
+        results: resultsWithRatings as unknown as Array<
+          FreelancerProfile & { average_rating: number; rating_count: number }
+        >,
         total,
         page,
         totalPages,
@@ -1769,6 +1829,8 @@ export class DatabaseStorage implements IStorage {
         conditions.push(isNotNull(jobs.external_source));
       } else if (type === "internal") {
         conditions.push(isNull(jobs.external_source));
+      } else if (type === "freelancer") {
+        conditions.push(eq(jobs.is_freelancer_posted, true));
       }
     }
 
@@ -1898,17 +1960,47 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Also look up freelancer posters (posted_by_user_id on freelancer-posted jobs)
+    const posterIds = jobRows
+      .filter((j) => j.is_freelancer_posted && j.posted_by_user_id !== null)
+      .map((j) => j.posted_by_user_id as number);
+    const posterMap: Map<number, { email: string; name: string }> = new Map();
+
+    if (posterIds.length > 0) {
+      const uniquePosterIds = Array.from(new Set(posterIds));
+      const posters = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          first_name: users.first_name,
+          last_name: users.last_name,
+        })
+        .from(users)
+        .where(inArray(users.id, uniquePosterIds));
+
+      for (const p of posters) {
+        posterMap.set(p.id, {
+          email: p.email,
+          name: [p.first_name, p.last_name].filter(Boolean).join(" ") || p.email,
+        });
+      }
+    }
+
     const enrichedJobs = jobRows.map((job) => {
       const counts = appCounts.get(job.id) || { total: 0, hired: 0, closureEmailCount: 0 };
       const recruiter = job.recruiter_id ? recruiterMap.get(job.recruiter_id) : undefined;
+      const poster =
+        job.is_freelancer_posted && job.posted_by_user_id
+          ? posterMap.get(job.posted_by_user_id)
+          : undefined;
       return {
         ...job,
         application_count: counts.total,
         hired_count: counts.hired,
         closure_email_count: counts.closureEmailCount,
         notified_email_count: notifiedCounts.get(job.id) ?? 0,
-        recruiter_email: recruiter?.email,
-        recruiter_name: recruiter?.name,
+        recruiter_email: poster?.email ?? recruiter?.email,
+        recruiter_name: poster?.name ?? recruiter?.name,
       };
     });
 
@@ -1937,7 +2029,18 @@ export class DatabaseStorage implements IStorage {
 
     let recruiter_email: string | undefined;
     let recruiter_name: string | undefined;
-    if (job.recruiter_id) {
+    if (job.is_freelancer_posted && job.posted_by_user_id) {
+      const [poster] = await db
+        .select({ email: users.email, first_name: users.first_name, last_name: users.last_name })
+        .from(users)
+        .where(eq(users.id, job.posted_by_user_id))
+        .limit(1);
+      if (poster) {
+        recruiter_email = poster.email;
+        recruiter_name =
+          [poster.first_name, poster.last_name].filter(Boolean).join(" ") || poster.email;
+      }
+    } else if (job.recruiter_id) {
       const [recruiter] = await db
         .select({ email: users.email, first_name: users.first_name, last_name: users.last_name })
         .from(users)
@@ -2014,6 +2117,49 @@ export class DatabaseStorage implements IStorage {
       .from(jobs)
       .where(eq(jobs.recruiter_id, recruiterId))
       .orderBy(desc(jobs.created_at));
+  }
+
+  async getFreelancerPostedJobs(
+    userId: number
+  ): Promise<
+    (Job & { application_count: number; shortlisted_count: number; hired_count: number })[]
+  > {
+    const jobRows = await db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.posted_by_user_id, userId), eq(jobs.poster_type, "freelancer")))
+      .orderBy(desc(jobs.created_at));
+
+    if (jobRows.length === 0) return [];
+
+    const jobIds = jobRows.map((j) => j.id);
+    const appStats = await db
+      .select({
+        job_id: job_applications.job_id,
+        total: count(),
+        shortlisted: sql<number>`count(*) filter (where ${job_applications.status} = 'shortlisted')`,
+        hired: sql<number>`count(*) filter (where ${job_applications.status} = 'hired')`,
+      })
+      .from(job_applications)
+      .where(inArray(job_applications.job_id, jobIds))
+      .groupBy(job_applications.job_id);
+
+    const statsMap = new Map(
+      appStats.map((s) => [
+        s.job_id,
+        { total: s.total, shortlisted: Number(s.shortlisted), hired: Number(s.hired) },
+      ])
+    );
+
+    return jobRows.map((job) => {
+      const s = statsMap.get(job.id) ?? { total: 0, shortlisted: 0, hired: 0 };
+      return {
+        ...job,
+        application_count: s.total,
+        shortlisted_count: s.shortlisted,
+        hired_count: s.hired,
+      };
+    });
   }
 
   async closeExpiredJobs(): Promise<number> {
@@ -2389,6 +2535,8 @@ export class DatabaseStorage implements IStorage {
         invitation_message: job_applications.invitation_message,
         freelancer_response: job_applications.freelancer_response,
         recruiter_id: jobs.recruiter_id,
+        job_is_freelancer_posted: jobs.is_freelancer_posted,
+        job_posted_by_user_id: jobs.posted_by_user_id,
         rating_id: sql<number>`(SELECT id FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
@@ -2403,7 +2551,7 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(job_applications.applied_at));
-    return result as JobApplication[];
+    return result as unknown as JobApplication[];
   }
 
   async getJobApplications(jobId: number): Promise<JobApplication[]> {
@@ -2432,7 +2580,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(eq(job_applications.job_id, jobId), eq(job_applications.recruiter_deleted, false))
       );
-    return result as JobApplication[];
+    return result as unknown as JobApplication[];
   }
 
   async getJobApplicationsByFreelancer(freelancerId: number): Promise<JobApplication[]> {
@@ -2536,7 +2684,7 @@ export class DatabaseStorage implements IStorage {
       )
       .where(and(...conditions))
       .orderBy(desc(job_applications.applied_at));
-    return result as JobApplication[];
+    return result as unknown as JobApplication[];
   }
 
   async getJobApplicationById(applicationId: number): Promise<JobApplication | undefined> {
@@ -2804,6 +2952,14 @@ export class DatabaseStorage implements IStorage {
         last_login_at: null,
         deleted_at: row.otherUserDeleted,
         status: "pending",
+        welcome_email_sent: false,
+        marketing_emails_opt_out: false,
+        unsubscribe_token: null,
+        job_alerts_opt_out: null,
+        last_job_alert_sent_at: null,
+        job_alert_frequency_preference: "instant" as const,
+        created_via: null,
+        posting_suspended_at: null,
         created_at: new Date(),
         updated_at: new Date(),
       },
@@ -2950,6 +3106,14 @@ export class DatabaseStorage implements IStorage {
             last_login_at: null,
             deleted_at: null,
             status: "pending",
+            welcome_email_sent: false,
+            marketing_emails_opt_out: false,
+            unsubscribe_token: null,
+            job_alerts_opt_out: null,
+            last_job_alert_sent_at: null,
+            job_alert_frequency_preference: "instant" as const,
+            created_via: null,
+            posting_suspended_at: null,
             created_at: new Date(),
             updated_at: new Date(),
           },
@@ -3050,6 +3214,14 @@ export class DatabaseStorage implements IStorage {
             last_login_at: null,
             deleted_at: null,
             status: "pending",
+            welcome_email_sent: false,
+            marketing_emails_opt_out: false,
+            unsubscribe_token: null,
+            job_alerts_opt_out: null,
+            last_job_alert_sent_at: null,
+            job_alert_frequency_preference: "instant" as const,
+            created_via: null,
+            posting_suspended_at: null,
             created_at: new Date(),
             updated_at: new Date(),
           },
@@ -3822,7 +3994,7 @@ export class DatabaseStorage implements IStorage {
       if (filters.status === "flagged") {
         conditions.push(or(eq(ratings.status, "flagged"), eq(ratings.flag, "reported")));
       } else {
-        conditions.push(eq(ratings.status, filters.status));
+        conditions.push(eq(ratings.status, filters.status as any));
       }
     }
 
@@ -4525,7 +4697,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (role && role !== "all") {
-      conditions.push(eq(users.role, role));
+      conditions.push(eq(users.role, role as any));
     }
 
     if (status && status !== "all") {
@@ -4565,7 +4737,7 @@ export class DatabaseStorage implements IStorage {
     const computeProfileStatus = (
       userId: number,
       userRole: string,
-      profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }>
+      profileMap: Map<number, { hasProfile: boolean; isComplete: boolean; country: string | null }>
     ): string | undefined => {
       if (userRole !== "freelancer") return undefined;
       const profileInfo = profileMap.get(userId);
@@ -4615,7 +4787,10 @@ export class DatabaseStorage implements IStorage {
 
       // Get all their profiles
       const allFreelancerIds = allFreelancers.map((u) => u.id);
-      let profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+      let profileMap: Map<
+        number,
+        { hasProfile: boolean; isComplete: boolean; country: string | null }
+      > = new Map();
 
       if (allFreelancerIds.length > 0) {
         const profiles = await db
@@ -4661,7 +4836,10 @@ export class DatabaseStorage implements IStorage {
     // Get profile status for freelancer users in the result set
     const freelancerIds = usersResult.filter((u) => u.role === "freelancer").map((u) => u.id);
 
-    let profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+    let profileMap: Map<
+      number,
+      { hasProfile: boolean; isComplete: boolean; country: string | null }
+    > = new Map();
 
     if (freelancerIds.length > 0) {
       const profiles = await db
@@ -4898,7 +5076,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCvParsedData(data: InsertCvParsedData): Promise<CvParsedData> {
-    const result = await db.insert(cv_parsed_data).values(data).returning();
+    const result = await db
+      .insert(cv_parsed_data)
+      .values(data as any)
+      .returning();
     if (!result[0]) {
       throw new Error("Failed to create CV parsed data");
     }
@@ -4907,7 +5088,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateCvParsedData(
     userId: number,
-    data: Partial<InsertCvParsedData>
+    data: Partial<CvParsedData>
   ): Promise<CvParsedData | undefined> {
     const result = await db
       .update(cv_parsed_data)
@@ -4922,7 +5103,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createJobLinkView(view: InsertJobLinkView): Promise<JobLinkView> {
-    const result = await db.insert(job_link_views).values(view).returning();
+    const result = await db
+      .insert(job_link_views)
+      .values(view as any)
+      .returning();
     if (!result[0]) {
       throw new Error("Failed to create job link view");
     }
@@ -5000,7 +5184,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(jobs.recruiter_id, recruiterId), eq(job_applications.status, "hired")));
     const workedWithIds = workedWithRows.map((r) => r.freelancer_id);
 
-    const allIds = [...new Set([...savedIds, ...workedWithIds])];
+    const allIds = Array.from(new Set([...savedIds, ...workedWithIds]));
     if (allIds.length === 0) return [];
 
     const tab = filters?.tab || "all";
@@ -5076,7 +5260,10 @@ export class DatabaseStorage implements IStorage {
   async createFreelancerReference(
     data: InsertFreelancerReference & { badge_result: string; is_flagged: boolean }
   ): Promise<FreelancerReference> {
-    const rows = await db.insert(freelancer_references).values(data).returning();
+    const rows = await db
+      .insert(freelancer_references)
+      .values(data as any)
+      .returning();
     return rows[0];
   }
 
@@ -5462,7 +5649,7 @@ export class DatabaseStorage implements IStorage {
     jobs: Array<{
       id: number;
       title: string;
-      status: string;
+      status: string | null;
       is_published: boolean;
       created_at: Date;
       application_count: number;
@@ -5615,6 +5802,169 @@ export class DatabaseStorage implements IStorage {
       members: membersList,
       jobs: enrichedJobs,
     };
+  }
+
+  // ── Guest account upgrade ─────────────────────────────────────────────────────
+
+  async upgradeGuestAccount(
+    userId: number,
+    data: {
+      password: string;
+      first_name: string;
+      last_name: string;
+      role: "freelancer" | "recruiter";
+      email_verification_token: string;
+      email_verification_expires: Date;
+    }
+  ): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        password: data.password,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        role: data.role,
+        status: "pending",
+        email_verified: false,
+        email_verification_token: data.email_verification_token,
+        email_verification_expires: data.email_verification_expires,
+        created_via: "email",
+        updated_at: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  // ── Guest job nudge ───────────────────────────────────────────────────────────
+
+  async getDraftsReadyForNudge(minAgeHours: number): Promise<JobDraft[]> {
+    const cutoff = new Date(Date.now() - minAgeHours * 3_600_000);
+    return db
+      .select()
+      .from(job_drafts)
+      .where(
+        and(
+          isNull(job_drafts.consumed_at),
+          isNull(job_drafts.nudge_sent_at),
+          gt(job_drafts.expires_at, new Date()), // not yet expired
+          sql`${job_drafts.created_at} <= ${cutoff}`
+        )
+      );
+  }
+
+  async markDraftNudgeSent(draftId: number, newTokenHash: string): Promise<void> {
+    await db
+      .update(job_drafts)
+      .set({ nudge_sent_at: new Date(), token_hash: newTokenHash })
+      .where(eq(job_drafts.id, draftId));
+  }
+
+  // ── Guest job moderation ─────────────────────────────────────────────────────
+
+  async getPendingGuestJobs(): Promise<(Job & { contact_email: string | null })[]> {
+    const rows = await db
+      .select({
+        job: jobs,
+        contact_email: users.email,
+      })
+      .from(jobs)
+      .leftJoin(users, eq(jobs.posted_by_user_id, users.id))
+      .where(
+        and(eq(jobs.poster_type as any, "guest"), eq(jobs.moderation_status as any, "pending"))
+      )
+      .orderBy(asc(jobs.created_at));
+    return rows.map((r) => ({ ...r.job, contact_email: r.contact_email ?? null }));
+  }
+
+  async moderateJob(
+    jobId: number,
+    decision: "approved" | "rejected",
+    moderatorUserId: number,
+    note?: string
+  ): Promise<Job> {
+    const newStatus = decision === "approved" ? "active" : "closed";
+    const [updated] = await db
+      .update(jobs)
+      .set({
+        moderation_status: decision as any,
+        moderated_at: new Date(),
+        moderated_by_user_id: moderatorUserId,
+        moderation_note: note ?? null,
+        status: newStatus as any,
+      })
+      .where(eq(jobs.id, jobId))
+      .returning();
+    return updated;
+  }
+
+  // ── Guest job drafts ────────────────────────────────────────────────────────
+
+  async createJobDraft(data: {
+    payload: object;
+    contact_name: string;
+    contact_email: string;
+    token_hash: string;
+    ip_address?: string;
+    user_agent?: string;
+    terms_version: string;
+    expires_at: Date;
+  }): Promise<JobDraft> {
+    const [draft] = await db
+      .insert(job_drafts)
+      .values({
+        payload: data.payload,
+        contact_name: data.contact_name,
+        contact_email: data.contact_email.toLowerCase(),
+        token_hash: data.token_hash,
+        ip_address: data.ip_address ?? null,
+        user_agent: data.user_agent ?? null,
+        terms_version: data.terms_version,
+        expires_at: data.expires_at,
+      })
+      .returning();
+    return draft;
+  }
+
+  async getJobDraftByTokenHash(tokenHash: string): Promise<JobDraft | undefined> {
+    const [draft] = await db
+      .select()
+      .from(job_drafts)
+      .where(eq(job_drafts.token_hash, tokenHash))
+      .limit(1);
+    return draft;
+  }
+
+  async consumeJobDraft(draftId: number, publishedJobId: number): Promise<void> {
+    await db
+      .update(job_drafts)
+      .set({ consumed_at: new Date(), published_job_id: publishedJobId })
+      .where(eq(job_drafts.id, draftId));
+  }
+
+  async createGuestApplicationToken(data: {
+    token_hash: string;
+    application_id: number;
+    job_id: number;
+    guest_email: string;
+    expires_at: Date;
+  }): Promise<GuestApplicationToken> {
+    const [token] = await db.insert(guest_application_tokens).values(data).returning();
+    return token;
+  }
+
+  async getGuestApplicationToken(tokenHash: string): Promise<GuestApplicationToken | undefined> {
+    const [token] = await db
+      .select()
+      .from(guest_application_tokens)
+      .where(eq(guest_application_tokens.token_hash, tokenHash))
+      .limit(1);
+    return token;
+  }
+
+  async markGuestApplicationTokenViewed(tokenHash: string): Promise<void> {
+    await db
+      .update(guest_application_tokens)
+      .set({ viewed_at: new Date() })
+      .where(eq(guest_application_tokens.token_hash, tokenHash));
   }
 }
 

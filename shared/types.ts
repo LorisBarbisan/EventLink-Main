@@ -73,6 +73,7 @@ export interface Job {
   id: number;
   recruiter_id: number;
   posted_by_user_id?: number | null;
+  is_freelancer_posted?: boolean;
   title: string;
   company: string;
   location: string;
@@ -96,6 +97,10 @@ export interface Job {
   posted_date?: string;
   created_at: string;
   updated_at: string;
+  // enriched by getFreelancerPostedJobs
+  application_count?: number;
+  shortlisted_count?: number;
+  hired_count?: number;
 }
 
 export interface JobApplication {
@@ -111,6 +116,8 @@ export interface JobApplication {
   job_title?: string;
   job_company?: string;
   recruiter_id?: number | null;
+  job_is_freelancer_posted?: boolean;
+  job_posted_by_user_id?: number | null;
   rating_id?: number;
   rating?: number;
   review?: string;
