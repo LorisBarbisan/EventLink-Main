@@ -1134,7 +1134,7 @@ export async function forgotPassword(req: Request, res: Response) {
 // Reset password endpoint
 export async function resetPassword(req: Request, res: Response) {
   try {
-    const { token, password } = req.body;
+    const { token, password, role } = req.body;
 
     if (!token || !password) {
       return res.status(400).json({ error: "Token and new password are required" });
@@ -1155,12 +1155,24 @@ export async function resetPassword(req: Request, res: Response) {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Update user password and clear reset token
-    const resetSuccessful = await storage.resetPassword(tokenValidation.userId, hashedPassword);
+    // Only allow role override for guest accounts (created_via = 'guest_job_post')
+    let resolvedRole: "freelancer" | "recruiter" | undefined;
+    if (role === "freelancer" || role === "recruiter") {
+      const user = await storage.getUser(tokenValidation.userId);
+      if (user && (user as any).created_via === "guest_job_post") {
+        resolvedRole = role as "freelancer" | "recruiter";
+      }
+    }
+    const resetSuccessful = await storage.resetPassword(
+      tokenValidation.userId,
+      hashedPassword,
+      resolvedRole
+    );
     if (!resetSuccessful) {
       return res.status(500).json({ error: "Failed to reset password" });
     }
 
-    res.json({ message: "Password reset successful" });
+    res.json({ message: "Password reset successful", role: resolvedRole });
   } catch (error) {
     console.error("Reset password error:", error);
     res.status(500).json({ error: "Internal server error" });

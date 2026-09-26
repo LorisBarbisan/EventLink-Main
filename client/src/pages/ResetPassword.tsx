@@ -5,8 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Check, Eye, EyeOff, Shield } from "lucide-react";
+import { ArrowLeft, Briefcase, Building2, Check, Eye, EyeOff, Shield } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
+
+type Role = "freelancer" | "recruiter";
 
 export default function ResetPassword() {
   const [, setLocation] = useLocation();
@@ -19,15 +22,16 @@ export default function ResetPassword() {
   const [token, setToken] = useState("");
   const [isSetMode, setIsSetMode] = useState(false);
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [roleConfirmed, setRoleConfirmed] = useState(false);
   const { toast } = useToast();
 
-  // Extract token from URL parameters
   useEffect(() => {
     const params = new URLSearchParams(searchString);
     const resetToken = params.get("token");
     if (resetToken) {
       setToken(resetToken);
-      setTokenValid(true); // We'll validate on submit
+      setTokenValid(true);
     } else {
       setTokenValid(false);
     }
@@ -49,14 +53,9 @@ export default function ResetPassword() {
     e.preventDefault();
 
     if (!password.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a new password.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please enter a password.", variant: "destructive" });
       return;
     }
-
     if (!confirmPassword.trim()) {
       toast({
         title: "Error",
@@ -65,16 +64,10 @@ export default function ResetPassword() {
       });
       return;
     }
-
     if (password !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Passwords do not match.", variant: "destructive" });
       return;
     }
-
     if (passwordErrors.length > 0) {
       toast({
         title: "Password Requirements",
@@ -85,25 +78,26 @@ export default function ResetPassword() {
     }
 
     setLoading(true);
-
     try {
+      const body: Record<string, string> = {
+        token,
+        password: password.trim(),
+        confirmPassword: confirmPassword.trim(),
+      };
+      if (isSetMode && selectedRole) body.role = selectedRole;
+
       const data = await apiRequest("/api/auth/reset-password", {
         method: "POST",
-        body: JSON.stringify({
-          token,
-          password: password.trim(),
-          confirmPassword: confirmPassword.trim(),
-        }),
+        body: JSON.stringify(body),
       });
 
       toast({
-        title: "Success",
-        description: data.message,
+        title: isSetMode ? "Account ready!" : "Success",
+        description: isSetMode ? "Sign in to access your dashboard." : data.message,
       });
 
-      // Redirect to login with success message
       setTimeout(() => {
-        setLocation("/auth");
+        setLocation(isSetMode ? "/auth?welcome=1" : "/auth");
       }, 1500);
     } catch (error) {
       console.error("Password reset error:", error);
@@ -117,7 +111,6 @@ export default function ResetPassword() {
     }
   };
 
-  // Invalid or missing token
   if (tokenValid === false) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
@@ -155,6 +148,81 @@ export default function ResetPassword() {
     );
   }
 
+  if (isSetMode && !roleConfirmed) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
+        <div className="w-full max-w-md">
+          <Card className="border-border/50 shadow-xl">
+            <CardHeader>
+              <CardTitle>How are you using EventLink?</CardTitle>
+              <CardDescription>
+                Choose your account type so we can set up your dashboard correctly.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <button
+                type="button"
+                onClick={() => setSelectedRole("freelancer")}
+                className={cn(
+                  "flex w-full items-start gap-4 rounded-lg border-2 p-4 text-left transition-colors",
+                  selectedRole === "freelancer"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
+                )}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/30">
+                  <Briefcase className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Freelancer / Individual</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    I&apos;m an independent professional &mdash; I find work and can also post jobs
+                    for events I&apos;m organising myself.
+                  </p>
+                </div>
+                {selectedRole === "freelancer" && (
+                  <Check className="ml-auto h-5 w-5 shrink-0 text-primary" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedRole("recruiter")}
+                className={cn(
+                  "flex w-full items-start gap-4 rounded-lg border-2 p-4 text-left transition-colors",
+                  selectedRole === "recruiter"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
+                )}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Employer / Company</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    I represent a company or agency and hire freelancers for events.
+                  </p>
+                </div>
+                {selectedRole === "recruiter" && (
+                  <Check className="ml-auto h-5 w-5 shrink-0 text-primary" />
+                )}
+              </button>
+
+              <Button
+                className="bg-gradient-primary hover:bg-primary-hover mt-2 w-full"
+                disabled={!selectedRole}
+                onClick={() => setRoleConfirmed(true)}
+              >
+                Continue
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
       <div className="w-full max-w-md">
@@ -164,12 +232,14 @@ export default function ResetPassword() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setLocation("/auth")}
+                onClick={() => (isSetMode ? setRoleConfirmed(false) : setLocation("/auth"))}
                 data-testid="button-back"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground">Back to Sign In</span>
+              <span className="text-sm text-muted-foreground">
+                {isSetMode ? "Back" : "Back to Sign In"}
+              </span>
             </div>
             <CardTitle>{isSetMode ? "Set Your Password" : "Create New Password"}</CardTitle>
             <CardDescription>
@@ -181,12 +251,12 @@ export default function ResetPassword() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="password">New Password</Label>
+                <Label htmlFor="password">{isSetMode ? "Password" : "New Password"}</Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter new password"
+                    placeholder="Enter password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -246,12 +316,12 @@ export default function ResetPassword() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm new password"
+                    placeholder="Confirm password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required

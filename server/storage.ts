@@ -1044,16 +1044,24 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async resetPassword(userId: number, hashedPassword: string): Promise<boolean> {
+  async resetPassword(
+    userId: number,
+    hashedPassword: string,
+    role?: "freelancer" | "recruiter"
+  ): Promise<boolean> {
     try {
+      const updates: Record<string, unknown> = {
+        password: hashedPassword,
+        password_reset_token: null,
+        password_reset_expires: null,
+        email_verified: true,
+        status: "active",
+        updated_at: new Date(),
+      };
+      if (role) updates.role = role;
       await db
         .update(users)
-        .set({
-          password: hashedPassword,
-          password_reset_token: null,
-          password_reset_expires: null,
-          updated_at: new Date(),
-        })
+        .set(updates as any)
         .where(eq(users.id, userId));
 
       // Clear the user cache so getUser() returns fresh data with new password
