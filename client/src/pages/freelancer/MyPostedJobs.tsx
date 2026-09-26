@@ -161,11 +161,11 @@ export default function MyPostedJobs() {
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["/api/jobs/my-posted"] });
       toast({
-        title: vars.status === "active" ? "Job published" : "Draft saved",
+        title: vars.status === "active" ? "Job published" : "Job saved",
         description:
           vars.status === "active"
             ? "Your job is now live."
-            : "You can publish it any time from My Jobs.",
+            : "You can publish or invite people from My Jobs.",
       });
       setForm(EMPTY_FORM);
       setInnerTab("jobs");
@@ -534,7 +534,7 @@ export default function MyPostedJobs() {
                     disabled={isPending || !isValid}
                     variant="outline"
                   >
-                    {isPending ? "Saving..." : "Save as Draft"}
+                    {isPending ? "Saving..." : "Save"}
                   </Button>
                   <Button type="button" variant="ghost" onClick={cancelEdit}>
                     Cancel
