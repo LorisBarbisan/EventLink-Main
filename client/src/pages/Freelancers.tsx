@@ -22,10 +22,15 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 const EVENTLINK_PROMOTIONAL_EMAIL = "eventlink@eventlink.one";
 
 export default function Freelancers() {
+  usePageSeo(
+    "Find Freelance Event Crew | EventLink",
+    "Search vetted freelance event crew on EventLink."
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
@@ -151,7 +156,8 @@ export default function Freelancers() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="mb-4 text-4xl font-bold">
-            <span className="text-primary">Find</span> <span className="text-accent">Crew</span>
+            <span className="text-primary">Find Freelance</span>{" "}
+            <span className="text-accent">Event Crew</span>
           </h1>
           <p className="text-lg text-muted-foreground">
             Connect with skilled technical professionals for your events. Browse profiles and hire

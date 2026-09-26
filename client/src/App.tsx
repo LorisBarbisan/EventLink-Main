@@ -23,6 +23,7 @@ const About = lazy(() => import("./pages/About"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const Freelancers = lazy(() => import("./pages/Freelancers"));
+const CrewLanding = lazy(() => import("./pages/CrewLanding"));
 const HowItWorks = lazy(() => import("./pages/HowItWorks"));
 const Index = lazy(() => import("./pages/Index"));
 const JobDetail = lazy(() => import("./pages/JobDetail"));
@@ -78,6 +79,8 @@ function AppRouter() {
           <Route path="/jobs/:id" component={JobDetail} />
           <Route path="/jobs" component={Jobs} />
           <Route path="/freelancers" component={Freelancers} />
+          {/* SEO role×city landing pages e.g. /freelance-crew/av-technician-london */}
+          <Route path="/freelance-crew/:slug" component={CrewLanding} />
           <Route path="/ratings" component={RatingDashboard} />
           <Route path="/admin" component={AdminDashboard} />
           <Route path="/how-it-works" component={HowItWorks} />

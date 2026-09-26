@@ -305,6 +305,7 @@ export default function SimplifiedFreelancerDashboard() {
                     superpower: freelancerData.superpower,
                     location: freelancerData.location,
                     country: freelancerData.country,
+                    state_province: freelancerData.state_province,
                     skills: freelancerData.skills,
                     portfolio_url: freelancerData.portfolio_url,
                     linkedin_url: freelancerData.linkedin_url,

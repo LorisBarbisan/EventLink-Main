@@ -8,6 +8,10 @@ import {
 import { getEmployerCompanyId, ownsEmployerCompany } from "../utils/team.util";
 import { getJobDocumentsWithUrls } from "./job-document.controller";
 import { emailService } from "../utils/emailService";
+import {
+  syncBookingForApplication,
+  removeBookingFromPipeline,
+} from "../services/booking-lifecycle.service";
 
 // Get freelancer bookings (accepted applications)
 export async function getFreelancerBookings(req: Request, res: Response) {
@@ -256,6 +260,15 @@ export async function acceptApplication(req: Request, res: Response) {
     // Mark application as hired (this also automatically closes the job)
     await storage.updateApplicationStatus(applicationId, "hired");
 
+    // Advance the employer booking to Confirmed (or Completed if the event has passed)
+    await syncBookingForApplication({
+      jobId: application.job_id,
+      freelancerId: application.freelancer_id,
+      targetStatus: "confirmed",
+      changedById: (req as any).user.id,
+      note: "Freelancer hired",
+    });
+
     // Create notification for freelancer
     await storage.createNotification({
       user_id: application.freelancer_id,
@@ -362,6 +375,12 @@ export async function rejectApplication(req: Request, res: Response) {
     }
 
     await storage.updateApplicationStatus(applicationId, "rejected", req.body.message);
+
+    // Remove any employer booking for this applicant from the pipeline
+    await removeBookingFromPipeline({
+      jobId: application.job_id,
+      freelancerId: application.freelancer_id,
+    });
 
     // Create notification for freelancer
     await storage.createNotification({
@@ -631,6 +650,15 @@ export async function inviteFreelancer(req: Request, res: Response) {
 
     const application = await storage.createJobApplication(result.data);
 
+    // Add the invited freelancer to the employer booking pipeline as Enquired
+    await syncBookingForApplication({
+      jobId,
+      freelancerId,
+      targetStatus: "enquired",
+      changedById: (req as any).user.id,
+      note: "Invitation sent",
+    });
+
     // Create notification for freelancer
     await storage.createNotification({
       user_id: freelancerId,
@@ -716,6 +744,12 @@ export async function withdrawInvitation(req: Request, res: Response) {
 
     // Delete the invitation application record
     await storage.softDeleteApplication(applicationId, "recruiter");
+
+    // Remove the withdrawn invitation from the employer booking pipeline
+    await removeBookingFromPipeline({
+      jobId: application.job_id,
+      freelancerId: application.freelancer_id,
+    });
 
     // In-app notification to freelancer
     await storage.createNotification({
@@ -831,6 +865,14 @@ export async function respondToInvitation(req: Request, res: Response) {
     // Let's rely on adding a method to storage.ts
 
     await storage.updateInvitationResponse(applicationId, status, responseMessage);
+
+    // If the freelancer declined the invitation, drop it from the employer pipeline
+    if (status === "declined") {
+      await removeBookingFromPipeline({
+        jobId: application.job_id,
+        freelancerId: application.freelancer_id,
+      });
+    }
 
     // Notify recruiter
     const job = await storage.getJobById(application.job_id);

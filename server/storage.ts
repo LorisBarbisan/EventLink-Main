@@ -261,6 +261,8 @@ export interface IStorage {
 
   // Get all freelancer profiles for listings
   getAllFreelancerProfiles(): Promise<FreelancerProfile[]>;
+  getSitemapFreelancerProfiles(): Promise<Array<{ user_id: number; updated_at: Date }>>;
+  getFreelancerReferenceCount(userId: number): Promise<number>;
   getAllRecruiterProfiles(): Promise<RecruiterProfile[]>;
   searchFreelancers(filters: {
     keyword?: string;
@@ -1154,6 +1156,7 @@ export class DatabaseStorage implements IStorage {
       bio: profile.bio,
       location: profile.location,
       country: resolvedCountry,
+      state_province: profile.state_province,
       experience_years: profile.experience_years,
       skills: profile.skills,
       portfolio_url: profile.portfolio_url,
@@ -1185,6 +1188,7 @@ export class DatabaseStorage implements IStorage {
     if (profile.bio !== undefined) updateData.bio = profile.bio;
     if (profile.location !== undefined) updateData.location = profile.location;
     if (profile.country !== undefined) updateData.country = profile.country;
+    if (profile.state_province !== undefined) updateData.state_province = profile.state_province;
     if (profile.experience_years !== undefined)
       updateData.experience_years = profile.experience_years;
     if (profile.skills !== undefined) updateData.skills = profile.skills;
@@ -1399,6 +1403,7 @@ export class DatabaseStorage implements IStorage {
     if (profile.company_type !== undefined) updateData.company_type = profile.company_type;
     if (profile.location !== undefined) updateData.location = profile.location;
     if (profile.country !== undefined) updateData.country = profile.country;
+    if (profile.state_province !== undefined) updateData.state_province = profile.state_province;
     if (profile.description !== undefined) updateData.description = profile.description;
     if (profile.website_url !== undefined) updateData.website_url = profile.website_url;
     if (profile.linkedin_url !== undefined) updateData.linkedin_url = profile.linkedin_url;
@@ -1463,6 +1468,58 @@ export class DatabaseStorage implements IStorage {
     return safeResult as unknown as FreelancerProfile[];
   }
 
+  // Freelancer profiles eligible for the sitemap: real, public, non-demo records
+  // that have actual content (a bio, at least one skill, or at least one
+  // non-flagged reference). Bare "Complete Your Profile" shells are excluded.
+  async getSitemapFreelancerProfiles(): Promise<Array<{ user_id: number; updated_at: Date }>> {
+    const refCountsSq = db
+      .select({
+        freelancer_id: freelancer_references.freelancer_id,
+        ref_count: sql<number>`COUNT(*)::int`.as("ref_count"),
+      })
+      .from(freelancer_references)
+      .where(eq(freelancer_references.is_flagged, false))
+      .groupBy(freelancer_references.freelancer_id)
+      .as("ref_counts");
+
+    return db
+      .select({
+        user_id: freelancer_profiles.user_id,
+        updated_at: freelancer_profiles.updated_at,
+      })
+      .from(freelancer_profiles)
+      .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
+      .leftJoin(refCountsSq, eq(freelancer_profiles.user_id, refCountsSq.freelancer_id))
+      .where(
+        and(
+          isNull(users.deleted_at),
+          sql`${users.email} NOT LIKE 'deleted_%'`,
+          eq(freelancer_profiles.is_demo, false),
+          eq(freelancer_profiles.profile_is_public, true),
+          sql`(
+            (${freelancer_profiles.bio} IS NOT NULL AND btrim(${freelancer_profiles.bio}) <> '')
+            OR (${freelancer_profiles.skills} IS NOT NULL AND array_length(${freelancer_profiles.skills}, 1) > 0)
+            OR COALESCE(${refCountsSq.ref_count}, 0) > 0
+          )`
+        )
+      );
+  }
+
+  // Count of non-flagged references for a freelancer — used to decide whether a
+  // profile page is substantive enough to be indexed by crawlers.
+  async getFreelancerReferenceCount(userId: number): Promise<number> {
+    const rows = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(freelancer_references)
+      .where(
+        and(
+          eq(freelancer_references.freelancer_id, userId),
+          eq(freelancer_references.is_flagged, false)
+        )
+      );
+    return rows[0]?.count ?? 0;
+  }
+
   async getAllRecruiterProfiles(): Promise<RecruiterProfile[]> {
     // Join with users table to filter out deleted users
     const result = await db
@@ -1509,6 +1566,9 @@ export class DatabaseStorage implements IStorage {
 
       // Only show profiles from non-deleted users
       conditions.push(isNull(users.deleted_at));
+
+      // Never surface internal seed/demo/test records in public search results
+      conditions.push(eq(freelancer_profiles.is_demo, false));
 
       if (keyword?.trim()) {
         conditions.push(freelancerKeywordCondition(keyword));
@@ -5428,7 +5488,8 @@ export class DatabaseStorage implements IStorage {
   async getAdminTeams(
     page: number,
     limit: number,
-    search?: string
+    search?: string,
+    sort?: string
   ): Promise<{
     teams: Array<{
       company_user_id: number;
@@ -5480,7 +5541,15 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
       .where(whereClause)
-      .orderBy(desc(users.created_at))
+      .orderBy(
+        sort === "oldest"
+          ? asc(users.created_at)
+          : sort === "company"
+            ? asc(recruiter_profiles.company_name)
+            : sort === "email"
+              ? asc(users.email)
+              : desc(users.created_at)
+      )
       .limit(limit)
       .offset(offset);
 
