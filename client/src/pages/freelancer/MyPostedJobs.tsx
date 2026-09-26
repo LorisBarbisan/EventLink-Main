@@ -1086,8 +1086,18 @@ function InviteDialog({
 
   const { data: results, isLoading: searching } = useQuery<FreelancerSearchResult[]>({
     queryKey: ["/api/freelancers/search", debouncedQuery],
-    queryFn: () =>
-      apiRequest(`/api/freelancers/search?q=${encodeURIComponent(debouncedQuery)}&limit=8`),
+    queryFn: async () => {
+      const res = await apiRequest(
+        `/api/freelancers/search?q=${encodeURIComponent(debouncedQuery)}&limit=8`
+      );
+      const raw = (res as any)?.results ?? res;
+      return (Array.isArray(raw) ? raw : []).map((f: any) => ({
+        user_id: f.user_id,
+        name: [f.first_name, f.last_name].filter(Boolean).join(" ") || f.name || "Unknown",
+        title: f.title ?? null,
+        location: f.location ?? null,
+      }));
+    },
     enabled: debouncedQuery.length >= 2,
   });
 
