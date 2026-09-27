@@ -410,14 +410,14 @@ export const PRESET_CONFIGS = {
       options: {
         ...DEFAULT_JOB_CONFIG.reed.options,
         minimumSalary: 40000,
-        employmentType: "contract",
+        employmentType: "contract" as const,
       },
     },
     adzuna: {
       ...DEFAULT_JOB_CONFIG.adzuna,
       options: {
         ...DEFAULT_JOB_CONFIG.adzuna.options,
-        contract_type: "contract",
+        contract_type: "contract" as const,
       },
     },
   },

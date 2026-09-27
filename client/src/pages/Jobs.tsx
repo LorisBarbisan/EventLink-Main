@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Briefcase,
   Calendar as CalendarIcon,
   ChevronDown,
   ChevronLeft,
@@ -56,6 +57,7 @@ export default function Jobs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
+  const [freelancerPostedFilter, setFreelancerPostedFilter] = useState(false);
 
   // Load initial search parameters from URL
   useEffect(() => {
@@ -283,8 +285,10 @@ export default function Jobs() {
     posted: job.created_at ? new Date(job.created_at).toLocaleDateString() : "Recently posted",
   }));
 
-  // Server-side filtering handles search, location, and date
-  const filteredJobs = transformedJobs;
+  // Server-side filtering handles search, location, and date; client-side for freelancer toggle
+  const filteredJobs = freelancerPostedFilter
+    ? transformedJobs.filter((job: any) => job.is_freelancer_posted)
+    : transformedJobs;
 
   const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
   const startIndex = (currentPage - 1) * jobsPerPage;
@@ -361,6 +365,24 @@ export default function Jobs() {
           </p>
         </div>
 
+        {/* Post-a-Job CTA — shown to guests and freelancers */}
+        {(!currentUser || currentUser.role !== "recruiter") && (
+          <div className="mb-8 flex flex-col items-start justify-between gap-4 rounded-lg border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center">
+            <div>
+              <p className="font-semibold text-foreground">Hiring for an event?</p>
+              <p className="text-sm text-muted-foreground">
+                Post a job in minutes — no account required.
+              </p>
+            </div>
+            <Button asChild size="sm" className="shrink-0">
+              <a href="/post-job">
+                <Briefcase className="mr-2 h-4 w-4" />
+                Post a Job
+              </a>
+            </Button>
+          </div>
+        )}
+
         {/* Search and Filters */}
         <Card className="mb-8">
           <CardHeader>
@@ -399,8 +421,31 @@ export default function Jobs() {
                 </div>
               </div>
 
+              {/* Freelancer-posted toggle */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={freelancerPostedFilter}
+                  onClick={() => {
+                    setFreelancerPostedFilter((v) => !v);
+                    setCurrentPage(1);
+                  }}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                    freelancerPostedFilter ? "bg-[#7B5EA7]" : "bg-gray-200"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition-transform ${
+                      freelancerPostedFilter ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+                <span className="text-sm text-gray-600">Posted by Freelancers only</span>
+              </div>
+
               {/* Clear Filters Button */}
-              {(searchQuery || locationFilter || countryFilter) && (
+              {(searchQuery || locationFilter || countryFilter || freelancerPostedFilter) && (
                 <div className="flex justify-start">
                   <Button
                     variant="outline"
@@ -409,6 +454,7 @@ export default function Jobs() {
                       setSearchQuery("");
                       setLocationFilter("");
                       setCountryFilter("");
+                      setFreelancerPostedFilter(false);
                       setCurrentPage(1);
                     }}
                     className="flex items-center gap-2"
@@ -490,7 +536,17 @@ export default function Jobs() {
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div className="space-y-2">
                             <CardTitle className="text-lg sm:text-xl">{job.title}</CardTitle>
-                            {job.recruiter_id && !job.external_source ? (
+                            {job.is_freelancer_posted && job.posted_by_user_id ? (
+                              <button
+                                onClick={() =>
+                                  window.open(`/profile/${job.posted_by_user_id}`, "_blank")
+                                }
+                                className="cursor-pointer text-left font-medium text-muted-foreground transition-colors hover:text-primary hover:underline"
+                                data-testid={`link-company-${job.id}`}
+                              >
+                                {job.company}
+                              </button>
+                            ) : job.recruiter_id && !job.external_source ? (
                               <button
                                 onClick={() =>
                                   window.open(`/profile/${job.recruiter_id}`, "_blank")
@@ -511,6 +567,10 @@ export default function Jobs() {
                                 className="border-muted-foreground/40 text-xs text-muted-foreground"
                               >
                                 Closed
+                              </Badge>
+                            ) : job.is_freelancer_posted ? (
+                              <Badge className="bg-gradient-to-r from-[#7B5EA7] to-[#9B7DC7] font-semibold text-white">
+                                Posted by Freelancer
                               </Badge>
                             ) : !job.external_source ? (
                               <Badge className="bg-gradient-to-r from-[#D8690E] to-[#E97B24] font-semibold text-white">

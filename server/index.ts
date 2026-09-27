@@ -7,7 +7,10 @@ import { reconcileAdminUsers } from "./api/utils/reconcile-admin-users";
 import { seedProductionJobs } from "./api/utils/seed-production-jobs";
 import { backfillSlugs, backfillCountry, correctCountries } from "./api/utils/backfill-slugs";
 import { registerJobNotificationScheduler } from "./api/services/job-notification-scheduler.service";
+import { registerGuestJobNudgeScheduler } from "./api/services/guest-job-nudge.service";
+
 import { registerProfileNudgeScheduler } from "./api/services/profile-nudge-scheduler.service";
+
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
 import { storage } from "./storage";
@@ -183,6 +186,7 @@ app.use((req, res, next) => {
   backfillCountry().catch((err) => console.error("Country backfill failed:", err));
   correctCountries().catch((err) => console.error("Country corrections failed:", err));
   registerJobNotificationScheduler();
+  registerGuestJobNudgeScheduler();
   registerProfileNudgeScheduler();
 
   // OG tag middleware for social media crawlers (must be before Vite catch-all)

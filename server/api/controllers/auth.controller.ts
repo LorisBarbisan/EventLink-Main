@@ -698,6 +698,64 @@ export async function signup(req: Request, res: Response) {
     // Check if user already exists
     const existingUser = await storage.getUserByEmail(email);
     if (existingUser) {
+      // Guest upgrade: account was created by a guest job post (no real password yet)
+      if (existingUser.created_via === "guest_job_post" && !existingUser.password) {
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        const emailVerificationToken = randomBytes(32).toString("hex");
+        const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await storage.upgradeGuestAccount(existingUser.id, {
+          password: hashedPassword,
+          first_name,
+          last_name,
+          role: (role === "recruiter" ? "recruiter" : "freelancer") as "freelancer" | "recruiter",
+          email_verification_token: emailVerificationToken,
+          email_verification_expires: emailVerificationExpires,
+        });
+
+        // If upgrading to recruiter and company name supplied, ensure recruiter profile exists
+        if ((role === "recruiter" || existingUser.role === "recruiter") && company_name) {
+          try {
+            const existingProfile = await storage.getRecruiterProfile(existingUser.id);
+            if (!existingProfile) {
+              await storage.createRecruiterProfile({
+                user_id: existingUser.id,
+                company_name,
+                contact_name: `${first_name ?? ""} ${last_name ?? ""}`.trim() || null,
+              } as any);
+            }
+          } catch (profileError) {
+            console.error(
+              "Failed to create/check recruiter profile during guest upgrade:",
+              profileError
+            );
+          }
+        }
+
+        try {
+          const baseUrl = getOrigin(req);
+          await sendVerificationEmail(email, emailVerificationToken, baseUrl);
+        } catch (emailError) {
+          console.error("Failed to send verification email during guest upgrade:", emailError);
+        }
+
+        const upgradedUser = await storage.getUserByEmail(email);
+        return res.status(201).json({
+          message:
+            "Account created successfully. Please check your email to verify your account. Your previously posted jobs are linked to this account.",
+          user: {
+            id: upgradedUser!.id,
+            email: upgradedUser!.email,
+            first_name: upgradedUser!.first_name,
+            last_name: upgradedUser!.last_name,
+            role: upgradedUser!.role,
+            email_verified: upgradedUser!.email_verified,
+            auth_provider: upgradedUser!.auth_provider || "email",
+          },
+        });
+      }
+
       return res.status(409).json({ error: "User already exists" });
     }
 
@@ -1076,7 +1134,7 @@ export async function forgotPassword(req: Request, res: Response) {
 // Reset password endpoint
 export async function resetPassword(req: Request, res: Response) {
   try {
-    const { token, password } = req.body;
+    const { token, password, role } = req.body;
 
     if (!token || !password) {
       return res.status(400).json({ error: "Token and new password are required" });
@@ -1097,12 +1155,24 @@ export async function resetPassword(req: Request, res: Response) {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Update user password and clear reset token
-    const resetSuccessful = await storage.resetPassword(tokenValidation.userId, hashedPassword);
+    // Only allow role override for guest accounts (created_via = 'guest_job_post')
+    let resolvedRole: "freelancer" | "recruiter" | undefined;
+    if (role === "freelancer" || role === "recruiter") {
+      const user = await storage.getUser(tokenValidation.userId);
+      if (user && (user as any).created_via === "guest_job_post") {
+        resolvedRole = role as "freelancer" | "recruiter";
+      }
+    }
+    const resetSuccessful = await storage.resetPassword(
+      tokenValidation.userId,
+      hashedPassword,
+      resolvedRole
+    );
     if (!resetSuccessful) {
       return res.status(500).json({ error: "Failed to reset password" });
     }
 
-    res.json({ message: "Password reset successful" });
+    res.json({ message: "Password reset successful", role: resolvedRole });
   } catch (error) {
     console.error("Reset password error:", error);
     res.status(500).json({ error: "Internal server error" });

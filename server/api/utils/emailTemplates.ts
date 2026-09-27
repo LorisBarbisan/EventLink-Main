@@ -245,9 +245,11 @@ export function newApplicationEmail(data: {
     <p>
       Review their profile and application to find the perfect candidate for your event.
     </p>
-    <p>
-      <a href="${data.applicationUrl}" class="button">Review Application</a>
-    </p>
+    <table cellpadding="0" cellspacing="0" style="margin:16px 0;">
+      <tr><td style="background:linear-gradient(135deg,#D8690E,#ff8c42);border-radius:6px;">
+        <a href="${data.applicationUrl}" style="display:inline-block;padding:12px 28px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">Review Application</a>
+      </td></tr>
+    </table>
     <p style="color: #666; font-size: 14px;">
       Respond quickly to secure top talent for your event!
     </p>
@@ -804,6 +806,161 @@ export function singleJobNotifyEmail(data: {
 
   return {
     subject: `New job on EventLink — ${data.jobTitle} in ${data.location}`,
+    html: masterTemplate(content),
+  };
+}
+
+/**
+ * Guest job — confirm & publish email
+ */
+export function guestJobConfirmEmail(data: {
+  contactName: string;
+  jobTitle: string;
+  confirmUrl: string;
+}): { subject: string; html: string } {
+  const content = `
+    <h2>✅ Confirm your job post</h2>
+    <p>Hi ${data.contactName},</p>
+    <p>
+      We received your request to post <strong>&ldquo;${data.jobTitle}&rdquo;</strong> on EventLink.
+      Click the button below to confirm and publish it. This link expires in&nbsp;24&nbsp;hours.
+    </p>
+    <p>
+      <a href="${data.confirmUrl}" class="button">Confirm &amp; Publish Job</a>
+    </p>
+    <p style="color: #666; font-size: 13px;">
+      Or copy this link into your browser:<br/>
+      <span style="color: #D8690E; word-break: break-all;">${data.confirmUrl}</span>
+    </p>
+    <p style="color: #666; font-size: 13px;">
+      If you didn&rsquo;t submit a job post, you can safely ignore this email.
+      This link is single-use and will expire automatically.
+    </p>
+  `;
+  return {
+    subject: `Confirm your job post on EventLink: "${data.jobTitle}"`,
+    html: masterTemplate(content),
+  };
+}
+
+/**
+ * Guest job — job is live + set password CTA
+ */
+export function guestJobPublishedEmail(data: {
+  contactName: string;
+  jobTitle: string;
+  jobUrl: string;
+  setPasswordUrl: string;
+  hasToken: boolean;
+}): { subject: string; html: string } {
+  const ctaLabel = data.hasToken ? "Set Your Password &amp; Manage Job" : "Create a Free Account";
+  const ctaNote = data.hasToken
+    ? "Set a password to manage applications, re-post jobs and more — your post is already linked to your account."
+    : "Create a free account using the same email address and your post will be linked automatically.";
+  const content = `
+    <h2>🎉 Your job is live!</h2>
+    <p>Hi ${data.contactName},</p>
+    <p>
+      <strong>&ldquo;${data.jobTitle}&rdquo;</strong> is now live on EventLink and visible to freelancers.
+    </p>
+    <p>
+      <a href="${data.jobUrl}" class="button">View Your Job Post</a>
+    </p>
+    <hr style="border: none; border-top: 1px solid #eeeeee; margin: 24px 0;" />
+    <p>${ctaNote}</p>
+    <p>
+      <a href="${data.setPasswordUrl}" class="button">${ctaLabel}</a>
+    </p>
+  `;
+  return {
+    subject: `Your job "${data.jobTitle}" is now live on EventLink`,
+    html: masterTemplate(content),
+  };
+}
+
+/**
+ * Guest job — nudge reminder to confirm
+ */
+export function guestJobNudgeEmail(data: {
+  contactName: string;
+  jobTitle: string;
+  confirmUrl: string;
+}): { subject: string; html: string } {
+  const content = `
+    <h2>⏳ Still waiting on you!</h2>
+    <p>Hi ${data.contactName},</p>
+    <p>
+      Your job post <strong>&ldquo;${data.jobTitle}&rdquo;</strong> is ready to go live on EventLink
+      but we&rsquo;re still waiting for you to confirm it. Freelancers won&rsquo;t see it until
+      you click the button below.
+    </p>
+    <p>
+      <a href="${data.confirmUrl}" class="button">Confirm &amp; Publish Job</a>
+    </p>
+    <p style="color: #666; font-size: 13px;">
+      Or copy this link:<br/>
+      <span style="color: #D8690E; word-break: break-all;">${data.confirmUrl}</span>
+    </p>
+    <p style="color: #666; font-size: 13px;">
+      This is a one-time reminder. The link expires 24&nbsp;hours after your original submission.
+      If you didn&rsquo;t request this, you can safely ignore it.
+    </p>
+  `;
+  return {
+    subject: `Reminder: confirm your job post on EventLink — "${data.jobTitle}"`,
+    html: masterTemplate(content),
+  };
+}
+
+/**
+ * Guest job — new application notification
+ */
+export function guestApplicationNotificationEmail(data: {
+  contactName: string;
+  jobTitle: string;
+  freelancerName: string;
+  freelancerTitle?: string;
+  coverLetterPreview?: string;
+  viewUrl: string;
+  setPasswordUrl: string;
+  hasToken: boolean;
+}): { subject: string; html: string } {
+  const preview = data.coverLetterPreview
+    ? data.coverLetterPreview.slice(0, 200) + (data.coverLetterPreview.length > 200 ? "\u2026" : "")
+    : null;
+  const ctaNote = data.hasToken
+    ? "Set a password to manage all your applications in one place — your job is already linked."
+    : "Create a free EventLink account to manage all your applications in one place.";
+  const ctaLabel = data.hasToken ? "Set Password &amp; View Applications" : "Create a Free Account";
+  const content = `
+    <h2>📩 New application for &ldquo;${data.jobTitle}&rdquo;</h2>
+    <p>Hi ${data.contactName},</p>
+    <p>
+      <strong>${data.freelancerName}</strong>${data.freelancerTitle ? ` &mdash; ${data.freelancerTitle}` : ""}
+      has applied to your job posting on EventLink.
+    </p>
+    ${
+      preview
+        ? `
+    <div style="background-color: #f9f9f9; border-left: 4px solid #D8690E; padding: 16px; margin: 16px 0; border-radius: 4px;">
+      <p style="margin: 0; font-style: italic;">&ldquo;${preview}&rdquo;</p>
+    </div>`
+        : ""
+    }
+    <p>
+      <a href="${data.viewUrl}" class="button">View Application</a>
+    </p>
+    <p style="color: #666; font-size: 13px; word-break: break-all;">
+      Or copy this link: <span style="color: #D8690E;">${data.viewUrl}</span>
+    </p>
+    <hr style="border: none; border-top: 1px solid #eeeeee; margin: 24px 0;" />
+    <p>${ctaNote}</p>
+    <p>
+      <a href="${data.setPasswordUrl}" class="button">${ctaLabel}</a>
+    </p>
+  `;
+  return {
+    subject: `New application for your job "${data.jobTitle}" on EventLink`,
     html: masterTemplate(content),
   };
 }

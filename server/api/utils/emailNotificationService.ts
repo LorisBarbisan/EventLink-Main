@@ -320,7 +320,7 @@ export class EmailNotificationService {
       );
 
       // Build a country map from profiles to avoid N+1 lookups
-      const allProfiles = await storage.getAllFreelancers();
+      const allProfiles = await storage.getAllFreelancerProfiles();
       const profileCountryByUserId = new Map<number, string | null>(
         allProfiles.map((p: any) => [p.user_id as number, (p.country as string | null) ?? null])
       );

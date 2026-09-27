@@ -278,10 +278,11 @@ export async function getAllFreelancers(req: Request, res: Response) {
 // Search freelancers with filters and pagination
 export async function searchFreelancers(req: Request, res: Response) {
   try {
-    const { keyword, location, country, page, limit } = req.query;
+    const { keyword, q, location, country, page, limit } = req.query;
+    const effectiveKeyword = (q as string | undefined) || (keyword as string | undefined);
 
     const filters = {
-      keyword: keyword as string | undefined,
+      keyword: effectiveKeyword,
       location: location as string | undefined,
       country: country as string | undefined,
       page: page ? parseInt(page as string) : 1,

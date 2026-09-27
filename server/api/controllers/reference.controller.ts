@@ -177,7 +177,7 @@ export async function submitReference(req: Request, res: Response) {
 
       if (verification_type === "none") {
         verificationToken = crypto.randomBytes(32).toString("hex");
-        verification_type = "none";
+        verification_type = "email";
       }
     }
 
