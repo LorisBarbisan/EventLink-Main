@@ -4,6 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import MyJobs from "@/pages/freelancer/MyJobs";
 import MyPostedJobs from "@/pages/freelancer/MyPostedJobs";
 import { useToast } from "@/hooks/use-toast";
@@ -259,7 +266,31 @@ export default function SimplifiedFreelancerDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
+        {/* Mobile: prominent dropdown tab selector */}
+        <div className="sm:hidden">
+          <Select value={activeTab} onValueChange={handleTabChange}>
+            <SelectTrigger className="h-12 w-full border-2 border-primary bg-primary/5 text-base font-semibold text-primary focus:ring-primary">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="profile">Edit Profile</SelectItem>
+              <SelectItem value="jobs">
+                My Applications
+                {roleSpecificCounts.applications > 0 ? ` (${roleSpecificCounts.applications})` : ""}
+              </SelectItem>
+              <SelectItem value="messages">
+                Messages{roleSpecificCounts.messages > 0 ? ` (${roleSpecificCounts.messages})` : ""}
+              </SelectItem>
+              <SelectItem value="bookings">
+                Pending Ratings
+                {roleSpecificCounts.ratings > 0 ? ` (${roleSpecificCounts.ratings})` : ""}
+              </SelectItem>
+              <SelectItem value="references">References</SelectItem>
+              <SelectItem value="posted-jobs">My Jobs</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <TabsList className="hidden w-full grid-cols-3 sm:grid md:grid-cols-6">
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
             My Applications
