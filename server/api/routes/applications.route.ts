@@ -11,12 +11,16 @@ import {
   inviteFreelancer,
   rejectApplication,
   respondToInvitation,
+  shortlistApplication,
   withdrawInvitation,
 } from "../controllers/applications.controller";
+import { getGuestApplicationView } from "../controllers/guest-application.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { resolveCompanyId } from "../middleware/team.middleware";
 
 export function registerApplicationRoutes(app: Express) {
+  // Guest application view — no auth, token-gated
+  app.get("/api/applications/guest-view", getGuestApplicationView);
   // Respond to invitation (Accept/Decline)
   app.post("/api/applications/:applicationId/respond", authenticateJWT, respondToInvitation);
 
@@ -65,6 +69,14 @@ export function registerApplicationRoutes(app: Express) {
     authenticateJWT,
     resolveCompanyId,
     rejectApplication
+  );
+
+  // Shortlist application
+  app.put(
+    "/api/applications/:applicationId/shortlist",
+    authenticateJWT,
+    resolveCompanyId,
+    shortlistApplication
   );
 
   // Withdraw an invitation (employer only)

@@ -1,4 +1,4 @@
-import { insertJobSchema, insertJobLinkViewSchema } from "@shared/schema";
+import { insertJobSchema, insertFreelancerJobSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { sendUrgentJobNotification } from "../services/job-notification-scheduler.service";
@@ -9,7 +9,10 @@ import { ownsEmployerCompany } from "../utils/team.util";
  * Determine which batch window a job belongs to based on current UK time,
  * and whether the job is urgent (event within 48h of now).
  */
-function assignBatchWindow(job: any): { window: "morning" | "afternoon" | null; isUrgent: boolean } {
+function assignBatchWindow(job: any): {
+  window: "morning" | "afternoon" | null;
+  isUrgent: boolean;
+} {
   const nowUK = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/London" }));
   const hour = nowUK.getHours();
 
@@ -53,14 +56,20 @@ export async function getJobById(req: Request, res: Response) {
 
     if (job.status === "private") {
       if (!currentUser) {
-        return res.status(403).json({ error: "This job is only accessible via invitation. Please sign in to check if you have been invited." });
+        return res.status(403).json({
+          error:
+            "This job is only accessible via invitation. Please sign in to check if you have been invited.",
+        });
       }
       const isOwner =
         currentUser.role === "admin" ||
-        ownsEmployerCompany({ companyId: (req as any).companyId, user: currentUser }, job.recruiter_id);
+        ownsEmployerCompany(
+          { companyId: (req as any).companyId, user: currentUser },
+          job.recruiter_id
+        );
       if (!isOwner && currentUser.role === "freelancer") {
         const apps = await storage.getFreelancerApplications(currentUser.id);
-        const hasInviteOrApplication = apps.some(app => app.job_id === jobId);
+        const hasInviteOrApplication = apps.some((app) => app.job_id === jobId);
         if (!hasInviteOrApplication) {
           return res.status(403).json({ error: "This job is only accessible via invitation." });
         }
@@ -141,15 +150,18 @@ export async function createJob(req: Request, res: Response) {
 
     if (job.type !== "external" && job.status === "active") {
       const { window, isUrgent } = assignBatchWindow(job);
-      storage.updateJobUrgencyAndBatch(job.id, isUrgent, window).catch(err =>
-        console.error("Failed to assign batch window:", err)
-      );
+      storage
+        .updateJobUrgencyAndBatch(job.id, isUrgent, window)
+        .catch((err) => console.error("Failed to assign batch window:", err));
       if (isUrgent) {
-        setTimeout(() => {
-          sendUrgentJobNotification(job).catch(err =>
-            console.error("Failed to send urgent notification:", err)
-          );
-        }, 15 * 60 * 1000);
+        setTimeout(
+          () => {
+            sendUrgentJobNotification(job).catch((err) =>
+              console.error("Failed to send urgent notification:", err)
+            );
+          },
+          15 * 60 * 1000
+        );
         console.log(`🚨 Job ${job.id} is urgent — notification scheduled in 15 minutes.`);
       } else {
         console.log(`📋 Job ${job.id} assigned to ${window} batch window.`);
@@ -159,6 +171,89 @@ export async function createJob(req: Request, res: Response) {
     res.status(201).json(job);
   } catch (error) {
     console.error("Create job error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Get jobs posted by the current freelancer
+export async function getMyPostedJobs(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const postedJobs = await storage.getFreelancerPostedJobs(user.id);
+    res.set("Cache-Control", "no-store");
+    res.json(postedJobs);
+  } catch (error) {
+    console.error("Get my posted jobs error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Public: get active jobs posted by a specific freelancer (shown on their profile)
+export async function getFreelancerPublicPostedJobs(req: Request, res: Response) {
+  try {
+    const userId = parseInt(req.params.userId);
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+    const all = await storage.getFreelancerPostedJobs(userId);
+    const active = all.filter((j) => j.status === "active");
+    res.set("Cache-Control", "public, max-age=60");
+    res.json(active);
+  } catch (error) {
+    console.error("Get freelancer public posted jobs error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Create a job posted by a freelancer
+export async function createFreelancerJob(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+
+    const profile = await storage.getFreelancerProfile(user.id);
+    if (!profile) {
+      return res.status(403).json({
+        error: "A completed freelancer profile is required to post jobs.",
+      });
+    }
+
+    const result = insertFreelancerJobSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: "Invalid input", details: result.error.issues });
+    }
+
+    const displayName =
+      [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Freelancer";
+
+    const job = await storage.createJob({
+      ...result.data,
+      company: result.data.company?.trim() || displayName,
+      recruiter_id: null as unknown as number,
+      posted_by_user_id: user.id,
+      is_freelancer_posted: true,
+      status: result.data.status || "private",
+    });
+
+    if (job.status === "active") {
+      const { window, isUrgent } = assignBatchWindow(job);
+      storage
+        .updateJobUrgencyAndBatch(job.id, isUrgent, window)
+        .catch((err) => console.error("Failed to assign batch window:", err));
+      if (isUrgent) {
+        setTimeout(
+          () => {
+            sendUrgentJobNotification(job).catch((err) =>
+              console.error("Failed to send urgent notification:", err)
+            );
+          },
+          15 * 60 * 1000
+        );
+      }
+    }
+
+    res.status(201).json(job);
+  } catch (error) {
+    console.error("Create freelancer job error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -178,8 +273,10 @@ export async function updateJob(req: Request, res: Response) {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    const effectiveId = (req as any).companyId ?? (req as any).user.id;
-    if ((req as any).user.role !== "admin" && job.recruiter_id !== effectiveId) {
+    const user = (req as any).user;
+    const effectiveId = (req as any).companyId ?? user.id;
+    const isFreelancerOwner = job.is_freelancer_posted && job.posted_by_user_id === user.id;
+    if (user.role !== "admin" && job.recruiter_id !== effectiveId && !isFreelancerOwner) {
       return res.status(403).json({ error: "Not authorized to update this job" });
     }
 
@@ -225,15 +322,18 @@ export async function updateJob(req: Request, res: Response) {
     if (job.status === "private" && updatedJob.status === "active") {
       if (updatedJob.type !== "external") {
         const { window, isUrgent } = assignBatchWindow(updatedJob);
-        storage.updateJobUrgencyAndBatch(updatedJob.id, isUrgent, window).catch(err =>
-          console.error("Failed to assign batch window:", err)
-        );
+        storage
+          .updateJobUrgencyAndBatch(updatedJob.id, isUrgent, window)
+          .catch((err) => console.error("Failed to assign batch window:", err));
         if (isUrgent) {
-          setTimeout(() => {
-            sendUrgentJobNotification(updatedJob).catch(err =>
-              console.error("Failed to send urgent notification:", err)
-            );
-          }, 15 * 60 * 1000);
+          setTimeout(
+            () => {
+              sendUrgentJobNotification(updatedJob).catch((err) =>
+                console.error("Failed to send urgent notification:", err)
+              );
+            },
+            15 * 60 * 1000
+          );
           console.log(`🚨 Job ${updatedJob.id} is urgent — notification scheduled in 15 minutes.`);
         } else {
           console.log(`📋 Job ${updatedJob.id} assigned to ${window} batch window.`);
@@ -309,7 +409,13 @@ export async function closeJob(req: Request, res: Response) {
     }
 
     const effectiveId = (req as any).companyId ?? (req as any).user.id;
-    if ((req as any).user.role !== "admin" && job.recruiter_id !== effectiveId) {
+    const isFreelancerOwnerClose =
+      job.is_freelancer_posted && job.posted_by_user_id === (req as any).user.id;
+    if (
+      (req as any).user.role !== "admin" &&
+      job.recruiter_id !== effectiveId &&
+      !isFreelancerOwnerClose
+    ) {
       return res.status(403).json({ error: "Not authorized to close this job" });
     }
 
@@ -326,7 +432,11 @@ export async function closeJob(req: Request, res: Response) {
 
     const jobApplications = await storage.getJobApplications(jobId);
     const activeApplications = jobApplications.filter(
-      (app) => app.status === "applied" || app.status === "reviewed" || app.status === "shortlisted" || app.status === "invited"
+      (app) =>
+        app.status === "applied" ||
+        app.status === "reviewed" ||
+        app.status === "shortlisted" ||
+        app.status === "invited"
     );
 
     await Promise.all(
@@ -377,7 +487,13 @@ export async function reopenJob(req: Request, res: Response) {
     }
 
     const effectiveId = (req as any).companyId ?? (req as any).user.id;
-    if ((req as any).user.role !== "admin" && job.recruiter_id !== effectiveId) {
+    const isFreelancerOwnerReopen =
+      job.is_freelancer_posted && job.posted_by_user_id === (req as any).user.id;
+    if (
+      (req as any).user.role !== "admin" &&
+      job.recruiter_id !== effectiveId &&
+      !isFreelancerOwnerReopen
+    ) {
       return res.status(403).json({ error: "Not authorized to reopen this job" });
     }
 
@@ -415,7 +531,13 @@ export async function deleteJob(req: Request, res: Response) {
     }
 
     const effectiveId = (req as any).companyId ?? (req as any).user.id;
-    if ((req as any).user.role !== "admin" && job.recruiter_id !== effectiveId) {
+    const isFreelancerOwnerDelete =
+      job.is_freelancer_posted && job.posted_by_user_id === (req as any).user.id;
+    if (
+      (req as any).user.role !== "admin" &&
+      job.recruiter_id !== effectiveId &&
+      !isFreelancerOwnerDelete
+    ) {
       return res.status(403).json({ error: "Not authorized to delete this job" });
     }
 
@@ -465,7 +587,9 @@ export async function getRecruiterJobDetail(req: Request, res: Response) {
     const result = await storage.getAdminJobDetail(jobId);
     if (!result) return res.status(404).json({ error: "Job not found" });
 
-    if (result.job.recruiter_id !== effectiveId) {
+    const isFreelancerOwnerDetail =
+      result.job.is_freelancer_posted && result.job.posted_by_user_id === (req as any).user?.id;
+    if (result.job.recruiter_id !== effectiveId && !isFreelancerOwnerDetail) {
       return res.status(403).json({ error: "Forbidden" });
     }
 

@@ -14,8 +14,8 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1075.0",
-    "@aws-sdk/s3-request-presigner": "^3.1075.0",
+    "@aws-sdk/client-s3": "^3.1110.0",
+    "@aws-sdk/s3-request-presigner": "^3.1110.0",
     "@eslint/js": "^9.36.0",
     "@google-cloud/storage": "^7.17.1",
     "@hookform/resolvers": "^3.10.0",
