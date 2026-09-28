@@ -1759,46 +1759,40 @@ export default function Profile() {
                         variant="secondary"
                         className="shrink-0 bg-primary/10 text-xs text-primary"
                       >
-                        <div className="mb-2 flex items-start justify-between gap-2">
-                          <h3 className="font-semibold leading-tight">{job.title}</h3>
-                          <Badge
-                            variant="secondary"
-                            className="shrink-0 bg-primary/10 text-xs text-primary"
-                          >
-                            Active
-                          </Badge>
-                        </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                          {job.location && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3.5 w-3.5" />
-                              {job.location}
-                            </span>
+                        Active
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      {job.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {job.location}
+                        </span>
+                      )}
+                      {job.rate && (
+                        <span className="flex items-center gap-1">
+                          {(job as any).currency && (job as any).currency !== "GBP" && (
+                            <span className="text-xs font-medium">{(job as any).currency}</span>
                           )}
-                          {job.rate && (
-                            <span className="flex items-center gap-1">
-                              {(job as any).currency && (job as any).currency !== "GBP" && (
-                                <span className="text-xs font-medium">{(job as any).currency}</span>
-                              )}
-                              {job.rate}
-                            </span>
-                          )}
-                          {job.event_date && (
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3.5 w-3.5" />
-                              {new Date(job.event_date).toLocaleDateString("en-GB", {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              })}
-                            </span>
-                          )}
-                        </div>
-                      </a>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
+                          {job.rate}
+                        </span>
+                      )}
+                      {job.event_date && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {new Date(job.event_date).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  </a>
+                ))}
+              </CardContent>
+            </Card>
+          )}
             </>
           )}
         </div>
