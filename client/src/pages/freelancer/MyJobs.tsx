@@ -9,6 +9,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { JobDocumentsModal } from "@/components/JobDocumentsModal";
 import { useToast } from "@/hooks/use-toast";
+import { useIsPro } from "@/hooks/useIsPro";
+import { useLocation } from "wouter";
 
 type BookingStatus = "enquired" | "confirmed" | "briefed" | "completed" | "cancelled";
 
@@ -52,6 +54,8 @@ const STATUS_LABELS: Record<BookingStatus, { label: string; color: string; bg: s
 export default function MyJobs() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isPro = useIsPro();
+  const [, setLocation] = useLocation();
   const [activeFilter, setActiveFilter] = useState<BookingStatus | "all">("all");
 
   // Docs modal state
@@ -82,6 +86,28 @@ export default function MyJobs() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
+    },
+  });
+
+  const createInvoiceMutation = useMutation({
+    mutationFn: (bookingId: number) =>
+      apiRequest(`/api/invoices/from-booking/${bookingId}`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ title: "Invoice created", description: "Opening your Invoices tab." });
+      setLocation("/dashboard?tab=invoices");
+    },
+    onError: (err: any) => {
+      const msg = err?.message || "";
+      if (msg.includes("409") || msg.includes("already")) {
+        toast({
+          title: "Invoice already exists for this booking",
+          description: "Check your Invoices tab.",
+        });
+        setLocation("/dashboard?tab=invoices");
+      } else {
+        toast({ title: "Could not create invoice", description: msg, variant: "destructive" });
+      }
     },
   });
 
@@ -304,15 +330,26 @@ export default function MyJobs() {
 
                 {/* Docs button — shown for all non-cancelled bookings */}
                 {booking.status !== "cancelled" && (
-                  <button
-                    onClick={() => {
-                      setDocsJobId(job.id);
-                      setDocsJobTitle(job.title);
-                    }}
-                    className="mb-2 mt-1 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
-                  >
-                    📎 Docs
-                  </button>
+                  <div className="mb-2 mt-1 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => {
+                        setDocsJobId(job.id);
+                        setDocsJobTitle(job.title);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
+                    >
+                      📎 Docs
+                    </button>
+                    {isPro && booking.status === "completed" && (
+                      <button
+                        onClick={() => createInvoiceMutation.mutate(booking.id)}
+                        disabled={createInvoiceMutation.isPending}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50"
+                      >
+                        🧾 Create invoice
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {["enquired", "confirmed"].includes(booking.status) && (
