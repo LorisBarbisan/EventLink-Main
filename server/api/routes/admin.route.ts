@@ -3,9 +3,7 @@ import {
   addFeedbackResponse,
   adminDeleteUser,
   adminLinkTeamMember,
-  bootstrapCreateFirstAdmin,
-  bootstrapGrantAdminAccess,
-  bootstrapSetPro,
+  bulkUpdateSubscription,
   exportAdminXLSX,
   getAdminJobDetail,
   getAdminJobs,
@@ -105,16 +103,6 @@ export function registerAdminRoutes(app: Express) {
   // Admin: link two existing employer accounts as company + team member
   app.post("/api/admin/team/link", requireAdminAuth, adminLinkTeamMember);
 
-  // Bootstrap endpoint for initial admin setup (no auth required)
-  // Special override endpoint for admin@eventlink.one production access
-  app.post("/api/admin/grant-admin-access", bootstrapGrantAdminAccess);
-  app.get("/api/admin/set-pro", bootstrapSetPro);
-
-  app.post("/api/admin/create-first-admin", bootstrapCreateFirstAdmin);
-
-  // Admin Dashboard Route (will be handled by frontend routing)
-  app.get("/api/admin/*", (req, res, next) => {
-    // This will be handled by the frontend router
-    next();
-  });
+  // Bulk subscription update (admin only)
+  app.post("/api/admin/users/subscription/bulk", requireAdminAuth, bulkUpdateSubscription);
 }

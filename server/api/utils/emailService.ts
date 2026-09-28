@@ -14,6 +14,14 @@ async function getUncachableSendGridClient() {
   };
 }
 
+interface EmailAttachment {
+  content: string;           // base64-encoded file content
+  filename: string;
+  type: string;              // MIME type
+  disposition?: "attachment" | "inline";
+  contentId?: string;        // only for inline attachments
+}
+
 interface EmailParams {
   to: string;
   from?: string; // Optional - will use connector's verified email if not provided
@@ -22,6 +30,14 @@ interface EmailParams {
   subject: string;
   text?: string;
   html?: string;
+  attachments?: EmailAttachment[];
+}
+
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB of base64-encoded content
+
+function sanitizeFilename(name: string): string {
+  // Strip path separators and control characters
+  return name.replace(/[/\\]/g, "_").replace(/[\x00-\x1f\x7f]/g, "");
 }
 
 // Enhanced email validation
@@ -85,6 +101,31 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
 
     if (params.html) {
       emailData.html = params.html;
+    }
+
+    if (params.attachments?.length) {
+      const safeAttachments: any[] = [];
+      for (const a of params.attachments) {
+        const totalBytes = Buffer.byteLength(a.content, "base64");
+        if (totalBytes > MAX_ATTACHMENT_BYTES) {
+          console.warn(
+            `⚠️ Attachment '${a.filename}' (${totalBytes} bytes) exceeds cap — omitting from email to ${params.to}`
+          );
+          continue;
+        }
+        const safeFilename = sanitizeFilename(a.filename);
+        safeAttachments.push({
+          content: a.content,
+          filename: safeFilename,
+          type: a.type,
+          disposition: a.disposition ?? "attachment",
+          ...(a.contentId ? { content_id: a.contentId } : {}),
+        });
+        console.log(`📎 Attaching '${safeFilename}' (${a.type}, ${totalBytes} bytes)`);
+      }
+      if (safeAttachments.length) {
+        emailData.attachments = safeAttachments;
+      }
     }
 
     await client.send(emailData);

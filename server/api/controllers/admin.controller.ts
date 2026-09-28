@@ -490,98 +490,6 @@ export async function revokeAdminAccess(req: Request, res: Response) {
 
 // Bootstrap endpoint for initial admin setup (no auth required)
 // Special override endpoint for admin@eventlink.one production access
-export async function bootstrapGrantAdminAccess(req: Request, res: Response) {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
-    }
-
-    // Only allow admin@eventlink.one for this override
-    if (email.trim().toLowerCase() !== "admin@eventlink.one") {
-      return res.status(403).json({ error: "This endpoint is only for admin@eventlink.one" });
-    }
-
-    // Find user by email
-    const user = await storage.getUserByEmail(email.trim().toLowerCase());
-    if (!user) {
-      return res.status(404).json({ error: "User not found with that email address." });
-    }
-
-    // Update user role to admin
-    const updatedUser = await storage.updateUserRole(user.id, "admin");
-
-    // Generate JWT token using the same function as signin to ensure consistency
-    const token = generateJWTToken(updatedUser);
-
-    res.json({
-      message: "Admin access granted successfully!",
-      token: token,
-      user: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        first_name: updatedUser.first_name,
-        last_name: updatedUser.last_name,
-        role: updatedUser.role,
-      },
-    });
-  } catch (error) {
-    console.error("Grant admin access error:", error);
-    res.status(500).json({ error: "Failed to grant admin access" });
-  }
-}
-
-export async function bootstrapCreateFirstAdmin(req: Request, res: Response) {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
-    }
-
-    // Email allowlist restriction removed for bootstrap - any existing user can become admin
-
-    // Check if any admins already exist (to prevent abuse)
-    const existingAdmins = await storage.getAdminUsers();
-    const realAdmins = existingAdmins.filter((admin) => admin.role === "admin");
-
-    if (realAdmins.length > 0) {
-      return res.status(400).json({
-        error: "Admin users already exist. Use the regular admin management interface.",
-      });
-    }
-
-    // Find user by email
-    const user = await storage.getUserByEmail(email.trim().toLowerCase());
-    if (!user) {
-      return res
-        .status(404)
-        .json({ error: "User not found with that email address. Please register first." });
-    }
-
-    // Update user role to admin
-    const updatedUser = await storage.updateUserRole(user.id, "admin");
-
-    // Generate JWT token using the same function as signin to ensure consistency
-    const token = generateJWTToken(updatedUser);
-
-    res.json({
-      message: "First admin created successfully! You can now use the admin dashboard.",
-      token: token,
-      user: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        first_name: updatedUser.first_name,
-        last_name: updatedUser.last_name,
-        role: updatedUser.role,
-      },
-    });
-  } catch (error) {
-    console.error("Bootstrap admin creation error:", error);
-    res.status(500).json({ error: "Failed to create first admin" });
-  }
-}
 
 // Manually trigger job alert emails for a specific job (admin only)
 export async function retriggerJobAlerts(req: Request, res: Response) {
@@ -1262,19 +1170,42 @@ export async function updateUserSubscription(req: Request, res: Response) {
   }
 }
 
-export async function bootstrapSetPro(req: Request, res: Response) {
+export async function bulkUpdateSubscription(req: Request, res: Response) {
   try {
-    const { email, secret } = req.query as { email?: string; secret?: string };
-    if (secret !== "eventlink-set-pro-2024") {
-      return res.status(403).json({ error: "Invalid secret" });
+    const adminUser = (req as any).user;
+    const { emails, tier } = req.body;
+
+    if (!Array.isArray(emails) || emails.length === 0) {
+      return res.status(400).json({ error: "emails must be a non-empty array" });
     }
-    if (!email) return res.status(400).json({ error: "email query param required" });
-    const user = await storage.getUserByEmail(email.trim().toLowerCase());
-    if (!user) return res.status(404).json({ error: "User not found" });
-    await storage.updateSubscriptionTier(user.id, "pro");
-    return res.json({ message: `${email} is now Pro`, id: user.id });
+    if (emails.length > 100) {
+      return res.status(400).json({ error: "Maximum 100 emails per request" });
+    }
+    if (!["free", "pro"].includes(tier)) {
+      return res.status(400).json({ error: "tier must be 'free' or 'pro'" });
+    }
+
+    const updated: string[] = [];
+    const notFound: string[] = [];
+
+    for (const email of emails) {
+      if (typeof email !== "string") continue;
+      const user = await storage.getUserByEmail(email.trim().toLowerCase());
+      if (!user) {
+        notFound.push(email);
+        continue;
+      }
+      await storage.updateSubscriptionTier(user.id, tier as "free" | "pro");
+      updated.push(email);
+    }
+
+    console.log(
+      `Admin ${adminUser?.email} (id=${adminUser?.id}) bulk set subscription to '${tier}' for: [${updated.join(", ")}]`
+    );
+
+    return res.json({ updated, notFound });
   } catch (error) {
-    console.error("bootstrapSetPro error:", error);
+    console.error("bulkUpdateSubscription error:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 }
