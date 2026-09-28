@@ -3,7 +3,6 @@ import { InsuranceOffersDialog } from "@/components/InsuranceOffersDialog";
 import { EventLinkLogo } from "@/components/Logo";
 import { MobileNavigation } from "@/components/MobileNavigation";
 import { NotificationSystem } from "@/components/notifications/NotificationSystem";
-import { SearchBar } from "@/components/SearchBar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { UserMenu } from "@/components/UserMenu";
@@ -88,8 +87,6 @@ export const Header = ({ onFeedbackClick, dark = false }: HeaderProps) => {
 
   const actions = (
     <div className="flex flex-shrink-0 items-center justify-end space-x-2 sm:space-x-3">
-      {!isHomePage && <SearchBar />}
-
       {insuranceAccess !== "hidden" && (
         <Button
           onClick={() => setShowInsuranceDialog(true)}
