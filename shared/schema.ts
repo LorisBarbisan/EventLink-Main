@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
+  date,
   index,
   integer,
   json,
@@ -1304,3 +1306,88 @@ export const guest_application_tokens = pgTable("guest_application_tokens", {
 });
 
 export type GuestApplicationToken = typeof guest_application_tokens.$inferSelect;
+
+// ── Invoice / Billing ──────────────────────────────────────────────────────────
+
+export const freelancer_billing_profiles = pgTable("freelancer_billing_profiles", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  trading_name: text("trading_name"),
+  address_line1: text("address_line1"),
+  address_line2: text("address_line2"),
+  city: text("city"),
+  postcode: text("postcode"),
+  country: text("country"),
+  phone: text("phone"),
+  email: text("email"),
+  utr: text("utr"),
+  company_number: text("company_number"),
+  bank_account_name: text("bank_account_name"),
+  bank_sort_code: text("bank_sort_code"),
+  bank_account_number: text("bank_account_number"),
+  bank_iban: text("bank_iban"),
+  payment_terms_days: integer("payment_terms_days").notNull().default(30),
+  invoice_prefix: text("invoice_prefix").notNull().default("INV"),
+  next_invoice_number: integer("next_invoice_number").notNull().default(1),
+  invoice_footer_note: text("invoice_footer_note"),
+  vat_registered: boolean("vat_registered").notNull().default(false),
+  vat_number: text("vat_number"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  freelancer_id: integer("freelancer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  booking_id: integer("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+  invoice_number: text("invoice_number").notNull(),
+  status: text("status")
+    .notNull()
+    .default("draft")
+    .$type<"draft" | "sent" | "paid" | "overdue" | "cancelled">(),
+  from_details: jsonb("from_details").notNull(),
+  to_details: jsonb("to_details").notNull(),
+  line_items: jsonb("line_items").notNull(),
+  currency: text("currency").notNull().default("GBP"),
+  subtotal_pence: bigint("subtotal_pence", { mode: "number" }).notNull(),
+  vat_pence: bigint("vat_pence", { mode: "number" }).notNull().default(0),
+  total_pence: bigint("total_pence", { mode: "number" }).notNull(),
+  issue_date: date("issue_date"),
+  due_date: date("due_date"),
+  sent_at: timestamp("sent_at", { withTimezone: true }),
+  sent_message_id: integer("sent_message_id").references(() => messages.id, {
+    onDelete: "set null",
+  }),
+  marked_sent_externally: boolean("marked_sent_externally").notNull().default(false),
+  paid_at: timestamp("paid_at", { withTimezone: true }),
+  paid_amount_pence: bigint("paid_amount_pence", { mode: "number" }),
+  notes: text("notes"),
+  pdf_key: text("pdf_key"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const invoice_reminders = pgTable("invoice_reminders", {
+  id: serial("id").primaryKey(),
+  invoice_id: integer("invoice_id")
+    .notNull()
+    .references(() => invoices.id, { onDelete: "cascade" }),
+  stage: text("stage")
+    .notNull()
+    .$type<"due_soon" | "overdue_1" | "overdue_7" | "overdue_14" | "final">(),
+  action: text("action").notNull().$type<"sent" | "copied" | "dismissed" | "snoozed">(),
+  message_id: integer("message_id").references(() => messages.id, { onDelete: "set null" }),
+  actioned_at: timestamp("actioned_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type FreelancerBillingProfile = typeof freelancer_billing_profiles.$inferSelect;
+export type InsertFreelancerBillingProfile = typeof freelancer_billing_profiles.$inferInsert;
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = typeof invoices.$inferInsert;
+export type InvoiceReminder = typeof invoice_reminders.$inferSelect;
+export type InsertInvoiceReminder = typeof invoice_reminders.$inferInsert;

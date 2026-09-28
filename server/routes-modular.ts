@@ -34,6 +34,7 @@ import bookingRouter from "./api/routes/booking.route.js";
 import teamRouter from "./api/routes/team.route.js";
 import jobDocumentRouter from "./api/routes/job-document.route.js";
 import { registerPortfolioRoutes } from "./api/routes/portfolio.route.js";
+import { registerInvoiceRoutes } from "./api/routes/invoice.route.js";
 import { registerQRRoutes } from "./api/routes/qr.route.js";
 import { registerSlugRoutes } from "./api/routes/slug.route.js";
 import { registerStripeRoutes } from "./api/routes/stripe.route.js";
@@ -269,6 +270,7 @@ export async function registerRoutes(
   registerAuthRoutes(app);
   registerProfileRoutes(app);
   registerPortfolioRoutes(app);
+  registerInvoiceRoutes(app);
   registerQRRoutes(app);
   registerSlugRoutes(app);
   registerJobRoutes(app);

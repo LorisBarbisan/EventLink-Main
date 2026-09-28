@@ -10,7 +10,7 @@ import {
   updatePortfolioPost,
   uploadPortfolioFile,
 } from "../controllers/portfolio.controller";
-import { authenticateJWT } from "../middleware/auth.middleware";
+import { authenticateJWT, requirePro } from "../middleware/auth.middleware";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
@@ -19,8 +19,14 @@ export function registerPortfolioRoutes(app: Express) {
   app.get("/api/portfolio/:id/media", servePortfolioMedia);
   app.get("/api/portfolio/:id/thumbnail", servePortfolioThumbnail);
   app.get("/api/portfolio/file/*", servePortfolioFile);
-  app.post("/api/portfolio/upload", authenticateJWT, upload.single("file"), uploadPortfolioFile);
-  app.post("/api/portfolio", authenticateJWT, createPortfolioPost);
+  app.post(
+    "/api/portfolio/upload",
+    authenticateJWT,
+    requirePro,
+    upload.single("file"),
+    uploadPortfolioFile
+  );
+  app.post("/api/portfolio", authenticateJWT, requirePro, createPortfolioPost);
   app.patch("/api/portfolio/:id", authenticateJWT, updatePortfolioPost);
   app.delete("/api/portfolio/:id", authenticateJWT, deletePortfolioPost);
 }

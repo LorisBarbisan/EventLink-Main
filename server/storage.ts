@@ -74,6 +74,15 @@ import {
   portfolio_posts,
   type PortfolioPost,
   type InsertPortfolioPost,
+  freelancer_billing_profiles,
+  invoices,
+  invoice_reminders,
+  type FreelancerBillingProfile,
+  type InsertFreelancerBillingProfile,
+  type Invoice,
+  type InsertInvoice,
+  type InvoiceReminder,
+  type InsertInvoiceReminder,
 } from "@shared/schema";
 import {
   and,
@@ -700,6 +709,48 @@ export interface IStorage {
   }): Promise<GuestApplicationToken>;
   getGuestApplicationToken(tokenHash: string): Promise<GuestApplicationToken | undefined>;
   markGuestApplicationTokenViewed(tokenHash: string): Promise<void>;
+
+  // Billing profiles
+  getBillingProfile(
+    userId: number
+  ): Promise<import("@shared/schema").FreelancerBillingProfile | undefined>;
+  upsertBillingProfile(
+    userId: number,
+    data: Partial<import("@shared/schema").InsertFreelancerBillingProfile>
+  ): Promise<import("@shared/schema").FreelancerBillingProfile>;
+
+  // Invoices
+  getInvoice(id: number): Promise<import("@shared/schema").Invoice | undefined>;
+  getInvoicesByFreelancer(
+    freelancerId: number,
+    status?: string
+  ): Promise<import("@shared/schema").Invoice[]>;
+  getInvoiceByBooking(bookingId: number): Promise<import("@shared/schema").Invoice | undefined>;
+  createInvoice(
+    data: import("@shared/schema").InsertInvoice
+  ): Promise<import("@shared/schema").Invoice>;
+  updateInvoice(
+    id: number,
+    data: Partial<import("@shared/schema").InsertInvoice>
+  ): Promise<import("@shared/schema").Invoice | undefined>;
+  allocateInvoiceNumber(billingProfileId: number): Promise<string>;
+  markInvoiceSent(
+    id: number,
+    messageId: number,
+    external: boolean
+  ): Promise<import("@shared/schema").Invoice>;
+  markInvoicePaid(
+    id: number,
+    amountPence?: number,
+    paidAt?: Date
+  ): Promise<import("@shared/schema").Invoice>;
+  flipOverdueInvoices(): Promise<number>;
+
+  // Invoice reminders
+  getRemindersForInvoice(invoiceId: number): Promise<import("@shared/schema").InvoiceReminder[]>;
+  recordReminder(
+    data: import("@shared/schema").InsertInvoiceReminder
+  ): Promise<import("@shared/schema").InvoiceReminder>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6094,6 +6145,157 @@ export class DatabaseStorage implements IStorage {
       .update(guest_application_tokens)
       .set({ viewed_at: new Date() })
       .where(eq(guest_application_tokens.token_hash, tokenHash));
+  }
+
+  // ── Billing profiles ─────────────────────────────────────────────────────────
+
+  async getBillingProfile(userId: number): Promise<FreelancerBillingProfile | undefined> {
+    const [row] = await db
+      .select()
+      .from(freelancer_billing_profiles)
+      .where(eq(freelancer_billing_profiles.user_id, userId))
+      .limit(1);
+    return row;
+  }
+
+  async upsertBillingProfile(
+    userId: number,
+    data: Partial<InsertFreelancerBillingProfile>
+  ): Promise<FreelancerBillingProfile> {
+    const existing = await this.getBillingProfile(userId);
+    if (existing) {
+      const [updated] = await db
+        .update(freelancer_billing_profiles)
+        .set({ ...data, updated_at: new Date() })
+        .where(eq(freelancer_billing_profiles.user_id, userId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db
+      .insert(freelancer_billing_profiles)
+      .values({ user_id: userId, ...data })
+      .returning();
+    return created;
+  }
+
+  // ── Invoices ─────────────────────────────────────────────────────────────────
+
+  async getInvoice(id: number): Promise<Invoice | undefined> {
+    const [row] = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
+    return row;
+  }
+
+  async getInvoicesByFreelancer(freelancerId: number, status?: string): Promise<Invoice[]> {
+    const conditions = [eq(invoices.freelancer_id, freelancerId)];
+    if (status) conditions.push(eq(invoices.status as any, status));
+    return db
+      .select()
+      .from(invoices)
+      .where(and(...conditions))
+      .orderBy(desc(invoices.created_at));
+  }
+
+  async getInvoiceByBooking(bookingId: number): Promise<Invoice | undefined> {
+    const [row] = await db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.booking_id, bookingId))
+      .limit(1);
+    return row;
+  }
+
+  async createInvoice(data: InsertInvoice): Promise<Invoice> {
+    const [row] = await db.insert(invoices).values(data).returning();
+    if (!row) throw new Error("Failed to create invoice");
+    return row;
+  }
+
+  async updateInvoice(id: number, data: Partial<InsertInvoice>): Promise<Invoice | undefined> {
+    const [row] = await db
+      .update(invoices)
+      .set({ ...data, updated_at: new Date() })
+      .where(eq(invoices.id, id))
+      .returning();
+    return row;
+  }
+
+  async allocateInvoiceNumber(billingProfileId: number): Promise<string> {
+    // SELECT ... FOR UPDATE to prevent concurrent duplicates
+    const result = await db.transaction(async (tx) => {
+      const [profile] = await tx
+        .select()
+        .from(freelancer_billing_profiles)
+        .where(eq(freelancer_billing_profiles.id, billingProfileId))
+        .for("update")
+        .limit(1);
+      if (!profile) throw new Error("Billing profile not found");
+      const num = profile.next_invoice_number;
+      await tx
+        .update(freelancer_billing_profiles)
+        .set({ next_invoice_number: num + 1, updated_at: new Date() })
+        .where(eq(freelancer_billing_profiles.id, billingProfileId));
+      return `${profile.invoice_prefix}-${String(num).padStart(4, "0")}`;
+    });
+    return result;
+  }
+
+  async markInvoiceSent(id: number, messageId: number, external: boolean): Promise<Invoice> {
+    const [row] = await db
+      .update(invoices)
+      .set({
+        status: "sent",
+        sent_at: new Date(),
+        sent_message_id: external ? null : messageId,
+        marked_sent_externally: external,
+        updated_at: new Date(),
+      })
+      .where(eq(invoices.id, id))
+      .returning();
+    if (!row) throw new Error("Invoice not found");
+    return row;
+  }
+
+  async markInvoicePaid(id: number, amountPence?: number, paidAt?: Date): Promise<Invoice> {
+    const [row] = await db
+      .update(invoices)
+      .set({
+        status: "paid",
+        paid_at: paidAt ?? new Date(),
+        paid_amount_pence: amountPence ?? null,
+        updated_at: new Date(),
+      })
+      .where(eq(invoices.id, id))
+      .returning();
+    if (!row) throw new Error("Invoice not found");
+    return row;
+  }
+
+  async flipOverdueInvoices(): Promise<number> {
+    const now = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const result = await db
+      .update(invoices)
+      .set({ status: "overdue", updated_at: new Date() })
+      .where(and(eq(invoices.status as any, "sent"), sql`${invoices.due_date} < ${now}`))
+      .returning({ id: invoices.id });
+    return result.length;
+  }
+
+  // ── Invoice reminders ─────────────────────────────────────────────────────────
+
+  async getRemindersForInvoice(invoiceId: number): Promise<InvoiceReminder[]> {
+    return db.select().from(invoice_reminders).where(eq(invoice_reminders.invoice_id, invoiceId));
+  }
+
+  async recordReminder(data: InsertInvoiceReminder): Promise<InvoiceReminder> {
+    const [row] = await db
+      .insert(invoice_reminders)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [invoice_reminders.invoice_id, invoice_reminders.stage],
+        set: { action: data.action, message_id: data.message_id ?? null, actioned_at: new Date() },
+      })
+      .returning();
+    return row;
   }
 }
 

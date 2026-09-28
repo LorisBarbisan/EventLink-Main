@@ -56,12 +56,19 @@ export class EmailNotificationService {
       | "system";
     relatedEntityType?: "job" | "application" | "message" | "rating" | null;
     relatedEntityId?: number | null;
+    attachments?: Array<{
+      content: string;
+      filename: string;
+      type: string;
+      disposition: "attachment";
+    }>;
   }): Promise<boolean> {
     try {
       await sendEmail({
         to: params.to,
         subject: params.subject,
         html: params.html,
+        ...(params.attachments?.length ? { attachments: params.attachments } : {}),
       });
 
       // Log successful email
@@ -110,6 +117,12 @@ export class EmailNotificationService {
     messagePreview: string;
     conversationId: number;
     emailSubject?: string;
+    attachments?: Array<{
+      content: string;
+      filename: string;
+      type: string;
+      disposition: "attachment";
+    }>;
   }): Promise<boolean> {
     // Check if user wants message notifications
     if (!(await this.canSendEmail(params.recipientId, "message"))) {
@@ -134,6 +147,7 @@ export class EmailNotificationService {
       notificationType: "message",
       relatedEntityType: "message",
       relatedEntityId: params.conversationId,
+      ...(params.attachments?.length ? { attachments: params.attachments } : {}),
     });
   }
 

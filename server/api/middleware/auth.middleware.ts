@@ -105,6 +105,16 @@ export const authenticateOptionalJWT = async (req: any, res: any, next: any) => 
   }
 };
 
+// Pro subscription gate middleware — use after authenticateJWT
+export function requirePro(req: any, res: Response, next: any) {
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: "Not authenticated" });
+  if (user.subscription_tier !== "pro") {
+    return res.status(403).json({ error: "Pro subscription required", code: "PRO_REQUIRED" });
+  }
+  next();
+}
+
 // OAuth configuration endpoint
 export function getOAuthConfig(req: Request, res: Response) {
   res.json({

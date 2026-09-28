@@ -65,9 +65,6 @@ export async function servePortfolioThumbnail(req: Request, res: Response) {
 export async function createPortfolioPost(req: Request, res: Response) {
   const user = (req as any).user;
   if (!user) return res.status(401).json({ error: "Unauthorized" });
-  if (user.subscription_tier !== "pro") {
-    return res.status(403).json({ error: "Portfolio requires Pro subscription" });
-  }
   const { type, title, body, media_url, thumbnail_url } = req.body;
   if (!type || !["photo", "video", "blog", "link"].includes(type)) {
     return res.status(400).json({ error: "Invalid post type" });
@@ -121,9 +118,6 @@ export async function deletePortfolioPost(req: Request, res: Response) {
 export async function uploadPortfolioFile(req: Request, res: Response) {
   const user = (req as any).user;
   if (!user) return res.status(401).json({ error: "Unauthorized" });
-  if (user.subscription_tier !== "pro") {
-    return res.status(403).json({ error: "Portfolio requires Pro subscription" });
-  }
 
   const file = (req as any).file as Express.Multer.File | undefined;
   if (!file) return res.status(400).json({ error: "No file uploaded" });
