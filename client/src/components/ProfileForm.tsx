@@ -76,6 +76,7 @@ export function ProfileForm({
 }: ProfileFormProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const isPro = useIsPro();
 
   const freelancerProfile = userType === "freelancer" ? (profile as FreelancerProfile) : null;
   const [profileIsPublic, setProfileIsPublic] = useState(
@@ -385,18 +386,20 @@ export function ProfileForm({
       />
       {userType === "freelancer" ? (
         <>
-          <Tabs defaultValue="card">
+          <Tabs defaultValue={isPro ? "card" : "profile"}>
             <CardHeader className="pb-0">
               <div className="flex items-center justify-between">
                 <CardTitle>{profile ? "Edit Profile" : "Create Freelancer Profile"}</CardTitle>
               </div>
               <TabsList className="mt-3 w-full justify-start border border-border bg-muted/60">
-                <TabsTrigger
-                  value="card"
-                  className="font-semibold data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow"
-                >
-                  Card &amp; Appearance
-                </TabsTrigger>
+                {isPro && (
+                  <TabsTrigger
+                    value="card"
+                    className="font-semibold data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow"
+                  >
+                    Card &amp; Appearance
+                  </TabsTrigger>
+                )}
                 <TabsTrigger
                   value="profile"
                   className="font-semibold data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow"
