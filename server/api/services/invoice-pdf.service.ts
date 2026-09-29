@@ -174,22 +174,31 @@ export async function renderInvoicePDF(data: InvoiceRenderData): Promise<Buffer>
         .fontSize(8.5)
         .fillColor("#374151")
         .text(invoice.notes, L, y, { width: W });
+      y += doc.heightOfString(invoice.notes, { width: W }) + 6;
     }
 
-    // ── Footer ────────────────────────────────────────────────────────────────
-    const footerY = doc.page.height - 110;
-    doc.moveTo(L, footerY).lineTo(R, footerY).strokeColor(LINE).lineWidth(1).stroke();
+    // ── Footer (flows below content, not pinned to bottom) ────────────────────
+    y += 20;
+    doc.moveTo(L, y).lineTo(R, y).strokeColor(LINE).lineWidth(1).stroke();
+    y += 14;
 
-    let fy = footerY + 12;
     const hasBank =
       billingProfile.bank_account_name ||
       billingProfile.bank_sort_code ||
       billingProfile.bank_account_number ||
       billingProfile.bank_iban;
 
+    const terms =
+      billingProfile.invoice_footer_note ||
+      `Payment due within ${billingProfile.payment_terms_days ?? 30} days of invoice date.`;
+
+    const bankColW = W * 0.55;
+    const termsX = hasBank ? L + bankColW + 16 : L;
+    const termsW = hasBank ? W - bankColW - 16 : W;
+
     if (hasBank) {
-      doc.font("Helvetica-Bold").fontSize(7.5).fillColor(MUTED).text("PAYMENT DETAILS", L, fy);
-      fy += 11;
+      doc.font("Helvetica-Bold").fontSize(7.5).fillColor(MUTED).text("PAYMENT DETAILS", L, y);
+      let fy = y + 11;
       doc.font("Helvetica").fontSize(8).fillColor(DARK);
       if (billingProfile.bank_account_name) {
         doc.text(`Account name: ${billingProfile.bank_account_name}`, L, fy);
@@ -207,20 +216,16 @@ export async function renderInvoicePDF(data: InvoiceRenderData): Promise<Buffer>
       if (billingProfile.bank_iban) {
         const iban = billingProfile.bank_iban;
         doc.text(`IBAN: ${iban.slice(0, 4)}****${iban.slice(-4)}`, L, fy);
-        fy += 11;
       }
     }
 
-    const terms =
-      billingProfile.invoice_footer_note ||
-      `Payment due within ${billingProfile.payment_terms_days ?? 30} days of invoice date.`;
     doc
       .font("Helvetica")
       .fontSize(7.5)
       .fillColor(MUTED)
-      .text(terms, hasBank ? L + W / 2 : L, footerY + 12, {
-        width: hasBank ? W / 2 : W,
-        align: "right",
+      .text(terms, termsX, y, {
+        width: termsW,
+        align: hasBank ? "right" : "left",
       });
 
     doc.end();
