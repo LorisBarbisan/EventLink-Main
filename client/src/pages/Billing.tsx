@@ -7,7 +7,6 @@ import { Check, Loader2, X, Zap } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
-
 const FREE_FEATURES = [
   { label: "Create your profile", included: true },
   { label: "Browse & apply for jobs", included: true },
@@ -15,11 +14,11 @@ const FREE_FEATURES = [
   { label: "In-platform messaging", included: true },
   { label: "Basic crew search filters", included: true },
   { label: "Booking management", included: true },
-  { label: "Portfolio (photos, videos, posts)", included: false },
   { label: "Digital Business Card & QR Code", included: false },
   { label: "Custom profile URL", included: false },
-  { label: "Priority in search results", included: false },
-  { label: "Profile analytics", included: false },
+  { label: "ID Verification", included: false },
+  { label: "Accounting tools & invoice templates", included: false },
+  { label: "Exclusive discounts", included: false },
 ];
 
 const PRO_FEATURES = [
@@ -29,11 +28,11 @@ const PRO_FEATURES = [
   { label: "In-platform messaging", included: true },
   { label: "Basic crew search filters", included: true },
   { label: "Booking management", included: true },
-  { label: "Portfolio (photos, videos, posts)", included: true },
   { label: "Digital Business Card & QR Code", included: true },
   { label: "Custom profile URL", included: true },
-  { label: "Priority in search results", included: true },
-  { label: "Profile analytics", included: true },
+  { label: "ID Verification", included: true },
+  { label: "Accounting tools & invoice templates", included: true },
+  { label: "Exclusive discounts", included: true },
 ];
 
 const ANNUAL_PRICE = 49.99;
@@ -92,7 +91,6 @@ export default function Billing() {
             EventLink is free to use. Upgrade to Pro to unlock your portfolio, Digital Business
             Card, and tools that help you stand out.
           </p>
-
         </div>
 
         {/* Cards */}
