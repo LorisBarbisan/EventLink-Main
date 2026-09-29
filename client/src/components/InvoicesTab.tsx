@@ -22,6 +22,24 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { FileText, Zap, AlertTriangle, Download, Plus, Trash2, Archive } from "lucide-react";
 
+// ── PDF download (auth-aware) ─────────────────────────────────────────────────
+
+async function downloadInvoicePDF(invoiceId: number, invoiceNumber: string) {
+  const token = localStorage.getItem("auth_token");
+  const res = await fetch(`/api/invoices/${invoiceId}/pdf`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to download PDF");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${invoiceNumber}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Invoice {
@@ -487,17 +505,15 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
         </div>
 
         <DialogFooter className="gap-2">
-          <a
-            href={`/api/invoices/${invoice.id}/pdf`}
-            target="_blank"
-            rel="noreferrer"
-            className="mr-auto"
+          <Button
+            variant="outline"
+            size="sm"
+            className="mr-auto gap-2"
+            onClick={() => downloadInvoicePDF(invoice.id, invoice.invoice_number)}
           >
-            <Button variant="outline" size="sm" className="gap-2">
-              <Download className="h-4 w-4" />
-              PDF
-            </Button>
-          </a>
+            <Download className="h-4 w-4" />
+            PDF
+          </Button>
           <Button variant="outline" onClick={onClose}>
             {invoice.status === "draft" ? "Discard changes" : "Close"}
           </Button>
@@ -552,15 +568,13 @@ function InvoiceRow({
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <a
-            href={`/api/invoices/${invoice.id}/pdf`}
-            target="_blank"
-            rel="noreferrer"
+          <button
             className="text-muted-foreground transition-colors hover:text-foreground"
             title="Download PDF"
+            onClick={() => downloadInvoicePDF(invoice.id, invoice.invoice_number)}
           >
             <Download className="h-4 w-4" />
-          </a>
+          </button>
           {(invoice.status === "sent" || invoice.status === "overdue") && (
             <Button
               size="sm"
@@ -897,15 +911,13 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
                             </span>
                           </td>
                           <td className="px-4 py-2">
-                            <a
-                              href={`/api/invoices/${inv.id}/pdf`}
-                              target="_blank"
-                              rel="noreferrer"
+                            <button
                               className="text-muted-foreground transition-colors hover:text-foreground"
                               title="Download PDF"
+                              onClick={() => downloadInvoicePDF(inv.id, inv.invoice_number)}
                             >
                               <Download className="h-4 w-4" />
-                            </a>
+                            </button>
                           </td>
                         </tr>
                       );
