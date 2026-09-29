@@ -388,7 +388,7 @@ export default function SimplifiedFreelancerDashboard() {
                 Messages{roleSpecificCounts.messages > 0 ? ` (${roleSpecificCounts.messages})` : ""}
               </SelectItem>
               <SelectItem value="bookings">
-                Pending Ratings
+                Bookings
                 {roleSpecificCounts.ratings > 0 ? ` (${roleSpecificCounts.ratings})` : ""}
               </SelectItem>
               <SelectItem value="references">References</SelectItem>
@@ -397,10 +397,10 @@ export default function SimplifiedFreelancerDashboard() {
             </SelectContent>
           </Select>
         </div>
-        <TabsList className="hidden w-full grid-cols-3 sm:grid md:grid-cols-7">
+        <TabsList className="hidden w-full grid-cols-4 sm:grid md:grid-cols-7">
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
-            My Applications
+            Applications
             <TabBadge count={roleSpecificCounts.applications || 0} />
           </TabsTrigger>
           <TabsTrigger value="messages" className="gap-2">
@@ -408,7 +408,7 @@ export default function SimplifiedFreelancerDashboard() {
             <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
           <TabsTrigger value="bookings" className="gap-2">
-            Pending Ratings
+            Bookings
             <TabBadge count={roleSpecificCounts.ratings || 0} />
           </TabsTrigger>
           <TabsTrigger value="references" className="gap-2">
