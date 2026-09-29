@@ -25,19 +25,29 @@ import { FileText, Zap, AlertTriangle, Download, Plus, Trash2, Archive } from "l
 // ── PDF download (auth-aware) ─────────────────────────────────────────────────
 
 async function downloadInvoicePDF(invoiceId: number, invoiceNumber: string) {
-  const token = localStorage.getItem("auth_token");
-  const res = await fetch(`/api/invoices/${invoiceId}/pdf`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error("Failed to download PDF");
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${invoiceNumber}.pdf`;
-  a.click();
-  URL.revokeObjectURL(url);
+  try {
+    const token = localStorage.getItem("auth_token");
+    const res = await fetch(`/api/invoices/${invoiceId}/pdf`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`PDF download failed (${res.status}): ${body}`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${invoiceNumber}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
+    alert("Could not download PDF. Please try again.");
+  }
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────

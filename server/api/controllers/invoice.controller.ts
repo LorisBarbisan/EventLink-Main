@@ -330,22 +330,19 @@ export async function getInvoicePDF(req: Request, res: Response) {
     if (!invoice) return res.status(404).json({ error: "Not found" });
     if (invoice.freelancer_id !== user.id) return res.status(403).json({ error: "Forbidden" });
 
-    if (!invoice.pdf_key) {
-      // Generate on demand
-      const billingProfile = await storage.getBillingProfile(user.id);
-      if (!billingProfile) return res.status(422).json({ error: "Billing profile not set up" });
-      const pdfBuffer = await renderInvoicePDF({ invoice, billingProfile });
-      const pdfKey = await storeInvoicePDF(user.id, id, pdfBuffer);
-      await storage.updateInvoice(id, { pdf_key: pdfKey });
-      res.set({
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${invoice.invoice_number}.pdf"`,
-      });
-      return res.send(pdfBuffer);
-    }
-
-    const url = await ObjectStorageService.getDownloadUrl(invoice.pdf_key);
-    return res.redirect(url);
+    // Always regenerate and stream directly — avoids R2 CORS issues on redirect
+    const billingProfile = await storage.getBillingProfile(user.id);
+    if (!billingProfile) return res.status(422).json({ error: "Billing profile not set up" });
+    const pdfBuffer = await renderInvoicePDF({ invoice, billingProfile });
+    // Store in background (non-blocking)
+    storeInvoicePDF(user.id, id, pdfBuffer)
+      .then((key) => storage.updateInvoice(id, { pdf_key: key }))
+      .catch((e) => console.error("PDF store failed (non-fatal):", e));
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${invoice.invoice_number}.pdf"`,
+    });
+    return res.send(pdfBuffer);
   } catch (err) {
     console.error("getInvoicePDF error:", err);
     return res.status(500).json({ error: "Internal server error" });
