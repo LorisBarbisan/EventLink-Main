@@ -79,15 +79,16 @@ export async function renderInvoicePDF(data: InvoiceRenderData): Promise<Buffer>
     const cRate = L + W * 0.52;
     const cQty = L + W * 0.63;
     const cUnit = L + W * 0.73;
-    const cAmt = R;
+    const cAmt = L + W * 0.87;
+    const amtW = R - cAmt;
 
     // Header row
     doc.font("Helvetica-Bold").fontSize(7.5).fillColor(MUTED);
     doc.text("DESCRIPTION", cDesc, y, { width: cRate - cDesc - 6 });
     doc.text("RATE", cRate, y, { width: cQty - cRate - 4 });
     doc.text("QTY", cQty, y, { width: cUnit - cQty - 4 });
-    doc.text("UNIT PRICE", cUnit, y, { width: cAmt - cUnit, align: "right" });
-    doc.text("AMOUNT", cAmt, y, { width: 0, align: "right" });
+    doc.text("UNIT PRICE", cUnit, y, { width: cAmt - cUnit - 4, align: "right" });
+    doc.text("AMOUNT", cAmt, y, { width: amtW, align: "right" });
 
     y += 13;
     doc.moveTo(L, y).lineTo(R, y).strokeColor(LINE).lineWidth(0.5).stroke();
@@ -125,10 +126,10 @@ export async function renderInvoicePDF(data: InvoiceRenderData): Promise<Buffer>
       doc.text(rateLabel, cRate, y, { width: cQty - cRate - 4 });
       doc.text(String(qty), cQty, y, { width: cUnit - cQty - 4 });
       doc.text(formatMoney(unitPence, currency), cUnit, y, {
-        width: cAmt - cUnit,
+        width: cAmt - cUnit - 4,
         align: "right",
       });
-      doc.text(formatMoney(totalPence, currency), cAmt, y, { width: 0, align: "right" });
+      doc.text(formatMoney(totalPence, currency), cAmt, y, { width: amtW, align: "right" });
 
       y += rowH + 8;
     }
