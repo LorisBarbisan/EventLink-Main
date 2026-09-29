@@ -1368,6 +1368,7 @@ export const invoices = pgTable("invoices", {
   paid_amount_pence: bigint("paid_amount_pence", { mode: "number" }),
   notes: text("notes"),
   pdf_key: text("pdf_key"),
+  archived: boolean("archived").default(false).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

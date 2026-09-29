@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Zap, AlertTriangle, Download, Plus, Trash2 } from "lucide-react";
+import { FileText, Zap, AlertTriangle, Download, Plus, Trash2, Archive } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -36,6 +36,7 @@ interface Invoice {
   line_items: LineItem[] | null;
   notes: string | null;
   booking_id: number | null;
+  archived: boolean;
 }
 
 type RateType = "hour" | "day" | "ot" | "special" | "flat";
@@ -517,10 +518,14 @@ function InvoiceRow({
   invoice,
   onMarkPaid,
   onOpen,
+  onDelete,
+  onArchive,
 }: {
   invoice: Invoice;
   onMarkPaid: (id: number) => void;
   onOpen: (inv: Invoice) => void;
+  onDelete: (id: number) => void;
+  onArchive: (id: number) => void;
 }) {
   const clientName = invoice.to_details?.company || invoice.to_details?.name || "—";
 
@@ -566,6 +571,26 @@ function InvoiceRow({
               Mark paid
             </Button>
           )}
+          {(invoice.status === "sent" ||
+            invoice.status === "overdue" ||
+            invoice.status === "paid") && (
+            <button
+              onClick={() => onArchive(invoice.id)}
+              className="text-muted-foreground transition-colors hover:text-foreground"
+              title="Archive"
+            >
+              <Archive className="h-4 w-4" />
+            </button>
+          )}
+          {invoice.status === "draft" && (
+            <button
+              onClick={() => onDelete(invoice.id)}
+              className="text-muted-foreground transition-colors hover:text-destructive"
+              title="Delete draft"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </td>
     </tr>
@@ -598,6 +623,24 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
       toast({ title: "Invoice marked as paid" });
     },
     onError: () => toast({ title: "Failed to update invoice", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/invoices/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ title: "Draft deleted" });
+    },
+    onError: () => toast({ title: "Failed to delete invoice", variant: "destructive" }),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/invoices/${id}/archive`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ title: "Invoice archived" });
+    },
+    onError: () => toast({ title: "Failed to archive invoice", variant: "destructive" }),
   });
 
   const createMutation = useMutation({
@@ -667,8 +710,24 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
     { outstanding_pence: 0, overdue_pence: 0, paid_last_90_pence: 0 }
   );
 
+  const activeInvoices = invoices.filter((i) => !i.archived);
+  const archivedInvoices = invoices.filter((i) => i.archived);
+
   const filtered =
-    statusFilter === "all" ? invoices : invoices.filter((i) => i.status === statusFilter);
+    statusFilter === "all"
+      ? activeInvoices
+      : activeInvoices.filter((i) => i.status === statusFilter);
+
+  // Group archived invoices by client name; no client name + no booking → "External"
+  const archivedGroups: Record<string, Invoice[]> = {};
+  for (const inv of archivedInvoices) {
+    const key =
+      inv.to_details?.company ||
+      inv.to_details?.name ||
+      (inv.booking_id ? "Unknown client" : "External");
+    if (!archivedGroups[key]) archivedGroups[key] = [];
+    archivedGroups[key].push(inv);
+  }
 
   return (
     <div className="space-y-6">
@@ -779,10 +838,82 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
                   invoice={inv}
                   onMarkPaid={(id) => markPaidMutation.mutate(id)}
                   onOpen={setEditingInvoice}
+                  onDelete={(id) => deleteMutation.mutate(id)}
+                  onArchive={(id) => archiveMutation.mutate(id)}
                 />
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Archive */}
+      {archivedInvoices.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Archive className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-medium text-muted-foreground">
+              Archive ({archivedInvoices.length})
+            </p>
+          </div>
+          {Object.entries(archivedGroups)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([client, invs]) => (
+              <div key={client} className="rounded-md border">
+                <div className="border-b bg-muted/30 px-4 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {client}
+                  </p>
+                </div>
+                <table className="w-full text-sm">
+                  <tbody>
+                    {invs.map((inv) => {
+                      const clientLabel = inv.to_details?.company || inv.to_details?.name || "—";
+                      return (
+                        <tr
+                          key={inv.id}
+                          className="border-b transition-colors last:border-0 hover:bg-muted/20"
+                        >
+                          <td className="px-4 py-2 font-mono text-xs">
+                            <button
+                              className="text-primary hover:underline"
+                              onClick={() => setEditingInvoice(inv)}
+                            >
+                              {inv.invoice_number}
+                            </button>
+                          </td>
+                          <td className="px-4 py-2 text-xs text-muted-foreground">{clientLabel}</td>
+                          <td className="px-4 py-2 text-right text-xs tabular-nums">
+                            {penceToGBP(inv.total_pence)}
+                          </td>
+                          <td className="px-4 py-2 text-xs text-muted-foreground">
+                            {inv.issue_date}
+                          </td>
+                          <td className="px-4 py-2">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_COLORS[inv.status]}`}
+                            >
+                              {inv.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2">
+                            <a
+                              href={`/api/invoices/${inv.id}/pdf`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-muted-foreground transition-colors hover:text-foreground"
+                              title="Download PDF"
+                            >
+                              <Download className="h-4 w-4" />
+                            </a>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ))}
         </div>
       )}
 

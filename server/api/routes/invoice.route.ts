@@ -15,6 +15,7 @@ import {
   markSentExternally,
   markInvoicePaid,
   cancelInvoice,
+  archiveInvoice,
   getReminderDraft,
   recordReminderAction,
   exportInvoicesCSV,
@@ -45,6 +46,7 @@ export function registerInvoiceRoutes(app: Express) {
   app.post("/api/invoices/:id/send-message", ...freelancer, sendInvoiceViaMessage);
   app.post("/api/invoices/:id/mark-sent", ...freelancer, markSentExternally);
   app.post("/api/invoices/:id/mark-paid", ...freelancer, markInvoicePaid);
+  app.post("/api/invoices/:id/archive", ...freelancer, archiveInvoice);
 
   // Reminders
   app.get("/api/invoices/:id/reminder-draft", ...freelancer, getReminderDraft);

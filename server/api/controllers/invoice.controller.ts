@@ -574,6 +574,24 @@ export async function cancelInvoice(req: Request, res: Response) {
   }
 }
 
+export async function archiveInvoice(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    const invoice = await storage.getInvoice(id);
+    if (!invoice) return res.status(404).json({ error: "Not found" });
+    if (invoice.freelancer_id !== user.id) return res.status(403).json({ error: "Forbidden" });
+    if (invoice.status === "draft")
+      return res.status(409).json({ error: "Delete drafts rather than archiving them" });
+    const updated = await storage.updateInvoice(id, { archived: true } as any);
+    return res.json(updated);
+  } catch (err) {
+    console.error("archiveInvoice error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // ── Reminder draft ────────────────────────────────────────────────────────────
 
 const REMINDER_TONES: Record<string, string> = {
