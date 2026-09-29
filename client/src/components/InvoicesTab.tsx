@@ -221,6 +221,12 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
   const [lineItems, setLineItems] = useState<LineItem[]>(
     invoice.line_items?.length ? invoice.line_items : [emptyLine()]
   );
+  // Raw strings for unit price inputs — lets users type freely; committed to pence on blur
+  const [priceInputs, setPriceInputs] = useState<string[]>(
+    (invoice.line_items?.length ? invoice.line_items : [emptyLine()]).map((li) =>
+      penceToPounds(li.unit_price_pence)
+    )
+  );
   const [issueDate, setIssueDate] = useState(invoice.issue_date ?? "");
   const [dueDate, setDueDate] = useState(invoice.due_date ?? "");
   const [notes, setNotes] = useState(invoice.notes ?? "");
@@ -252,16 +258,38 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
     onError: () => toast({ title: "Failed to save invoice", variant: "destructive" }),
   });
 
-  const updateLine = (i: number, field: keyof LineItem, raw: string) => {
+  const updateLine = (i: number, field: "description" | "quantity", raw: string) => {
     setLineItems((prev) =>
       prev.map((li, idx) => {
         if (idx !== i) return li;
         if (field === "description") return { ...li, description: raw };
         if (field === "quantity") return { ...li, quantity: parseFloat(raw) || 0 };
-        if (field === "unit_price_pence") return { ...li, unit_price_pence: poundsToPence(raw) };
         return li;
       })
     );
+  };
+
+  const updatePriceInput = (i: number, raw: string) => {
+    setPriceInputs((prev) => prev.map((v, idx) => (idx === i ? raw : v)));
+  };
+
+  const commitPrice = (i: number) => {
+    const pence = poundsToPence(priceInputs[i]);
+    setLineItems((prev) =>
+      prev.map((li, idx) => (idx === i ? { ...li, unit_price_pence: pence } : li))
+    );
+    // Normalise display to 2 decimal places on blur
+    setPriceInputs((prev) => prev.map((v, idx) => (idx === i ? penceToPounds(pence) : v)));
+  };
+
+  const addLine = () => {
+    setLineItems((prev) => [...prev, emptyLine()]);
+    setPriceInputs((prev) => [...prev, "0.00"]);
+  };
+
+  const removeLine = (i: number) => {
+    setLineItems((prev) => prev.filter((_, idx) => idx !== i));
+    setPriceInputs((prev) => prev.filter((_, idx) => idx !== i));
   };
 
   return (
@@ -375,8 +403,9 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                       </Label>
                     )}
                     <Input
-                      value={penceToPounds(li.unit_price_pence)}
-                      onChange={(e) => updateLine(i, "unit_price_pence", e.target.value)}
+                      value={priceInputs[i] ?? ""}
+                      onChange={(e) => updatePriceInput(i, e.target.value)}
+                      onBlur={() => commitPrice(i)}
                       placeholder="0.00"
                       disabled={invoice.status !== "draft"}
                     />
@@ -385,7 +414,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                     {i === 0 && <div className="mb-1 h-4" />}
                     {invoice.status === "draft" && (
                       <button
-                        onClick={() => setLineItems((prev) => prev.filter((_, idx) => idx !== i))}
+                        onClick={() => removeLine(i)}
                         className="text-muted-foreground hover:text-destructive"
                         disabled={lineItems.length === 1}
                       >
@@ -397,12 +426,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               ))}
             </div>
             {invoice.status === "draft" && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2 gap-1"
-                onClick={() => setLineItems((prev) => [...prev, emptyLine()])}
-              >
+              <Button variant="outline" size="sm" className="mt-2 gap-1" onClick={addLine}>
                 <Plus className="h-3 w-3" />
                 Add line
               </Button>
