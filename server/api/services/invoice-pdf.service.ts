@@ -291,8 +291,8 @@ function buildAddressLines(from: any, profile: FreelancerBillingProfile): string
 
 function buildToLines(to: any): string[] {
   const lines: string[] = [];
-  if (to.company_name) lines.push(to.company_name);
-  if (to.contact_name) lines.push(to.contact_name);
+  if (to.company) lines.push(to.company);
+  if (to.name) lines.push(to.name);
   if (to.address_line1) lines.push(to.address_line1);
   if (to.address_line2) lines.push(to.address_line2);
   const cityPost = [to.city, to.postcode].filter(Boolean).join("  ");

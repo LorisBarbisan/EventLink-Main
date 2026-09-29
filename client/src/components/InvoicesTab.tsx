@@ -59,7 +59,16 @@ interface Invoice {
   total_pence: number;
   issue_date: string;
   due_date: string;
-  to_details: { name?: string; company?: string; email?: string } | null;
+  to_details: {
+    name?: string;
+    company?: string;
+    email?: string;
+    address_line1?: string;
+    address_line2?: string;
+    city?: string;
+    postcode?: string;
+    country?: string;
+  } | null;
   from_details: { name?: string } | null;
   line_items: LineItem[] | null;
   notes: string | null;
@@ -257,6 +266,11 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
     name: invoice.to_details?.name ?? "",
     company: invoice.to_details?.company ?? "",
     email: invoice.to_details?.email ?? "",
+    address_line1: invoice.to_details?.address_line1 ?? "",
+    address_line2: invoice.to_details?.address_line2 ?? "",
+    city: invoice.to_details?.city ?? "",
+    postcode: invoice.to_details?.postcode ?? "",
+    country: invoice.to_details?.country ?? "",
   });
   const [lineItems, setLineItems] = useState<LineItem[]>(
     invoice.line_items?.length ? invoice.line_items : [emptyLine()]
@@ -377,6 +391,51 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   value={toDetails.email}
                   onChange={(e) => setToDetails((d) => ({ ...d, email: e.target.value }))}
                   placeholder="client@example.com"
+                  disabled={invoice.status !== "draft"}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label>Address line 1</Label>
+                <Input
+                  value={toDetails.address_line1}
+                  onChange={(e) => setToDetails((d) => ({ ...d, address_line1: e.target.value }))}
+                  placeholder="123 High Street"
+                  disabled={invoice.status !== "draft"}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label>Address line 2</Label>
+                <Input
+                  value={toDetails.address_line2}
+                  onChange={(e) => setToDetails((d) => ({ ...d, address_line2: e.target.value }))}
+                  placeholder="Suite 4"
+                  disabled={invoice.status !== "draft"}
+                />
+              </div>
+              <div>
+                <Label>City</Label>
+                <Input
+                  value={toDetails.city}
+                  onChange={(e) => setToDetails((d) => ({ ...d, city: e.target.value }))}
+                  placeholder="London"
+                  disabled={invoice.status !== "draft"}
+                />
+              </div>
+              <div>
+                <Label>Postcode</Label>
+                <Input
+                  value={toDetails.postcode}
+                  onChange={(e) => setToDetails((d) => ({ ...d, postcode: e.target.value }))}
+                  placeholder="EC1A 1BB"
+                  disabled={invoice.status !== "draft"}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label>Country</Label>
+                <Input
+                  value={toDetails.country}
+                  onChange={(e) => setToDetails((d) => ({ ...d, country: e.target.value }))}
+                  placeholder="United Kingdom"
                   disabled={invoice.status !== "draft"}
                 />
               </div>
