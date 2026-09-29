@@ -38,8 +38,11 @@ interface Invoice {
   booking_id: number | null;
 }
 
+type RateType = "hour" | "day" | "ot" | "special" | "flat";
+
 interface LineItem {
   description: string;
+  rate_type: RateType;
   quantity: number;
   unit_price_pence: number;
 }
@@ -83,8 +86,16 @@ function penceToPounds(pence: number): string {
   return (pence / 100).toFixed(2);
 }
 
+const RATE_TYPE_LABELS: Record<RateType, string> = {
+  hour: "Hour",
+  day: "Day",
+  ot: "OT",
+  special: "Special",
+  flat: "Flat",
+};
+
 function emptyLine(): LineItem {
-  return { description: "", quantity: 1, unit_price_pence: 0 };
+  return { description: "", rate_type: "day", quantity: 1, unit_price_pence: 0 };
 }
 
 // ── Billing Profile Setup Modal ───────────────────────────────────────────────
@@ -258,12 +269,13 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
     onError: () => toast({ title: "Failed to save invoice", variant: "destructive" }),
   });
 
-  const updateLine = (i: number, field: "description" | "quantity", raw: string) => {
+  const updateLine = (i: number, field: "description" | "quantity" | "rate_type", raw: string) => {
     setLineItems((prev) =>
       prev.map((li, idx) => {
         if (idx !== i) return li;
         if (field === "description") return { ...li, description: raw };
         if (field === "quantity") return { ...li, quantity: parseFloat(raw) || 0 };
+        if (field === "rate_type") return { ...li, rate_type: raw as RateType };
         return li;
       })
     );
@@ -370,7 +382,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
             <div className="space-y-2">
               {lineItems.map((li, i) => (
                 <div key={i} className="grid grid-cols-12 items-center gap-2">
-                  <div className="col-span-6">
+                  <div className="col-span-5">
                     {i === 0 && (
                       <Label className="mb-1 block text-xs text-muted-foreground">
                         Description
@@ -379,9 +391,30 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                     <Input
                       value={li.description}
                       onChange={(e) => updateLine(i, "description", e.target.value)}
-                      placeholder="e.g. Photography — 2-day shoot"
+                      placeholder="e.g. Photography shoot"
                       disabled={invoice.status !== "draft"}
                     />
+                  </div>
+                  <div className="col-span-2">
+                    {i === 0 && (
+                      <Label className="mb-1 block text-xs text-muted-foreground">Rate</Label>
+                    )}
+                    <Select
+                      value={li.rate_type ?? "day"}
+                      onValueChange={(v) => updateLine(i, "rate_type", v)}
+                      disabled={invoice.status !== "draft"}
+                    >
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(RATE_TYPE_LABELS) as RateType[]).map((k) => (
+                          <SelectItem key={k} value={k} className="text-xs">
+                            {RATE_TYPE_LABELS[k]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="col-span-2">
                     {i === 0 && (
@@ -396,7 +429,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                       disabled={invoice.status !== "draft"}
                     />
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     {i === 0 && (
                       <Label className="mb-1 block text-xs text-muted-foreground">
                         Unit price (£)
