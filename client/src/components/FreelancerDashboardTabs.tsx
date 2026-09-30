@@ -50,6 +50,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useIsPro } from "@/hooks/useIsPro";
 import { VanityUrlEditor } from "@/components/VanityUrlEditor";
+import { BooksTab } from "./BooksTab";
 import { SimplifiedCVUploader } from "./SimplifiedCVUploader";
 import { CVParsingReview } from "./CVParsingReview";
 import { MessagingInterface } from "./MessagingInterface";
@@ -517,7 +518,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
 
         {/* Tabbed Dashboard */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <UserCheck className="h-4 w-4" />
               Edit Profile
@@ -565,6 +566,10 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
             <TabsTrigger value="bookings" className="flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               Bookings
+            </TabsTrigger>
+            <TabsTrigger value="books" className="flex items-center gap-2">
+              <Banknote className="h-4 w-4" />
+              Books
             </TabsTrigger>
           </TabsList>
 
@@ -1145,6 +1150,17 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Books Tab */}
+          <TabsContent value="books" className="space-y-6">
+            <div className="mb-2 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold">Books</h2>
+                <p className="text-muted-foreground">Your earnings, invoices, and kit register</p>
+              </div>
+            </div>
+            <BooksTab />
           </TabsContent>
         </Tabs>
       </div>
