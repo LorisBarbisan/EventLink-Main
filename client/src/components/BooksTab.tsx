@@ -5,7 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, BookOpen, CheckCircle, Clock, TrendingUp, RefreshCw } from "lucide-react";
+import {
+  AlertCircle,
+  BookOpen,
+  CheckCircle,
+  Clock,
+  TrendingUp,
+  RefreshCw,
+  Download,
+} from "lucide-react";
 import { KitTab } from "./KitTab";
 
 // ── Money helpers ──────────────────────────────────────────────────────────────
@@ -105,7 +113,49 @@ function StatusBadge({ entry }: { entry: EarningsEntry }) {
   );
 }
 
-// ── Main component ─────────────────────────────────────────────────────────────
+// ── Export card ───────────────────────────────────────────────────────────────
+
+function ExportCard() {
+  const ty = (() => {
+    const now = new Date();
+    const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    return { from: `${y}-04-06`, to: `${y + 1}-04-05` };
+  })();
+
+  const dl = (path: string) => {
+    window.location.href = path;
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 pt-3">
+        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <Download className="h-4 w-4" />
+          Export
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => dl(`/api/exports/earnings.csv?from=${ty.from}&to=${ty.to}&basis=cash`)}
+        >
+          Earnings CSV
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => dl(`/api/exports/invoices.csv?from=${ty.from}&to=${ty.to}`)}
+        >
+          Invoices CSV
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => dl("/api/exports/kit.csv")}>
+          Kit register CSV
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 // ── Top-level tabs ─────────────────────────────────────────────────────────────
 
@@ -153,6 +203,7 @@ export function BooksTab() {
     return (
       <div className="space-y-4">
         {sectionSwitcher}
+        <ExportCard />
         <KitTab />
       </div>
     );
@@ -192,6 +243,7 @@ export function BooksTab() {
   return (
     <div className="space-y-6">
       {sectionSwitcher}
+      <ExportCard />
       {/* ── Section 1: This tax year ── */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">

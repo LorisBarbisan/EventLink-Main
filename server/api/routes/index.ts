@@ -14,6 +14,7 @@ import teamRouter from "./team.route";
 import jobDocumentRouter from "./job-document.route";
 import earningsRouter from "./earnings.route";
 import kitRouter from "./kit.route";
+import exportsRouter from "./exports.route";
 
 const router = express.Router();
 
@@ -32,5 +33,6 @@ router.use("/team", teamRouter);
 router.use("/job", jobDocumentRouter);
 router.use("/earnings", earningsRouter);
 router.use("/kit", kitRouter);
+router.use("/exports", exportsRouter);
 
 export default router;
