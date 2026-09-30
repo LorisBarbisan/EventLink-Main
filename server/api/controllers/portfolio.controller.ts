@@ -28,7 +28,7 @@ export async function getPortfolioPosts(req: Request, res: Response) {
 }
 
 function serveDataUrl(dataUrl: string, res: Response) {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/s);
+  const match = dataUrl.match(/^data:([^;]+);base64,([\s\S]+)$/);
   if (!match) return res.status(500).json({ error: "Invalid stored data" });
   const [, mime, b64] = match;
   const buf = Buffer.from(b64, "base64");

@@ -382,14 +382,17 @@ export default function SimplifiedFreelancerDashboard() {
               <SelectItem value="profile">Edit Profile</SelectItem>
               <SelectItem value="jobs">
                 My Applications
-                {roleSpecificCounts.applications > 0 ? ` (${roleSpecificCounts.applications})` : ""}
+                {(roleSpecificCounts.applications ?? 0) > 0
+                  ? ` (${roleSpecificCounts.applications})`
+                  : ""}
               </SelectItem>
               <SelectItem value="messages">
-                Messages{roleSpecificCounts.messages > 0 ? ` (${roleSpecificCounts.messages})` : ""}
+                Messages
+                {(roleSpecificCounts.messages ?? 0) > 0 ? ` (${roleSpecificCounts.messages})` : ""}
               </SelectItem>
               <SelectItem value="bookings">
                 Bookings
-                {roleSpecificCounts.ratings > 0 ? ` (${roleSpecificCounts.ratings})` : ""}
+                {(roleSpecificCounts.ratings ?? 0) > 0 ? ` (${roleSpecificCounts.ratings})` : ""}
               </SelectItem>
               <SelectItem value="references">References</SelectItem>
               <SelectItem value="posted-jobs">My Jobs</SelectItem>

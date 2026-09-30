@@ -77,12 +77,26 @@ import {
   freelancer_billing_profiles,
   invoices,
   invoice_reminders,
+  earnings_clients,
+  earnings_roles,
+  earnings_entries,
+  kit_items,
+  kit_item_files,
   type FreelancerBillingProfile,
   type InsertFreelancerBillingProfile,
   type Invoice,
   type InsertInvoice,
   type InvoiceReminder,
   type InsertInvoiceReminder,
+  type EarningsClient,
+  type InsertEarningsClient,
+  type EarningsRole,
+  type InsertEarningsRole,
+  type EarningsEntry,
+  type InsertEarningsEntry,
+  type KitItem,
+  type InsertKitItem,
+  type KitItemFile,
 } from "@shared/schema";
 import {
   and,
@@ -284,7 +298,7 @@ export interface IStorage {
     page?: number;
     limit?: number;
   }): Promise<{
-    results: Array<FreelancerProfile & { rating?: number; rating_count?: number }>;
+    results: Array<FreelancerProfile & { average_rating?: number; rating_count?: number }>;
     total: number;
     page: number;
     totalPages: number;
@@ -751,6 +765,68 @@ export interface IStorage {
   recordReminder(
     data: import("@shared/schema").InsertInvoiceReminder
   ): Promise<import("@shared/schema").InvoiceReminder>;
+
+  // Earnings clients
+  listEarningsClients(freelancerId: number): Promise<EarningsClient[]>;
+  getEarningsClient(id: number): Promise<EarningsClient | undefined>;
+  createEarningsClient(data: InsertEarningsClient): Promise<EarningsClient>;
+  updateEarningsClient(
+    id: number,
+    data: Partial<InsertEarningsClient>
+  ): Promise<EarningsClient | undefined>;
+  findOrCreateClientByEmployer(
+    freelancerId: number,
+    employerUserId: number,
+    name: string
+  ): Promise<EarningsClient>;
+  findOrCreateClientByName(freelancerId: number, name: string): Promise<EarningsClient>;
+
+  // Earnings roles
+  listEarningsRoles(freelancerId: number): Promise<EarningsRole[]>;
+  createEarningsRole(data: InsertEarningsRole): Promise<EarningsRole>;
+  updateEarningsRole(
+    id: number,
+    data: Partial<InsertEarningsRole>
+  ): Promise<EarningsRole | undefined>;
+
+  // Earnings entries
+  listEarningsEntries(
+    freelancerId: number,
+    opts?: { status?: string; clientId?: number; roleId?: number; archived?: boolean }
+  ): Promise<EarningsEntry[]>;
+  getEarningsEntry(id: number): Promise<EarningsEntry | undefined>;
+  getEarningsEntryByBooking(bookingId: number): Promise<EarningsEntry | undefined>;
+  getEarningsEntryByInvoice(invoiceId: number): Promise<EarningsEntry | undefined>;
+  createEarningsEntry(data: InsertEarningsEntry): Promise<EarningsEntry>;
+  updateEarningsEntry(
+    id: number,
+    data: Partial<InsertEarningsEntry>
+  ): Promise<EarningsEntry | undefined>;
+  earningsSummary(
+    freelancerId: number,
+    opts: {
+      basis: "cash" | "accruals";
+      from: string;
+      to: string;
+      groupBy?: "client" | "role" | "month";
+      currency?: string;
+    }
+  ): Promise<{
+    total_pence: number;
+    deductions_pence: number;
+    entry_count: number;
+    groups: Array<{ key: string; label: string; total_pence: number; entry_count: number }>;
+    excluded: { needs_review: number; other_currency: number };
+  }>;
+
+  // Kit items
+  listKitItems(freelancerId: number, includeDisposed?: boolean): Promise<KitItem[]>;
+  getKitItem(id: number): Promise<KitItem | undefined>;
+  createKitItem(data: InsertKitItem): Promise<KitItem>;
+  updateKitItem(id: number, data: Partial<InsertKitItem>): Promise<KitItem | undefined>;
+  listKitItemFiles(kitItemId: number): Promise<KitItemFile[]>;
+  createKitItemFile(data: Omit<KitItemFile, "id" | "created_at">): Promise<KitItemFile>;
+  deleteKitItemFile(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1831,9 +1907,7 @@ export class DatabaseStorage implements IStorage {
       );
 
       return {
-        results: resultsWithRatings as unknown as Array<
-          FreelancerProfile & { average_rating: number; rating_count: number }
-        >,
+        results: resultsWithRatings as any,
         total,
         page,
         totalPages,
@@ -3071,6 +3145,12 @@ export class DatabaseStorage implements IStorage {
         job_alert_frequency_preference: "instant" as const,
         created_via: null,
         posting_suspended_at: null,
+        stripe_customer_id: null,
+        stripe_subscription_id: null,
+        subscription_tier: null,
+        subscription_expires_at: null,
+        stripe_identity_session_id: null,
+        id_verified: false,
         created_at: new Date(),
         updated_at: new Date(),
       },
@@ -3225,6 +3305,12 @@ export class DatabaseStorage implements IStorage {
             job_alert_frequency_preference: "instant" as const,
             created_via: null,
             posting_suspended_at: null,
+            stripe_customer_id: null,
+            stripe_subscription_id: null,
+            subscription_tier: null,
+            subscription_expires_at: null,
+            stripe_identity_session_id: null,
+            id_verified: false,
             created_at: new Date(),
             updated_at: new Date(),
           },
@@ -3333,6 +3419,12 @@ export class DatabaseStorage implements IStorage {
             job_alert_frequency_preference: "instant" as const,
             created_via: null,
             posting_suspended_at: null,
+            stripe_customer_id: null,
+            stripe_subscription_id: null,
+            subscription_tier: null,
+            subscription_expires_at: null,
+            stripe_identity_session_id: null,
+            id_verified: false,
             created_at: new Date(),
             updated_at: new Date(),
           },
@@ -6297,6 +6389,368 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return row;
   }
+  // ── Earnings clients ─────────────────────────────────────────────────────────
+
+  async listEarningsClients(freelancerId: number): Promise<EarningsClient[]> {
+    return db
+      .select()
+      .from(earnings_clients)
+      .where(
+        and(eq(earnings_clients.freelancer_id, freelancerId), eq(earnings_clients.archived, false))
+      )
+      .orderBy(asc(earnings_clients.name));
+  }
+
+  async getEarningsClient(id: number): Promise<EarningsClient | undefined> {
+    const [row] = await db
+      .select()
+      .from(earnings_clients)
+      .where(eq(earnings_clients.id, id))
+      .limit(1);
+    return row;
+  }
+
+  async createEarningsClient(data: InsertEarningsClient): Promise<EarningsClient> {
+    const [row] = await db.insert(earnings_clients).values(data).returning();
+    return row;
+  }
+
+  async updateEarningsClient(
+    id: number,
+    data: Partial<InsertEarningsClient>
+  ): Promise<EarningsClient | undefined> {
+    const [row] = await db
+      .update(earnings_clients)
+      .set({ ...data, updated_at: new Date() })
+      .where(eq(earnings_clients.id, id))
+      .returning();
+    return row;
+  }
+
+  async findOrCreateClientByEmployer(
+    freelancerId: number,
+    employerUserId: number,
+    name: string
+  ): Promise<EarningsClient> {
+    const [existing] = await db
+      .select()
+      .from(earnings_clients)
+      .where(
+        and(
+          eq(earnings_clients.freelancer_id, freelancerId),
+          eq(earnings_clients.employer_user_id, employerUserId)
+        )
+      )
+      .limit(1);
+    if (existing) return existing;
+    return this.createEarningsClient({
+      freelancer_id: freelancerId,
+      name,
+      normalised_name: normaliseClientName(name),
+      employer_user_id: employerUserId,
+    });
+  }
+
+  async findOrCreateClientByName(freelancerId: number, name: string): Promise<EarningsClient> {
+    const norm = normaliseClientName(name);
+    const [existing] = await db
+      .select()
+      .from(earnings_clients)
+      .where(
+        and(
+          eq(earnings_clients.freelancer_id, freelancerId),
+          eq(earnings_clients.normalised_name, norm)
+        )
+      )
+      .limit(1);
+    if (existing) return existing;
+    return this.createEarningsClient({ freelancer_id: freelancerId, name, normalised_name: norm });
+  }
+
+  // ── Earnings roles ────────────────────────────────────────────────────────────
+
+  async listEarningsRoles(freelancerId: number): Promise<EarningsRole[]> {
+    // System roles (freelancer_id IS NULL) + this freelancer's custom roles
+    return db
+      .select()
+      .from(earnings_roles)
+      .where(
+        and(
+          or(isNull(earnings_roles.freelancer_id), eq(earnings_roles.freelancer_id, freelancerId)),
+          eq(earnings_roles.archived, false)
+        )
+      )
+      .orderBy(asc(earnings_roles.sort_order), asc(earnings_roles.label));
+  }
+
+  async createEarningsRole(data: InsertEarningsRole): Promise<EarningsRole> {
+    const [row] = await db.insert(earnings_roles).values(data).returning();
+    return row;
+  }
+
+  async updateEarningsRole(
+    id: number,
+    data: Partial<InsertEarningsRole>
+  ): Promise<EarningsRole | undefined> {
+    const [row] = await db
+      .update(earnings_roles)
+      .set(data)
+      .where(eq(earnings_roles.id, id))
+      .returning();
+    return row;
+  }
+
+  // ── Earnings entries ──────────────────────────────────────────────────────────
+
+  async listEarningsEntries(
+    freelancerId: number,
+    opts: { status?: string; clientId?: number; roleId?: number; archived?: boolean } = {}
+  ): Promise<EarningsEntry[]> {
+    const conditions = [
+      eq(earnings_entries.freelancer_id, freelancerId),
+      eq(earnings_entries.archived, opts.archived ?? false),
+    ];
+    if (opts.status) conditions.push(eq(earnings_entries.status, opts.status as any));
+    if (opts.clientId != null) conditions.push(eq(earnings_entries.client_id, opts.clientId));
+    if (opts.roleId != null) conditions.push(eq(earnings_entries.role_id, opts.roleId));
+    return db
+      .select()
+      .from(earnings_entries)
+      .where(and(...conditions))
+      .orderBy(desc(earnings_entries.work_date));
+  }
+
+  async getEarningsEntry(id: number): Promise<EarningsEntry | undefined> {
+    const [row] = await db
+      .select()
+      .from(earnings_entries)
+      .where(eq(earnings_entries.id, id))
+      .limit(1);
+    return row;
+  }
+
+  async getEarningsEntryByBooking(bookingId: number): Promise<EarningsEntry | undefined> {
+    const [row] = await db
+      .select()
+      .from(earnings_entries)
+      .where(eq(earnings_entries.booking_id, bookingId))
+      .limit(1);
+    return row;
+  }
+
+  async getEarningsEntryByInvoice(invoiceId: number): Promise<EarningsEntry | undefined> {
+    const [row] = await db
+      .select()
+      .from(earnings_entries)
+      .where(eq(earnings_entries.invoice_id, invoiceId))
+      .limit(1);
+    return row;
+  }
+
+  async createEarningsEntry(data: InsertEarningsEntry): Promise<EarningsEntry> {
+    const [row] = await db.insert(earnings_entries).values(data).returning();
+    return row;
+  }
+
+  async updateEarningsEntry(
+    id: number,
+    data: Partial<InsertEarningsEntry>
+  ): Promise<EarningsEntry | undefined> {
+    const [row] = await db
+      .update(earnings_entries)
+      .set({ ...data, updated_at: new Date() })
+      .where(eq(earnings_entries.id, id))
+      .returning();
+    return row;
+  }
+
+  async earningsSummary(
+    freelancerId: number,
+    opts: {
+      basis: "cash" | "accruals";
+      from: string;
+      to: string;
+      groupBy?: "client" | "role" | "month";
+      currency?: string;
+    }
+  ): Promise<{
+    total_pence: number;
+    deductions_pence: number;
+    entry_count: number;
+    groups: Array<{ key: string; label: string; total_pence: number; entry_count: number }>;
+    excluded: { needs_review: number; other_currency: number };
+  }> {
+    const currency = opts.currency ?? "GBP";
+    const dateCol =
+      opts.basis === "cash" ? earnings_entries.paid_date : earnings_entries.invoiced_date;
+
+    // Fetch matching entries in range (SQL-level date filter)
+    const rows = await db
+      .select()
+      .from(earnings_entries)
+      .where(
+        and(
+          eq(earnings_entries.freelancer_id, freelancerId),
+          eq(earnings_entries.archived, false),
+          sql`${dateCol} >= ${opts.from}`,
+          sql`${dateCol} <= ${opts.to}`
+        )
+      );
+
+    let total_pence = 0;
+    let deductions_pence = 0;
+    let entry_count = 0;
+    const groupMap = new Map<string, { label: string; total_pence: number; entry_count: number }>();
+    const excluded = { needs_review: 0, other_currency: 0 };
+
+    for (const row of rows) {
+      if (row.needs_review) {
+        excluded.needs_review++;
+        continue;
+      }
+      if (row.currency !== currency) {
+        excluded.other_currency++;
+        continue;
+      }
+
+      // On cash basis use paid_amount_pence, falling back to gross when marked paid but amount absent
+      const amount =
+        opts.basis === "cash"
+          ? (row.paid_amount_pence ?? (row.status === "paid" ? row.gross_amount_pence : null))
+          : row.gross_amount_pence;
+      if (amount == null) {
+        excluded.needs_review++;
+        continue;
+      }
+
+      total_pence += amount;
+      deductions_pence += row.deductions_pence ?? 0;
+      entry_count++;
+
+      // Grouping
+      let gKey: string;
+      let gLabel: string;
+      if (opts.groupBy === "client") {
+        gKey = `client:${row.client_id ?? "none"}`;
+        gLabel = "(no client)";
+      } else if (opts.groupBy === "role") {
+        gKey = `role:${row.role_id ?? "none"}`;
+        gLabel = "(no role)";
+      } else if (opts.groupBy === "month") {
+        const d = (opts.basis === "cash" ? row.paid_date : (row.invoiced_date ?? row.work_date))!;
+        gKey = `month:${d.slice(0, 7)}`;
+        gLabel = d.slice(0, 7);
+      } else {
+        gKey = "all";
+        gLabel = "All";
+      }
+
+      const g = groupMap.get(gKey) ?? { label: gLabel, total_pence: 0, entry_count: 0 };
+      g.total_pence += amount;
+      g.entry_count++;
+      groupMap.set(gKey, g);
+    }
+
+    // Resolve client/role labels from DB when needed
+    if (opts.groupBy === "client" || opts.groupBy === "role") {
+      const ids = Array.from(groupMap.keys())
+        .map((k) => parseInt(k.split(":")[1]))
+        .filter((n) => !isNaN(n));
+      if (ids.length) {
+        if (opts.groupBy === "client") {
+          const labelRows = await db
+            .select({ id: earnings_clients.id, label: earnings_clients.name })
+            .from(earnings_clients)
+            .where(inArray(earnings_clients.id, ids));
+          for (const lr of labelRows) {
+            const key = `client:${lr.id}`;
+            const g = groupMap.get(key);
+            if (g) g.label = lr.label;
+          }
+        } else {
+          const labelRows = await db
+            .select({ id: earnings_roles.id, label: earnings_roles.label })
+            .from(earnings_roles)
+            .where(inArray(earnings_roles.id, ids));
+          for (const lr of labelRows) {
+            const key = `role:${lr.id}`;
+            const g = groupMap.get(key);
+            if (g) g.label = lr.label;
+          }
+        }
+      }
+    }
+
+    return {
+      total_pence,
+      deductions_pence,
+      entry_count,
+      groups: Array.from(groupMap.entries()).map(([key, g]) => ({ key, ...g })),
+      excluded,
+    };
+  }
+
+  // ── Kit items ─────────────────────────────────────────────────────────────────
+
+  async listKitItems(freelancerId: number, includeDisposed = false): Promise<KitItem[]> {
+    const conditions = [eq(kit_items.freelancer_id, freelancerId), eq(kit_items.archived, false)];
+    if (!includeDisposed) {
+      conditions.push(eq(kit_items.status, "in_service"));
+    }
+    return db
+      .select()
+      .from(kit_items)
+      .where(and(...conditions))
+      .orderBy(asc(kit_items.category), asc(kit_items.name));
+  }
+
+  async getKitItem(id: number): Promise<KitItem | undefined> {
+    const [row] = await db.select().from(kit_items).where(eq(kit_items.id, id)).limit(1);
+    return row;
+  }
+
+  async createKitItem(data: InsertKitItem): Promise<KitItem> {
+    const [row] = await db.insert(kit_items).values(data).returning();
+    return row;
+  }
+
+  async updateKitItem(id: number, data: Partial<InsertKitItem>): Promise<KitItem | undefined> {
+    const [row] = await db
+      .update(kit_items)
+      .set({ ...data, updated_at: new Date() })
+      .where(eq(kit_items.id, id))
+      .returning();
+    return row;
+  }
+
+  async listKitItemFiles(kitItemId: number): Promise<KitItemFile[]> {
+    return db
+      .select()
+      .from(kit_item_files)
+      .where(eq(kit_item_files.kit_item_id, kitItemId))
+      .orderBy(asc(kit_item_files.created_at));
+  }
+
+  async createKitItemFile(data: Omit<KitItemFile, "id" | "created_at">): Promise<KitItemFile> {
+    const [row] = await db.insert(kit_item_files).values(data).returning();
+    return row;
+  }
+
+  async deleteKitItemFile(id: number): Promise<void> {
+    await db.delete(kit_item_files).where(eq(kit_item_files.id, id));
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Normalise a client name for dedup: lowercase, strip punctuation, strip common suffixes. */
+export function normaliseClientName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ") // strip punctuation
+    .replace(/\b(ltd|limited|llp|uk|plc|inc|co)\b/g, " ") // strip suffixes
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export const storage = new DatabaseStorage();
