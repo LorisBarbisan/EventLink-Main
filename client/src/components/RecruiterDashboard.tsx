@@ -939,6 +939,7 @@ export default function SimplifiedRecruiterDashboard() {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                data-help="dashboard.saveFreelancer"
                                 className={`h-8 w-8 ${isSaved ? "text-orange-500" : "text-muted-foreground"}`}
                                 onClick={(e) => {
                                   e.stopPropagation();

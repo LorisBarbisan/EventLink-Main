@@ -472,6 +472,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             variant="default"
                             size="sm"
                             disabled={hireMutation.isPending}
+                            data-help="action.application.hire"
                             data-testid={`button-hire-${application.id}`}
                             className="bg-green-600 text-white hover:bg-green-700"
                           >
@@ -521,6 +522,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             variant="outline"
                             size="sm"
                             disabled={rejectMutation.isPending}
+                            data-help="action.application.decline"
                             data-testid={`button-reject-${application.id}`}
                             className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                           >
@@ -630,6 +632,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         variant="outline"
                         size="sm"
                         disabled={deleteMutation.isPending}
+                        data-help="action.application.hide"
                         data-testid={`button-delete-${application.id}`}
                         className="border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-700"
                       >

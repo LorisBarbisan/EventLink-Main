@@ -32,6 +32,27 @@ const entries: HelpEntry[] = [
     version: 1,
   },
   {
+    key: "action.application.hire",
+    scope: "action",
+    body: "Confirms this freelancer for the job and closes it to new applicants.",
+    audience: ["recruiter", "admin"],
+    version: 1,
+  },
+  {
+    key: "action.application.decline",
+    scope: "action",
+    body: "Lets the applicant know they weren't selected this time.",
+    audience: ["recruiter", "admin"],
+    version: 1,
+  },
+  {
+    key: "action.application.hide",
+    scope: "action",
+    body: "Removes this application from your list; the applicant isn't told.",
+    audience: ["recruiter", "admin"],
+    version: 1,
+  },
+  {
     key: "dashboard.tab.myJobs",
     scope: "feature",
     body: "The jobs you have applied to, with their status and any messages.",
