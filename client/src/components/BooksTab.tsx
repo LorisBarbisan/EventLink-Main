@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, BookOpen, CheckCircle, Clock, TrendingUp, RefreshCw } from "lucide-react";
+import { KitTab } from "./KitTab";
 
 // ── Money helpers ──────────────────────────────────────────────────────────────
 
@@ -105,7 +107,10 @@ function StatusBadge({ entry }: { entry: EarningsEntry }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
+// ── Top-level tabs ─────────────────────────────────────────────────────────────
+
 export function BooksTab() {
+  const [section, setSection] = useState<"earnings" | "kit">("earnings");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -127,9 +132,36 @@ export function BooksTab() {
     onError: () => toast({ title: "Backfill failed", variant: "destructive" }),
   });
 
+  const sectionSwitcher = (
+    <div className="flex w-fit gap-1 rounded-md border p-1">
+      <button
+        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "earnings" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        onClick={() => setSection("earnings")}
+      >
+        Earnings
+      </button>
+      <button
+        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "kit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        onClick={() => setSection("kit")}
+      >
+        Kit register
+      </button>
+    </div>
+  );
+
+  if (section === "kit") {
+    return (
+      <div className="space-y-4">
+        {sectionSwitcher}
+        <KitTab />
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4">
+        {sectionSwitcher}
         {[1, 2, 3].map((i) => (
           <div key={i} className="animate-pulse rounded-lg border p-4">
             <div className="mb-2 h-4 w-1/3 rounded bg-muted" />
@@ -142,12 +174,15 @@ export function BooksTab() {
 
   if (isError || !data) {
     return (
-      <Card>
-        <CardContent className="py-8 text-center">
-          <AlertCircle className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Could not load earnings data.</p>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {sectionSwitcher}
+        <Card>
+          <CardContent className="py-8 text-center">
+            <AlertCircle className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Could not load earnings data.</p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -156,6 +191,7 @@ export function BooksTab() {
 
   return (
     <div className="space-y-6">
+      {sectionSwitcher}
       {/* ── Section 1: This tax year ── */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
