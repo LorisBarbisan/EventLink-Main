@@ -2,7 +2,7 @@ import { db } from "../config/db";
 import { bookings, jobs } from "@shared/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { storage } from "../../storage";
-import type { Booking } from "@shared/schema";
+import type { Booking, Invoice } from "@shared/schema";
 
 interface JobRow {
   id: number;
@@ -80,6 +80,72 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
     });
   } catch (err) {
     console.error(`seedEntryFromBooking failed for booking ${booking.id} (non-fatal):`, err);
+  }
+}
+
+/**
+ * Called after an invoice is created from a booking.
+ * Sets invoice_id and invoiced_date on the matching earnings entry.
+ * Non-fatal.
+ */
+export async function linkInvoiceToEntry(invoice: Invoice): Promise<void> {
+  if (!invoice.booking_id) return;
+  try {
+    const entry = await storage.getEarningsEntryByBooking(invoice.booking_id);
+    if (!entry) return;
+    await storage.updateEarningsEntry(entry.id, {
+      invoice_id: invoice.id,
+      invoiced_date: invoice.issue_date ?? new Date().toISOString().slice(0, 10),
+    });
+  } catch (err) {
+    console.error(`linkInvoiceToEntry failed for invoice ${invoice.id} (non-fatal):`, err);
+  }
+}
+
+/**
+ * Called after an invoice is marked paid.
+ * Sets paid_date, paid_amount_pence, and status="paid" on the matching entry.
+ * Non-fatal.
+ */
+export async function recordInvoicePaid(invoice: Invoice): Promise<void> {
+  if (!invoice.id) return;
+  try {
+    const entry = await storage.getEarningsEntryByInvoice(invoice.id);
+    if (!entry) return;
+    const paidDate =
+      invoice.paid_at instanceof Date
+        ? invoice.paid_at.toISOString().slice(0, 10)
+        : typeof invoice.paid_at === "string"
+          ? (invoice.paid_at as string).slice(0, 10)
+          : new Date().toISOString().slice(0, 10);
+    await storage.updateEarningsEntry(entry.id, {
+      status: "paid",
+      paid_date: paidDate,
+      paid_amount_pence: invoice.paid_amount_pence ?? invoice.total_pence,
+    });
+  } catch (err) {
+    console.error(`recordInvoicePaid failed for invoice ${invoice.id} (non-fatal):`, err);
+  }
+}
+
+/**
+ * Called after an invoice is cancelled.
+ * Clears invoice_id, invoiced_date, paid fields and reverts status to "expected".
+ * Non-fatal.
+ */
+export async function unlinkInvoiceFromEntry(invoiceId: number): Promise<void> {
+  try {
+    const entry = await storage.getEarningsEntryByInvoice(invoiceId);
+    if (!entry) return;
+    await storage.updateEarningsEntry(entry.id, {
+      invoice_id: null,
+      invoiced_date: null,
+      status: "expected",
+      paid_date: null,
+      paid_amount_pence: null,
+    });
+  } catch (err) {
+    console.error(`unlinkInvoiceFromEntry failed for invoice ${invoiceId} (non-fatal):`, err);
   }
 }
 

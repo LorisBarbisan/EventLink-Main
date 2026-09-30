@@ -2,6 +2,11 @@ import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { parseRateToPence, deriveQuantity } from "../utils/invoice-parsing";
 import { renderInvoicePDF, storeInvoicePDF } from "../services/invoice-pdf.service";
+import {
+  linkInvoiceToEntry,
+  recordInvoicePaid,
+  unlinkInvoiceFromEntry,
+} from "../services/earnings.service";
 import { ObjectStorageService } from "../utils/object-storage";
 import { insertMessageSchema, bookings, jobs } from "@shared/schema";
 import { db } from "../config/db";
@@ -192,6 +197,9 @@ export async function createInvoiceFromBooking(req: Request, res: Response) {
       issue_date: today,
       due_date: dueDate,
     });
+
+    // Link earnings entry to invoice (non-blocking)
+    linkInvoiceToEntry(invoice).catch(() => {});
 
     // Generate initial PDF
     try {
@@ -544,6 +552,7 @@ export async function markInvoicePaid(req: Request, res: Response) {
     const { amount_pence, paid_date } = req.body;
     const paidAt = paid_date ? new Date(paid_date) : undefined;
     const updated = await storage.markInvoicePaid(id, amount_pence, paidAt);
+    if (updated) recordInvoicePaid(updated).catch(() => {});
     return res.json(updated);
   } catch (err) {
     console.error("markInvoicePaid error:", err);
@@ -564,6 +573,7 @@ export async function cancelInvoice(req: Request, res: Response) {
     if (invoice.status === "paid")
       return res.status(409).json({ error: "Cannot cancel a paid invoice" });
     const updated = await storage.updateInvoice(id, { status: "cancelled" });
+    unlinkInvoiceFromEntry(id).catch(() => {});
     return res.json(updated);
   } catch (err) {
     console.error("cancelInvoice error:", err);
