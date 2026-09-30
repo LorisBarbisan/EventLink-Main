@@ -25,7 +25,9 @@ export function HelpPopover({
         if (open) onOpen?.();
       }}
     >
-      <Popover.Trigger asChild>{children}</Popover.Trigger>
+      <Popover.Trigger asChild {...(import.meta.env.DEV ? { "data-help-key": entry.key } : {})}>
+        {children}
+      </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content side={side} sideOffset={6} collisionPadding={8} className={BUBBLE_CLASS}>
           <HelpContent entry={entry} />

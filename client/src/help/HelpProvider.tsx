@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { HelpAuditOverlay } from "./HelpAuditOverlay";
 import { HelpContent } from "./HelpContent";
 import { getCachedRegistry, loadRegistry } from "./registry";
 import type {
@@ -355,6 +356,7 @@ export function HelpProvider({ children }: { children: React.ReactNode }) {
     <HelpCtx.Provider value={value}>
       {children}
       {enabled && <DataHelpBubble getEntry={getEntry} onSeen={markSeen} />}
+      {import.meta.env.DEV && <HelpAuditOverlay registry={registry} />}
     </HelpCtx.Provider>
   );
 }

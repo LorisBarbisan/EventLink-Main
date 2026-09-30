@@ -28,7 +28,9 @@ export function HelpTooltip({
         if (open) onOpen?.();
       }}
     >
-      <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>
+      <Tooltip.Trigger asChild {...(import.meta.env.DEV ? { "data-help-key": entry.key } : {})}>
+        {children}
+      </Tooltip.Trigger>
       <Tooltip.Portal>
         <Tooltip.Content side={side} sideOffset={6} collisionPadding={8} className={BUBBLE_CLASS}>
           <HelpContent entry={entry} />
