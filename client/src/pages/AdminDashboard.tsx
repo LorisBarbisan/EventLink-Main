@@ -1889,6 +1889,7 @@ function AdminDashboardContent() {
                                     <Button
                                       size="sm"
                                       variant="outline"
+                                      data-help="action.job.notify"
                                       className="h-7 border-orange-300 px-2 text-xs text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
                                       onClick={() => openNotifyDialog(job)}
                                     >

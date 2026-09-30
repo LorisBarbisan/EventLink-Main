@@ -263,7 +263,10 @@ export function JobCard({
                 </Badge>
               )}
               {isClosed && (
-                <Badge className="border-red-200 bg-red-100 text-red-800 hover:bg-red-200">
+                <Badge
+                  data-help="jobs.status.closed"
+                  className="border-red-200 bg-red-100 text-red-800 hover:bg-red-200"
+                >
                   <XCircle className="mr-1 h-3 w-3" />
                   Closed
                 </Badge>

@@ -8,7 +8,12 @@ let cached: Map<string, HelpEntry> | null = null;
 let loading: Promise<Map<string, HelpEntry>> | null = null;
 
 async function build(): Promise<Map<string, HelpEntry>> {
-  const areas = await Promise.all([import("./jobs"), import("./profile"), import("./dashboard")]);
+  const areas = await Promise.all([
+    import("./jobs"),
+    import("./profile"),
+    import("./dashboard"),
+    import("./bookings"),
+  ]);
   const map = new Map<string, HelpEntry>();
   for (const mod of areas) {
     for (const entry of mod.default) {
