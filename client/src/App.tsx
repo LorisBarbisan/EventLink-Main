@@ -3,6 +3,7 @@ import { TabNotificationManager } from "@/components/TabNotificationManager";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { HelpProvider } from "@/help/HelpProvider";
 import { WebSocketProvider } from "@/contexts/WebSocketContext";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -119,12 +120,14 @@ function App() {
       <AuthProvider>
         <WebSocketProvider>
           <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <LiveNotificationPopups />
-            <TabNotificationManager />
-            <CookieConsentBanner />
-            <AppRouter />
+            <HelpProvider>
+              <Toaster />
+              <Sonner />
+              <LiveNotificationPopups />
+              <TabNotificationManager />
+              <CookieConsentBanner />
+              <AppRouter />
+            </HelpProvider>
           </TooltipProvider>
         </WebSocketProvider>
       </AuthProvider>

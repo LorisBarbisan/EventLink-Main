@@ -67,6 +67,10 @@ export const users = pgTable(
     stripe_subscription_id: text("stripe_subscription_id"),
     subscription_tier: text("subscription_tier").default("free"),
     subscription_expires_at: timestamp("subscription_expires_at", { withTimezone: true }),
+    // Contextual help system preference: "full" keeps both the passive hint layer
+    // and the discovery layer, "hover_only" keeps passive hints but silences the
+    // discovery layer, "off" disables everything. On by default.
+    help_mode: text("help_mode").default("full").$type<"full" | "hover_only" | "off">(),
   },
   (table) => ({
     statusCheck: check(
@@ -1274,3 +1278,79 @@ export const guest_application_tokens = pgTable("guest_application_tokens", {
 });
 
 export type GuestApplicationToken = typeof guest_application_tokens.$inferSelect;
+
+// ============================================================
+// Contextual help system ("talking clouds")
+// ============================================================
+
+// Per-user, per-help-key interaction state (seen / dismissed / completed).
+export const help_user_state = pgTable(
+  "help_user_state",
+  {
+    id: serial("id").primaryKey(),
+    user_id: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    help_key: text("help_key").notNull(),
+    seen_count: integer("seen_count").notNull().default(0),
+    last_seen_at: timestamp("last_seen_at", { withTimezone: true }),
+    dismissed_count: integer("dismissed_count").notNull().default(0),
+    dismissed_at: timestamp("dismissed_at", { withTimezone: true }),
+    // Set when the user actually used the thing the hint describes.
+    completed_at: timestamp("completed_at", { withTimezone: true }),
+    // Entry version at the time of the last interaction (for re-show on rewrite).
+    content_version: integer("content_version").notNull().default(1),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userKeyUnique: unique("help_user_state_user_key_unique").on(t.user_id, t.help_key),
+    userIdx: index("help_user_state_user_idx").on(t.user_id),
+  })
+);
+
+// Per-user, per-route-pattern visit counts (drives the eager-then-reactive speed model).
+export const help_route_visits = pgTable(
+  "help_route_visits",
+  {
+    id: serial("id").primaryKey(),
+    user_id: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    route: text("route").notNull(), // wouter pattern, e.g. "/jobs/:id"
+    visit_count: integer("visit_count").notNull().default(0),
+    first_visited_at: timestamp("first_visited_at", { withTimezone: true }).defaultNow().notNull(),
+    last_visited_at: timestamp("last_visited_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userRouteUnique: unique("help_route_visits_user_route_unique").on(t.user_id, t.route),
+  })
+);
+
+// Admin-editable copy overrides, merged over the code registry (override wins).
+export const help_content_overrides = pgTable("help_content_overrides", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  title: text("title"),
+  body: text("body"),
+  learn_more_href: text("learn_more_href"),
+  version: integer("version").notNull().default(1),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_by: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+});
+
+export const insertHelpUserStateSchema = createInsertSchema(help_user_state).omit({
+  id: true,
+  updated_at: true,
+});
+export const insertHelpRouteVisitSchema = createInsertSchema(help_route_visits).omit({
+  id: true,
+});
+export const insertHelpContentOverrideSchema = createInsertSchema(help_content_overrides).omit({
+  id: true,
+  updated_at: true,
+});
+
+export type HelpUserState = typeof help_user_state.$inferSelect;
+export type HelpRouteVisit = typeof help_route_visits.$inferSelect;
+export type HelpContentOverride = typeof help_content_overrides.$inferSelect;
+export type HelpMode = "full" | "hover_only" | "off";
