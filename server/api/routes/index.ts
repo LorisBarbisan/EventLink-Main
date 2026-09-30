@@ -12,6 +12,7 @@ import referenceRouter from "./reference.route";
 import bookingRouter from "./booking.route";
 import teamRouter from "./team.route";
 import jobDocumentRouter from "./job-document.route";
+import earningsRouter from "./earnings.route";
 
 const router = express.Router();
 
@@ -28,5 +29,6 @@ router.use("/references", referenceRouter);
 router.use("/bookings", bookingRouter);
 router.use("/team", teamRouter);
 router.use("/job", jobDocumentRouter);
+router.use("/earnings", earningsRouter);
 
 export default router;

@@ -16,6 +16,7 @@ import {
   bookingStatusValues,
 } from "../../../shared/schema";
 import { eq, and, desc, or } from "drizzle-orm";
+import { seedEntryFromBooking } from "../services/earnings.service";
 
 // The platform stores no phone numbers; the client renders phone conditionally,
 // so booking endpoints return null to keep the response shape stable.
@@ -330,6 +331,23 @@ export async function updateBookingStatus(req: Request, res: Response) {
       changedById: userId,
       note: note ?? null,
     });
+
+    if (toStatus === "completed") {
+      const [job] = await db
+        .select({
+          id: jobs.id,
+          title: jobs.title,
+          company: jobs.company,
+          recruiter_id: jobs.recruiter_id,
+          currency: jobs.currency,
+          event_date: jobs.event_date,
+        })
+        .from(jobs)
+        .where(eq(jobs.id, updated.jobId));
+      if (job) {
+        seedEntryFromBooking(updated, job).catch(() => {});
+      }
+    }
 
     return res.json(updated);
   } catch (error) {
