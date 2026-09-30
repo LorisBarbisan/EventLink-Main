@@ -207,3 +207,90 @@ export async function getHelpContent(_req: Request, res: Response) {
     res.status(500).json({ error: "Failed to load help content" });
   }
 }
+
+function isAdmin(req: Request): boolean {
+  return (req as any).user?.role === "admin";
+}
+
+// GET /api/help/admin/metrics → per-key impressions / dismissals / downstream use
+export async function getHelpAdminMetrics(req: Request, res: Response) {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: "Admin only" });
+
+    const metrics = await db
+      .select({
+        key: help_user_state.help_key,
+        impressions: sql<number>`coalesce(sum(${help_user_state.seen_count}), 0)::int`,
+        usersSeen: sql<number>`count(*) filter (where ${help_user_state.seen_count} > 0)::int`,
+        dismissals: sql<number>`coalesce(sum(${help_user_state.dismissed_count}), 0)::int`,
+        completions: sql<number>`count(*) filter (where ${help_user_state.completed_at} is not null)::int`,
+        // The one that matters: used the described feature within 7 days of a hint.
+        usedWithin7d: sql<number>`count(*) filter (
+          where ${help_user_state.completed_at} is not null
+            and ${help_user_state.last_seen_at} is not null
+            and ${help_user_state.completed_at} <= ${help_user_state.last_seen_at} + interval '7 days'
+        )::int`,
+      })
+      .from(help_user_state)
+      .groupBy(help_user_state.help_key);
+
+    const overrides = await db.select().from(help_content_overrides);
+    res.set("Cache-Control", "no-store");
+    res.json({ metrics, overrides });
+  } catch (error) {
+    console.error("getHelpAdminMetrics error:", error);
+    res.status(500).json({ error: "Failed to load help metrics" });
+  }
+}
+
+// PUT /api/help/admin/content/:key → upsert a copy override (admin only)
+export async function upsertHelpOverride(req: Request, res: Response) {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: "Admin only" });
+    const key = req.params.key;
+    if (!key) return res.status(400).json({ error: "Missing key" });
+
+    const { title, body, learn_more_href, version } = req.body ?? {};
+    const updatedBy = (req as any).user?.id ?? null;
+    const now = new Date();
+
+    await db
+      .insert(help_content_overrides)
+      .values({
+        key,
+        title: title ?? null,
+        body: body ?? null,
+        learn_more_href: learn_more_href ?? null,
+        version: Number(version) || 1,
+        updated_by: updatedBy,
+      })
+      .onConflictDoUpdate({
+        target: help_content_overrides.key,
+        set: {
+          title: title ?? null,
+          body: body ?? null,
+          learn_more_href: learn_more_href ?? null,
+          version: Number(version) || 1,
+          updated_at: now,
+          updated_by: updatedBy,
+        },
+      });
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("upsertHelpOverride error:", error);
+    res.status(500).json({ error: "Failed to save override" });
+  }
+}
+
+// DELETE /api/help/admin/content/:key → revert to the code registry (admin only)
+export async function deleteHelpOverride(req: Request, res: Response) {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: "Admin only" });
+    await db.delete(help_content_overrides).where(eq(help_content_overrides.key, req.params.key));
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("deleteHelpOverride error:", error);
+    res.status(500).json({ error: "Failed to delete override" });
+  }
+}

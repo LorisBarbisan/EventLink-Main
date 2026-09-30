@@ -17,6 +17,7 @@ import { Route, Switch } from "wouter";
 import { ScrollToTop } from "@/components/ScrollToTop";
 
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminHelp = lazy(() => import("./pages/AdminHelp"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ContactUs = lazy(() => import("./pages/ContactUs"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -84,6 +85,7 @@ function AppRouter() {
           <Route path="/freelance-crew/:slug" component={CrewLanding} />
           <Route path="/ratings" component={RatingDashboard} />
           <Route path="/admin" component={AdminDashboard} />
+          <Route path="/admin/help" component={AdminHelp} />
           <Route path="/how-it-works" component={HowItWorks} />
           <Route path="/contact-us" component={ContactUs} />
           <Route path="/faq" component={FAQ} />

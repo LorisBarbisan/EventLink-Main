@@ -9,6 +9,9 @@ import {
   postHelpEvents,
   patchHelpPreferences,
   getHelpContent,
+  getHelpAdminMetrics,
+  upsertHelpOverride,
+  deleteHelpOverride,
 } from "../controllers/help.controller";
 
 const router = Router();
@@ -20,5 +23,10 @@ router.get("/state", getHelpState);
 router.post("/events", postHelpEvents);
 router.patch("/preferences", patchHelpPreferences);
 router.get("/content", getHelpContent);
+
+// Admin measurement + copy override (the controllers enforce the admin role).
+router.get("/admin/metrics", getHelpAdminMetrics);
+router.put("/admin/content/:key", upsertHelpOverride);
+router.delete("/admin/content/:key", deleteHelpOverride);
 
 export default router;
