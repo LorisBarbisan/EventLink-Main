@@ -4,6 +4,7 @@ import {
   boolean,
   check,
   date,
+  decimal,
   index,
   integer,
   json,
@@ -1391,4 +1392,196 @@ export type InsertFreelancerBillingProfile = typeof freelancer_billing_profiles.
 export type Invoice = typeof invoices.$inferSelect;
 export type InsertInvoice = typeof invoices.$inferInsert;
 export type InvoiceReminder = typeof invoice_reminders.$inferSelect;
+
+// ── Earnings / Books ──────────────────────────────────────────────────────────
+
+export const earnings_clients = pgTable(
+  "earnings_clients",
+  {
+    id: serial("id").primaryKey(),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    normalised_name: text("normalised_name").notNull(),
+    employer_user_id: integer("employer_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    contact_name: text("contact_name"),
+    contact_email: text("contact_email"),
+    address_line1: text("address_line1"),
+    city: text("city"),
+    postcode: text("postcode"),
+    country: text("country"),
+    notes: text("notes"),
+    archived: boolean("archived").notNull().default(false),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    uniqueName: unique("earnings_clients_freelancer_name_unique").on(
+      t.freelancer_id,
+      t.normalised_name
+    ),
+    freelancerIdx: index("earnings_clients_freelancer_idx").on(t.freelancer_id),
+  })
+);
+
+export const earnings_roles = pgTable("earnings_roles", {
+  id: serial("id").primaryKey(),
+  freelancer_id: integer("freelancer_id").references(() => users.id, { onDelete: "cascade" }), // NULL = system role
+  label: text("label").notNull(),
+  sort_order: integer("sort_order").notNull().default(0),
+  archived: boolean("archived").notNull().default(false),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const earnings_entries = pgTable(
+  "earnings_entries",
+  {
+    id: serial("id").primaryKey(),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    client_id: integer("client_id").references(() => earnings_clients.id, {
+      onDelete: "set null",
+    }),
+    role_id: integer("role_id").references(() => earnings_roles.id, { onDelete: "set null" }),
+    source: text("source").notNull().default("manual").$type<"booking" | "invoice" | "manual">(),
+    booking_id: integer("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    invoice_id: integer("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+    description: text("description").notNull(),
+    venue: text("venue"),
+    work_date: date("work_date").notNull(),
+    work_end_date: date("work_end_date"),
+    quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull().default("1"),
+    unit: text("unit").notNull().default("day").$type<"day" | "hour" | "job">(),
+    unit_amount_pence: bigint("unit_amount_pence", { mode: "number" }),
+    gross_amount_pence: bigint("gross_amount_pence", { mode: "number" }).notNull(),
+    expenses_rebilled_pence: bigint("expenses_rebilled_pence", { mode: "number" })
+      .notNull()
+      .default(0),
+    deductions_pence: bigint("deductions_pence", { mode: "number" }).notNull().default(0),
+    currency: text("currency").notNull().default("GBP"),
+    status: text("status")
+      .notNull()
+      .default("expected")
+      .$type<"expected" | "invoiced" | "paid" | "written_off">(),
+    invoiced_date: date("invoiced_date"),
+    paid_date: date("paid_date"),
+    paid_amount_pence: bigint("paid_amount_pence", { mode: "number" }),
+    needs_review: boolean("needs_review").notNull().default(false),
+    rate_raw: text("rate_raw"),
+    notes: text("notes"),
+    archived: boolean("archived").notNull().default(false),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    workDateIdx: index("earnings_entries_freelancer_work_date_idx").on(
+      t.freelancer_id,
+      t.work_date
+    ),
+    paidDateIdx: index("earnings_entries_freelancer_paid_date_idx").on(
+      t.freelancer_id,
+      t.paid_date
+    ),
+    clientIdx: index("earnings_entries_client_idx").on(t.freelancer_id, t.client_id),
+    statusIdx: index("earnings_entries_status_idx").on(t.freelancer_id, t.status),
+    bookingUnique: uniqueIndex("earnings_entries_booking_unique")
+      .on(t.booking_id)
+      .where(sql`${t.booking_id} IS NOT NULL`),
+    invoiceUnique: uniqueIndex("earnings_entries_invoice_unique")
+      .on(t.invoice_id)
+      .where(sql`${t.invoice_id} IS NOT NULL`),
+  })
+);
+
+// ── Kit register ──────────────────────────────────────────────────────────────
+
+export const kit_items = pgTable(
+  "kit_items",
+  {
+    id: serial("id").primaryKey(),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    category: text("category")
+      .notNull()
+      .default("other")
+      .$type<
+        | "audio"
+        | "lighting"
+        | "video"
+        | "computing"
+        | "networking"
+        | "rigging"
+        | "cable"
+        | "case"
+        | "vehicle"
+        | "tools"
+        | "other"
+      >(),
+    manufacturer: text("manufacturer"),
+    model: text("model"),
+    serial_number: text("serial_number"),
+    quantity: integer("quantity").notNull().default(1),
+    purchase_date: date("purchase_date"),
+    purchase_price_pence: bigint("purchase_price_pence", { mode: "number" }),
+    currency: text("currency").notNull().default("GBP"),
+    supplier: text("supplier"),
+    funding_method: text("funding_method")
+      .notNull()
+      .default("purchased")
+      .$type<"purchased" | "finance" | "gift" | "pre_existing">(),
+    business_use_percent: integer("business_use_percent").notNull().default(100),
+    replacement_value_pence: bigint("replacement_value_pence", { mode: "number" }),
+    condition_notes: text("condition_notes"),
+    status: text("status")
+      .notNull()
+      .default("in_service")
+      .$type<"in_service" | "sold" | "disposed" | "lost" | "stolen">(),
+    disposal_date: date("disposal_date"),
+    disposal_proceeds_pence: bigint("disposal_proceeds_pence", { mode: "number" }),
+    disposal_notes: text("disposal_notes"),
+    archived: boolean("archived").notNull().default(false),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    freelancerIdx: index("kit_items_freelancer_idx").on(t.freelancer_id),
+    statusIdx: index("kit_items_status_idx").on(t.freelancer_id, t.status),
+  })
+);
+
+export const kit_item_files = pgTable("kit_item_files", {
+  id: serial("id").primaryKey(),
+  kit_item_id: integer("kit_item_id")
+    .notNull()
+    .references(() => kit_items.id, { onDelete: "cascade" }),
+  file_key: text("file_key").notNull(),
+  file_name: text("file_name").notNull(),
+  mime_type: text("mime_type"),
+  size_bytes: integer("size_bytes"),
+  kind: text("kind")
+    .notNull()
+    .default("receipt")
+    .$type<"receipt" | "photo" | "warranty" | "other">(),
+  scan_status: text("scan_status")
+    .notNull()
+    .default("pending")
+    .$type<"pending" | "safe" | "unsafe" | "error">(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type EarningsClient = typeof earnings_clients.$inferSelect;
+export type InsertEarningsClient = typeof earnings_clients.$inferInsert;
+export type EarningsRole = typeof earnings_roles.$inferSelect;
+export type InsertEarningsRole = typeof earnings_roles.$inferInsert;
+export type EarningsEntry = typeof earnings_entries.$inferSelect;
+export type InsertEarningsEntry = typeof earnings_entries.$inferInsert;
+export type KitItem = typeof kit_items.$inferSelect;
+export type InsertKitItem = typeof kit_items.$inferInsert;
+export type KitItemFile = typeof kit_item_files.$inferSelect;
 export type InsertInvoiceReminder = typeof invoice_reminders.$inferInsert;
