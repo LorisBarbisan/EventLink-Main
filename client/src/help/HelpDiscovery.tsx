@@ -60,7 +60,9 @@ export function HelpDiscovery({
   markSeen,
   markDismissed,
 }: Props) {
-  const [prompt, setPrompt] = useState<{ entry: HelpEntry; rect: DOMRect } | null>(null);
+  const [prompt, setPrompt] = useState<{ entry: HelpEntry; rect: DOMRect; auto?: boolean } | null>(
+    null
+  );
 
   // ---- annoyance-budget state (per page-load session) ----
   const sessionCount = useRef(0);
@@ -70,6 +72,12 @@ export function HelpDiscovery({
   const lastKeystrokeAt = useRef(0);
   const scrollSincePage = useRef(0);
   const reachedFromValidation = useRef(false);
+  // First-look sequence (visit 1): keys already glanced this session, whether a
+  // sequence is running, and a cancel handle the signal listeners can call.
+  const shownKeys = useRef<Set<string>>(new Set());
+  const firstLookRunning = useRef(false);
+  const cancelFirstLook = useRef<() => void>(() => {});
+  const bubbleRef = useRef<HTMLDivElement>(null);
 
   const canFire = (): boolean => {
     const now = Date.now();
@@ -79,6 +87,7 @@ export function HelpDiscovery({
     if (now - lastKeystrokeAt.current < 2_000) return false; // not within 2s of typing
     if (now - pageEnterAt.current < 2_000) return false; // not in first 2s on a page
     if (reachedFromValidation.current) return false; // not after a validation failure
+    if (firstLookRunning.current) return false; // don't overlap the first-look glances
     if (isOverlayOpen()) return false; // not while a dialog/menu/select is open
     return true;
   };
@@ -92,6 +101,7 @@ export function HelpDiscovery({
       if (!entry) return;
       const st = keyStateRef.current.get(key);
       if (st?.completedAt) return; // already used the feature — never prompt again
+      if (shownKeys.current.has(key)) return; // already shown this session (e.g. first-look)
       const versionBumped = (entry.version ?? 1) > (st?.contentVersion ?? 0);
       if (!versionBumped) {
         const dismissed = st?.dismissedCount ?? 0;
@@ -107,6 +117,32 @@ export function HelpDiscovery({
     });
     out.sort((a, b) => (b.entry.priority ?? 0) - (a.entry.priority ?? 0));
     return out;
+  };
+
+  // First-look eligibility ignores visit counts (it IS the first visit) and is
+  // limited to page-level or high-priority feature entries — a glance, not a tour.
+  const firstLookEligible = (): Array<{ entry: HelpEntry; el: Element }> => {
+    if (!registry) return [];
+    const out: Array<{ entry: HelpEntry; el: Element }> = [];
+    registry.forEach((raw, key) => {
+      if (raw.priority === undefined) return;
+      if (raw.scope !== "page" && (raw.priority ?? 0) < 8) return;
+      const entry = getEntry(key);
+      if (!entry) return;
+      const st = keyStateRef.current.get(key);
+      if (st?.completedAt || shownKeys.current.has(key)) return;
+      const versionBumped = (entry.version ?? 1) > (st?.contentVersion ?? 0);
+      if (!versionBumped) {
+        const dismissed = st?.dismissedCount ?? 0;
+        if (dismissed >= 2) return;
+        if (dismissed === 1 && within90Days(st?.dismissedAt)) return;
+      }
+      const el = document.querySelector(`[data-help="${key}"]`);
+      if (!el || !isVisible(el)) return;
+      out.push({ entry, el });
+    });
+    out.sort((a, b) => (b.entry.priority ?? 0) - (a.entry.priority ?? 0));
+    return out.slice(0, 3);
   };
 
   const fire = (entry: HelpEntry, el: Element): boolean => {
@@ -138,15 +174,50 @@ export function HelpDiscovery({
 
     const visits = routeVisitsRef.current.get(route) ?? 0;
 
-    // First-look: on the very first visit, after a 2s settle, surface the single
-    // highest-priority eligible prompt. (A multi-step glance sequence is a later
-    // refinement; this keeps it to one, within the budget.)
-    let firstLook: number | undefined;
+    // First-look (visit 1): up to three page / high-priority glances reveal in
+    // sequence, 1.2s apart, each auto-dismissing after 4s. The whole sequence is
+    // cancelled the moment the user clicks, types, or scrolls >200px (wired from
+    // the signal effect via cancelFirstLook).
+    const flTimers: number[] = [];
+    let flCancelled = false;
+    const stopFirstLook = () => {
+      flCancelled = true;
+      firstLookRunning.current = false;
+      flTimers.forEach((t) => window.clearTimeout(t));
+      setPrompt((p) => (p?.auto ? null : p));
+    };
+    cancelFirstLook.current = stopFirstLook;
+
     if (visits <= 1) {
-      firstLook = window.setTimeout(() => {
-        const list = eligible();
-        if (list[0]) fire(list[0].entry, list[0].el);
-      }, 2_200);
+      flTimers.push(
+        window.setTimeout(() => {
+          if (flCancelled) return;
+          const list = firstLookEligible();
+          if (list.length === 0) return;
+          firstLookRunning.current = true;
+          list.forEach((item, i) => {
+            const showAt = i * 5_200; // 4s visible + 1.2s gap
+            flTimers.push(
+              window.setTimeout(() => {
+                if (flCancelled || isOverlayOpen()) return;
+                markSeen(item.entry.key);
+                shownKeys.current.add(item.entry.key);
+                setPrompt({
+                  entry: item.entry,
+                  rect: item.el.getBoundingClientRect(),
+                  auto: true,
+                });
+              }, showAt)
+            );
+            flTimers.push(
+              window.setTimeout(() => {
+                setPrompt((p) => (p?.auto && p.entry.key === item.entry.key ? null : p));
+                if (i === list.length - 1) firstLookRunning.current = false;
+              }, showAt + 4_000)
+            );
+          });
+        }, 2_200)
+      );
     }
 
     // Reactive "settle" signal: a long dwell on the page without engaging.
@@ -157,7 +228,9 @@ export function HelpDiscovery({
     }, 25_000);
 
     return () => {
-      if (firstLook) window.clearTimeout(firstLook);
+      flCancelled = true;
+      firstLookRunning.current = false;
+      flTimers.forEach((t) => window.clearTimeout(t));
       window.clearTimeout(settle);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,13 +240,26 @@ export function HelpDiscovery({
   useEffect(() => {
     const onKey = () => {
       lastKeystrokeAt.current = Date.now();
+      cancelFirstLook.current(); // typing cancels the first-look glance sequence
     };
     let scrollLast = window.scrollY;
     const onScroll = () => {
       scrollSincePage.current += Math.abs(window.scrollY - scrollLast);
       scrollLast = window.scrollY;
-      // A big scroll cancels an open first-look-style prompt (they've moved on).
-      if (scrollSincePage.current > 200) setPrompt(null);
+      // A big scroll means they've moved on — cancel first-look and any glance.
+      if (scrollSincePage.current > 200) {
+        cancelFirstLook.current();
+        setPrompt((p) => (p?.auto ? null : p));
+      }
+    };
+    // A click anywhere but the bubble cancels first-look and dismisses a reactive prompt.
+    const onDown = (e: Event) => {
+      if (bubbleRef.current?.contains(e.target as Node)) return;
+      cancelFirstLook.current();
+      setPrompt((p) => {
+        if (p && !p.auto) markDismissed(p.entry.key);
+        return null;
+      });
     };
 
     // Hesitation: the pointer rests on a control for >1.2s without clicking.
@@ -196,10 +282,12 @@ export function HelpDiscovery({
     window.addEventListener("keydown", onKey, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("mousemove", onMove, { passive: true });
+    document.addEventListener("pointerdown", onDown, true);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", onScroll);
       document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("pointerdown", onDown, true);
       window.clearTimeout(dwellTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -240,6 +328,7 @@ export function HelpDiscovery({
         className="animate-pulse motion-reduce:animate-none"
       />
       <div
+        ref={bubbleRef}
         role="dialog"
         aria-label={entry.title || "Tip"}
         style={{
@@ -253,15 +342,18 @@ export function HelpDiscovery({
         className="rounded-lg border bg-popover p-3 text-popover-foreground shadow-lg duration-150 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
       >
         <HelpContent entry={entry} />
-        <div className="mt-2.5 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => close(true)}
-            className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-          >
-            Got it
-          </button>
-        </div>
+        {/* First-look glances auto-dismiss, so they carry no button. */}
+        {!prompt.auto && (
+          <div className="mt-2.5 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => close(true)}
+              className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              Got it
+            </button>
+          </div>
+        )}
       </div>
     </>,
     document.body
