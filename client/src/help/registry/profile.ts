@@ -51,6 +51,41 @@ const entries: HelpEntry[] = [
     audience: ["recruiter"],
     version: 1,
   },
+  {
+    key: "form.profile.title",
+    scope: "field",
+    body: "How you want to be found — e.g. 'Lighting Designer', not your whole CV.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "form.profile.company_type",
+    scope: "field",
+    body: "Tells freelancers the kind of outfit they'd be working for.",
+    audience: ["recruiter"],
+    version: 1,
+  },
+  {
+    key: "action.profile.shareLink",
+    scope: "action",
+    body: "Copies your public profile link to share with employers off-platform.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "action.profile.viewPublic",
+    scope: "action",
+    body: "Opens your profile exactly as employers see it.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "action.freelancer.postJob",
+    scope: "action",
+    body: "Post your own gig — useful when you're sub-contracting or building a team.",
+    audience: ["freelancer"],
+    version: 1,
+  },
 ];
 
 export default entries;
