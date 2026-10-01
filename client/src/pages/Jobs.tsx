@@ -403,7 +403,7 @@ export default function Jobs() {
                     data-testid="input-search-jobs"
                   />
                 </div>
-                <div>
+                <div data-help="jobs.filter.country">
                   <CountrySelect
                     value={countryFilter}
                     onChange={setCountryFilter}

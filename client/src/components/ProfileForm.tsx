@@ -700,7 +700,9 @@ function FreelancerFormFields({
       </div>
 
       <div>
-        <Label htmlFor="title">Professional Title *</Label>
+        <Label htmlFor="title" data-help="form.profile.title">
+          Professional Title *
+        </Label>
         <Input
           id="title"
           value={formData.title}
@@ -711,7 +713,9 @@ function FreelancerFormFields({
       </div>
 
       <div>
-        <Label htmlFor="superpower">Superpower (One standout skill)</Label>
+        <Label htmlFor="superpower" data-help="form.profile.superpower">
+          Superpower (One standout skill)
+        </Label>
         <Input
           id="superpower"
           value={formData.superpower}
@@ -821,7 +825,7 @@ function FreelancerFormFields({
         </div>
       </div>
 
-      <div>
+      <div data-help="profile.availability">
         <Label htmlFor="availability_status">Availability Status</Label>
         <Select
           value={formData.availability_status}
@@ -959,7 +963,9 @@ function RecruiterFormFields({
     <>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <Label htmlFor="company_name">Company Name</Label>
+          <Label htmlFor="company_name" data-help="form.profile.company_name">
+            Company Name
+          </Label>
           <Input
             id="company_name"
             value={formData.company_name}
@@ -980,7 +986,9 @@ function RecruiterFormFields({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <Label htmlFor="company_type">Company Type</Label>
+          <Label htmlFor="company_type" data-help="form.profile.company_type">
+            Company Type
+          </Label>
           <Select
             value={formData.company_type}
             onValueChange={(value) => onInputChange("company_type", value)}

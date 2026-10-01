@@ -263,7 +263,10 @@ export function JobCard({
                 </Badge>
               )}
               {isClosed && (
-                <Badge className="border-red-200 bg-red-100 text-red-800 hover:bg-red-200">
+                <Badge
+                  data-help="jobs.status.closed"
+                  className="border-red-200 bg-red-100 text-red-800 hover:bg-red-200"
+                >
                   <XCircle className="mr-1 h-3 w-3" />
                   Closed
                 </Badge>
@@ -376,7 +379,11 @@ export function JobCard({
             {isUnposted && onPublish && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button size="sm" className="bg-green-600 text-white hover:bg-green-700">
+                  <Button
+                    size="sm"
+                    data-help="action.job.post"
+                    className="bg-green-600 text-white hover:bg-green-700"
+                  >
                     <Send className="mr-2 h-4 w-4" />
                     Post
                   </Button>
@@ -407,6 +414,7 @@ export function JobCard({
                   <Button
                     variant="outline"
                     size="sm"
+                    data-help="action.job.unpost"
                     className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
                   >
                     <EyeOff className="mr-2 h-4 w-4" />
@@ -439,6 +447,7 @@ export function JobCard({
               <Button
                 variant="outline"
                 size="sm"
+                data-help="action.job.invite"
                 className="border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                 onClick={() => onInvite(job.id)}
               >
@@ -452,6 +461,7 @@ export function JobCard({
               <Button
                 variant="outline"
                 size="sm"
+                data-help="action.job.docs"
                 onClick={() => setShowDocsModal(true)}
                 className="text-gray-600"
                 title="Job Documents"
@@ -474,6 +484,7 @@ export function JobCard({
               <Button
                 variant="outline"
                 size="sm"
+                data-help="action.job.duplicate"
                 onClick={() => onDuplicate(job)}
                 title="Create a new job pre-filled with this job's details"
                 className="hidden sm:flex"
@@ -513,6 +524,7 @@ export function JobCard({
                   <Button
                     variant="outline"
                     size="sm"
+                    data-help="action.job.close"
                     className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                   >
                     <XCircle className="mr-2 h-4 w-4" />
@@ -546,6 +558,7 @@ export function JobCard({
                   <Button
                     variant="outline"
                     size="sm"
+                    data-help="action.job.reopen"
                     className="border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
                   >
                     <RotateCcw className="mr-2 h-4 w-4" />

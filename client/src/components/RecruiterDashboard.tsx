@@ -758,7 +758,11 @@ export default function SimplifiedRecruiterDashboard() {
             My Jobs
             <TabBadge count={roleSpecificCounts.jobs || 0} />
           </TabsTrigger>
-          <TabsTrigger value="applications" className="gap-2">
+          <TabsTrigger
+            value="applications"
+            className="gap-2"
+            data-help="dashboard.tab.applications"
+          >
             Applications
             <TabBadge count={roleSpecificCounts.applications || 0} />
           </TabsTrigger>
@@ -766,8 +770,12 @@ export default function SimplifiedRecruiterDashboard() {
             Messages
             <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
-          <TabsTrigger value="bookings">Bookings</TabsTrigger>
-          <TabsTrigger value="crew">My Crew</TabsTrigger>
+          <TabsTrigger value="bookings" data-help="dashboard.tab.bookings">
+            Bookings
+          </TabsTrigger>
+          <TabsTrigger value="crew" data-help="dashboard.tab.crew">
+            My Crew
+          </TabsTrigger>
           {showTeamTabForUser && <TabsTrigger value="team">Team</TabsTrigger>}
           {showProfileTab && <TabsTrigger value="profile">Profile</TabsTrigger>}
         </TabsList>
@@ -931,6 +939,7 @@ export default function SimplifiedRecruiterDashboard() {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                data-help="dashboard.saveFreelancer"
                                 className={`h-8 w-8 ${isSaved ? "text-orange-500" : "text-muted-foreground"}`}
                                 onClick={(e) => {
                                   e.stopPropagation();

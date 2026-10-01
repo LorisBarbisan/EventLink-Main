@@ -3,6 +3,7 @@ import { TabNotificationManager } from "@/components/TabNotificationManager";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { HelpProvider } from "@/help/HelpProvider";
 import { WebSocketProvider } from "@/contexts/WebSocketContext";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -16,6 +17,7 @@ import { Route, Switch } from "wouter";
 import { ScrollToTop } from "@/components/ScrollToTop";
 
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminHelp = lazy(() => import("./pages/AdminHelp"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ContactUs = lazy(() => import("./pages/ContactUs"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -83,6 +85,7 @@ function AppRouter() {
           <Route path="/freelance-crew/:slug" component={CrewLanding} />
           <Route path="/ratings" component={RatingDashboard} />
           <Route path="/admin" component={AdminDashboard} />
+          <Route path="/admin/help" component={AdminHelp} />
           <Route path="/how-it-works" component={HowItWorks} />
           <Route path="/contact-us" component={ContactUs} />
           <Route path="/faq" component={FAQ} />
@@ -119,12 +122,14 @@ function App() {
       <AuthProvider>
         <WebSocketProvider>
           <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <LiveNotificationPopups />
-            <TabNotificationManager />
-            <CookieConsentBanner />
-            <AppRouter />
+            <HelpProvider>
+              <Toaster />
+              <Sonner />
+              <LiveNotificationPopups />
+              <TabNotificationManager />
+              <CookieConsentBanner />
+              <AppRouter />
+            </HelpProvider>
           </TooltipProvider>
         </WebSocketProvider>
       </AuthProvider>

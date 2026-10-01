@@ -400,6 +400,7 @@ export default function MyBookings() {
         {filterTabs.map((tab) => (
           <button
             key={tab.key}
+            data-help={tab.key === "all" ? undefined : `bookings.status.${tab.key}`}
             onClick={() => setActiveFilter(tab.key)}
             className={`flex-shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               activeFilter === tab.key

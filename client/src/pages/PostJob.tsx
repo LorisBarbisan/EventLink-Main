@@ -154,7 +154,7 @@ export default function PostJob() {
           </p>
         </div>
 
-        <Form {...form}>
+        <Form {...form} helpNamespace="postJob">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* ── Contact details ─────────────────────────────────────────── */}
             <Card>

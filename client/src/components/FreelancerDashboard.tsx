@@ -232,6 +232,7 @@ export default function SimplifiedFreelancerDashboard() {
         <div className="flex shrink-0 flex-wrap gap-2">
           <Button
             size="sm"
+            data-help="action.freelancer.postJob"
             onClick={() => {
               handleTabChange("posted-jobs");
               const url = new URL(window.location.href);
@@ -243,7 +244,12 @@ export default function SimplifiedFreelancerDashboard() {
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             Post a Job
           </Button>
-          <Button size="sm" variant="outline" onClick={handleShareProfile}>
+          <Button
+            size="sm"
+            variant="outline"
+            data-help="action.profile.shareLink"
+            onClick={handleShareProfile}
+          >
             {linkCopied ? (
               <>
                 <Check className="mr-1.5 h-3.5 w-3.5 text-green-600" />
@@ -256,7 +262,7 @@ export default function SimplifiedFreelancerDashboard() {
               </>
             )}
           </Button>
-          <Button size="sm" variant="outline" asChild>
+          <Button size="sm" variant="outline" data-help="action.profile.viewPublic" asChild>
             <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
               <Share2 className="mr-1.5 h-3.5 w-3.5" />
               View Profile
@@ -292,7 +298,11 @@ export default function SimplifiedFreelancerDashboard() {
         </div>
         <TabsList className="hidden w-full grid-cols-3 sm:grid md:grid-cols-6">
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
-          <TabsTrigger value="jobs" className="gap-2">
+          <TabsTrigger
+            value="jobs"
+            className="gap-2"
+            data-help="dashboard.tab.freelancerApplications"
+          >
             My Applications
             <TabBadge count={roleSpecificCounts.applications || 0} />
           </TabsTrigger>
@@ -300,15 +310,17 @@ export default function SimplifiedFreelancerDashboard() {
             Messages
             <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
-          <TabsTrigger value="bookings" className="gap-2">
+          <TabsTrigger value="bookings" className="gap-2" data-help="dashboard.tab.pendingRatings">
             Pending Ratings
             <TabBadge count={roleSpecificCounts.ratings || 0} />
           </TabsTrigger>
-          <TabsTrigger value="references" className="gap-2">
+          <TabsTrigger value="references" className="gap-2" data-help="profile.references">
             <ShieldCheck className="h-4 w-4" />
             References
           </TabsTrigger>
-          <TabsTrigger value="posted-jobs">My Jobs</TabsTrigger>
+          <TabsTrigger value="posted-jobs" data-help="dashboard.tab.freelancerPostedJobs">
+            My Jobs
+          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -665,6 +677,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
             <Button
               onClick={() => createRequestMutation.mutate()}
               disabled={!newEmail.trim() || createRequestMutation.isPending}
+              data-help="action.reference.request"
               className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600"
             >
               {createRequestMutation.isPending ? "Sending..." : "Send Reference Request"}
