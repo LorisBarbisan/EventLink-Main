@@ -5,9 +5,14 @@ const entries: HelpEntry[] = [
     key: "profile.references",
     scope: "feature",
     title: "References",
-    body: "Freelancers with three references get contacted about twice as often.",
+    body: "Freelancers with three references get contacted about twice as often. Ask for one.",
     learnMoreHref: "/build-reputation",
     audience: ["freelancer"],
+    // Discovery-eligible: a high-value, under-used feature.
+    priority: 10,
+    oncePerUser: true,
+    minVisits: 2,
+    maxVisits: 12,
     version: 1,
   },
   {

@@ -12,8 +12,12 @@ const entries: HelpEntry[] = [
     key: "dashboard.tab.bookings",
     scope: "feature",
     title: "Bookings",
-    body: "Your confirmed crew across jobs, tracked from enquiry through to completed.",
+    body: "Track your confirmed crew across every job, from first enquiry through to completed.",
     audience: ["recruiter", "admin"],
+    priority: 8,
+    oncePerUser: true,
+    minVisits: 2,
+    maxVisits: 12,
     version: 1,
   },
   {
@@ -27,8 +31,12 @@ const entries: HelpEntry[] = [
   {
     key: "dashboard.saveFreelancer",
     scope: "action",
-    body: "Saves this freelancer to My Crew so you can find them again without searching.",
+    body: "Save a freelancer to My Crew and you can rebook them in one click, no searching.",
     audience: ["recruiter", "admin"],
+    priority: 6,
+    oncePerUser: true,
+    minVisits: 2,
+    maxVisits: 12,
     version: 1,
   },
   {

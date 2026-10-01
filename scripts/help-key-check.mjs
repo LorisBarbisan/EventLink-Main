@@ -60,6 +60,9 @@ for (const file of walk(CLIENT_SRC)) {
   for (const re of patterns) {
     for (const m of text.matchAll(re)) {
       const key = m[1];
+      // Skip non-literal matches: template expressions (`${key}`) and doc
+      // placeholders (`<key>`) that appear in the help internals themselves.
+      if (!/^[a-z][\w.-]*$/i.test(key)) continue;
       if (key.startsWith("form.")) continue; // dynamic form coverage
       usedKeys.add(key);
       if (!registryKeys.has(key)) {
