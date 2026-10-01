@@ -53,6 +53,20 @@ const entries: HelpEntry[] = [
     version: 1,
   },
   {
+    key: "action.invitation.accept",
+    scope: "action",
+    body: "Accept the invitation to apply and move it into your applications.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "action.invitation.decline",
+    scope: "action",
+    body: "Turn down the invitation; the employer is notified.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
     key: "dashboard.tab.myJobs",
     scope: "feature",
     body: "The jobs you have applied to, with their status and any messages.",

@@ -86,6 +86,13 @@ const entries: HelpEntry[] = [
     audience: ["freelancer"],
     version: 1,
   },
+  {
+    key: "action.reference.request",
+    scope: "action",
+    body: "Ask a past employer to vouch for you; three references roughly doubles your enquiries.",
+    audience: ["freelancer"],
+    version: 1,
+  },
 ];
 
 export default entries;

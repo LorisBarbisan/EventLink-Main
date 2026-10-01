@@ -682,6 +682,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                           variant="outline"
                           className="border-red-200 text-red-600 hover:bg-red-50"
                           size="sm"
+                          data-help="action.invitation.decline"
                           onClick={() => setShowDeclineInvitationDialog(true)}
                           disabled={respondMutation.isPending}
                         >
@@ -690,6 +691,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         <Button
                           className="bg-green-600 text-white hover:bg-green-700"
                           size="sm"
+                          data-help="action.invitation.accept"
                           onClick={handleAcceptInvitation}
                           disabled={respondMutation.isPending}
                         >

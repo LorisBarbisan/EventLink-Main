@@ -677,6 +677,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
             <Button
               onClick={() => createRequestMutation.mutate()}
               disabled={!newEmail.trim() || createRequestMutation.isPending}
+              data-help="action.reference.request"
               className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600"
             >
               {createRequestMutation.isPending ? "Sending..." : "Send Reference Request"}
