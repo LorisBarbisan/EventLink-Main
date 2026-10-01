@@ -355,7 +355,7 @@ export function HelpProvider({ children }: { children: React.ReactNode }) {
   return (
     <HelpCtx.Provider value={value}>
       {children}
-      {enabled && <DataHelpBubble getEntry={getEntry} onSeen={markSeen} />}
+      {enabled && <DataHelpBubble getEntry={getEntry} onSeen={markSeen} delayMs={delayMs} />}
       {import.meta.env.DEV && <HelpAuditOverlay registry={registry} />}
     </HelpCtx.Provider>
   );
@@ -363,56 +363,131 @@ export function HelpProvider({ children }: { children: React.ReactNode }) {
 
 // ---- The `data-help` delegated bubble (retrofit / anchor path) ----
 // One set of listeners for the whole app resolves the key of any element
-// carrying `data-help` and renders a floating bubble positioned against it.
+// carrying `data-help`. It behaves like a hover-card: it waits the delay tier
+// before appearing, opens once per element (not on every mouse move), stays put
+// while the pointer moves into it so links/buttons are reachable, and counts a
+// "seen" only once per open.
 function DataHelpBubble({
   getEntry,
   onSeen,
+  delayMs,
 }: {
   getEntry: (key: string) => HelpEntry | null;
   onSeen: (key: string) => void;
+  delayMs: number;
 }) {
-  const [active, setActive] = useState<{ entry: HelpEntry; rect: DOMRect } | null>(null);
+  const [active, setActive] = useState<{ entry: HelpEntry; rect: DOMRect; key: string } | null>(
+    null
+  );
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const openTimer = useRef<number | undefined>(undefined);
+  const closeTimer = useRef<number | undefined>(undefined);
+  // The element the bubble is currently open/opening for — used so re-hovering
+  // the same control doesn't re-open or re-count.
+  const anchorRef = useRef<Element | null>(null);
 
   useEffect(() => {
-    const resolve = (target: EventTarget | null): { key: string; el: Element } | null => {
-      const el = (target as Element | null)?.closest?.("[data-help]");
-      const key = el?.getAttribute("data-help");
-      return el && key ? { key, el } : null;
+    const clearOpen = () => window.clearTimeout(openTimer.current);
+    const clearClose = () => window.clearTimeout(closeTimer.current);
+
+    const scheduleClose = () => {
+      clearOpen();
+      clearClose();
+      closeTimer.current = window.setTimeout(() => {
+        anchorRef.current = null;
+        setActive(null);
+      }, 220);
     };
 
-    const open = (target: EventTarget | null) => {
-      const hit = resolve(target);
-      if (!hit) return;
-      const entry = getEntry(hit.key);
+    const openFor = (el: Element) => {
+      const key = el.getAttribute("data-help");
+      if (!key) return;
+      if (anchorRef.current === el) {
+        clearClose(); // already open/opening for this element — just cancel any close
+        return;
+      }
+      const entry = getEntry(key);
       if (!entry) return;
-      setActive({ entry, rect: hit.el.getBoundingClientRect() });
-      onSeen(hit.key);
+      anchorRef.current = el;
+      clearClose();
+      clearOpen();
+      openTimer.current = window.setTimeout(
+        () => {
+          setActive({ entry, rect: el.getBoundingClientRect(), key });
+          onSeen(key); // count once, when it actually appears
+        },
+        Math.max(80, delayMs)
+      );
     };
-    const onOver = (e: Event) => open(e.target);
-    const onFocus = (e: Event) => open(e.target);
+
+    const onOver = (e: Event) => {
+      const target = e.target as Element | null;
+      if (bubbleRef.current && target && bubbleRef.current.contains(target)) {
+        clearClose();
+        return;
+      }
+      const el = target?.closest?.("[data-help]");
+      if (el) openFor(el);
+      else if (!anchorRef.current) scheduleClose();
+    };
+
     const onOut = (e: Event) => {
-      const to = (e as MouseEvent).relatedTarget as Element | null;
-      if (!to?.closest?.("[data-help]")) setActive(null);
+      const to = (e as MouseEvent).relatedTarget as Node | null;
+      // Keep open while moving within the anchor, or into the bubble.
+      if (to && anchorRef.current?.contains(to)) return;
+      if (to && bubbleRef.current?.contains(to)) {
+        clearClose();
+        return;
+      }
+      scheduleClose();
     };
-    // A click on the control closes the hint and is never intercepted by it.
-    const onDown = () => setActive(null);
-    const onScroll = () => setActive(null);
+
+    const onFocus = (e: Event) => {
+      const el = (e.target as Element | null)?.closest?.("[data-help]");
+      if (el) openFor(el);
+    };
+    const onBlur = () => scheduleClose();
+
+    // A click on the control (not inside the bubble) dismisses the hint.
+    const onDown = (e: Event) => {
+      const target = e.target as Node | null;
+      if (target && bubbleRef.current?.contains(target)) return;
+      clearOpen();
+      clearClose();
+      anchorRef.current = null;
+      setActive(null);
+    };
+    const onScroll = () => {
+      clearOpen();
+      anchorRef.current = null;
+      setActive(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        anchorRef.current = null;
+        setActive(null);
+      }
+    };
 
     document.addEventListener("mouseover", onOver);
-    document.addEventListener("focusin", onFocus);
     document.addEventListener("mouseout", onOut);
-    document.addEventListener("focusout", onDown);
+    document.addEventListener("focusin", onFocus);
+    document.addEventListener("focusout", onBlur);
     document.addEventListener("pointerdown", onDown, true);
+    document.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, true);
     return () => {
+      clearOpen();
+      clearClose();
       document.removeEventListener("mouseover", onOver);
-      document.removeEventListener("focusin", onFocus);
       document.removeEventListener("mouseout", onOut);
-      document.removeEventListener("focusout", onDown);
+      document.removeEventListener("focusin", onFocus);
+      document.removeEventListener("focusout", onBlur);
       document.removeEventListener("pointerdown", onDown, true);
+      document.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", onScroll, true);
     };
-  }, [getEntry, onSeen]);
+  }, [getEntry, onSeen, delayMs]);
 
   if (!active) return null;
 
@@ -422,17 +497,18 @@ function DataHelpBubble({
   const style: React.CSSProperties = {
     position: "fixed",
     left: Math.min(Math.max(rect.left + rect.width / 2, 150), window.innerWidth - 150),
-    top: below ? rect.bottom + 8 : rect.top - 8,
+    top: below ? rect.bottom + 6 : rect.top - 6,
     transform: below ? "translate(-50%, 0)" : "translate(-50%, -100%)",
     zIndex: 60,
-    pointerEvents: "none",
   };
 
   return (
     <div
+      ref={bubbleRef}
       role="tooltip"
       style={style}
-      className="rounded-md border bg-popover px-3 py-2 text-popover-foreground shadow-md duration-150 animate-in fade-in-0 zoom-in-95 motion-reduce:animate-none"
+      onMouseEnter={() => window.clearTimeout(closeTimer.current)}
+      className="rounded-md border bg-popover px-3 py-2 text-popover-foreground shadow-md duration-150 animate-in fade-in-0 motion-reduce:animate-none"
     >
       <HelpContent entry={entry} />
     </div>
