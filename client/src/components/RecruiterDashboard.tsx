@@ -26,6 +26,7 @@ import {
   isManagerTeamMember,
 } from "@/lib/employerContext";
 import { apiRequest } from "@/lib/queryClient";
+import { useHelpComplete } from "@/help/useHelp";
 import type { Job, JobApplication, JobFormData } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -77,6 +78,7 @@ export default function SimplifiedRecruiterDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const completeHelp = useHelpComplete();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("jobs");
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
@@ -332,6 +334,7 @@ export default function SimplifiedRecruiterDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/my-crew"] });
       queryClient.invalidateQueries({ queryKey: ["/api/saved-freelancers"] });
+      completeHelp("dashboard.saveFreelancer");
       toast({
         title: "Saved to My Crew",
         description: "Freelancer saved to your My Crew list.",
@@ -623,6 +626,9 @@ export default function SimplifiedRecruiterDashboard() {
       queryClient.invalidateQueries({
         queryKey: ["/api/recruiter", effectiveCompanyId, "applications"],
       });
+    } else if (tab === "bookings") {
+      // Opening Bookings counts as using the feature — stop prompting about it.
+      completeHelp("dashboard.tab.bookings");
     }
     // Removed: markCategoryAsRead('messages') - keep message notifications unread until user reads them
   };
@@ -826,6 +832,7 @@ export default function SimplifiedRecruiterDashboard() {
                   value={crewSearch}
                   onChange={(e) => setCrewSearch(e.target.value)}
                   className="pl-9"
+                  data-help="dashboard.crewSearch"
                   data-testid="input-my-crew-search"
                 />
               </div>
@@ -1052,6 +1059,7 @@ export default function SimplifiedRecruiterDashboard() {
             </div>
             <Button
               onClick={() => setShowJobForm(!showJobForm)}
+              data-help="action.job.create"
               data-testid="button-post-job"
               className="shrink-0"
             >

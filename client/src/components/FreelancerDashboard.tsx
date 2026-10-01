@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
+import { useHelpComplete } from "@/help/useHelp";
 import type { FreelancerFormData, JobApplication } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -534,6 +535,7 @@ export default function SimplifiedFreelancerDashboard() {
 
 function ReferenceRequestsSection({ userId }: { userId: number }) {
   const { toast } = useToast();
+  const completeHelp = useHelpComplete();
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
 
@@ -559,6 +561,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
       });
     },
     onSuccess: () => {
+      completeHelp("profile.references");
       toast({ title: "Request sent", description: "Reference request email has been sent." });
       setNewEmail("");
       setNewName("");

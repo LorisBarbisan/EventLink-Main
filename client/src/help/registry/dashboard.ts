@@ -29,6 +29,13 @@ const entries: HelpEntry[] = [
     version: 1,
   },
   {
+    key: "dashboard.crewSearch",
+    scope: "feature",
+    body: "Search every freelancer on EventLink by skill, role or location, then save the ones you like.",
+    audience: ["recruiter", "admin"],
+    version: 1,
+  },
+  {
     key: "dashboard.saveFreelancer",
     scope: "action",
     body: "Save a freelancer to My Crew and you can rebook them in one click, no searching.",

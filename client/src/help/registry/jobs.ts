@@ -23,6 +23,13 @@ const entries: HelpEntry[] = [
     version: 1,
   },
   {
+    key: "action.job.create",
+    scope: "action",
+    body: "Create a listing to find crew — it goes live on Find Jobs once you post it.",
+    audience: ["recruiter", "admin"],
+    version: 1,
+  },
+  {
     key: "action.job.notify",
     scope: "action",
     title: "Notify freelancers",
