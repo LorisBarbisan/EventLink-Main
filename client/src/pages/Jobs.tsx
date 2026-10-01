@@ -544,7 +544,7 @@ export default function Jobs() {
                                 className="cursor-pointer text-left font-medium text-muted-foreground transition-colors hover:text-primary hover:underline"
                                 data-testid={`link-company-${job.id}`}
                               >
-                                {job.company}
+                                Posted by a Freelancer
                               </button>
                             ) : job.recruiter_id && !job.external_source ? (
                               <button

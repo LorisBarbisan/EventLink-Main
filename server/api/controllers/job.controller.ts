@@ -4,39 +4,7 @@ import { storage } from "../../storage";
 import { sendUrgentJobNotification } from "../services/job-notification-scheduler.service";
 import { sendJobClosureEmails } from "../services/job-closure-email.service";
 import { ownsEmployerCompany } from "../utils/team.util";
-
-/**
- * Determine which batch window a job belongs to based on current UK time,
- * and whether the job is urgent (event within 48h of now).
- */
-function assignBatchWindow(job: any): {
-  window: "morning" | "afternoon" | null;
-  isUrgent: boolean;
-} {
-  const nowUK = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/London" }));
-  const hour = nowUK.getHours();
-
-  let window: "morning" | "afternoon" | null;
-  if (hour >= 0 && hour < 9) {
-    window = "morning";
-  } else if (hour >= 9 && hour < 13) {
-    window = "afternoon";
-  } else {
-    window = "morning"; // next day morning
-  }
-
-  let isUrgent = false;
-  if (job.event_date) {
-    const eventMs = new Date(job.event_date).getTime();
-    const hoursUntilEvent = (eventMs - Date.now()) / 3_600_000;
-    if (hoursUntilEvent >= 0 && hoursUntilEvent <= 48) {
-      isUrgent = true;
-      window = null;
-    }
-  }
-
-  return { window, isUrgent };
-}
+import { assignBatchWindow } from "../utils/batch-window.util";
 
 // Get job by ID
 export async function getJobById(req: Request, res: Response) {
