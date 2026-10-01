@@ -821,7 +821,7 @@ function FreelancerFormFields({
         </div>
       </div>
 
-      <div>
+      <div data-help="profile.availability">
         <Label htmlFor="availability_status">Availability Status</Label>
         <Select
           value={formData.availability_status}

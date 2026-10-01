@@ -292,7 +292,11 @@ export default function SimplifiedFreelancerDashboard() {
         </div>
         <TabsList className="hidden w-full grid-cols-3 sm:grid md:grid-cols-6">
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
-          <TabsTrigger value="jobs" className="gap-2">
+          <TabsTrigger
+            value="jobs"
+            className="gap-2"
+            data-help="dashboard.tab.freelancerApplications"
+          >
             My Applications
             <TabBadge count={roleSpecificCounts.applications || 0} />
           </TabsTrigger>
@@ -300,15 +304,17 @@ export default function SimplifiedFreelancerDashboard() {
             Messages
             <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
-          <TabsTrigger value="bookings" className="gap-2">
+          <TabsTrigger value="bookings" className="gap-2" data-help="dashboard.tab.pendingRatings">
             Pending Ratings
             <TabBadge count={roleSpecificCounts.ratings || 0} />
           </TabsTrigger>
-          <TabsTrigger value="references" className="gap-2">
+          <TabsTrigger value="references" className="gap-2" data-help="profile.references">
             <ShieldCheck className="h-4 w-4" />
             References
           </TabsTrigger>
-          <TabsTrigger value="posted-jobs">My Jobs</TabsTrigger>
+          <TabsTrigger value="posted-jobs" data-help="dashboard.tab.freelancerPostedJobs">
+            My Jobs
+          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}

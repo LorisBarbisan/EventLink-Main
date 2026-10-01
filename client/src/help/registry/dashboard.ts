@@ -59,6 +59,27 @@ const entries: HelpEntry[] = [
     audience: ["freelancer"],
     version: 1,
   },
+  {
+    key: "dashboard.tab.freelancerApplications",
+    scope: "feature",
+    body: "The jobs you've applied to, with their status and any messages.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "dashboard.tab.pendingRatings",
+    scope: "feature",
+    body: "People you've worked with who are waiting for your rating.",
+    audience: ["freelancer"],
+    version: 1,
+  },
+  {
+    key: "dashboard.tab.freelancerPostedJobs",
+    scope: "feature",
+    body: "Jobs you've posted yourself, and the people who applied to them.",
+    audience: ["freelancer"],
+    version: 1,
+  },
 ];
 
 export default entries;
