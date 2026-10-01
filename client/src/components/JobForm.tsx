@@ -172,7 +172,9 @@ export function JobForm({
             </Select>
           </div>
           <div>
-            <Label htmlFor="job-rate">Rate * ({currencySymbol})</Label>
+            <Label htmlFor="job-rate" data-help="form.postJob.rate">
+              Rate * ({currencySymbol})
+            </Label>
             <Input
               id="job-rate"
               value={formData.rate}
@@ -182,7 +184,9 @@ export function JobForm({
             />
           </div>
           <div>
-            <Label htmlFor="start-date">Start Date *</Label>
+            <Label htmlFor="start-date" data-help="form.postJob.event_date">
+              Start Date *
+            </Label>
             <Input
               id="start-date"
               type="date"
@@ -245,7 +249,9 @@ export function JobForm({
             </div>
 
             <div>
-              <Label htmlFor="job-description">Job Description</Label>
+              <Label htmlFor="job-description" data-help="form.postJob.description">
+                Job Description
+              </Label>
               <Textarea
                 id="job-description"
                 value={formData.description}
