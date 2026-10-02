@@ -78,6 +78,8 @@ export function HelpDiscovery({
   const firstLookRunning = useRef(false);
   const cancelFirstLook = useRef<() => void>(() => {});
   const bubbleRef = useRef<HTMLDivElement>(null);
+  // Struggle signal: how many times this route has been visited this page-load session.
+  const navCounts = useRef<Map<string, number>>(new Map());
 
   const canFire = (): boolean => {
     const now = Date.now();
@@ -227,11 +229,23 @@ export function HelpDiscovery({
       if (list[0]) fire(list[0].entry, list[0].el);
     }, 25_000);
 
+    // Struggle signal: returning to the same page a third time this session,
+    // suggesting they haven't found what they came for.
+    navCounts.current.set(route, (navCounts.current.get(route) ?? 0) + 1);
+    let repeat: number | undefined;
+    if ((navCounts.current.get(route) ?? 0) >= 3) {
+      repeat = window.setTimeout(() => {
+        const list = eligible();
+        if (list[0]) fire(list[0].entry, list[0].el);
+      }, 3_000);
+    }
+
     return () => {
       flCancelled = true;
       firstLookRunning.current = false;
       flTimers.forEach((t) => window.clearTimeout(t));
       window.clearTimeout(settle);
+      if (repeat) window.clearTimeout(repeat);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route]);

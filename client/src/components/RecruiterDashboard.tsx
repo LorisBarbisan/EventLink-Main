@@ -629,6 +629,9 @@ export default function SimplifiedRecruiterDashboard() {
     } else if (tab === "bookings") {
       // Opening Bookings counts as using the feature — stop prompting about it.
       completeHelp("dashboard.tab.bookings");
+    } else if (tab === "crew") {
+      // Opening My Crew counts as using the feature — stop prompting about it.
+      completeHelp("dashboard.tab.crew");
     }
     // Removed: markCategoryAsRead('messages') - keep message notifications unread until user reads them
   };

@@ -24,8 +24,12 @@ const entries: HelpEntry[] = [
     key: "dashboard.tab.crew",
     scope: "feature",
     title: "My Crew",
-    body: "The freelancers you have saved or worked with, kept in one place to rebook.",
+    body: "Keep your favourite freelancers in one place and rebook them in a click, no searching.",
     audience: ["recruiter", "admin"],
+    priority: 7,
+    oncePerUser: true,
+    minVisits: 2,
+    maxVisits: 12,
     version: 1,
   },
   {
