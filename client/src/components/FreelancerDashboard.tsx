@@ -32,6 +32,7 @@ import {
   Copy,
   Download,
   Mail,
+  Pencil,
   QrCode,
   Send,
   ShieldCheck,
@@ -47,6 +48,7 @@ import { InvoicesTab } from "./InvoicesTab";
 import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
 import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
+import { VanityUrlEditor } from "./VanityUrlEditor";
 
 const RATING_LABELS: Record<string, { label: string; stars: number }> = {
   excellent: { label: "Excellent", stars: 5 },
@@ -65,6 +67,7 @@ export default function SimplifiedFreelancerDashboard() {
 
   const [linkCopied, setLinkCopied] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [showUrlEditor, setShowUrlEditor] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   // Check URL parameters for initial tab and react to location changes
@@ -295,11 +298,21 @@ export default function SimplifiedFreelancerDashboard() {
       {/* Persistent share bar — Pro: purple gradient; Free: neutral */}
       {isPro ? (
         <div className="mb-4 flex flex-col gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 px-4 py-3 shadow-md sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-white/80">
-              Your public profile
-            </p>
-            <p className="truncate text-sm text-white/90">{getProfileUrl()}</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/80">
+                Your public profile
+              </p>
+              <p className="truncate text-sm text-white/90">{getProfileUrl()}</p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setShowUrlEditor(true)}
+              className="h-7 w-7 shrink-0 border-0 bg-white/20 p-0 text-white hover:bg-white/30"
+              title="Customize URL"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
           </div>
           <div className="flex shrink-0 gap-2">
             <Button
@@ -629,6 +642,22 @@ export default function SimplifiedFreelancerDashboard() {
           <MyPostedJobs />
         </TabsContent>
       </Tabs>
+
+      <Dialog open={showUrlEditor} onOpenChange={setShowUrlEditor}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4 text-purple-600" />
+              Customize your profile URL
+            </DialogTitle>
+          </DialogHeader>
+          <VanityUrlEditor
+            userId={user.id}
+            currentCustomSlug={profile?.custom_slug}
+            currentSlug={profile?.slug}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
         <DialogContent className="max-w-sm">
