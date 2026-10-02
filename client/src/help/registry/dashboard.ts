@@ -102,8 +102,13 @@ const entries: HelpEntry[] = [
   {
     key: "dashboard.tab.pendingRatings",
     scope: "feature",
-    body: "People you've worked with who are waiting for your rating.",
+    title: "Ratings",
+    body: "Rate the people you've worked with — mutual ratings build the trust that wins you repeat bookings.",
     audience: ["freelancer"],
+    priority: 7,
+    oncePerUser: true,
+    minVisits: 2,
+    maxVisits: 12,
     version: 1,
   },
   {

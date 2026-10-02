@@ -72,6 +72,8 @@ export default function SimplifiedFreelancerDashboard() {
     return tabParam || "profile";
   });
 
+  const completeHelpMain = useHelpComplete();
+
   // Track active conversation ID from URL
   const [activeConversationId, setActiveConversationId] = useState<number | null>(() => {
     const search = location.includes("?")
@@ -183,6 +185,8 @@ export default function SimplifiedFreelancerDashboard() {
       markCategoryAsRead("applications");
     } else if (tab === "bookings") {
       markCategoryAsRead("ratings");
+      // Opening the Ratings tab counts as using it — stop prompting about it.
+      completeHelpMain("dashboard.tab.pendingRatings");
     }
     // Removed: markCategoryAsRead('messages') - keep message notifications unread until user reads them
   };

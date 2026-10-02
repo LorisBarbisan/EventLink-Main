@@ -23,6 +23,19 @@ const entries: HelpEntry[] = [
     version: 1,
   },
   {
+    key: "freelancer.jobAlerts",
+    scope: "feature",
+    title: "Job Alerts",
+    body: "Switch this on and matching gigs are emailed to you — no need to keep checking back.",
+    audience: ["freelancer"],
+    // Discovery-eligible: high-value, easy to miss in settings.
+    priority: 7,
+    oncePerUser: true,
+    minVisits: 2,
+    maxVisits: 12,
+    version: 1,
+  },
+  {
     key: "form.profile.superpower",
     scope: "field",
     body: "The one thing you are best at; it is the first line employers read.",

@@ -80,6 +80,8 @@ export function HelpDiscovery({
   const bubbleRef = useRef<HTMLDivElement>(null);
   // Struggle signal: how many times this route has been visited this page-load session.
   const navCounts = useRef<Map<string, number>>(new Map());
+  // Validation-failure signal: throttle so repeated bounces don't spam.
+  const lastValidationAt = useRef(0);
 
   const canFire = (): boolean => {
     const now = Date.now();
@@ -152,6 +154,24 @@ export function HelpDiscovery({
     pageShown.current = true;
     sessionCount.current += 1;
     lastPromptAt.current = Date.now();
+    markSeen(entry.key);
+    setPrompt({ entry, rect: el.getBoundingClientRect() });
+    return true;
+  };
+
+  // The validation-failure path is deliberately NOT gated by canFire(): it fires
+  // *because* the user just typed and may be inside a dialog, and the field's help
+  // is genuinely wanted at that moment. It keeps its own, gentler guards instead.
+  const fireValidation = (entry: HelpEntry, el: Element): boolean => {
+    const now = Date.now();
+    if (bubbleRef.current) return false; // a prompt is already open — don't stack
+    if (now - lastValidationAt.current < 20_000) return false; // ≥20s between bounces
+    if (shownKeys.current.has(entry.key)) return false; // once per field per session
+    const st = keyStateRef.current.get(entry.key);
+    if ((st?.dismissedCount ?? 0) >= 2) return false; // dismissed for good — respect it
+    lastValidationAt.current = now;
+    lastPromptAt.current = now; // keep discovery spacing honest afterwards
+    shownKeys.current.add(entry.key);
     markSeen(entry.key);
     setPrompt({ entry, rect: el.getBoundingClientRect() });
     return true;
@@ -293,16 +313,49 @@ export function HelpDiscovery({
       }, 1_200);
     };
 
+    // Validation-failure signal: when a form submit bounces, offer the help for
+    // the first field that failed. react-hook-form flips the control's
+    // aria-invalid on the next render, so we scan a beat after the submit event.
+    let submitTimer: number | undefined;
+    let valClear: number | undefined;
+    const onSubmit = (e: Event) => {
+      const form = e.target as HTMLElement | null;
+      if (!form || typeof form.querySelector !== "function") return;
+      window.clearTimeout(submitTimer);
+      submitTimer = window.setTimeout(() => {
+        const invalid = form.querySelector('[aria-invalid="true"]');
+        if (!invalid) return; // submit succeeded (or non-RHF form) — leave discovery alone
+        // A real validation failure: keep unrelated discovery prompts quiet (§6) for
+        // a short recovery window, but still offer the failed field's own help.
+        reachedFromValidation.current = true;
+        window.clearTimeout(valClear);
+        valClear = window.setTimeout(() => {
+          reachedFromValidation.current = false;
+        }, 20_000);
+        const anchor = form.querySelector('[aria-invalid="true"][data-help-field]');
+        if (!anchor || !isVisible(anchor)) return;
+        const key = anchor.getAttribute("data-help-field");
+        if (!key) return;
+        const entry = getEntry(key);
+        if (!entry) return;
+        fireValidation(entry, anchor);
+      }, 180);
+    };
+
     window.addEventListener("keydown", onKey, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("mousemove", onMove, { passive: true });
     document.addEventListener("pointerdown", onDown, true);
+    document.addEventListener("submit", onSubmit, true);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", onScroll);
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("pointerdown", onDown, true);
+      document.removeEventListener("submit", onSubmit, true);
       window.clearTimeout(dwellTimer);
+      window.clearTimeout(submitTimer);
+      window.clearTimeout(valClear);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registry, route]);
