@@ -3,6 +3,8 @@ import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { HelpAuditOverlay } from "./HelpAuditOverlay";
 import { HelpContent } from "./HelpContent";
+import { HelpDiscovery } from "./HelpDiscovery";
+import { InsuranceReminder } from "./InsuranceReminder";
 import { getCachedRegistry, loadRegistry } from "./registry";
 import type {
   HelpContext as HelpCtxData,
@@ -356,6 +358,20 @@ export function HelpProvider({ children }: { children: React.ReactNode }) {
     <HelpCtx.Provider value={value}>
       {children}
       {enabled && <DataHelpBubble getEntry={getEntry} onSeen={markSeen} delayMs={delayMs} />}
+      {enabled && mode === "full" && (
+        <HelpDiscovery
+          registry={registry}
+          getEntry={getEntry}
+          keyStateRef={keyStateRef}
+          routeVisitsRef={routeVisitsRef}
+          route={routePattern(location)}
+          markSeen={markSeen}
+          markDismissed={markDismissed}
+        />
+      )}
+      {/* Standing login reminder — deliberately outside the help on/off toggle and
+          the discovery budget, so it shows on every fresh dashboard visit. */}
+      {!!user && <InsuranceReminder route={routePattern(location)} />}
       {import.meta.env.DEV && <HelpAuditOverlay registry={registry} />}
     </HelpCtx.Provider>
   );

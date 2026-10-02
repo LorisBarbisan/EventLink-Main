@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
+import { useHelpComplete } from "@/help/useHelp";
 import type { FreelancerFormData, JobApplication } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -70,6 +71,8 @@ export default function SimplifiedFreelancerDashboard() {
     const tabParam = urlParams.get("tab");
     return tabParam || "profile";
   });
+
+  const completeHelpMain = useHelpComplete();
 
   // Track active conversation ID from URL
   const [activeConversationId, setActiveConversationId] = useState<number | null>(() => {
@@ -182,6 +185,8 @@ export default function SimplifiedFreelancerDashboard() {
       markCategoryAsRead("applications");
     } else if (tab === "bookings") {
       markCategoryAsRead("ratings");
+      // Opening the Ratings tab counts as using it — stop prompting about it.
+      completeHelpMain("dashboard.tab.pendingRatings");
     }
     // Removed: markCategoryAsRead('messages') - keep message notifications unread until user reads them
   };
@@ -534,6 +539,7 @@ export default function SimplifiedFreelancerDashboard() {
 
 function ReferenceRequestsSection({ userId }: { userId: number }) {
   const { toast } = useToast();
+  const completeHelp = useHelpComplete();
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
 
@@ -559,6 +565,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
       });
     },
     onSuccess: () => {
+      completeHelp("profile.references");
       toast({ title: "Request sent", description: "Reference request email has been sent." });
       setNewEmail("");
       setNewName("");

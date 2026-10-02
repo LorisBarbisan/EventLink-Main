@@ -22,6 +22,16 @@ export function useHelp(k: string) {
 }
 
 /**
+ * Returns a `complete(key)` callback. Call it from a feature's success handler
+ * when the user actually uses the thing a discovery prompt describes — that
+ * feature's prompt then never fires again. No-op without a provider.
+ */
+export function useHelpComplete(): (key: string) => void {
+  const ctx = useContext(HelpCtx);
+  return (key: string) => ctx?.markCompleted(key);
+}
+
+/**
  * Read and change the help mode for the settings toggle. Honoured instantly, no
  * reload. `available` is false when there is no provider (logged out).
  */

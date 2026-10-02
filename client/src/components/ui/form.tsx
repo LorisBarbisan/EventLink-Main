@@ -144,7 +144,14 @@ const FormControl = React.forwardRef<
   React.ElementRef<typeof Slot>,
   React.ComponentPropsWithoutRef<typeof Slot>
 >(({ ...props }, ref) => {
-  const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
+  const { error, formItemId, formDescriptionId, formMessageId, name } = useFormField();
+  const namespace = React.useContext(HelpNamespaceContext);
+  // Stamp the field's help key onto the control (separate from `data-help`, so it
+  // only feeds the validation-failure signal, never the hover/discovery anchors).
+  // Only when a registry entry actually exists, so nothing leaks onto bare fields.
+  const helpKey = namespace ? `form.${namespace}.${name}` : "";
+  const help = useHelp(helpKey);
+  const fieldHelpKey = helpKey && help.enabled && help.entry ? helpKey : undefined;
 
   return (
     <Slot
@@ -152,6 +159,7 @@ const FormControl = React.forwardRef<
       id={formItemId}
       aria-describedby={!error ? `${formDescriptionId}` : `${formDescriptionId} ${formMessageId}`}
       aria-invalid={!!error}
+      data-help-field={fieldHelpKey}
       {...props}
     />
   );
