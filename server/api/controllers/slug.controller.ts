@@ -12,7 +12,8 @@ export async function checkSlugAvailability(req: Request, res: Response) {
   if (!SLUG_REGEX.test(slug)) {
     return res.json({
       available: false,
-      reason: "Must be 3–30 characters, lowercase letters, numbers, and hyphens only. Cannot start or end with a hyphen.",
+      reason:
+        "Must be 3–30 characters, lowercase letters, numbers, and hyphens only. Cannot start or end with a hyphen.",
     });
   }
 
@@ -21,7 +22,7 @@ export async function checkSlugAvailability(req: Request, res: Response) {
 }
 
 export async function setCustomSlug(req: Request, res: Response) {
-  if (!req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
+  if (!req.user && !req.isAuthenticated()) return res.status(401).json({ error: "Unauthorized" });
 
   const userId = (req.user as any).id as number;
   const { slug } = req.body as { slug: string | null };
