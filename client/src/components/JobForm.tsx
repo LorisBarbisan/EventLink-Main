@@ -90,7 +90,8 @@ export function JobForm({
 
   const currencySymbol = CURRENCIES.find((c) => c.code === formData.currency)?.symbol || "£";
 
-  const isValid = formData.title && formData.location && formData.rate && formData.event_date;
+  const isValid =
+    formData.title && formData.location && formData.country && formData.rate && formData.event_date;
 
   return (
     <Card>
@@ -131,7 +132,7 @@ export function JobForm({
             />
           </div>
           <div>
-            <Label htmlFor="country">Country</Label>
+            <Label htmlFor="country">Country *</Label>
             <CountrySelect
               id="country"
               value={formData.country || ""}

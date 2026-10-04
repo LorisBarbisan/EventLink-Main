@@ -1,5 +1,6 @@
 import { freelancer_profiles } from "@shared/schema";
 import { or, sql, type SQL } from "drizzle-orm";
+import { getNearbyLocationNames } from "./uk-coordinates";
 
 /** Keyword filter: title, full name, bio, or individual skills (case-insensitive). */
 export function freelancerKeywordCondition(keyword: string): SQL {
@@ -15,8 +16,18 @@ export function freelancerKeywordCondition(keyword: string): SQL {
   )!;
 }
 
-/** Location filter (case-insensitive partial match). */
+/**
+ * Location filter (case-insensitive). Matches the typed place as a substring AND
+ * fans out to nearby known locations, so a city search also returns its
+ * sub-locations — e.g. "London" matches freelancers stored under its boroughs
+ * (Camden, Westminster, …) instead of excluding them. Places outside the
+ * coordinate table simply fall back to the plain substring match.
+ */
 export function freelancerLocationCondition(location: string): SQL {
-  const locationTerm = `%${location.trim().toLowerCase()}%`;
-  return sql`LOWER(${freelancer_profiles.location}) LIKE ${locationTerm}`;
+  const base = location.trim().toLowerCase();
+  const terms = new Set<string>([base, ...getNearbyLocationNames(location)]);
+  const conditions = Array.from(terms)
+    .filter((term) => term.length > 0)
+    .map((term) => sql`LOWER(${freelancer_profiles.location}) LIKE ${`%${term}%`}`);
+  return conditions.length === 1 ? conditions[0] : or(...conditions)!;
 }

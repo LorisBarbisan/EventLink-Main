@@ -475,6 +475,8 @@ export const insertJobSchema = createInsertSchema(jobs)
     company: z.string().min(1, "Company name is required"),
     title: z.string().min(1, "Job title is required"),
     location: z.string().min(1, "Location is required"),
+    country: z.string().min(1, "Country is required"),
+    rate: z.string().min(1, "Rate is required"),
     description: z.string().optional().default(""),
     type: z.string().optional().default("freelance"),
   });
@@ -498,6 +500,8 @@ export const insertFreelancerJobSchema = createInsertSchema(jobs)
   .extend({
     title: z.string().min(1, "Job title is required"),
     location: z.string().min(1, "Location is required"),
+    country: z.string().min(1, "Country is required"),
+    rate: z.string().min(1, "Rate is required"),
     description: z.string().optional().default(""),
     type: z.string().optional().default("freelance"),
     company: z.string().optional(),
