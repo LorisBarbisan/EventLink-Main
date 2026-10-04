@@ -28,7 +28,7 @@ export function parseRateToPence(raw: string | null): ParsedPence {
   // Only match a clean numeric value at the start, possibly with comma separators
   // e.g. "350", "1,200", "350.50" — but NOT "350/day + travel"
   const match = withoutCurrency.match(
-    /^(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)(\s*$|(?:\s*\/\s*(?:day|hr|hour|week|month))?\s*$)/i
+    /^(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)(\s*(?:\/\s*(?<unit>day|hr|hour|week|month))?\s*)$/i
   );
 
   if (!match) {
@@ -42,7 +42,10 @@ export function parseRateToPence(raw: string | null): ParsedPence {
     return { pence: null, confident: false, raw: cleaned };
   }
 
-  return { pence: Math.round(num * 100), confident: true, raw: cleaned };
+  const unit = (match.groups?.unit ?? "").toLowerCase();
+  // Weekly/monthly rates can't be multiplied by a day/hour count — flag as low-confidence
+  const confident = unit !== "week" && unit !== "month";
+  return { pence: Math.round(num * 100), confident, raw: cleaned };
 }
 
 /**

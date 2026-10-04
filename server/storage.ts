@@ -6013,6 +6013,7 @@ export class DatabaseStorage implements IStorage {
       .set({ subscription_tier: tier })
       .where(eq(users.id, userId))
       .returning();
+    cache.clearPattern(`user:${userId}`);
     return result[0];
   }
 

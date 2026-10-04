@@ -159,6 +159,7 @@ export async function createIdentitySession(req: Request, res: Response) {
     const user = (req as any).user;
     if (!user) return res.status(401).json({ error: "Unauthorised" });
     if (user.role !== "freelancer") return res.status(403).json({ error: "Freelancers only" });
+    if (user.subscription_tier !== "pro") return res.status(403).json({ error: "Pro required" });
 
     const stripe = getStripe();
     const appUrl = process.env.APP_URL || "http://localhost:5000";

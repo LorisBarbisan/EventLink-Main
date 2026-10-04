@@ -88,8 +88,8 @@ export default function Billing() {
         <div className="mb-12 text-center">
           <h1 className="mb-3 text-4xl font-bold">Simple, transparent pricing</h1>
           <p className="mx-auto max-w-xl text-muted-foreground">
-            EventLink is free to use. Upgrade to Pro to unlock your portfolio, Digital Business
-            Card, and tools that help you stand out.
+            EventLink is free to use. Upgrade to Pro to unlock your Digital Business Card and tools
+            that help you stand out.
           </p>
         </div>
 

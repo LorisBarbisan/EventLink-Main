@@ -562,6 +562,8 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
   const jobIdMatch = req.path.match(/^\/jobs\/(\d+)$/);
   const jobSlugMatch = req.path.match(/^\/jobs\/([a-z][a-z0-9-]+)$/);
   const profileIdMatch = req.path.match(/^\/profile\/(\d+)$/);
+  const cardUserIdMatch = req.path.match(/^\/card\/(\d+)$/);
+  const profileSlugMatch = req.path.match(/^\/profile\/([a-z][a-z0-9-]+)$/);
   const freelancerSlugMatch = req.path.match(/^\/freelancers\/([a-z][a-z0-9-]+)$/);
   const employerSlugMatch = req.path.match(/^\/employers\/([a-z][a-z0-9-]+)$/);
 
@@ -656,6 +658,18 @@ export function ogTagMiddleware(req: Request, res: Response, next: NextFunction)
     const userId = parseInt(profileIdMatch[1]);
     if (isNaN(userId)) return next();
     handleProfile(() => storage.getFreelancerProfile(userId), userId);
+    return;
+  }
+
+  if (cardUserIdMatch) {
+    const userId = parseInt(cardUserIdMatch[1]);
+    if (isNaN(userId)) return next();
+    handleProfile(() => storage.getFreelancerProfile(userId), userId);
+    return;
+  }
+
+  if (profileSlugMatch) {
+    handleProfile(() => storage.getFreelancerProfileBySlug(profileSlugMatch[1]));
     return;
   }
 

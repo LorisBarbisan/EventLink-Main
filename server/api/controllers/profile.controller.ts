@@ -118,6 +118,11 @@ export async function getFreelancerProfile(req: Request, res: Response) {
       }
     }
 
+    // Private profiles are only visible to their owner
+    if (!isOwner && !(resolvedProfile as any).profile_is_public) {
+      return res.status(404).json({ error: "Freelancer profile not found" });
+    }
+
     const responseProfile = isOwner
       ? resolvedProfile
       : { ...resolvedProfile, reference_token: undefined };
@@ -182,7 +187,17 @@ export async function updateFreelancerProfile(req: Request, res: Response) {
     }
     console.log("Parsed payload:", result.data);
 
-    const profile = await storage.updateFreelancerProfile(userId, result.data);
+    // Strip Pro-only fields for free-tier users
+    const user = (req as any).user;
+    const isPro = user?.subscription_tier === "pro" || user?.role === "admin";
+    const payload = { ...result.data };
+    if (!isPro) {
+      delete (payload as any).profile_theme;
+      delete (payload as any).phone;
+      delete (payload as any).contact_email;
+    }
+
+    const profile = await storage.updateFreelancerProfile(userId, payload);
     if (!profile) {
       return res.status(404).json({ error: "Profile not found" });
     }

@@ -5,9 +5,12 @@ import { computeUserRole, getOrigin, isTokenBlacklisted, verifyJWTToken } from "
 // JWT Authentication Middleware
 export const authenticateJWT = async (req: any, res: any, next: any) => {
   try {
-    // Check for JWT token in Authorization header
+    // Check for JWT token in Authorization header or ?token= query param (browser download links)
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
+    const token =
+      (authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null) ||
+      (req.query?.token as string | undefined) ||
+      null;
 
     if (!token) {
       return res.status(401).json({ error: "Not authenticated" });

@@ -123,7 +123,9 @@ function ExportCard() {
   })();
 
   const dl = (path: string) => {
-    window.location.href = path;
+    const token = localStorage.getItem("auth_token");
+    const sep = path.includes("?") ? "&" : "?";
+    window.location.href = token ? `${path}${sep}token=${encodeURIComponent(token)}` : path;
   };
 
   return (

@@ -20,7 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Zap, AlertTriangle, Download, Plus, Trash2, Archive } from "lucide-react";
+import { FileText, Zap, AlertTriangle, Download, Plus, Trash2, Archive, Send } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 // ── PDF download (auth-aware) ─────────────────────────────────────────────────
 
@@ -605,12 +606,14 @@ function InvoiceRow({
   onOpen,
   onDelete,
   onArchive,
+  onSend,
 }: {
   invoice: Invoice;
   onMarkPaid: (id: number) => void;
   onOpen: (inv: Invoice) => void;
   onDelete: (id: number) => void;
   onArchive: (id: number) => void;
+  onSend: (inv: Invoice) => void;
 }) {
   const clientName = invoice.to_details?.company || invoice.to_details?.name || "—";
 
@@ -665,6 +668,17 @@ function InvoiceRow({
               <Archive className="h-4 w-4" />
             </button>
           )}
+          {invoice.status === "draft" && invoice.booking_id && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => onSend(invoice)}
+            >
+              <Send className="mr-1 h-3 w-3" />
+              Send
+            </Button>
+          )}
           {invoice.status === "draft" && (
             <button
               onClick={() => onDelete(invoice.id)}
@@ -688,6 +702,8 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [showBillingSetup, setShowBillingSetup] = useState(false);
+  const [sendingInvoice, setSendingInvoice] = useState<Invoice | null>(null);
+  const [sendMessage, setSendMessage] = useState("");
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
@@ -724,6 +740,18 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
       toast({ title: "Invoice archived" });
     },
     onError: () => toast({ title: "Failed to archive invoice", variant: "destructive" }),
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: ({ id, message }: { id: number; message: string }) =>
+      apiRequest(`/api/invoices/${id}/send-message`, { method: "POST", body: { message } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ title: "Invoice sent via message" });
+      setSendingInvoice(null);
+      setSendMessage("");
+    },
+    onError: () => toast({ title: "Failed to send invoice", variant: "destructive" }),
   });
 
   const createMutation = useMutation({
@@ -764,7 +792,7 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
               export records.
             </p>
           </div>
-          <Button className="gap-2" onClick={() => (window.location.href = "/upgrade")}>
+          <Button className="gap-2" onClick={() => (window.location.href = "/billing")}>
             <Zap className="h-4 w-4" />
             Upgrade to Pro
           </Button>
@@ -923,6 +951,10 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
                   onOpen={setEditingInvoice}
                   onDelete={(id) => deleteMutation.mutate(id)}
                   onArchive={(id) => archiveMutation.mutate(id)}
+                  onSend={(inv) => {
+                    setSendingInvoice(inv);
+                    setSendMessage("");
+                  }}
                 />
               ))}
             </tbody>
@@ -1011,6 +1043,47 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
       {editingInvoice && (
         <InvoiceEditModal invoice={editingInvoice} onClose={() => setEditingInvoice(null)} />
       )}
+
+      {/* Send via message dialog */}
+      <Dialog open={!!sendingInvoice} onOpenChange={(o) => !o && setSendingInvoice(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send invoice via message</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Invoice{" "}
+              <span className="font-mono font-medium">{sendingInvoice?.invoice_number}</span> will
+              be attached as a PDF in your conversation with the client.
+            </p>
+            <div className="space-y-1">
+              <Label htmlFor="send-msg">Covering note</Label>
+              <Textarea
+                id="send-msg"
+                rows={4}
+                placeholder="Hi, please find your invoice attached…"
+                value={sendMessage}
+                onChange={(e) => setSendMessage(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSendingInvoice(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!sendMessage.trim() || sendMutation.isPending}
+              onClick={() =>
+                sendingInvoice &&
+                sendMutation.mutate({ id: sendingInvoice.id, message: sendMessage })
+              }
+            >
+              <Send className="mr-2 h-4 w-4" />
+              Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

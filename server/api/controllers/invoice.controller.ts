@@ -171,8 +171,8 @@ export async function createInvoiceFromBooking(req: Request, res: Response) {
     };
 
     const toDetails = {
-      company_name: recruiterProfile?.company_name ?? employerUser?.email ?? "",
-      contact_name: recruiterProfile?.contact_name ?? null,
+      company: recruiterProfile?.company_name ?? "",
+      name: recruiterProfile?.contact_name ?? employerUser?.email ?? "",
       email: employerUser?.email ?? null,
     };
 
