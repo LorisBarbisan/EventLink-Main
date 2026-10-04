@@ -21,10 +21,17 @@ export async function createCheckoutSession(req: Request, res: Response) {
     const stripe = getStripe();
     const appUrl = process.env.APP_URL || "http://localhost:5000";
 
+    // Reuse existing Stripe customer if we already have one, so re-upgrades
+    // don't create a second customer record and lose payment history.
+    const dbUser = await storage.getUser(user.id);
+    const customerParam: Record<string, string> = dbUser?.stripe_customer_id
+      ? { customer: dbUser.stripe_customer_id }
+      : { customer_email: user.email };
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      customer_email: user.email,
+      ...customerParam,
       metadata: { userId: String(user.id) },
       success_url: `${appUrl}/billing?success=1`,
       cancel_url: `${appUrl}/billing?cancelled=1`,
