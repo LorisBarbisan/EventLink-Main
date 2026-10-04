@@ -46,7 +46,7 @@ const schema = z.object({
   title: z.string().min(1, "Job title is required"),
   company: z.string().optional(),
   location: z.string().min(1, "Location is required"),
-  country: z.string().optional(),
+  country: z.string().min(1, "Country is required"),
   currency: z.string().min(1),
   rate: z.string().min(1, "Rate / budget is required"),
   description: z.string().min(10, "Please add a description (at least 10 characters)"),
@@ -270,8 +270,7 @@ export default function PostJob() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Country{" "}
-                          <span className="text-xs font-normal text-gray-400">(optional)</span>
+                          Country <span className="text-red-500">*</span>
                         </FormLabel>
                         <FormControl>
                           <CountrySelect value={field.value ?? ""} onChange={field.onChange} />
