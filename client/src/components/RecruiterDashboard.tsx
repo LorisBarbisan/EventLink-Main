@@ -798,7 +798,7 @@ export default function SimplifiedRecruiterDashboard() {
           <div className="rounded-xl border bg-card p-6">
             <h2 className="mb-1 text-lg font-semibold">Your job postings</h2>
             <p className="text-sm text-muted-foreground">
-              {jobs.length} active job{jobs.length !== 1 ? "s" : ""}
+              {myJobs.length} active job{myJobs.length !== 1 ? "s" : ""}
             </p>
           </div>
 
@@ -1806,5 +1806,6 @@ export default function SimplifiedRecruiterDashboard() {
     </div>
   );
 }
+
 
 
