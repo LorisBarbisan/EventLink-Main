@@ -354,7 +354,7 @@ export function CompanyProfilePanel() {
         <div>
           <h2 className="text-xl font-semibold">Edit Company Profile</h2>
           <p className="text-sm text-muted-foreground">
-            Visible to freelancers when they view your bookings and job postings.
+            Public details are visible to freelancers. Accounting & legal fields are for your records only and are never shown publicly.
           </p>
         </div>
         <div className="flex gap-2">

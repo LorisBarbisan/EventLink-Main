@@ -160,3 +160,26 @@ export const handleWebhook = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Webhook processing failed" });
   }
 };
+
+export const activateDev = async (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === "production" && process.env.STRIPE_SECRET_KEY) {
+    return res.status(403).json({ error: "Only available outside production with Stripe configured" });
+  }
+  try {
+    const employerId = req.user?.id;
+    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
+    const tier = req.body.tier === "teams" ? "teams" : "pro";
+    await storage.upsertSubscription({
+      employerId,
+      stripeCustomerId: `dev_bypass_${employerId}`,
+      stripeSubscriptionId: `dev_sub_${employerId}`,
+      tier,
+      status: "active",
+      cancelAtPeriodEnd: false,
+    });
+    return res.json({ subscribed: true, tier, status: "active" });
+  } catch (err: any) {
+    console.error("activateDev error:", err.message);
+    return res.status(500).json({ error: "Failed to activate dev subscription" });
+  }
+};

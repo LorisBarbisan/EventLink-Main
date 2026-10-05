@@ -5,6 +5,7 @@ import {
   createCheckout,
   openPortal,
   getSubscriptionStatus,
+  activateDev,
 } from "../controllers/subscription.controller.js";
 
 const subscriptionRouter = express.Router();
@@ -12,5 +13,7 @@ const subscriptionRouter = express.Router();
 subscriptionRouter.get("/status", authenticateJWT, requireRole("recruiter"), getSubscriptionStatus);
 subscriptionRouter.post("/checkout", authenticateJWT, requireRole("recruiter"), createCheckout);
 subscriptionRouter.post("/portal", authenticateJWT, requireRole("recruiter"), openPortal);
+// Dev-only: bypass Stripe and activate FMS subscription directly
+subscriptionRouter.post("/activate-dev", authenticateJWT, requireRole("recruiter"), activateDev);
 
 export default subscriptionRouter;

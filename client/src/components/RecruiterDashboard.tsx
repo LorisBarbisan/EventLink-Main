@@ -46,6 +46,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Bookmark,
+  Check,
+  Zap,
   Briefcase,
   Building2,
   CalendarDays,
@@ -372,12 +374,13 @@ export default function SimplifiedRecruiterDashboard() {
   });
 
   // Subscription tier for conditional team tab
-  const { data: subData } = useQuery<{ tier: string; status: string }>({
+  const { data: subData, isLoading: subLoading } = useQuery<{ subscribed: boolean; tier: string | null; status: string | null }>({
     queryKey: ["/api/subscription/status"],
     queryFn: () => apiRequest("/api/subscription/status"),
     enabled: !!user?.id,
   });
   const isTeamsTier = subData?.tier === "teams";
+  const isSubscribed = subLoading || subData === undefined || subData?.subscribed !== false;
 
   // Fetch unread message count with optimized polling
   const { data: unreadCount } = useQuery({
@@ -766,6 +769,63 @@ export default function SimplifiedRecruiterDashboard() {
     (app: JobApplication) => app.status === "declined" || app.status === "hired"
   );
 
+
+  // Free-tier gate: show upgrade prompt if not subscribed
+  if (!isSubscribed) {
+    return (
+      <div className="container mx-auto min-w-0 max-w-full px-1 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-6">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold sm:text-3xl">
+              <span className="text-primary">Employer</span> Dashboard
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Manage your company profile, job postings, and applications
+            </p>
+          </div>
+        </div>
+
+        {/* Jobs & Applications — same as before, no gate */}
+        <div className="space-y-6">
+          <div className="rounded-xl border bg-card p-6">
+            <h2 className="mb-1 text-lg font-semibold">Your job postings</h2>
+            <p className="text-sm text-muted-foreground">
+              {jobs.length} active job{jobs.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+
+          {/* FMS upgrade banner */}
+          <div className="overflow-hidden rounded-2xl border-2 border-primary bg-gradient-to-br from-primary/5 to-primary/10 p-8 text-center shadow-sm">
+            <div className="mb-4 flex justify-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                <Zap className="h-7 w-7 text-primary" />
+              </div>
+            </div>
+            <h2 className="mb-2 text-2xl font-bold">Unlock the Freelancer Management System</h2>
+            <p className="mx-auto mb-6 max-w-md text-muted-foreground">
+              Get the full back-office toolkit — booking calendar, availability enquiries, IR35
+              tracking, invoicing, team management and more.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3 text-sm text-muted-foreground mb-6">
+              {["Booking Calendar", "Availability Enquiries", "IR35 Tracking", "Invoicing", "Team Management", "Export Tools"].map((f) => (
+                <span key={f} className="flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 shadow-sm">
+                  <Check className="h-3.5 w-3.5 text-primary" /> {f}
+                </span>
+              ))}
+            </div>
+            <Button
+              size="lg"
+              className="bg-primary px-8 font-semibold text-white hover:bg-primary/90"
+              onClick={() => window.location.href = "/fms-pricing"}
+            >
+              <Zap className="mr-2 h-5 w-5 fill-white" />
+              Upgrade to FMS
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="container mx-auto min-w-0 max-w-full px-1 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-6">
       {/* Dashboard header */}
