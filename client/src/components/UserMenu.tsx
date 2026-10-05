@@ -10,7 +10,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { getEffectiveCompanyId, isManagerTeamMember } from "@/lib/employerContext";
-import { Bell, HelpCircle, LogOut, Settings, Star, User, UserCircle } from "lucide-react";
+import { Bell, CreditCard, HelpCircle, LogOut, Settings, Star, User, UserCircle } from "lucide-react";
 import { useLocation } from "wouter";
 
 export const UserMenu = () => {
@@ -203,3 +203,4 @@ export const UserMenu = () => {
     </DropdownMenu>
   );
 };
+

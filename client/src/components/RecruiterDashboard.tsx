@@ -382,13 +382,7 @@ export default function SimplifiedRecruiterDashboard() {
   const isTeamsTier = subData?.tier === "teams";
   const isSubscribed = !subLoading && subData?.subscribed === true;
 
-  // Apply FMS blue theme on root element while subscribed view is mounted
-  useEffect(() => {
-    if (isSubscribed) {
-      document.documentElement.classList.add("fms-theme");
-      return () => { document.documentElement.classList.remove("fms-theme"); };
-    }
-  }, [isSubscribed]);
+
 
   // Fetch unread message count with optimized polling
   const { data: unreadCount } = useQuery({
@@ -778,15 +772,37 @@ export default function SimplifiedRecruiterDashboard() {
   );
 
 
+  const fmsVars = isSubscribed ? {
+    "--primary": "204 100% 59%",
+    "--primary-hover": "204 100% 54%",
+    "--ring": "204 100% 59%",
+    "--gradient-primary": "linear-gradient(135deg, hsl(204 100% 59%), hsl(204 100% 74%))",
+  } as React.CSSProperties : {};
+
   return (
-    <div className="container mx-auto min-w-0 max-w-full px-1 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-6">
+    <div style={fmsVars}>
+      <div className="container mx-auto min-w-0 max-w-full px-1 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-6">
       {/* Dashboard header */}
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Employer Dashboard</h1>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
+            {isSubscribed ? (
+              <><span className="text-primary">FMS</span> Dashboard</>
+            ) : (
+              <>Employer Dashboard</>
+            )}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Manage your company profile, job postings, and applications
           </p>
+          {!isSubscribed && (
+            <a
+              href="/fms-pricing"
+              className="mt-2 inline-flex items-center gap-1 rounded-full border border-blue-300 px-3 py-0.5 text-xs font-medium text-blue-600 hover:bg-blue-50"
+            >
+              <Zap className="h-3 w-3" /> Upgrade to FMS
+            </a>
+          )}
         </div>
         <ExportButton />
       </div>
@@ -1748,10 +1764,7 @@ export default function SimplifiedRecruiterDashboard() {
         </DialogContent>
       </Dialog>
     </div>
+    </div>
   );
 }
-
-
-
-
 
