@@ -380,7 +380,7 @@ export default function SimplifiedRecruiterDashboard() {
     enabled: !!user?.id,
   });
   const isTeamsTier = subData?.tier === "teams";
-  const isSubscribed = subLoading || subData === undefined || subData?.subscribed !== false;
+  const isSubscribed = !subLoading && subData?.subscribed === true;
 
   // Fetch unread message count with optimized polling
   const { data: unreadCount } = useQuery({
@@ -1796,5 +1796,6 @@ export default function SimplifiedRecruiterDashboard() {
         </DialogContent>
       </Dialog>
     </div>
+    </div>
   );
-}
+
