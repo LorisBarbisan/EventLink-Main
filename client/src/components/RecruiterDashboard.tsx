@@ -382,6 +382,14 @@ export default function SimplifiedRecruiterDashboard() {
   const isTeamsTier = subData?.tier === "teams";
   const isSubscribed = !subLoading && subData?.subscribed === true;
 
+  // Apply FMS blue theme on root element while subscribed view is mounted
+  useEffect(() => {
+    if (isSubscribed) {
+      document.documentElement.classList.add("fms-theme");
+      return () => { document.documentElement.classList.remove("fms-theme"); };
+    }
+  }, [isSubscribed]);
+
   // Fetch unread message count with optimized polling
   const { data: unreadCount } = useQuery({
     queryKey: ["/api/messages/unread-count", user?.id],
@@ -1796,6 +1804,7 @@ export default function SimplifiedRecruiterDashboard() {
         </DialogContent>
       </Dialog>
     </div>
-    </div>
   );
+}
+
 
