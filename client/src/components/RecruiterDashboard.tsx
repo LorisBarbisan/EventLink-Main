@@ -3,9 +3,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { TabBadge } from "@/components/ui/tab-badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MyBookings from "@/pages/employer/MyBookings";
 import { BillingPanel } from "./fms/BillingPanel";
@@ -13,7 +26,6 @@ import { Ir35GuidanceTab } from "./fms/Ir35GuidanceTab";
 import { TeamManagementPanel } from "./fms/TeamManagementPanel";
 import { BookingCalendar } from "./fms/BookingCalendar";
 import { CompanyProfilePanel } from "./fms/CompanyProfilePanel";
-import { QuotingPanel } from "./fms/QuotingPanel";
 import { InvoicePanel } from "./fms/InvoicePanel";
 import { EnquiryList } from "./fms/EnquiryList";
 import { ExportButton } from "./fms/ExportButton";
@@ -23,11 +35,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useProfile } from "@/hooks/useProfile";
 import { useHelpComplete } from "@/help/useHelp";
-import { canManageCompanySettings, getEffectiveCompanyId, isManagerTeamMember } from "@/lib/employerContext";
+import {
+  canManageCompanySettings,
+  getEffectiveCompanyId,
+  isManagerTeamMember,
+} from "@/lib/employerContext";
 import { apiRequest } from "@/lib/queryClient";
 import type { Job, JobApplication, JobFormData } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   Bookmark,
   Briefcase,
   Building2,
@@ -117,7 +134,22 @@ export default function SimplifiedRecruiterDashboard() {
       const actionParam = urlParams.get("action");
 
       // Switch to tab specified in URL (e.g., from notifications)
-      if (tabParam && ["calendar", "jobs", "bookings", "applications", "availability", "messages", "crew", "ir35", "team", "billing", "profile"].includes(tabParam)) {
+      if (
+        tabParam &&
+        [
+          "calendar",
+          "jobs",
+          "bookings",
+          "applications",
+          "availability",
+          "messages",
+          "crew",
+          "ir35",
+          "team",
+          "billing",
+          "profile",
+        ].includes(tabParam)
+      ) {
         if (tabParam !== activeTab) {
           setActiveTab(tabParam);
         }
@@ -148,13 +180,21 @@ export default function SimplifiedRecruiterDashboard() {
     if (urlParams2.get("team_joined") === "true") {
       toast({ title: "You have joined the team!" });
       urlParams2.delete("team_joined");
-      window.history.replaceState({}, "", `${window.location.pathname}${urlParams2.toString() ? `?${urlParams2.toString()}` : ""}`);
+      window.history.replaceState(
+        {},
+        "",
+        `${window.location.pathname}${urlParams2.toString() ? `?${urlParams2.toString()}` : ""}`
+      );
     }
     const inviteError = urlParams2.get("invite_error");
     if (inviteError) {
       toast({ title: decodeURIComponent(inviteError), variant: "destructive" });
       urlParams2.delete("invite_error");
-      window.history.replaceState({}, "", `${window.location.pathname}${urlParams2.toString() ? `?${urlParams2.toString()}` : ""}`);
+      window.history.replaceState(
+        {},
+        "",
+        `${window.location.pathname}${urlParams2.toString() ? `?${urlParams2.toString()}` : ""}`
+      );
     }
 
     // Check on mount
@@ -228,14 +268,32 @@ export default function SimplifiedRecruiterDashboard() {
 
   const { data: jobDetailData, isLoading: jobDetailLoading } = useQuery<{
     job: {
-      id: number; title: string; company: string; location: string; rate: string;
-      description: string; status: string; event_date?: string; end_date?: string;
-      start_time?: string; end_time?: string; duration_type?: string; days?: number;
-      hours?: number; created_at: string; application_count: number; hired_count: number;
+      id: number;
+      title: string;
+      company: string;
+      location: string;
+      rate: string;
+      description: string;
+      status: string;
+      event_date?: string;
+      end_date?: string;
+      start_time?: string;
+      end_time?: string;
+      duration_type?: string;
+      days?: number;
+      hours?: number;
+      created_at: string;
+      application_count: number;
+      hired_count: number;
     };
     applications: Array<{
-      id: number; freelancer_id: number; status: string; applied_at: string;
-      freelancer_name: string; freelancer_email: string; freelancer_title?: string | null;
+      id: number;
+      freelancer_id: number;
+      status: string;
+      applied_at: string;
+      freelancer_name: string;
+      freelancer_email: string;
+      freelancer_title?: string | null;
     }>;
   }>({
     queryKey: ["/api/jobs", selectedJobDetailId, "detail"],
@@ -245,9 +303,16 @@ export default function SimplifiedRecruiterDashboard() {
   });
 
   const { data: freelancerProfileData, isLoading: freelancerProfileLoading } = useQuery<{
-    user_id: number; first_name: string; last_name: string; title?: string;
-    bio?: string; location?: string; experience_years?: number; daily_rate?: number;
-    skills?: string[]; profile_image_url?: string;
+    user_id: number;
+    first_name: string;
+    last_name: string;
+    title?: string;
+    bio?: string;
+    location?: string;
+    experience_years?: number;
+    daily_rate?: number;
+    skills?: string[];
+    profile_image_url?: string;
   }>({
     queryKey: ["/api/freelancer", selectedFreelancerId],
     queryFn: () => apiRequest(`/api/freelancer/${selectedFreelancerId}`),
@@ -685,7 +750,9 @@ export default function SimplifiedRecruiterDashboard() {
     setShowJobForm(true);
     // Scroll to the form
     setTimeout(() => {
-      document.getElementById("job-form-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document
+        .getElementById("job-form-section")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
   };
 
@@ -700,20 +767,39 @@ export default function SimplifiedRecruiterDashboard() {
   );
 
   return (
-    <div className="container mx-auto max-w-full min-w-0 px-1 pt-4 pb-6 sm:px-6 sm:pt-6 sm:pb-8">
+    <div className="container mx-auto min-w-0 max-w-full px-1 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-6">
       {/* Dashboard header */}
-      <div className="flex items-start justify-between gap-4 mb-4">
+      <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold sm:text-3xl text-foreground">
-            Employer Dashboard
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Employer Dashboard</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Manage your company profile, job postings, and applications
           </p>
         </div>
         <ExportButton />
       </div>
 
+
+      {/* Accounting details incomplete banner */}
+      {profile && (!( profile as any).address_line1 || !(profile as any).company_registration_number) && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
+          <div className="flex-1">
+            <p className="font-medium">Complete your company details</p>
+            <p className="mt-0.5 text-amber-700">
+              Your registered address and company registration number are required for invoicing and
+              accounting. Please complete your{" "}
+              <button
+                className="font-semibold underline underline-offset-2 hover:text-amber-900"
+                onClick={() => setActiveTab("profile")}
+              >
+                company profile
+              </button>
+              .
+            </p>
+          </div>
+        </div>
+      )}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         {/* Compact dropdown navigation replacing the 10–11 column tab bar */}
         <div className="flex items-center gap-3">
@@ -723,53 +809,70 @@ export default function SimplifiedRecruiterDashboard() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="calendar">
-                <span className="flex items-center gap-2"><CalendarDays className="h-4 w-4" /> Calendar</span>
+                <span className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" /> Calendar
+                </span>
               </SelectItem>
               <SelectItem value="jobs">
                 <span className="flex items-center gap-2">
                   <Briefcase className="h-4 w-4" /> My Jobs
                   {(roleSpecificCounts.jobs || 0) > 0 && (
-                    <Badge variant="destructive" className="text-xs">{roleSpecificCounts.jobs}</Badge>
+                    <Badge variant="destructive" className="text-xs">
+                      {roleSpecificCounts.jobs}
+                    </Badge>
                   )}
                 </span>
               </SelectItem>
               <SelectItem value="bookings">
-                <span className="flex items-center gap-2"><ClipboardList className="h-4 w-4" /> Bookings</span>
+                <span className="flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4" /> Bookings
+                </span>
               </SelectItem>
               <SelectItem value="applications">
                 <span className="flex items-center gap-2">
                   <Users className="h-4 w-4" /> Applications
                   {(roleSpecificCounts.applications || 0) > 0 && (
-                    <Badge variant="destructive" className="text-xs">{roleSpecificCounts.applications}</Badge>
+                    <Badge variant="destructive" className="text-xs">
+                      {roleSpecificCounts.applications}
+                    </Badge>
                   )}
                 </span>
               </SelectItem>
               <SelectItem value="availability">
-                <span className="flex items-center gap-2"><Send className="h-4 w-4" /> Availability</span>
+                <span className="flex items-center gap-2">
+                  <Send className="h-4 w-4" /> Availability
+                </span>
               </SelectItem>
               <SelectItem value="messages">
                 <span className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" /> Messages
                   {(roleSpecificCounts.messages || 0) > 0 && (
-                    <Badge variant="destructive" className="text-xs">{roleSpecificCounts.messages}</Badge>
+                    <Badge variant="destructive" className="text-xs">
+                      {roleSpecificCounts.messages}
+                    </Badge>
                   )}
                 </span>
               </SelectItem>
               <SelectItem value="crew">
-                <span className="flex items-center gap-2"><Users className="h-4 w-4" /> My Crew</span>
-              </SelectItem>
-              <SelectItem value="quotes">
-                <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> Quotes</span>
+                <span className="flex items-center gap-2">
+                  <Users className="h-4 w-4" /> My Crew
+                </span>
               </SelectItem>
               <SelectItem value="invoices">
-                <span className="flex items-center gap-2"><Receipt className="h-4 w-4" /> Invoices</span>
+                <span className="flex items-center gap-2">
+                  <Receipt className="h-4 w-4" /> Invoices
+                </span>
               </SelectItem>
               <SelectItem value="ir35">
-                <span className="flex items-center gap-2"><Scale className="h-4 w-4" /> IR35</span>
+                <span className="flex items-center gap-2">
+                  <Scale className="h-4 w-4" /> IR35
+                </span>
               </SelectItem>
               {isTeamsTier && (
                 <SelectItem value="team">
-                  <span className="flex items-center gap-2"><Users2 className="h-4 w-4" /> Team</span>
+                  <span className="flex items-center gap-2">
+                    <Users2 className="h-4 w-4" /> Team
+                  </span>
                 </SelectItem>
               )}
             </SelectContent>
@@ -779,10 +882,6 @@ export default function SimplifiedRecruiterDashboard() {
         {/* Profile Tab */}
         <TabsContent value="profile">
           <CompanyProfilePanel />
-        </TabsContent>
-        {/* Quotes Tab */}
-        <TabsContent value="quotes">
-          <QuotingPanel />
         </TabsContent>
         {/* Invoices Tab */}
         <TabsContent value="invoices">
@@ -796,7 +895,10 @@ export default function SimplifiedRecruiterDashboard() {
               <p className="text-muted-foreground">Freelancers you&apos;ve saved or worked with</p>
             </div>
             <Button
-              onClick={() => { setPreselectedCrewIds([]); setSendEnquiryOpen(true); }}
+              onClick={() => {
+                setPreselectedCrewIds([]);
+                setSendEnquiryOpen(true);
+              }}
               className="shrink-0 bg-orange-500 hover:bg-orange-600"
             >
               <Send className="mr-2 h-4 w-4" />
@@ -1029,7 +1131,13 @@ export default function SimplifiedRecruiterDashboard() {
           <div id="job-form-section">
             {(showJobForm || editingJob) && (
               <JobForm
-                key={editingJob ? `edit-${editingJob.id}` : duplicatingFromJob ? `duplicate-${duplicatingFromJob.id}` : "new"}
+                key={
+                  editingJob
+                    ? `edit-${editingJob.id}`
+                    : duplicatingFromJob
+                      ? `duplicate-${duplicatingFromJob.id}`
+                      : "new"
+                }
                 initialData={editingJob ?? duplicatingFromJob ?? undefined}
                 onSubmit={handleJobSubmit}
                 onCancel={handleCancelEdit}
@@ -1109,7 +1217,12 @@ export default function SimplifiedRecruiterDashboard() {
         </TabsContent>
 
         {/* Job Detail Dialog */}
-        <Dialog open={selectedJobDetailId !== null} onOpenChange={(open) => { if (!open) setSelectedJobDetailId(null); }}>
+        <Dialog
+          open={selectedJobDetailId !== null}
+          onOpenChange={(open) => {
+            if (!open) setSelectedJobDetailId(null);
+          }}
+        >
           <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl">
@@ -1138,10 +1251,24 @@ export default function SimplifiedRecruiterDashboard() {
                   <div>
                     <p className="text-sm text-muted-foreground">Status</p>
                     <Badge
-                      variant={jobDetailData.job.status === "active" ? "default" : jobDetailData.job.status === "closed" ? "destructive" : "outline"}
-                      className={jobDetailData.job.status === "active" ? "bg-green-600 hover:bg-green-700" : ""}
+                      variant={
+                        jobDetailData.job.status === "active"
+                          ? "default"
+                          : jobDetailData.job.status === "closed"
+                            ? "destructive"
+                            : "outline"
+                      }
+                      className={
+                        jobDetailData.job.status === "active"
+                          ? "bg-green-600 hover:bg-green-700"
+                          : ""
+                      }
                     >
-                      {jobDetailData.job.status === "active" ? "Posted" : jobDetailData.job.status === "private" ? "Unposted" : jobDetailData.job.status}
+                      {jobDetailData.job.status === "active"
+                        ? "Posted"
+                        : jobDetailData.job.status === "private"
+                          ? "Unposted"
+                          : jobDetailData.job.status}
                     </Badge>
                   </div>
                   <div>
@@ -1174,14 +1301,18 @@ export default function SimplifiedRecruiterDashboard() {
                   )}
                   <div>
                     <p className="text-sm text-muted-foreground">Created</p>
-                    <p className="font-medium">{new Date(jobDetailData.job.created_at).toLocaleDateString("en-GB")}</p>
+                    <p className="font-medium">
+                      {new Date(jobDetailData.job.created_at).toLocaleDateString("en-GB")}
+                    </p>
                   </div>
                 </div>
 
                 {jobDetailData.job.description && (
                   <div>
                     <p className="mb-1 text-sm text-muted-foreground">Description</p>
-                    <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm">{jobDetailData.job.description}</p>
+                    <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm">
+                      {jobDetailData.job.description}
+                    </p>
                   </div>
                 )}
 
@@ -1190,7 +1321,9 @@ export default function SimplifiedRecruiterDashboard() {
                     <h3 className="font-semibold">Applications</h3>
                     <Badge variant="secondary">{jobDetailData.job.application_count} total</Badge>
                     {jobDetailData.job.hired_count > 0 && (
-                      <Badge className="bg-green-600 hover:bg-green-700">{jobDetailData.job.hired_count} hired</Badge>
+                      <Badge className="bg-green-600 hover:bg-green-700">
+                        {jobDetailData.job.hired_count} hired
+                      </Badge>
                     )}
                   </div>
                   {jobDetailData.applications.length > 0 ? (
@@ -1207,7 +1340,12 @@ export default function SimplifiedRecruiterDashboard() {
                         </TableHeader>
                         <TableBody>
                           {jobDetailData.applications.map((app) => (
-                            <TableRow key={app.id} className={app.status === "hired" ? "bg-green-50 dark:bg-green-950/20" : ""}>
+                            <TableRow
+                              key={app.id}
+                              className={
+                                app.status === "hired" ? "bg-green-50 dark:bg-green-950/20" : ""
+                              }
+                            >
                               <TableCell className="py-2">
                                 <p className="text-sm font-medium">{app.freelancer_name}</p>
                                 <a
@@ -1220,11 +1358,21 @@ export default function SimplifiedRecruiterDashboard() {
                                   {app.freelancer_email}
                                 </a>
                               </TableCell>
-                              <TableCell className="py-2 text-sm">{app.freelancer_title || "-"}</TableCell>
+                              <TableCell className="py-2 text-sm">
+                                {app.freelancer_title || "-"}
+                              </TableCell>
                               <TableCell className="py-2">
                                 <Badge
-                                  variant={app.status === "hired" ? "default" : app.status === "declined" ? "destructive" : "secondary"}
-                                  className={app.status === "hired" ? "bg-green-600 hover:bg-green-700" : ""}
+                                  variant={
+                                    app.status === "hired"
+                                      ? "default"
+                                      : app.status === "declined"
+                                        ? "destructive"
+                                        : "secondary"
+                                  }
+                                  className={
+                                    app.status === "hired" ? "bg-green-600 hover:bg-green-700" : ""
+                                  }
                                 >
                                   {app.status}
                                 </Badge>
@@ -1258,13 +1406,20 @@ export default function SimplifiedRecruiterDashboard() {
         </Dialog>
 
         {/* Freelancer Profile Dialog */}
-        <Dialog open={selectedFreelancerId !== null} onOpenChange={(open) => { if (!open) setSelectedFreelancerId(null); }}>
+        <Dialog
+          open={selectedFreelancerId !== null}
+          onOpenChange={(open) => {
+            if (!open) setSelectedFreelancerId(null);
+          }}
+        >
           <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl">
-                {freelancerProfileLoading ? "Loading..." : freelancerProfileData
-                  ? `${freelancerProfileData.first_name} ${freelancerProfileData.last_name}`
-                  : "Freelancer Profile"}
+                {freelancerProfileLoading
+                  ? "Loading..."
+                  : freelancerProfileData
+                    ? `${freelancerProfileData.first_name} ${freelancerProfileData.last_name}`
+                    : "Freelancer Profile"}
               </DialogTitle>
             </DialogHeader>
             {freelancerProfileLoading ? (
@@ -1317,7 +1472,9 @@ export default function SimplifiedRecruiterDashboard() {
                 {freelancerProfileData.bio && (
                   <div>
                     <p className="mb-1 text-sm text-muted-foreground">About</p>
-                    <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm">{freelancerProfileData.bio}</p>
+                    <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm">
+                      {freelancerProfileData.bio}
+                    </p>
                   </div>
                 )}
                 {freelancerProfileData.skills && freelancerProfileData.skills.length > 0 && (
@@ -1325,7 +1482,9 @@ export default function SimplifiedRecruiterDashboard() {
                     <p className="mb-2 text-sm text-muted-foreground">Skills</p>
                     <div className="flex flex-wrap gap-1.5">
                       {freelancerProfileData.skills.map((skill) => (
-                        <Badge key={skill} variant="secondary">{skill}</Badge>
+                        <Badge key={skill} variant="secondary">
+                          {skill}
+                        </Badge>
                       ))}
                     </div>
                   </div>
@@ -1374,19 +1533,17 @@ export default function SimplifiedRecruiterDashboard() {
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              {(["all", "applied", "invited", "hired", "declined"] as const).map(
-                (s) => (
-                  <Button
-                    key={s}
-                    variant={appStatusFilter === s ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setAppStatusFilter(s)}
-                    className={appStatusFilter === s ? "bg-orange-500 hover:bg-orange-600" : ""}
-                  >
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </Button>
-                )
-              )}
+              {(["all", "applied", "invited", "hired", "declined"] as const).map((s) => (
+                <Button
+                  key={s}
+                  variant={appStatusFilter === s ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAppStatusFilter(s)}
+                  className={appStatusFilter === s ? "bg-orange-500 hover:bg-orange-600" : ""}
+                >
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </Button>
+              ))}
             </div>
           </div>
 
@@ -1501,9 +1658,7 @@ export default function SimplifiedRecruiterDashboard() {
         <TabsContent value="billing" className="space-y-6">
           <div>
             <h2 className="text-2xl font-bold">Billing & Subscription</h2>
-            <p className="text-muted-foreground">
-              Manage your EventLink FMS subscription
-            </p>
+            <p className="text-muted-foreground">Manage your EventLink FMS subscription</p>
           </div>
           <BillingPanel />
         </TabsContent>
@@ -1564,13 +1719,15 @@ export default function SimplifiedRecruiterDashboard() {
           if (!open) setCalendarJobDate(null);
         }}
       >
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Post a Job</DialogTitle>
           </DialogHeader>
           {calendarJobDialogOpen && (
             <JobForm
-              initialData={calendarJobDate ? { event_date: format(calendarJobDate, "yyyy-MM-dd") } : undefined}
+              initialData={
+                calendarJobDate ? { event_date: format(calendarJobDate, "yyyy-MM-dd") } : undefined
+              }
               onSubmit={handleJobSubmit}
               onCancel={() => setCalendarJobDialogOpen(false)}
               isSubmitting={createJobMutation.isPending}

@@ -217,6 +217,7 @@ function ProfileCompletionBar({ profile }: { profile: any }) {
     profile?.typical_roles?.length,
     profile?.public_liability_value,
     profile?.company_logo_url,
+    profile?.company_registration_number,
   ];
   const filled = fields.filter(Boolean).length;
   const pct = Math.round((filled / fields.length) * 100);
@@ -445,7 +446,7 @@ export function CompanyProfilePanel() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label htmlFor="company_registration_number">Company Registration No.</Label>
+            <Label htmlFor="company_registration_number">Company Registration No. *</Label>
             <Input
               id="company_registration_number"
               value={form.company_registration_number}
@@ -519,7 +520,7 @@ export function CompanyProfilePanel() {
       <Section
         icon={<MapPin className="h-5 w-5" />}
         title="Contact & Location"
-        subtitle="How freelancers and partners can reach you"
+        subtitle="How freelancers and partners can reach you. Fields marked * are required for invoicing."
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -544,7 +545,7 @@ export function CompanyProfilePanel() {
         </div>
 
         <div>
-          <Label htmlFor="address_line1">Address Line 1</Label>
+          <Label htmlFor="address_line1">Address Line 1 *</Label>
           <Input
             id="address_line1"
             value={form.address_line1}
@@ -563,7 +564,7 @@ export function CompanyProfilePanel() {
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
-            <Label htmlFor="city">City / Town</Label>
+            <Label htmlFor="city">City / Town *</Label>
             <Input
               id="city"
               value={form.city}
@@ -581,7 +582,7 @@ export function CompanyProfilePanel() {
             />
           </div>
           <div>
-            <Label htmlFor="postcode">Postcode</Label>
+            <Label htmlFor="postcode">Postcode *</Label>
             <Input
               id="postcode"
               value={form.postcode}
