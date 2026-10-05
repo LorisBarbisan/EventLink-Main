@@ -85,7 +85,7 @@ export default function SimplifiedRecruiterDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [location, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("calendar");
+  const [activeTab, setActiveTab] = useState("jobs");
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
@@ -381,6 +381,14 @@ export default function SimplifiedRecruiterDashboard() {
   });
   const isTeamsTier = subData?.tier === "teams";
   const isSubscribed = !subLoading && subData?.subscribed === true;
+
+  // If not subscribed and on an FMS-only tab, reset to jobs
+  useEffect(() => {
+    const fmsTabs = ["calendar", "availability", "invoices", "ir35"];
+    if (!isSubscribed && !subLoading && fmsTabs.includes(activeTab)) {
+      setActiveTab("jobs");
+    }
+  }, [isSubscribed, subLoading, activeTab]);
 
 
 
@@ -836,11 +844,13 @@ export default function SimplifiedRecruiterDashboard() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              {isSubscribed && (
               <SelectItem value="calendar">
                 <span className="flex items-center gap-2">
                   <CalendarDays className="h-4 w-4" /> Calendar
                 </span>
               </SelectItem>
+              )}
               <SelectItem value="jobs">
                 <span className="flex items-center gap-2">
                   <Briefcase className="h-4 w-4" /> My Jobs
@@ -866,11 +876,13 @@ export default function SimplifiedRecruiterDashboard() {
                   )}
                 </span>
               </SelectItem>
+              {isSubscribed && (
               <SelectItem value="availability">
                 <span className="flex items-center gap-2">
                   <Send className="h-4 w-4" /> Availability
                 </span>
               </SelectItem>
+              )}
               <SelectItem value="messages">
                 <span className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" /> Messages
@@ -886,16 +898,20 @@ export default function SimplifiedRecruiterDashboard() {
                   <Users className="h-4 w-4" /> My Crew
                 </span>
               </SelectItem>
+              {isSubscribed && (
               <SelectItem value="invoices">
                 <span className="flex items-center gap-2">
                   <Receipt className="h-4 w-4" /> Invoices
                 </span>
               </SelectItem>
+              )}
+              {isSubscribed && (
               <SelectItem value="ir35">
                 <span className="flex items-center gap-2">
                   <Scale className="h-4 w-4" /> IR35
                 </span>
               </SelectItem>
+              )}
               {isTeamsTier && (
                 <SelectItem value="team">
                   <span className="flex items-center gap-2">
@@ -1767,4 +1783,5 @@ export default function SimplifiedRecruiterDashboard() {
     </div>
   );
 }
+
 
