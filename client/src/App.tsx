@@ -3,11 +3,13 @@ import { TabNotificationManager } from "@/components/TabNotificationManager";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { HelpProvider } from "@/help/HelpProvider";
 import { WebSocketProvider } from "@/contexts/WebSocketContext";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { AuthProvider } from "@/hooks/useAuth";
-import { initGA } from "@/lib/analytics";
+import { getCookieConsent, initTrackers } from "@/lib/cookieConsent";
 import { queryClient } from "@/lib/queryClient";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect } from "react";
 import { Route, Switch } from "wouter";
@@ -15,6 +17,7 @@ import { Route, Switch } from "wouter";
 import { ScrollToTop } from "@/components/ScrollToTop";
 
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminHelp = lazy(() => import("./pages/AdminHelp"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ContactUs = lazy(() => import("./pages/ContactUs"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -22,6 +25,7 @@ const About = lazy(() => import("./pages/About"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const Freelancers = lazy(() => import("./pages/Freelancers"));
+const CrewLanding = lazy(() => import("./pages/CrewLanding"));
 const HowItWorks = lazy(() => import("./pages/HowItWorks"));
 const Index = lazy(() => import("./pages/Index"));
 const JobDetail = lazy(() => import("./pages/JobDetail"));
@@ -41,11 +45,15 @@ const PostApplication = lazy(() => import("./pages/PostApplication"));
 const BuildReputation = lazy(() => import("./pages/BuildReputation"));
 const MyBookings = lazy(() => import("./pages/employer/MyBookings"));
 const MyJobs = lazy(() => import("./pages/freelancer/MyJobs"));
+const JoinTeam = lazy(() => import("./pages/JoinTeam"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const PostJob = lazy(() => import("./pages/PostJob"));
 const AvailabilityResponse = lazy(() => import("./pages/AvailabilityResponse"));
 const BriefAcknowledgePage = lazy(() => import("./pages/BriefAcknowledgePage"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const AcceptInvitePage = lazy(() => import("./pages/AcceptInvitePage"));
-const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const ConfirmJob = lazy(() => import("./pages/ConfirmJob"));
+const GuestApplicationView = lazy(() => import("./pages/GuestApplicationView"));
 
 function PageLoader() {
   return (
@@ -70,13 +78,18 @@ function AppRouter() {
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/profile" component={Profile} />
           <Route path="/profile/:userId" component={Profile} />
+          {/* Slug-based profile URLs e.g. /u/james-smith-sound-engineer */}
+          <Route path="/u/:userId" component={Profile} />
           <Route path="/settings" component={Settings} />
           <Route path="/notification-settings" component={NotificationSettings} />
           <Route path="/jobs/:id" component={JobDetail} />
           <Route path="/jobs" component={Jobs} />
           <Route path="/freelancers" component={Freelancers} />
+          {/* SEO role×city landing pages e.g. /freelance-crew/av-technician-london */}
+          <Route path="/freelance-crew/:slug" component={CrewLanding} />
           <Route path="/ratings" component={RatingDashboard} />
           <Route path="/admin" component={AdminDashboard} />
+          <Route path="/admin/help" component={AdminHelp} />
           <Route path="/how-it-works" component={HowItWorks} />
           <Route path="/contact-us" component={ContactUs} />
           <Route path="/faq" component={FAQ} />
@@ -88,12 +101,16 @@ function AppRouter() {
           <Route path="/build-reputation" component={BuildReputation} />
           <Route path="/employer/bookings" component={MyBookings} />
           <Route path="/freelancer/bookings" component={MyJobs} />
+          <Route path="/join-team" component={JoinTeam} />
+          <Route path="/privacy" component={PrivacyPolicy} />
+          <Route path="/post-job" component={PostJob} />
           <Route path="/availability/respond/:token" component={AvailabilityResponse} />
           <Route path="/availability/responded" component={AvailabilityResponse} />
           <Route path="/brief/acknowledge/:token" component={BriefAcknowledgePage} />
           <Route path="/pricing" component={Pricing} />
           <Route path="/team/accept-invite/:token" component={AcceptInvitePage} />
-          <Route path="/privacy" component={PrivacyPolicy} />
+          <Route path="/confirm-job" component={ConfirmJob} />
+          <Route path="/applications/guest-view" component={GuestApplicationView} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>
@@ -103,14 +120,9 @@ function AppRouter() {
 
 function App() {
   useEffect(() => {
-    if (!import.meta.env.VITE_GA_MEASUREMENT_ID) {
-      console.warn("Missing required Google Analytics key: VITE_GA_MEASUREMENT_ID");
-    } else {
-      initGA();
-      console.log(
-        "✅ Google Analytics initialized with ID:",
-        import.meta.env.VITE_GA_MEASUREMENT_ID
-      );
+    // Analytics/advertising trackers only run for visitors who opted in
+    if (getCookieConsent() === "accepted") {
+      initTrackers();
     }
   }, []);
 
@@ -119,11 +131,14 @@ function App() {
       <AuthProvider>
         <WebSocketProvider>
           <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <LiveNotificationPopups />
-            <TabNotificationManager />
-            <AppRouter />
+            <HelpProvider>
+              <Toaster />
+              <Sonner />
+              <LiveNotificationPopups />
+              <TabNotificationManager />
+              <CookieConsentBanner />
+              <AppRouter />
+            </HelpProvider>
           </TooltipProvider>
         </WebSocketProvider>
       </AuthProvider>

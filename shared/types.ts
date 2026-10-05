@@ -20,6 +20,9 @@ export interface User {
   last_login_at?: Date | null;
   created_at: string | Date;
   updated_at: string | Date;
+  companyId?: number;
+  teamRole?: string | null;
+  isTeamMember?: boolean;
 }
 
 export interface FreelancerProfile {
@@ -31,12 +34,15 @@ export interface FreelancerProfile {
   superpower?: string;
   bio?: string;
   location?: string;
+  country?: string;
+  state_province?: string;
   experience_years?: number;
   skills: string[];
   portfolio_url?: string;
   linkedin_url?: string;
   website_url?: string;
   availability_status: "available" | "busy" | "unavailable";
+  profile_is_public?: boolean;
   profile_photo_url?: string;
   cv_file_name?: string;
   cv_file_type?: string;
@@ -53,6 +59,8 @@ export interface RecruiterProfile {
   contact_name: string;
   company_type: string;
   location: string;
+  country?: string;
+  state_province?: string;
   description: string;
   website_url?: string;
   linkedin_url?: string;
@@ -64,9 +72,13 @@ export interface RecruiterProfile {
 export interface Job {
   id: number;
   recruiter_id: number;
+  posted_by_user_id?: number | null;
+  is_freelancer_posted?: boolean;
   title: string;
   company: string;
   location: string;
+  country?: string;
+  currency?: string;
   type: string;
   rate: string;
   description: string;
@@ -85,6 +97,10 @@ export interface Job {
   posted_date?: string;
   created_at: string;
   updated_at: string;
+  // enriched by getFreelancerPostedJobs
+  application_count?: number;
+  shortlisted_count?: number;
+  hired_count?: number;
 }
 
 export interface JobApplication {
@@ -100,6 +116,8 @@ export interface JobApplication {
   job_title?: string;
   job_company?: string;
   recruiter_id?: number | null;
+  job_is_freelancer_posted?: boolean;
+  job_posted_by_user_id?: number | null;
   rating_id?: number;
   rating?: number;
   review?: string;
@@ -132,6 +150,8 @@ export interface FreelancerFormData {
   superpower: string;
   bio: string;
   location: string;
+  country: string;
+  state_province: string;
   experience_years: string;
   skills: string[];
   portfolio_url: string;
@@ -146,6 +166,8 @@ export interface RecruiterFormData {
   contact_name: string;
   company_type: string;
   location: string;
+  country: string;
+  state_province: string;
   description: string;
   website_url: string;
   linkedin_url: string;
@@ -155,6 +177,8 @@ export interface RecruiterFormData {
 export interface JobFormData {
   title: string;
   location: string;
+  country?: string;
+  currency?: string;
   rate: string;
   description: string;
   event_date: string; // Start date (mandatory)

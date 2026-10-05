@@ -1,26 +1,28 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express, { NextFunction, type Request, Response } from "express";
-import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { ogTagMiddleware } from "./api/middleware/ogTags";
 import { reconcileAdminUsers } from "./api/utils/reconcile-admin-users";
 import { seedProductionJobs } from "./api/utils/seed-production-jobs";
-import { backfillSlugs } from "./api/utils/backfill-slugs";
+import { backfillSlugs, backfillCountry, correctCountries } from "./api/utils/backfill-slugs";
 import { registerJobNotificationScheduler } from "./api/services/job-notification-scheduler.service";
+import { registerGuestJobNudgeScheduler } from "./api/services/guest-job-nudge.service";
+
+import { registerProfileNudgeScheduler } from "./api/services/profile-nudge-scheduler.service";
+
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
-import { handleWebhook } from "./api/controllers/subscription.controller";
 import { storage } from "./storage";
 import { log, serveStatic, setupVite } from "./vite";
 dotenv.config();
 
 const app = express();
 
-// CRITICAL: Enable trust proxy for production deployment behind reverse proxy (Replit)
+// CRITICAL: Enable trust proxy for production deployment behind reverse proxy (Railway)
 // This fixes rate limiting and IP detection issues in production
 if (process.env.NODE_ENV === "production") {
-  app.set("trust proxy", 1); // Trust first proxy (Replit's reverse proxy)
+  app.set("trust proxy", true); // Trust Railway's reverse proxy chain
   console.log("✅ Trust proxy enabled for production");
 } else {
   // More specific trust proxy for development to avoid rate limiting warnings
@@ -109,35 +111,7 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-// PRODUCTION-READY RATE LIMITING with proper proxy support
-const generalRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === "production" ? 500 : 1000, // Stricter in production
-  message: { error: "Too many requests from this IP, please try again later" },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipFailedRequests: true,
-  skipSuccessfulRequests: false,
-});
-
-// More restrictive rate limiting for data-saving operations
-const saveOperationsLimit = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes
-  max: process.env.NODE_ENV === "production" ? 30 : 100, // 30 saves per 5 min in production
-  message: { error: "Too many save operations. Please wait a moment before trying again." },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipFailedRequests: true,
-});
-
-app.use("/api", generalRateLimit);
-// Apply stricter limits to save/update operations
-app.use(["/api/profiles", "/api/jobs", "/api/applications"], saveOperationsLimit);
-
-// Stripe webhook — raw body required BEFORE express.json() is applied
-app.post("/api/subscription/webhook", express.raw({ type: "application/json" }), handleWebhook);
-
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: false, limit: "10mb" }));
 
 // CORS configuration to allow Authorization header
@@ -208,13 +182,17 @@ app.use((req, res, next) => {
   // Reconcile admin users on startup
   await reconcileAdminUsers();
   await seedProductionJobs();
-  backfillSlugs().catch(err => console.error("Slug backfill failed:", err));
+  backfillSlugs().catch((err) => console.error("Slug backfill failed:", err));
+  backfillCountry().catch((err) => console.error("Country backfill failed:", err));
+  correctCountries().catch((err) => console.error("Country corrections failed:", err));
   registerJobNotificationScheduler();
+  registerGuestJobNudgeScheduler();
+  registerProfileNudgeScheduler();
 
   // OG tag middleware for social media crawlers (must be before Vite catch-all)
   app.use(ogTagMiddleware);
 
-  const server = await registerRoutes(app);
+  const { httpServer: server, wss } = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -237,7 +215,37 @@ app.use((req, res, next) => {
   }
 
   const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
-  const host = process.env.NODE_ENV === "production" ? "0.0.0.0" : "0.0.0.0";
+  const host = "0.0.0.0";
+
+  // Graceful shutdown: close WebSocket server then HTTP server
+  const shutdown = (signal: string) => {
+    log(`${signal} received — shutting down gracefully`);
+    wss.close(() => log("WebSocket server closed"));
+    server.close(() => {
+      log("HTTP server closed");
+      process.exit(0);
+    });
+
+    // Give in-flight requests 10 s to finish before forcing exit
+    setTimeout(() => {
+      console.error("Shutdown timeout — forcing exit");
+      process.exit(1);
+    }, 10_000).unref();
+  };
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`Port ${port} is already in use. Is another instance running?`);
+      process.exit(1);
+    } else {
+      console.error("HTTP server error:", err);
+      process.exit(1);
+    }
+  });
+
   server.listen(port, host, async () => {
     log(`serving on port ${port} (host: ${host})`);
 
@@ -248,12 +256,15 @@ app.use((req, res, next) => {
       console.error("Failed to close expired jobs on startup:", err);
     }
 
-    setInterval(async () => {
-      try {
-        await storage.closeExpiredJobs();
-      } catch (err) {
-        console.error("Periodic job expiry check failed:", err);
-      }
-    }, 60 * 60 * 1000);
+    setInterval(
+      async () => {
+        try {
+          await storage.closeExpiredJobs();
+        } catch (err) {
+          console.error("Periodic job expiry check failed:", err);
+        }
+      },
+      60 * 60 * 1000
+    );
   });
 })();

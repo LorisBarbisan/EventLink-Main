@@ -28,14 +28,12 @@ interface UKLocationInputProps {
   "data-testid"?: string;
 }
 
-const UK_POSTCODE_REGEX = /^[A-Z]{1,2}[0-9][A-Z0-9]?\s?[0-9][A-Z]{2}$/i;
-
 export function UKLocationInput({
   id,
   label,
   value,
   onChange,
-  placeholder = "Start typing a UK location...",
+  placeholder = "Start typing a location...",
   className,
   required,
   "data-testid": testId,
@@ -52,17 +50,6 @@ export function UKLocationInput({
   const debounceRef = useRef<NodeJS.Timeout>();
   const cacheRef = useRef<Map<string, UKLocation[]>>(new Map());
   const lastQueryRef = useRef<string>("");
-
-  // Check if input looks like a postcode
-  const isPostcodeInput = (input: string) => {
-    const cleaned = input.replace(/\s/g, "").toUpperCase();
-    return cleaned.length >= 2 && /^[A-Z]{1,2}[0-9]/.test(cleaned);
-  };
-
-  // Validate UK postcode format
-  const isValidUKPostcode = (postcode: string) => {
-    return UK_POSTCODE_REGEX.test(postcode.trim());
-  };
 
   // Format location for display and storage
   const formatLocation = (location: UKLocation): string => {
@@ -224,11 +211,11 @@ export function UKLocationInput({
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
-        setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
+        setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
         break;
       case "ArrowUp":
         e.preventDefault();
-        setSelectedIndex(prev => (prev > 0 ? prev - 1 : suggestions.length - 1));
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
         break;
       case "Enter":
         e.preventDefault();
@@ -258,13 +245,14 @@ export function UKLocationInput({
       setSelectedIndex(-1);
 
       // Only validate if user entered something and it's not from a valid selection
-      if (value.trim() && !hasValidSelection) {
-        // Check if it looks like a postcode
-        if (isPostcodeInput(value) && !isValidUKPostcode(value)) {
-          setError("Please enter a valid UK postcode");
-        } else if (value.length >= 3 && suggestions.length === 0 && !isLoading) {
-          setError("Location not found. Please check spelling or try a different format");
-        }
+      if (
+        value.trim() &&
+        !hasValidSelection &&
+        value.length >= 3 &&
+        suggestions.length === 0 &&
+        !isLoading
+      ) {
+        setError("Location not found. Please check spelling or try a different format");
       }
     }, 300);
   };
@@ -300,7 +288,7 @@ export function UKLocationInput({
       {label && (
         <Label htmlFor={id} className="mb-1 block">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="ml-1 text-red-500">*</span>}
         </Label>
       )}
 
@@ -310,7 +298,7 @@ export function UKLocationInput({
           id={id}
           type="text"
           value={value}
-          onChange={e => handleInputChange(e.target.value)}
+          onChange={(e) => handleInputChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           onFocus={() => {
@@ -327,7 +315,7 @@ export function UKLocationInput({
           autoComplete="off"
         />
 
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
           {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : hasValidSelection ? (
@@ -342,7 +330,7 @@ export function UKLocationInput({
 
       {/* Error message */}
       {error && (
-        <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+        <p className="mt-1 flex items-center gap-1 text-sm text-red-500">
           <AlertCircle className="h-3 w-3" />
           {error}
         </p>
@@ -352,25 +340,25 @@ export function UKLocationInput({
       {showSuggestions && suggestions.length > 0 && (
         <div
           ref={suggestionsRef}
-          className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg dark:bg-gray-800 dark:border-gray-700"
+          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
         >
           {suggestions.map((location, index) => (
             <button
               key={`${location.lat}-${location.lon}-${index}`}
               type="button"
               className={cn(
-                "w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-start gap-2",
+                "flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700",
                 selectedIndex === index && "bg-gray-100 dark:bg-gray-700"
               )}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleSuggestionSelect(location)}
               data-testid={`suggestion-${index}`}
             >
-              <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{location.formatted}</div>
+              <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{location.formatted}</div>
                 {location.display_name !== location.formatted && (
-                  <div className="text-xs text-muted-foreground truncate">
+                  <div className="truncate text-xs text-muted-foreground">
                     {location.display_name}
                   </div>
                 )}

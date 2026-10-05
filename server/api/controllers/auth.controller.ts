@@ -1,9 +1,11 @@
-import { insertUserSchema } from "@shared/schema";
+import { insertUserSchema, teamMembers, users } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import passport from "passport";
+import { eq, and } from "drizzle-orm";
+import { db } from "../config/db";
 import { storage } from "../../storage";
 import {
   blacklistToken,
@@ -13,9 +15,14 @@ import {
   isTokenBlacklisted,
   verifyJWTToken,
 } from "../utils/auth.util";
-import { sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } from "../utils/emailService";
+import {
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+  sendWelcomeEmail,
+} from "../utils/emailService";
+import { resolveTeamContextForUser } from "../utils/team.util";
+import { JWT_SECRET } from "../config/env";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "eventlink-secret-key";
 const OAUTH_PENDING_SECRET = JWT_SECRET + "-oauth-pending";
 const OAUTH_PENDING_EXPIRY = "10m";
 
@@ -27,11 +34,9 @@ function generatePendingOAuthToken(data: {
   provider_id: string;
   profile_photo_url: string;
 }): string {
-  return jwt.sign(
-    { ...data, purpose: "oauth_pending_registration" },
-    OAUTH_PENDING_SECRET,
-    { expiresIn: OAUTH_PENDING_EXPIRY }
-  );
+  return jwt.sign({ ...data, purpose: "oauth_pending_registration" }, OAUTH_PENDING_SECRET, {
+    expiresIn: OAUTH_PENDING_EXPIRY,
+  });
 }
 
 function verifyPendingOAuthToken(token: string): {
@@ -55,7 +60,6 @@ function verifyPendingOAuthToken(token: string): {
 export async function handleGoogleCallback(req: Request, res: Response) {
   try {
     const code = req.query.code as string;
-    const state = req.query.state as string;
     const error = req.query.error as string;
 
     if (error) {
@@ -130,17 +134,6 @@ export async function handleGoogleCallback(req: Request, res: Response) {
     const firstName = userInfo.given_name || "";
     const lastName = userInfo.family_name || "";
     const picture = userInfo.picture || "";
-
-    // Parse role from state
-    let selectedRole: "freelancer" | "recruiter" = "freelancer";
-    try {
-      if (state) {
-        const decoded = JSON.parse(Buffer.from(state, "base64").toString());
-        if (decoded.role === "recruiter" || decoded.role === "freelancer") {
-          selectedRole = decoded.role;
-        }
-      }
-    } catch {}
 
     // Step 3: Find or create user
     let user = await storage.getUserBySocialProvider("google", googleId);
@@ -277,7 +270,7 @@ export function handleFacebookCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
         })
       )}`;
 
@@ -352,7 +345,7 @@ export function handleAppleCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
         })
       )}`;
 
@@ -397,7 +390,9 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
           profile_photo_url: user.profile_photo_url,
         });
         const redirectUrl = `${frontendUrl}/auth#needs_role=true&pending_token=${encodeURIComponent(pendingToken)}`;
-        console.log("LinkedIn OAuth new user — redirecting to role selection:", { email: user.email });
+        console.log("LinkedIn OAuth new user — redirecting to role selection:", {
+          email: user.email,
+        });
         return res.redirect(redirectUrl);
       }
 
@@ -437,7 +432,7 @@ export function handleLinkedInCallback(req: Request, res: Response, next: any) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
         })
       )}`;
 
@@ -468,10 +463,13 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
     // Verify the server-signed pending OAuth token
     const oauthData = verifyPendingOAuthToken(pending_token);
     if (!oauthData) {
-      return res.status(401).json({ error: "Invalid or expired registration token. Please sign in again." });
+      return res
+        .status(401)
+        .json({ error: "Invalid or expired registration token. Please sign in again." });
     }
 
-    const { email, first_name, last_name, auth_provider, provider_id, profile_photo_url } = oauthData;
+    const { email, first_name, last_name, auth_provider, provider_id, profile_photo_url } =
+      oauthData;
 
     if (!["google", "linkedin", "facebook"].includes(auth_provider)) {
       return res.status(400).json({ error: "Invalid auth provider" });
@@ -481,7 +479,9 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
     const existingUser = await storage.getUserBySocialProvider(auth_provider as any, provider_id);
     if (existingUser) {
       if (existingUser.status === "deactivated") {
-        return res.status(403).json({ error: "Your account has been deactivated. Please contact support." });
+        return res
+          .status(403)
+          .json({ error: "Your account has been deactivated. Please contact support." });
       }
       const userWithRole = computeUserRole(existingUser);
       const jwtToken = generateJWTToken(userWithRole);
@@ -494,7 +494,7 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
         },
       });
     }
@@ -502,9 +502,16 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
     const existingEmailUser = await storage.getUserByEmail(email);
     if (existingEmailUser) {
       if (existingEmailUser.status === "deactivated") {
-        return res.status(403).json({ error: "Your account has been deactivated. Please contact support." });
+        return res
+          .status(403)
+          .json({ error: "Your account has been deactivated. Please contact support." });
       }
-      await storage.linkSocialProvider(existingEmailUser.id, auth_provider as any, provider_id, profile_photo_url);
+      await storage.linkSocialProvider(
+        existingEmailUser.id,
+        auth_provider as any,
+        provider_id,
+        profile_photo_url
+      );
       await storage.updateUserLastLogin(existingEmailUser.id, auth_provider as any);
       const userWithRole = computeUserRole(existingEmailUser);
       const jwtToken = generateJWTToken(userWithRole);
@@ -517,13 +524,17 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
           last_name: userWithRole.last_name,
           role: userWithRole.role,
           email_verified: userWithRole.email_verified,
-        auth_provider: userWithRole.auth_provider || "email",
+          auth_provider: userWithRole.auth_provider || "email",
         },
       });
     }
 
-    const providerIdField = auth_provider === "google" ? "google_id" :
-      auth_provider === "linkedin" ? "linkedin_id" : "facebook_id";
+    const providerIdField =
+      auth_provider === "google"
+        ? "google_id"
+        : auth_provider === "linkedin"
+          ? "linkedin_id"
+          : "facebook_id";
 
     const newUser = await storage.createSocialUser({
       email,
@@ -547,7 +558,7 @@ export async function completeOAuthRegistration(req: Request, res: Response) {
       unsubscribeToken: newUser.unsubscribe_token ?? null,
       welcomeEmailSent: newUser.welcome_email_sent ?? false,
       marketingOptOut: newUser.marketing_emails_opt_out ?? false,
-    }).catch(err => console.error("Welcome email error (OAuth):", err));
+    }).catch((err) => console.error("Welcome email error (OAuth):", err));
 
     const userWithRole = computeUserRole(newUser);
     const jwtToken = generateJWTToken(userWithRole);
@@ -610,6 +621,34 @@ export async function getSession(req: Request, res: Response) {
     // Apply role computation to fresh user data
     const userWithRole = computeUserRole(user);
 
+    // Fetch profile-level photo (freelancer_profiles or recruiter_profiles) to use
+    // in preference over the OAuth user-level photo stored on the users table
+    let profilePhotoUrl: string | null = userWithRole.profile_photo_url ?? null;
+    if (userWithRole.role === "freelancer") {
+      const fp = await storage.getFreelancerProfile(userWithRole.id);
+      if (fp?.profile_photo_url) profilePhotoUrl = fp.profile_photo_url;
+    }
+
+    // Check team membership for employer users
+    let companyId = userWithRole.id;
+    let teamRole: string | null = null;
+    let isTeamMember = false;
+    if (userWithRole.role === "recruiter") {
+      const [membership] = await db
+        .select({
+          companyId: teamMembers.companyId,
+          role: teamMembers.role,
+          inviteAccepted: teamMembers.inviteAccepted,
+        })
+        .from(teamMembers)
+        .where(and(eq(teamMembers.userId, userWithRole.id), eq(teamMembers.inviteAccepted, true)))
+        .limit(1);
+      const teamCtx = resolveTeamContextForUser(userWithRole.id, membership ?? undefined);
+      companyId = teamCtx.companyId;
+      teamRole = teamCtx.teamRole;
+      isTeamMember = teamCtx.isTeamMember;
+    }
+
     res.json({
       user: {
         id: userWithRole.id,
@@ -619,6 +658,10 @@ export async function getSession(req: Request, res: Response) {
         role: userWithRole.role,
         email_verified: userWithRole.email_verified,
         auth_provider: userWithRole.auth_provider || "email",
+        profile_photo_url: profilePhotoUrl,
+        companyId,
+        teamRole,
+        isTeamMember,
       },
     });
   } catch (error) {
@@ -639,10 +682,80 @@ export async function signup(req: Request, res: Response) {
     }
 
     const { email, password, first_name, last_name, role } = result.data;
+    const company_name =
+      typeof req.body?.company_name === "string" ? req.body.company_name.trim() : "";
+
+    if (!first_name || !first_name.trim()) {
+      return res.status(400).json({ error: "Name is required" });
+    }
+    if (!last_name || !last_name.trim()) {
+      return res.status(400).json({ error: "Surname is required" });
+    }
+    if (role === "recruiter" && !company_name) {
+      return res.status(400).json({ error: "Company Name is required" });
+    }
 
     // Check if user already exists
     const existingUser = await storage.getUserByEmail(email);
     if (existingUser) {
+      // Guest upgrade: account was created by a guest job post (no real password yet)
+      if (existingUser.created_via === "guest_job_post" && !existingUser.password) {
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        const emailVerificationToken = randomBytes(32).toString("hex");
+        const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await storage.upgradeGuestAccount(existingUser.id, {
+          password: hashedPassword,
+          first_name,
+          last_name,
+          role: (role === "recruiter" ? "recruiter" : "freelancer") as "freelancer" | "recruiter",
+          email_verification_token: emailVerificationToken,
+          email_verification_expires: emailVerificationExpires,
+        });
+
+        // If upgrading to recruiter and company name supplied, ensure recruiter profile exists
+        if ((role === "recruiter" || existingUser.role === "recruiter") && company_name) {
+          try {
+            const existingProfile = await storage.getRecruiterProfile(existingUser.id);
+            if (!existingProfile) {
+              await storage.createRecruiterProfile({
+                user_id: existingUser.id,
+                company_name,
+                contact_name: `${first_name ?? ""} ${last_name ?? ""}`.trim() || null,
+              } as any);
+            }
+          } catch (profileError) {
+            console.error(
+              "Failed to create/check recruiter profile during guest upgrade:",
+              profileError
+            );
+          }
+        }
+
+        try {
+          const baseUrl = getOrigin(req);
+          await sendVerificationEmail(email, emailVerificationToken, baseUrl);
+        } catch (emailError) {
+          console.error("Failed to send verification email during guest upgrade:", emailError);
+        }
+
+        const upgradedUser = await storage.getUserByEmail(email);
+        return res.status(201).json({
+          message:
+            "Account created successfully. Please check your email to verify your account. Your previously posted jobs are linked to this account.",
+          user: {
+            id: upgradedUser!.id,
+            email: upgradedUser!.email,
+            first_name: upgradedUser!.first_name,
+            last_name: upgradedUser!.last_name,
+            role: upgradedUser!.role,
+            email_verified: upgradedUser!.email_verified,
+            auth_provider: upgradedUser!.auth_provider || "email",
+          },
+        });
+      }
+
       return res.status(409).json({ error: "User already exists" });
     }
 
@@ -650,14 +763,49 @@ export async function signup(req: Request, res: Response) {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Create user (auto-verified — no email verification required)
+    // Generate email verification token
+    const emailVerificationToken = randomBytes(32).toString("hex");
+    const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Create user with verification token
     const user = await storage.createUser({
       email,
       password: hashedPassword,
       first_name,
       last_name,
       role: role || "freelancer",
+      email_verification_token: emailVerificationToken,
+      email_verification_expires: emailVerificationExpires,
     });
+
+    // For recruiters, create the recruiter profile immediately with the company name.
+    // If profile creation fails, roll back the user so the signup can be retried cleanly.
+    if (role === "recruiter" && company_name) {
+      try {
+        await storage.createRecruiterProfile({
+          user_id: user.id,
+          company_name,
+          contact_name: `${first_name ?? ""} ${last_name ?? ""}`.trim() || null,
+        } as any);
+      } catch (profileError) {
+        console.error("Failed to create recruiter profile on signup:", profileError);
+        try {
+          await storage.deleteUserAccount(user.id);
+        } catch (rollbackError) {
+          console.error("Failed to roll back user after recruiter profile failure:", rollbackError);
+        }
+        return res.status(500).json({ error: "Failed to create recruiter profile" });
+      }
+    }
+
+    // Send verification email
+    try {
+      const baseUrl = getOrigin(req);
+      await sendVerificationEmail(email, emailVerificationToken, baseUrl);
+    } catch (emailError) {
+      console.error("Failed to send verification email:", emailError);
+      // Don't fail signup if email fails
+    }
 
     // Send welcome email (fire-and-forget — never block signup)
     sendWelcomeEmail({
@@ -668,13 +816,13 @@ export async function signup(req: Request, res: Response) {
       unsubscribeToken: user.unsubscribe_token ?? null,
       welcomeEmailSent: user.welcome_email_sent ?? false,
       marketingOptOut: user.marketing_emails_opt_out ?? false,
-    }).catch(err => console.error("Welcome email error:", err));
+    }).catch((err) => console.error("Welcome email error:", err));
 
     // Apply role computation
     const userWithRole = computeUserRole(user);
 
     res.status(201).json({
-      message: "User created successfully.",
+      message: "User created successfully. Please check your email to verify your account.",
       user: {
         id: userWithRole.id,
         email: userWithRole.email,
@@ -725,6 +873,36 @@ export async function signin(req: Request, res: Response) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
+    // Check if email is verified (pending team invitees may sign in to accept on /join-team)
+    if (!user.email_verified) {
+      const normalizedEmail = email.toLowerCase().trim();
+      const [pendingTeamInvite] = await db
+        .select({ id: teamMembers.id })
+        .from(teamMembers)
+        .where(
+          and(eq(teamMembers.invitedEmail, normalizedEmail), eq(teamMembers.inviteAccepted, false))
+        )
+        .limit(1);
+
+      if (pendingTeamInvite) {
+        await db
+          .update(users)
+          .set({
+            email_verified: true,
+            email_verification_token: null,
+            email_verification_expires: null,
+            updated_at: new Date(),
+          })
+          .where(eq(users.id, user.id));
+        user.email_verified = true;
+      } else {
+        return res.status(403).json({
+          error: "Please verify your email address before signing in",
+          code: "EMAIL_NOT_VERIFIED",
+        });
+      }
+    }
+
     // Apply role computation
     const userWithRole = computeUserRole(user);
 
@@ -733,6 +911,26 @@ export async function signin(req: Request, res: Response) {
 
     // Update last login
     await storage.updateUserLastLogin(user.id, "email");
+
+    // Check team membership for employer users
+    let companyId = userWithRole.id;
+    let teamRole: string | null = null;
+    let isTeamMember = false;
+    if (userWithRole.role === "recruiter") {
+      const [membership] = await db
+        .select({
+          companyId: teamMembers.companyId,
+          role: teamMembers.role,
+          inviteAccepted: teamMembers.inviteAccepted,
+        })
+        .from(teamMembers)
+        .where(and(eq(teamMembers.userId, userWithRole.id), eq(teamMembers.inviteAccepted, true)))
+        .limit(1);
+      const teamCtx = resolveTeamContextForUser(userWithRole.id, membership ?? undefined);
+      companyId = teamCtx.companyId;
+      teamRole = teamCtx.teamRole;
+      isTeamMember = teamCtx.isTeamMember;
+    }
 
     res.json({
       message: "Sign in successful",
@@ -744,6 +942,9 @@ export async function signin(req: Request, res: Response) {
         last_name: (userWithRole as any).last_name,
         role: (userWithRole as any).role,
         email_verified: (userWithRole as any).email_verified,
+        companyId,
+        teamRole,
+        isTeamMember,
       },
     });
   } catch (error) {
@@ -842,27 +1043,40 @@ export function signout(req: Request, res: Response) {
     const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
 
     if (token) {
-      // Add token to blacklist to invalidate it immediately
       blacklistToken(token);
       console.log("✅ JWT token blacklisted on signout");
     }
 
-    req.logout((err: any) => {
-      if (err) {
-        console.error("Logout error:", err);
-        return res.status(500).json({ error: "Failed to sign out" });
+    const finishSignout = () => {
+      res.clearCookie("eventlink.sid");
+      res.json({ message: "Signed out successfully" });
+    };
+
+    const destroySession = () => {
+      const session = (req as any).session;
+      if (session?.destroy) {
+        session.destroy((sessionErr: unknown) => {
+          if (sessionErr) {
+            console.error("Session destruction error:", sessionErr);
+          }
+          finishSignout();
+        });
+        return;
       }
+      finishSignout();
+    };
 
-      (req as any).session.destroy((sessionErr: any) => {
-        if (sessionErr) {
-          console.error("Session destruction error:", sessionErr);
-          return res.status(500).json({ error: "Failed to destroy session" });
+    if (typeof req.logout === "function") {
+      req.logout((err: unknown) => {
+        if (err) {
+          console.warn("Passport logout warning (non-fatal):", err);
         }
-
-        res.clearCookie("eventlink.sid");
-        res.json({ message: "Signed out successfully" });
+        destroySession();
       });
-    });
+      return;
+    }
+
+    destroySession();
   } catch (error) {
     console.error("Signout error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -920,7 +1134,7 @@ export async function forgotPassword(req: Request, res: Response) {
 // Reset password endpoint
 export async function resetPassword(req: Request, res: Response) {
   try {
-    const { token, password } = req.body;
+    const { token, password, role } = req.body;
 
     if (!token || !password) {
       return res.status(400).json({ error: "Token and new password are required" });
@@ -941,12 +1155,24 @@ export async function resetPassword(req: Request, res: Response) {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Update user password and clear reset token
-    const resetSuccessful = await storage.resetPassword(tokenValidation.userId, hashedPassword);
+    // Only allow role override for guest accounts (created_via = 'guest_job_post')
+    let resolvedRole: "freelancer" | "recruiter" | undefined;
+    if (role === "freelancer" || role === "recruiter") {
+      const user = await storage.getUser(tokenValidation.userId);
+      if (user && (user as any).created_via === "guest_job_post") {
+        resolvedRole = role as "freelancer" | "recruiter";
+      }
+    }
+    const resetSuccessful = await storage.resetPassword(
+      tokenValidation.userId,
+      hashedPassword,
+      resolvedRole
+    );
     if (!resetSuccessful) {
       return res.status(500).json({ error: "Failed to reset password" });
     }
 
-    res.json({ message: "Password reset successful" });
+    res.json({ message: "Password reset successful", role: resolvedRole });
   } catch (error) {
     console.error("Reset password error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -1106,7 +1332,7 @@ export async function getAdminDiagnostics(req: Request, res: Response) {
     }
 
     const adminEmails = process.env.ADMIN_EMAILS
-      ? process.env.ADMIN_EMAILS.split(",").map(email => email.trim().toLowerCase())
+      ? process.env.ADMIN_EMAILS.split(",").map((email) => email.trim().toLowerCase())
       : [];
 
     const diagnostics = {

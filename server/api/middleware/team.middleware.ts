@@ -1,50 +1,39 @@
-import type { Request, Response, NextFunction } from "express";
-import { storage } from "../../storage.js";
+import { db } from "../config/db";
+import { teamMembers } from "../../../shared/schema";
+import { eq, and } from "drizzle-orm";
+import { Request, Response, NextFunction } from "express";
+import { resolveTeamContextForUser } from "../utils/team.util";
 
-export const attachTeamContext = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export async function resolveCompanyId(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) return next();
+
   try {
-    const userId = req.user?.id;
-    if (!userId) return next();
-    const membership = await storage.getTeamByMember(userId);
-    if (membership) {
-      (req as any).teamContext = {
-        teamId: membership.team.id,
-        role: membership.role,
-        isOwner: membership.team.ownerId === userId,
-      };
-    }
-    next();
-  } catch (err: any) {
-    console.error("attachTeamContext error:", err.message);
-    next();
-  }
-};
+    const [membership] = await db
+      .select({
+        companyId: teamMembers.companyId,
+        role: teamMembers.role,
+        inviteAccepted: teamMembers.inviteAccepted,
+      })
+      .from(teamMembers)
+      .where(and(eq(teamMembers.userId, req.user.id), eq(teamMembers.inviteAccepted, true)))
+      .limit(1);
 
-export const requireTeamAdmin = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const ctx = (req as any).teamContext;
-  if (!ctx) return res.status(403).json({ error: "Not a team member" });
-  if (ctx.role !== "admin" && ctx.role !== "owner") {
-    return res.status(403).json({ error: "Admin access required" });
+    const ctx = resolveTeamContextForUser(req.user.id, membership ?? undefined);
+    req.companyId = ctx.companyId;
+    req.teamRole = ctx.teamRole;
+  } catch (err) {
+    console.error("resolveCompanyId error:", err);
+    req.companyId = req.user.id;
+    req.teamRole = "owner";
   }
-  next();
-};
 
-export const requireTeamOwner = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const ctx = (req as any).teamContext;
-  if (!ctx || !ctx.isOwner) {
-    return res.status(403).json({ error: "Account owner access required" });
-  }
   next();
-};
+}
+
+/** Same as resolveCompanyId but no-op when unauthenticated (e.g. optional-auth routes). */
+export async function resolveCompanyIdOptional(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return next();
+  }
+  return resolveCompanyId(req, res, next);
+}

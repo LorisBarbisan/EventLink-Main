@@ -7,18 +7,25 @@ import {
   getFreelancerBookings,
   getJobApplications,
   getRecruiterApplications,
+  getRecruiterHiddenApplications,
   inviteFreelancer,
   rejectApplication,
   respondToInvitation,
+  shortlistApplication,
+  withdrawInvitation,
 } from "../controllers/applications.controller";
+import { getGuestApplicationView } from "../controllers/guest-application.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
+import { resolveCompanyId } from "../middleware/team.middleware";
 
 export function registerApplicationRoutes(app: Express) {
+  // Guest application view — no auth, token-gated
+  app.get("/api/applications/guest-view", getGuestApplicationView);
   // Respond to invitation (Accept/Decline)
   app.post("/api/applications/:applicationId/respond", authenticateJWT, respondToInvitation);
 
   // Invite freelancer to apply
-  app.post("/api/applications/invite", authenticateJWT, inviteFreelancer);
+  app.post("/api/applications/invite", authenticateJWT, resolveCompanyId, inviteFreelancer);
 
   // Get freelancer bookings (accepted applications)
   app.get("/api/freelancer/:freelancerId/bookings", authenticateJWT, getFreelancerBookings);
@@ -30,17 +37,61 @@ export function registerApplicationRoutes(app: Express) {
   app.get("/api/freelancer/:freelancerId/applications", authenticateJWT, getFreelancerApplications);
 
   // Get applications for a job
-  app.get("/api/jobs/:jobId/applications", authenticateJWT, getJobApplications);
+  app.get("/api/jobs/:jobId/applications", authenticateJWT, resolveCompanyId, getJobApplications);
 
   // Get recruiter applications
-  app.get("/api/recruiter/:recruiterId/applications", authenticateJWT, getRecruiterApplications);
+  app.get(
+    "/api/recruiter/:recruiterId/applications",
+    authenticateJWT,
+    resolveCompanyId,
+    getRecruiterApplications
+  );
+
+  // Get recruiter's hidden applications (live jobs only)
+  app.get(
+    "/api/recruiter/:recruiterId/applications/hidden",
+    authenticateJWT,
+    resolveCompanyId,
+    getRecruiterHiddenApplications
+  );
 
   // Accept application
-  app.put("/api/applications/:applicationId/accept", authenticateJWT, acceptApplication);
+  app.put(
+    "/api/applications/:applicationId/accept",
+    authenticateJWT,
+    resolveCompanyId,
+    acceptApplication
+  );
 
   // Reject application
-  app.put("/api/applications/:applicationId/reject", authenticateJWT, rejectApplication);
+  app.put(
+    "/api/applications/:applicationId/reject",
+    authenticateJWT,
+    resolveCompanyId,
+    rejectApplication
+  );
+
+  // Shortlist application
+  app.put(
+    "/api/applications/:applicationId/shortlist",
+    authenticateJWT,
+    resolveCompanyId,
+    shortlistApplication
+  );
+
+  // Withdraw an invitation (employer only)
+  app.delete(
+    "/api/applications/:applicationId/invite",
+    authenticateJWT,
+    resolveCompanyId,
+    withdrawInvitation
+  );
 
   // Delete application (soft delete with role-based permissions)
-  app.delete("/api/applications/:applicationId", authenticateJWT, deleteApplication);
+  app.delete(
+    "/api/applications/:applicationId",
+    authenticateJWT,
+    resolveCompanyId,
+    deleteApplication
+  );
 }

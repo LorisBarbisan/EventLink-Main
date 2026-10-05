@@ -51,20 +51,19 @@ import {
   UserX,
   X,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { MessageModal } from "./MessageModal";
 import { RatingDialog } from "./RatingDialog";
 import { RatingRequestDialog } from "./RatingRequestDialog";
+import { JobDocumentsModal } from "./JobDocumentsModal";
 
 interface ApplicationCardProps {
   application: JobApplication;
   userType: "freelancer" | "recruiter";
   currentUserId: number;
-  onJobClick?: (jobId: number) => void;
-  onFreelancerClick?: (freelancerId: number) => void;
 }
 
-export function ApplicationCard({ application, userType, currentUserId, onJobClick, onFreelancerClick }: ApplicationCardProps) {
+export function ApplicationCard({ application, userType, currentUserId }: ApplicationCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
@@ -88,6 +87,16 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
   const [reportFlag, setReportFlag] = useState("");
   const [reportNote, setReportNote] = useState("");
   const { mutate: reportRating, isPending: isReporting } = useReportRating();
+
+  // Docs modal state
+  const [showDocsModal, setShowDocsModal] = useState(false);
+  // Freelancer upload state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showUploadWarning, setShowUploadWarning] = useState(false);
+  const [docType, setDocType] = useState("invoice");
+  const [customDocName, setCustomDocName] = useState("");
 
   // Handle invitation response
   const respondMutation = useMutation({
@@ -162,12 +171,18 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
   };
 
   // Fetch full job details when dialog opens or expanded
-  const { data: jobDetails, isLoading: jobDetailsLoading, isError: jobDetailsError } = useQuery<Job>({
-    queryKey: ['/api/jobs', application.job_id],
+  const {
+    data: jobDetails,
+    isLoading: jobDetailsLoading,
+    isError: jobDetailsError,
+  } = useQuery<Job>({
+    queryKey: ["/api/jobs", application.job_id],
     queryFn: async () => {
       const res = await fetch(`/api/jobs/${application.job_id}`, {
         headers: {
-          ...(localStorage.getItem("auth_token") ? { Authorization: `Bearer ${localStorage.getItem("auth_token")}` } : {}),
+          ...(localStorage.getItem("auth_token")
+            ? { Authorization: `Bearer ${localStorage.getItem("auth_token")}` }
+            : {}),
         },
       });
       if (!res.ok) throw new Error(`Failed to fetch job: ${res.status}`);
@@ -203,7 +218,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to reject application.",
+        description: "Failed to decline application.",
         variant: "destructive",
       });
     },
@@ -234,8 +249,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
       setShowHireConfirm(false);
       toast({
         title: "Applicant hired!",
-        description:
-          "The applicant has been notified of their successful application.",
+        description: "The applicant has been notified of their successful application.",
       });
     },
     onError: () => {
@@ -302,7 +316,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
         return "default";
       case "reviewed":
         return "secondary";
-      case "declined":
+      case "rejected":
         return "destructive";
       default:
         return "outline";
@@ -313,7 +327,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
     switch (status) {
       case "hired":
         return <CheckCircle className="h-4 w-4" />;
-      case "declined":
+      case "rejected":
         return <X className="h-4 w-4" />;
       default:
         return <AlertCircle className="h-4 w-4" />;
@@ -326,23 +340,13 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex-1">
             <div className="mb-2 flex items-center gap-2">
-              {userType === "recruiter" ? (
-                <h4
-                  className={`font-medium ${onFreelancerClick && application.freelancer_id ? "cursor-pointer text-blue-600 hover:underline" : ""}`}
-                  onClick={() => onFreelancerClick && application.freelancer_id ? onFreelancerClick(application.freelancer_id) : undefined}
-                >
-                  {application.freelancer_profile
+              <h4 className="font-medium">
+                {userType === "recruiter"
+                  ? application.freelancer_profile
                     ? `${application.freelancer_profile.first_name} ${application.freelancer_profile.last_name}`
-                    : "Freelancer"}
-                </h4>
-              ) : (
-                <h4
-                  className={`font-medium ${onJobClick && application.job_id ? "cursor-pointer text-blue-600 hover:underline" : ""}`}
-                  onClick={() => onJobClick && application.job_id ? onJobClick(application.job_id) : undefined}
-                >
-                  {application.job_title || "Job Application"}
-                </h4>
-              )}
+                    : "Freelancer"
+                  : application.job_title || "Job Application"}
+              </h4>
               <Badge
                 variant={getStatusBadgeVariant(application.status)}
                 className="flex items-center gap-1"
@@ -354,13 +358,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
 
             {userType === "recruiter" ? (
               <p className="mb-2 text-sm text-muted-foreground">
-                Applied for:{" "}
-                <span
-                  className={onJobClick && application.job_id ? "cursor-pointer text-blue-600 hover:underline" : ""}
-                  onClick={() => onJobClick && application.job_id ? onJobClick(application.job_id) : undefined}
-                >
-                  {application.job_title}
-                </span>
+                Applied for: {application.job_title}
               </p>
             ) : (
               <p className="mb-2 text-sm text-muted-foreground">
@@ -391,10 +389,10 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
               </div>
             )}
 
-            {application.rejection_message && application.status === "declined" && (
+            {application.rejection_message && application.status === "rejected" && (
               <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
                 <p className="mb-1 text-sm font-medium text-red-800 dark:text-red-200">
-                  Decline Reason:
+                  Reason for declining:
                 </p>
                 <p className="text-sm text-red-700 dark:text-red-300">
                   {application.rejection_message}
@@ -411,7 +409,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Application Decline Details</DialogTitle>
+                      <DialogTitle>Application Declined</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
@@ -421,7 +419,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                         </p>
                       </div>
                       <div>
-                        <p className="mb-2 font-medium">Decline Message:</p>
+                        <p className="mb-2 font-medium">Message:</p>
                         <p className="rounded bg-muted p-3 text-sm text-muted-foreground">
                           {application.rejection_message}
                         </p>
@@ -474,6 +472,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                             variant="default"
                             size="sm"
                             disabled={hireMutation.isPending}
+                            data-help="action.application.hire"
                             data-testid={`button-hire-${application.id}`}
                             className="bg-green-600 text-white hover:bg-green-700"
                           >
@@ -523,6 +522,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                             variant="outline"
                             size="sm"
                             disabled={rejectMutation.isPending}
+                            data-help="action.application.decline"
                             data-testid={`button-reject-${application.id}`}
                             className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                           >
@@ -548,21 +548,22 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                             </div>
                             <div>
                               <Label htmlFor="rejection-message">
-                                Decline message{" "}
+                                Message{" "}
                                 <span className="text-muted-foreground">
                                   (optional but recommended)
                                 </span>
                               </Label>
                               <Textarea
                                 id="rejection-message"
-                                placeholder="Let the applicant know why — constructive feedback is always appreciated..."
+                                placeholder="Provide constructive feedback to help the applicant improve future applications..."
                                 value={rejectionMessage}
                                 onChange={(e) => setRejectionMessage(e.target.value)}
                                 className="mt-2 min-h-[100px]"
                                 data-testid={`textarea-rejection-message-${application.id}`}
                               />
                               <p className="mt-1 text-xs text-muted-foreground">
-                                This message will be sent to the applicant with the decline notification.
+                                This message will be sent to the applicant along with the decline
+                                notification.
                               </p>
                             </div>
                           </div>
@@ -617,9 +618,9 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                     data-testid={`button-job-details-${application.id}`}
                   >
                     {showJobExpanded ? (
-                      <ChevronUp className="w-4 h-4 mr-1" />
+                      <ChevronUp className="mr-1 h-4 w-4" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 mr-1" />
+                      <ChevronDown className="mr-1 h-4 w-4" />
                     )}
                     Job Details
                   </Button>
@@ -631,6 +632,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                         variant="outline"
                         size="sm"
                         disabled={deleteMutation.isPending}
+                        data-help="action.application.hide"
                         data-testid={`button-delete-${application.id}`}
                         className="border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-700"
                       >
@@ -680,6 +682,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                           variant="outline"
                           className="border-red-200 text-red-600 hover:bg-red-50"
                           size="sm"
+                          data-help="action.invitation.decline"
                           onClick={() => setShowDeclineInvitationDialog(true)}
                           disabled={respondMutation.isPending}
                         >
@@ -688,6 +691,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                         <Button
                           className="bg-green-600 text-white hover:bg-green-700"
                           size="sm"
+                          data-help="action.invitation.accept"
                           onClick={handleAcceptInvitation}
                           disabled={respondMutation.isPending}
                         >
@@ -885,7 +889,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                                 variant={
                                   application.status === "hired"
                                     ? "default"
-                                    : application.status === "declined"
+                                    : application.status === "rejected"
                                       ? "destructive"
                                       : application.status === "reviewed"
                                         ? "secondary"
@@ -894,7 +898,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                               >
                                 {application.status === "hired"
                                   ? "Hired"
-                                  : application.status === "declined"
+                                  : application.status === "rejected"
                                     ? "Declined"
                                     : application.status === "reviewed"
                                       ? "Under Review"
@@ -918,7 +922,7 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                           </div>
                         )}
 
-                        {application.rejection_message && application.status === "declined" && (
+                        {application.rejection_message && application.status === "rejected" && (
                           <div>
                             <p className="mb-2 text-sm font-medium text-muted-foreground">
                               Decline Message
@@ -957,7 +961,9 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                     </Dialog>
 
                     {/* Message button for freelancers */}
-                    {application.recruiter_id && (
+                    {(application.recruiter_id ||
+                      (application.job_is_freelancer_posted &&
+                        application.job_posted_by_user_id)) && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -965,7 +971,9 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                         data-testid={`button-message-recruiter-${application.id}`}
                       >
                         <MessageCircle className="mr-1 h-4 w-4" />
-                        Message Employer
+                        {application.job_is_freelancer_posted
+                          ? "Message Poster"
+                          : "Message Employer"}
                       </Button>
                     )}
 
@@ -1064,39 +1072,238 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
           </div>
         </div>
 
+        {/* Docs button for hired freelancers */}
+        {userType === "freelancer" && application.status === "hired" && (
+          <div className="mt-3 border-t border-gray-100 pt-3">
+            <button
+              onClick={() => setShowDocsModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
+            >
+              📎 Docs
+            </button>
+          </div>
+        )}
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx"
+          className="hidden"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            e.target.value = "";
+            if (file.size > 10 * 1024 * 1024) {
+              toast({ title: "File too large", description: "Max 10 MB.", variant: "destructive" });
+              return;
+            }
+            const allowed = [
+              "application/pdf",
+              "application/msword",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/vnd.ms-excel",
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ];
+            if (!allowed.includes(file.type)) {
+              toast({
+                title: "File type not supported",
+                description: "Only PDF, Word, and Excel files are allowed.",
+                variant: "destructive",
+              });
+              return;
+            }
+            setPendingFile(file);
+            setShowUploadWarning(true);
+          }}
+        />
+
+        {/* Upload warning */}
+        {showUploadWarning && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
+              <div className="mb-4 text-center text-4xl">📋</div>
+              <h2 className="mb-3 text-center text-xl font-bold text-gray-900">
+                Before you upload
+              </h2>
+              <p className="mb-4 text-center text-sm leading-relaxed text-gray-600">
+                This document will be visible to the employer. Make sure you are happy to share it
+                before continuing.
+              </p>
+              {pendingFile && (
+                <div className="mb-4 truncate text-center text-xs text-gray-500">
+                  <span className="font-medium text-gray-700">{pendingFile.name}</span>
+                  <span className="ml-1">({(pendingFile.size / 1024 / 1024).toFixed(1)} MB)</span>
+                </div>
+              )}
+              <div className="mb-5">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Document type
+                </label>
+                <select
+                  value={docType}
+                  onChange={(e) => {
+                    setDocType(e.target.value);
+                    setCustomDocName("");
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                >
+                  <option value="invoice">Invoice</option>
+                  <option value="travel_receipt">Travel Receipt</option>
+                  <option value="overtime">Overtime</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              {docType === "other" && (
+                <div className="mb-5">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Document name
+                  </label>
+                  <input
+                    type="text"
+                    value={customDocName}
+                    onChange={(e) => setCustomDocName(e.target.value)}
+                    placeholder="e.g. NDA, Timesheet"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    maxLength={60}
+                  />
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={async () => {
+                    if (!pendingFile) return;
+                    setShowUploadWarning(false);
+                    setUploading(true);
+                    try {
+                      const effectiveDocType =
+                        docType === "other" && customDocName.trim()
+                          ? customDocName.trim()
+                          : docType;
+                      const base64 = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+                        reader.onerror = () => reject(new Error("Failed to read file"));
+                        reader.readAsDataURL(pendingFile);
+                      });
+                      const token = localStorage.getItem("auth_token");
+                      const res = await fetch(
+                        `/api/job/${application.job_id}/documents/freelancer`,
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                          },
+                          body: JSON.stringify({
+                            fileData: base64,
+                            filename: pendingFile.name,
+                            contentType: pendingFile.type,
+                            documentType: effectiveDocType,
+                          }),
+                        }
+                      );
+                      if (!res.ok) {
+                        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+                        throw new Error(err.error || `Upload failed (${res.status})`);
+                      }
+                      queryClient.invalidateQueries({
+                        queryKey: [`/api/job/${application.job_id}/documents`],
+                      });
+                      toast({ title: "Document uploaded" });
+                      setCustomDocName("");
+                      setShowDocsModal(true);
+                    } catch (err: any) {
+                      toast({
+                        title: "Upload failed",
+                        description: err?.message || "Please try again",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setUploading(false);
+                      setPendingFile(null);
+                    }
+                  }}
+                  disabled={uploading}
+                  className="flex-1 rounded-xl bg-orange-600 py-3 font-semibold text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {uploading ? "Uploading..." : "Upload"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUploadWarning(false);
+                    setPendingFile(null);
+                  }}
+                  className="flex-1 rounded-xl border border-gray-300 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Documents modal */}
+        <JobDocumentsModal
+          jobId={application.job_id}
+          jobTitle={application.job_title || "Job"}
+          open={showDocsModal}
+          onClose={() => setShowDocsModal(false)}
+          isOwner={false}
+          canUpload={userType === "freelancer" && application.status === "hired"}
+          onAttachFile={() => {
+            setShowDocsModal(false);
+            setTimeout(() => fileInputRef.current?.click(), 0);
+          }}
+          isUploading={uploading}
+        />
+
         {userType === "recruiter" && showJobExpanded && (
           <div className="mt-4 border-t pt-4">
             {jobDetailsLoading ? (
               <div className="flex items-center justify-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                <span className="text-sm text-muted-foreground ml-2">Loading job details...</span>
+                <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-primary"></div>
+                <span className="ml-2 text-sm text-muted-foreground">Loading job details...</span>
               </div>
             ) : jobDetails ? (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Job Title</p>
-                    <p className="text-sm font-semibold">{jobDetails.title || application.job_title}</p>
+                    <p className="text-sm font-semibold">
+                      {jobDetails.title || application.job_title}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Location</p>
                     <p className="text-sm">{jobDetails.location || "Not specified"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Rate (£)</p>
-                    <p className="text-sm font-medium text-green-600">{jobDetails.rate || "Not specified"}</p>
+                    <p className="text-xs font-medium text-muted-foreground">Rate</p>
+                    <p className="text-sm font-medium text-green-600">
+                      {jobDetails.rate || "Not specified"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Status</p>
-                    <Badge variant={jobDetails.status === "active" ? "default" : "secondary"} className="mt-0.5">
-                      {jobDetails.status ? jobDetails.status.charAt(0).toUpperCase() + jobDetails.status.slice(1) : "Unknown"}
+                    <Badge
+                      variant={jobDetails.status === "active" ? "default" : "secondary"}
+                      className="mt-0.5"
+                    >
+                      {jobDetails.status
+                        ? jobDetails.status.charAt(0).toUpperCase() + jobDetails.status.slice(1)
+                        : "Unknown"}
                     </Badge>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Start Date</p>
                     <p className="text-sm">
                       {jobDetails.event_date
-                        ? new Date(jobDetails.event_date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+                        ? new Date(jobDetails.event_date).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })
                         : "Not specified"}
                     </p>
                   </div>
@@ -1104,7 +1311,11 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                     <div>
                       <p className="text-xs font-medium text-muted-foreground">End Date</p>
                       <p className="text-sm">
-                        {new Date(jobDetails.end_date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        {new Date(jobDetails.end_date).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}
                       </p>
                     </div>
                   )}
@@ -1112,23 +1323,31 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
                     <p className="text-xs font-medium text-muted-foreground">Posted</p>
                     <p className="text-sm">
                       {jobDetails.created_at
-                        ? new Date(jobDetails.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+                        ? new Date(jobDetails.created_at).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })
                         : "Not available"}
                     </p>
                   </div>
                 </div>
                 {jobDetails.description && (
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
-                    <div className="p-3 bg-muted rounded-lg max-h-40 overflow-y-auto">
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{jobDetails.description}</p>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Description</p>
+                    <div className="max-h-40 overflow-y-auto rounded-lg bg-muted p-3">
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {jobDetails.description}
+                      </p>
                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-2">
-                {jobDetailsError ? "Unable to load job details. Please try again." : "Job details not available"}
+              <p className="py-2 text-center text-sm text-muted-foreground">
+                {jobDetailsError
+                  ? "Unable to load job details. Please try again."
+                  : "Job details not available"}
               </p>
             )}
           </div>
@@ -1155,16 +1374,22 @@ export function ApplicationCard({ application, userType, currentUserId, onJobCli
         />
       )}
 
-      {/* Message Modal for freelancers to message recruiters */}
-      {userType === "freelancer" && application.recruiter_id && (
-        <MessageModal
-          isOpen={showMessageModal}
-          onClose={() => setShowMessageModal(false)}
-          recipientId={application.recruiter_id!}
-          recipientName={application.job_company || "Employer"}
-          senderId={currentUserId}
-        />
-      )}
+      {/* Message Modal for freelancers to message recruiters or freelancer-posters */}
+      {userType === "freelancer" &&
+        (application.recruiter_id ||
+          (application.job_is_freelancer_posted && application.job_posted_by_user_id)) && (
+          <MessageModal
+            isOpen={showMessageModal}
+            onClose={() => setShowMessageModal(false)}
+            recipientId={
+              application.job_is_freelancer_posted && application.job_posted_by_user_id
+                ? application.job_posted_by_user_id
+                : application.recruiter_id!
+            }
+            recipientName={application.job_company || "Employer"}
+            senderId={currentUserId}
+          />
+        )}
 
       {/* Message Modal for recruiters to message freelancers */}
       {userType === "recruiter" && application.freelancer_id && application.freelancer_profile && (

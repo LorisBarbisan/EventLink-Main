@@ -2,11 +2,14 @@ import type { Express } from "express";
 import {
   addFeedbackResponse,
   adminDeleteUser,
+  adminLinkTeamMember,
   bootstrapCreateFirstAdmin,
   bootstrapGrantAdminAccess,
   exportAdminXLSX,
   getAdminJobDetail,
   getAdminJobs,
+  getAdminTeamDetail,
+  getAdminTeams,
   getAdminUsers,
   getAllContactMessages,
   getAllFeedback,
@@ -14,7 +17,9 @@ import {
   getAnalyticsOverview,
   getFeedbackStats,
   getNotifyFreelancersPreview,
+  getPendingGuestJobs,
   grantAdminAccess,
+  moderateGuestJob,
   notifyFreelancersForJob,
   retriggerJobAlerts,
   revokeAdminAccess,
@@ -43,6 +48,10 @@ export function registerAdminRoutes(app: Express) {
 
   // Send reply to contact message (admin only)
   app.post("/api/admin/contact-messages/:id/reply", requireAdminAuth, sendContactReply);
+
+  // Guest job moderation queue (admin only)
+  app.get("/api/admin/jobs/pending-guest", requireAdminAuth, getPendingGuestJobs);
+  app.post("/api/admin/jobs/:id/moderate", requireAdminAuth, moderateGuestJob);
 
   // Get all jobs (admin only)
   app.get("/api/admin/jobs", requireAdminAuth, getAdminJobs);
@@ -85,6 +94,13 @@ export function registerAdminRoutes(app: Express) {
 
   // Export all dashboard data as XLSX workbook (admin only)
   app.get("/api/admin/export/xlsx", requireAdminAuth, exportAdminXLSX);
+
+  // Admin Teams / Companies management
+  app.get("/api/admin/teams", requireAdminAuth, getAdminTeams);
+  app.get("/api/admin/teams/:id", requireAdminAuth, getAdminTeamDetail);
+
+  // Admin: link two existing employer accounts as company + team member
+  app.post("/api/admin/team/link", requireAdminAuth, adminLinkTeamMember);
 
   // Bootstrap endpoint for initial admin setup (no auth required)
   // Special override endpoint for admin@eventlink.one production access

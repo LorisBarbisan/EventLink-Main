@@ -30,7 +30,6 @@ import {
   Award,
   Briefcase,
   Users,
-  Pound,
   FileText,
   CheckCircle2,
   ChevronRight,
@@ -64,18 +63,41 @@ const COMPANY_SIZES = [
 ];
 
 const SPECIALISATIONS = [
-  "Live Events", "AV / Technical Production", "Broadcast & Media", "Corporate Events",
-  "Festivals & Outdoor", "Theatre & Performing Arts", "Film & TV", "Sports Events",
-  "Hospitality & Experiential", "Virtual & Hybrid Events", "Exhibitions & Trade Shows",
+  "Live Events",
+  "AV / Technical Production",
+  "Broadcast & Media",
+  "Corporate Events",
+  "Festivals & Outdoor",
+  "Theatre & Performing Arts",
+  "Film & TV",
+  "Sports Events",
+  "Hospitality & Experiential",
+  "Virtual & Hybrid Events",
+  "Exhibitions & Trade Shows",
   "Touring & Travel",
 ];
 
 const TYPICAL_ROLES = [
-  "Stage Manager", "Production Manager", "Technical Director", "Sound Engineer",
-  "Lighting Technician", "Video Technician", "Rigger", "Crew Chief", "Follow Spot Operator",
-  "FOH Engineer", "Monitor Engineer", "Broadcast Engineer", "Camera Operator", "Vision Mixer",
-  "Set Builder / Carpenter", "Driver / Transport", "Runner / Production Assistant",
-  "Event Manager", "Site Manager", "Logistics Coordinator",
+  "Stage Manager",
+  "Production Manager",
+  "Technical Director",
+  "Sound Engineer",
+  "Lighting Technician",
+  "Video Technician",
+  "Rigger",
+  "Crew Chief",
+  "Follow Spot Operator",
+  "FOH Engineer",
+  "Monitor Engineer",
+  "Broadcast Engineer",
+  "Camera Operator",
+  "Vision Mixer",
+  "Set Builder / Carpenter",
+  "Driver / Transport",
+  "Runner / Production Assistant",
+  "Event Manager",
+  "Site Manager",
+  "Logistics Coordinator",
 ];
 
 const PAYMENT_TERMS = [
@@ -207,7 +229,10 @@ function ProfileCompletionBar({ profile }: { profile: any }) {
         <span className="text-sm font-semibold">{pct}%</span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${pct}%` }} />
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${color}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
       {pct < 100 && (
         <p className="mt-2 text-xs text-muted-foreground">
@@ -377,10 +402,14 @@ export function CompanyProfilePanel() {
           <div>
             <Label>Company Type</Label>
             <Select value={form.company_type} onValueChange={(v) => set("company_type", v)}>
-              <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
               <SelectContent>
                 {COMPANY_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -388,10 +417,14 @@ export function CompanyProfilePanel() {
           <div>
             <Label>Company Size</Label>
             <Select value={form.company_size} onValueChange={(v) => set("company_size", v)}>
-              <SelectTrigger><SelectValue placeholder="Select size" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Select size" />
+              </SelectTrigger>
               <SelectContent>
                 {COMPANY_SIZES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -531,15 +564,30 @@ export function CompanyProfilePanel() {
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <Label htmlFor="city">City / Town</Label>
-            <Input id="city" value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="London" />
+            <Input
+              id="city"
+              value={form.city}
+              onChange={(e) => set("city", e.target.value)}
+              placeholder="London"
+            />
           </div>
           <div>
             <Label htmlFor="county">County</Label>
-            <Input id="county" value={form.county} onChange={(e) => set("county", e.target.value)} placeholder="Greater London" />
+            <Input
+              id="county"
+              value={form.county}
+              onChange={(e) => set("county", e.target.value)}
+              placeholder="Greater London"
+            />
           </div>
           <div>
             <Label htmlFor="postcode">Postcode</Label>
-            <Input id="postcode" value={form.postcode} onChange={(e) => set("postcode", e.target.value)} placeholder="EC1A 1BB" />
+            <Input
+              id="postcode"
+              value={form.postcode}
+              onChange={(e) => set("postcode", e.target.value)}
+              placeholder="EC1A 1BB"
+            />
           </div>
         </div>
 
@@ -574,7 +622,7 @@ export function CompanyProfilePanel() {
         </div>
 
         {/* Billing address */}
-        <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+        <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
           <div className="flex items-center gap-2">
             <Checkbox
               id="billing_same"
@@ -589,24 +637,39 @@ export function CompanyProfilePanel() {
             <div className="space-y-3 pt-2">
               <div>
                 <Label>Billing Address Line 1</Label>
-                <Input value={form.billing_address_line1} onChange={(e) => set("billing_address_line1", e.target.value)} />
+                <Input
+                  value={form.billing_address_line1}
+                  onChange={(e) => set("billing_address_line1", e.target.value)}
+                />
               </div>
               <div>
                 <Label>Billing Address Line 2</Label>
-                <Input value={form.billing_address_line2} onChange={(e) => set("billing_address_line2", e.target.value)} />
+                <Input
+                  value={form.billing_address_line2}
+                  onChange={(e) => set("billing_address_line2", e.target.value)}
+                />
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <Label>City</Label>
-                  <Input value={form.billing_city} onChange={(e) => set("billing_city", e.target.value)} />
+                  <Input
+                    value={form.billing_city}
+                    onChange={(e) => set("billing_city", e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label>County</Label>
-                  <Input value={form.billing_county} onChange={(e) => set("billing_county", e.target.value)} />
+                  <Input
+                    value={form.billing_county}
+                    onChange={(e) => set("billing_county", e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label>Postcode</Label>
-                  <Input value={form.billing_postcode} onChange={(e) => set("billing_postcode", e.target.value)} />
+                  <Input
+                    value={form.billing_postcode}
+                    onChange={(e) => set("billing_postcode", e.target.value)}
+                  />
                 </div>
               </div>
             </div>
@@ -624,7 +687,9 @@ export function CompanyProfilePanel() {
       >
         <div>
           <Label className="mb-2 block">Specialisations</Label>
-          <p className="mb-3 text-xs text-muted-foreground">Select all event types your company produces</p>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Select all event types your company produces
+          </p>
           <TagSelector
             options={SPECIALISATIONS}
             selected={form.specialisations}
@@ -634,7 +699,9 @@ export function CompanyProfilePanel() {
 
         <div>
           <Label className="mb-2 block">Typical Crew Roles Hired</Label>
-          <p className="mb-3 text-xs text-muted-foreground">Which roles do you most commonly book through EventLink?</p>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Which roles do you most commonly book through EventLink?
+          </p>
           <TagSelector
             options={TYPICAL_ROLES}
             selected={form.typical_roles}
@@ -694,10 +761,14 @@ export function CompanyProfilePanel() {
           <div>
             <Label>Standard Payment Terms</Label>
             <Select value={form.payment_terms} onValueChange={(v) => set("payment_terms", v)}>
-              <SelectTrigger><SelectValue placeholder="Select terms" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Select terms" />
+              </SelectTrigger>
               <SelectContent>
                 {PAYMENT_TERMS.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -707,10 +778,14 @@ export function CompanyProfilePanel() {
         <div>
           <Label>IR35 / Engagement Preference</Label>
           <Select value={form.ir35_preference} onValueChange={(v) => set("ir35_preference", v)}>
-            <SelectTrigger><SelectValue placeholder="How do you typically engage freelancers?" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="How do you typically engage freelancers?" />
+            </SelectTrigger>
             <SelectContent>
               {IR35_PREFS.map((p) => (
-                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                <SelectItem key={p.value} value={p.value}>
+                  {p.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -727,11 +802,18 @@ export function CompanyProfilePanel() {
       >
         <div>
           <Label>Public Liability Insurance</Label>
-          <Select value={form.public_liability_value} onValueChange={(v) => set("public_liability_value", v)}>
-            <SelectTrigger><SelectValue placeholder="Select cover value" /></SelectTrigger>
+          <Select
+            value={form.public_liability_value}
+            onValueChange={(v) => set("public_liability_value", v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select cover value" />
+            </SelectTrigger>
             <SelectContent>
               {PUBLIC_LIABILITY_VALUES.map((v) => (
-                <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
+                <SelectItem key={v.value} value={v.value}>
+                  {v.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -801,7 +883,9 @@ export function CompanyProfilePanel() {
       {/* Sticky save bar */}
       <div className="sticky bottom-0 -mx-4 border-t bg-background px-4 py-3 shadow-lg sm:-mx-6 sm:px-6">
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Changes are saved to your profile immediately.</p>
+          <p className="text-sm text-muted-foreground">
+            Changes are saved to your profile immediately.
+          </p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setIsEditing(false)}>
               Cancel
@@ -821,7 +905,10 @@ export function CompanyProfilePanel() {
 
 function ProfileView({ profile, onEdit }: { profile: any; onEdit: () => void }) {
   const hasAddress = profile?.address_line1 || profile?.city;
-  const hasInsurance = profile?.public_liability_value || profile?.employers_liability || profile?.professional_indemnity;
+  const hasInsurance =
+    profile?.public_liability_value ||
+    profile?.employers_liability ||
+    profile?.professional_indemnity;
 
   return (
     <div className="space-y-6">
@@ -839,22 +926,33 @@ function ProfileView({ profile, onEdit }: { profile: any; onEdit: () => void }) 
             <div className="flex items-start gap-4">
               <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-background bg-primary/10 shadow">
                 {profile?.company_logo_url ? (
-                  <img src={profile.company_logo_url} alt="Logo" className="h-full w-full object-cover" />
+                  <img
+                    src={profile.company_logo_url}
+                    alt="Logo"
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
                   <Building2 className="h-8 w-8 text-primary" />
                 )}
               </div>
               <div>
                 <h2 className="text-xl font-bold">{profile?.company_name || "Company Name"}</h2>
-                {profile?.contact_name && <p className="text-muted-foreground">{profile.contact_name}</p>}
+                {profile?.contact_name && (
+                  <p className="text-muted-foreground">{profile.contact_name}</p>
+                )}
                 <div className="mt-2 flex flex-wrap gap-2">
                   {profile?.company_type && (
                     <Badge variant="secondary">
-                      {COMPANY_TYPES.find((t) => t.value === profile.company_type)?.label ?? profile.company_type}
+                      {COMPANY_TYPES.find((t) => t.value === profile.company_type)?.label ??
+                        profile.company_type}
                     </Badge>
                   )}
-                  {profile?.company_size && <Badge variant="outline">{profile.company_size} employees</Badge>}
-                  {profile?.founded_year && <Badge variant="outline">Est. {profile.founded_year}</Badge>}
+                  {profile?.company_size && (
+                    <Badge variant="outline">{profile.company_size} employees</Badge>
+                  )}
+                  {profile?.founded_year && (
+                    <Badge variant="outline">Est. {profile.founded_year}</Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -879,8 +977,13 @@ function ProfileView({ profile, onEdit }: { profile: any; onEdit: () => void }) 
             )}
             {profile?.website_url && (
               <a
-                href={profile.website_url.match(/^https?:\/\//) ? profile.website_url : `https://${profile.website_url}`}
-                target="_blank" rel="noopener noreferrer"
+                href={
+                  profile.website_url.match(/^https?:\/\//)
+                    ? profile.website_url
+                    : `https://${profile.website_url}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-1 text-primary hover:underline"
               >
                 <Globe className="h-4 w-4" /> Website
@@ -888,8 +991,13 @@ function ProfileView({ profile, onEdit }: { profile: any; onEdit: () => void }) 
             )}
             {profile?.linkedin_url && (
               <a
-                href={profile.linkedin_url.match(/^https?:\/\//) ? profile.linkedin_url : `https://${profile.linkedin_url}`}
-                target="_blank" rel="noopener noreferrer"
+                href={
+                  profile.linkedin_url.match(/^https?:\/\//)
+                    ? profile.linkedin_url
+                    : `https://${profile.linkedin_url}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-1 text-primary hover:underline"
               >
                 <Linkedin className="h-4 w-4" /> LinkedIn
@@ -897,8 +1005,13 @@ function ProfileView({ profile, onEdit }: { profile: any; onEdit: () => void }) 
             )}
             {profile?.instagram_url && (
               <a
-                href={profile.instagram_url.match(/^https?:\/\//) ? profile.instagram_url : `https://instagram.com/${profile.instagram_url.replace(/^@/, "")}`}
-                target="_blank" rel="noopener noreferrer"
+                href={
+                  profile.instagram_url.match(/^https?:\/\//)
+                    ? profile.instagram_url
+                    : `https://instagram.com/${profile.instagram_url.replace(/^@/, "")}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-1 text-primary hover:underline"
               >
                 <Instagram className="h-4 w-4" /> Instagram
@@ -910,19 +1023,23 @@ function ProfileView({ profile, onEdit }: { profile: any; onEdit: () => void }) 
 
       {/* About */}
       {(profile?.description || profile?.mission_statement) && (
-        <div className="rounded-xl border bg-card p-6 space-y-3 shadow-sm">
-          <h3 className="font-semibold flex items-center gap-2">
+        <div className="space-y-3 rounded-xl border bg-card p-6 shadow-sm">
+          <h3 className="flex items-center gap-2 font-semibold">
             <FileText className="h-4 w-4 text-primary" /> About
           </h3>
-          {profile.description && <p className="text-sm text-muted-foreground leading-relaxed">{profile.description}</p>}
+          {profile.description && (
+            <p className="text-sm leading-relaxed text-muted-foreground">{profile.description}</p>
+          )}
           {profile.mission_statement && (
-            <blockquote className="border-l-4 border-primary pl-4 italic text-sm text-muted-foreground">
+            <blockquote className="border-l-4 border-primary pl-4 text-sm italic text-muted-foreground">
               {profile.mission_statement}
             </blockquote>
           )}
           {profile.notable_clients && (
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Notable Clients</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Notable Clients
+              </p>
               <p className="text-sm">{profile.notable_clients}</p>
             </div>
           )}
@@ -932,12 +1049,14 @@ function ProfileView({ profile, onEdit }: { profile: any; onEdit: () => void }) 
       {/* Specialisations */}
       {profile?.specialisations?.length > 0 && (
         <div className="rounded-xl border bg-card p-6 shadow-sm">
-          <h3 className="font-semibold flex items-center gap-2 mb-3">
+          <h3 className="mb-3 flex items-center gap-2 font-semibold">
             <Briefcase className="h-4 w-4 text-primary" /> Specialisations
           </h3>
           <div className="flex flex-wrap gap-2">
             {profile.specialisations.map((s: string) => (
-              <Badge key={s} variant="secondary">{s}</Badge>
+              <Badge key={s} variant="secondary">
+                {s}
+              </Badge>
             ))}
           </div>
         </div>
@@ -946,13 +1065,15 @@ function ProfileView({ profile, onEdit }: { profile: any; onEdit: () => void }) 
       {/* Operations */}
       {(profile?.day_rate_min || profile?.payment_terms || profile?.ir35_preference) && (
         <div className="rounded-xl border bg-card p-6 shadow-sm">
-          <h3 className="font-semibold flex items-center gap-2 mb-4">
+          <h3 className="mb-4 flex items-center gap-2 font-semibold">
             <Users className="h-4 w-4 text-primary" /> Working Arrangements
           </h3>
           <div className="grid gap-4 sm:grid-cols-3">
             {(profile.day_rate_min || profile.day_rate_max) && (
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Day Rate Range</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Day Rate Range
+                </p>
                 <p className="mt-1 font-semibold">
                   £{profile.day_rate_min ?? "—"} – £{profile.day_rate_max ?? "—"}
                 </p>
@@ -960,17 +1081,23 @@ function ProfileView({ profile, onEdit }: { profile: any; onEdit: () => void }) 
             )}
             {profile.payment_terms && (
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Payment Terms</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Payment Terms
+                </p>
                 <p className="mt-1 font-semibold">
-                  {PAYMENT_TERMS.find((t) => t.value === profile.payment_terms)?.label ?? profile.payment_terms}
+                  {PAYMENT_TERMS.find((t) => t.value === profile.payment_terms)?.label ??
+                    profile.payment_terms}
                 </p>
               </div>
             )}
             {profile.ir35_preference && (
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">IR35 Preference</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  IR35 Preference
+                </p>
                 <p className="mt-1 font-semibold">
-                  {IR35_PREFS.find((p) => p.value === profile.ir35_preference)?.label ?? profile.ir35_preference}
+                  {IR35_PREFS.find((p) => p.value === profile.ir35_preference)?.label ??
+                    profile.ir35_preference}
                 </p>
               </div>
             )}
@@ -981,7 +1108,7 @@ function ProfileView({ profile, onEdit }: { profile: any; onEdit: () => void }) 
       {/* Insurance */}
       {hasInsurance && (
         <div className="rounded-xl border bg-card p-6 shadow-sm">
-          <h3 className="font-semibold flex items-center gap-2 mb-4">
+          <h3 className="mb-4 flex items-center gap-2 font-semibold">
             <Shield className="h-4 w-4 text-primary" /> Insurance & Compliance
           </h3>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -1016,13 +1143,15 @@ function ProfileView({ profile, onEdit }: { profile: any; onEdit: () => void }) 
       {/* Accreditations */}
       {(profile?.industry_bodies?.length > 0 || profile?.other_accreditations) && (
         <div className="rounded-xl border bg-card p-6 shadow-sm">
-          <h3 className="font-semibold flex items-center gap-2 mb-3">
+          <h3 className="mb-3 flex items-center gap-2 font-semibold">
             <Award className="h-4 w-4 text-primary" /> Accreditations
           </h3>
           {profile.industry_bodies?.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
+            <div className="mb-3 flex flex-wrap gap-2">
               {profile.industry_bodies.map((b: string) => (
-                <Badge key={b} variant="outline" className="text-xs">{b}</Badge>
+                <Badge key={b} variant="outline" className="text-xs">
+                  {b}
+                </Badge>
               ))}
             </div>
           )}
@@ -1035,9 +1164,9 @@ function ProfileView({ profile, onEdit }: { profile: any; onEdit: () => void }) 
       {/* Prompt to fill in if very sparse */}
       {!profile?.description && !profile?.specialisations?.length && (
         <div className="rounded-xl border-2 border-dashed border-muted p-8 text-center">
-          <Building2 className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-          <h3 className="font-medium mb-1">Complete your company profile</h3>
-          <p className="text-sm text-muted-foreground mb-4">
+          <Building2 className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+          <h3 className="mb-1 font-medium">Complete your company profile</h3>
+          <p className="mb-4 text-sm text-muted-foreground">
             A complete profile builds trust with freelancers and increases booking acceptance rates.
           </p>
           <Button onClick={onEdit}>

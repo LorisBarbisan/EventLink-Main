@@ -1,6 +1,6 @@
 import connectPgSimple from "connect-pg-simple";
 import cors from "cors";
-import type { Express } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import session from "express-session";
 import helmet from "helmet";
@@ -15,6 +15,7 @@ import { storage } from "./storage";
 // Import domain-specific route modules
 import jwt from "jsonwebtoken";
 import { setCacheByEndpoint } from "./api/middleware/cacheHeaders.js";
+import { requireAdminAuth } from "./api/middleware/admin.middleware.js";
 import { registerAdminRoutes } from "./api/routes/admin.route.js";
 import { registerApplicationRoutes } from "./api/routes/applications.route.js";
 import { registerAuthRoutes } from "./api/routes/auth.route.js";
@@ -29,18 +30,17 @@ import { registerRatingsRoutes } from "./api/routes/rating.route.js";
 import { registerSeoRoutes } from "./api/routes/seo.route.js";
 import { registerSavedFreelancerRoutes } from "./api/routes/saved-freelancers.route.js";
 import referenceRouter from "./api/routes/reference.route.js";
-import bookingRouter, { publicBookingRouter } from "./api/routes/booking.route.js";
+import bookingRouter from "./api/routes/booking.route.js";
 import teamRouter from "./api/routes/team.route.js";
-import enquiryRouter from "./api/routes/enquiry.route.js";
-import briefRouter from "./api/routes/brief.route.js";
-import calendarRouter from "./api/routes/calendar.route.js";
-import invoiceRouter from "./api/routes/invoice.route.js";
-import exportRouter from "./api/routes/export.route.js";
-import subscriptionRouter from "./api/routes/subscription.route.js";
+import jobDocumentRouter from "./api/routes/job-document.route.js";
+import helpRouter from "./api/routes/help.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
+import { JWT_SECRET, SESSION_SECRET } from "./api/config/env.js";
 import { wsService } from "./api/websocket/websocketService";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(
+  app: Express
+): Promise<{ httpServer: Server; wss: WebSocketServer }> {
   // Add performance monitoring middleware
   app.use(performanceMonitor.middleware());
 
@@ -71,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!origin) return callback(null, true);
 
         // Check if origin matches allowed patterns
-        const isAllowed = allowedOrigins.some(pattern => {
+        const isAllowed = allowedOrigins.some((pattern) => {
           if (typeof pattern === "string") {
             return origin === pattern;
           }
@@ -166,11 +166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(
     session({
       ...sessionStoreConfig,
-      secret: (() => {
-        const secret = process.env.SESSION_SECRET;
-        if (!secret) throw new Error("SESSION_SECRET is required");
-        return secret;
-      })(),
+      secret: SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
       name: "eventlink.sid", // Custom session name for security
@@ -249,6 +245,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   });
 
+  // Must be registered before registerJobRoutes(), whose GET /api/jobs/:id
+  // would otherwise shadow this path (matching "count" as the :id param).
+  app.get("/api/jobs/count", async (_req, res) => {
+    try {
+      const jobs = await storage.searchJobs({
+        keyword: "",
+        location: "",
+        startDate: "",
+        endDate: "",
+      });
+      res.json({ count: jobs.length });
+    } catch (error) {
+      console.error("Job count error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Register all domain-specific routes
   registerAuthRoutes(app);
   registerProfileRoutes(app);
@@ -264,14 +277,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerSavedFreelancerRoutes(app);
   app.use("/api/references", referenceRouter);
   app.use("/api/bookings", bookingRouter);
-  app.use("/api/bookings", publicBookingRouter);
-  app.use("/api/fms", invoiceRouter);
-  app.use("/api/enquiries", enquiryRouter);
-  app.use("/api/briefs", briefRouter);
-  app.use("/api/calendar", calendarRouter);
-  app.use("/api/export", exportRouter);
-  app.use("/api/subscription", subscriptionRouter);
   app.use("/api/team", teamRouter);
+  app.use("/api/job", jobDocumentRouter);
+  app.use("/api/help", helpRouter);
   registerContactRoutes(app);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering
@@ -280,18 +288,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Extract query parameters
       const keyword = (req.query.keyword as string) || "";
       const location = (req.query.location as string) || "";
+      const country = (req.query.country as string) || "";
       const startDate = (req.query.start_date as string) || "";
       const endDate = (req.query.end_date as string) || "";
 
       console.log("📋 Jobs endpoint called with filters:", {
         keyword,
         location,
+        country,
         startDate,
         endDate,
       });
 
       // Get filtered jobs from storage
-      const jobs = await storage.searchJobs({ keyword, location, startDate, endDate });
+      const jobs = await storage.searchJobs({ keyword, location, country, startDate, endDate });
 
       console.log(`📊 Found ${jobs.length} jobs after filtering`);
 
@@ -305,50 +315,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Additional utility endpoints that don't fit into specific domains
 
   // External job sync endpoints
-  // TEMPORARILY DISABLED - External job sync is paused
-  app.post("/api/jobs/sync-external", async (req, res) => {
-    console.log("⏸️ External job sync is temporarily disabled");
-    return res.json({
-      message: "External job sync is temporarily disabled",
-      synced: 0,
-      skipped: 0,
-    });
-    /* DISABLED - Re-enable when ready
+  // Real (non-dry-run) sync stays unauthenticated: Jobs.tsx calls this from the
+  // browser on every page mount, throttled client-side via localStorage.
+  const requireAdminForDryRun = (req: Request, res: Response, next: NextFunction) => {
+    if (req.query.dryRun === "true") return requireAdminAuth(req, res, next);
+    next();
+  };
+
+  app.post("/api/jobs/sync-external", requireAdminForDryRun, async (req, res) => {
     try {
       console.log("🔄 External job sync requested");
       const { jobAggregator } = await import("./api/utils/jobAggregator.js");
       const config = req.body.config; // Optional configuration
+      const dryRun = req.query.dryRun === "true";
 
       // Check if sync is already in progress
-      const isSync = jobAggregator.isSyncInProgress();
-      if (isSync) {
+      if (jobAggregator.isSyncInProgress()) {
         return res.json({ message: "Sync already in progress, skipping..." });
       }
 
-      const result = await jobAggregator.syncExternalJobs(config);
-      console.log("✅ External job sync completed");
+      // includeJSearch: false — temporarily disabled, the RapidAPI JSearch
+      // key has exhausted its monthly quota (BASIC/free plan). Flip back to
+      // true once the quota resets or the plan is upgraded.
+      const result = await jobAggregator.syncExternalJobs(config, {
+        dryRun,
+        includeJSearch: false,
+      });
+      console.log(dryRun ? "✅ External job dry-run completed" : "✅ External job sync completed");
       res.json({
-        message: "External jobs synced successfully",
+        message: dryRun
+          ? "Dry run completed, no jobs written"
+          : "External jobs synced successfully",
         ...result,
       });
     } catch (error) {
       console.error("❌ Sync external jobs error:", error);
       res.status(500).json({ error: "Failed to sync external jobs" });
     }
-    */
   });
 
-  // Get external jobs only (public endpoint - no authentication required)
-  // TEMPORARILY DISABLED - Returns empty array
-  app.get("/api/jobs/external", async (req, res) => {
-    console.log("⏸️ External jobs endpoint is temporarily disabled - returning empty array");
-    return res.json([]);
+  // Get external jobs only (admin/debug use — the public Jobs page uses GET /api/jobs,
+  // which already includes external jobs once they're synced into the database)
+  app.get("/api/jobs/external", requireAdminAuth, async (req, res) => {
+    try {
+      const jobs = await storage.getExternalJobs();
+      res.json(jobs);
+    } catch (error) {
+      console.error("❌ Get external jobs error:", error);
+      res.status(500).json({ error: "Failed to fetch external jobs" });
+    }
   });
 
-  // Location search endpoint
+  // One-time cleanup for external job duplicates that accumulated before the
+  // title+description dedup key existed. Safe to run repeatedly — it's a
+  // no-op once nothing matches on title+description anymore.
+  app.post("/api/jobs/dedupe-cleanup", requireAdminAuth, async (req, res) => {
+    try {
+      console.log("🧹 External job dedupe cleanup requested");
+      const { jobAggregator } = await import("./api/utils/jobAggregator.js");
+      const result = await jobAggregator.dedupeExistingExternalJobs();
+      res.json({ message: "Dedupe cleanup completed", ...result });
+    } catch (error) {
+      console.error("❌ Dedupe cleanup error:", error);
+      res.status(500).json({ error: "Failed to run dedupe cleanup" });
+    }
+  });
+
+  // Location search endpoint — global via Nominatim, falls back to local UK dataset
   app.get("/api/locations/search", async (req, res) => {
     try {
-      const { query } = req.query;
+      const { query, countryCode } = req.query;
 
       if (!query || typeof query !== "string") {
         return res.status(400).json({ error: "Query parameter is required" });
@@ -358,22 +394,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
 
-      const locations = searchLocalLocations(query);
+      // Try Nominatim first for global results
+      try {
+        const params = new URLSearchParams({
+          q: query,
+          format: "json",
+          addressdetails: "1",
+          limit: "8",
+          "accept-language": "en",
+        });
+        if (countryCode && typeof countryCode === "string") {
+          params.set("countrycodes", countryCode.toLowerCase());
+        }
+        const nominatimUrl = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
+        const nominatimRes = await fetch(nominatimUrl, {
+          headers: { "User-Agent": "EventLink/1.0 (eventlink.one)" },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (nominatimRes.ok) {
+          const data: any[] = await nominatimRes.json();
+          const formatted = data
+            .filter(
+              (r) =>
+                ["city", "town", "village", "suburb", "county", "state", "municipality"].includes(
+                  r.type
+                ) ||
+                r.class === "place" ||
+                r.class === "boundary"
+            )
+            .map((r) => {
+              const addr = r.address || {};
+              const city =
+                addr.city ||
+                addr.town ||
+                addr.village ||
+                addr.suburb ||
+                addr.municipality ||
+                addr.county ||
+                r.name;
+              const country = addr.country || "";
+              const display = [city, country].filter(Boolean).join(", ");
+              return {
+                display_name: display,
+                name: city,
+                country,
+                country_code: addr.country_code?.toUpperCase() || "",
+                formatted: display,
+                lat: r.lat,
+                lon: r.lon,
+              };
+            })
+            .filter((r, i, arr) => arr.findIndex((x) => x.display_name === r.display_name) === i);
+          return res.json(formatted);
+        }
+      } catch {
+        // fall through to local dataset
+      }
 
-      // Transform to expected UKLocation format
-      const formattedLocations = locations.map(location => ({
+      // Fallback: local UK dataset
+      const locations = searchLocalLocations(query);
+      const formattedLocations = locations.map((location) => ({
         display_name: `${location.formatted}, United Kingdom`,
         name: location.name,
-        county: location.county,
-        postcode: "",
-        city: location.name,
-        town: location.type === "town" ? location.name : undefined,
-        village: location.type === "village" ? location.name : undefined,
+        country: "United Kingdom",
+        country_code: "GB",
         formatted: location.formatted,
-        lat: "51.5074", // Default coordinates - London area
+        lat: "51.5074",
         lon: "-0.1278",
       }));
-
       res.json(formattedLocations);
     } catch (error) {
       console.error("Location search error:", error);
@@ -453,11 +541,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
 
         if (token) {
-          const JWT_SECRET = (() => {
-            const secret = process.env.JWT_SECRET;
-            if (!secret) throw new Error("JWT_SECRET is required");
-            return secret;
-          })();
           const decoded = jwt.verify(token, JWT_SECRET);
           if (decoded && typeof decoded === "object") {
             const user = await storage.getUser((decoded as any).id);
@@ -689,7 +772,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    ws.on("error", error => {
+    ws.on("error", (error) => {
       console.error("WebSocket error:", error);
       if (userId) {
         activeConnections.delete(userId);
@@ -697,5 +780,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  return httpServer;
+  return { httpServer, wss };
 }

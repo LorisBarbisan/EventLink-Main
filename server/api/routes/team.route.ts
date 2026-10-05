@@ -1,35 +1,27 @@
 import { Router } from "express";
-import { authenticateJWT } from "../middleware/auth.middleware.js";
-import { requireRole } from "../middleware/role.middleware.js";
-import { requireFmsAccess } from "../middleware/subscription.middleware.js";
+import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
+import { requireRole } from "../middleware/role.middleware";
+import { resolveCompanyId } from "../middleware/team.middleware";
 import {
-  attachTeamContext,
-  requireTeamAdmin,
-  requireTeamOwner,
-} from "../middleware/team.middleware.js";
-import {
-  getTeam,
-  inviteMember,
-  acceptInvite,
-  updateMemberRole,
-  removeMember,
-  grantDelegate,
-  revokeDelegate,
-} from "../controllers/team.controller.js";
+  getTeamMembers,
+  inviteTeamMember,
+  acceptInvitation,
+  registerTeamMember,
+  updateTeamMemberRole,
+  removeTeamMember,
+} from "../controllers/team.controller";
 
-const teamRouter = Router();
+const router = Router();
 
-teamRouter.get("/accept-invite/:token", authenticateJWT as any, acceptInvite);
+router.get("/accept/:token", authenticateOptionalJWT, acceptInvitation);
+router.post("/accept/:token", authenticateJWT, acceptInvitation);
+router.post("/register/:token", registerTeamMember);
 
-teamRouter.use(
-  ...[authenticateJWT, requireRole("recruiter"), requireFmsAccess, attachTeamContext] as any[]
-);
+router.use(authenticateJWT, requireRole("employer"), resolveCompanyId);
 
-teamRouter.get("/", getTeam);
-teamRouter.post("/invite", ...[requireTeamAdmin, inviteMember] as any[]);
-teamRouter.patch("/members/role", ...[requireTeamAdmin, updateMemberRole] as any[]);
-teamRouter.delete("/members/:userId", ...[requireTeamOwner, removeMember] as any[]);
-teamRouter.post("/delegate", ...[requireTeamAdmin, grantDelegate] as any[]);
-teamRouter.delete("/delegate", ...[requireTeamAdmin, revokeDelegate] as any[]);
+router.get("/", getTeamMembers);
+router.post("/invite", inviteTeamMember);
+router.patch("/:id/role", updateTeamMemberRole);
+router.delete("/:id", removeTeamMember);
 
-export default teamRouter;
+export default router;

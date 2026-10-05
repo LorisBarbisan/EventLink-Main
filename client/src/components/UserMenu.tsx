@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,18 +9,28 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-import { Bell, Building2, CreditCard, LogOut, Settings, Star, User, UserCircle } from "lucide-react";
+import { getEffectiveCompanyId, isManagerTeamMember } from "@/lib/employerContext";
+import { Bell, HelpCircle, LogOut, Settings, Star, User, UserCircle } from "lucide-react";
 import { useLocation } from "wouter";
 
 export const UserMenu = () => {
   const [, setLocation] = useLocation();
   const { user, signOut } = useAuth();
 
+  // Hooks must run before any early return (rules-of-hooks). These inputs are
+  // null-safe via optional chaining, and useProfile is disabled when there's no
+  // user id, so it's harmless when logged out.
+  const userType = user?.role === "freelancer" ? "freelancer" : "recruiter";
+  const profileUserId =
+    user?.role === "recruiter" && user ? getEffectiveCompanyId(user) : user?.id || 0;
+  const { profile } = useProfile({ userType, userId: profileUserId });
+
   if (!user) return null;
 
-  // Get profile data based on user role
-  const userType = user?.role === "freelancer" ? "freelancer" : "recruiter";
-  const { profile } = useProfile({ userType, userId: user?.id || 0 });
+  const showProfileLink =
+    user.role === "freelancer" ||
+    user.role === "admin" ||
+    (user.role === "recruiter" && !isManagerTeamMember(user));
 
   // Get display name based on user account data
   const getDisplayName = () => {
@@ -51,7 +61,7 @@ export const UserMenu = () => {
 
     // Fallback to clean email-based name
     const emailName = user.email.split("@")[0];
-    return emailName.replace(/[._]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+    return emailName.replace(/[._]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   const getInitials = () => {
@@ -92,13 +102,23 @@ export const UserMenu = () => {
     const name = user.email
       .split("@")[0]
       .replace(/[._]/g, " ")
-      .replace(/\b\w/g, l => l.toUpperCase());
+      .replace(/\b\w/g, (l) => l.toUpperCase());
     return name
       .split(" ")
-      .map(word => word[0])
+      .map((word) => word[0])
       .join("")
       .slice(0, 2)
       .toUpperCase();
+  };
+
+  const getAvatarUrl = (): string | undefined => {
+    if (!profile) return undefined;
+    const p = profile as any;
+    const url = user.role === "recruiter" ? p.company_logo_url : p.profile_photo_url;
+    if (url && typeof url === "string" && url.trim() !== "" && url !== "null") {
+      return url;
+    }
+    return undefined;
   };
 
   return (
@@ -110,6 +130,7 @@ export const UserMenu = () => {
           data-testid="button-user-menu"
         >
           <Avatar className="h-8 w-8">
+            {getAvatarUrl() && <AvatarImage src={getAvatarUrl()} alt={getDisplayName()} />}
             <AvatarFallback>{getInitials()}</AvatarFallback>
           </Avatar>
         </Button>
@@ -128,10 +149,12 @@ export const UserMenu = () => {
           Dashboard
         </DropdownMenuItem>
 
-        <DropdownMenuItem onClick={() => setLocation("/profile")} data-testid="menu-profile">
-          <UserCircle className="mr-2 h-4 w-4" />
-          Profile
-        </DropdownMenuItem>
+        {showProfileLink && (
+          <DropdownMenuItem onClick={() => setLocation("/profile")} data-testid="menu-profile">
+            <UserCircle className="mr-2 h-4 w-4" />
+            Profile
+          </DropdownMenuItem>
+        )}
 
         {user.role === "freelancer" && (
           <DropdownMenuItem onClick={() => setLocation("/ratings")} data-testid="menu-ratings">
@@ -155,30 +178,20 @@ export const UserMenu = () => {
           </DropdownMenuItem>
         )}
 
+        {user.role === "admin" && (
+          <DropdownMenuItem
+            onClick={() => setLocation("/admin/help")}
+            data-testid="menu-admin-help"
+          >
+            <HelpCircle className="mr-2 h-4 w-4" />
+            Help content
+          </DropdownMenuItem>
+        )}
+
         <DropdownMenuItem onClick={() => setLocation("/settings")} data-testid="menu-settings">
           <Settings className="mr-2 h-4 w-4" />
           Settings
         </DropdownMenuItem>
-
-        {user.role === "recruiter" && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => setLocation("/dashboard?tab=profile")}
-              data-testid="menu-company-profile"
-            >
-              <Building2 className="mr-2 h-4 w-4" />
-              Company Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setLocation("/dashboard?tab=billing")}
-              data-testid="menu-billing"
-            >
-              <CreditCard className="mr-2 h-4 w-4" />
-              Billing
-            </DropdownMenuItem>
-          </>
-        )}
 
         <DropdownMenuSeparator />
 

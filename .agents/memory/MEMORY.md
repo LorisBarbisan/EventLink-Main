@@ -1,6 +1,1 @@
-- [Calendar OAuth state pattern](calendar-oauth-state.md) — use base64url-encoded state param (not passport session) to pass employerId through OAuth redirects.
-- [FMS auth middleware](fms-auth-middleware.md) — FMS routes use authenticateJWT (never requireAuth); spread middleware arrays with `as any[]` for TS compatibility.
-- [Stripe webhook injection](stripe-webhook.md) — webhook must register with express.raw() BEFORE express.json() in index.ts; import handleWebhook from subscription.controller.
-- [queryClient import](queryclient-import.md) — queryClient is a named export from @/lib/queryClient, not default; use `import { queryClient } from "@/lib/queryClient"`.
-- [Team invite userId nullable](team-invite-nullable.md) — team_members.userId is nullable (no .notNull()) so invited non-existing users store NULL; acceptTeamInvite updates it to the real userId on accept.
-- [RecruiterDashboard tab grid](recruiter-dashboard-tabs.md) — tab grid uses dynamic class: md:grid-cols-10 normally, md:grid-cols-11 for Teams tier; Team tab trigger/content wrapped in {isTeamsTier && ...}.
+- [Object storage uploads in production](object-storage-uploads.md) — GCS SDK file.save() fails; use sidecar signed-URL + fetch() PUT instead.

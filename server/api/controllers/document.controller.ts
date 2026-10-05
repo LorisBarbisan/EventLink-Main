@@ -71,18 +71,7 @@ export async function uploadDocument(req: Request, res: Response) {
 
     let storedPath: string = objectKey;
     try {
-      const signedPutUrl = await ObjectStorageService.getUploadUrl(objectKey, contentType);
-      const uploadResponse = await fetch(signedPutUrl, {
-        method: "PUT",
-        body: buffer,
-        headers: { "Content-Type": contentType },
-      });
-
-      if (!uploadResponse.ok) {
-        const errText = await uploadResponse.text().catch(() => "");
-        throw new Error(`Signed URL upload failed: ${uploadResponse.status} ${errText}`);
-      }
-
+      await ObjectStorageService.uploadBuffer(objectKey, contentType, buffer);
       console.log(`✅ Document uploaded to object storage: ${objectKey}`);
     } catch (uploadError: any) {
       console.warn(
@@ -172,44 +161,40 @@ export async function downloadDocument(req: Request, res: Response) {
     const requestingUser = (req as any).user;
     const publicToken = req.query.pt as string | undefined;
 
-    console.log(`📥 Download request: docId=${documentId}, file_url=${document.file_url}, user=${requestingUser?.id ?? "guest"}, role=${requestingUser?.role ?? "none"}`);
-
     if (!requestingUser) {
-      if (!publicToken) {
-        console.log(`❌ Download rejected: no user, no public token`);
-        return res.status(401).json({ error: "Not authenticated" });
-      }
       const ownerProfile = await storage.getFreelancerProfile(document.freelancer_id);
-      if (!ownerProfile?.reference_token || ownerProfile.reference_token !== publicToken) {
-        console.log(`❌ Download rejected: invalid public token`);
-        return res.status(403).json({ error: "Invalid or missing access token" });
+      // Allow access when profile is public or caller provides a valid public token
+      if (!(ownerProfile as any)?.profile_is_public) {
+        if (!publicToken) {
+          return res.status(401).json({ error: "Not authenticated" });
+        }
+        if (!ownerProfile?.reference_token || ownerProfile.reference_token !== publicToken) {
+          return res.status(403).json({ error: "Invalid or missing access token" });
+        }
       }
     } else {
+      // Signed-in user: freelancers can only access their own documents
       if (requestingUser.role === "freelancer" && document.freelancer_id !== requestingUser.id) {
-        console.log(`❌ Download rejected: freelancer ${requestingUser.id} cannot access doc owned by ${document.freelancer_id}`);
         return res.status(403).json({ error: "Not authorized to access this document" });
       }
     }
 
     try {
-      if (isLocalPath(document.file_url)) {
-        console.log(`📂 Serving local file: ${document.file_url}`);
-        const buffer = await readLocally(document.file_url);
-        res.setHeader("Content-Type", document.file_type || "application/octet-stream");
-        res.setHeader(
-          "Content-Disposition",
-          `inline; filename="${encodeURIComponent(document.original_filename || "document")}"`
-        );
-        return res.send(buffer);
-      }
+      const fileName = document.original_filename || "document";
+      const contentType = document.file_type || "application/octet-stream";
 
-      console.log(`☁️  Getting signed download URL for: ${document.file_url}`);
-      const downloadUrl = await ObjectStorageService.getDownloadUrl(document.file_url);
-      console.log(`✅ Generated download URL for document: ${document.file_url}`);
-      res.json({ downloadUrl, fileName: document.original_filename });
-    } catch (objectError: any) {
-      console.error(`❌ Failed to serve document ${document.file_url}:`, objectError?.message ?? objectError);
-      return res.status(404).json({ error: `Document file not found: ${objectError?.message ?? "storage error"}` });
+      res.set({
+        "Content-Type": contentType,
+        "Content-Disposition": `inline; filename="${encodeURIComponent(fileName)}"`,
+        "Cache-Control": "private, no-store",
+      });
+
+      const buffer = await ObjectStorageService.downloadObjectBuffer(document.file_url);
+      res.send(buffer);
+      console.log(`✅ Served document from object storage: ${document.file_url}`);
+    } catch (objectError) {
+      console.error(`❌ Failed to serve document for ${document.file_url}:`, objectError);
+      return res.status(404).json({ error: "Document file not found in storage" });
     }
   } catch (error) {
     console.error("Download document error:", error);

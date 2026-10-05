@@ -1,80 +1,16 @@
 import sgMail from "@sendgrid/mail";
 
-let connectionSettings: any;
+const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "noreply@eventlink.one";
 
-async function getCredentials() {
-  try {
-    const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-    const xReplitToken = process.env.REPL_IDENTITY
-      ? "repl " + process.env.REPL_IDENTITY
-      : process.env.WEB_REPL_RENEWAL
-        ? "depl " + process.env.WEB_REPL_RENEWAL
-        : null;
-
-    if (!xReplitToken) {
-      console.error(
-        "❌ X_REPLIT_TOKEN not found - REPL_IDENTITY and WEB_REPL_RENEWAL both missing"
-      );
-      throw new Error("X_REPLIT_TOKEN not found for repl/depl");
-    }
-
-    console.log("📧 Fetching SendGrid credentials from connector...");
-    const response = await fetch(
-      "https://" + hostname + "/api/v2/connection?include_secrets=true&connector_names=sendgrid",
-      {
-        headers: {
-          Accept: "application/json",
-          X_REPLIT_TOKEN: xReplitToken,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      console.error(`❌ Connector API returned ${response.status}: ${response.statusText}`);
-      throw new Error(`Connector API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    connectionSettings = data.items?.[0];
-
-    if (!connectionSettings) {
-      console.error("❌ No SendGrid connection found in connector response");
-      console.error("Response data:", JSON.stringify(data, null, 2));
-      throw new Error("SendGrid connection not found - please set up the SendGrid connector");
-    }
-
-    if (!connectionSettings.settings?.api_key) {
-      console.error("❌ SendGrid connector missing api_key");
-      throw new Error("SendGrid connector not properly configured - missing API key");
-    }
-
-    if (!connectionSettings.settings?.from_email) {
-      console.error("❌ SendGrid connector missing from_email");
-      throw new Error("SendGrid connector not properly configured - missing sender email");
-    }
-
-    console.log(
-      `✅ SendGrid credentials fetched successfully - sender: ${connectionSettings.settings.from_email}`
-    );
-    return {
-      apiKey: connectionSettings.settings.api_key,
-      email: connectionSettings.settings.from_email,
-    };
-  } catch (error: any) {
-    console.error("❌ Failed to get SendGrid credentials:", error.message);
-    throw error;
-  }
-}
-
-// WARNING: Never cache this client.
-// Access tokens expire, so a new client must be created each time.
-// Always call this function again to get a fresh client.
 async function getUncachableSendGridClient() {
-  const { apiKey, email } = await getCredentials();
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) {
+    throw new Error("SENDGRID_API_KEY environment variable is not set");
+  }
   sgMail.setApiKey(apiKey);
   return {
     client: sgMail,
-    fromEmail: email,
+    fromEmail: SENDGRID_FROM_EMAIL,
   };
 }
 
@@ -193,18 +129,31 @@ export async function sendVerificationEmail(
         .container {
           max-width: 600px;
           margin: 0 auto;
-          padding: 40px 20px;
+          padding: 0;
+          overflow: hidden;
           background-color: #ffffff;
           border-radius: 12px;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
         }
         .header {
-          text-align: center;
-          margin-bottom: 40px;
+          background-color: #1B2A4A;
+          padding: 28px 36px 20px 36px;
+          border-bottom: 4px solid #D8690E;
+          text-align: left;
         }
-        .logo {
-          margin: 0 auto 24px;
-          display: block;
+        .brand {
+          margin: 0;
+          font-size: 22px;
+          font-weight: bold;
+          color: #D8690E;
+          letter-spacing: 1px;
+        }
+        .strapline {
+          margin: 4px 0 0 0;
+          font-size: 12px;
+          color: #9CA3AF;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
         h1 {
           color: #1e293b;
@@ -215,7 +164,7 @@ export async function sendVerificationEmail(
         }
         .content {
           text-align: center;
-          padding: 0 20px;
+          padding: 36px 36px 8px 36px;
         }
         .content p {
           font-size: 16px;
@@ -281,7 +230,6 @@ export async function sendVerificationEmail(
           .container {
             margin: 0;
             border-radius: 0;
-            padding: 20px;
           }
           h1 {
             font-size: 28px;
@@ -296,13 +244,12 @@ export async function sendVerificationEmail(
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">
-            <img src="${baseUrl.replace(/\/$/, "")}/e8-logo.png" width="64" height="64" alt="EventLink Logo" style="display: block; margin: 0 auto 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(216, 105, 14, 0.3);" />
-          </div>
-          <h1>Welcome to EventLink!</h1>
+          <p class="brand">EventLink</p>
+          <p class="strapline">Event Industry Professional Network</p>
         </div>
 
         <div class="content">
+          <h1>Welcome to EventLink!</h1>
           <p><strong>Thank you for joining EventLink</strong>, the premier platform for event industry professionals.</p>
 
           <p>To complete your registration and start connecting with exciting opportunities, please verify your email address by clicking the button below:</p>
@@ -386,18 +333,31 @@ export async function sendPasswordResetEmail(
         .container {
           max-width: 600px;
           margin: 0 auto;
-          padding: 40px 20px;
+          padding: 0;
+          overflow: hidden;
           background-color: #ffffff;
           border-radius: 12px;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
         }
         .header {
-          text-align: center;
-          margin-bottom: 40px;
+          background-color: #1B2A4A;
+          padding: 28px 36px 20px 36px;
+          border-bottom: 4px solid #D8690E;
+          text-align: left;
         }
-        .logo {
-          margin: 0 auto 24px;
-          display: block;
+        .brand {
+          margin: 0;
+          font-size: 22px;
+          font-weight: bold;
+          color: #D8690E;
+          letter-spacing: 1px;
+        }
+        .strapline {
+          margin: 4px 0 0 0;
+          font-size: 12px;
+          color: #9CA3AF;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
         h1 {
           color: #1e293b;
@@ -408,7 +368,7 @@ export async function sendPasswordResetEmail(
         }
         .content {
           text-align: center;
-          padding: 0 20px;
+          padding: 36px 36px 8px 36px;
         }
         .content p {
           font-size: 16px;
@@ -474,7 +434,6 @@ export async function sendPasswordResetEmail(
           .container {
             margin: 0;
             border-radius: 0;
-            padding: 20px;
           }
           h1 {
             font-size: 28px;
@@ -489,13 +448,13 @@ export async function sendPasswordResetEmail(
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">
-            <img src="${baseUrl.replace(/\/$/, "")}/e8-logo.png" width="64" height="64" alt="EventLink Logo" style="display: block; margin: 0 auto 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(216, 105, 14, 0.3);" />
-          </div>
-          <h1>Password Reset Request</h1>
+          <p class="brand">EventLink</p>
+          <p class="strapline">Event Industry Professional Network</p>
         </div>
 
         <div class="content">
+          <h1>Password Reset Request</h1>
+
           <p>${firstName ? `Hi ${firstName},` : "Hello,"}</p>
 
           <p>We received a request to reset your password for your <strong>EventLink</strong> account.</p>
@@ -579,18 +538,31 @@ export async function sendContactReplyEmail(
         .container {
           max-width: 600px;
           margin: 0 auto;
-          padding: 40px 20px;
+          padding: 0;
+          overflow: hidden;
           background-color: #ffffff;
           border-radius: 12px;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
         }
         .header {
-          text-align: center;
-          margin-bottom: 40px;
+          background-color: #1B2A4A;
+          padding: 28px 36px 20px 36px;
+          border-bottom: 4px solid #D8690E;
+          text-align: left;
         }
-        .logo {
-          margin: 0 auto 24px;
-          display: block;
+        .brand {
+          margin: 0;
+          font-size: 22px;
+          font-weight: bold;
+          color: #D8690E;
+          letter-spacing: 1px;
+        }
+        .strapline {
+          margin: 4px 0 0 0;
+          font-size: 12px;
+          color: #9CA3AF;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
         h1 {
           color: #1e293b;
@@ -600,7 +572,7 @@ export async function sendContactReplyEmail(
           letter-spacing: -0.5px;
         }
         .content {
-          padding: 0 20px;
+          padding: 36px 36px 8px 36px;
         }
         .content p {
           font-size: 16px;
@@ -629,7 +601,6 @@ export async function sendContactReplyEmail(
           .container {
             margin: 0;
             border-radius: 0;
-            padding: 20px;
           }
           h1 {
             font-size: 28px;
@@ -640,13 +611,12 @@ export async function sendContactReplyEmail(
     <body>
       <div class="container">
         <div class="header">
-          <div class="logo">
-            <img src="https://eventlink.one/e8-logo.png" width="64" height="64" alt="EventLink Logo" style="display: block; margin: 0 auto 20px; border-radius: 16px; box-shadow: 0 4px 12px rgba(216, 105, 14, 0.3);" />
-          </div>
-          <h1>EventLink Support</h1>
+          <p class="brand">EventLink</p>
+          <p class="strapline">Event Industry Professional Network</p>
         </div>
 
         <div class="content">
+          <h1>EventLink Support</h1>
           <p>${message}</p>
         </div>
 

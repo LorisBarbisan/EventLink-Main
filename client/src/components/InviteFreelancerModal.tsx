@@ -60,7 +60,7 @@ export function InviteFreelancerModal({
 
   const inviteMutation = useMutation({
     mutationFn: async () => {
-      const promises = Array.from(selectedFreelancers).map(freelancerId =>
+      const promises = Array.from(selectedFreelancers).map((freelancerId) =>
         apiRequest("/api/applications/invite", {
           method: "POST",
           body: JSON.stringify({
@@ -103,11 +103,11 @@ export function InviteFreelancerModal({
 
   const getFreelancerStatus = (userId: number): string | null => {
     if (alreadyInvitedIds.includes(userId)) {
-      const app = existingApplications.find(a => a.freelancer_id === userId);
+      const app = existingApplications.find((a) => a.freelancer_id === userId);
       if (app) return app.status;
       return "invited";
     }
-    const app = existingApplications.find(a => a.freelancer_id === userId);
+    const app = existingApplications.find((a) => a.freelancer_id === userId);
     if (app) return app.status;
     return null;
   };
@@ -115,60 +115,97 @@ export function InviteFreelancerModal({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "invited":
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-none font-medium">Invited</Badge>;
+        return (
+          <Badge variant="secondary" className="border-none bg-blue-100 font-medium text-blue-700">
+            Invited
+          </Badge>
+        );
       case "applied":
-        return <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-none font-medium">Applied</Badge>;
+        return (
+          <Badge
+            variant="secondary"
+            className="border-none bg-purple-100 font-medium text-purple-700"
+          >
+            Applied
+          </Badge>
+        );
       case "hired":
-        return <Badge variant="secondary" className="bg-green-100 text-green-700 border-none font-medium">Hired</Badge>;
+        return (
+          <Badge
+            variant="secondary"
+            className="border-none bg-green-100 font-medium text-green-700"
+          >
+            Hired
+          </Badge>
+        );
       case "declined":
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-none font-medium">Declined</Badge>;
+        return (
+          <Badge variant="secondary" className="border-none bg-gray-100 font-medium text-gray-600">
+            Declined
+          </Badge>
+        );
       case "reviewed":
       case "shortlisted":
-        return <Badge variant="secondary" className="bg-amber-100 text-amber-700 border-none font-medium">In Review</Badge>;
-      case "declined":
-        return <Badge variant="secondary" className="bg-red-100 text-red-600 border-none font-medium">Rejected</Badge>;
+        return (
+          <Badge
+            variant="secondary"
+            className="border-none bg-amber-100 font-medium text-amber-700"
+          >
+            In Review
+          </Badge>
+        );
+      case "rejected":
+        return (
+          <Badge variant="secondary" className="border-none bg-red-100 font-medium text-red-600">
+            Declined
+          </Badge>
+        );
       default:
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-600 border-none font-medium">{status}</Badge>;
+        return (
+          <Badge variant="secondary" className="border-none bg-gray-100 font-medium text-gray-600">
+            {status}
+          </Badge>
+        );
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
-      <DialogContent className="sm:max-w-[600px] h-[600px] flex flex-col p-0 gap-0 overflow-hidden bg-white">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="flex h-[600px] flex-col gap-0 overflow-hidden bg-white p-0 sm:max-w-[600px]">
         <DialogHeader className="p-6 pb-2">
-          <div className="flex items-center gap-2 mb-1">
-            <UserPlus className="w-5 h-5 text-gray-700" />
+          <div className="mb-1 flex items-center gap-2">
+            <UserPlus className="h-5 w-5 text-gray-700" />
             <DialogTitle className="text-xl font-semibold text-gray-900">
               Invite Freelancers
             </DialogTitle>
           </div>
-          <DialogDescription className="text-gray-500 text-sm">
+          <DialogDescription className="text-sm text-gray-500">
             Invite freelancers to apply for "{jobTitle}". They will receive an email notification.
           </DialogDescription>
         </DialogHeader>
 
         <div className="px-6 py-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
               placeholder="Search freelancers by name, skills, or title..."
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-9 border-orange-200 focus-visible:ring-orange-500"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="border-orange-200 pl-9 focus-visible:ring-orange-500"
             />
           </div>
         </div>
 
-        <div className="flex-1 px-6 py-2 min-h-0">
-          <div className="border border-gray-200 rounded-lg h-full overflow-hidden flex flex-col">
+        <div className="min-h-0 flex-1 px-6 py-2">
+          <div className="flex h-full flex-col overflow-hidden rounded-lg border border-gray-200">
             <ScrollArea className="flex-1">
               <div className="p-2">
                 {isLoading ? (
-                  <div className="flex justify-center items-center h-40">
-                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                  <div className="flex h-40 items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
                 ) : freelancers.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
+                  <div className="py-8 text-center text-muted-foreground">
                     No freelancers found matching your search.
                   </div>
                 ) : (
@@ -181,25 +218,27 @@ export function InviteFreelancerModal({
                       return (
                         <div
                           key={freelancer.user_id}
-                          className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer group ${
+                          className={`group flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-all ${
                             hasExistingRelation
-                              ? "bg-gray-50 border-gray-100 opacity-75 cursor-default"
+                              ? "cursor-default border-gray-100 bg-gray-50 opacity-75"
                               : isSelected
                                 ? "border-orange-200 bg-orange-50"
                                 : "border-transparent hover:bg-gray-50"
                           }`}
-                          onClick={() => !hasExistingRelation && toggleSelection(freelancer.user_id)}
+                          onClick={() =>
+                            !hasExistingRelation && toggleSelection(freelancer.user_id)
+                          }
                         >
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10">
                               <AvatarImage src={freelancer.profile_photo_url} />
-                              <AvatarFallback className="bg-orange-100 text-orange-600 font-medium">
+                              <AvatarFallback className="bg-orange-100 font-medium text-orange-600">
                                 {freelancer.first_name?.[0]}
                                 {freelancer.last_name?.[0]}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <h4 className="font-semibold text-gray-900 text-sm">
+                              <h4 className="text-sm font-semibold text-gray-900">
                                 {freelancer.first_name} {freelancer.last_name}
                               </h4>
                               <p className="text-sm text-gray-500">
@@ -208,15 +247,13 @@ export function InviteFreelancerModal({
                             </div>
                           </div>
 
-                          {hasExistingRelation ? (
-                            getStatusBadge(existingStatus!)
-                          ) : (
-                            isSelected && (
-                              <div className="h-6 w-6 rounded-full bg-orange-500 flex items-center justify-center">
-                                <Check className="w-4 h-4 text-white" />
-                              </div>
-                            )
-                          )}
+                          {hasExistingRelation
+                            ? getStatusBadge(existingStatus!)
+                            : isSelected && (
+                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500">
+                                  <Check className="h-4 w-4 text-white" />
+                                </div>
+                              )}
                         </div>
                       );
                     })}
@@ -227,9 +264,9 @@ export function InviteFreelancerModal({
           </div>
         </div>
 
-        <div className="p-4 border-t mt-auto">
-          <div className="flex justify-between items-center w-full">
-            <div className="text-sm text-gray-500 font-medium">
+        <div className="mt-auto border-t p-4">
+          <div className="flex w-full items-center justify-between">
+            <div className="text-sm font-medium text-gray-500">
               {selectedFreelancers.size > 0
                 ? `${selectedFreelancers.size} freelancer${selectedFreelancers.size > 1 ? "s" : ""} selected`
                 : "Select freelancers to invite"}
@@ -245,16 +282,16 @@ export function InviteFreelancerModal({
               <Button
                 onClick={() => inviteMutation.mutate()}
                 disabled={selectedFreelancers.size === 0 || inviteMutation.isPending}
-                className="bg-[#EFA068] hover:bg-[#E59058] text-white border-none"
+                className="border-none bg-[#EFA068] text-white hover:bg-[#E59058]"
               >
                 {inviteMutation.isPending ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Sending...
                   </>
                 ) : (
                   <>
-                    <Send className="w-4 h-4 mr-2" />
+                    <Send className="mr-2 h-4 w-4" />
                     Send Invitations
                   </>
                 )}

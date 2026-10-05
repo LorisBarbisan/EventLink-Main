@@ -1,0 +1,236 @@
+🔷 Epic: Admin Team & Company Management Dashboard
+Epic Name
+
+Admin Team Structure Visibility & Employer Navigation
+
+Epic Description
+
+As an EventLink administrator,
+I want to easily view recruiter companies (teams), their employer users, and the relationships between them,
+so that I can efficiently manage growing recruiter organisations, support users, and understand company structures across the platform.
+
+As the platform grows, recruiters will increasingly operate as multi-user teams under a single company. The admin dashboard must evolve from simple user management into a structured organisational management interface.
+
+🔹 Business Value
+Improves scalability of admin operations
+Makes recruiter/company relationships understandable at a glance
+Simplifies support and troubleshooting
+Improves moderation and compliance visibility
+Creates foundation for future company analytics and permissions management
+Reduces confusion around team-linked employer accounts
+🔹 Core Objectives
+
+The admin must be able to:
+
+Click an employer email and navigate directly to their company/team
+View companies/teams as first-class entities
+See all employer users belonging to each company
+Understand company structure and membership quickly
+Prepare the dashboard for future scaling
+🧩 User Stories
+1️⃣ Story: Navigate to Team from Employer User
+User Story
+
+As an admin
+I want clicking an employer email in User Management to open their associated company/team
+so that I can quickly understand their organisational context.
+
+Acceptance Criteria
+In the User Management table:
+employer email addresses become clickable
+Clicking the email:
+opens the associated team/company view
+If user does not belong to a team:
+display:
+"No associated company/team"
+Navigation must work from:
+desktop
+mobile admin layout
+2️⃣ Story: Create Teams / Companies Admin View
+User Story
+
+As an admin
+I want a dedicated Teams/Companies section in the admin dashboard
+so that I can manage organisational entities separately from individual users.
+
+Acceptance Criteria
+Add new admin navigation item:
+“Teams”
+or “Companies”
+Teams page displays:
+company/team name
+number of employer users
+date created
+owner/admin user
+active jobs count
+Table is searchable and sortable
+3️⃣ Story: View Employer Users Within a Team
+User Story
+
+As an admin
+I want to view all employer users belonging to a company
+so that I can understand team membership and activity.
+
+Acceptance Criteria
+
+Inside a company/team view display:
+
+employer users list
+email address
+role within company
+date joined
+account status
+jobs posted count
+
+Admin can:
+
+click into user profiles
+identify team owner/admin
+4️⃣ Story: Team Overview Dashboard Panel
+User Story
+
+As an admin
+I want a summary overview for each company/team
+so that I can quickly assess account health and activity.
+
+Acceptance Criteria
+
+Team overview includes:
+
+company name
+total employer accounts
+active jobs
+closed jobs
+pending invitations
+total freelancers hired
+date company joined EventLink
+
+Optional indicators:
+
+verification status
+subscription status (future-ready)
+5️⃣ Story: Team Membership Relationships
+User Story
+
+As an admin
+I want clear visibility of how employer accounts are connected
+so that I can troubleshoot permissions and invitations.
+
+Acceptance Criteria
+
+Admin can see:
+
+which user invited another user
+join date history
+pending invitations
+removed members
+
+Relationship data is visible in:
+
+company detail page
+user detail page
+6️⃣ Story: Team Search & Filtering
+User Story
+
+As an admin
+I want to search and filter companies and employer users
+so that I can efficiently manage a growing platform.
+
+Acceptance Criteria
+
+Admin can filter/search by:
+
+company name
+employer email
+user name
+active/inactive companies
+jobs posted
+creation date
+
+Search must be:
+
+fast
+partial-match capable
+case insensitive
+7️⃣ Story: Admin Access to Company Jobs
+User Story
+
+As an admin
+I want to view all jobs associated with a company
+so that I can moderate and support recruiter activity.
+
+Acceptance Criteria
+
+Inside company/team page:
+
+display jobs posted by all employer users
+display:
+job title
+status
+visibility
+creation date
+assigned recruiter
+
+Admin can click through to job details.
+
+8️⃣ Story: Team Scalability Preparation
+User Story
+
+As a platform owner
+I want the admin dashboard structure to support future growth
+so that EventLink can scale to larger recruiter organisations.
+
+Acceptance Criteria
+
+Architecture should support future:
+
+permissions hierarchy
+company subscriptions
+billing ownership
+analytics
+enterprise recruiter accounts
+multiple office locations
+
+Data structures must avoid assuming:
+
+one recruiter = one company
+one company = one employer user
+🔧 Technical Notes (Optimised for Replit AI Agent)
+Recommended Data Relationships
+teams table
+teams
+- id
+- name
+- owner_user_id
+- created_at
+- updated_at
+team_members table
+team_members
+- id
+- team_id
+- user_id
+- role
+- invited_by
+- joined_at
+- status
+Admin Dashboard Additions
+New admin routes
+/admin/teams
+/admin/teams/:id
+User Management Table Updates
+
+Employer email field:
+
+clickable
+links to:
+/admin/teams/:teamId
+Performance Considerations
+
+Since this will grow over time:
+
+paginate company lists
+lazy-load heavy statistics
+index:
+company name
+user email
+team_id

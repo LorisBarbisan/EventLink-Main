@@ -65,7 +65,6 @@ import {
   type RatingRequest,
   type RecruiterProfile,
   type SavedFreelancer,
-  type InsertSavedFreelancer,
   type FreelancerReference,
   type InsertFreelancerReference,
   type ReferenceRequest,
@@ -80,6 +79,11 @@ import {
   team_delegate_access,
   type TeamAccount,
   type TeamDelegateAccess,
+  teamMembers,
+  job_drafts,
+  type JobDraft,
+  guest_application_tokens,
+  type GuestApplicationToken,
   type User,
 } from "@shared/schema";
 import {
@@ -102,6 +106,10 @@ import {
 import { randomBytes } from "crypto";
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
+import {
+  freelancerKeywordCondition,
+  freelancerLocationCondition,
+} from "./api/utils/freelancer-search.util";
 
 export interface IStorage {
   // User management
@@ -159,6 +167,14 @@ export interface IStorage {
     userId: number,
     profile: Partial<InsertFreelancerProfile>
   ): Promise<FreelancerProfile | undefined>;
+  checkSlugAvailability(
+    slug: string,
+    excludeUserId?: number
+  ): Promise<{ available: boolean; reason?: string }>;
+  setFreelancerCustomSlug(
+    userId: number,
+    customSlug: string | null
+  ): Promise<FreelancerProfile | undefined>;
 
   // Recruiter profile management
   getRecruiterProfile(userId: number): Promise<RecruiterProfile | undefined>;
@@ -180,8 +196,17 @@ export interface IStorage {
   // Job management
   getAllJobs(): Promise<Job[]>;
   getJobsByRecruiterId(recruiterId: number): Promise<Job[]>;
+  getFreelancerPostedJobs(
+    userId: number
+  ): Promise<
+    (Job & { application_count: number; shortlisted_count: number; hired_count: number })[]
+  >;
   getJobById(jobId: number): Promise<Job | undefined>;
   createJob(job: InsertJob): Promise<Job>;
+  /** Persist posted_by_user_id from recruiter_id when missing (legacy rows). */
+  ensureJobPostedByUserId(
+    job: Pick<Job, "id" | "posted_by_user_id" | "recruiter_id">
+  ): Promise<number | null>;
   updateJob(jobId: number, job: Partial<InsertJob>): Promise<Job | undefined>;
   deleteJob(jobId: number): Promise<void>;
   searchJobs(filters: {
@@ -192,7 +217,15 @@ export interface IStorage {
   }): Promise<Job[]>;
 
   // Job notification
-  getFreelancersMatchingJob(job: Job): Promise<{ userId: number; email: string; firstName: string | null; location: string | null; title: string | null }[]>;
+  getFreelancersMatchingJob(job: Job): Promise<
+    {
+      userId: number;
+      email: string;
+      firstName: string | null;
+      location: string | null;
+      title: string | null;
+    }[]
+  >;
   updateJobLastNotifiedAt(jobId: number): Promise<void>;
 
   // External job management
@@ -209,19 +242,42 @@ export interface IStorage {
     status?: string,
     type?: string,
     sortBy?: string,
-    sortOrder?: "asc" | "desc"
+    sortOrder?: "asc" | "desc",
+    country?: string
   ): Promise<{
-    jobs: (Job & { application_count: number; hired_count: number; closure_email_count: number; recruiter_email?: string; recruiter_name?: string })[];
+    jobs: (Job & {
+      application_count: number;
+      hired_count: number;
+      closure_email_count: number;
+      notified_email_count: number;
+      recruiter_email?: string;
+      recruiter_name?: string;
+    })[];
     total: number;
   }>;
 
   getAdminJobDetail(jobId: number): Promise<{
-    job: Job & { recruiter_email?: string; recruiter_name?: string; application_count: number; hired_count: number };
-    applications: { id: number; freelancer_id: number; status: string; applied_at: Date; freelancer_name: string; freelancer_email: string; freelancer_title?: string | null }[];
+    job: Job & {
+      recruiter_email?: string;
+      recruiter_name?: string;
+      application_count: number;
+      hired_count: number;
+    };
+    applications: {
+      id: number;
+      freelancer_id: number;
+      status: string;
+      applied_at: Date;
+      freelancer_name: string;
+      freelancer_email: string;
+      freelancer_title?: string | null;
+    }[];
   } | null>;
 
   // Get all freelancer profiles for listings
   getAllFreelancerProfiles(): Promise<FreelancerProfile[]>;
+  getSitemapFreelancerProfiles(): Promise<Array<{ user_id: number; updated_at: Date }>>;
+  getFreelancerReferenceCount(userId: number): Promise<number>;
   getAllRecruiterProfiles(): Promise<RecruiterProfile[]>;
   searchFreelancers(filters: {
     keyword?: string;
@@ -253,6 +309,7 @@ export interface IStorage {
   // Soft delete methods for applications
   softDeleteApplication(applicationId: number, userRole: "freelancer" | "recruiter"): Promise<void>;
   getRecruiterApplications(recruiterId: number): Promise<JobApplication[]>;
+  getRecruiterHiddenApplications(recruiterId: number): Promise<JobApplication[]>;
 
   // Messaging management
   getOrCreateConversation(userOneId: number, userTwoId: number): Promise<Conversation>;
@@ -369,9 +426,71 @@ export interface IStorage {
     status?: string,
     sortBy?: string,
     sortOrder?: "asc" | "desc",
-    profileStatus?: string
+    profileStatus?: string,
+    country?: string
   ): Promise<{ users: (User & { profile_status?: string })[]; total: number }>;
   updateUserStatus(userId: number, status: string): Promise<User>;
+
+  // Admin Teams management
+  getAdminTeams(
+    page: number,
+    limit: number,
+    search?: string
+  ): Promise<{
+    teams: Array<{
+      company_user_id: number;
+      company_name: string | null;
+      owner_email: string;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
+      member_count: number;
+      pending_invitations: number;
+      active_jobs: number;
+      closed_jobs: number;
+      total_hired: number;
+      created_at: Date;
+    }>;
+    total: number;
+  }>;
+  getAdminTeamDetail(companyUserId: number): Promise<{
+    company: {
+      company_user_id: number;
+      company_name: string | null;
+      owner_email: string;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
+      member_count: number;
+      pending_invitations: number;
+      active_jobs: number;
+      closed_jobs: number;
+      total_hired: number;
+      created_at: Date;
+      website_url: string | null;
+      location: string | null;
+      company_type: string | null;
+    };
+    members: Array<{
+      id: number;
+      user_id: number | null;
+      email: string;
+      name: string;
+      role: string;
+      joined_at: Date | null;
+      invite_accepted: boolean;
+      account_status: string | null;
+      jobs_posted: number;
+    }>;
+    jobs: Array<{
+      id: number;
+      title: string;
+      status: string | null;
+      is_published: boolean;
+      created_at: Date;
+      application_count: number;
+      hired_count: number;
+      recruiter_name: string;
+    }>;
+  } | null>;
 
   // Category-specific notification counts
   getCategoryUnreadCounts(userId: number): Promise<{
@@ -439,7 +558,7 @@ export interface IStorage {
   createCvParsedData(data: InsertCvParsedData): Promise<CvParsedData>;
   updateCvParsedData(
     userId: number,
-    data: Partial<InsertCvParsedData>
+    data: Partial<CvParsedData>
   ): Promise<CvParsedData | undefined>;
   deleteCvParsedData(userId: number): Promise<void>;
 
@@ -447,26 +566,52 @@ export interface IStorage {
   saveFreelancer(recruiterId: number, freelancerId: number): Promise<SavedFreelancer>;
   unsaveFreelancer(recruiterId: number, freelancerId: number): Promise<void>;
   getSavedFreelancerIds(recruiterId: number): Promise<number[]>;
-  getMyCrewFreelancers(recruiterId: number, filters?: {
-    keyword?: string;
-    location?: string;
-    tab?: "all" | "saved" | "worked";
-  }): Promise<Array<FreelancerProfile & { isSaved: boolean; isWorkedWith: boolean; average_rating?: number; user_email?: string }>>;
+  getMyCrewFreelancers(
+    recruiterId: number,
+    filters?: {
+      keyword?: string;
+      location?: string;
+      tab?: "all" | "saved" | "worked";
+    }
+  ): Promise<
+    Array<
+      FreelancerProfile & {
+        isSaved: boolean;
+        isWorkedWith: boolean;
+        average_rating?: number;
+        user_email?: string;
+      }
+    >
+  >;
 
   // Freelancer references (reputation system)
   getOrCreateReferenceToken(userId: number): Promise<string>;
-  getFreelancerByReferenceToken(token: string): Promise<{ userId: number; firstName: string | null; lastName: string | null } | undefined>;
-  createFreelancerReference(data: InsertFreelancerReference & { badge_result: string; is_flagged: boolean; [key: string]: any }): Promise<FreelancerReference>;
+  getFreelancerByReferenceToken(
+    token: string
+  ): Promise<{ userId: number; firstName: string | null; lastName: string | null } | undefined>;
+  createFreelancerReference(
+    data: InsertFreelancerReference & {
+      badge_result: string;
+      is_flagged: boolean;
+      [key: string]: any;
+    }
+  ): Promise<FreelancerReference>;
   getPublicReferences(freelancerId: number): Promise<FreelancerReference[]>;
   getReferenceById(id: number): Promise<FreelancerReference | undefined>;
-  updateReferenceVerification(id: number, data: Partial<FreelancerReference>): Promise<FreelancerReference | undefined>;
+  updateReferenceVerification(
+    id: number,
+    data: Partial<FreelancerReference>
+  ): Promise<FreelancerReference | undefined>;
   getRecentReferencesByEmail(email: string, hoursBack: number): Promise<FreelancerReference[]>;
 
   // Reference requests
   createReferenceRequest(data: InsertReferenceRequest): Promise<ReferenceRequest>;
   getReferenceRequests(freelancerId: number): Promise<ReferenceRequest[]>;
   getReferenceRequestById(id: number): Promise<ReferenceRequest | undefined>;
-  updateReferenceRequest(id: number, data: Partial<ReferenceRequest>): Promise<ReferenceRequest | undefined>;
+  updateReferenceRequest(
+    id: number,
+    data: Partial<ReferenceRequest>
+  ): Promise<ReferenceRequest | undefined>;
   getPendingReminders(daysSinceRequest: number): Promise<ReferenceRequest[]>;
 
   // Reference reports
@@ -478,12 +623,73 @@ export interface IStorage {
 
   // Batch notification methods
   getJobsForBatchWindow(window: "morning" | "afternoon"): Promise<Job[]>;
-  updateJobBatchNotification(jobId: number, batchWindow: string | null, sentAt: Date | null): Promise<void>;
-  updateJobUrgencyAndBatch(jobId: number, isUrgent: boolean, batchWindow: string | null): Promise<void>;
+  updateJobBatchNotification(
+    jobId: number,
+    batchWindow: string | null,
+    sentAt: Date | null
+  ): Promise<void>;
+  updateJobUrgencyAndBatch(
+    jobId: number,
+    isUrgent: boolean,
+    batchWindow: string | null
+  ): Promise<void>;
   updateFreelancerLastJobAlertSent(userId: number): Promise<void>;
-  getFreelancerJobAlertPrefs(userId: number): Promise<{ jobAlertsOptOut: boolean; lastJobAlertSentAt: Date | null; jobAlertFrequencyPreference: string }>;
+  getFreelancerJobAlertPrefs(userId: number): Promise<{
+    jobAlertsOptOut: boolean;
+    lastJobAlertSentAt: Date | null;
+    jobAlertFrequencyPreference: string;
+  }>;
   setJobNotificationSentAt(jobId: number): Promise<void>;
   setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void>;
+
+  // Guest account upgrade
+  upgradeGuestAccount(
+    userId: number,
+    data: {
+      password: string;
+      first_name: string;
+      last_name: string;
+      role: "freelancer" | "recruiter";
+      email_verification_token: string;
+      email_verification_expires: Date;
+    }
+  ): Promise<void>;
+
+  // Guest job nudge
+  getDraftsReadyForNudge(minAgeHours: number): Promise<JobDraft[]>;
+  markDraftNudgeSent(draftId: number, newTokenHash: string): Promise<void>;
+
+  // Guest job moderation
+  getPendingGuestJobs(): Promise<(Job & { contact_email: string | null })[]>;
+  moderateJob(
+    jobId: number,
+    decision: "approved" | "rejected",
+    moderatorUserId: number,
+    note?: string
+  ): Promise<Job>;
+
+  // Guest job drafts
+  createJobDraft(data: {
+    payload: object;
+    contact_name: string;
+    contact_email: string;
+    token_hash: string;
+    ip_address?: string;
+    user_agent?: string;
+    terms_version: string;
+    expires_at: Date;
+  }): Promise<JobDraft>;
+  getJobDraftByTokenHash(tokenHash: string): Promise<JobDraft | undefined>;
+  consumeJobDraft(draftId: number, publishedJobId: number): Promise<void>;
+  createGuestApplicationToken(data: {
+    token_hash: string;
+    application_id: number;
+    job_id: number;
+    guest_email: string;
+    expires_at: Date;
+  }): Promise<GuestApplicationToken>;
+  getGuestApplicationToken(tokenHash: string): Promise<GuestApplicationToken | undefined>;
+  markGuestApplicationTokenViewed(tokenHash: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -605,7 +811,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUserStatus(userId: number, status: string): Promise<User> {
-    const updates: Partial<InsertUser> = { status, updated_at: new Date() };
+    const updates: Partial<User> = { status, updated_at: new Date() };
 
     // If activating, also verify email if not already verified
     if (status === "active") {
@@ -685,7 +891,11 @@ export class DatabaseStorage implements IStorage {
         break;
     }
 
-    const result = await db.select().from(users).where(and(condition, isNull(users.deleted_at))).limit(1);
+    const result = await db
+      .select()
+      .from(users)
+      .where(and(condition, isNull(users.deleted_at)))
+      .limit(1);
     if (result[0]) {
       cache.set(cacheKey, result[0], 300);
     }
@@ -734,11 +944,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUnsubscribeToken(token: string): Promise<User | undefined> {
-    const result = await db
-      .select()
-      .from(users)
-      .where(eq(users.unsubscribe_token, token))
-      .limit(1);
+    const result = await db.select().from(users).where(eq(users.unsubscribe_token, token)).limit(1);
     return result[0];
   }
 
@@ -814,7 +1020,7 @@ export class DatabaseStorage implements IStorage {
 
   async setPasswordResetToken(email: string, token: string, expires: Date): Promise<boolean> {
     try {
-      const result = await db
+      await db
         .update(users)
         .set({
           password_reset_token: token,
@@ -853,16 +1059,24 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async resetPassword(userId: number, hashedPassword: string): Promise<boolean> {
+  async resetPassword(
+    userId: number,
+    hashedPassword: string,
+    role?: "freelancer" | "recruiter"
+  ): Promise<boolean> {
     try {
+      const updates: Record<string, unknown> = {
+        password: hashedPassword,
+        password_reset_token: null,
+        password_reset_expires: null,
+        email_verified: true,
+        status: "active",
+        updated_at: new Date(),
+      };
+      if (role) updates.role = role;
       await db
         .update(users)
-        .set({
-          password: hashedPassword,
-          password_reset_token: null,
-          password_reset_expires: null,
-          updated_at: new Date(),
-        })
+        .set(updates as any)
         .where(eq(users.id, userId));
 
       // Clear the user cache so getUser() returns fresh data with new password
@@ -914,6 +1128,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getFreelancerProfileBySlug(slug: string): Promise<FreelancerProfile | undefined> {
+    // Check custom_slug first (user-chosen vanity URL), then fall back to auto-generated slug
+    const byCustom = await db
+      .select()
+      .from(freelancer_profiles)
+      .where(eq((freelancer_profiles as any).custom_slug, slug))
+      .limit(1);
+    if (byCustom[0]) return byCustom[0];
     const result = await db
       .select()
       .from(freelancer_profiles)
@@ -923,14 +1144,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createFreelancerProfile(profile: InsertFreelancerProfile): Promise<FreelancerProfile> {
-    const { generateFreelancerSlug, makeFreelancerSlugUnique } = await import("./api/utils/slugify.js");
+    const { generateFreelancerSlug, makeFreelancerSlugUnique } = await import(
+      "./api/utils/slugify.js"
+    );
     const baseSlug = generateFreelancerSlug(profile.first_name, profile.last_name, profile.title);
     const slug = baseSlug
       ? await makeFreelancerSlugUnique(baseSlug, async (s) => {
-          const existing = await db.select().from(freelancer_profiles).where(eq(freelancer_profiles.slug, s)).limit(1);
+          const existing = await db
+            .select()
+            .from(freelancer_profiles)
+            .where(eq(freelancer_profiles.slug, s))
+            .limit(1);
           return existing.length > 0;
         })
       : null;
+
+    // Resolve country from city if not provided
+    let resolvedCountry = profile.country;
+    if (!resolvedCountry && profile.location) {
+      try {
+        const { geocodeCity } = await import("./api/utils/backfill-slugs.js");
+        resolvedCountry = (await geocodeCity(profile.location)) ?? undefined;
+      } catch {
+        // non-fatal — country stays empty
+      }
+    }
 
     const profileData = {
       user_id: profile.user_id,
@@ -940,6 +1178,8 @@ export class DatabaseStorage implements IStorage {
       superpower: profile.superpower,
       bio: profile.bio,
       location: profile.location,
+      country: resolvedCountry,
+      state_province: profile.state_province,
       experience_years: profile.experience_years,
       skills: profile.skills,
       portfolio_url: profile.portfolio_url,
@@ -970,6 +1210,8 @@ export class DatabaseStorage implements IStorage {
     if (profile.superpower !== undefined) updateData.superpower = profile.superpower;
     if (profile.bio !== undefined) updateData.bio = profile.bio;
     if (profile.location !== undefined) updateData.location = profile.location;
+    if (profile.country !== undefined) updateData.country = profile.country;
+    if (profile.state_province !== undefined) updateData.state_province = profile.state_province;
     if (profile.experience_years !== undefined)
       updateData.experience_years = profile.experience_years;
     if (profile.skills !== undefined) updateData.skills = profile.skills;
@@ -989,6 +1231,9 @@ export class DatabaseStorage implements IStorage {
       updateData.profile_photo_url = profile.profile_photo_url;
     }
 
+    if ((profile as any).profile_is_public !== undefined)
+      updateData.profile_is_public = (profile as any).profile_is_public;
+
     // CV fields
     if (profile.cv_file_url !== undefined) updateData.cv_file_url = profile.cv_file_url;
     if (profile.cv_file_name !== undefined) updateData.cv_file_name = profile.cv_file_name;
@@ -996,9 +1241,12 @@ export class DatabaseStorage implements IStorage {
     if (profile.cv_file_size !== undefined) updateData.cv_file_size = profile.cv_file_size;
 
     // CV-derived structured fields
-    if ((profile as any).work_history !== undefined) updateData.work_history = (profile as any).work_history;
-    if ((profile as any).education_history !== undefined) updateData.education_history = (profile as any).education_history;
-    if ((profile as any).certifications !== undefined) updateData.certifications = (profile as any).certifications;
+    if ((profile as any).work_history !== undefined)
+      updateData.work_history = (profile as any).work_history;
+    if ((profile as any).education_history !== undefined)
+      updateData.education_history = (profile as any).education_history;
+    if ((profile as any).certifications !== undefined)
+      updateData.certifications = (profile as any).certifications;
 
     const result = await db
       .update(freelancer_profiles)
@@ -1035,6 +1283,81 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async checkSlugAvailability(
+    slug: string,
+    excludeUserId?: number
+  ): Promise<{ available: boolean; reason?: string }> {
+    const RESERVED = new Set([
+      "profile",
+      "jobs",
+      "dashboard",
+      "messages",
+      "settings",
+      "admin",
+      "login",
+      "register",
+      "signup",
+      "api",
+      "u",
+      "auth",
+      "logout",
+      "freelancers",
+      "recruiters",
+      "search",
+      "help",
+      "about",
+      "terms",
+      "privacy",
+      "pricing",
+      "upgrade",
+      "pro",
+    ]);
+    if (RESERVED.has(slug)) return { available: false, reason: "This username is reserved." };
+
+    // Check freelancer custom_slug
+    const fcRows = await db
+      .select({ user_id: freelancer_profiles.user_id })
+      .from(freelancer_profiles)
+      .where(eq((freelancer_profiles as any).custom_slug, slug))
+      .limit(1);
+    if (fcRows.length > 0 && fcRows[0].user_id !== excludeUserId)
+      return { available: false, reason: "This URL is already taken." };
+
+    // Check freelancer auto-slug
+    const fsRows = await db
+      .select({ user_id: freelancer_profiles.user_id })
+      .from(freelancer_profiles)
+      .where(eq(freelancer_profiles.slug, slug))
+      .limit(1);
+    if (fsRows.length > 0 && fsRows[0].user_id !== excludeUserId)
+      return { available: false, reason: "This URL is already taken." };
+
+    // Check recruiter slug
+    const rrRows = await db
+      .select({ user_id: recruiter_profiles.user_id })
+      .from(recruiter_profiles)
+      .where(eq(recruiter_profiles.slug, slug))
+      .limit(1);
+    if (rrRows.length > 0 && rrRows[0].user_id !== excludeUserId)
+      return { available: false, reason: "This URL is already taken." };
+
+    return { available: true };
+  }
+
+  async setFreelancerCustomSlug(
+    userId: number,
+    customSlug: string | null
+  ): Promise<FreelancerProfile | undefined> {
+    const cacheKey = `freelancer_profile:${userId}`;
+    cache.delete(cacheKey);
+    const result = await db
+      .update(freelancer_profiles)
+      .set({ custom_slug: customSlug, updated_at: new Date() } as any)
+      .where(eq(freelancer_profiles.user_id, userId))
+      .returning();
+    return result[0];
+  }
+
   async getRecruiterProfile(userId: number): Promise<RecruiterProfile | undefined> {
     const result = await db
       .select()
@@ -1054,7 +1377,9 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getAllRecruiterProfilesWithUser(): Promise<Array<{ profile: RecruiterProfile; user: User }>> {
+  async getAllRecruiterProfilesWithUser(): Promise<
+    Array<{ profile: RecruiterProfile; user: User }>
+  > {
     const result = await db
       .select({ profile: recruiter_profiles, user: users })
       .from(recruiter_profiles)
@@ -1070,11 +1395,22 @@ export class DatabaseStorage implements IStorage {
     if (baseSlug) {
       let counter = 2;
       slug = baseSlug;
-      while ((await db.select().from(recruiter_profiles).where(eq(recruiter_profiles.slug, slug)).limit(1)).length > 0) {
+      while (
+        (
+          await db
+            .select()
+            .from(recruiter_profiles)
+            .where(eq(recruiter_profiles.slug, slug))
+            .limit(1)
+        ).length > 0
+      ) {
         slug = `${baseSlug}-${counter++}`;
       }
     }
-    const result = await db.insert(recruiter_profiles).values({ ...profile, slug } as any).returning();
+    const result = await db
+      .insert(recruiter_profiles)
+      .values({ ...profile, slug } as any)
+      .returning();
     return result[0];
   }
 
@@ -1089,6 +1425,8 @@ export class DatabaseStorage implements IStorage {
     if (profile.contact_name !== undefined) updateData.contact_name = profile.contact_name;
     if (profile.company_type !== undefined) updateData.company_type = profile.company_type;
     if (profile.location !== undefined) updateData.location = profile.location;
+    if (profile.country !== undefined) updateData.country = profile.country;
+    if (profile.state_province !== undefined) updateData.state_province = profile.state_province;
     if (profile.description !== undefined) updateData.description = profile.description;
     if (profile.website_url !== undefined) updateData.website_url = profile.website_url;
     if (profile.linkedin_url !== undefined) updateData.linkedin_url = profile.linkedin_url;
@@ -1116,6 +1454,7 @@ export class DatabaseStorage implements IStorage {
         superpower: freelancer_profiles.superpower,
         bio: freelancer_profiles.bio,
         location: freelancer_profiles.location,
+        country: freelancer_profiles.country,
         experience_years: freelancer_profiles.experience_years,
         skills: freelancer_profiles.skills,
         portfolio_url: freelancer_profiles.portfolio_url,
@@ -1149,7 +1488,59 @@ export class DatabaseStorage implements IStorage {
       );
     });
 
-    return safeResult;
+    return safeResult as unknown as FreelancerProfile[];
+  }
+
+  // Freelancer profiles eligible for the sitemap: real, public, non-demo records
+  // that have actual content (a bio, at least one skill, or at least one
+  // non-flagged reference). Bare "Complete Your Profile" shells are excluded.
+  async getSitemapFreelancerProfiles(): Promise<Array<{ user_id: number; updated_at: Date }>> {
+    const refCountsSq = db
+      .select({
+        freelancer_id: freelancer_references.freelancer_id,
+        ref_count: sql<number>`COUNT(*)::int`.as("ref_count"),
+      })
+      .from(freelancer_references)
+      .where(eq(freelancer_references.is_flagged, false))
+      .groupBy(freelancer_references.freelancer_id)
+      .as("ref_counts");
+
+    return db
+      .select({
+        user_id: freelancer_profiles.user_id,
+        updated_at: freelancer_profiles.updated_at,
+      })
+      .from(freelancer_profiles)
+      .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
+      .leftJoin(refCountsSq, eq(freelancer_profiles.user_id, refCountsSq.freelancer_id))
+      .where(
+        and(
+          isNull(users.deleted_at),
+          sql`${users.email} NOT LIKE 'deleted_%'`,
+          eq(freelancer_profiles.is_demo, false),
+          eq(freelancer_profiles.profile_is_public, true),
+          sql`(
+            (${freelancer_profiles.bio} IS NOT NULL AND btrim(${freelancer_profiles.bio}) <> '')
+            OR (${freelancer_profiles.skills} IS NOT NULL AND array_length(${freelancer_profiles.skills}, 1) > 0)
+            OR COALESCE(${refCountsSq.ref_count}, 0) > 0
+          )`
+        )
+      );
+  }
+
+  // Count of non-flagged references for a freelancer — used to decide whether a
+  // profile page is substantive enough to be indexed by crawlers.
+  async getFreelancerReferenceCount(userId: number): Promise<number> {
+    const rows = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(freelancer_references)
+      .where(
+        and(
+          eq(freelancer_references.freelancer_id, userId),
+          eq(freelancer_references.is_flagged, false)
+        )
+      );
+    return rows[0]?.count ?? 0;
   }
 
   async getAllRecruiterProfiles(): Promise<RecruiterProfile[]> {
@@ -1162,6 +1553,7 @@ export class DatabaseStorage implements IStorage {
         contact_name: recruiter_profiles.contact_name,
         company_type: recruiter_profiles.company_type,
         location: recruiter_profiles.location,
+        country: recruiter_profiles.country,
         description: recruiter_profiles.description,
         website_url: recruiter_profiles.website_url,
         linkedin_url: recruiter_profiles.linkedin_url,
@@ -1173,12 +1565,13 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(recruiter_profiles.user_id, users.id))
       .where(isNull(users.deleted_at)); // Only non-deleted users
 
-    return result;
+    return result as unknown as RecruiterProfile[];
   }
 
   async searchFreelancers(filters: {
     keyword?: string;
     location?: string;
+    country?: string;
     page?: number;
     limit?: number;
   }): Promise<{
@@ -1188,7 +1581,7 @@ export class DatabaseStorage implements IStorage {
     totalPages: number;
   }> {
     try {
-      const { keyword, location, page = 1, limit = 20 } = filters;
+      const { keyword, location, country, page = 1, limit = 20 } = filters;
       const EVENTLINK_EMAIL = "eventlink@eventlink.one";
 
       // Build conditions array
@@ -1197,26 +1590,21 @@ export class DatabaseStorage implements IStorage {
       // Only show profiles from non-deleted users
       conditions.push(isNull(users.deleted_at));
 
-      // Keyword search: title, name, bio, or skills (case-insensitive)
-      if (keyword && keyword.trim()) {
-        const searchTerm = `%${keyword.toLowerCase()}%`;
-        conditions.push(
-          or(
-            sql`LOWER(${freelancer_profiles.title}) LIKE ${searchTerm}`,
-            sql`LOWER(CONCAT(${freelancer_profiles.first_name}, ' ', ${freelancer_profiles.last_name})) LIKE ${searchTerm}`,
-            sql`LOWER(${freelancer_profiles.bio}) LIKE ${searchTerm}`,
-            sql`EXISTS (
-              SELECT 1 FROM unnest(${freelancer_profiles.skills}) AS skill
-              WHERE LOWER(skill) LIKE ${searchTerm}
-            )`
-          )
-        );
+      // Never surface internal seed/demo/test records in public search results
+      conditions.push(eq(freelancer_profiles.is_demo, false));
+
+      if (keyword?.trim()) {
+        conditions.push(freelancerKeywordCondition(keyword));
       }
 
-      // Location filter (case-insensitive partial match)
-      if (location && location.trim()) {
-        const locationTerm = `%${location.toLowerCase()}%`;
-        conditions.push(sql`LOWER(${freelancer_profiles.location}) LIKE ${locationTerm}`);
+      if (location?.trim()) {
+        conditions.push(freelancerLocationCondition(location));
+      }
+
+      if (country?.trim()) {
+        conditions.push(
+          sql`LOWER(${freelancer_profiles.country}) = ${country.trim().toLowerCase()}`
+        );
       }
 
       // Always fetch EventLink profile separately (if it matches filters)
@@ -1231,6 +1619,7 @@ export class DatabaseStorage implements IStorage {
           superpower: freelancer_profiles.superpower,
           bio: freelancer_profiles.bio,
           location: freelancer_profiles.location,
+          country: freelancer_profiles.country,
           experience_years: freelancer_profiles.experience_years,
           skills: freelancer_profiles.skills,
           portfolio_url: freelancer_profiles.portfolio_url,
@@ -1310,6 +1699,7 @@ export class DatabaseStorage implements IStorage {
           superpower: freelancer_profiles.superpower,
           bio: freelancer_profiles.bio,
           location: freelancer_profiles.location,
+          country: freelancer_profiles.country,
           experience_years: freelancer_profiles.experience_years,
           skills: freelancer_profiles.skills,
           portfolio_url: freelancer_profiles.portfolio_url,
@@ -1353,7 +1743,9 @@ export class DatabaseStorage implements IStorage {
       );
 
       return {
-        results: resultsWithRatings,
+        results: resultsWithRatings as unknown as Array<
+          FreelancerProfile & { average_rating: number; rating_count: number }
+        >,
         total,
         page,
         totalPages,
@@ -1420,9 +1812,17 @@ export class DatabaseStorage implements IStorage {
     status?: string,
     type?: string,
     sortBy?: string,
-    sortOrder?: "asc" | "desc"
+    sortOrder?: "asc" | "desc",
+    country?: string
   ): Promise<{
-    jobs: (Job & { application_count: number; hired_count: number; closure_email_count: number; recruiter_email?: string; recruiter_name?: string })[];
+    jobs: (Job & {
+      application_count: number;
+      hired_count: number;
+      closure_email_count: number;
+      notified_email_count: number;
+      recruiter_email?: string;
+      recruiter_name?: string;
+    })[];
     total: number;
   }> {
     const offset = (page - 1) * limit;
@@ -1452,15 +1852,18 @@ export class DatabaseStorage implements IStorage {
         conditions.push(isNotNull(jobs.external_source));
       } else if (type === "internal") {
         conditions.push(isNull(jobs.external_source));
+      } else if (type === "freelancer") {
+        conditions.push(eq(jobs.is_freelancer_posted, true));
       }
+    }
+
+    if (country && country !== "all") {
+      conditions.push(ilike(jobs.country, country.trim()));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const [countResult] = await db
-      .select({ count: count() })
-      .from(jobs)
-      .where(whereClause);
+    const [countResult] = await db.select({ count: count() }).from(jobs).where(whereClause);
     const total = countResult.count;
 
     let jobRows;
@@ -1481,7 +1884,7 @@ export class DatabaseStorage implements IStorage {
         .orderBy(orderDir, asc(joinCol))
         .limit(limit)
         .offset(offset)
-        .then(rows => rows.map(r => r.job));
+        .then((rows) => rows.map((r) => r.job));
     } else {
       const sortColumn = (() => {
         switch (sortBy) {
@@ -1505,7 +1908,8 @@ export class DatabaseStorage implements IStorage {
     }
 
     const jobIds = jobRows.map((j) => j.id);
-    let appCounts: Map<number, { total: number; hired: number; closureEmailCount: number }> = new Map();
+    const appCounts: Map<number, { total: number; hired: number; closureEmailCount: number }> =
+      new Map();
 
     if (jobIds.length > 0) {
       const appStats = await db
@@ -1528,10 +1932,36 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Count how many distinct users were notified by email about each job
+    // (job-alert / "Notify freelancers" emails logged against the job).
+    const notifiedCounts: Map<number, number> = new Map();
+    if (jobIds.length > 0) {
+      const notifyStats = await db
+        .select({
+          job_id: email_notification_logs.related_entity_id,
+          notified: sql<number>`count(distinct ${email_notification_logs.user_id})`,
+        })
+        .from(email_notification_logs)
+        .where(
+          and(
+            eq(email_notification_logs.related_entity_type, "job"),
+            inArray(email_notification_logs.related_entity_id, jobIds),
+            eq(email_notification_logs.status, "sent")
+          )
+        )
+        .groupBy(email_notification_logs.related_entity_id);
+
+      for (const row of notifyStats) {
+        if (row.job_id !== null) {
+          notifiedCounts.set(row.job_id, Number(row.notified));
+        }
+      }
+    }
+
     const recruiterIds = jobRows
       .map((j) => j.recruiter_id)
       .filter((id): id is number => id !== null);
-    let recruiterMap: Map<number, { email: string; name: string }> = new Map();
+    const recruiterMap: Map<number, { email: string; name: string }> = new Map();
 
     if (recruiterIds.length > 0) {
       const uniqueIds = Array.from(new Set(recruiterIds));
@@ -1553,16 +1983,47 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Also look up freelancer posters (posted_by_user_id on freelancer-posted jobs)
+    const posterIds = jobRows
+      .filter((j) => j.is_freelancer_posted && j.posted_by_user_id !== null)
+      .map((j) => j.posted_by_user_id as number);
+    const posterMap: Map<number, { email: string; name: string }> = new Map();
+
+    if (posterIds.length > 0) {
+      const uniquePosterIds = Array.from(new Set(posterIds));
+      const posters = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          first_name: users.first_name,
+          last_name: users.last_name,
+        })
+        .from(users)
+        .where(inArray(users.id, uniquePosterIds));
+
+      for (const p of posters) {
+        posterMap.set(p.id, {
+          email: p.email,
+          name: [p.first_name, p.last_name].filter(Boolean).join(" ") || p.email,
+        });
+      }
+    }
+
     const enrichedJobs = jobRows.map((job) => {
       const counts = appCounts.get(job.id) || { total: 0, hired: 0, closureEmailCount: 0 };
       const recruiter = job.recruiter_id ? recruiterMap.get(job.recruiter_id) : undefined;
+      const poster =
+        job.is_freelancer_posted && job.posted_by_user_id
+          ? posterMap.get(job.posted_by_user_id)
+          : undefined;
       return {
         ...job,
         application_count: counts.total,
         hired_count: counts.hired,
         closure_email_count: counts.closureEmailCount,
-        recruiter_email: recruiter?.email,
-        recruiter_name: recruiter?.name,
+        notified_email_count: notifiedCounts.get(job.id) ?? 0,
+        recruiter_email: poster?.email ?? recruiter?.email,
+        recruiter_name: poster?.name ?? recruiter?.name,
       };
     });
 
@@ -1570,15 +2031,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAdminJobDetail(jobId: number): Promise<{
-    job: Job & { recruiter_email?: string; recruiter_name?: string; application_count: number; hired_count: number };
-    applications: { id: number; freelancer_id: number; status: string; applied_at: Date; freelancer_name: string; freelancer_email: string; freelancer_title?: string | null }[];
+    job: Job & {
+      recruiter_email?: string;
+      recruiter_name?: string;
+      application_count: number;
+      hired_count: number;
+    };
+    applications: {
+      id: number;
+      freelancer_id: number;
+      status: string;
+      applied_at: Date;
+      freelancer_name: string;
+      freelancer_email: string;
+      freelancer_title?: string | null;
+    }[];
   } | null> {
     const [job] = await db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1);
     if (!job) return null;
 
     let recruiter_email: string | undefined;
     let recruiter_name: string | undefined;
-    if (job.recruiter_id) {
+    if (job.is_freelancer_posted && job.posted_by_user_id) {
+      const [poster] = await db
+        .select({ email: users.email, first_name: users.first_name, last_name: users.last_name })
+        .from(users)
+        .where(eq(users.id, job.posted_by_user_id))
+        .limit(1);
+      if (poster) {
+        recruiter_email = poster.email;
+        recruiter_name =
+          [poster.first_name, poster.last_name].filter(Boolean).join(" ") || poster.email;
+      }
+    } else if (job.recruiter_id) {
       const [recruiter] = await db
         .select({ email: users.email, first_name: users.first_name, last_name: users.last_name })
         .from(users)
@@ -1586,7 +2071,8 @@ export class DatabaseStorage implements IStorage {
         .limit(1);
       if (recruiter) {
         recruiter_email = recruiter.email;
-        recruiter_name = [recruiter.first_name, recruiter.last_name].filter(Boolean).join(" ") || recruiter.email;
+        recruiter_name =
+          [recruiter.first_name, recruiter.last_name].filter(Boolean).join(" ") || recruiter.email;
       }
     }
 
@@ -1603,25 +2089,35 @@ export class DatabaseStorage implements IStorage {
       })
       .from(job_applications)
       .leftJoin(users, eq(job_applications.freelancer_id, users.id))
-      .leftJoin(freelancer_profiles, eq(job_applications.freelancer_id, freelancer_profiles.user_id))
+      .leftJoin(
+        freelancer_profiles,
+        eq(job_applications.freelancer_id, freelancer_profiles.user_id)
+      )
       .where(eq(job_applications.job_id, jobId))
       .orderBy(desc(job_applications.applied_at));
 
     const totalApps = appRows.length;
-    const hiredCount = appRows.filter(a => a.status === "hired").length;
+    const hiredCount = appRows.filter((a) => a.status === "hired").length;
 
-    const applications = appRows.map(a => ({
+    const applications = appRows.map((a) => ({
       id: a.id,
       freelancer_id: a.freelancer_id,
       status: a.status || "applied",
       applied_at: a.applied_at,
-      freelancer_name: [a.first_name, a.last_name].filter(Boolean).join(" ") || a.email || "Unknown",
+      freelancer_name:
+        [a.first_name, a.last_name].filter(Boolean).join(" ") || a.email || "Unknown",
       freelancer_email: a.email || "",
       freelancer_title: a.title,
     }));
 
     return {
-      job: { ...job, recruiter_email, recruiter_name, application_count: totalApps, hired_count: hiredCount },
+      job: {
+        ...job,
+        recruiter_email,
+        recruiter_name,
+        application_count: totalApps,
+        hired_count: hiredCount,
+      },
       applications,
     };
   }
@@ -1646,6 +2142,49 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(jobs.created_at));
   }
 
+  async getFreelancerPostedJobs(
+    userId: number
+  ): Promise<
+    (Job & { application_count: number; shortlisted_count: number; hired_count: number })[]
+  > {
+    const jobRows = await db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.posted_by_user_id, userId), eq(jobs.poster_type, "freelancer")))
+      .orderBy(desc(jobs.created_at));
+
+    if (jobRows.length === 0) return [];
+
+    const jobIds = jobRows.map((j) => j.id);
+    const appStats = await db
+      .select({
+        job_id: job_applications.job_id,
+        total: count(),
+        shortlisted: sql<number>`count(*) filter (where ${job_applications.status} = 'shortlisted')`,
+        hired: sql<number>`count(*) filter (where ${job_applications.status} = 'hired')`,
+      })
+      .from(job_applications)
+      .where(inArray(job_applications.job_id, jobIds))
+      .groupBy(job_applications.job_id);
+
+    const statsMap = new Map(
+      appStats.map((s) => [
+        s.job_id,
+        { total: s.total, shortlisted: Number(s.shortlisted), hired: Number(s.hired) },
+      ])
+    );
+
+    return jobRows.map((job) => {
+      const s = statsMap.get(job.id) ?? { total: 0, shortlisted: 0, hired: 0 };
+      return {
+        ...job,
+        application_count: s.total,
+        shortlisted_count: s.shortlisted,
+        hired_count: s.hired,
+      };
+    });
+  }
+
   async closeExpiredJobs(): Promise<number> {
     const today = new Date().toISOString().split("T")[0];
     const result = await db
@@ -1659,7 +2198,9 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
     if (result.length > 0) {
-      console.log(`Auto-closed ${result.length} expired job(s): ${result.map(j => j.id).join(", ")}`);
+      console.log(
+        `Auto-closed ${result.length} expired job(s): ${result.map((j) => j.id).join(", ")}`
+      );
     }
     return result.length;
   }
@@ -1681,7 +2222,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
       .where(and(ilike(freelancer_profiles.title, `%${role}%`), isNull(users.deleted_at)))
       .limit(limit);
-    return result.map(r => r.fp);
+    return result.map((r) => r.fp);
   }
 
   async getFreelancersByLocation(city: string, limit = 20): Promise<FreelancerProfile[]> {
@@ -1691,7 +2232,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
       .where(and(ilike(freelancer_profiles.location, `%${city}%`), isNull(users.deleted_at)))
       .limit(limit);
-    return result.map(r => r.fp);
+    return result.map((r) => r.fp);
   }
 
   async getJobsByRole(role: string, limit = 20): Promise<Job[]> {
@@ -1714,9 +2255,33 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async ensureJobPostedByUserId(
+    job: Pick<Job, "id" | "posted_by_user_id" | "recruiter_id">
+  ): Promise<number | null> {
+    if (job.posted_by_user_id != null) {
+      return job.posted_by_user_id;
+    }
+    if (job.recruiter_id == null) {
+      return null;
+    }
+    const [updated] = await db
+      .update(jobs)
+      .set({ posted_by_user_id: job.recruiter_id })
+      .where(eq(jobs.id, job.id))
+      .returning({ posted_by_user_id: jobs.posted_by_user_id });
+    return updated?.posted_by_user_id ?? job.recruiter_id;
+  }
+
   async createJob(job: InsertJob): Promise<Job> {
     const { generateJobSlug } = await import("./api/utils/slugify.js");
-    const inserted = await db.insert(jobs).values([job as any]).returning();
+    const jobToInsert = {
+      ...job,
+      posted_by_user_id: job.posted_by_user_id ?? job.recruiter_id ?? null,
+    };
+    const inserted = await db
+      .insert(jobs)
+      .values([jobToInsert as any])
+      .returning();
     const newJob = inserted[0];
     const slug = generateJobSlug(newJob.title, newJob.location, newJob.id);
     const updated = await db.update(jobs).set({ slug }).where(eq(jobs.id, newJob.id)).returning();
@@ -1730,6 +2295,8 @@ export class DatabaseStorage implements IStorage {
     if (job.title !== undefined) updateData.title = job.title;
     if (job.company !== undefined) updateData.company = job.company;
     if (job.location !== undefined) updateData.location = job.location;
+    if ((job as any).country !== undefined) updateData.country = (job as any).country;
+    if ((job as any).currency !== undefined) updateData.currency = (job as any).currency;
     if (job.type !== undefined) updateData.type = job.type;
     if (job.rate !== undefined) updateData.rate = job.rate;
     if (job.description !== undefined) updateData.description = job.description;
@@ -1754,7 +2321,15 @@ export class DatabaseStorage implements IStorage {
     cache.clear();
   }
 
-  async getFreelancersMatchingJob(job: Job): Promise<{ userId: number; email: string; firstName: string | null; location: string | null; title: string | null }[]> {
+  async getFreelancersMatchingJob(job: Job): Promise<
+    {
+      userId: number;
+      email: string;
+      firstName: string | null;
+      location: string | null;
+      title: string | null;
+    }[]
+  > {
     // Get all active, email-verified freelancers with a profile
     const rows = await db
       .select({
@@ -1775,19 +2350,31 @@ export class DatabaseStorage implements IStorage {
       );
 
     // Extract meaningful keywords from job title and location
-    const stopWords = new Set(["and", "or", "the", "a", "an", "in", "at", "of", "for", "to", "with"]);
+    const stopWords = new Set([
+      "and",
+      "or",
+      "the",
+      "a",
+      "an",
+      "in",
+      "at",
+      "of",
+      "for",
+      "to",
+      "with",
+    ]);
     const jobTitleWords = job.title
       .toLowerCase()
-      .split(/[\s\-\/,]+/)
-      .filter(w => w.length > 2 && !stopWords.has(w));
+      .split(/[\s\-/,]+/)
+      .filter((w) => w.length > 2 && !stopWords.has(w));
     const jobLocationNorm = (job.location || "").toLowerCase();
 
-    return rows.filter(row => {
+    return rows.filter((row) => {
       const freelancerTitleNorm = (row.title || "").toLowerCase();
       const freelancerLocationNorm = (row.location || "").toLowerCase();
 
       // Role match: any job title keyword appears in freelancer's title
-      const roleMatch = jobTitleWords.some(w => freelancerTitleNorm.includes(w));
+      const roleMatch = jobTitleWords.some((w) => freelancerTitleNorm.includes(w));
 
       // Location match: job location contains freelancer's location city, or vice versa
       const locationMatch =
@@ -1809,24 +2396,33 @@ export class DatabaseStorage implements IStorage {
   async searchJobs(filters: {
     keyword?: string;
     location?: string;
+    country?: string;
     startDate?: string;
     endDate?: string;
   }): Promise<Job[]> {
     try {
       await this.closeExpiredJobs();
-      const { keyword, location, startDate, endDate } = filters;
+      const { keyword, location, country, startDate, endDate } = filters;
 
       // Build conditions array
       const conditions = [];
 
-      // Only show active jobs
-      conditions.push(or(eq(jobs.status, "active"), isNull(jobs.status)));
+      // Show active jobs + jobs closed within the last 24 hours
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      conditions.push(
+        or(
+          eq(jobs.status, "active"),
+          isNull(jobs.status),
+          and(
+            eq(jobs.status, "closed"),
+            sql`${jobs.updated_at} >= ${twentyFourHoursAgo}::timestamptz`
+          )
+        )
+      );
 
       // Exclude jobs whose event_date has passed
       const today = new Date().toISOString().split("T")[0];
-      conditions.push(
-        or(isNull(jobs.event_date), sql`${jobs.event_date}::date > ${today}::date`)
-      );
+      conditions.push(or(isNull(jobs.event_date), sql`${jobs.event_date}::date > ${today}::date`));
 
       // Keyword search: title, description, or company (case-insensitive)
       if (keyword && keyword.trim()) {
@@ -1844,6 +2440,11 @@ export class DatabaseStorage implements IStorage {
       if (location && location.trim()) {
         const locationTerm = `%${location.toLowerCase()}%`;
         conditions.push(sql`LOWER(${jobs.location}) LIKE ${locationTerm}`);
+      }
+
+      // Country filter (exact match)
+      if (country && country.trim()) {
+        conditions.push(sql`LOWER(${jobs.country}) = ${country.toLowerCase()}`);
       }
 
       // Date range filter on event_date
@@ -1869,20 +2470,27 @@ export class DatabaseStorage implements IStorage {
         .where(and(...conditions));
 
       // Sort with EventLink jobs first (external_source IS NULL), then external jobs
-      // Within each group, sort by created_at or posted_date DESC (most recent first)
+      // Within each group, sort by posted_date/created_at DESC (most recent first).
+      // The comparator must never return NaN: an inconsistent comparator makes
+      // Array.sort unstable and can break the EventLink-first grouping.
+      const effectiveDate = (job: Job): number => {
+        if (job.posted_date) {
+          // External feeds send UK-style DD/MM/YYYY, which Date.parse reads as MM/DD
+          const ukDate = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(job.posted_date);
+          const parsed = ukDate
+            ? Date.parse(`${ukDate[3]}-${ukDate[2]}-${ukDate[1]}`)
+            : Date.parse(job.posted_date);
+          if (!Number.isNaN(parsed)) return parsed;
+        }
+        const created = new Date(job.created_at).getTime();
+        return Number.isNaN(created) ? 0 : created;
+      };
+
       const sortedResults = results.sort((a, b) => {
-        // First priority: EventLink jobs (no external_source) come first
         const aIsEventLink = !a.external_source;
         const bIsEventLink = !b.external_source;
-
-        if (aIsEventLink && !bIsEventLink) return -1;
-        if (!aIsEventLink && bIsEventLink) return 1;
-
-        // Second priority: sort by date (most recent first)
-        // Use posted_date for external jobs, created_at for EventLink jobs
-        const aDate = a.posted_date ? new Date(a.posted_date) : new Date(a.created_at);
-        const bDate = b.posted_date ? new Date(b.posted_date) : new Date(b.created_at);
-        return bDate.getTime() - aDate.getTime();
+        if (aIsEventLink !== bIsEventLink) return aIsEventLink ? -1 : 1;
+        return effectiveDate(b) - effectiveDate(a);
       });
 
       return sortedResults;
@@ -1950,6 +2558,8 @@ export class DatabaseStorage implements IStorage {
         invitation_message: job_applications.invitation_message,
         freelancer_response: job_applications.freelancer_response,
         recruiter_id: jobs.recruiter_id,
+        job_is_freelancer_posted: jobs.is_freelancer_posted,
+        job_posted_by_user_id: jobs.posted_by_user_id,
         rating_id: sql<number>`(SELECT id FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
@@ -1964,7 +2574,7 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(job_applications.applied_at));
-    return result as JobApplication[];
+    return result as unknown as JobApplication[];
   }
 
   async getJobApplications(jobId: number): Promise<JobApplication[]> {
@@ -1993,7 +2603,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(eq(job_applications.job_id, jobId), eq(job_applications.recruiter_deleted, false))
       );
-    return result as JobApplication[];
+    return result as unknown as JobApplication[];
   }
 
   async getJobApplicationsByFreelancer(freelancerId: number): Promise<JobApplication[]> {
@@ -2024,6 +2634,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecruiterApplications(recruiterId: number): Promise<JobApplication[]> {
+    return this.getRecruiterApplicationsInternal(recruiterId, false);
+  }
+
+  // Applications the recruiter has hidden (soft-deleted from their view) that
+  // still belong to a live (active) job — surfaced under the "Hidden" filter.
+  async getRecruiterHiddenApplications(recruiterId: number): Promise<JobApplication[]> {
+    return this.getRecruiterApplicationsInternal(recruiterId, true);
+  }
+
+  private async getRecruiterApplicationsInternal(
+    recruiterId: number,
+    onlyHidden: boolean
+  ): Promise<JobApplication[]> {
+    const conditions = [
+      eq(jobs.recruiter_id, recruiterId),
+      eq(job_applications.freelancer_deleted, false),
+    ];
+
+    if (onlyHidden) {
+      // Hidden applications belonging to live (active) jobs only
+      conditions.push(eq(job_applications.recruiter_deleted, true));
+      conditions.push(eq(jobs.status, "active"));
+    } else {
+      conditions.push(eq(job_applications.recruiter_deleted, false));
+    }
+
     const result = await db
       .select({
         id: job_applications.id,
@@ -2050,6 +2686,7 @@ export class DatabaseStorage implements IStorage {
           superpower: freelancer_profiles.superpower,
           bio: freelancer_profiles.bio,
           location: freelancer_profiles.location,
+          country: freelancer_profiles.country,
           experience_years: freelancer_profiles.experience_years,
           skills: freelancer_profiles.skills,
           portfolio_url: freelancer_profiles.portfolio_url,
@@ -2068,15 +2705,9 @@ export class DatabaseStorage implements IStorage {
         freelancer_profiles,
         eq(freelancer_profiles.user_id, job_applications.freelancer_id)
       )
-      .where(
-        and(
-          eq(jobs.recruiter_id, recruiterId),
-          eq(job_applications.recruiter_deleted, false),
-          eq(job_applications.freelancer_deleted, false)
-        )
-      )
+      .where(and(...conditions))
       .orderBy(desc(job_applications.applied_at));
-    return result as JobApplication[];
+    return result as unknown as JobApplication[];
   }
 
   async getJobApplicationById(applicationId: number): Promise<JobApplication | undefined> {
@@ -2239,11 +2870,28 @@ export class DatabaseStorage implements IStorage {
         otherUserEmail: users.email,
         otherUserRole: users.role,
         otherUserDeleted: users.deleted_at,
+        otherUserPhoto: users.profile_photo_url,
         // Profile data for freelancers
         freelancerFirstName: freelancer_profiles.first_name,
         freelancerLastName: freelancer_profiles.last_name,
+        freelancerProfilePhoto: freelancer_profiles.profile_photo_url,
+        freelancerTitle: freelancer_profiles.title,
         // Profile data for recruiters
         recruiterCompanyName: recruiter_profiles.company_name,
+        // Last message preview
+        lastMessagePreview: sql<string | null>`(
+          SELECT content FROM messages
+          WHERE messages.conversation_id = ${conversations.id}
+          ORDER BY messages.created_at DESC
+          LIMIT 1
+        )`,
+        // Unread count (messages from the other user that are unread)
+        unreadCount: sql<number>`(
+          SELECT COUNT(*) FROM messages
+          WHERE messages.conversation_id = ${conversations.id}
+          AND messages.sender_id != ${userId}
+          AND messages.is_read = false
+        )`,
       })
       .from(conversations)
       .leftJoin(
@@ -2321,14 +2969,25 @@ export class DatabaseStorage implements IStorage {
         google_id: null,
         facebook_id: null,
         linkedin_id: null,
-        profile_photo_url: null,
+        profile_photo_url: row.freelancerProfilePhoto ?? row.otherUserPhoto ?? null,
+        title: row.freelancerTitle ?? null,
         last_login_method: null,
         last_login_at: null,
         deleted_at: row.otherUserDeleted,
         status: "pending",
+        welcome_email_sent: false,
+        marketing_emails_opt_out: false,
+        unsubscribe_token: null,
+        job_alerts_opt_out: null,
+        last_job_alert_sent_at: null,
+        job_alert_frequency_preference: "instant" as const,
+        created_via: null,
+        posting_suspended_at: null,
         created_at: new Date(),
         updated_at: new Date(),
       },
+      last_message_preview: row.lastMessagePreview ?? null,
+      unread_count: Number(row.unreadCount) || 0,
     }));
   }
 
@@ -2470,6 +3129,14 @@ export class DatabaseStorage implements IStorage {
             last_login_at: null,
             deleted_at: null,
             status: "pending",
+            welcome_email_sent: false,
+            marketing_emails_opt_out: false,
+            unsubscribe_token: null,
+            job_alerts_opt_out: null,
+            last_job_alert_sent_at: null,
+            job_alert_frequency_preference: "instant" as const,
+            created_via: null,
+            posting_suspended_at: null,
             created_at: new Date(),
             updated_at: new Date(),
           },
@@ -2570,6 +3237,14 @@ export class DatabaseStorage implements IStorage {
             last_login_at: null,
             deleted_at: null,
             status: "pending",
+            welcome_email_sent: false,
+            marketing_emails_opt_out: false,
+            unsubscribe_token: null,
+            job_alerts_opt_out: null,
+            last_job_alert_sent_at: null,
+            job_alert_frequency_preference: "instant" as const,
+            created_via: null,
+            posting_suspended_at: null,
             created_at: new Date(),
             updated_at: new Date(),
           },
@@ -2825,7 +3500,47 @@ export class DatabaseStorage implements IStorage {
     contact_messages: number;
     total: number;
   }> {
-    // Get counts for each category
+    const user = await this.getUser(userId);
+    const isRecruiter = user?.role === "recruiter";
+    const unreadExpiry = or(
+      isNull(notifications.expires_at),
+      sql`${notifications.expires_at} > NOW()`
+    );
+    const baseUnread = and(
+      eq(notifications.user_id, userId),
+      eq(notifications.is_read, false),
+      unreadExpiry
+    );
+
+    // Recruiters: application tab = job_update on applications. Freelancers: application_update only.
+    // Applications for closed jobs are removed from the Applications tab, so their
+    // alerts must not be counted in the Applications badge either.
+    const applicationNotForClosedJob = sql`NOT EXISTS (
+      SELECT 1 FROM job_applications ja
+      JOIN jobs j ON j.id = ja.job_id
+      WHERE ja.id = ${notifications.related_entity_id} AND j.status = 'closed'
+    )`;
+    const applicationsWhere = isRecruiter
+      ? and(
+          baseUnread,
+          eq(notifications.type, "job_update"),
+          eq(notifications.related_entity_type, "application"),
+          applicationNotForClosedJob
+        )
+      : and(baseUnread, eq(notifications.type, "application_update"));
+
+    // Recruiters: jobs tab excludes application alerts (those live on Applications tab).
+    const jobsWhere = isRecruiter
+      ? and(
+          baseUnread,
+          eq(notifications.type, "job_update"),
+          or(
+            isNull(notifications.related_entity_type),
+            ne(notifications.related_entity_type, "application")
+          )
+        )
+      : and(baseUnread, eq(notifications.type, "job_update"));
+
     const [
       messagesResult,
       applicationsResult,
@@ -2851,27 +3566,13 @@ export class DatabaseStorage implements IStorage {
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(notifications)
-        .where(
-          and(
-            eq(notifications.user_id, userId),
-            eq(notifications.is_read, false),
-            eq(notifications.type, "application_update"),
-            or(isNull(notifications.expires_at), sql`${notifications.expires_at} > NOW()`)
-          )
-        ),
+        .where(applicationsWhere),
 
       // Jobs count
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(notifications)
-        .where(
-          and(
-            eq(notifications.user_id, userId),
-            eq(notifications.is_read, false),
-            eq(notifications.type, "job_update"),
-            or(isNull(notifications.expires_at), sql`${notifications.expires_at} > NOW()`)
-          )
-        ),
+        .where(jobsWhere),
 
       // Ratings count
       db
@@ -2950,18 +3651,41 @@ export class DatabaseStorage implements IStorage {
     userId: number,
     category: "messages" | "applications" | "jobs" | "ratings" | "feedback" | "contact_messages"
   ): Promise<void> {
+    const user = await this.getUser(userId);
+    const isRecruiter = user?.role === "recruiter";
+    const baseUnread = and(eq(notifications.user_id, userId), eq(notifications.is_read, false));
+
     let notificationTypes: string[] = [];
 
     switch (category) {
       case "messages":
         notificationTypes = ["new_message"];
         break;
-      case "applications":
-        notificationTypes = ["application_update"];
-        break;
-      case "jobs":
-        notificationTypes = ["job_update"];
-        break;
+      case "applications": {
+        const applicationsWhere = isRecruiter
+          ? and(
+              baseUnread,
+              eq(notifications.type, "job_update"),
+              eq(notifications.related_entity_type, "application")
+            )
+          : and(baseUnread, eq(notifications.type, "application_update"));
+        await db.update(notifications).set({ is_read: true }).where(applicationsWhere);
+        return;
+      }
+      case "jobs": {
+        const jobsWhere = isRecruiter
+          ? and(
+              baseUnread,
+              eq(notifications.type, "job_update"),
+              or(
+                isNull(notifications.related_entity_type),
+                ne(notifications.related_entity_type, "application")
+              )
+            )
+          : and(baseUnread, eq(notifications.type, "job_update"));
+        await db.update(notifications).set({ is_read: true }).where(jobsWhere);
+        return;
+      }
       case "ratings":
         notificationTypes = ["rating_received", "rating_request"];
         break;
@@ -3293,7 +4017,7 @@ export class DatabaseStorage implements IStorage {
       if (filters.status === "flagged") {
         conditions.push(or(eq(ratings.status, "flagged"), eq(ratings.flag, "reported")));
       } else {
-        conditions.push(eq(ratings.status, filters.status));
+        conditions.push(eq(ratings.status, filters.status as any));
       }
     }
 
@@ -3977,7 +4701,8 @@ export class DatabaseStorage implements IStorage {
     status?: string,
     sortBy?: string,
     sortOrder?: "asc" | "desc",
-    profileStatus?: string
+    profileStatus?: string,
+    country?: string
   ): Promise<{ users: (User & { profile_status?: string })[]; total: number }> {
     const offset = (page - 1) * limit;
 
@@ -3995,11 +4720,20 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (role && role !== "all") {
-      conditions.push(eq(users.role, role));
+      conditions.push(eq(users.role, role as any));
     }
 
     if (status && status !== "all") {
       conditions.push(eq(users.status, status));
+    }
+
+    if (country && country.trim() !== "") {
+      const matchingProfileUserIds = await db
+        .select({ user_id: freelancer_profiles.user_id })
+        .from(freelancer_profiles)
+        .where(ilike(freelancer_profiles.country, `%${country.trim()}%`));
+      const ids = matchingProfileUserIds.map((r) => r.user_id);
+      conditions.push(ids.length > 0 ? inArray(users.id, ids) : sql`1=0`);
     }
 
     // Determine sort column and direction
@@ -4026,7 +4760,7 @@ export class DatabaseStorage implements IStorage {
     const computeProfileStatus = (
       userId: number,
       userRole: string,
-      profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }>
+      profileMap: Map<number, { hasProfile: boolean; isComplete: boolean; country: string | null }>
     ): string | undefined => {
       if (userRole !== "freelancer") return undefined;
       const profileInfo = profileMap.get(userId);
@@ -4042,15 +4776,21 @@ export class DatabaseStorage implements IStorage {
         title: string | null;
         bio: string | null;
         skills: string[] | null;
+        country: string | null;
       }[]
     ) => {
-      const map: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+      const map: Map<number, { hasProfile: boolean; isComplete: boolean; country: string | null }> =
+        new Map();
       for (const profile of profiles) {
         const hasTitle = profile.title && profile.title.trim() !== "";
         const hasBio = profile.bio && profile.bio.trim() !== "";
         const hasSkills = profile.skills && profile.skills.length > 0;
         const isComplete = hasTitle && hasBio && hasSkills;
-        map.set(profile.user_id, { hasProfile: true, isComplete: !!isComplete });
+        map.set(profile.user_id, {
+          hasProfile: true,
+          isComplete: !!isComplete,
+          country: profile.country ?? null,
+        });
       }
       return map;
     };
@@ -4070,7 +4810,10 @@ export class DatabaseStorage implements IStorage {
 
       // Get all their profiles
       const allFreelancerIds = allFreelancers.map((u) => u.id);
-      let profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+      let profileMap: Map<
+        number,
+        { hasProfile: boolean; isComplete: boolean; country: string | null }
+      > = new Map();
 
       if (allFreelancerIds.length > 0) {
         const profiles = await db
@@ -4079,6 +4822,7 @@ export class DatabaseStorage implements IStorage {
             title: freelancer_profiles.title,
             bio: freelancer_profiles.bio,
             skills: freelancer_profiles.skills,
+            country: freelancer_profiles.country,
           })
           .from(freelancer_profiles)
           .where(inArray(freelancer_profiles.user_id, allFreelancerIds));
@@ -4090,6 +4834,7 @@ export class DatabaseStorage implements IStorage {
       const allWithStatus = allFreelancers.map((user) => ({
         ...user,
         profile_status: computeProfileStatus(user.id, user.role, profileMap),
+        profile_country: profileMap.get(user.id)?.country ?? null,
       }));
 
       const filtered = allWithStatus.filter((u) => u.profile_status === profileStatus);
@@ -4114,7 +4859,10 @@ export class DatabaseStorage implements IStorage {
     // Get profile status for freelancer users in the result set
     const freelancerIds = usersResult.filter((u) => u.role === "freelancer").map((u) => u.id);
 
-    let profileMap: Map<number, { hasProfile: boolean; isComplete: boolean }> = new Map();
+    let profileMap: Map<
+      number,
+      { hasProfile: boolean; isComplete: boolean; country: string | null }
+    > = new Map();
 
     if (freelancerIds.length > 0) {
       const profiles = await db
@@ -4123,6 +4871,7 @@ export class DatabaseStorage implements IStorage {
           title: freelancer_profiles.title,
           bio: freelancer_profiles.bio,
           skills: freelancer_profiles.skills,
+          country: freelancer_profiles.country,
         })
         .from(freelancer_profiles)
         .where(inArray(freelancer_profiles.user_id, freelancerIds));
@@ -4130,10 +4879,11 @@ export class DatabaseStorage implements IStorage {
       profileMap = buildProfileMap(profiles);
     }
 
-    // Add profile_status to each user
+    // Add profile_status and profile_country to each user
     const usersWithProfileStatus = usersResult.map((user) => ({
       ...user,
       profile_status: computeProfileStatus(user.id, user.role, profileMap),
+      profile_country: profileMap.get(user.id)?.country ?? null,
     }));
 
     return {
@@ -4349,7 +5099,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCvParsedData(data: InsertCvParsedData): Promise<CvParsedData> {
-    const result = await db.insert(cv_parsed_data).values(data).returning();
+    const result = await db
+      .insert(cv_parsed_data)
+      .values(data as any)
+      .returning();
     if (!result[0]) {
       throw new Error("Failed to create CV parsed data");
     }
@@ -4358,7 +5111,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateCvParsedData(
     userId: number,
-    data: Partial<InsertCvParsedData>
+    data: Partial<CvParsedData>
   ): Promise<CvParsedData | undefined> {
     const result = await db
       .update(cv_parsed_data)
@@ -4373,7 +5126,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createJobLinkView(view: InsertJobLinkView): Promise<JobLinkView> {
-    const result = await db.insert(job_link_views).values(view).returning();
+    const result = await db
+      .insert(job_link_views)
+      .values(view as any)
+      .returning();
     if (!result[0]) {
       throw new Error("Failed to create job link view");
     }
@@ -4392,20 +5148,29 @@ export class DatabaseStorage implements IStorage {
     const existing = await db
       .select()
       .from(saved_freelancers)
-      .where(and(
-        eq(saved_freelancers.recruiter_id, recruiterId),
-        eq(saved_freelancers.freelancer_id, freelancerId)
-      ));
+      .where(
+        and(
+          eq(saved_freelancers.recruiter_id, recruiterId),
+          eq(saved_freelancers.freelancer_id, freelancerId)
+        )
+      );
     if (existing.length > 0) return existing[0];
-    const result = await db.insert(saved_freelancers).values({ recruiter_id: recruiterId, freelancer_id: freelancerId }).returning();
+    const result = await db
+      .insert(saved_freelancers)
+      .values({ recruiter_id: recruiterId, freelancer_id: freelancerId })
+      .returning();
     return result[0];
   }
 
   async unsaveFreelancer(recruiterId: number, freelancerId: number): Promise<void> {
-    await db.delete(saved_freelancers).where(and(
-      eq(saved_freelancers.recruiter_id, recruiterId),
-      eq(saved_freelancers.freelancer_id, freelancerId)
-    ));
+    await db
+      .delete(saved_freelancers)
+      .where(
+        and(
+          eq(saved_freelancers.recruiter_id, recruiterId),
+          eq(saved_freelancers.freelancer_id, freelancerId)
+        )
+      );
   }
 
   async getSavedFreelancerIds(recruiterId: number): Promise<number[]> {
@@ -4413,27 +5178,36 @@ export class DatabaseStorage implements IStorage {
       .select({ freelancer_id: saved_freelancers.freelancer_id })
       .from(saved_freelancers)
       .where(eq(saved_freelancers.recruiter_id, recruiterId));
-    return result.map(r => r.freelancer_id);
+    return result.map((r) => r.freelancer_id);
   }
 
-  async getMyCrewFreelancers(recruiterId: number, filters?: {
-    keyword?: string;
-    location?: string;
-    tab?: "all" | "saved" | "worked";
-  }): Promise<Array<FreelancerProfile & { isSaved: boolean; isWorkedWith: boolean; average_rating?: number; user_email?: string }>> {
+  async getMyCrewFreelancers(
+    recruiterId: number,
+    filters?: {
+      keyword?: string;
+      location?: string;
+      tab?: "all" | "saved" | "worked";
+    }
+  ): Promise<
+    Array<
+      FreelancerProfile & {
+        isSaved: boolean;
+        isWorkedWith: boolean;
+        average_rating?: number;
+        user_email?: string;
+      }
+    >
+  > {
     const savedIds = await this.getSavedFreelancerIds(recruiterId);
 
     const workedWithRows = await db
       .selectDistinct({ freelancer_id: job_applications.freelancer_id })
       .from(job_applications)
       .innerJoin(jobs, eq(jobs.id, job_applications.job_id))
-      .where(and(
-        eq(jobs.recruiter_id, recruiterId),
-        eq(job_applications.status, "hired")
-      ));
-    const workedWithIds = workedWithRows.map(r => r.freelancer_id);
+      .where(and(eq(jobs.recruiter_id, recruiterId), eq(job_applications.status, "hired")));
+    const workedWithIds = workedWithRows.map((r) => r.freelancer_id);
 
-    const allIds = [...new Set([...savedIds, ...workedWithIds])];
+    const allIds = Array.from(new Set([...savedIds, ...workedWithIds]));
     if (allIds.length === 0) return [];
 
     const tab = filters?.tab || "all";
@@ -4450,19 +5224,11 @@ export class DatabaseStorage implements IStorage {
     const conditions: any[] = [inArray(freelancer_profiles.user_id, targetIds)];
 
     if (filters?.keyword?.trim()) {
-      const term = `%${filters.keyword.toLowerCase()}%`;
-      conditions.push(or(
-        sql`LOWER(${freelancer_profiles.title}) LIKE ${term}`,
-        sql`LOWER(${freelancer_profiles.first_name}) LIKE ${term}`,
-        sql`LOWER(${freelancer_profiles.last_name}) LIKE ${term}`,
-        sql`LOWER(${freelancer_profiles.bio}) LIKE ${term}`,
-        sql`LOWER(COALESCE(array_to_string(${freelancer_profiles.skills}, ' '), '')) LIKE ${term}`
-      ));
+      conditions.push(freelancerKeywordCondition(filters.keyword));
     }
 
     if (filters?.location?.trim()) {
-      const locTerm = `%${filters.location.toLowerCase()}%`;
-      conditions.push(sql`LOWER(${freelancer_profiles.location}) LIKE ${locTerm}`);
+      conditions.push(freelancerLocationCondition(filters.location));
     }
 
     const profiles = await db
@@ -4475,7 +5241,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(freelancer_profiles.id));
 
-    return profiles.map(row => ({
+    return profiles.map((row) => ({
       ...row.profile,
       isSaved: savedIds.includes(row.profile.user_id),
       isWorkedWith: workedWithIds.includes(row.profile.user_id),
@@ -4492,58 +5258,87 @@ export class DatabaseStorage implements IStorage {
     if (profile.reference_token) return profile.reference_token;
     const { randomUUID } = await import("crypto");
     const token = randomUUID();
-    await db.update(freelancer_profiles)
+    await db
+      .update(freelancer_profiles)
       .set({ reference_token: token })
       .where(eq(freelancer_profiles.user_id, userId));
     return token;
   }
 
-  async getFreelancerByReferenceToken(token: string): Promise<{ userId: number; firstName: string | null; lastName: string | null } | undefined> {
-    const rows = await db.select({
-      userId: freelancer_profiles.user_id,
-      firstName: freelancer_profiles.first_name,
-      lastName: freelancer_profiles.last_name,
-    })
+  async getFreelancerByReferenceToken(
+    token: string
+  ): Promise<{ userId: number; firstName: string | null; lastName: string | null } | undefined> {
+    const rows = await db
+      .select({
+        userId: freelancer_profiles.user_id,
+        firstName: freelancer_profiles.first_name,
+        lastName: freelancer_profiles.last_name,
+      })
       .from(freelancer_profiles)
       .where(eq(freelancer_profiles.reference_token, token))
       .limit(1);
     return rows[0];
   }
 
-  async createFreelancerReference(data: InsertFreelancerReference & { badge_result: string; is_flagged: boolean }): Promise<FreelancerReference> {
-    const rows = await db.insert(freelancer_references).values(data).returning();
+  async createFreelancerReference(
+    data: InsertFreelancerReference & { badge_result: string; is_flagged: boolean }
+  ): Promise<FreelancerReference> {
+    const rows = await db
+      .insert(freelancer_references)
+      .values(data as any)
+      .returning();
     return rows[0];
   }
 
   async getPublicReferences(freelancerId: number): Promise<FreelancerReference[]> {
-    return db.select()
+    return db
+      .select()
       .from(freelancer_references)
-      .where(and(
-        eq(freelancer_references.freelancer_id, freelancerId),
-        eq(freelancer_references.is_flagged, false),
-        sql`${freelancer_references.badge_result} != 'flagged'`
-      ))
+      .where(
+        and(
+          eq(freelancer_references.freelancer_id, freelancerId),
+          eq(freelancer_references.is_flagged, false),
+          sql`${freelancer_references.badge_result} != 'flagged'`
+        )
+      )
       .orderBy(desc(freelancer_references.created_at));
   }
 
   async getReferenceById(id: number): Promise<FreelancerReference | undefined> {
-    const rows = await db.select().from(freelancer_references).where(eq(freelancer_references.id, id)).limit(1);
-    return rows[0];
-  }
-
-  async updateReferenceVerification(id: number, data: Partial<FreelancerReference>): Promise<FreelancerReference | undefined> {
-    const rows = await db.update(freelancer_references).set(data).where(eq(freelancer_references.id, id)).returning();
-    return rows[0];
-  }
-
-  async getRecentReferencesByEmail(email: string, hoursBack: number): Promise<FreelancerReference[]> {
-    const cutoff = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
-    return db.select()
+    const rows = await db
+      .select()
       .from(freelancer_references)
-      .where(and(
-        eq(freelancer_references.referee_email, email),
-        gte(freelancer_references.created_at, cutoff)
-      ));
+      .where(eq(freelancer_references.id, id))
+      .limit(1);
+    return rows[0];
+  }
+
+  async updateReferenceVerification(
+    id: number,
+    data: Partial<FreelancerReference>
+  ): Promise<FreelancerReference | undefined> {
+    const rows = await db
+      .update(freelancer_references)
+      .set(data)
+      .where(eq(freelancer_references.id, id))
+      .returning();
+    return rows[0];
+  }
+
+  async getRecentReferencesByEmail(
+    email: string,
+    hoursBack: number
+  ): Promise<FreelancerReference[]> {
+    const cutoff = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
+    return db
+      .select()
+      .from(freelancer_references)
+      .where(
+        and(
+          eq(freelancer_references.referee_email, email),
+          gte(freelancer_references.created_at, cutoff)
+        )
+      );
   }
 
   async createReferenceRequest(data: InsertReferenceRequest): Promise<ReferenceRequest> {
@@ -4552,31 +5347,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReferenceRequests(freelancerId: number): Promise<ReferenceRequest[]> {
-    return db.select()
+    return db
+      .select()
       .from(reference_requests)
       .where(eq(reference_requests.freelancer_id, freelancerId))
       .orderBy(desc(reference_requests.created_at));
   }
 
   async getReferenceRequestById(id: number): Promise<ReferenceRequest | undefined> {
-    const rows = await db.select().from(reference_requests).where(eq(reference_requests.id, id)).limit(1);
+    const rows = await db
+      .select()
+      .from(reference_requests)
+      .where(eq(reference_requests.id, id))
+      .limit(1);
     return rows[0];
   }
 
-  async updateReferenceRequest(id: number, data: Partial<ReferenceRequest>): Promise<ReferenceRequest | undefined> {
-    const rows = await db.update(reference_requests).set(data).where(eq(reference_requests.id, id)).returning();
+  async updateReferenceRequest(
+    id: number,
+    data: Partial<ReferenceRequest>
+  ): Promise<ReferenceRequest | undefined> {
+    const rows = await db
+      .update(reference_requests)
+      .set(data)
+      .where(eq(reference_requests.id, id))
+      .returning();
     return rows[0];
   }
 
   async getPendingReminders(daysSinceRequest: number): Promise<ReferenceRequest[]> {
     const cutoff = new Date(Date.now() - daysSinceRequest * 24 * 60 * 60 * 1000);
-    return db.select()
+    return db
+      .select()
       .from(reference_requests)
-      .where(and(
-        eq(reference_requests.status, "pending"),
-        eq(reference_requests.reminder_sent, false),
-        sql`${reference_requests.created_at} <= ${cutoff}`
-      ));
+      .where(
+        and(
+          eq(reference_requests.status, "pending"),
+          eq(reference_requests.reminder_sent, false),
+          sql`${reference_requests.created_at} <= ${cutoff}`
+        )
+      );
   }
 
   async createReferenceReport(data: InsertReferenceReport): Promise<ReferenceReport> {
@@ -4585,14 +5395,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReferenceReports(referenceId: number): Promise<ReferenceReport[]> {
-    return db.select()
+    return db
+      .select()
       .from(reference_reports)
       .where(eq(reference_reports.reference_id, referenceId))
       .orderBy(desc(reference_reports.created_at));
   }
 
   async getJobsForBatchWindow(window: "morning" | "afternoon"): Promise<Job[]> {
-    return db.select()
+    return db
+      .select()
       .from(jobs)
       .where(
         and(
@@ -4604,8 +5416,13 @@ export class DatabaseStorage implements IStorage {
       );
   }
 
-  async updateJobBatchNotification(jobId: number, batchWindow: string | null, sentAt: Date | null): Promise<void> {
-    await db.update(jobs)
+  async updateJobBatchNotification(
+    jobId: number,
+    batchWindow: string | null,
+    sentAt: Date | null
+  ): Promise<void> {
+    await db
+      .update(jobs)
       .set({
         notification_batch_window: batchWindow as any,
         notification_sent_at: sentAt as any,
@@ -4614,8 +5431,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(jobs.id, jobId));
   }
 
-  async updateJobUrgencyAndBatch(jobId: number, isUrgent: boolean, batchWindow: string | null): Promise<void> {
-    await db.update(jobs)
+  async updateJobUrgencyAndBatch(
+    jobId: number,
+    isUrgent: boolean,
+    batchWindow: string | null
+  ): Promise<void> {
+    await db
+      .update(jobs)
       .set({
         is_urgent: isUrgent as any,
         notification_batch_window: batchWindow as any,
@@ -4625,20 +5447,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateFreelancerLastJobAlertSent(userId: number): Promise<void> {
-    await db.update(users)
+    await db
+      .update(users)
       .set({ last_job_alert_sent_at: new Date() as any, updated_at: new Date() })
       .where(eq(users.id, userId));
   }
 
-  async getFreelancerJobAlertPrefs(userId: number): Promise<{ jobAlertsOptOut: boolean; lastJobAlertSentAt: Date | null; jobAlertFrequencyPreference: string }> {
-    const result = await db.select({
-      jobAlertsOptOut: users.job_alerts_opt_out,
-      lastJobAlertSentAt: users.last_job_alert_sent_at,
-      jobAlertFrequencyPreference: users.job_alert_frequency_preference,
-    }).from(users).where(eq(users.id, userId)).limit(1);
+  async getFreelancerJobAlertPrefs(userId: number): Promise<{
+    jobAlertsOptOut: boolean;
+    lastJobAlertSentAt: Date | null;
+    jobAlertFrequencyPreference: string;
+  }> {
+    const result = await db
+      .select({
+        jobAlertsOptOut: users.job_alerts_opt_out,
+        lastJobAlertSentAt: users.last_job_alert_sent_at,
+        jobAlertFrequencyPreference: users.job_alert_frequency_preference,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
 
     if (!result[0]) {
-      return { jobAlertsOptOut: false, lastJobAlertSentAt: null, jobAlertFrequencyPreference: "instant" };
+      return {
+        jobAlertsOptOut: false,
+        lastJobAlertSentAt: null,
+        jobAlertFrequencyPreference: "instant",
+      };
     }
     return {
       jobAlertsOptOut: result[0].jobAlertsOptOut ?? false,
@@ -4648,7 +5483,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async setJobNotificationSentAt(jobId: number): Promise<void> {
-    await db.update(jobs)
+    await db
+      .update(jobs)
       .set({
         notification_sent_at: new Date() as any,
         notification_batch_window: null as any,
@@ -4659,15 +5495,499 @@ export class DatabaseStorage implements IStorage {
 
   async setManualNotificationTimestamps(jobId: number, freelancerUserIds: number[]): Promise<void> {
     const now = new Date();
-    await db.update(jobs)
+    await db
+      .update(jobs)
       .set({ notification_sent_at: now as any, last_notified_at: now, updated_at: now })
       .where(eq(jobs.id, jobId));
 
     if (freelancerUserIds.length > 0) {
-      await db.update(users)
+      await db
+        .update(users)
         .set({ last_job_alert_sent_at: now as any, updated_at: now })
         .where(inArray(users.id, freelancerUserIds));
     }
+  }
+
+  async getAdminTeams(
+    page: number,
+    limit: number,
+    search?: string,
+    sort?: string
+  ): Promise<{
+    teams: Array<{
+      company_user_id: number;
+      company_name: string | null;
+      owner_email: string;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
+      member_count: number;
+      pending_invitations: number;
+      active_jobs: number;
+      closed_jobs: number;
+      total_hired: number;
+      created_at: Date;
+    }>;
+    total: number;
+  }> {
+    const offset = (page - 1) * limit;
+
+    const conditions: any[] = [eq(users.role, "recruiter"), isNull(users.deleted_at)];
+
+    if (search) {
+      conditions.push(
+        or(
+          ilike(users.email, `%${search}%`),
+          ilike(users.first_name, `%${search}%`),
+          ilike(users.last_name, `%${search}%`),
+          ilike(recruiter_profiles.company_name, `%${search}%`)
+        )
+      );
+    }
+
+    const whereClause = and(...conditions);
+
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(users)
+      .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
+      .where(whereClause);
+
+    const recruiterRows = await db
+      .select({
+        user_id: users.id,
+        email: users.email,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        created_at: users.created_at,
+        company_name: recruiter_profiles.company_name,
+      })
+      .from(users)
+      .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
+      .where(whereClause)
+      .orderBy(
+        sort === "oldest"
+          ? asc(users.created_at)
+          : sort === "company"
+            ? asc(recruiter_profiles.company_name)
+            : sort === "email"
+              ? asc(users.email)
+              : desc(users.created_at)
+      )
+      .limit(limit)
+      .offset(offset);
+
+    if (recruiterRows.length === 0) {
+      return { teams: [], total: totalResult?.count || 0 };
+    }
+
+    const recruiterIds = recruiterRows.map((r) => r.user_id);
+
+    const [memberStats, jobStats, hiredStats] = await Promise.all([
+      db
+        .select({
+          company_id: teamMembers.companyId,
+          total: count(),
+          pending: sql<number>`count(*) filter (where ${teamMembers.inviteAccepted} = false)`,
+          accepted: sql<number>`count(*) filter (where ${teamMembers.inviteAccepted} = true)`,
+        })
+        .from(teamMembers)
+        .where(inArray(teamMembers.companyId, recruiterIds))
+        .groupBy(teamMembers.companyId),
+
+      db
+        .select({
+          recruiter_id: jobs.recruiter_id,
+          active: sql<number>`count(*) filter (where ${jobs.status} = 'active' or ${jobs.status} = 'paused')`,
+          closed: sql<number>`count(*) filter (where ${jobs.status} = 'closed')`,
+        })
+        .from(jobs)
+        .where(inArray(jobs.recruiter_id, recruiterIds))
+        .groupBy(jobs.recruiter_id),
+
+      db
+        .select({
+          recruiter_id: jobs.recruiter_id,
+          hired: sql<number>`count(${job_applications.id}) filter (where ${job_applications.status} = 'hired')`,
+        })
+        .from(jobs)
+        .leftJoin(job_applications, eq(job_applications.job_id, jobs.id))
+        .where(inArray(jobs.recruiter_id, recruiterIds))
+        .groupBy(jobs.recruiter_id),
+    ]);
+
+    const memberMap = new Map(memberStats.map((m) => [m.company_id, m]));
+    const jobMap = new Map(jobStats.map((j) => [j.recruiter_id, j]));
+    const hiredMap = new Map(hiredStats.map((h) => [h.recruiter_id, h]));
+
+    const teams = recruiterRows.map((r) => {
+      const m = memberMap.get(r.user_id);
+      const j = jobMap.get(r.user_id);
+      const h = hiredMap.get(r.user_id);
+      return {
+        company_user_id: r.user_id,
+        company_name: r.company_name ?? null,
+        owner_email: r.email,
+        owner_first_name: r.first_name ?? null,
+        owner_last_name: r.last_name ?? null,
+        member_count: m ? Number(m.accepted) : 0,
+        pending_invitations: m ? Number(m.pending) : 0,
+        active_jobs: j ? Number(j.active) : 0,
+        closed_jobs: j ? Number(j.closed) : 0,
+        total_hired: h ? Number(h.hired) : 0,
+        created_at: r.created_at,
+      };
+    });
+
+    return { teams, total: totalResult?.count || 0 };
+  }
+
+  async getAdminTeamDetail(companyUserId: number): Promise<{
+    company: {
+      company_user_id: number;
+      company_name: string | null;
+      owner_email: string;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
+      member_count: number;
+      pending_invitations: number;
+      active_jobs: number;
+      closed_jobs: number;
+      total_hired: number;
+      created_at: Date;
+      website_url: string | null;
+      location: string | null;
+      company_type: string | null;
+    };
+    members: Array<{
+      id: number;
+      user_id: number | null;
+      email: string;
+      name: string;
+      role: string;
+      joined_at: Date | null;
+      invite_accepted: boolean;
+      account_status: string | null;
+      jobs_posted: number;
+    }>;
+    jobs: Array<{
+      id: number;
+      title: string;
+      status: string | null;
+      is_published: boolean;
+      created_at: Date;
+      application_count: number;
+      hired_count: number;
+      recruiter_name: string;
+    }>;
+  } | null> {
+    const [ownerRow] = await db
+      .select({
+        user_id: users.id,
+        email: users.email,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        created_at: users.created_at,
+        company_name: recruiter_profiles.company_name,
+        website_url: recruiter_profiles.website_url,
+        location: recruiter_profiles.location,
+        company_type: recruiter_profiles.company_type,
+      })
+      .from(users)
+      .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
+      .where(and(eq(users.id, companyUserId), isNull(users.deleted_at)))
+      .limit(1);
+
+    if (!ownerRow) return null;
+
+    const memberRows = await db
+      .select({
+        id: teamMembers.id,
+        user_id: teamMembers.userId,
+        invited_email: teamMembers.invitedEmail,
+        role: teamMembers.role,
+        joined_at: teamMembers.inviteAcceptedAt,
+        invite_accepted: teamMembers.inviteAccepted,
+        member_first_name: users.first_name,
+        member_last_name: users.last_name,
+        member_email: users.email,
+        account_status: users.status,
+      })
+      .from(teamMembers)
+      .leftJoin(users, eq(users.id, teamMembers.userId))
+      .where(eq(teamMembers.companyId, companyUserId))
+      .orderBy(desc(teamMembers.createdAt));
+
+    const memberUserIds = memberRows
+      .filter((m) => m.user_id !== null)
+      .map((m) => m.user_id as number);
+
+    const allRecruiterIds = [companyUserId, ...memberUserIds];
+
+    const [jobRows, appStats] = await Promise.all([
+      db
+        .select({
+          id: jobs.id,
+          title: jobs.title,
+          status: jobs.status,
+          created_at: jobs.created_at,
+          recruiter_id: jobs.recruiter_id,
+        })
+        .from(jobs)
+        .where(inArray(jobs.recruiter_id, allRecruiterIds))
+        .orderBy(desc(jobs.created_at)),
+
+      db
+        .select({
+          job_id: job_applications.job_id,
+          total: count(),
+          hired: sql<number>`count(*) filter (where ${job_applications.status} = 'hired')`,
+        })
+        .from(job_applications)
+        .groupBy(job_applications.job_id),
+    ]);
+
+    const appMap = new Map(appStats.map((a) => [a.job_id, a]));
+
+    const recruiterNameMap = new Map<number, string>();
+    recruiterNameMap.set(
+      companyUserId,
+      [ownerRow.first_name, ownerRow.last_name].filter(Boolean).join(" ") || ownerRow.email
+    );
+    for (const m of memberRows) {
+      if (m.user_id) {
+        const name =
+          [m.member_first_name, m.member_last_name].filter(Boolean).join(" ") ||
+          m.member_email ||
+          m.invited_email;
+        recruiterNameMap.set(m.user_id, name);
+      }
+    }
+
+    const enrichedJobs = jobRows.map((j) => {
+      const app = appMap.get(j.id);
+      return {
+        id: j.id,
+        title: j.title,
+        status: j.status,
+        is_published: j.status === "active",
+        created_at: j.created_at,
+        application_count: app ? Number(app.total) : 0,
+        hired_count: app ? Number(app.hired) : 0,
+        recruiter_name: recruiterNameMap.get(j.recruiter_id ?? 0) ?? "Unknown",
+      };
+    });
+
+    const memberCount = memberRows.filter((m) => m.invite_accepted).length;
+    const pendingCount = memberRows.filter((m) => !m.invite_accepted).length;
+    const activeJobs = jobRows.filter((j) => j.status === "active" || j.status === "paused").length;
+    const closedJobs = jobRows.filter((j) => j.status === "closed").length;
+    const totalHired = jobRows.reduce((sum, j) => {
+      const app = appMap.get(j.id);
+      return sum + (app ? Number(app.hired) : 0);
+    }, 0);
+
+    const membersList = memberRows.map((m) => {
+      const name =
+        [m.member_first_name, m.member_last_name].filter(Boolean).join(" ") ||
+        m.member_email ||
+        m.invited_email;
+      const memberJobCount = jobRows.filter((j) => j.recruiter_id === m.user_id).length;
+      return {
+        id: m.id,
+        user_id: m.user_id,
+        email: m.member_email || m.invited_email,
+        name,
+        role: m.role,
+        joined_at: m.joined_at,
+        invite_accepted: m.invite_accepted,
+        account_status: m.account_status,
+        jobs_posted: memberJobCount,
+      };
+    });
+
+    return {
+      company: {
+        company_user_id: ownerRow.user_id,
+        company_name: ownerRow.company_name ?? null,
+        owner_email: ownerRow.email,
+        owner_first_name: ownerRow.first_name ?? null,
+        owner_last_name: ownerRow.last_name ?? null,
+        member_count: memberCount,
+        pending_invitations: pendingCount,
+        active_jobs: activeJobs,
+        closed_jobs: closedJobs,
+        total_hired: totalHired,
+        created_at: ownerRow.created_at,
+        website_url: ownerRow.website_url ?? null,
+        location: ownerRow.location ?? null,
+        company_type: ownerRow.company_type ?? null,
+      },
+      members: membersList,
+      jobs: enrichedJobs,
+    };
+  }
+
+  // ── Guest account upgrade ─────────────────────────────────────────────────────
+
+  async upgradeGuestAccount(
+    userId: number,
+    data: {
+      password: string;
+      first_name: string;
+      last_name: string;
+      role: "freelancer" | "recruiter";
+      email_verification_token: string;
+      email_verification_expires: Date;
+    }
+  ): Promise<void> {
+    await db
+      .update(users)
+      .set({
+        password: data.password,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        role: data.role,
+        status: "pending",
+        email_verified: false,
+        email_verification_token: data.email_verification_token,
+        email_verification_expires: data.email_verification_expires,
+        created_via: "email",
+        updated_at: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  // ── Guest job nudge ───────────────────────────────────────────────────────────
+
+  async getDraftsReadyForNudge(minAgeHours: number): Promise<JobDraft[]> {
+    const cutoff = new Date(Date.now() - minAgeHours * 3_600_000);
+    return db
+      .select()
+      .from(job_drafts)
+      .where(
+        and(
+          isNull(job_drafts.consumed_at),
+          isNull(job_drafts.nudge_sent_at),
+          gt(job_drafts.expires_at, new Date()), // not yet expired
+          sql`${job_drafts.created_at} <= ${cutoff}`
+        )
+      );
+  }
+
+  async markDraftNudgeSent(draftId: number, newTokenHash: string): Promise<void> {
+    await db
+      .update(job_drafts)
+      .set({ nudge_sent_at: new Date(), token_hash: newTokenHash })
+      .where(eq(job_drafts.id, draftId));
+  }
+
+  // ── Guest job moderation ─────────────────────────────────────────────────────
+
+  async getPendingGuestJobs(): Promise<(Job & { contact_email: string | null })[]> {
+    const rows = await db
+      .select({
+        job: jobs,
+        contact_email: users.email,
+      })
+      .from(jobs)
+      .leftJoin(users, eq(jobs.posted_by_user_id, users.id))
+      .where(
+        and(eq(jobs.poster_type as any, "guest"), eq(jobs.moderation_status as any, "pending"))
+      )
+      .orderBy(asc(jobs.created_at));
+    return rows.map((r) => ({ ...r.job, contact_email: r.contact_email ?? null }));
+  }
+
+  async moderateJob(
+    jobId: number,
+    decision: "approved" | "rejected",
+    moderatorUserId: number,
+    note?: string
+  ): Promise<Job> {
+    const newStatus = decision === "approved" ? "active" : "closed";
+    const [updated] = await db
+      .update(jobs)
+      .set({
+        moderation_status: decision as any,
+        moderated_at: new Date(),
+        moderated_by_user_id: moderatorUserId,
+        moderation_note: note ?? null,
+        status: newStatus as any,
+      })
+      .where(eq(jobs.id, jobId))
+      .returning();
+    return updated;
+  }
+
+  // ── Guest job drafts ────────────────────────────────────────────────────────
+
+  async createJobDraft(data: {
+    payload: object;
+    contact_name: string;
+    contact_email: string;
+    token_hash: string;
+    ip_address?: string;
+    user_agent?: string;
+    terms_version: string;
+    expires_at: Date;
+  }): Promise<JobDraft> {
+    const [draft] = await db
+      .insert(job_drafts)
+      .values({
+        payload: data.payload,
+        contact_name: data.contact_name,
+        contact_email: data.contact_email.toLowerCase(),
+        token_hash: data.token_hash,
+        ip_address: data.ip_address ?? null,
+        user_agent: data.user_agent ?? null,
+        terms_version: data.terms_version,
+        expires_at: data.expires_at,
+      })
+      .returning();
+    return draft;
+  }
+
+  async getJobDraftByTokenHash(tokenHash: string): Promise<JobDraft | undefined> {
+    const [draft] = await db
+      .select()
+      .from(job_drafts)
+      .where(eq(job_drafts.token_hash, tokenHash))
+      .limit(1);
+    return draft;
+  }
+
+  async consumeJobDraft(draftId: number, publishedJobId: number): Promise<void> {
+    await db
+      .update(job_drafts)
+      .set({ consumed_at: new Date(), published_job_id: publishedJobId })
+      .where(eq(job_drafts.id, draftId));
+  }
+
+  async createGuestApplicationToken(data: {
+    token_hash: string;
+    application_id: number;
+    job_id: number;
+    guest_email: string;
+    expires_at: Date;
+  }): Promise<GuestApplicationToken> {
+    const [token] = await db.insert(guest_application_tokens).values(data).returning();
+    return token;
+  }
+
+  async getGuestApplicationToken(tokenHash: string): Promise<GuestApplicationToken | undefined> {
+    const [token] = await db
+      .select()
+      .from(guest_application_tokens)
+      .where(eq(guest_application_tokens.token_hash, tokenHash))
+      .limit(1);
+    return token;
+  }
+
+  async markGuestApplicationTokenViewed(tokenHash: string): Promise<void> {
+    await db
+      .update(guest_application_tokens)
+      .set({ viewed_at: new Date() })
+      .where(eq(guest_application_tokens.token_hash, tokenHash));
   }
 
   // ── FMS Phase 2 — Availability Enquiry Methods ─────────────────────────────
@@ -4699,10 +6019,7 @@ export class DatabaseStorage implements IStorage {
       freelancerId: fId,
       token: crypto.randomUUID(),
     }));
-    const responses = await db
-      .insert(availability_responses)
-      .values(responseRows)
-      .returning();
+    const responses = await db.insert(availability_responses).values(responseRows).returning();
     return { enquiry, responses };
   }
 
@@ -4720,12 +6037,14 @@ export class DatabaseStorage implements IStorage {
     const enquiries = await db
       .select()
       .from(availability_enquiries)
-      .where(and(
-        memberIds.length === 1
-          ? eq(availability_enquiries.employerId, memberIds[0])
-          : inArray(availability_enquiries.employerId, memberIds),
-        ne(availability_enquiries.status, 'archived')
-      ))
+      .where(
+        and(
+          memberIds.length === 1
+            ? eq(availability_enquiries.employerId, memberIds[0])
+            : inArray(availability_enquiries.employerId, memberIds),
+          ne(availability_enquiries.status, "archived")
+        )
+      )
       .orderBy(desc(availability_enquiries.createdAt));
     const withSummary = await Promise.all(
       enquiries.map(async (enq) => {
@@ -4765,19 +6084,26 @@ export class DatabaseStorage implements IStorage {
 
     const responses = await Promise.all(
       respRows.map(async (resp) => {
-        const [userRow] = await db
-          .select()
-          .from(users)
-          .where(eq(users.id, resp.freelancerId));
+        const [userRow] = await db.select().from(users).where(eq(users.id, resp.freelancerId));
         const [profileRow] = await db
           .select()
           .from(freelancer_profiles)
           .where(eq(freelancer_profiles.user_id, resp.freelancerId));
         const user = userRow
-          ? { id: userRow.id, email: userRow.email, firstName: userRow.first_name, lastName: userRow.last_name }
+          ? {
+              id: userRow.id,
+              email: userRow.email,
+              firstName: userRow.first_name,
+              lastName: userRow.last_name,
+            }
           : null;
         const profile = profileRow
-          ? { first_name: profileRow.first_name, last_name: profileRow.last_name, profile_image_url: profileRow.profile_image_url, title: profileRow.title }
+          ? {
+              first_name: profileRow.first_name,
+              last_name: profileRow.last_name,
+              profile_photo_url: profileRow.profile_photo_url,
+              title: profileRow.title,
+            }
           : null;
         return { response: resp, user, profile };
       })
@@ -4785,11 +6111,7 @@ export class DatabaseStorage implements IStorage {
     return { enquiry, responses };
   }
 
-  async recordAvailabilityResponse(
-    token: string,
-    response: "yes" | "no" | "maybe",
-    note?: string
-  ) {
+  async recordAvailabilityResponse(token: string, response: "yes" | "no" | "maybe", note?: string) {
     const [existing] = await db
       .select()
       .from(availability_responses)
@@ -4817,10 +6139,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(availability_enquiries.id, resp.enquiryId));
     if (!enquiry) return null;
 
-    const [userRow] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, resp.freelancerId));
+    const [userRow] = await db.select().from(users).where(eq(users.id, resp.freelancerId));
     const user = userRow
       ? { firstName: userRow.first_name ?? "there", lastName: userRow.last_name ?? "" }
       : { firstName: "there", lastName: "" };
@@ -4870,129 +6189,170 @@ export class DatabaseStorage implements IStorage {
   }
 
   async cancelEnquiry(enquiryId: number, employerId: number) {
-    const [enquiry] = await db.select().from(availability_enquiries)
-      .where(and(
-        eq(availability_enquiries.id, enquiryId),
-        eq(availability_enquiries.employerId, employerId)
-      ));
-    if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
-    if (enquiry.status === 'closed') throw new Error('Enquiry already closed');
-    const responses = await db.select().from(availability_responses)
+    const [enquiry] = await db
+      .select()
+      .from(availability_enquiries)
+      .where(
+        and(
+          eq(availability_enquiries.id, enquiryId),
+          eq(availability_enquiries.employerId, employerId)
+        )
+      );
+    if (!enquiry) throw new Error("Enquiry not found or not owned by employer");
+    if (enquiry.status === "closed") throw new Error("Enquiry already closed");
+    const responses = await db
+      .select()
+      .from(availability_responses)
       .where(eq(availability_responses.enquiryId, enquiryId));
-    const [updated] = await db.update(availability_enquiries)
-      .set({ status: 'closed', updatedAt: new Date() })
+    const [updated] = await db
+      .update(availability_enquiries)
+      .set({ status: "closed", updatedAt: new Date() })
       .where(eq(availability_enquiries.id, enquiryId))
       .returning();
-    return { enquiry: updated, freelancerIds: responses.map(r => r.freelancerId) };
+    return { enquiry: updated, freelancerIds: responses.map((r) => r.freelancerId) };
   }
 
-  async updateEnquiryDetails(enquiryId: number, employerId: number, updates: {
-    eventTitle?: string;
-    eventDate?: string;
-    eventEndDate?: string | null;
-    callTime?: string | null;
-    venueAddress?: string | null;
-    roleRequired?: string | null;
-    agreedRate?: string | null;
-    additionalNotes?: string | null;
-  }) {
-    const [enquiry] = await db.select().from(availability_enquiries)
-      .where(and(
-        eq(availability_enquiries.id, enquiryId),
-        eq(availability_enquiries.employerId, employerId)
-      ));
-    if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
-    if (enquiry.status === 'closed') throw new Error('Cannot edit a closed enquiry');
-    const SIGNIFICANT_FIELDS = ['eventDate', 'eventEndDate', 'callTime', 'venueAddress'];
+  async updateEnquiryDetails(
+    enquiryId: number,
+    employerId: number,
+    updates: {
+      eventTitle?: string;
+      eventDate?: string;
+      eventEndDate?: string | null;
+      callTime?: string | null;
+      venueAddress?: string | null;
+      roleRequired?: string | null;
+      agreedRate?: string | null;
+      additionalNotes?: string | null;
+    }
+  ) {
+    const [enquiry] = await db
+      .select()
+      .from(availability_enquiries)
+      .where(
+        and(
+          eq(availability_enquiries.id, enquiryId),
+          eq(availability_enquiries.employerId, employerId)
+        )
+      );
+    if (!enquiry) throw new Error("Enquiry not found or not owned by employer");
+    if (enquiry.status === "closed") throw new Error("Cannot edit a closed enquiry");
+    const SIGNIFICANT_FIELDS = ["eventDate", "eventEndDate", "callTime", "venueAddress"];
     const significantChange = SIGNIFICANT_FIELDS.some(
-      field => updates[field as keyof typeof updates] !== undefined &&
-               updates[field as keyof typeof updates] !== (enquiry as any)[field]
+      (field) =>
+        updates[field as keyof typeof updates] !== undefined &&
+        updates[field as keyof typeof updates] !== (enquiry as any)[field]
     );
-    const [updated] = await db.update(availability_enquiries)
+    const [updated] = await db
+      .update(availability_enquiries)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(availability_enquiries.id, enquiryId))
       .returning();
     let freelancerIds: number[] = [];
     if (significantChange) {
-      const responses = await db.select().from(availability_responses)
+      const responses = await db
+        .select()
+        .from(availability_responses)
         .where(eq(availability_responses.enquiryId, enquiryId));
-      freelancerIds = responses.map(r => r.freelancerId);
+      freelancerIds = responses.map((r) => r.freelancerId);
     }
     return { enquiry: updated, significantChange, freelancerIds };
   }
 
   async addFreelancersToEnquiry(enquiryId: number, employerId: number, newFreelancerIds: number[]) {
-    const [enquiry] = await db.select().from(availability_enquiries)
-      .where(and(
-        eq(availability_enquiries.id, enquiryId),
-        eq(availability_enquiries.employerId, employerId)
-      ));
-    if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
-    if (enquiry.status === 'closed') throw new Error('Cannot add to a closed enquiry');
-    const existing = await db.select({ freelancerId: availability_responses.freelancerId })
+    const [enquiry] = await db
+      .select()
+      .from(availability_enquiries)
+      .where(
+        and(
+          eq(availability_enquiries.id, enquiryId),
+          eq(availability_enquiries.employerId, employerId)
+        )
+      );
+    if (!enquiry) throw new Error("Enquiry not found or not owned by employer");
+    if (enquiry.status === "closed") throw new Error("Cannot add to a closed enquiry");
+    const existing = await db
+      .select({ freelancerId: availability_responses.freelancerId })
       .from(availability_responses)
       .where(eq(availability_responses.enquiryId, enquiryId));
-    const existingIds = new Set(existing.map(r => r.freelancerId));
-    const toAdd = newFreelancerIds.filter(id => !existingIds.has(id));
+    const existingIds = new Set(existing.map((r) => r.freelancerId));
+    const toAdd = newFreelancerIds.filter((id) => !existingIds.has(id));
     if (toAdd.length === 0) return { enquiry, newResponses: [] };
-    const newRows = toAdd.map(fId => ({
+    const newRows = toAdd.map((fId) => ({
       enquiryId,
       freelancerId: fId,
       token: crypto.randomUUID(),
     }));
-    const newResponses = await db.insert(availability_responses)
-      .values(newRows).returning();
+    const newResponses = await db.insert(availability_responses).values(newRows).returning();
     return { enquiry, newResponses };
   }
 
   async removeFreelancerFromEnquiry(enquiryId: number, employerId: number, freelancerId: number) {
-    const [enquiry] = await db.select().from(availability_enquiries)
-      .where(and(
-        eq(availability_enquiries.id, enquiryId),
-        eq(availability_enquiries.employerId, employerId)
-      ));
-    if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
-    if (enquiry.status === 'closed') throw new Error('Cannot modify a closed enquiry');
-    const [response] = await db.select().from(availability_responses)
-      .where(and(
-        eq(availability_responses.enquiryId, enquiryId),
-        eq(availability_responses.freelancerId, freelancerId)
-      ));
-    if (!response) throw new Error('Freelancer not on this enquiry');
+    const [enquiry] = await db
+      .select()
+      .from(availability_enquiries)
+      .where(
+        and(
+          eq(availability_enquiries.id, enquiryId),
+          eq(availability_enquiries.employerId, employerId)
+        )
+      );
+    if (!enquiry) throw new Error("Enquiry not found or not owned by employer");
+    if (enquiry.status === "closed") throw new Error("Cannot modify a closed enquiry");
+    const [response] = await db
+      .select()
+      .from(availability_responses)
+      .where(
+        and(
+          eq(availability_responses.enquiryId, enquiryId),
+          eq(availability_responses.freelancerId, freelancerId)
+        )
+      );
+    if (!response) throw new Error("Freelancer not on this enquiry");
     if (response.convertedToBookingId) {
-      throw new Error('Cannot remove a freelancer who has been booked');
+      throw new Error("Cannot remove a freelancer who has been booked");
     }
-    await db.delete(availability_responses)
-      .where(eq(availability_responses.id, response.id));
+    await db.delete(availability_responses).where(eq(availability_responses.id, response.id));
     return { enquiry, removedResponse: response };
   }
 
   async archiveEnquiry(enquiryId: number, employerId: number) {
-    const [enquiry] = await db.select().from(availability_enquiries)
-      .where(and(
-        eq(availability_enquiries.id, enquiryId),
-        eq(availability_enquiries.employerId, employerId)
-      ));
-    if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
-    if (enquiry.status === 'active') throw new Error('Close the enquiry before archiving');
-    if (enquiry.status === 'archived') throw new Error('Enquiry already archived');
-    const [updated] = await db.update(availability_enquiries)
-      .set({ status: 'archived', updatedAt: new Date() })
+    const [enquiry] = await db
+      .select()
+      .from(availability_enquiries)
+      .where(
+        and(
+          eq(availability_enquiries.id, enquiryId),
+          eq(availability_enquiries.employerId, employerId)
+        )
+      );
+    if (!enquiry) throw new Error("Enquiry not found or not owned by employer");
+    if (enquiry.status === "active") throw new Error("Close the enquiry before archiving");
+    if (enquiry.status === "archived") throw new Error("Enquiry already archived");
+    const [updated] = await db
+      .update(availability_enquiries)
+      .set({ status: "archived", updatedAt: new Date() })
       .where(eq(availability_enquiries.id, enquiryId))
       .returning();
     return updated;
   }
 
   async reactivateEnquiry(enquiryId: number, employerId: number) {
-    const [enquiry] = await db.select().from(availability_enquiries)
-      .where(and(
-        eq(availability_enquiries.id, enquiryId),
-        eq(availability_enquiries.employerId, employerId)
-      ));
-    if (!enquiry) throw new Error('Enquiry not found or not owned by employer');
-    if (enquiry.status !== 'archived') throw new Error('Only archived enquiries can be reactivated');
-    const [updated] = await db.update(availability_enquiries)
-      .set({ status: 'active', updatedAt: new Date() })
+    const [enquiry] = await db
+      .select()
+      .from(availability_enquiries)
+      .where(
+        and(
+          eq(availability_enquiries.id, enquiryId),
+          eq(availability_enquiries.employerId, employerId)
+        )
+      );
+    if (!enquiry) throw new Error("Enquiry not found or not owned by employer");
+    if (enquiry.status !== "archived")
+      throw new Error("Only archived enquiries can be reactivated");
+    const [updated] = await db
+      .update(availability_enquiries)
+      .set({ status: "active", updatedAt: new Date() })
       .where(eq(availability_enquiries.id, enquiryId))
       .returning();
     return updated;
@@ -5009,45 +6369,61 @@ export class DatabaseStorage implements IStorage {
         .filter((id): id is number => id !== null);
       if (ids.length > 0) memberIds = ids;
     }
-    const enquiries = await db.select().from(availability_enquiries)
-      .where(and(
-        memberIds.length === 1
-          ? eq(availability_enquiries.employerId, memberIds[0])
-          : inArray(availability_enquiries.employerId, memberIds),
-        eq(availability_enquiries.status, 'archived')
-      ))
+    const enquiries = await db
+      .select()
+      .from(availability_enquiries)
+      .where(
+        and(
+          memberIds.length === 1
+            ? eq(availability_enquiries.employerId, memberIds[0])
+            : inArray(availability_enquiries.employerId, memberIds),
+          eq(availability_enquiries.status, "archived")
+        )
+      )
       .orderBy(desc(availability_enquiries.updatedAt));
 
-    const withResponses = await Promise.all(enquiries.map(async (enq) => {
-      const respRows = await db.select().from(availability_responses)
-        .where(eq(availability_responses.enquiryId, enq.id));
+    const withResponses = await Promise.all(
+      enquiries.map(async (enq) => {
+        const respRows = await db
+          .select()
+          .from(availability_responses)
+          .where(eq(availability_responses.enquiryId, enq.id));
 
-      const responses = await Promise.all(respRows.map(async (resp) => {
-        const [userRow] = await db.select().from(users)
-          .where(eq(users.id, resp.freelancerId));
-        const [profileRow] = await db.select().from(freelancer_profiles)
-          .where(eq(freelancer_profiles.user_id, resp.freelancerId));
-        return {
-          response: resp,
-          user: userRow
-            ? { id: userRow.id, first_name: userRow.first_name, last_name: userRow.last_name }
-            : null,
-          profile: profileRow
-            ? { first_name: profileRow.first_name, last_name: profileRow.last_name, profile_image_url: profileRow.profile_image_url, title: profileRow.title }
-            : null,
+        const responses = await Promise.all(
+          respRows.map(async (resp) => {
+            const [userRow] = await db.select().from(users).where(eq(users.id, resp.freelancerId));
+            const [profileRow] = await db
+              .select()
+              .from(freelancer_profiles)
+              .where(eq(freelancer_profiles.user_id, resp.freelancerId));
+            return {
+              response: resp,
+              user: userRow
+                ? { id: userRow.id, first_name: userRow.first_name, last_name: userRow.last_name }
+                : null,
+              profile: profileRow
+                ? {
+                    first_name: profileRow.first_name,
+                    last_name: profileRow.last_name,
+                    profile_photo_url: profileRow.profile_photo_url,
+                    title: profileRow.title,
+                  }
+                : null,
+            };
+          })
+        );
+
+        const summary = {
+          total: responses.length,
+          yes: responses.filter((r) => r.response.response === "yes").length,
+          no: responses.filter((r) => r.response.response === "no").length,
+          maybe: responses.filter((r) => r.response.response === "maybe").length,
+          pending: responses.filter((r) => r.response.response === null).length,
         };
-      }));
 
-      const summary = {
-        total: responses.length,
-        yes: responses.filter(r => r.response.response === 'yes').length,
-        no: responses.filter(r => r.response.response === 'no').length,
-        maybe: responses.filter(r => r.response.response === 'maybe').length,
-        pending: responses.filter(r => r.response.response === null).length,
-      };
-
-      return { ...enq, responses, summary };
-    }));
+        return { ...enq, responses, summary };
+      })
+    );
 
     return withResponses;
   }
@@ -5055,15 +6431,13 @@ export class DatabaseStorage implements IStorage {
   // ── Step 8 — Booking helpers ──────────────────────────────
 
   async getBookingById(bookingId: number) {
-    const [booking] = await db.select().from(bookings)
-      .where(eq(bookings.id, bookingId));
+    const [booking] = await db.select().from(bookings).where(eq(bookings.id, bookingId));
     return booking ?? null;
   }
 
   async updateBookingStatus(bookingId: number, status: string, changedById: number, note?: string) {
-    const [booking] = await db.select().from(bookings)
-      .where(eq(bookings.id, bookingId));
-    if (!booking) throw new Error('Booking not found');
+    const [booking] = await db.select().from(bookings).where(eq(bookings.id, bookingId));
+    if (!booking) throw new Error("Booking not found");
     await db.insert(bookingStatusHistory).values({
       bookingId,
       fromStatus: booking.status,
@@ -5071,7 +6445,8 @@ export class DatabaseStorage implements IStorage {
       changedById,
       note: note ?? null,
     });
-    const [updated] = await db.update(bookings)
+    const [updated] = await db
+      .update(bookings)
       .set({ status, updatedAt: new Date() })
       .where(eq(bookings.id, bookingId))
       .returning();
@@ -5163,49 +6538,53 @@ export class DatabaseStorage implements IStorage {
     contactOnDay?: string | null;
     scheduleNotes?: string | null;
   }) {
-    const existing = await db.select().from(briefs)
-      .where(eq(briefs.bookingId, data.bookingId));
+    const existing = await db.select().from(briefs).where(eq(briefs.bookingId, data.bookingId));
     if (existing.length > 0) {
-      throw new Error('A brief has already been sent for this booking');
+      throw new Error("A brief has already been sent for this booking");
     }
-    const [brief] = await db.insert(briefs).values({
-      ...data,
-      token: crypto.randomUUID(),
-      status: 'sent',
-    }).returning();
+    const [brief] = await db
+      .insert(briefs)
+      .values({
+        ...data,
+        token: crypto.randomUUID(),
+        status: "sent",
+      })
+      .returning();
     return brief;
   }
 
   async getBriefByBookingId(bookingId: number) {
-    const [brief] = await db.select().from(briefs)
-      .where(eq(briefs.bookingId, bookingId));
+    const [brief] = await db.select().from(briefs).where(eq(briefs.bookingId, bookingId));
     if (!brief) return null;
-    const attachments = await db.select().from(brief_attachments)
+    const attachments = await db
+      .select()
+      .from(brief_attachments)
       .where(eq(brief_attachments.briefId, brief.id));
     return { ...brief, attachments };
   }
 
   async getBriefByToken(token: string) {
-    const [brief] = await db.select().from(briefs)
-      .where(eq(briefs.token, token));
+    const [brief] = await db.select().from(briefs).where(eq(briefs.token, token));
     if (!brief) return null;
-    const attachments = await db.select().from(brief_attachments)
+    const attachments = await db
+      .select()
+      .from(brief_attachments)
       .where(eq(brief_attachments.briefId, brief.id));
     const employer = await this.getRecruiterProfile(brief.employerId);
     return {
       brief: { ...brief, attachments },
-      employerName: employer?.company_name ?? 'Your employer',
+      employerName: employer?.company_name ?? "Your employer",
     };
   }
 
   async acknowledgeBrief(token: string, note?: string) {
-    const [brief] = await db.select().from(briefs)
-      .where(eq(briefs.token, token));
+    const [brief] = await db.select().from(briefs).where(eq(briefs.token, token));
     if (!brief) return null;
-    if (brief.status === 'acknowledged') return brief;
-    const [updated] = await db.update(briefs)
+    if (brief.status === "acknowledged") return brief;
+    const [updated] = await db
+      .update(briefs)
       .set({
-        status: 'acknowledged',
+        status: "acknowledged",
         acknowledgedAt: new Date(),
         acknowledgementNote: note ?? null,
         updatedAt: new Date(),
@@ -5222,13 +6601,14 @@ export class DatabaseStorage implements IStorage {
     fileType: string;
     fileSize: number;
   }) {
-    const [attachment] = await db.insert(brief_attachments)
-      .values(data).returning();
+    const [attachment] = await db.insert(brief_attachments).values(data).returning();
     return attachment;
   }
 
   async getBriefTemplates(employerId: number) {
-    return db.select().from(brief_templates)
+    return db
+      .select()
+      .from(brief_templates)
       .where(eq(brief_templates.employerId, employerId))
       .orderBy(brief_templates.name);
   }
@@ -5245,19 +6625,16 @@ export class DatabaseStorage implements IStorage {
     contactOnDay?: string | null;
     scheduleNotes?: string | null;
   }) {
-    const [template] = await db.insert(brief_templates)
-      .values(data).returning();
+    const [template] = await db.insert(brief_templates).values(data).returning();
     return template;
   }
 
   async deleteBriefTemplate(templateId: number, employerId: number) {
-    const [deleted] = await db.delete(brief_templates)
-      .where(and(
-        eq(brief_templates.id, templateId),
-        eq(brief_templates.employerId, employerId)
-      ))
+    const [deleted] = await db
+      .delete(brief_templates)
+      .where(and(eq(brief_templates.id, templateId), eq(brief_templates.employerId, employerId)))
       .returning();
-    if (!deleted) throw new Error('Template not found or not owned by employer');
+    if (!deleted) throw new Error("Template not found or not owned by employer");
     return deleted;
   }
 
@@ -5298,15 +6675,19 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(bookings.eventDate);
 
-    return Promise.all(results.map(async (r) => {
-      const brief = await db.select().from(briefs)
-        .where(eq(briefs.bookingId, r.booking.id))
-        .then(rows => rows[0] ?? null);
-      const attachments = brief
-        ? await db.select().from(brief_attachments).where(eq(brief_attachments.briefId, brief.id))
-        : [];
-      return { ...r, brief, attachments };
-    }));
+    return Promise.all(
+      results.map(async (r) => {
+        const brief = await db
+          .select()
+          .from(briefs)
+          .where(eq(briefs.bookingId, r.booking.id))
+          .then((rows) => rows[0] ?? null);
+        const attachments = brief
+          ? await db.select().from(brief_attachments).where(eq(brief_attachments.briefId, brief.id))
+          : [];
+        return { ...r, brief, attachments };
+      })
+    );
   }
 
   async getCrewListForExport(employerId: number) {
@@ -5315,28 +6696,32 @@ export class DatabaseStorage implements IStorage {
       .from(bookings)
       .where(eq(bookings.employerId, employerId));
 
-    return Promise.all(bookedFreelancers.map(async ({ freelancerId }) => {
-      const user = await this.getUser(freelancerId);
-      const profile = await this.getFreelancerProfile(freelancerId);
-      const bookingStats = await db
-        .select({
-          count: sql<number>`COUNT(*)`,
-          lastBooked: sql<string>`MAX(${bookings.createdAt})`,
-        })
-        .from(bookings)
-        .where(and(eq(bookings.employerId, employerId), eq(bookings.freelancerId, freelancerId)));
-      const ratingStats = await db
-        .select({ avg: sql<number>`AVG(${ratings.rating})` })
-        .from(ratings)
-        .where(and(eq(ratings.freelancerId, freelancerId), eq(ratings.recruiterId, employerId)));
-      return {
-        user,
-        profile,
-        totalBookings: Number(bookingStats[0]?.count ?? 0),
-        lastBooked: bookingStats[0]?.lastBooked ?? null,
-        avgRating: ratingStats[0]?.avg ? Number(ratingStats[0].avg).toFixed(1) : null,
-      };
-    }));
+    return Promise.all(
+      bookedFreelancers.map(async ({ freelancerId }) => {
+        const user = await this.getUser(freelancerId);
+        const profile = await this.getFreelancerProfile(freelancerId);
+        const bookingStats = await db
+          .select({
+            count: sql<number>`COUNT(*)`,
+            lastBooked: sql<string>`MAX(${bookings.createdAt})`,
+          })
+          .from(bookings)
+          .where(and(eq(bookings.employerId, employerId), eq(bookings.freelancerId, freelancerId)));
+        const ratingStats = await db
+          .select({ avg: sql<number>`AVG(${ratings.rating})` })
+          .from(ratings)
+          .where(
+            and(eq(ratings.freelancer_id, freelancerId), eq(ratings.recruiter_id, employerId))
+          );
+        return {
+          user,
+          profile,
+          totalBookings: Number(bookingStats[0]?.count ?? 0),
+          lastBooked: bookingStats[0]?.lastBooked ?? null,
+          avgRating: ratingStats[0]?.avg ? Number(ratingStats[0].avg).toFixed(1) : null,
+        };
+      })
+    );
   }
 
   async updateBookingIr35Status(
@@ -5374,18 +6759,22 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(availability_enquiries.eventDate);
 
-    return Promise.all(enquiries.map(async (enq) => {
-      const responses = await db.select().from(availability_responses)
-        .where(eq(availability_responses.enquiryId, enq.id));
-      return {
-        ...enq,
-        total: responses.length,
-        yes: responses.filter(r => r.response === 'yes').length,
-        maybe: responses.filter(r => r.response === 'maybe').length,
-        no: responses.filter(r => r.response === 'no').length,
-        pending: responses.filter(r => r.response === null).length,
-      };
-    }));
+    return Promise.all(
+      enquiries.map(async (enq) => {
+        const responses = await db
+          .select()
+          .from(availability_responses)
+          .where(eq(availability_responses.enquiryId, enq.id));
+        return {
+          ...enq,
+          total: responses.length,
+          yes: responses.filter((r) => r.response === "yes").length,
+          maybe: responses.filter((r) => r.response === "maybe").length,
+          no: responses.filter((r) => r.response === "no").length,
+          pending: responses.filter((r) => r.response === null).length,
+        };
+      })
+    );
   }
 
   // ── FMS Phase 7 — Subscription Methods ────────────────────
@@ -5446,10 +6835,7 @@ export class DatabaseStorage implements IStorage {
   // ── FMS Phase 9 — Team Storage Methods ───────────────────
 
   async getTeamByOwner(ownerId: number): Promise<TeamAccount | null> {
-    const [team] = await db
-      .select()
-      .from(team_accounts)
-      .where(eq(team_accounts.ownerId, ownerId));
+    const [team] = await db.select().from(team_accounts).where(eq(team_accounts.ownerId, ownerId));
     return team ?? null;
   }
 
@@ -5462,9 +6848,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(team_members)
       .innerJoin(team_accounts, eq(team_members.teamId, team_accounts.id))
-      .where(
-        and(eq(team_members.userId, userId), eq(team_members.status, "active"))
-      );
+      .where(and(eq(team_members.userId, userId), eq(team_members.status, "active")));
     return membership ?? null;
   }
 
@@ -5491,19 +6875,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTeamDelegateAccess(teamId: number): Promise<TeamDelegateAccess[]> {
-    return db
-      .select()
-      .from(team_delegate_access)
-      .where(eq(team_delegate_access.teamId, teamId));
+    return db.select().from(team_delegate_access).where(eq(team_delegate_access.teamId, teamId));
   }
 
   async createTeamAccount(ownerId: number, name: string): Promise<TeamAccount> {
     const existing = await this.getTeamByOwner(ownerId);
     if (existing) return existing;
-    const [team] = await db
-      .insert(team_accounts)
-      .values({ ownerId, name })
-      .returning();
+    const [team] = await db.insert(team_accounts).values({ ownerId, name }).returning();
     await db.insert(team_members).values({
       teamId: team.id,
       userId: ownerId,
@@ -5524,26 +6902,17 @@ export class DatabaseStorage implements IStorage {
     const activeCount = members.filter(
       (m) => m.member.status === "active" || m.member.status === "invited"
     ).length;
-    const [team] = await db
-      .select()
-      .from(team_accounts)
-      .where(eq(team_accounts.id, data.teamId));
+    const [team] = await db.select().from(team_accounts).where(eq(team_accounts.id, data.teamId));
     const ownerSub = await this.getSubscription(team.ownerId);
     const limit = ownerSub?.tier === "teams" ? 10 : 3;
     if (activeCount >= limit) throw new Error(`SEAT_LIMIT_REACHED:${limit}`);
-    const existingUser = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, data.email));
+    const existingUser = await db.select().from(users).where(eq(users.email, data.email));
     if (existingUser.length > 0) {
       const alreadyMember = await db
         .select()
         .from(team_members)
         .where(
-          and(
-            eq(team_members.teamId, data.teamId),
-            eq(team_members.userId, existingUser[0].id)
-          )
+          and(eq(team_members.teamId, data.teamId), eq(team_members.userId, existingUser[0].id))
         );
       if (alreadyMember.length > 0) throw new Error("User is already a team member");
     }
@@ -5609,9 +6978,7 @@ export class DatabaseStorage implements IStorage {
     const [target] = await db
       .select()
       .from(team_members)
-      .where(
-        and(eq(team_members.teamId, teamId), eq(team_members.userId, targetUserId))
-      );
+      .where(and(eq(team_members.teamId, teamId), eq(team_members.userId, targetUserId)));
     if (!target) throw new Error("Member not found");
     if (target.role === "owner") throw new Error("Cannot change owner role");
     const [updated] = await db
@@ -5622,15 +6989,8 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async removeTeamMember(
-    teamId: number,
-    targetUserId: number,
-    requestingUserId: number
-  ) {
-    const [team] = await db
-      .select()
-      .from(team_accounts)
-      .where(eq(team_accounts.id, teamId));
+  async removeTeamMember(teamId: number, targetUserId: number, requestingUserId: number) {
+    const [team] = await db.select().from(team_accounts).where(eq(team_accounts.id, teamId));
     if (!team || team.ownerId !== requestingUserId) {
       throw new Error("Only the account owner can remove members");
     }
@@ -5639,21 +6999,18 @@ export class DatabaseStorage implements IStorage {
     }
     await db
       .delete(team_members)
+      .where(and(eq(team_members.teamId, teamId), eq(team_members.userId, targetUserId)));
+    await db
+      .delete(team_delegate_access)
       .where(
         and(
-          eq(team_members.teamId, teamId),
-          eq(team_members.userId, targetUserId)
+          eq(team_delegate_access.teamId, teamId),
+          or(
+            eq(team_delegate_access.delegatorUserId, targetUserId),
+            eq(team_delegate_access.delegateUserId, targetUserId)
+          )
         )
       );
-    await db.delete(team_delegate_access).where(
-      and(
-        eq(team_delegate_access.teamId, teamId),
-        or(
-          eq(team_delegate_access.delegatorUserId, targetUserId),
-          eq(team_delegate_access.delegateUserId, targetUserId)
-        )
-      )
-    );
   }
 
   async grantDelegateAccess(data: {
@@ -5673,25 +7030,20 @@ export class DatabaseStorage implements IStorage {
         )
       );
     if (existing.length > 0) return existing[0];
-    const [access] = await db
-      .insert(team_delegate_access)
-      .values(data)
-      .returning();
+    const [access] = await db.insert(team_delegate_access).values(data).returning();
     return access;
   }
 
-  async revokeDelegateAccess(
-    teamId: number,
-    delegatorUserId: number,
-    delegateUserId: number
-  ) {
-    await db.delete(team_delegate_access).where(
-      and(
-        eq(team_delegate_access.teamId, teamId),
-        eq(team_delegate_access.delegatorUserId, delegatorUserId),
-        eq(team_delegate_access.delegateUserId, delegateUserId)
-      )
-    );
+  async revokeDelegateAccess(teamId: number, delegatorUserId: number, delegateUserId: number) {
+    await db
+      .delete(team_delegate_access)
+      .where(
+        and(
+          eq(team_delegate_access.teamId, teamId),
+          eq(team_delegate_access.delegatorUserId, delegatorUserId),
+          eq(team_delegate_access.delegateUserId, delegateUserId)
+        )
+      );
   }
 
   async canActOnBehalf(

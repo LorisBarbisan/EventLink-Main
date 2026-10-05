@@ -19,19 +19,18 @@ export const HeroSection = () => {
               loading="eager"
               decoding="sync"
             />
-            <span className="text-3xl font-bold text-gray-800 dark:text-gray-200">EventLink</span>
           </div>
 
-          <h1 className="text-4xl font-bold leading-tight lg:text-6xl">
-            Connect with
-            <span className="text-primary"> Technical</span>
-            <span className="text-accent"> Crew</span> for Events
+          <h1 className="text-center text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
+            EventLink: <span className="text-primary">the freelance</span>{" "}
+            <span className="text-accent">events crew</span>{" "}
+            <span className="text-primary">network</span>
           </h1>
 
           <p className="text-xl leading-relaxed text-muted-foreground">
-            EventLink connects top event industry professionals with companies across the UK.
-            Whether you're seeking skilled technical crew or looking for your next opportunity, we
-            make professional connections that drive successful events.
+            EventLink is where freelance event professionals build trusted profiles, showcase their
+            experience, and connect with the companies that power live events - get seen and grow
+            your network - all in one place.
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -45,16 +44,15 @@ export const HeroSection = () => {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-
             <Button
-              variant="outline"
               size="lg"
-              className="border-2 border-primary px-8 text-lg text-primary transition-all duration-200 hover:border-primary/80 hover:bg-primary/10 hover:text-primary"
+              variant="outline"
+              className="px-8 text-lg transition-all duration-200"
               asChild
             >
-              <Link to="/jobs">
-                Browse Opportunities
-                <Briefcase className="ml-2 h-5 w-5" />
+              <Link to="/post-job">
+                <Briefcase className="mr-2 h-5 w-5" />
+                Post a Job
               </Link>
             </Button>
           </div>

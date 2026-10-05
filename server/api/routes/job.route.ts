@@ -1,24 +1,58 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
+import rateLimit from "express-rate-limit";
 import {
-  cancelAllBookingsForJob,
   closeJob,
   createJob,
+  createFreelancerJob,
   deleteJob,
-  getJobActivitySummary,
+  getFreelancerPublicPostedJobs,
   getJobById,
   getJobLinkViewCount,
   getJobPresets,
   getJobsByRecruiter,
+  getMyPostedJobs,
   getRecruiterJobDetail,
   reopenJob,
   trackJobLinkView,
   updateJob,
 } from "../controllers/job.controller";
+import { submitGuestJob, confirmGuestJob } from "../controllers/guest-job.controller";
 import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
+import { requireRole } from "../middleware/role.middleware";
+import { resolveCompanyId, resolveCompanyIdOptional } from "../middleware/team.middleware";
+
+// IP-based: max 20 submissions per hour per IP
+const guestJobIpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  message: { error: "Too many job submissions from this IP. Please try again in an hour." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Email-based: max 2 submissions per day per email address
+const guestJobEmailLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 2,
+  keyGenerator: (req: Request) => {
+    const email = (req.body?.contact_email as string | undefined) ?? "";
+    return email.toLowerCase().trim() || req.ip || "unknown";
+  },
+  message: {
+    error: "This email address has already submitted the maximum number of job posts today.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req: Request) => {
+    // If no email in body, fall through to IP limiter only
+    return !req.body?.contact_email;
+  },
+});
 
 export function registerJobRoutes(app: Express) {
-  // Get job by ID
-  app.get("/api/jobs/:id", authenticateOptionalJWT, getJobById);
+  // Guest job submission (no auth required) — rate limited by IP and email
+  app.post("/api/jobs/guest", guestJobIpLimiter, guestJobEmailLimiter, submitGuestJob);
+  app.get("/api/jobs/guest/confirm", confirmGuestJob);
 
   // Get job posting presets
   app.get("/api/jobs/presets", getJobPresets);
@@ -26,33 +60,39 @@ export function registerJobRoutes(app: Express) {
   // Get jobs by recruiter
   app.get("/api/jobs/recruiter/:recruiterId", getJobsByRecruiter);
 
+  // Create new job (recruiter / employer)
+  app.post("/api/jobs", authenticateJWT, resolveCompanyId, createJob);
+
+  // Create a job posted by a freelancer
+  app.post("/api/jobs/freelancer", authenticateJWT, requireRole("freelancer"), createFreelancerJob);
+
+  // Get jobs the current freelancer has posted themselves
+  app.get("/api/jobs/my-posted", authenticateJWT, requireRole("freelancer"), getMyPostedJobs);
+
   // Track job link view (public, no auth required)
   app.post("/api/jobs/:id/link-view", trackJobLinkView);
 
   // Get job link view count (authenticated - recruiter/admin only)
   app.get("/api/jobs/:id/link-views", authenticateJWT, getJobLinkViewCount);
 
-  // Create new job
-  app.post("/api/jobs", authenticateJWT, createJob);
+  // Get job by ID — must come after all specific /api/jobs/* routes
+  app.get("/api/jobs/:id", authenticateOptionalJWT, resolveCompanyIdOptional, getJobById);
+
+  // Public: active jobs posted by a specific freelancer (profile page)
+  app.get("/api/freelancer/:userId/posted-jobs", getFreelancerPublicPostedJobs);
 
   // Update job
-  app.put("/api/jobs/:jobId", authenticateJWT, updateJob);
+  app.put("/api/jobs/:jobId", authenticateJWT, resolveCompanyId, updateJob);
 
   // Close job manually
-  app.put("/api/jobs/:jobId/close", authenticateJWT, closeJob);
+  app.put("/api/jobs/:jobId/close", authenticateJWT, resolveCompanyId, closeJob);
 
   // Reopen a closed job (resets to private/unposted)
-  app.put("/api/jobs/:jobId/reopen", authenticateJWT, reopenJob);
+  app.put("/api/jobs/:jobId/reopen", authenticateJWT, resolveCompanyId, reopenJob);
 
   // Delete job
-  app.delete("/api/jobs/:jobId", authenticateJWT, deleteJob);
+  app.delete("/api/jobs/:jobId", authenticateJWT, resolveCompanyId, deleteJob);
 
   // Get full job detail + applications (recruiter owner only)
-  app.get("/api/jobs/:jobId/detail", authenticateJWT, getRecruiterJobDetail);
-
-  // Activity summary for smart delete modal
-  app.get("/api/jobs/:id/activity-summary", authenticateJWT, getJobActivitySummary);
-
-  // Cancel all confirmed bookings for a job (used in smart delete)
-  app.post("/api/jobs/:id/cancel-all-bookings", authenticateJWT, cancelAllBookingsForJob);
+  app.get("/api/jobs/:jobId/detail", authenticateJWT, resolveCompanyId, getRecruiterJobDetail);
 }

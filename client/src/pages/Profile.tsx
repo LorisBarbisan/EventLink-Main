@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { InviteClientsDialog } from "@/components/InviteClientsDialog";
 import { Layout } from "@/components/Layout";
@@ -54,15 +55,17 @@ import {
   Bookmark,
   Briefcase,
   Calendar,
+  Check,
+  Copy,
   Download,
   ExternalLink,
   Flag,
   Globe,
   Linkedin,
-  Mail,
   MapPin,
   MessageCircle,
   Quote,
+  Share2,
   ShieldCheck,
   Star,
   User,
@@ -95,10 +98,14 @@ interface FreelancerProfile {
   website_url: string;
   availability_status: "available" | "busy" | "unavailable";
   profile_photo_url?: string;
+  slug?: string | null;
+  custom_slug?: string | null;
+  reference_token?: string | null;
   cv_file_url?: string;
   cv_file_name?: string;
   cv_file_type?: string;
   cv_file_size?: number;
+  country?: string | null;
 }
 
 interface RecruiterProfile {
@@ -113,6 +120,7 @@ interface RecruiterProfile {
   company_logo_url?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function FeaturedReviews({ freelancerId }: { freelancerId: number }) {
   const { data: ratings = [] } = useFreelancerRatings(freelancerId);
 
@@ -325,8 +333,13 @@ function ReviewsSection({ freelancerId }: { freelancerId: number }) {
   );
 }
 
-
-function ReferencesSection({ freelancerId, currentUser }: { freelancerId: number; currentUser?: any }) {
+function ReferencesSection({
+  freelancerId,
+  currentUser,
+}: {
+  freelancerId: number;
+  currentUser?: any;
+}) {
   const { data: references = [], isLoading } = useQuery<any[]>({
     queryKey: [`/api/references/freelancer/${freelancerId}`],
     enabled: !!freelancerId,
@@ -345,12 +358,19 @@ function ReferencesSection({ freelancerId, currentUser }: { freelancerId: number
       });
     },
     onSuccess: () => {
-      toast({ title: "Report submitted", description: "Thank you. This reference has been flagged for review." });
+      toast({
+        title: "Report submitted",
+        description: "Thank you. This reference has been flagged for review.",
+      });
       setReportingRefId(null);
       setReportReason("");
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to submit report. Please try again.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to submit report. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -369,16 +389,21 @@ function ReferencesSection({ freelancerId, currentUser }: { freelancerId: number
       </CardHeader>
       <CardContent>
         <div className="mb-4 flex flex-wrap gap-2">
-          {(["highly_recommended", "recommended", "work_history_confirmed"] as const).map(badge => {
-            const count = references.filter((r: any) => r.badge_result === badge).length;
-            if (!count) return null;
-            const cfg = BADGE_CONFIG[badge];
-            return (
-              <span key={badge} className={`inline-flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full border ${cfg.colour}`}>
-                {cfg.icon} {cfg.label} · {count}
-              </span>
-            );
-          })}
+          {(["highly_recommended", "recommended", "work_history_confirmed"] as const).map(
+            (badge) => {
+              const count = references.filter((r: any) => r.badge_result === badge).length;
+              if (!count) return null;
+              const cfg = BADGE_CONFIG[badge];
+              return (
+                <span
+                  key={badge}
+                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium ${cfg.colour}`}
+                >
+                  {cfg.icon} {cfg.label} · {count}
+                </span>
+              );
+            }
+          )}
         </div>
 
         {withComments.length > 0 && (
@@ -386,26 +411,28 @@ function ReferencesSection({ freelancerId, currentUser }: { freelancerId: number
             {withComments.map((ref: any, i: number) => (
               <div key={ref.id}>
                 <div className="flex items-start gap-3">
-                  <Quote className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                  <Quote className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <div className="flex-1">
                     <p className="text-sm italic text-muted-foreground">"{ref.comment}"</p>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
                       {(ref.referee_name || ref.referee_organisation) && (
                         <p className="text-xs text-muted-foreground">
-                          — {ref.referee_name || ""}{ref.referee_role ? `, ${ref.referee_role}` : ""}{ref.referee_organisation ? ` at ${ref.referee_organisation}` : ""}
+                          — {ref.referee_name || ""}
+                          {ref.referee_role ? `, ${ref.referee_role}` : ""}
+                          {ref.referee_organisation ? ` at ${ref.referee_organisation}` : ""}
                         </p>
                       )}
                       <VerificationBadge reference={ref} />
                       <DomainTrustIndicator level={ref.domain_trust_level} />
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="mt-1 flex items-center gap-2">
                       <p className="text-xs text-muted-foreground">
                         {format(new Date(ref.created_at), "MMM yyyy")}
                       </p>
                       {isEmployer && (
                         <button
                           onClick={() => setReportingRefId(ref.id)}
-                          className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-0.5 transition-colors"
+                          className="flex items-center gap-0.5 text-xs text-gray-400 transition-colors hover:text-red-500"
                           title="Report suspicious reference"
                         >
                           <Flag className="h-3 w-3" />
@@ -421,7 +448,15 @@ function ReferencesSection({ freelancerId, currentUser }: { freelancerId: number
         )}
       </CardContent>
 
-      <Dialog open={reportingRefId !== null} onOpenChange={(open) => { if (!open) { setReportingRefId(null); setReportReason(""); } }}>
+      <Dialog
+        open={reportingRefId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReportingRefId(null);
+            setReportReason("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -434,8 +469,8 @@ function ReferencesSection({ freelancerId, currentUser }: { freelancerId: number
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label className="text-sm text-gray-600 mb-1 block">
-                Reason <span className="text-gray-400 text-xs">(Optional)</span>
+              <Label className="mb-1 block text-sm text-gray-600">
+                Reason <span className="text-xs text-gray-400">(Optional)</span>
               </Label>
               <Textarea
                 value={reportReason}
@@ -447,7 +482,13 @@ function ReferencesSection({ freelancerId, currentUser }: { freelancerId: number
             </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => { setReportingRefId(null); setReportReason(""); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReportingRefId(null);
+                setReportReason("");
+              }}
+            >
               Cancel
             </Button>
             <Button
@@ -467,6 +508,7 @@ function ReferencesSection({ freelancerId, currentUser }: { freelancerId: number
 export default function Profile() {
   const [, setLocation] = useLocation();
   const { userId } = useParams();
+  const publicToken = new URLSearchParams(window.location.search).get("pt") ?? undefined;
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [freelancerProfile, setFreelancerProfile] = useState<FreelancerProfile | null>(null);
@@ -475,8 +517,85 @@ export default function Profile() {
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [profileDataLoaded, setProfileDataLoaded] = useState(false);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const { toast } = useToast();
+
+  // SEO: give complete public freelancer profiles a per-profile <title>, and add a
+  // noindex robots tag to shell states (non-existent profile, or a "Complete Your
+  // Profile" placeholder). Non-JS crawlers are handled server-side by
+  // ogTagMiddleware; this covers the SPA (real users and JS-rendering bots).
+  useEffect(() => {
+    if (authLoading || loading) return;
+
+    const setRobotsNoindex = (on: boolean) => {
+      let tag = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
+      if (on) {
+        if (!tag) {
+          tag = document.createElement("meta");
+          tag.name = "robots";
+          document.head.appendChild(tag);
+        }
+        tag.setAttribute("content", "noindex");
+      } else if (tag) {
+        tag.remove();
+      }
+    };
+
+    const isFreelancerShell =
+      !!profile && profile.role === "freelancer" && !freelancerProfile && profileDataLoaded;
+    const isRecruiterShell =
+      !!profile &&
+      (profile.role === "recruiter" || (profile.role === "admin" && !freelancerProfile)) &&
+      !recruiterProfile;
+    const isShell = !profile || isFreelancerShell || isRecruiterShell;
+
+    if (isShell) {
+      setRobotsNoindex(true);
+    } else {
+      if (freelancerProfile) {
+        const name =
+          `${freelancerProfile.first_name || ""} ${freelancerProfile.last_name || ""}`.trim();
+        document.title =
+          name && freelancerProfile.title
+            ? `${name} — ${freelancerProfile.title} | EventLink`
+            : name
+              ? `${name} | EventLink`
+              : "Freelancer Profile | EventLink";
+      }
+      setRobotsNoindex(false);
+    }
+
+    return () => setRobotsNoindex(false);
+  }, [authLoading, loading, profile, freelancerProfile, recruiterProfile, profileDataLoaded]);
+
+  const getProfileUrl = (includeToken = false) => {
+    const base = window.location.origin;
+    const slug = freelancerProfile?.custom_slug || freelancerProfile?.slug;
+    const path = slug
+      ? `${base}/profile/${slug}`
+      : `${base}/profile/${freelancerProfile?.user_id ?? ""}`;
+    if (includeToken && freelancerProfile?.reference_token) {
+      return `${path}?pt=${encodeURIComponent(freelancerProfile.reference_token)}`;
+    }
+    return path;
+  };
+
+  const handleShareProfile = async () => {
+    const url = getProfileUrl(true); // include ?pt= token for own profile
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      toast({ title: "Link copied!", description: "Profile link copied to clipboard." });
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Please copy the URL from your browser.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const isRecruiter = user?.role === "recruiter" || user?.role === "admin";
   const profileUserId = userId ? parseInt(userId, 10) : 0;
@@ -521,14 +640,18 @@ export default function Profile() {
   const { data: averageRating } = useFreelancerAverageRating(freelancerProfile?.user_id || 0);
 
   // Get active jobs for recruiter profiles
-  const isRecruiterProfile =
-    profile?.role === "recruiter" ||
-    (profile?.role === "admin" && recruiterProfile && !freelancerProfile);
   const { data: recruiterJobs = [] } = useQuery<any[]>({
     queryKey: ["/api/jobs/recruiter", profileUserId],
     queryFn: () => apiRequest(`/api/jobs/recruiter/${profileUserId}`),
     enabled: !!profileUserId && !!recruiterProfile,
     select: (jobs) => jobs.filter((j) => j.status === "active"),
+  });
+
+  // Get active freelancer-posted jobs for freelancer profiles
+  const { data: freelancerPostedJobs = [] } = useQuery<any[]>({
+    queryKey: ["/api/freelancer/posted-jobs", profileUserId],
+    queryFn: () => apiRequest(`/api/freelancer/${profileUserId}/posted-jobs`),
+    enabled: !!profileUserId && !!freelancerProfile,
   });
 
   const handleDownloadCV = async (cvProfile: FreelancerProfile) => {
@@ -562,8 +685,12 @@ export default function Profile() {
         throw new Error(errorData.error || "Failed to download CV");
       }
 
-      // Create a blob URL from the streamed file and open it in a new tab
-      const blob = await response.blob();
+      const arrayBuffer = await response.arrayBuffer();
+      const mimeType =
+        response.headers.get("Content-Type") ||
+        cvProfile.cv_file_type ||
+        "application/octet-stream";
+      const blob = new Blob([arrayBuffer], { type: mimeType });
       const blobUrl = URL.createObjectURL(blob);
       window.open(blobUrl, "_blank");
       toast({
@@ -672,6 +799,9 @@ export default function Profile() {
               website_url: data.website_url || "",
               availability_status: data.availability_status || "available",
               profile_photo_url: data.profile_photo_url || "",
+              slug: data.slug || null,
+              custom_slug: data.custom_slug || null,
+              reference_token: data.reference_token || null,
               cv_file_url: data.cv_file_url || "",
               cv_file_name: data.cv_file_name || "",
               cv_file_type: data.cv_file_type || "",
@@ -724,20 +854,54 @@ export default function Profile() {
     }
   };
 
-  const fetchOtherProfile = async (targetUserId: string) => {
+  const fetchOtherProfile = async (targetParam: string) => {
     try {
-      // First get the user basic info to determine their role
-      const userData = await apiRequest(`/api/users/${targetUserId}`);
+      const isNumeric = /^\d+$/.test(targetParam);
+
+      // For slugs (non-numeric), fetch the freelancer profile first to get user_id
+      let resolvedUserId = targetParam;
+      if (!isNumeric) {
+        const profileData = await apiRequest(`/api/freelancer/${targetParam}`);
+        if (!profileData) throw new Error("Profile not found");
+        resolvedUserId = profileData.user_id.toString();
+        setFreelancerProfile({
+          id: profileData.id,
+          user_id: profileData.user_id,
+          first_name: profileData.first_name || "",
+          last_name: profileData.last_name || "",
+          title: profileData.title || "",
+          bio: profileData.bio || "",
+          location: profileData.location || "",
+          superpower: profileData.superpower || "",
+          experience_years: profileData.experience_years || null,
+          skills: profileData.skills || [],
+          portfolio_url: profileData.portfolio_url || "",
+          linkedin_url: profileData.linkedin_url || "",
+          website_url: profileData.website_url || "",
+          availability_status: profileData.availability_status || "available",
+          profile_photo_url: profileData.profile_photo_url || "",
+          slug: profileData.slug || null,
+          custom_slug: profileData.custom_slug || null,
+          reference_token: profileData.reference_token || null,
+          cv_file_url: profileData.cv_file_url || "",
+          cv_file_name: profileData.cv_file_name || "",
+          cv_file_type: profileData.cv_file_type || "",
+          cv_file_size: profileData.cv_file_size || null,
+        });
+      }
+
+      // Get the user basic info to determine role
+      const userData = await apiRequest(`/api/users/${resolvedUserId}`);
       const userProfile: Profile = {
-        id: targetUserId,
+        id: resolvedUserId,
         role: userData.role as "freelancer" | "recruiter",
         email: userData.email,
       };
       setProfile(userProfile);
 
-      if (userProfile.role === "freelancer") {
+      if (userProfile.role === "freelancer" && isNumeric) {
         try {
-          const data = await apiRequest(`/api/freelancer/${targetUserId}`);
+          const data = await apiRequest(`/api/freelancer/${resolvedUserId}`);
           if (data) {
             setFreelancerProfile({
               id: data.id,
@@ -755,6 +919,9 @@ export default function Profile() {
               website_url: data.website_url || "",
               availability_status: data.availability_status || "available",
               profile_photo_url: data.profile_photo_url || "",
+              slug: data.slug || null,
+              custom_slug: data.custom_slug || null,
+              reference_token: data.reference_token || null,
               cv_file_url: data.cv_file_url || "",
               cv_file_name: data.cv_file_name || "",
               cv_file_type: data.cv_file_type || "",
@@ -766,7 +933,7 @@ export default function Profile() {
         }
       } else if (userProfile.role === "recruiter") {
         try {
-          const data = await apiRequest(`/api/recruiter/${targetUserId}`);
+          const data = await apiRequest(`/api/recruiter/${resolvedUserId}`);
           if (data) {
             setRecruiterProfile({
               id: data.id?.toString(),
@@ -935,23 +1102,48 @@ export default function Profile() {
     <Layout>
       <div className="container mx-auto px-4 py-8">
         <div className="mx-auto max-w-4xl space-y-6">
+          {/* Own profile — shareable URL banner */}
+          {isOwnProfile && freelancerProfile && (
+            <div className="flex flex-col items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                  Your public profile link
+                </p>
+                <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={handleShareProfile} className="shrink-0">
+                {linkCopied ? (
+                  <>
+                    <Check className="mr-2 h-3.5 w-3.5 text-green-600" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="mr-2 h-3.5 w-3.5" />
+                    Copy Link
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
           {/* Profile Header */}
           <Card>
             <CardContent className="p-8">
-              {(freelancerProfile && profile?.role !== 'admin') ||
-              (profile?.role === 'admin' &&
-                freelancerProfile &&
-                !recruiterProfile) ? (
+              {(freelancerProfile && profile?.role !== "admin") ||
+              (profile?.role === "admin" && freelancerProfile && !recruiterProfile) ? (
                 <div className="flex flex-col items-center gap-6 text-center md:flex-row md:items-start md:text-left">
                   <div className="bg-gradient-primary flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-lg ring-4 ring-background">
                     {freelancerProfile?.profile_photo_url &&
-                    freelancerProfile.profile_photo_url.trim() !== '' &&
-                    freelancerProfile.profile_photo_url !== 'null' &&
-                    freelancerProfile.profile_photo_url.startsWith('data:') ? (
+                    freelancerProfile.profile_photo_url.trim() !== "" &&
+                    freelancerProfile.profile_photo_url !== "null" ? (
                       <img
-                        src={freelancerProfile.profile_photo_url}
+                        src={`/api/profile-photo/${freelancerProfile.user_id}`}
                         alt="Profile"
-                        className="h-full w-full object-cover"
+                        className="h-full w-full bg-white object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                        }}
                       />
                     ) : (
                       <User className="h-16 w-16 text-white" />
@@ -962,18 +1154,36 @@ export default function Profile() {
                     <div>
                       <div className="mb-2 flex flex-col items-center justify-between gap-4 sm:flex-row sm:items-start">
                         <h1 className="text-3xl font-bold leading-tight">
-                          {freelancerProfile?.first_name}{' '}
-                          {freelancerProfile?.last_name}
+                          {freelancerProfile?.first_name} {freelancerProfile?.last_name}
                         </h1>
-                        {isOwnProfile && (
+                        <div className="flex flex-wrap gap-2">
+                          {isOwnProfile && (
+                            <Button
+                              variant="outline"
+                              onClick={() => setLocation("/dashboard")}
+                              className="w-full sm:w-auto"
+                            >
+                              Edit Profile
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
-                            onClick={() => setLocation('/dashboard')}
+                            onClick={handleShareProfile}
                             className="w-full sm:w-auto"
                           >
-                            Edit Profile
+                            {linkCopied ? (
+                              <>
+                                <Check className="mr-2 h-4 w-4 text-green-600" />
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Share2 className="mr-2 h-4 w-4" />
+                                Share Profile
+                              </>
+                            )}
                           </Button>
-                        )}
+                        </div>
                       </div>
                       <p className="mb-2 text-xl font-semibold text-primary">
                         {freelancerProfile?.title}
@@ -991,7 +1201,9 @@ export default function Profile() {
                       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-muted-foreground md:justify-start">
                         <div className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
-                          {freelancerProfile?.location || 'UK'}
+                          {[freelancerProfile?.location, freelancerProfile?.country]
+                            .filter(Boolean)
+                            .join(", ")}
                         </div>
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
@@ -1014,11 +1226,11 @@ export default function Profile() {
                     <div className="flex items-center justify-center gap-2 md:justify-start">
                       <div
                         className={`h-3 w-3 rounded-full ${
-                          freelancerProfile?.availability_status === 'available'
-                            ? 'bg-green-500'
-                            : freelancerProfile?.availability_status === 'busy'
-                              ? 'bg-yellow-500'
-                              : 'bg-red-500'
+                          freelancerProfile?.availability_status === "available"
+                            ? "bg-green-500"
+                            : freelancerProfile?.availability_status === "busy"
+                              ? "bg-yellow-500"
+                              : "bg-red-500"
                         }`}
                       ></div>
                       <Badge variant="outline" className="capitalize">
@@ -1026,9 +1238,7 @@ export default function Profile() {
                       </Badge>
                     </div>
 
-                    <ReferenceBadges
-                      freelancerId={freelancerProfile?.user_id || 0}
-                    />
+                    <ReferenceBadges freelancerId={freelancerProfile?.user_id || 0} />
 
                     <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                       {!isOwnProfile && (
@@ -1040,30 +1250,22 @@ export default function Profile() {
                           Send Message
                         </Button>
                       )}
-                      {isRecruiter &&
-                        !isOwnProfile &&
-                        profile?.role === 'freelancer' && (
-                          <Button
-                            variant={isSaved ? 'default' : 'outline'}
-                            className={cn(
-                              'w-full sm:w-auto',
-                              isSaved ? 'bg-orange-500 hover:bg-orange-600' : ''
-                            )}
-                            onClick={() =>
-                              isSaved
-                                ? unsaveMutation.mutate()
-                                : saveMutation.mutate()
-                            }
-                            disabled={
-                              saveMutation.isPending || unsaveMutation.isPending
-                            }
-                          >
-                            <Bookmark
-                              className={`mr-2 h-4 w-4 ${isSaved ? 'fill-current' : ''}`}
-                            />
-                            {isSaved ? 'Saved' : 'Save'}
-                          </Button>
-                        )}
+                      {isRecruiter && !isOwnProfile && profile?.role === "freelancer" && (
+                        <Button
+                          variant={isSaved ? "default" : "outline"}
+                          className={cn(
+                            "w-full sm:w-auto",
+                            isSaved ? "bg-orange-500 hover:bg-orange-600" : ""
+                          )}
+                          onClick={() =>
+                            isSaved ? unsaveMutation.mutate() : saveMutation.mutate()
+                          }
+                          disabled={saveMutation.isPending || unsaveMutation.isPending}
+                        >
+                          <Bookmark className={`mr-2 h-4 w-4 ${isSaved ? "fill-current" : ""}`} />
+                          {isSaved ? "Saved" : "Save"}
+                        </Button>
+                      )}
                       {freelancerProfile?.cv_file_url && (
                         <Button
                           onClick={() => {
@@ -1088,13 +1290,13 @@ export default function Profile() {
                 <div className="flex flex-col items-start gap-6 md:flex-row">
                   <div className="bg-gradient-primary flex h-32 w-32 items-center justify-center overflow-hidden rounded-full">
                     {recruiterProfile?.company_logo_url &&
-                    recruiterProfile.company_logo_url.trim() !== '' &&
-                    recruiterProfile.company_logo_url !== 'null' &&
-                    recruiterProfile.company_logo_url.startsWith('data:') ? (
+                    recruiterProfile.company_logo_url.trim() !== "" &&
+                    recruiterProfile.company_logo_url !== "null" &&
+                    recruiterProfile.company_logo_url.startsWith("data:") ? (
                       <img
                         src={recruiterProfile.company_logo_url}
                         alt="Company Logo"
-                        className="h-full w-full object-cover"
+                        className="h-full w-full bg-white object-cover"
                       />
                     ) : (
                       <User className="h-16 w-16 text-white" />
@@ -1104,21 +1306,16 @@ export default function Profile() {
                   <div className="flex-1 space-y-4">
                     <div>
                       <div className="mb-2 flex items-center justify-between">
-                        <h1 className="text-3xl font-bold">
-                          {recruiterProfile?.company_name}
-                        </h1>
+                        <h1 className="text-3xl font-bold">{recruiterProfile?.company_name}</h1>
                         {isOwnProfile && (
-                          <Button
-                            variant="outline"
-                            onClick={() => setLocation('/dashboard')}
-                          >
+                          <Button variant="outline" onClick={() => setLocation("/dashboard")}>
                             Edit Profile
                           </Button>
                         )}
                       </div>
                       <p className="mb-2 text-xl font-semibold text-primary">
-                        {recruiterProfile.company_type
-                          .replace(/_/g, ' ')
+                        {recruiterProfile?.company_type
+                          ?.replace(/_/g, " ")
                           .replace(/\b\w/g, (l) => l.toUpperCase())}
                       </p>
                       <div className="flex items-center gap-4 text-muted-foreground">
@@ -1126,10 +1323,12 @@ export default function Profile() {
                           <User className="h-4 w-4" />
                           {recruiterProfile?.contact_name}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          {recruiterProfile?.location || 'UK'}
-                        </div>
+                        {recruiterProfile?.location && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-4 w-4" />
+                            {recruiterProfile.location}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1142,7 +1341,7 @@ export default function Profile() {
                           <MessageCircle className="mr-2 h-4 w-4" />
                           Send Message
                         </Button>
-                      )}{' '}
+                      )}{" "}
                     </div>
                   </div>
                 </div>
@@ -1154,32 +1353,25 @@ export default function Profile() {
           <Card>
             <CardHeader>
               <CardTitle>
-                {(freelancerProfile && profile?.role !== 'admin') ||
-                (profile?.role === 'admin' &&
-                  freelancerProfile &&
-                  !recruiterProfile)
-                  ? 'About'
-                  : 'Company Description'}
+                {(freelancerProfile && profile?.role !== "admin") ||
+                (profile?.role === "admin" && freelancerProfile && !recruiterProfile)
+                  ? "About"
+                  : "Company Description"}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="leading-relaxed text-muted-foreground">
-                {(freelancerProfile && profile?.role !== 'admin') ||
-                (profile?.role === 'admin' &&
-                  freelancerProfile &&
-                  !recruiterProfile)
-                  ? freelancerProfile?.bio || 'No bio available.'
-                  : recruiterProfile?.description ||
-                    'No company description available.'}
+                {(freelancerProfile && profile?.role !== "admin") ||
+                (profile?.role === "admin" && freelancerProfile && !recruiterProfile)
+                  ? freelancerProfile?.bio || "No bio available."
+                  : recruiterProfile?.description || "No company description available."}
               </p>
             </CardContent>
           </Card>
 
           {/* Skills Section (Freelancers only) */}
-          {((freelancerProfile && profile?.role !== 'admin') ||
-            (profile?.role === 'admin' &&
-              freelancerProfile &&
-              !recruiterProfile)) && (
+          {((freelancerProfile && profile?.role !== "admin") ||
+            (profile?.role === "admin" && freelancerProfile && !recruiterProfile)) && (
             <Card>
               <CardHeader>
                 <CardTitle>Skills & Expertise</CardTitle>
@@ -1187,19 +1379,12 @@ export default function Profile() {
               <CardContent>
                 <div className="flex flex-wrap gap-2">
                   {freelancerProfile?.skills.map((skill, index) => (
-                    <Badge
-                      key={index}
-                      variant="secondary"
-                      className="px-3 py-1"
-                    >
+                    <Badge key={index} variant="secondary" className="px-3 py-1">
                       {skill}
                     </Badge>
                   ))}
-                  {(!freelancerProfile?.skills ||
-                    freelancerProfile.skills.length === 0) && (
-                    <p className="text-muted-foreground">
-                      No skills added yet.
-                    </p>
+                  {(!freelancerProfile?.skills || freelancerProfile.skills.length === 0) && (
+                    <p className="text-muted-foreground">No skills added yet.</p>
                   )}
                 </div>
               </CardContent>
@@ -1207,15 +1392,14 @@ export default function Profile() {
           )}
 
           {/* Documents & Certifications Section (Freelancers only) */}
-          {((freelancerProfile && profile?.role !== 'admin') ||
-            (profile?.role === 'admin' &&
-              freelancerProfile &&
-              !recruiterProfile)) && (
+          {((freelancerProfile && profile?.role !== "admin") ||
+            (profile?.role === "admin" && freelancerProfile && !recruiterProfile)) && (
             <div className="mb-6">
               <DocumentUploader
                 userId={freelancerProfile?.user_id || 0}
                 isOwner={isOwnProfile}
-                viewerRole={user?.role as 'freelancer' | 'recruiter' | 'admin'}
+                viewerRole={user?.role as "freelancer" | "recruiter" | "admin"}
+                publicToken={!user ? publicToken : undefined}
               />
             </div>
           )}
@@ -1230,28 +1414,22 @@ export default function Profile() {
           */}
 
           {/* Reviews Section (Freelancers only) */}
-          {((freelancerProfile && profile?.role !== 'admin') ||
-            (profile?.role === 'admin' &&
-              freelancerProfile &&
-              !recruiterProfile)) && (
+          {((freelancerProfile && profile?.role !== "admin") ||
+            (profile?.role === "admin" && freelancerProfile && !recruiterProfile)) && (
             <ReviewsSection freelancerId={freelancerProfile?.user_id || 0} />
           )}
 
           {/* References Section (Freelancers only) */}
-          {((freelancerProfile && profile?.role !== 'admin') ||
-            (profile?.role === 'admin' &&
-              freelancerProfile &&
-              !recruiterProfile)) && (
+          {((freelancerProfile && profile?.role !== "admin") ||
+            (profile?.role === "admin" && freelancerProfile && !recruiterProfile)) && (
             <ReferencesSection freelancerId={freelancerProfile?.user_id || 0} currentUser={user} />
           )}
 
           {/* Links Section */}
           {(() => {
             const showFreelancerProfile =
-              (freelancerProfile && profile?.role !== 'admin') ||
-              (profile?.role === 'admin' &&
-                freelancerProfile &&
-                !recruiterProfile);
+              (freelancerProfile && profile?.role !== "admin") ||
+              (profile?.role === "admin" && freelancerProfile && !recruiterProfile);
             const hasFreelancerLinks =
               freelancerProfile?.portfolio_url ||
               freelancerProfile?.linkedin_url ||
@@ -1271,10 +1449,8 @@ export default function Profile() {
                 <div className="space-y-3">
                   {(() => {
                     const showFreelancerProfile =
-                      (freelancerProfile && profile?.role !== 'admin') ||
-                      (profile?.role === 'admin' &&
-                        freelancerProfile &&
-                        !recruiterProfile);
+                      (freelancerProfile && profile?.role !== "admin") ||
+                      (profile?.role === "admin" && freelancerProfile && !recruiterProfile);
                     return showFreelancerProfile;
                   })() ? (
                     <>
@@ -1357,6 +1533,57 @@ export default function Profile() {
               </CardContent>
             </Card>
           )}
+
+          {/* Freelancer-posted jobs — shown on freelancer profiles */}
+          {freelancerProfile && freelancerPostedJobs.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-primary" />
+                  Hiring For
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {freelancerPostedJobs.map((job: any) => (
+                  <a
+                    key={job.id}
+                    href={`/jobs?jobId=${job.id}`}
+                    className="block rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                  >
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <h3 className="font-semibold leading-tight">{job.title}</h3>
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 bg-[#7B5EA7]/10 text-xs text-[#7B5EA7]"
+                      >
+                        Hiring
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      {job.location && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {job.location}
+                        </span>
+                      )}
+                      {job.rate && <span>{job.rate}</span>}
+                      {job.event_date && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {new Date(job.event_date).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  </a>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Active Job Openings (Recruiter profiles only) */}
           {recruiterProfile && recruiterJobs.length > 0 && (
             <Card>
@@ -1374,12 +1601,10 @@ export default function Profile() {
                     className="block rounded-lg border p-4 transition-colors hover:bg-muted/50"
                   >
                     <div className="mb-2 flex items-start justify-between gap-2">
-                      <h3 className="font-semibold leading-tight">
-                        {job.title}
-                      </h3>
+                      <h3 className="font-semibold leading-tight">{job.title}</h3>
                       <Badge
                         variant="secondary"
-                        className="shrink-0 bg-primary/10 text-primary text-xs"
+                        className="shrink-0 bg-primary/10 text-xs text-primary"
                       >
                         Active
                       </Badge>
@@ -1393,21 +1618,20 @@ export default function Profile() {
                       )}
                       {job.rate && (
                         <span className="flex items-center gap-1">
-                          <span className="text-xs font-medium">£</span>
+                          {(job as any).currency && (job as any).currency !== "GBP" && (
+                            <span className="text-xs font-medium">{(job as any).currency}</span>
+                          )}
                           {job.rate}
                         </span>
                       )}
                       {job.event_date && (
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3.5 w-3.5" />
-                          {new Date(job.event_date).toLocaleDateString(
-                            'en-GB',
-                            {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric'
-                            }
-                          )}
+                          {new Date(job.event_date).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
                         </span>
                       )}
                     </div>
@@ -1426,9 +1650,9 @@ export default function Profile() {
           onClose={() => setIsMessageModalOpen(false)}
           recipientId={parseInt(profile.id)}
           recipientName={
-            profile.role === 'freelancer'
+            profile.role === "freelancer"
               ? `${freelancerProfile?.first_name} ${freelancerProfile?.last_name}`
-              : recruiterProfile?.company_name || 'User'
+              : recruiterProfile?.company_name || "User"
           }
           senderId={user.id}
         />

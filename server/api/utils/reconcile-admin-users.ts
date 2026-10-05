@@ -4,7 +4,7 @@ import { storage } from "../../storage";
 export async function reconcileAdminUsers(): Promise<void> {
   try {
     const adminEmails = process.env.ADMIN_EMAILS
-      ? process.env.ADMIN_EMAILS.split(",").map(email => email.trim().toLowerCase())
+      ? process.env.ADMIN_EMAILS.split(",").map((email) => email.trim().toLowerCase())
       : [];
 
     if (adminEmails.length === 0) {
@@ -33,16 +33,6 @@ export async function reconcileAdminUsers(): Promise<void> {
     }
 
     console.log("✅ Admin reconciliation complete");
-
-    // One-time cleanup: Remove all external jobs (Reed/Adzuna) - external job sync is disabled
-    try {
-      const deletedCount = await storage.deleteAllExternalJobs();
-      if (deletedCount > 0) {
-        console.log(`🧹 Cleaned up ${deletedCount} external jobs`);
-      }
-    } catch (cleanupError) {
-      console.error("⚠️ External job cleanup failed:", cleanupError);
-    }
   } catch (error) {
     console.error("❌ Admin reconciliation failed:", error);
   }

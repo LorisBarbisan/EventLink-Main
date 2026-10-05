@@ -1,7 +1,17 @@
 import { insertJobApplicationSchema, type JobApplication } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-import { emailService } from "../utils/emailNotificationService";
+import {
+  notifyJobPosterInApp,
+  notifyJobPosterOfNewApplication,
+} from "../utils/jobApplicationNotifications";
+import { getEmployerCompanyId, ownsEmployerCompany } from "../utils/team.util";
+import { getJobDocumentsWithUrls } from "./job-document.controller";
+import { emailService } from "../utils/emailService";
+import {
+  syncBookingForApplication,
+  removeBookingFromPipeline,
+} from "../services/booking-lifecycle.service";
 
 // Get freelancer bookings (accepted applications)
 export async function getFreelancerBookings(req: Request, res: Response) {
@@ -18,7 +28,7 @@ export async function getFreelancerBookings(req: Request, res: Response) {
 
     const applications = await storage.getFreelancerApplications(freelancerId);
     // Filter only hired applications for bookings
-    const bookings = applications.filter(app => app.status === "hired");
+    const bookings = applications.filter((app) => app.status === "hired");
 
     res.json(bookings);
   } catch (error) {
@@ -63,6 +73,10 @@ export async function applyToJob(req: Request, res: Response) {
       return res.status(400).json({ error: "This job is no longer accepting applications" });
     }
 
+    if (job.is_freelancer_posted && job.posted_by_user_id === (req as any).user.id) {
+      return res.status(400).json({ error: "You cannot apply to your own job posting" });
+    }
+
     // Check if already applied
     let existingApplications: JobApplication[] = [];
     try {
@@ -72,7 +86,7 @@ export async function applyToJob(req: Request, res: Response) {
       // Continue with empty array if fetch fails - allow application to proceed
     }
 
-    const alreadyApplied = existingApplications.some(app => app.job_id === jobId);
+    const alreadyApplied = existingApplications.some((app) => app.job_id === jobId);
 
     if (alreadyApplied) {
       return res.status(400).json({ error: "You have already applied to this job" });
@@ -92,71 +106,14 @@ export async function applyToJob(req: Request, res: Response) {
 
     const application = await storage.createJobApplication(result.data);
 
-    // Create notification for recruiter (non-blocking)
-    if (job.recruiter_id) {
-      try {
-        await storage.createNotification({
-          user_id: job.recruiter_id,
-          type: "application_update",
-          title: "New Job Application",
-          message: `A freelancer has applied to your job: ${job.title}`,
-          priority: "high",
-          related_entity_type: "application",
-          related_entity_id: application.id,
-          action_url: "/dashboard?tab=applications",
-          metadata: JSON.stringify({ application_id: application.id, job_id: jobId }),
-        });
-
-        // Send email notification to recruiter
-        try {
-          const recruiter = await storage.getUser(job.recruiter_id);
-          if (recruiter) {
-            let recruiterDisplayName = recruiter.email;
-            const recruiterProfile = await storage.getRecruiterProfile(job.recruiter_id);
-            // Priority: company_name → user's full name → email
-            if (recruiterProfile?.company_name) {
-              recruiterDisplayName = recruiterProfile.company_name;
-            } else if (recruiter.first_name || recruiter.last_name) {
-              const firstName = recruiter.first_name || "";
-              const lastName = recruiter.last_name || "";
-              recruiterDisplayName = `${firstName} ${lastName}`.trim() || recruiter.email;
-            }
-
-            // Get freelancer's display name
-            let freelancerDisplayName = "A freelancer";
-            let freelancerTitle: string | undefined;
-            const freelancerProfile = await storage.getFreelancerProfile((req as any).user.id);
-            if (freelancerProfile) {
-              if (freelancerProfile.first_name || freelancerProfile.last_name) {
-                const firstName = freelancerProfile.first_name || "";
-                const lastName = freelancerProfile.last_name || "";
-                freelancerDisplayName = `${firstName} ${lastName}`.trim();
-              }
-              freelancerTitle = freelancerProfile.title || undefined;
-            }
-
-            emailService
-              .sendNewApplicationNotification({
-                recipientId: job.recruiter_id,
-                recipientEmail: recruiter.email,
-                recipientName: recruiterDisplayName,
-                jobTitle: job.title,
-                freelancerName: freelancerDisplayName,
-                freelancerTitle: freelancerTitle,
-                jobId: jobId,
-                applicationId: application.id,
-              })
-              .catch(error => {
-                console.error("Failed to send new application email:", error);
-              });
-          }
-        } catch (emailError) {
-          console.error("Error preparing new application email:", emailError);
-        }
-      } catch (notifError) {
-        console.error("Failed to create notification (non-critical):", notifError);
-        // Don't fail the application if notification fails
-      }
+    try {
+      await notifyJobPosterOfNewApplication({
+        job,
+        applicationId: application.id,
+        freelancerUserId: (req as any).user.id,
+      });
+    } catch (notifError) {
+      console.error("Failed to notify job poster of new application (non-critical):", notifError);
     }
 
     res.status(201).json(application);
@@ -214,7 +171,9 @@ export async function getJobApplications(req: Request, res: Response) {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    if ((req as any).user.role !== "admin" && job.recruiter_id !== (req as any).user.id) {
+    const isFreelancerOwner =
+      job.is_freelancer_posted && job.posted_by_user_id === (req as any).user?.id;
+    if (!ownsEmployerCompany(req, job.recruiter_id) && !isFreelancerOwner) {
       return res.status(403).json({ error: "Not authorized to view applications for this job" });
     }
 
@@ -231,10 +190,12 @@ export async function getRecruiterApplications(req: Request, res: Response) {
   try {
     const recruiterId = parseInt(req.params.recruiterId);
 
-    // Check authorization
+    // Check authorization — allow admin, the owner themselves, or a team member whose companyId matches
+    const reqUser = (req as any).user;
+    const effectiveCompanyId = (req as any).companyId ?? reqUser?.id;
     if (
-      !(req as any).user ||
-      ((req as any).user.id !== recruiterId && (req as any).user.role !== "admin")
+      !reqUser ||
+      (reqUser.id !== recruiterId && effectiveCompanyId !== recruiterId && reqUser.role !== "admin")
     ) {
       return res.status(403).json({ error: "Not authorized to view these applications" });
     }
@@ -246,6 +207,30 @@ export async function getRecruiterApplications(req: Request, res: Response) {
     res.json(applications);
   } catch (error) {
     console.error("Get recruiter applications error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Get applications the recruiter has hidden (soft-deleted) for live jobs
+export async function getRecruiterHiddenApplications(req: Request, res: Response) {
+  try {
+    const recruiterId = parseInt(req.params.recruiterId);
+
+    const reqUser = (req as any).user;
+    const effectiveCompanyId = (req as any).companyId ?? reqUser?.id;
+    if (
+      !reqUser ||
+      (reqUser.id !== recruiterId && effectiveCompanyId !== recruiterId && reqUser.role !== "admin")
+    ) {
+      return res.status(403).json({ error: "Not authorized to view these applications" });
+    }
+
+    const applications = await storage.getRecruiterHiddenApplications(recruiterId);
+
+    res.set("Cache-Control", "no-store");
+    res.json(applications);
+  } catch (error) {
+    console.error("Get recruiter hidden applications error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -266,12 +251,23 @@ export async function acceptApplication(req: Request, res: Response) {
     }
 
     const job = await storage.getJobById(application.job_id);
-    if (!job || ((req as any).user.role !== "admin" && job.recruiter_id !== (req as any).user.id)) {
+    const isFreelancerOwnerAccept =
+      job?.is_freelancer_posted && job.posted_by_user_id === (req as any).user?.id;
+    if (!job || (!ownsEmployerCompany(req, job.recruiter_id) && !isFreelancerOwnerAccept)) {
       return res.status(403).json({ error: "Not authorized to accept this application" });
     }
 
     // Mark application as hired (this also automatically closes the job)
     await storage.updateApplicationStatus(applicationId, "hired");
+
+    // Advance the employer booking to Confirmed (or Completed if the event has passed)
+    await syncBookingForApplication({
+      jobId: application.job_id,
+      freelancerId: application.freelancer_id,
+      targetStatus: "confirmed",
+      changedById: (req as any).user.id,
+      note: "Freelancer hired",
+    });
 
     // Create notification for freelancer
     await storage.createNotification({
@@ -302,6 +298,21 @@ export async function acceptApplication(req: Request, res: Response) {
           freelancerDisplayName = `${firstName} ${lastName}`.trim() || freelancer.email;
         }
 
+        // Fetch any documents attached to this job
+        let jobDocs: Array<{ fileName: string; downloadUrl: string | null; documentType: string }> =
+          [];
+        try {
+          const baseUrl = `${req.protocol}://${req.get("host")}`;
+          const docs = await getJobDocumentsWithUrls(application.job_id, baseUrl);
+          jobDocs = docs.map((d) => ({
+            fileName: d.fileName,
+            downloadUrl: d.downloadUrl,
+            documentType: d.documentType,
+          }));
+        } catch (docErr) {
+          console.error("Failed to fetch job documents for hire email:", docErr);
+        }
+
         emailService
           .sendApplicationUpdateNotification({
             recipientId: application.freelancer_id,
@@ -311,8 +322,9 @@ export async function acceptApplication(req: Request, res: Response) {
             companyName: job.company,
             status: "Accepted",
             applicationId: applicationId,
+            documents: jobDocs.length > 0 ? jobDocs : undefined,
           })
-          .catch(error => {
+          .catch((error) => {
             console.error("Failed to send application update email:", error);
           });
       }
@@ -356,11 +368,19 @@ export async function rejectApplication(req: Request, res: Response) {
     }
 
     const job = await storage.getJobById(application.job_id);
-    if (!job || ((req as any).user.role !== "admin" && job.recruiter_id !== (req as any).user.id)) {
+    const isFreelancerOwnerReject =
+      job?.is_freelancer_posted && job.posted_by_user_id === (req as any).user?.id;
+    if (!job || (!ownsEmployerCompany(req, job.recruiter_id) && !isFreelancerOwnerReject)) {
       return res.status(403).json({ error: "Not authorized to reject this application" });
     }
 
     await storage.updateApplicationStatus(applicationId, "declined", req.body.message);
+
+    // Remove any employer booking for this applicant from the pipeline
+    await removeBookingFromPipeline({
+      jobId: application.job_id,
+      freelancerId: application.freelancer_id,
+    });
 
     // Create notification for freelancer
     await storage.createNotification({
@@ -402,7 +422,7 @@ export async function rejectApplication(req: Request, res: Response) {
             status: "Not Selected",
             applicationId: applicationId,
           })
-          .catch(error => {
+          .catch((error) => {
             console.error("Failed to send application update email:", error);
           });
       }
@@ -426,6 +446,87 @@ export async function rejectApplication(req: Request, res: Response) {
     res.json({ message: "Application declined successfully" });
   } catch (error) {
     console.error("Reject application error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Shortlist application
+export async function shortlistApplication(req: Request, res: Response) {
+  try {
+    const applicationId = parseInt(req.params.applicationId);
+
+    if (!(req as any).user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const application = await storage.getJobApplicationById(applicationId);
+    if (!application) {
+      return res.status(404).json({ error: "Application not found" });
+    }
+
+    const job = await storage.getJobById(application.job_id);
+    const isFreelancerOwner =
+      job?.is_freelancer_posted && job.posted_by_user_id === (req as any).user?.id;
+    if (!job || (!ownsEmployerCompany(req, job.recruiter_id) && !isFreelancerOwner)) {
+      return res.status(403).json({ error: "Not authorized to shortlist this application" });
+    }
+
+    await storage.updateApplicationStatus(applicationId, "shortlisted");
+
+    await storage.createNotification({
+      user_id: application.freelancer_id,
+      type: "application_update",
+      title: "You've been shortlisted!",
+      message: `Great news! Your application for "${job.title}" at ${job.company} has been shortlisted.`,
+      priority: "high",
+      related_entity_type: "application",
+      related_entity_id: applicationId,
+      action_url: "/dashboard?tab=jobs",
+      metadata: JSON.stringify({
+        application_id: applicationId,
+        job_id: job.id,
+        status: "shortlisted",
+      }),
+    });
+
+    if ((global as any).broadcastToUser) {
+      (global as any).broadcastToUser(application.freelancer_id, {
+        type: "application_update",
+        application: { id: applicationId, job_title: job.title, company: job.company },
+        status: "shortlisted",
+      });
+    }
+
+    // Send email notification (non-blocking)
+    try {
+      const freelancer = await storage.getUser(application.freelancer_id);
+      if (freelancer) {
+        let displayName = freelancer.email;
+        const freelancerProfile = await storage.getFreelancerProfile(application.freelancer_id);
+        if (freelancerProfile?.first_name || freelancerProfile?.last_name) {
+          displayName =
+            `${freelancerProfile.first_name || ""} ${freelancerProfile.last_name || ""}`.trim() ||
+            freelancer.email;
+        }
+        emailService
+          .sendApplicationUpdateNotification({
+            recipientId: application.freelancer_id,
+            recipientEmail: freelancer.email,
+            recipientName: displayName,
+            jobTitle: job.title,
+            companyName: job.company,
+            status: "Shortlisted",
+            applicationId,
+          })
+          .catch((err) => console.error("Failed to send shortlist email:", err));
+      }
+    } catch (err) {
+      console.error("Error preparing shortlist email:", err);
+    }
+
+    res.json({ message: "Application shortlisted successfully" });
+  } catch (error) {
+    console.error("Shortlist application error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -458,14 +559,20 @@ export async function deleteApplication(req: Request, res: Response) {
     ) {
       // Freelancer can delete their own applications
       userRole = "freelancer";
-    } else if ((req as any).user.role === "recruiter" || (req as any).user.role === "admin") {
-      // Recruiter/admin can hide applications from jobs they own
+    } else if (
+      (req as any).user.role === "recruiter" ||
+      (req as any).user.role === "admin" ||
+      (req as any).user.role === "freelancer"
+    ) {
+      // Recruiter/admin/freelancer-poster can hide applications from jobs they own
       const job = await storage.getJobById(application.job_id);
       if (!job) {
         return res.status(404).json({ error: "Job not found" });
       }
 
-      if ((req as any).user.role === "admin" || job.recruiter_id === (req as any).user.id) {
+      const isFreelancerOwnerDelete =
+        job.is_freelancer_posted && job.posted_by_user_id === (req as any).user.id;
+      if (ownsEmployerCompany(req, job.recruiter_id) || isFreelancerOwnerDelete) {
         userRole = "recruiter";
       } else {
         return res.status(403).json({ error: "Not authorized to delete this application" });
@@ -508,17 +615,19 @@ export async function inviteFreelancer(req: Request, res: Response) {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    if ((req as any).user.role !== "admin" && job.recruiter_id !== (req as any).user.id) {
+    if (!ownsEmployerCompany(req, job.recruiter_id)) {
       return res.status(403).json({ error: "Not authorized to invite to this job" });
     }
 
     if (job.status === "closed") {
-      return res.status(400).json({ error: "This job is closed and no longer accepting invitations" });
+      return res
+        .status(400)
+        .json({ error: "This job is closed and no longer accepting invitations" });
     }
 
     // Check if already applied/invited
     const existingApplications = await storage.getFreelancerApplications(freelancerId);
-    const alreadyApplied = existingApplications.some(app => app.job_id === jobId);
+    const alreadyApplied = existingApplications.some((app) => app.job_id === jobId);
 
     if (alreadyApplied) {
       return res
@@ -541,6 +650,15 @@ export async function inviteFreelancer(req: Request, res: Response) {
 
     const application = await storage.createJobApplication(result.data);
 
+    // Add the invited freelancer to the employer booking pipeline as Enquired
+    await syncBookingForApplication({
+      jobId,
+      freelancerId,
+      targetStatus: "enquired",
+      changedById: (req as any).user.id,
+      note: "Invitation sent",
+    });
+
     // Create notification for freelancer
     await storage.createNotification({
       user_id: freelancerId,
@@ -561,8 +679,9 @@ export async function inviteFreelancer(req: Request, res: Response) {
     // Send email notification to freelancer
     try {
       const freelancer = await storage.getUser(freelancerId);
+      const companyId = getEmployerCompanyId(req);
       const recruiter = await storage.getUser((req as any).user.id);
-      const recruiterProfile = await storage.getRecruiterProfile((req as any).user.id);
+      const recruiterProfile = await storage.getRecruiterProfile(companyId);
 
       if (freelancer && recruiter) {
         let recruiterDisplayName = recruiterProfile?.company_name || recruiter.email;
@@ -599,6 +718,90 @@ export async function inviteFreelancer(req: Request, res: Response) {
     res.status(201).json(application);
   } catch (error) {
     console.error("Invite freelancer error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Withdraw an invitation (employer only, only when status is still "invited")
+export async function withdrawInvitation(req: Request, res: Response) {
+  try {
+    const applicationId = parseInt(req.params.applicationId);
+    if (Number.isNaN(applicationId))
+      return res.status(400).json({ error: "Invalid application ID" });
+    if (!(req as any).user) return res.status(401).json({ error: "Not authenticated" });
+
+    const application = await storage.getJobApplicationById(applicationId);
+    if (!application) return res.status(404).json({ error: "Application not found" });
+
+    if (application.status !== "invited") {
+      return res.status(400).json({ error: "Can only withdraw pending invitations" });
+    }
+
+    const job = await storage.getJobById(application.job_id);
+    if (!job || !ownsEmployerCompany(req, job.recruiter_id)) {
+      return res.status(403).json({ error: "Not authorised" });
+    }
+
+    // Delete the invitation application record
+    await storage.softDeleteApplication(applicationId, "recruiter");
+
+    // Remove the withdrawn invitation from the employer booking pipeline
+    await removeBookingFromPipeline({
+      jobId: application.job_id,
+      freelancerId: application.freelancer_id,
+    });
+
+    // In-app notification to freelancer
+    await storage.createNotification({
+      user_id: application.freelancer_id,
+      type: "application_update",
+      title: "Invitation Withdrawn",
+      message: `Your invitation for "${job.title}" at ${job.company} has been withdrawn by the employer.`,
+      priority: "normal",
+      related_entity_type: "application",
+      related_entity_id: applicationId,
+      action_url: "/dashboard?tab=jobs",
+      metadata: JSON.stringify({
+        application_id: applicationId,
+        job_id: job.id,
+        type: "invitation_withdrawn",
+      }),
+    });
+
+    // Email notification (non-blocking)
+    try {
+      const freelancer = await storage.getUser(application.freelancer_id);
+      if (freelancer) {
+        let freelancerName = freelancer.email;
+        const fp = await storage.getFreelancerProfile(application.freelancer_id);
+        if (fp?.first_name || fp?.last_name)
+          freelancerName = `${fp.first_name || ""} ${fp.last_name || ""}`.trim();
+
+        await emailService.sendApplicationUpdateNotification({
+          recipientId: application.freelancer_id,
+          recipientEmail: freelancer.email,
+          recipientName: freelancerName,
+          jobTitle: job.title,
+          companyName: job.company,
+          status: "Invitation Withdrawn",
+          applicationId,
+        });
+      }
+    } catch (emailErr) {
+      console.error("Failed to send invitation withdrawal email:", emailErr);
+    }
+
+    if ((global as any).broadcastToUser) {
+      (global as any).broadcastToUser(application.freelancer_id, {
+        type: "application_update",
+        application: { id: applicationId, job_title: job.title, company: job.company },
+        status: "invitation_withdrawn",
+      });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("withdrawInvitation error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -663,6 +866,14 @@ export async function respondToInvitation(req: Request, res: Response) {
 
     await storage.updateInvitationResponse(applicationId, status, responseMessage);
 
+    // If the freelancer declined the invitation, drop it from the employer pipeline
+    if (status === "declined") {
+      await removeBookingFromPipeline({
+        jobId: application.job_id,
+        freelancerId: application.freelancer_id,
+      });
+    }
+
     // Notify recruiter
     const job = await storage.getJobById(application.job_id);
     if (job) {
@@ -672,21 +883,16 @@ export async function respondToInvitation(req: Request, res: Response) {
           ? `Freelancer accepted your invitation for "${job.title}"`
           : `Freelancer declined your invitation for "${job.title}"`;
 
-      await storage.createNotification({
-        user_id: job.recruiter_id,
-        type: "application_update",
-        title: title,
-        message: message,
-        priority: "normal",
-        related_entity_type: "application",
-        related_entity_id: applicationId,
-        action_url: "/dashboard?tab=applications",
-        metadata: JSON.stringify({
-          application_id: applicationId,
-          job_id: job.id,
-          status: status,
+      await notifyJobPosterInApp({
+        job,
+        applicationId,
+        title,
+        message,
+        metadata: {
+          kind: "invitation_response",
+          status,
           response: responseMessage,
-        }),
+        },
       });
     }
 

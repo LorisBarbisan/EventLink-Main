@@ -6,9 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { UKLocationInput } from "@/components/ui/uk-location-input";
+import { useHelpComplete } from "@/help/useHelp";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { JobAlertFilter, User } from "@shared/schema";
+import type { JobAlertFilter } from "@shared/schema";
+import type { User } from "@shared/types";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Bell, Briefcase, Filter, Mail, MessageSquare, Plus, Star, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -32,6 +34,7 @@ interface NotificationPreferences {
 
 export function NotificationSettingsForm({ user }: NotificationSettingsFormProps) {
   const { toast } = useToast();
+  const completeHelp = useHelpComplete();
   const [localPreferences, setLocalPreferences] = useState<NotificationPreferences | null>(null);
 
   // Job alert filter state
@@ -129,6 +132,11 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
     const newPreferences = { ...localPreferences, [key]: value };
     setLocalPreferences(newPreferences);
     updateMutation.mutate({ [key]: value });
+
+    // Turning Job Alerts on counts as using the feature — stop prompting about it.
+    if (key === "email_job_alerts" && value) {
+      completeHelp("freelancer.jobAlerts");
+    }
   };
 
   // Job alert filter handlers
@@ -141,7 +149,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
   };
 
   const handleRemoveSkill = (skill: string) => {
-    setFilterSkills(filterSkills.filter(s => s !== skill));
+    setFilterSkills(filterSkills.filter((s) => s !== skill));
   };
 
   const handleAddLocation = () => {
@@ -153,7 +161,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
   };
 
   const handleRemoveLocation = (location: string) => {
-    setFilterLocations(filterLocations.filter(l => l !== location));
+    setFilterLocations(filterLocations.filter((l) => l !== location));
   };
 
   const handleAddKeyword = () => {
@@ -165,7 +173,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
   };
 
   const handleRemoveKeyword = (keyword: string) => {
-    setFilterKeywords(filterKeywords.filter(k => k !== keyword));
+    setFilterKeywords(filterKeywords.filter((k) => k !== keyword));
   };
 
   const handleSaveFilters = () => {
@@ -185,9 +193,9 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
       <Card>
         <CardContent className="p-6">
           <div className="space-y-4">
-            <div className="h-12 bg-muted animate-pulse rounded" />
-            <div className="h-12 bg-muted animate-pulse rounded" />
-            <div className="h-12 bg-muted animate-pulse rounded" />
+            <div className="h-12 animate-pulse rounded bg-muted" />
+            <div className="h-12 animate-pulse rounded bg-muted" />
+            <div className="h-12 animate-pulse rounded bg-muted" />
           </div>
         </CardContent>
       </Card>
@@ -207,12 +215,12 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-0 py-2">
-          <div className="flex items-center justify-between py-2.5 px-1">
+          <div className="flex items-center justify-between px-1 py-2.5">
             <div className="flex items-center gap-2.5">
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
               <Label
                 htmlFor="email_messages"
-                className="text-sm font-medium cursor-pointer"
+                className="cursor-pointer text-sm font-medium"
                 data-testid="label-email-messages"
               >
                 New Messages
@@ -221,7 +229,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
             <Switch
               id="email_messages"
               checked={localPreferences.email_messages}
-              onCheckedChange={checked => handleToggle("email_messages", checked)}
+              onCheckedChange={(checked) => handleToggle("email_messages", checked)}
               data-testid="switch-email-messages"
             />
           </div>
@@ -230,12 +238,12 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
 
           {user.role === "freelancer" && (
             <>
-              <div className="flex items-center justify-between py-2.5 px-1">
+              <div className="flex items-center justify-between px-1 py-2.5">
                 <div className="flex items-center gap-2.5">
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
                   <Label
                     htmlFor="email_application_updates"
-                    className="text-sm font-medium cursor-pointer"
+                    className="cursor-pointer text-sm font-medium"
                     data-testid="label-email-application-updates"
                   >
                     Application Updates
@@ -244,7 +252,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                 <Switch
                   id="email_application_updates"
                   checked={localPreferences.email_application_updates}
-                  onCheckedChange={checked => handleToggle("email_application_updates", checked)}
+                  onCheckedChange={(checked) => handleToggle("email_application_updates", checked)}
                   data-testid="switch-email-application-updates"
                 />
               </div>
@@ -254,12 +262,12 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
 
           {user.role === "recruiter" && (
             <>
-              <div className="flex items-center justify-between py-2.5 px-1">
+              <div className="flex items-center justify-between px-1 py-2.5">
                 <div className="flex items-center gap-2.5">
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
                   <Label
                     htmlFor="email_job_updates"
-                    className="text-sm font-medium cursor-pointer"
+                    className="cursor-pointer text-sm font-medium"
                     data-testid="label-email-job-updates"
                   >
                     Job Applications
@@ -268,7 +276,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                 <Switch
                   id="email_job_updates"
                   checked={localPreferences.email_job_updates}
-                  onCheckedChange={checked => handleToggle("email_job_updates", checked)}
+                  onCheckedChange={(checked) => handleToggle("email_job_updates", checked)}
                   data-testid="switch-email-job-updates"
                 />
               </div>
@@ -278,12 +286,12 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
 
           {user.role === "freelancer" && (
             <>
-              <div className="flex items-center justify-between py-2.5 px-1">
+              <div className="flex items-center justify-between px-1 py-2.5">
                 <div className="flex items-center gap-2.5">
                   <Mail className="h-4 w-4 text-muted-foreground" />
                   <Label
                     htmlFor="email_job_alerts"
-                    className="text-sm font-medium cursor-pointer"
+                    className="cursor-pointer text-sm font-medium"
                     data-testid="label-email-job-alerts"
                   >
                     Job Alerts
@@ -292,20 +300,21 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                 <Switch
                   id="email_job_alerts"
                   checked={localPreferences.email_job_alerts}
-                  onCheckedChange={checked => handleToggle("email_job_alerts", checked)}
+                  onCheckedChange={(checked) => handleToggle("email_job_alerts", checked)}
                   data-testid="switch-email-job-alerts"
+                  data-help="freelancer.jobAlerts"
                 />
               </div>
               <Separator />
             </>
           )}
 
-          <div className="flex items-center justify-between py-2.5 px-1">
+          <div className="flex items-center justify-between px-1 py-2.5">
             <div className="flex items-center gap-2.5">
               <Star className="h-4 w-4 text-muted-foreground" />
               <Label
                 htmlFor="email_rating_requests"
-                className="text-sm font-medium cursor-pointer"
+                className="cursor-pointer text-sm font-medium"
                 data-testid="label-email-rating-requests"
               >
                 Rating Requests
@@ -314,19 +323,19 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
             <Switch
               id="email_rating_requests"
               checked={localPreferences.email_rating_requests}
-              onCheckedChange={checked => handleToggle("email_rating_requests", checked)}
+              onCheckedChange={(checked) => handleToggle("email_rating_requests", checked)}
               data-testid="switch-email-rating-requests"
             />
           </div>
 
           <Separator />
 
-          <div className="flex items-center justify-between py-2.5 px-1">
+          <div className="flex items-center justify-between px-1 py-2.5">
             <div className="flex items-center gap-2.5">
               <Bell className="h-4 w-4 text-muted-foreground" />
               <Label
                 htmlFor="email_system_updates"
-                className="text-sm font-medium cursor-pointer"
+                className="cursor-pointer text-sm font-medium"
                 data-testid="label-email-system-updates"
               >
                 Platform Updates
@@ -335,7 +344,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
             <Switch
               id="email_system_updates"
               checked={localPreferences.email_system_updates}
-              onCheckedChange={checked => handleToggle("email_system_updates", checked)}
+              onCheckedChange={(checked) => handleToggle("email_system_updates", checked)}
               data-testid="switch-email-system-updates"
             />
           </div>
@@ -370,8 +379,8 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                   id="skill-input"
                   placeholder="e.g., Sound Engineer, Lighting Tech"
                   value={skillInput}
-                  onChange={e => setSkillInput(e.target.value)}
-                  onKeyPress={e => e.key === "Enter" && (e.preventDefault(), handleAddSkill())}
+                  onChange={(e) => setSkillInput(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddSkill())}
                   data-testid="input-skill-filter"
                 />
                 <Button
@@ -386,7 +395,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
               </div>
               {filterSkills.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {filterSkills.map(skill => (
+                  {filterSkills.map((skill) => (
                     <Badge
                       key={skill}
                       variant="secondary"
@@ -411,17 +420,17 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
 
             {/* Location Filter */}
             <div className="space-y-3">
-              <div className="flex gap-2 items-end">
+              <div className="flex items-end gap-2">
                 <div className="flex-1">
                   <UKLocationInput
                     id="location-input"
                     label="Locations"
                     value={locationInput}
                     onChange={setLocationInput}
-                    placeholder="Start typing a UK location..."
+                    placeholder="Start typing a location..."
                     data-testid="input-location-filter"
                   />
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Get notified about jobs in specific locations
                   </p>
                 </div>
@@ -438,7 +447,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
               </div>
               {filterLocations.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {filterLocations.map(location => (
+                  {filterLocations.map((location) => (
                     <Badge
                       key={location}
                       variant="secondary"
@@ -499,8 +508,8 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                   id="keyword-input"
                   placeholder="e.g., festival, awards, live music"
                   value={keywordInput}
-                  onChange={e => setKeywordInput(e.target.value)}
-                  onKeyPress={e => e.key === "Enter" && (e.preventDefault(), handleAddKeyword())}
+                  onChange={(e) => setKeywordInput(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddKeyword())}
                   data-testid="input-keyword-filter"
                 />
                 <Button
@@ -515,7 +524,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
               </div>
               {filterKeywords.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                  {filterKeywords.map(keyword => (
+                  {filterKeywords.map((keyword) => (
                     <Badge
                       key={keyword}
                       variant="secondary"
@@ -555,7 +564,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                     id="date-from"
                     type="date"
                     value={dateFrom}
-                    onChange={e => setDateFrom(e.target.value)}
+                    onChange={(e) => setDateFrom(e.target.value)}
                     data-testid="input-date-from"
                   />
                 </div>
@@ -567,7 +576,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                     id="date-to"
                     type="date"
                     value={dateTo}
-                    onChange={e => setDateTo(e.target.value)}
+                    onChange={(e) => setDateTo(e.target.value)}
                     data-testid="input-date-to"
                   />
                 </div>

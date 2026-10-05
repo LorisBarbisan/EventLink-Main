@@ -4,6 +4,9 @@ import { storage } from "../../storage";
 import { generateJWTToken } from "../utils/auth.util";
 import { sendContactReplyEmail } from "../utils/emailService";
 import { emailService } from "../utils/emailNotificationService";
+import { db } from "../config/db";
+import { teamMembers, users } from "../../../shared/schema";
+import { eq } from "drizzle-orm";
 
 // Get all feedback (admin only)
 export async function getAllFeedback(req: Request, res: Response) {
@@ -130,7 +133,7 @@ export async function sendContactReply(req: Request, res: Response) {
 
     // Get the contact message
     const messages = await storage.getAllContactMessages();
-    const message = messages.find(m => m.id === messageId);
+    const message = messages.find((m) => m.id === messageId);
 
     if (!message) {
       return res.status(404).json({ error: "Contact message not found" });
@@ -184,8 +187,18 @@ export async function getAdminJobs(req: Request, res: Response) {
     const type = (req.query.type as string) || undefined;
     const sortBy = (req.query.sortBy as string) || "created_at";
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+    const country = (req.query.country as string) || undefined;
 
-    const { jobs, total } = await storage.getAdminJobs(page, limit, search, status, type, sortBy, sortOrder);
+    const { jobs, total } = await storage.getAdminJobs(
+      page,
+      limit,
+      search,
+      status,
+      type,
+      sortBy,
+      sortOrder,
+      country
+    );
 
     res.json({
       jobs,
@@ -217,6 +230,37 @@ export async function getAdminJobDetail(req: Request, res: Response) {
   }
 }
 
+// Get pending guest jobs awaiting moderation (admin only)
+export async function getPendingGuestJobs(req: Request, res: Response) {
+  try {
+    const jobs = await storage.getPendingGuestJobs();
+    res.json({ jobs, total: jobs.length });
+  } catch (error) {
+    console.error("getPendingGuestJobs error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Approve or reject a guest job (admin only)
+export async function moderateGuestJob(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.id);
+    if (isNaN(jobId)) {
+      return res.status(400).json({ error: "Invalid job ID" });
+    }
+    const { decision, note } = req.body as { decision: string; note?: string };
+    if (decision !== "approved" && decision !== "rejected") {
+      return res.status(400).json({ error: "decision must be 'approved' or 'rejected'" });
+    }
+    const moderatorId = (req as any).user?.id;
+    const job = await storage.moderateJob(jobId, decision, moderatorId, note);
+    res.json(job);
+  } catch (error) {
+    console.error("moderateGuestJob error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // Get all users (admin only)
 export async function getAllUsers(req: Request, res: Response) {
   try {
@@ -228,8 +272,19 @@ export async function getAllUsers(req: Request, res: Response) {
     const sortBy = (req.query.sortBy as string) || "created_at";
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
     const profileStatus = (req.query.profileStatus as string) || undefined;
+    const country = (req.query.country as string) || undefined;
 
-    const { users, total } = await storage.getAllUsers(page, limit, search, role, status, sortBy, sortOrder, profileStatus);
+    const { users, total } = await storage.getAllUsers(
+      page,
+      limit,
+      search,
+      role,
+      status,
+      sortBy,
+      sortOrder,
+      profileStatus,
+      country
+    );
 
     // Remove sensitive information
     const safeUsers = users.map((user: any) => {
@@ -489,7 +544,7 @@ export async function bootstrapCreateFirstAdmin(req: Request, res: Response) {
 
     // Check if any admins already exist (to prevent abuse)
     const existingAdmins = await storage.getAdminUsers();
-    const realAdmins = existingAdmins.filter(admin => admin.role === "admin");
+    const realAdmins = existingAdmins.filter((admin) => admin.role === "admin");
 
     if (realAdmins.length > 0) {
       return res.status(400).json({
@@ -589,7 +644,8 @@ export async function getNotifyFreelancersPreview(req: Request, res: Response) {
 
     const job = await storage.getJobById(jobId);
     if (!job) return res.status(404).json({ error: "Job not found" });
-    if (job.status !== "active") return res.status(400).json({ error: "Job must be active to notify freelancers" });
+    if (job.status !== "active")
+      return res.status(400).json({ error: "Job must be active to notify freelancers" });
 
     const matching = await storage.getFreelancersMatchingJob(job);
 
@@ -619,7 +675,8 @@ export async function notifyFreelancersForJob(req: Request, res: Response) {
 
     const job = await storage.getJobById(jobId);
     if (!job) return res.status(404).json({ error: "Job not found" });
-    if (job.status !== "active") return res.status(400).json({ error: "Job must be active to notify freelancers" });
+    if (job.status !== "active")
+      return res.status(400).json({ error: "Job must be active to notify freelancers" });
 
     const lastNotifiedAt = (job as any).last_notified_at;
     const force = req.body?.force === true;
@@ -641,12 +698,16 @@ export async function notifyFreelancersForJob(req: Request, res: Response) {
 
     const eventDate = job.event_date
       ? new Date(job.event_date).toLocaleDateString("en-GB", {
-          weekday: "short", year: "numeric", month: "short", day: "numeric",
+          weekday: "short",
+          year: "numeric",
+          month: "short",
+          day: "numeric",
         })
       : "Date TBC";
 
     const descriptionPreview = job.description
-      ? job.description.slice(0, 150).replace(/\s+\S*$/, "") + (job.description.length > 150 ? "…" : "")
+      ? job.description.slice(0, 150).replace(/\s+\S*$/, "") +
+        (job.description.length > 150 ? "…" : "")
       : "";
 
     // Update timestamp immediately so double-clicks don't send twice
@@ -680,13 +741,19 @@ export async function notifyFreelancersForJob(req: Request, res: Response) {
         }
       }
       // Set notification timestamps so frequency cap works across manual + automated sends
-      await storage.setManualNotificationTimestamps(jobId, notifiedUserIds).catch(err =>
-        console.error("Failed to set manual notification timestamps:", err)
+      await storage
+        .setManualNotificationTimestamps(jobId, notifiedUserIds)
+        .catch((err) => console.error("Failed to set manual notification timestamps:", err));
+      console.log(
+        `✅ Notify Freelancers: sent ${sent}/${matching.length} emails for job ${jobId} "${job.title}"`
       );
-      console.log(`✅ Notify Freelancers: sent ${sent}/${matching.length} emails for job ${jobId} "${job.title}"`);
     })();
 
-    res.json({ success: true, count: matching.length, message: `Notification sent to ${matching.length} freelancer${matching.length === 1 ? "" : "s"}` });
+    res.json({
+      success: true,
+      count: matching.length,
+      message: `Notification sent to ${matching.length} freelancer${matching.length === 1 ? "" : "s"}`,
+    });
   } catch (error) {
     console.error("Notify freelancers error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -749,45 +816,78 @@ function addSheet(
 // Export all admin dashboard data as a multi-sheet XLSX workbook
 export async function exportAdminXLSX(req: Request, res: Response) {
   try {
-    const [analytics, usersResult, jobsResult, feedbackList, contactList, adminUsers, ratingsAll] =
-      await Promise.all([
-        storage.getAdminAnalytics(),
-        storage.getAllUsers(1, 100000),
-        storage.getAdminJobs(1, 100000),
-        storage.getAllFeedback(),
-        storage.getAllContactMessages(),
-        storage.getAdminUsers(),
-        storage.getAllRatings(),
-      ]);
+    const [
+      analytics,
+      usersResult,
+      jobsResult,
+      feedbackList,
+      contactList,
+      adminUsers,
+      ratingsAll,
+      recruiterProfiles,
+    ] = await Promise.all([
+      storage.getAdminAnalytics(),
+      storage.getAllUsers(1, 100000),
+      storage.getAdminJobs(1, 100000),
+      storage.getAllFeedback(),
+      storage.getAllContactMessages(),
+      storage.getAdminUsers(),
+      storage.getAllRatings(),
+      storage.getAllRecruiterProfiles(),
+    ]);
+
+    // Country per user: freelancers already carry profile_country from getAllUsers;
+    // employers' country lives on their recruiter profile, so merge that in too.
+    const recruiterCountryByUserId = new Map<number, string>(
+      (recruiterProfiles || [])
+        .filter((r: any) => r.country)
+        .map((r: any) => [r.user_id, r.country as string])
+    );
 
     const wb = new ExcelJS.Workbook();
     wb.creator = "EventLink Admin";
     wb.created = new Date();
 
     // Sheet 1 — Overview
-    addSheet(wb, "Overview", ["Metric", "Value"], [
-      ["Total Users", analytics.users.total],
-      ["Active Users", analytics.users.active],
-      ["New Users This Month", analytics.users.thisMonth],
-      ["Total Jobs", analytics.jobs.total],
-      ["Active Jobs", analytics.jobs.active],
-      ["New Jobs This Month", analytics.jobs.thisMonth],
-      ["Pending Feedback", analytics.feedback.pending],
-      ["Total Applications", analytics.applications.total],
-      ["Hired Applications", analytics.applications.hired],
-      ["Applications This Month", analytics.applications.thisMonth],
-    ]);
+    addSheet(
+      wb,
+      "Overview",
+      ["Metric", "Value"],
+      [
+        ["Total Users", analytics.users.total],
+        ["Active Users", analytics.users.active],
+        ["New Users This Month", analytics.users.thisMonth],
+        ["Total Jobs", analytics.jobs.total],
+        ["Active Jobs", analytics.jobs.active],
+        ["New Jobs This Month", analytics.jobs.thisMonth],
+        ["Pending Feedback", analytics.feedback.pending],
+        ["Total Applications", analytics.applications.total],
+        ["Hired Applications", analytics.applications.hired],
+        ["Applications This Month", analytics.applications.thisMonth],
+      ]
+    );
 
     // Sheet 2 — Users
     addSheet(
       wb,
       "Users",
-      ["ID", "Full Name", "Email", "Role", "Status", "Email Verified", "Join Date", "Profile Status"],
+      [
+        "ID",
+        "Full Name",
+        "Email",
+        "Role",
+        "Country",
+        "Status",
+        "Email Verified",
+        "Join Date",
+        "Profile Status",
+      ],
       (usersResult.users || []).map((u: any) => [
         u.id,
         `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim(),
         u.email,
         u.role === "recruiter" ? "employer" : (u.role ?? ""),
+        u.profile_country ?? recruiterCountryByUserId.get(u.id) ?? "",
         u.status ?? "",
         u.email_verified ? "Yes" : "No",
         fmtDate(u.created_at),
@@ -799,7 +899,19 @@ export async function exportAdminXLSX(req: Request, res: Response) {
     addSheet(
       wb,
       "Jobs",
-      ["ID", "Title", "Company", "Location", "Status", "Type", "Applications", "Hired", "Posted By", "Poster Email", "Created Date"],
+      [
+        "ID",
+        "Title",
+        "Company",
+        "Location",
+        "Status",
+        "Type",
+        "Applications",
+        "Hired",
+        "Posted By",
+        "Poster Email",
+        "Created Date",
+      ],
       (jobsResult.jobs || []).map((j: any) => [
         j.id,
         j.title ?? "",
@@ -852,7 +964,17 @@ export async function exportAdminXLSX(req: Request, res: Response) {
     addSheet(
       wb,
       "Ratings",
-      ["ID", "Rating", "Comment", "Status", "Flagged", "Employer Email", "Job Title", "Admin Notes", "Created Date"],
+      [
+        "ID",
+        "Rating",
+        "Comment",
+        "Status",
+        "Flagged",
+        "Employer Email",
+        "Job Title",
+        "Admin Notes",
+        "Created Date",
+      ],
       (ratingsAll || []).map((r: any) => [
         r.id,
         r.overall_rating ?? "",
@@ -882,7 +1004,10 @@ export async function exportAdminXLSX(req: Request, res: Response) {
     );
 
     const filename = `eventlink_admin_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     await wb.xlsx.write(res);
     res.end();
@@ -907,19 +1032,42 @@ export async function sendBulkMessages(req: Request, res: Response) {
 
     if (Array.isArray(userIds) && userIds.length > 0) {
       // Specific user IDs were provided — fetch only those users
-      const { users } = await storage.getAllUsers(1, 100000, undefined, undefined, undefined, "created_at", "desc", undefined);
-      recipients = users.filter(u => userIds.includes(u.id) && u.id !== adminUser.id && u.role !== "admin");
+      const { users } = await storage.getAllUsers(
+        1,
+        100000,
+        undefined,
+        undefined,
+        undefined,
+        "created_at",
+        "desc",
+        undefined
+      );
+      recipients = users.filter(
+        (u) => userIds.includes(u.id) && u.id !== adminUser.id && u.role !== "admin"
+      );
     } else {
       const search = filters?.search || undefined;
       const role = filters?.role && filters.role !== "all" ? filters.role : undefined;
       const status = filters?.status && filters.status !== "all" ? filters.status : undefined;
-      const profileStatus = filters?.profileStatus && filters.profileStatus !== "all" ? filters.profileStatus : undefined;
+      const profileStatus =
+        filters?.profileStatus && filters.profileStatus !== "all"
+          ? filters.profileStatus
+          : undefined;
 
       // Fetch all matching users (no pagination cap)
-      const { users } = await storage.getAllUsers(1, 100000, search, role, status, "created_at", "desc", profileStatus);
+      const { users } = await storage.getAllUsers(
+        1,
+        100000,
+        search,
+        role,
+        status,
+        "created_at",
+        "desc",
+        profileStatus
+      );
 
       // Never message admins or the sender
-      recipients = users.filter(u => u.id !== adminUser.id && u.role !== "admin");
+      recipients = users.filter((u) => u.id !== adminUser.id && u.role !== "admin");
     }
 
     let sent = 0;
@@ -937,7 +1085,7 @@ export async function sendBulkMessages(req: Request, res: Response) {
           conversation_id: conversation.id,
           sender_id: adminUser.id,
           content: message.trim(),
-          is_system: false,
+          is_system_message: false,
         });
 
         const conversationUrl = `/dashboard?tab=messages&conversationId=${conversation.id}`;
@@ -947,7 +1095,7 @@ export async function sendBulkMessages(req: Request, res: Response) {
           type: "new_message",
           title: "New Message from EventLink",
           message: `You have a new message from ${adminName}`,
-          data: JSON.stringify({ conversation_id: conversation.id }),
+          metadata: JSON.stringify({ conversation_id: conversation.id }),
           action_url: conversationUrl,
         });
 
@@ -967,7 +1115,10 @@ export async function sendBulkMessages(req: Request, res: Response) {
             senderName: adminName,
             messagePreview,
             conversationId: conversation.id,
-            emailSubject: typeof emailSubject === "string" && emailSubject.trim() ? emailSubject.trim() : undefined,
+            emailSubject:
+              typeof emailSubject === "string" && emailSubject.trim()
+                ? emailSubject.trim()
+                : undefined,
           })
           .catch((err: any) =>
             console.error(`Bulk message email failed for user ${recipient.id}:`, err)
@@ -985,5 +1136,109 @@ export async function sendBulkMessages(req: Request, res: Response) {
   } catch (error) {
     console.error("Bulk message error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Get all teams/companies (admin only)
+export async function getAdminTeams(req: Request, res: Response) {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const search = (req.query.search as string) || undefined;
+    const sort = (req.query.sort as string) || undefined;
+
+    const { teams, total } = await storage.getAdminTeams(page, limit, search, sort);
+
+    res.json({
+      teams,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    });
+  } catch (error) {
+    console.error("Get admin teams error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// Get team detail (admin only)
+export async function getAdminTeamDetail(req: Request, res: Response) {
+  try {
+    const companyUserId = parseInt(req.params.id);
+    if (isNaN(companyUserId)) {
+      return res.status(400).json({ error: "Invalid company user ID" });
+    }
+
+    const result = await storage.getAdminTeamDetail(companyUserId);
+    if (!result) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Get admin team detail error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+/**
+ * Admin-only: link an existing user account to a company
+ * as a team member, bypassing the invitation email flow.
+ *
+ * POST /api/admin/team/link
+ * Body: { companyId, userId, role }
+ */
+export async function adminLinkTeamMember(req: Request, res: Response) {
+  try {
+    const { companyId, userId, role = "manager" } = req.body;
+
+    if (!companyId || !userId) {
+      return res.status(400).json({ error: "companyId and userId are both required" });
+    }
+
+    if (!["admin", "manager"].includes(role)) {
+      return res.status(400).json({ error: "Invalid role" });
+    }
+
+    const [company] = await db.select().from(users).where(eq(users.id, companyId));
+    const [member] = await db.select().from(users).where(eq(users.id, userId));
+
+    if (!company || !member) {
+      return res.status(404).json({ error: "One or both accounts not found" });
+    }
+
+    const [existing] = await db.select().from(teamMembers).where(eq(teamMembers.userId, userId));
+
+    if (existing) {
+      return res.status(409).json({
+        error: `User ${userId} is already linked to company ${existing.companyId}`,
+        existingLink: existing,
+      });
+    }
+
+    const [link] = await db
+      .insert(teamMembers)
+      .values({
+        companyId,
+        userId,
+        role,
+        invitedEmail: member.email,
+        inviteToken: null,
+        inviteAccepted: true,
+        inviteAcceptedAt: new Date(),
+      })
+      .returning();
+
+    console.log(`Admin linked user ${userId} (${member.email}) to company ${companyId} as ${role}`);
+
+    return res.status(201).json({
+      success: true,
+      message: `${member.email} is now linked to company ${companyId} as ${role}`,
+      membership: link,
+    });
+  } catch (error) {
+    console.error("adminLinkTeamMember error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }

@@ -11,6 +11,8 @@ import {
   serial,
   text,
   timestamp,
+  unique,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
@@ -49,16 +51,37 @@ export const users = pgTable(
     status: text("status").default("pending").notNull(),
     welcome_email_sent: boolean("welcome_email_sent").default(false).notNull(),
     marketing_emails_opt_out: boolean("marketing_emails_opt_out").default(false).notNull(),
-    unsubscribe_token: text("unsubscribe_token").unique(),
+    unsubscribe_token: text("unsubscribe_token"),
     job_alerts_opt_out: boolean("job_alerts_opt_out").default(false), // Freelancer has unsubscribed from job alert emails
     last_job_alert_sent_at: timestamp("last_job_alert_sent_at", { withTimezone: true }), // Timestamp of last job alert email sent
-    job_alert_frequency_preference: text("job_alert_frequency_preference").default("instant").$type<"instant" | "weekly" | "none">(), // 'instant' = include in batch, 'none' = no automated emails
+    job_alert_frequency_preference: text("job_alert_frequency_preference")
+      .default("instant")
+      .$type<"instant" | "weekly" | "none">(), // 'instant' = include in batch, 'none' = no automated emails
+    created_via: text("created_via"), // 'email' | 'google' | 'guest_job_post' | etc.
+    posting_suspended_at: timestamp("posting_suspended_at", { withTimezone: true }), // Set when admin suspends guest posting ability
+    // Stripe / subscription columns. These live in the production database but
+    // were added outside Drizzle, so they were never in this schema — declaring
+    // them here keeps `drizzle-kit push` from proposing to DROP them (which would
+    // lose Stripe/subscription data). Types mirror the live columns exactly.
+    stripe_customer_id: text("stripe_customer_id"),
+    stripe_subscription_id: text("stripe_subscription_id"),
+    subscription_tier: text("subscription_tier").default("free"),
+    subscription_expires_at: timestamp("subscription_expires_at", { withTimezone: true }),
+    // Contextual help system preference: "full" keeps both the passive hint layer
+    // and the discovery layer, "hover_only" keeps passive hints but silences the
+    // discovery layer, "off" disables everything. On by default.
+    help_mode: text("help_mode").default("full").$type<"full" | "hover_only" | "off">(),
   },
-  table => ({
+  (table) => ({
     statusCheck: check(
       "users_status_check",
       sql`${table.status} IN ('pending', 'active', 'deactivated')`
     ),
+    // Partial unique index — matches the live DB definition exactly so drizzle-kit
+    // does not propose to swap a regular unique constraint for this on every push.
+    unsubscribeTokenUnique: uniqueIndex("users_unsubscribe_token_unique")
+      .on(table.unsubscribe_token)
+      .where(sql`${table.unsubscribe_token} IS NOT NULL`),
   })
 );
 
@@ -70,7 +93,7 @@ export const user_sessions = pgTable(
     sess: json("sess").notNull(),
     expire: timestamp("expire", { precision: 6, withTimezone: false }).notNull(),
   },
-  table => ({
+  (table) => ({
     pk: primaryKey({ name: "session_pkey", columns: [table.sid] }),
     expireIdx: index("IDX_session_expire").on(table.expire),
   })
@@ -89,6 +112,8 @@ export const freelancer_profiles = pgTable(
     superpower: text("superpower"), // Short standout skill (e.g. "vMix Operator")
     bio: text("bio"),
     location: text("location"),
+    country: text("country"),
+    state_province: text("state_province"), // US state / Canadian province or territory (required for those countries)
     experience_years: integer("experience_years"),
     skills: text("skills").array(),
     portfolio_url: text("portfolio_url"),
@@ -102,8 +127,11 @@ export const freelancer_profiles = pgTable(
     cv_file_name: text("cv_file_name"),
     cv_file_type: text("cv_file_type"),
     cv_file_size: integer("cv_file_size"),
+    profile_is_public: boolean("profile_is_public").notNull().default(true),
     reference_token: text("reference_token"), // UUID for public reference request link
     slug: text("slug"), // SEO-friendly URL slug e.g. james-harris-sound-engineer
+    custom_slug: text("custom_slug"), // User-chosen vanity URL e.g. john-smith
+    is_demo: boolean("is_demo").notNull().default(false), // Internal seed/demo/test record — excluded from public search results and the sitemap
     // Structured CV-derived fields (confirmed by freelancer from CV parsing)
     work_history: jsonb("work_history"), // JSON array of {jobTitle, company, dates, details}
     education_history: jsonb("education_history"), // JSON array of {qualification, institution, dates}
@@ -111,7 +139,7 @@ export const freelancer_profiles = pgTable(
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     titleIdx: index("freelancer_profiles_title_idx").on(table.title),
     locationIdx: index("freelancer_profiles_location_idx").on(table.location),
     availabilityIdx: index("freelancer_profiles_availability_idx").on(table.availability_status),
@@ -128,7 +156,7 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
   company_name: text("company_name").notNull(),
   contact_name: text("contact_name"),
   company_type: text("company_type"),
-  company_size: text("company_size"),           // "1-5" | "6-20" | "21-50" | "51-200" | "200+"
+  company_size: text("company_size"), // "1-5" | "6-20" | "21-50" | "51-200" | "200+"
   founded_year: integer("founded_year"),
   company_registration_number: text("company_registration_number"),
   vat_number: text("vat_number"),
@@ -140,7 +168,7 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
   slug: text("slug"),
 
   // ── Contact & Location ───────────────────────────────────────────────────
-  location: text("location"),                   // Legacy / display city
+  location: text("location"), // Legacy / display city
   address_line1: text("address_line1"),
   address_line2: text("address_line2"),
   city: text("city"),
@@ -161,21 +189,21 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
   billing_postcode: text("billing_postcode"),
 
   // ── Operations ───────────────────────────────────────────────────────────
-  specialisations: text("specialisations").array(),   // e.g. ["Live Events","AV","Broadcast"]
-  typical_roles: text("typical_roles").array(),       // crew roles they typically hire
+  specialisations: text("specialisations").array(), // e.g. ["Live Events","AV","Broadcast"]
+  typical_roles: text("typical_roles").array(), // crew roles they typically hire
   day_rate_min: integer("day_rate_min"),
   day_rate_max: integer("day_rate_max"),
-  payment_terms: text("payment_terms"),               // "14 days" | "30 days" | "on completion"
-  ir35_preference: text("ir35_preference"),           // "inside" | "outside" | "both"
+  payment_terms: text("payment_terms"), // "14 days" | "30 days" | "on completion"
+  ir35_preference: text("ir35_preference"), // "inside" | "outside" | "both"
 
   // ── Insurance & Compliance ───────────────────────────────────────────────
-  public_liability_value: text("public_liability_value"),  // "£2m" | "£5m" | "£10m"
+  public_liability_value: text("public_liability_value"), // "£2m" | "£5m" | "£10m"
   employers_liability: boolean("employers_liability").default(false),
   professional_indemnity: boolean("professional_indemnity").default(false),
   gdpr_compliant: boolean("gdpr_compliant").default(false),
 
   // ── Accreditations ───────────────────────────────────────────────────────
-  industry_bodies: text("industry_bodies").array(),   // ["ALD","PLASA","PSA"]
+  industry_bodies: text("industry_bodies").array(), // ["ALD","PLASA","PSA"]
   other_accreditations: text("other_accreditations"),
 
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -184,10 +212,15 @@ export const recruiter_profiles = pgTable("recruiter_profiles", {
 
 export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
-  recruiter_id: integer("recruiter_id").references(() => users.id, { onDelete: "cascade" }), // Made nullable for external jobs
+  recruiter_id: integer("recruiter_id").references(() => users.id, { onDelete: "cascade" }), // Company owner id; nullable for external jobs
+  posted_by_user_id: integer("posted_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }), // User who created the posting — receives application alerts (legacy rows: company owner)
   title: text("title").notNull(),
   company: text("company").notNull(),
   location: text("location").notNull(),
+  country: text("country"),
+  currency: text("currency").default("GBP"),
   type: text("type")
     .notNull()
     .$type<"full-time" | "part-time" | "contract" | "temporary" | "freelance" | "external">(),
@@ -204,14 +237,32 @@ export const jobs = pgTable("jobs", {
   hours: integer("hours"), // Number of hours if duration_type = 'hours'
   status: text("status").default("private").$type<"active" | "paused" | "closed" | "private">(),
   external_id: text("external_id"), // For external job IDs (reed_123, adzuna_456)
-  external_source: text("external_source").$type<"reed" | "adzuna" | null>(), // Source of external job
+  external_source: text("external_source").$type<
+    "reed" | "adzuna" | "jooble" | "careerjet" | "jsearch" | null
+  >(), // Source of external job
   external_url: text("external_url"), // URL to original job posting
   posted_date: text("posted_date"), // Original posting date from external source
   slug: text("slug"), // SEO-friendly URL slug e.g. sound-engineer-london-4821
   last_notified_at: timestamp("last_notified_at", { withTimezone: true }), // When admin last sent "Notify Freelancers" for this job
-  notification_batch_window: text("notification_batch_window").$type<"morning" | "afternoon" | null>(), // Batch window assignment; cleared after send
+  notification_batch_window: text("notification_batch_window").$type<
+    "morning" | "afternoon" | null
+  >(), // Batch window assignment; cleared after send
   notification_sent_at: timestamp("notification_sent_at", { withTimezone: true }), // When automated batch notification was sent
   is_urgent: boolean("is_urgent").default(false), // true when event date is within 48h of publication
+  is_freelancer_posted: boolean("is_freelancer_posted").default(false).notNull(),
+  poster_type: text("poster_type")
+    .notNull()
+    .default("company")
+    .$type<"company" | "freelancer" | "guest">(),
+  moderation_status: text("moderation_status")
+    .notNull()
+    .default("approved")
+    .$type<"pending" | "approved" | "rejected">(),
+  moderated_at: timestamp("moderated_at", { withTimezone: true }),
+  moderated_by_user_id: integer("moderated_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  moderation_note: text("moderation_note"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -226,9 +277,7 @@ export const job_applications = pgTable("job_applications", {
     .references(() => users.id, { onDelete: "cascade" }),
   status: text("status")
     .default("applied")
-    .$type<
-      "applied" | "reviewed" | "shortlisted" | "hired" | "invited" | "declined"
-    >(),
+    .$type<"applied" | "reviewed" | "shortlisted" | "hired" | "invited" | "declined">(),
   cover_letter: text("cover_letter"),
   rejection_message: text("rejection_message"), // Message explaining rejection (recruiter -> freelancer)
   invitation_message: text("invitation_message"), // Message sent with invitation (recruiter -> freelancer)
@@ -376,7 +425,7 @@ export const ratings = pgTable(
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     statusCheck: check(
       "ratings_status_check",
       sql`${table.status} IN ('active', 'flagged', 'removed')`
@@ -444,7 +493,7 @@ export const insertFreelancerProfileSchema = createInsertSchema(freelancer_profi
     hourly_rate: z
       .number()
       .nullable()
-      .transform(val => (val ? val.toString() : null)),
+      .transform((val) => (val ? val.toString() : null)),
   });
 
 export const insertRecruiterProfileSchema = createInsertSchema(recruiter_profiles)
@@ -468,8 +517,36 @@ export const insertJobSchema = createInsertSchema(jobs)
     company: z.string().min(1, "Company name is required"),
     title: z.string().min(1, "Job title is required"),
     location: z.string().min(1, "Location is required"),
+    country: z.string().min(1, "Country is required"),
+    rate: z.string().min(1, "Rate is required"),
     description: z.string().optional().default(""),
     type: z.string().optional().default("freelance"),
+  });
+
+export const insertFreelancerJobSchema = createInsertSchema(jobs)
+  .omit({
+    id: true,
+    created_at: true,
+    updated_at: true,
+    recruiter_id: true,
+    posted_by_user_id: true,
+    is_freelancer_posted: true,
+    external_id: true,
+    external_source: true,
+    external_url: true,
+    posted_date: true,
+    last_notified_at: true,
+    notification_batch_window: true,
+    notification_sent_at: true,
+  })
+  .extend({
+    title: z.string().min(1, "Job title is required"),
+    location: z.string().min(1, "Location is required"),
+    country: z.string().min(1, "Country is required"),
+    rate: z.string().min(1, "Rate is required"),
+    description: z.string().optional().default(""),
+    type: z.string().optional().default("freelance"),
+    company: z.string().optional(),
   });
 
 export const insertJobApplicationSchema = createInsertSchema(job_applications)
@@ -563,7 +640,7 @@ export const feedback = pgTable(
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     resolved_at: timestamp("resolved_at", { withTimezone: true }),
   },
-  table => ({
+  (table) => ({
     createdAtIdx: index("feedback_created_at_idx").on(table.created_at),
   })
 );
@@ -581,7 +658,7 @@ export const contact_messages = pgTable(
     user_agent: text("user_agent"), // Browser/device information
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     createdAtIdx: index("contact_messages_created_at_idx").on(table.created_at),
   })
 );
@@ -647,6 +724,22 @@ export const email_notification_logs = pgTable("email_notification_logs", {
   sent_at: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Tracks the "complete your profile" nudge drip series sent to freelancers who
+// signed up but have not created a profile. One row per user, created on the
+// first nudge. Kept in its own table so the scheduler's tracking never touches
+// the users select path.
+export const profile_nudge_emails = pgTable("profile_nudge_emails", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  nudge_1_sent_at: timestamp("nudge_1_sent_at", { withTimezone: true }),
+  nudge_2_sent_at: timestamp("nudge_2_sent_at", { withTimezone: true }),
+  nudge_3_sent_at: timestamp("nudge_3_sent_at", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // CV parsed data - stores extracted information from CV in draft state until confirmed
 export const cv_parsed_data = pgTable("cv_parsed_data", {
   id: serial("id").primaryKey(),
@@ -666,6 +759,7 @@ export const cv_parsed_data = pgTable("cv_parsed_data", {
   extracted_skills: text("extracted_skills").array(), // Array of skills
   extracted_bio: text("extracted_bio"),
   extracted_location: text("extracted_location"),
+  extracted_country: text("extracted_country"),
   extracted_experience_years: integer("extracted_experience_years"),
   extracted_education: text("extracted_education"), // JSON string for education history
   extracted_work_history: text("extracted_work_history"), // JSON string for work experience
@@ -774,12 +868,14 @@ export const job_link_views = pgTable(
     job_id: integer("job_id")
       .notNull()
       .references(() => jobs.id, { onDelete: "cascade" }),
-    source: text("source").$type<"direct" | "linkedin" | "whatsapp" | "email" | "facebook" | "twitter" | "copy" | "other">(),
+    source: text("source").$type<
+      "direct" | "linkedin" | "whatsapp" | "email" | "facebook" | "twitter" | "copy" | "other"
+    >(),
     referrer: text("referrer"),
     user_agent: text("user_agent"),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     jobIdIdx: index("job_link_views_job_id_idx").on(table.job_id),
     createdAtIdx: index("job_link_views_created_at_idx").on(table.created_at),
   })
@@ -823,7 +919,7 @@ export const freelancer_documents = pgTable(
     file_type: text("file_type").notNull(),
     uploaded_at: timestamp("uploaded_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     freelancerIdx: index("freelancer_documents_freelancer_idx").on(table.freelancer_id),
   })
 );
@@ -897,9 +993,12 @@ export const saved_freelancers = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  table => ({
+  (table) => ({
     recruiterIdx: index("saved_freelancers_recruiter_idx").on(table.recruiter_id),
-    uniquePair: index("saved_freelancers_unique_pair_idx").on(table.recruiter_id, table.freelancer_id),
+    uniquePair: index("saved_freelancers_unique_pair_idx").on(
+      table.recruiter_id,
+      table.freelancer_id
+    ),
   })
 );
 
@@ -923,11 +1022,18 @@ export const freelancer_references = pgTable("freelancer_references", {
   referee_role: text("referee_role"),
   q1_confirmed: boolean("q1_confirmed").notNull(),
   q2_rating: text("q2_rating").$type<"excellent" | "good" | "mixed" | "prefer_not_to_say">(),
-  q3_would_work_again: text("q3_would_work_again").$type<"absolutely" | "yes" | "unlikely" | "prefer_not_to_say">(),
+  q3_would_work_again: text("q3_would_work_again").$type<
+    "absolutely" | "yes" | "unlikely" | "prefer_not_to_say"
+  >(),
   comment: text("comment"),
-  badge_result: text("badge_result").$type<"highly_recommended" | "recommended" | "verified_private" | "work_history_confirmed" | "flagged">(),
+  badge_result: text("badge_result").$type<
+    "highly_recommended" | "recommended" | "verified_private" | "work_history_confirmed" | "flagged"
+  >(),
   is_flagged: boolean("is_flagged").default(false).notNull(),
-  verification_type: text("verification_type").$type<"none" | "email" | "linkedin" | "eventlink_member">().default("none").notNull(),
+  verification_type: text("verification_type")
+    .$type<"none" | "email" | "linkedin" | "eventlink_member">()
+    .default("none")
+    .notNull(),
   verified_email: text("verified_email"),
   email_domain: text("email_domain"),
   domain_trust_level: text("domain_trust_level").$type<"high" | "medium" | "low">(),
@@ -970,7 +1076,10 @@ export const reference_requests = pgTable("reference_requests", {
     .references(() => users.id, { onDelete: "cascade" }),
   referee_email: text("referee_email").notNull(),
   referee_name: text("referee_name"),
-  status: text("status").$type<"pending" | "completed" | "cancelled">().default("pending").notNull(),
+  status: text("status")
+    .$type<"pending" | "completed" | "cancelled">()
+    .default("pending")
+    .notNull(),
   reminder_sent: boolean("reminder_sent").default(false).notNull(),
   reminder_sent_at: timestamp("reminder_sent_at", { withTimezone: true }),
   reference_id: integer("reference_id").references(() => freelancer_references.id),
@@ -1041,30 +1150,36 @@ export const bookings = pgTable("bookings", {
   ir35AssessedAt: timestamp("ir35_assessed_at", { withTimezone: true }),
   ir35Notes: text("ir35_notes"),
   // Skills & role context
-  roleRequired: text("role_required"),           // e.g. "FOH Engineer"
-  skillTags: text("skill_tags").array(),          // e.g. ["Midas M32","DiGiCo SD9"]
+  roleRequired: text("role_required"), // e.g. "FOH Engineer"
+  skillTags: text("skill_tags").array(), // e.g. ["Midas M32","DiGiCo SD9"]
   // Budget tracking
-  agreedBudget: integer("agreed_budget"),         // employer's budget for this booking (pence)
-  actualCost: integer("actual_cost"),             // actual amount paid (pence)
-  expenses: integer("expenses"),                  // any expenses claimed (pence)
+  agreedBudget: integer("agreed_budget"), // employer's budget for this booking (pence)
+  actualCost: integer("actual_cost"), // actual amount paid (pence)
+  expenses: integer("expenses"), // any expenses claimed (pence)
   budgetNotes: text("budget_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const bookingStatusHistory = pgTable("booking_status_history", {
-  id: serial("id").primaryKey(),
-  bookingId: integer("booking_id")
-    .notNull()
-    .references(() => bookings.id, { onDelete: "cascade" }),
-  fromStatus: text("from_status"),
-  toStatus: text("to_status").notNull(),
-  changedById: integer("changed_by_id")
-    .notNull()
-    .references(() => users.id),
-  note: text("note"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const bookingStatusHistory = pgTable(
+  "booking_status_history",
+  {
+    id: serial("id").primaryKey(),
+    bookingId: integer("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    fromStatus: text("from_status"),
+    toStatus: text("to_status").notNull(),
+    changedById: integer("changed_by_id")
+      .notNull()
+      .references(() => users.id),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    bookingIdIdx: index("booking_history_booking_id_idx").on(table.bookingId),
+  })
+);
 
 export const insertBookingSchema = createInsertSchema(bookings).omit({
   id: true,
@@ -1091,8 +1206,9 @@ export type InsertBooking = typeof bookings.$inferInsert;
 export type BookingStatusHistory = typeof bookingStatusHistory.$inferSelect;
 
 // ============================================================
+
 // FMS Phase 2 — Availability Enquiry System
-// ============================================================
+// ====================================================
 
 export const availability_enquiries = pgTable("availability_enquiries", {
   id: serial("id").primaryKey(),
@@ -1159,91 +1275,102 @@ export type InsertAvailabilityResponse = z.infer<typeof insertAvailabilityRespon
 // FMS Phase 3 — Brief Templates & Delivery
 // ============================================================
 
-export const brief_templates = pgTable('brief_templates', {
-  id: serial('id').primaryKey(),
-  employerId: integer('employer_id')
+export const brief_templates = pgTable("brief_templates", {
+  id: serial("id").primaryKey(),
+  employerId: integer("employer_id")
     .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  details: text('details'),
-  callTime: text('call_time'),
-  venueAddress: text('venue_address'),
-  roleRequired: text('role_required'),
-  dresscode: text('dresscode'),
-  parkingInfo: text('parking_info'),
-  contactOnDay: text('contact_on_day'),
-  scheduleNotes: text('schedule_notes'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  details: text("details"),
+  callTime: text("call_time"),
+  venueAddress: text("venue_address"),
+  roleRequired: text("role_required"),
+  dresscode: text("dresscode"),
+  parkingInfo: text("parking_info"),
+  contactOnDay: text("contact_on_day"),
+  scheduleNotes: text("schedule_notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const briefs = pgTable('briefs', {
-  id: serial('id').primaryKey(),
-  bookingId: integer('booking_id')
+export const briefs = pgTable("briefs", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id")
     .notNull()
-    .references(() => bookings.id, { onDelete: 'cascade' }),
-  employerId: integer('employer_id')
+    .references(() => bookings.id, { onDelete: "cascade" }),
+  employerId: integer("employer_id")
     .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  freelancerId: integer('freelancer_id')
+    .references(() => users.id, { onDelete: "cascade" }),
+  freelancerId: integer("freelancer_id")
     .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  eventTitle: text('event_title').notNull(),
-  eventDate: text('event_date').notNull(),
-  callTime: text('call_time'),
-  venueAddress: text('venue_address'),
-  roleRequired: text('role_required'),
-  agreedRate: text('agreed_rate'),
-  details: text('details'),
-  dresscode: text('dresscode'),
-  parkingInfo: text('parking_info'),
-  contactOnDay: text('contact_on_day'),
-  scheduleNotes: text('schedule_notes'),
-  token: text('token').notNull().unique(),
-  status: text('status')
-    .notNull()
-    .default('sent')
-    .$type<'sent' | 'acknowledged'>(),
-  acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true }),
-  acknowledgementNote: text('acknowledgement_note'),
-  sentAt: timestamp('sent_at', { withTimezone: true }).defaultNow().notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    .references(() => users.id, { onDelete: "cascade" }),
+  eventTitle: text("event_title").notNull(),
+  eventDate: text("event_date").notNull(),
+  callTime: text("call_time"),
+  venueAddress: text("venue_address"),
+  roleRequired: text("role_required"),
+  agreedRate: text("agreed_rate"),
+  details: text("details"),
+  dresscode: text("dresscode"),
+  parkingInfo: text("parking_info"),
+  contactOnDay: text("contact_on_day"),
+  scheduleNotes: text("schedule_notes"),
+  token: text("token").notNull().unique(),
+  status: text("status").notNull().default("sent").$type<"sent" | "acknowledged">(),
+  acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+  acknowledgementNote: text("acknowledgement_note"),
+  sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const brief_attachments = pgTable('brief_attachments', {
-  id: serial('id').primaryKey(),
-  briefId: integer('brief_id')
+export const brief_attachments = pgTable("brief_attachments", {
+  id: serial("id").primaryKey(),
+  briefId: integer("brief_id")
     .notNull()
-    .references(() => briefs.id, { onDelete: 'cascade' }),
-  objectPath: text('object_path').notNull(),
-  originalFilename: text('original_filename').notNull(),
-  fileType: text('file_type').notNull(),
-  fileSize: integer('file_size').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    .references(() => briefs.id, { onDelete: "cascade" }),
+  objectPath: text("object_path").notNull(),
+  originalFilename: text("original_filename").notNull(),
+  fileType: text("file_type").notNull(),
+  fileSize: integer("file_size").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const insertBriefTemplateSchema = createInsertSchema(brief_templates).omit({
-  id: true, createdAt: true, updatedAt: true,
-}).extend({
-  employerId: z.number(),
-  name: z.string().min(1, 'Template name is required'),
-});
+export const insertBriefTemplateSchema = createInsertSchema(brief_templates)
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .extend({
+    employerId: z.number(),
+    name: z.string().min(1, "Template name is required"),
+  });
 
-export const insertBriefSchema = createInsertSchema(briefs).omit({
-  id: true, createdAt: true, updatedAt: true, sentAt: true,
-  status: true, acknowledgedAt: true, token: true,
-}).extend({
-  bookingId: z.number(),
-  employerId: z.number(),
-  freelancerId: z.number(),
-  eventTitle: z.string().min(1, 'Event title is required'),
-  eventDate: z.string().min(1, 'Event date is required'),
-});
+export const insertBriefSchema = createInsertSchema(briefs)
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+    sentAt: true,
+    status: true,
+    acknowledgedAt: true,
+    token: true,
+  })
+  .extend({
+    bookingId: z.number(),
+    employerId: z.number(),
+    freelancerId: z.number(),
+    eventTitle: z.string().min(1, "Event title is required"),
+    eventDate: z.string().min(1, "Event date is required"),
+  });
 
-export const insertBriefAttachmentSchema = createInsertSchema(brief_attachments).omit({
-  id: true, createdAt: true,
-}).extend({ briefId: z.number() });
+export const insertBriefAttachmentSchema = createInsertSchema(brief_attachments)
+  .omit({
+    id: true,
+    createdAt: true,
+  })
+  .extend({ briefId: z.number() });
 
 export type BriefTemplate = typeof brief_templates.$inferSelect;
 export type InsertBriefTemplate = z.infer<typeof insertBriefTemplateSchema>;
@@ -1326,14 +1453,8 @@ export const team_members = pgTable("team_members", {
     .notNull()
     .references(() => team_accounts.id, { onDelete: "cascade" }),
   userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
-  role: text("role")
-    .notNull()
-    .default("manager")
-    .$type<"owner" | "admin" | "manager">(),
-  status: text("status")
-    .notNull()
-    .default("active")
-    .$type<"active" | "invited" | "suspended">(),
+  role: text("role").notNull().default("manager").$type<"owner" | "admin" | "manager">(),
+  status: text("status").notNull().default("active").$type<"active" | "invited" | "suspended">(),
   invitedByUserId: integer("invited_by_user_id").references(() => users.id, {
     onDelete: "set null",
   }),
@@ -1372,7 +1493,9 @@ export type TeamDelegateAccess = typeof team_delegate_access.$inferSelect;
 
 export const quotes = pgTable("quotes", {
   id: serial("id").primaryKey(),
-  employerId: integer("employer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  employerId: integer("employer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   // Client info (may differ from recruiter profile)
   clientName: text("client_name").notNull(),
   clientEmail: text("client_email"),
@@ -1383,17 +1506,19 @@ export const quotes = pgTable("quotes", {
   eventDate: text("event_date"),
   venueAddress: text("venue_address"),
   // Quote metadata
-  quoteNumber: text("quote_number").notNull(),   // e.g. "QT-2026-001"
-  status: text("status").notNull().default("draft")
+  quoteNumber: text("quote_number").notNull(), // e.g. "QT-2026-001"
+  status: text("status")
+    .notNull()
+    .default("draft")
     .$type<"draft" | "sent" | "accepted" | "declined" | "expired">(),
-  validUntil: text("valid_until"),               // ISO date
+  validUntil: text("valid_until"), // ISO date
   currency: text("currency").notNull().default("GBP"),
   // Financial
-  subtotal: integer("subtotal").notNull().default(0),  // pence
-  vatRate: integer("vat_rate").notNull().default(20),  // percent
+  subtotal: integer("subtotal").notNull().default(0), // pence
+  vatRate: integer("vat_rate").notNull().default(20), // percent
   vatAmount: integer("vat_amount").notNull().default(0),
   total: integer("total").notNull().default(0),
-  discount: integer("discount").default(0),            // pence
+  discount: integer("discount").default(0), // pence
   // Content
   notes: text("notes"),
   terms: text("terms"),
@@ -1410,17 +1535,21 @@ export const quotes = pgTable("quotes", {
 
 export const quote_line_items = pgTable("quote_line_items", {
   id: serial("id").primaryKey(),
-  quoteId: integer("quote_id").notNull().references(() => quotes.id, { onDelete: "cascade" }),
+  quoteId: integer("quote_id")
+    .notNull()
+    .references(() => quotes.id, { onDelete: "cascade" }),
   description: text("description").notNull(),
   quantity: integer("quantity").notNull().default(1),
-  unitPrice: integer("unit_price").notNull().default(0),  // pence
-  total: integer("total").notNull().default(0),           // pence
+  unitPrice: integer("unit_price").notNull().default(0), // pence
+  total: integer("total").notNull().default(0), // pence
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
-  employerId: integer("employer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  employerId: integer("employer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   quoteId: integer("quote_id").references(() => quotes.id, { onDelete: "set null" }),
   bookingId: integer("booking_id").references(() => bookings.id, { onDelete: "set null" }),
   // Client info
@@ -1429,8 +1558,10 @@ export const invoices = pgTable("invoices", {
   clientCompany: text("client_company"),
   clientAddress: text("client_address"),
   // Invoice metadata
-  invoiceNumber: text("invoice_number").notNull(),  // e.g. "INV-2026-001"
-  status: text("status").notNull().default("draft")
+  invoiceNumber: text("invoice_number").notNull(), // e.g. "INV-2026-001"
+  status: text("status")
+    .notNull()
+    .default("draft")
     .$type<"draft" | "sent" | "paid" | "overdue" | "cancelled">(),
   currency: text("currency").notNull().default("GBP"),
   issueDate: text("issue_date").notNull(),
@@ -1458,7 +1589,9 @@ export const invoices = pgTable("invoices", {
 
 export const invoice_line_items = pgTable("invoice_line_items", {
   id: serial("id").primaryKey(),
-  invoiceId: integer("invoice_id").notNull().references(() => invoices.id, { onDelete: "cascade" }),
+  invoiceId: integer("invoice_id")
+    .notNull()
+    .references(() => invoices.id, { onDelete: "cascade" }),
   description: text("description").notNull(),
   quantity: integer("quantity").notNull().default(1),
   unitPrice: integer("unit_price").notNull().default(0),
@@ -1466,10 +1599,210 @@ export const invoice_line_items = pgTable("invoice_line_items", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
-export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertQuoteSchema = createInsertSchema(quotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
 
 export type Quote = typeof quotes.$inferSelect;
 export type QuoteLineItem = typeof quote_line_items.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type InvoiceLineItem = typeof invoice_line_items.$inferSelect;
+
+// Team Members
+// ============================================================
+
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+    role: text("role").notNull().default("manager"),
+    invitedEmail: text("invited_email").notNull(),
+    inviteToken: text("invite_token").unique(),
+    inviteAccepted: boolean("invite_accepted").notNull().default(false),
+    inviteSentAt: timestamp("invite_sent_at", { withTimezone: true }).defaultNow(),
+    inviteAcceptedAt: timestamp("invite_accepted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userUnique: unique("team_members_user_unique").on(table.userId),
+    companyIdIdx: index("team_members_company_id_idx").on(table.companyId),
+    userIdIdx: index("team_members_user_id_idx").on(table.userId),
+    inviteTokenIdx: index("team_members_invite_token_idx").on(table.inviteToken),
+  })
+);
+
+// ============================================================
+// Job Documents
+// ============================================================
+
+export const jobDocuments = pgTable(
+  "job_documents",
+  {
+    id: serial("id").primaryKey(),
+    jobId: integer("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    uploadedByUserId: integer("uploaded_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    fileName: text("file_name").notNull(),
+    fileKey: text("file_key").notNull().unique(),
+    fileSize: integer("file_size"),
+    fileType: text("file_type"),
+    documentType: text("document_type").notNull().default("other"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    jobIdIdx: index("job_documents_job_id_idx").on(table.jobId),
+    uploadedByIdx: index("job_documents_uploaded_by_idx").on(table.uploadedByUserId),
+  })
+);
+
+export type JobDocument = typeof jobDocuments.$inferSelect;
+export type InsertJobDocument = typeof jobDocuments.$inferInsert;
+
+// ============================================================
+// Guest Job Posting — Draft holding area (Phase 1)
+// ============================================================
+
+export const job_drafts = pgTable(
+  "job_drafts",
+  {
+    id: serial("id").primaryKey(),
+    payload: jsonb("payload").notNull(), // Full job form data
+    contact_name: text("contact_name").notNull(),
+    contact_email: text("contact_email").notNull(), // Stored lowercase
+    token_hash: text("token_hash").notNull().unique(), // SHA-256 of the magic-link token
+    ip_address: text("ip_address"),
+    user_agent: text("user_agent"),
+    terms_version: text("terms_version").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    expires_at: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumed_at: timestamp("consumed_at", { withTimezone: true }), // Stamped when magic link is clicked
+    published_job_id: integer("published_job_id").references(() => jobs.id, {
+      onDelete: "set null",
+    }),
+    nudge_sent_at: timestamp("nudge_sent_at", { withTimezone: true }), // When reminder email was sent
+  },
+  (table) => ({
+    emailIdx: index("job_drafts_email_idx").on(table.contact_email),
+    expiryIdx: index("job_drafts_expiry_idx").on(table.expires_at),
+  })
+);
+
+export const insertJobDraftSchema = createInsertSchema(job_drafts).omit({
+  id: true,
+  created_at: true,
+  consumed_at: true,
+  published_job_id: true,
+  nudge_sent_at: true,
+});
+
+export type JobDraft = typeof job_drafts.$inferSelect;
+export type InsertJobDraft = z.infer<typeof insertJobDraftSchema>;
+
+// One-time token that lets a guest view a specific application without logging in
+export const guest_application_tokens = pgTable("guest_application_tokens", {
+  id: serial("id").primaryKey(),
+  token_hash: text("token_hash").notNull().unique(),
+  application_id: integer("application_id")
+    .notNull()
+    .references(() => job_applications.id, { onDelete: "cascade" }),
+  job_id: integer("job_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  guest_email: text("guest_email").notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  expires_at: timestamp("expires_at", { withTimezone: true }).notNull(),
+  viewed_at: timestamp("viewed_at", { withTimezone: true }),
+});
+
+export type GuestApplicationToken = typeof guest_application_tokens.$inferSelect;
+
+// ============================================================
+// Contextual help system ("talking clouds")
+// ============================================================
+
+// Per-user, per-help-key interaction state (seen / dismissed / completed).
+export const help_user_state = pgTable(
+  "help_user_state",
+  {
+    id: serial("id").primaryKey(),
+    user_id: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    help_key: text("help_key").notNull(),
+    seen_count: integer("seen_count").notNull().default(0),
+    last_seen_at: timestamp("last_seen_at", { withTimezone: true }),
+    dismissed_count: integer("dismissed_count").notNull().default(0),
+    dismissed_at: timestamp("dismissed_at", { withTimezone: true }),
+    // Set when the user actually used the thing the hint describes.
+    completed_at: timestamp("completed_at", { withTimezone: true }),
+    // Entry version at the time of the last interaction (for re-show on rewrite).
+    content_version: integer("content_version").notNull().default(1),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userKeyUnique: unique("help_user_state_user_key_unique").on(t.user_id, t.help_key),
+    userIdx: index("help_user_state_user_idx").on(t.user_id),
+  })
+);
+
+// Per-user, per-route-pattern visit counts (drives the eager-then-reactive speed model).
+export const help_route_visits = pgTable(
+  "help_route_visits",
+  {
+    id: serial("id").primaryKey(),
+    user_id: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    route: text("route").notNull(), // wouter pattern, e.g. "/jobs/:id"
+    visit_count: integer("visit_count").notNull().default(0),
+    first_visited_at: timestamp("first_visited_at", { withTimezone: true }).defaultNow().notNull(),
+    last_visited_at: timestamp("last_visited_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userRouteUnique: unique("help_route_visits_user_route_unique").on(t.user_id, t.route),
+  })
+);
+
+// Admin-editable copy overrides, merged over the code registry (override wins).
+export const help_content_overrides = pgTable("help_content_overrides", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  title: text("title"),
+  body: text("body"),
+  learn_more_href: text("learn_more_href"),
+  version: integer("version").notNull().default(1),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_by: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+});
+
+export const insertHelpUserStateSchema = createInsertSchema(help_user_state).omit({
+  id: true,
+  updated_at: true,
+});
+export const insertHelpRouteVisitSchema = createInsertSchema(help_route_visits).omit({
+  id: true,
+});
+export const insertHelpContentOverrideSchema = createInsertSchema(help_content_overrides).omit({
+  id: true,
+  updated_at: true,
+});
+
+export type HelpUserState = typeof help_user_state.$inferSelect;
+export type HelpRouteVisit = typeof help_route_visits.$inferSelect;
+export type HelpContentOverride = typeof help_content_overrides.$inferSelect;
+export type HelpMode = "full" | "hover_only" | "off";

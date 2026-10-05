@@ -2,6 +2,18 @@ import { insertFreelancerProfileSchema, insertRecruiterProfileSchema } from "@sh
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import sharp from "sharp";
+import { canManageTeam, getEmployerCompanyId } from "../utils/team.util";
+import { isLocalPath, resolveLocalPath } from "../utils/local-storage-fallback";
+
+/** Company owner or team admin may create/update recruiter_profiles (keyed by owner user_id). */
+function canWriteRecruiterProfile(req: Request, profileUserId: number): boolean {
+  const user = (req as any).user;
+  if (!user) return false;
+  if (user.role === "admin") return true;
+  const companyId = getEmployerCompanyId(req);
+  if (companyId !== profileUserId) return false;
+  return user.id === profileUserId || canManageTeam((req as any).teamRole);
+}
 
 // Get user by ID
 export async function getUserById(req: Request, res: Response) {
@@ -44,7 +56,6 @@ export async function getProfilePhoto(req: Request, res: Response) {
     }
 
     // If it's a base64 data URL, decode, convert to JPEG, and serve
-    // Always convert to JPEG for maximum compatibility (WhatsApp, etc. don't support WebP)
     if (photoUrl.startsWith("data:")) {
       const match = photoUrl.match(/^data:([^;]+);base64,(.+)$/);
       if (!match) return res.status(400).end();
@@ -55,6 +66,21 @@ export async function getProfilePhoto(req: Request, res: Response) {
       return res.send(jpegData);
     }
 
+    // If it's a local disk file, read and serve it
+    if (isLocalPath(photoUrl)) {
+      const { promises: fs } = await import("fs");
+      const filePath = resolveLocalPath(photoUrl);
+      try {
+        const fileData = await fs.readFile(filePath);
+        const jpegData = await sharp(fileData).jpeg({ quality: 85 }).toBuffer();
+        res.set("Content-Type", "image/jpeg");
+        res.set("Cache-Control", "public, max-age=3600");
+        return res.send(jpegData);
+      } catch {
+        return res.status(404).end();
+      }
+    }
+
     return res.status(404).end();
   } catch (error) {
     console.error("Profile photo error:", error);
@@ -62,20 +88,29 @@ export async function getProfilePhoto(req: Request, res: Response) {
   }
 }
 
-// Get freelancer profile
+// Get freelancer profile — accepts numeric userId OR a slug string
 export async function getFreelancerProfile(req: Request, res: Response) {
   try {
-    const userId = parseInt(req.params.userId);
-    const profile = await storage.getFreelancerProfile(userId);
+    const param = req.params.userId;
+    const userId = parseInt(param, 10);
+
+    const profile = isNaN(userId)
+      ? await storage.getFreelancerProfileBySlug(param)
+      : await storage.getFreelancerProfile(userId);
 
     if (!profile) {
       return res.status(404).json({ error: "Freelancer profile not found" });
     }
 
-    // Prevent caching to ensure fresh profile data
+    // Include reference_token only for the profile owner — it's used to generate
+    // scoped share links that grant public document access for this specific profile.
+    const requestingUserId = (req as any).user?.id;
+    const isOwner = requestingUserId === profile.user_id;
+    const responseProfile = isOwner ? profile : { ...profile, reference_token: undefined };
+
     res.set("Cache-Control", "no-cache, no-store, must-revalidate");
     res.set("Pragma", "no-cache");
-    res.json(profile);
+    res.json(responseProfile);
   } catch (error) {
     console.error("Get freelancer profile error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -98,6 +133,10 @@ export async function createFreelancerProfile(req: Request, res: Response) {
     if (!result.success) {
       console.error("Freelancer profile validation failed:", result.error.issues);
       return res.status(400).json({ error: "Invalid input", details: result.error.issues });
+    }
+
+    if (!result.data.location?.trim()) {
+      return res.status(400).json({ error: "Location is required" });
     }
 
     const profile = await storage.createFreelancerProfile(result.data);
@@ -176,13 +215,11 @@ export async function getRecruiterProfile(req: Request, res: Response) {
 // Create recruiter profile
 export async function createRecruiterProfile(req: Request, res: Response) {
   try {
-    // Verify user is authorized to create profile for this user_id
-    const requestedUserId = req.body.user_id;
-    if (
-      !(req as any).user ||
-      ((req as any).user.id !== requestedUserId && (req as any).user.role !== "admin")
-    ) {
-      return res.status(403).json({ error: "Not authorized to create this profile" });
+    const requestedUserId = parseInt(String(req.body.user_id), 10);
+    if (!canWriteRecruiterProfile(req, requestedUserId)) {
+      return res.status(403).json({
+        error: "Only the company owner or a team admin can create or update the company profile",
+      });
     }
 
     const result = insertRecruiterProfileSchema.safeParse(req.body);
@@ -204,12 +241,10 @@ export async function updateRecruiterProfile(req: Request, res: Response) {
   try {
     const userId = parseInt(req.params.userId);
 
-    // Check if user is authorized to update this profile
-    if (
-      !(req as any).user ||
-      ((req as any).user.id !== userId && (req as any).user.role !== "admin")
-    ) {
-      return res.status(403).json({ error: "Not authorized to update this profile" });
+    if (!canWriteRecruiterProfile(req, userId)) {
+      return res.status(403).json({
+        error: "Only the company owner or a team admin can create or update the company profile",
+      });
     }
 
     const result = insertRecruiterProfileSchema.partial().safeParse(req.body);
@@ -243,11 +278,13 @@ export async function getAllFreelancers(req: Request, res: Response) {
 // Search freelancers with filters and pagination
 export async function searchFreelancers(req: Request, res: Response) {
   try {
-    const { keyword, location, page, limit } = req.query;
+    const { keyword, q, location, country, page, limit } = req.query;
+    const effectiveKeyword = (q as string | undefined) || (keyword as string | undefined);
 
     const filters = {
-      keyword: keyword as string | undefined,
+      keyword: effectiveKeyword,
       location: location as string | undefined,
+      country: country as string | undefined,
       page: page ? parseInt(page as string) : 1,
       limit: limit ? parseInt(limit as string) : 20,
     };

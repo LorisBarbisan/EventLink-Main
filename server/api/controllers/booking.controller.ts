@@ -10,12 +10,16 @@ import {
   bookingStatusHistory,
   jobs,
   users,
+  freelancer_profiles,
+  recruiter_profiles,
   type BookingStatus,
   bookingStatusValues,
 } from "../../../shared/schema";
-import { eq, and, desc, or, inArray } from "drizzle-orm";
-import { createHmac } from "crypto";
-import { storage } from "../../storage.js";
+import { eq, and, desc, or } from "drizzle-orm";
+
+// The platform stores no phone numbers; the client renders phone conditionally,
+// so booking endpoints return null to keep the response shape stable.
+const NO_PHONE: string | null = null;
 
 // ── Valid status transitions ───────────────────────────────
 const VALID_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
@@ -34,47 +38,24 @@ function canTransition(from: BookingStatus, to: BookingStatus): boolean {
 // ── Create a booking (employer initiates) ─────────────────
 export async function createBooking(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
-    const { jobId, freelancerId, agreedRate, callTime, venueAddress, employerNotes, eventDate, status } =
-      req.body;
+    const employerId = req.companyId ?? req.user!.id;
+    const { jobId, freelancerId, agreedRate, callTime, venueAddress, employerNotes } = req.body;
 
-    if (!freelancerId) {
-      return res.status(400).json({ error: "freelancerId is required" });
+    if (!jobId || !freelancerId) {
+      return res.status(400).json({ error: "jobId and freelancerId are required" });
     }
 
-    const bookingJobId: number | null = jobId || null;
-    let bookingEventDate: string | null = eventDate || null;
-    const bookingStatus: string = status || (bookingJobId ? "enquired" : "confirmed");
+    const [job] = await db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.id, jobId), eq(jobs.recruiter_id, employerId)));
 
-    // If linked to a job, verify ownership and pull event date if not provided
-    if (bookingJobId) {
-      const [job] = await db
-        .select()
-        .from(jobs)
-        .where(and(eq(jobs.id, bookingJobId), eq(jobs.recruiter_id, employerId)));
-
-      if (!job) {
-        return res.status(403).json({ error: "Job not found or not owned by you" });
-      }
-
-      if (!bookingEventDate) bookingEventDate = job.event_date ?? null;
-
-      // Prevent duplicate job+freelancer bookings
-      const [existing] = await db
-        .select()
-        .from(bookings)
-        .where(and(eq(bookings.jobId, bookingJobId), eq(bookings.freelancerId, freelancerId)));
-
-      if (existing) {
-        return res.status(409).json({
-          error: "A booking already exists for this job and freelancer",
-          bookingId: existing.id,
-        });
-      }
+    if (!job) {
+      return res.status(403).json({ error: "Job not found or not owned by you" });
     }
 
     const [freelancer] = await db
-      .select({ id: users.id, role: users.role })
+      .select({ id: users.id })
       .from(users)
       .where(and(eq(users.id, freelancerId), eq(users.role, "freelancer")));
 
@@ -82,15 +63,27 @@ export async function createBooking(req: Request, res: Response) {
       return res.status(404).json({ error: "Freelancer not found" });
     }
 
+    const [existing] = await db
+      .select()
+      .from(bookings)
+      .where(and(eq(bookings.jobId, jobId), eq(bookings.freelancerId, freelancerId)));
+
+    if (existing) {
+      return res.status(409).json({
+        error: "A booking already exists for this job and freelancer",
+        bookingId: existing.id,
+      });
+    }
+
     const [booking] = await db
       .insert(bookings)
       .values({
-        jobId: bookingJobId,
+        jobId,
         employerId,
         freelancerId,
-        status: bookingStatus,
-        eventDate: bookingEventDate,
+        status: "enquired",
         agreedRate: agreedRate ?? null,
+        currency: job.currency ?? "GBP",
         callTime: callTime ?? null,
         venueAddress: venueAddress ?? null,
         employerNotes: employerNotes ?? null,
@@ -100,9 +93,9 @@ export async function createBooking(req: Request, res: Response) {
     await db.insert(bookingStatusHistory).values({
       bookingId: booking.id,
       fromStatus: null,
-      toStatus: bookingStatus,
+      toStatus: "enquired",
       changedById: employerId,
-      note: bookingJobId ? "Booking created" : "Direct booking created from calendar",
+      note: "Booking created",
     });
 
     return res.status(201).json(booking);
@@ -115,9 +108,9 @@ export async function createBooking(req: Request, res: Response) {
 // ── Get all bookings for the authenticated employer ────────
 export async function getEmployerBookings(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
 
-    const results = await db
+    const rows = await db
       .select({
         booking: bookings,
         job: {
@@ -125,21 +118,36 @@ export async function getEmployerBookings(req: Request, res: Response) {
           title: jobs.title,
           location: jobs.location,
           eventDate: jobs.event_date,
-          rate: jobs.rate,
+          payRate: jobs.rate,
         },
         freelancer: {
           id: users.id,
           firstName: users.first_name,
           lastName: users.last_name,
           email: users.email,
-          profilePicture: users.profile_photo_url,
+          accountPhotoUrl: users.profile_photo_url,
+          profilePhotoUrl: freelancer_profiles.profile_photo_url,
         },
       })
       .from(bookings)
       .innerJoin(jobs, eq(bookings.jobId, jobs.id))
       .innerJoin(users, eq(bookings.freelancerId, users.id))
+      .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
       .where(eq(bookings.employerId, employerId))
       .orderBy(desc(bookings.updatedAt));
+
+    const results = rows.map(({ booking, job, freelancer }) => ({
+      booking,
+      job,
+      freelancer: {
+        id: freelancer.id,
+        firstName: freelancer.firstName,
+        lastName: freelancer.lastName,
+        email: freelancer.email,
+        phone: NO_PHONE,
+        profilePicture: freelancer.profilePhotoUrl ?? freelancer.accountPhotoUrl,
+      },
+    }));
 
     return res.json(results);
   } catch (error) {
@@ -153,7 +161,7 @@ export async function getFreelancerBookings(req: Request, res: Response) {
   try {
     const freelancerId = req.user!.id;
 
-    const results = await db
+    const rows = await db
       .select({
         booking: bookings,
         job: {
@@ -161,20 +169,35 @@ export async function getFreelancerBookings(req: Request, res: Response) {
           title: jobs.title,
           location: jobs.location,
           eventDate: jobs.event_date,
-          rate: jobs.rate,
+          payRate: jobs.rate,
         },
         employer: {
           id: users.id,
           firstName: users.first_name,
           lastName: users.last_name,
-          profilePicture: users.profile_photo_url,
+          companyName: recruiter_profiles.company_name,
+          accountPhotoUrl: users.profile_photo_url,
+          companyLogoUrl: recruiter_profiles.company_logo_url,
         },
       })
       .from(bookings)
       .innerJoin(jobs, eq(bookings.jobId, jobs.id))
       .innerJoin(users, eq(bookings.employerId, users.id))
+      .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
       .where(eq(bookings.freelancerId, freelancerId))
       .orderBy(desc(bookings.updatedAt));
+
+    const results = rows.map(({ booking, job, employer }) => ({
+      booking,
+      job,
+      employer: {
+        id: employer.id,
+        firstName: employer.firstName,
+        lastName: employer.lastName,
+        companyName: employer.companyName,
+        profilePicture: employer.companyLogoUrl ?? employer.accountPhotoUrl,
+      },
+    }));
 
     return res.json(results);
   } catch (error) {
@@ -193,7 +216,7 @@ export async function getBookingById(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid booking ID" });
     }
 
-    const [result] = await db
+    const [row] = await db
       .select({
         booking: bookings,
         job: {
@@ -201,7 +224,7 @@ export async function getBookingById(req: Request, res: Response) {
           title: jobs.title,
           location: jobs.location,
           eventDate: jobs.event_date,
-          rate: jobs.rate,
+          payRate: jobs.rate,
           description: jobs.description,
         },
         freelancer: {
@@ -221,9 +244,14 @@ export async function getBookingById(req: Request, res: Response) {
         )
       );
 
-    if (!result) {
+    if (!row) {
       return res.status(404).json({ error: "Booking not found or access denied" });
     }
+
+    const result = {
+      ...row,
+      freelancer: { ...row.freelancer, phone: NO_PHONE },
+    };
 
     const history = await db
       .select()
@@ -280,11 +308,7 @@ export async function updateBookingStatus(req: Request, res: Response) {
     }
 
     const cancelledBy =
-      toStatus === "cancelled"
-        ? userId === booking.employerId
-          ? "employer"
-          : "freelancer"
-        : null;
+      toStatus === "cancelled" ? (userId === booking.employerId ? "employer" : "freelancer") : null;
 
     const [updated] = await db
       .update(bookings)
@@ -307,13 +331,6 @@ export async function updateBookingStatus(req: Request, res: Response) {
       note: note ?? null,
     });
 
-    // Non-blocking calendar auto-update
-    import("../services/calendarSync.service.js").then(({ syncSingleBooking }) => {
-      syncSingleBooking(booking.employerId, bookingId).catch((err) =>
-        console.error("Auto calendar sync failed:", err.message)
-      );
-    });
-
     return res.json(updated);
   } catch (error) {
     console.error("updateBookingStatus error:", error);
@@ -324,9 +341,9 @@ export async function updateBookingStatus(req: Request, res: Response) {
 // ── Update booking details (employer only) ─────────────────
 export async function updateBookingDetails(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
     const bookingId = parseInt(req.params.id);
-    const { agreedRate, callTime, venueAddress, employerNotes, roleRequired, skillTags, agreedBudget, actualCost, expenses, budgetNotes } = req.body;
+    const { agreedRate, callTime, venueAddress, employerNotes } = req.body;
 
     if (isNaN(bookingId)) {
       return res.status(400).json({ error: "Invalid booking ID" });
@@ -354,23 +371,10 @@ export async function updateBookingDetails(req: Request, res: Response) {
         ...(callTime !== undefined && { callTime }),
         ...(venueAddress !== undefined && { venueAddress }),
         ...(employerNotes !== undefined && { employerNotes }),
-        ...(roleRequired !== undefined && { roleRequired }),
-        ...(skillTags !== undefined && { skillTags }),
-        ...(agreedBudget !== undefined && { agreedBudget }),
-        ...(actualCost !== undefined && { actualCost }),
-        ...(expenses !== undefined && { expenses }),
-        ...(budgetNotes !== undefined && { budgetNotes }),
         updatedAt: new Date(),
       })
       .where(eq(bookings.id, bookingId))
       .returning();
-
-    // Non-blocking calendar auto-update
-    import("../services/calendarSync.service.js").then(({ syncSingleBooking }) => {
-      syncSingleBooking(employerId, bookingId).catch((err) =>
-        console.error("Auto calendar sync (details) failed:", err.message)
-      );
-    });
 
     return res.json(updated);
   } catch (error) {
@@ -382,7 +386,7 @@ export async function updateBookingDetails(req: Request, res: Response) {
 // ── Get bookings for a specific job (employer only) ────────
 export async function getBookingsByJob(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
     const jobId = parseInt(req.params.jobId);
 
     if (isNaN(jobId)) {
@@ -398,7 +402,7 @@ export async function getBookingsByJob(req: Request, res: Response) {
       return res.status(403).json({ error: "Job not found or not owned by you" });
     }
 
-    const results = await db
+    const rows = await db
       .select({
         booking: bookings,
         freelancer: {
@@ -406,13 +410,29 @@ export async function getBookingsByJob(req: Request, res: Response) {
           firstName: users.first_name,
           lastName: users.last_name,
           email: users.email,
-          profilePicture: users.profile_photo_url,
+          accountPhotoUrl: users.profile_photo_url,
+          profilePhotoUrl: freelancer_profiles.profile_photo_url,
+          primaryRole: freelancer_profiles.title,
         },
       })
       .from(bookings)
       .innerJoin(users, eq(bookings.freelancerId, users.id))
+      .leftJoin(freelancer_profiles, eq(freelancer_profiles.user_id, users.id))
       .where(eq(bookings.jobId, jobId))
       .orderBy(desc(bookings.createdAt));
+
+    const results = rows.map(({ booking, freelancer }) => ({
+      booking,
+      freelancer: {
+        id: freelancer.id,
+        firstName: freelancer.firstName,
+        lastName: freelancer.lastName,
+        email: freelancer.email,
+        phone: NO_PHONE,
+        profilePicture: freelancer.profilePhotoUrl ?? freelancer.accountPhotoUrl,
+        primaryRole: freelancer.primaryRole,
+      },
+    }));
 
     return res.json(results);
   } catch (error) {
@@ -421,49 +441,10 @@ export async function getBookingsByJob(req: Request, res: Response) {
   }
 }
 
-// ── Get all bookings for calendar (employer) ──────────────
-export async function getBookingsForCalendar(req: Request, res: Response) {
-  try {
-    const employerId = req.user?.id;
-    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
-    const result = await storage.getBookingsForCalendar(employerId);
-    return res.json(result);
-  } catch (error: any) {
-    console.error("getBookingsForCalendar error:", error.message);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-}
-
-// ── Update IR35 status for a booking (employer only) ──────
-export const updateIr35Status = async (req: Request, res: Response) => {
-  try {
-    const employerId = req.user?.id;
-    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
-    const bookingId = parseInt(req.params.bookingId);
-    if (isNaN(bookingId)) return res.status(400).json({ error: "Invalid booking ID" });
-    const { ir35Status, ir35Notes } = req.body;
-    const validStatuses = ["not_assessed", "inside", "outside", "undetermined"];
-    if (!validStatuses.includes(ir35Status)) {
-      return res.status(400).json({ error: "Invalid IR35 status" });
-    }
-    const updated = await storage.updateBookingIr35Status(
-      bookingId,
-      employerId,
-      ir35Status,
-      ir35Notes
-    );
-    return res.json(updated);
-  } catch (err: any) {
-    console.error("updateIr35Status error:", err.message);
-    if (err.message?.includes("not found")) return res.status(404).json({ error: err.message });
-    return res.status(500).json({ error: "Internal server error" });
-  }
-};
-
 // ── Dashboard summary counts (employer) ───────────────────
 export async function getBookingsSummary(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
 
     const allBookings = await db
       .select({ status: bookings.status })
@@ -483,109 +464,5 @@ export async function getBookingsSummary(req: Request, res: Response) {
   } catch (error) {
     console.error("getBookingsSummary error:", error);
     return res.status(500).json({ error: "Failed to fetch bookings summary" });
-  }
-}
-
-// ── iCal feed for freelancer (public but token-secured) ────────────────────
-// GET /api/bookings/ical/:userId/:token
-// Returns an iCal feed of confirmed/briefed/completed bookings for a freelancer.
-// Token is a simple HMAC so the URL is hard to guess without being auth-gated.
-
-function makeIcalToken(userId: number): string {
-  const secret = process.env.JWT_SECRET ?? "ical-secret";
-  return createHmac("sha256", secret).update(`ical-${userId}`).digest("hex").slice(0, 24);
-}
-
-export function getIcalToken(req: Request, res: Response) {
-  const userId = req.user!.id;
-  const token = makeIcalToken(userId);
-  const host = req.headers["x-forwarded-host"] as string || req.headers.host || "";
-  const proto = (req.headers["x-forwarded-proto"] as string) || "https";
-  return res.json({ url: `${proto}://${host}/api/bookings/ical/${userId}/${token}` });
-}
-
-export async function serveIcalFeed(req: Request, res: Response) {
-  try {
-    const userId = parseInt(req.params.userId);
-    const token = req.params.token;
-    if (makeIcalToken(userId) !== token) {
-      return res.status(401).send("Unauthorised");
-    }
-
-    const rows = await db
-      .select({
-        id: bookings.id,
-        eventDate: bookings.eventDate,
-        callTime: bookings.callTime,
-        venueAddress: bookings.venueAddress,
-        roleRequired: bookings.roleRequired,
-        status: bookings.status,
-        updatedAt: bookings.updatedAt,
-        employerName: users.email,
-      })
-      .from(bookings)
-      .leftJoin(users, eq(users.id, bookings.employerId))
-      .where(
-        and(
-          eq(bookings.freelancerId, userId),
-          inArray(bookings.status, ["confirmed", "briefed", "completed"])
-        )
-      );
-
-    const icalLines: string[] = [
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      "PRODID:-//EventLink//Bookings//EN",
-      "CALSCALE:GREGORIAN",
-      "METHOD:PUBLISH",
-      "X-WR-CALNAME:EventLink Bookings",
-      "X-WR-TIMEZONE:Europe/London",
-    ];
-
-    for (const b of rows) {
-      if (!b.eventDate) continue;
-      const dateStr = b.eventDate.replace(/-/g, "");
-      const uid = `booking-${b.id}@eventlink.one`;
-      const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-      const updated = (b.updatedAt ?? new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-
-      let dtStart: string;
-      let dtEnd: string;
-      if (b.callTime) {
-        const [h, m] = b.callTime.split(":").map(Number);
-        const start = new Date(`${b.eventDate}T${String(h).padStart(2,"0")}:${String(m||0).padStart(2,"0")}:00`);
-        const end = new Date(start.getTime() + 8 * 60 * 60 * 1000);
-        dtStart = `DTSTART:${start.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"")}`;
-        dtEnd = `DTEND:${end.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"")}`;
-      } else {
-        dtStart = `DTSTART;VALUE=DATE:${dateStr}`;
-        dtEnd = `DTEND;VALUE=DATE:${dateStr}`;
-      }
-
-      const summary = `[${b.status.toUpperCase()}] EventLink Booking${b.roleRequired ? ` — ${b.roleRequired}` : ""}`;
-      const location = b.venueAddress ?? "";
-
-      icalLines.push(
-        "BEGIN:VEVENT",
-        `UID:${uid}`,
-        `DTSTAMP:${now}`,
-        `LAST-MODIFIED:${updated}`,
-        dtStart,
-        dtEnd,
-        `SUMMARY:${summary}`,
-        ...(location ? [`LOCATION:${location.replace(/\n/g, "\n")}`] : []),
-        "END:VEVENT"
-      );
-    }
-
-    icalLines.push("END:VCALENDAR");
-
-    res.set("Content-Type", "text/calendar; charset=utf-8");
-    res.set("Content-Disposition", 'attachment; filename="eventlink-bookings.ics"');
-    res.set("Cache-Control", "no-cache");
-    return res.send(icalLines.join("\r\n"));
-  } catch (err: any) {
-    console.error("iCal feed error:", err.message);
-    return res.status(500).send("Error generating calendar feed");
   }
 }

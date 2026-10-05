@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -9,7 +16,16 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, AuthError, queryClient } from "@/lib/queryClient";
 import { useWebSocket } from "@/contexts/WebSocketContext";
-import { Loader2, Sparkles, XCircle, AlertCircle, RefreshCw, Briefcase, GraduationCap, Award } from "lucide-react";
+import {
+  Loader2,
+  Sparkles,
+  XCircle,
+  AlertCircle,
+  RefreshCw,
+  Briefcase,
+  GraduationCap,
+  Award,
+} from "lucide-react";
 
 interface ConfirmedFormFields {
   first_name?: string;
@@ -18,6 +34,7 @@ interface ConfirmedFormFields {
   skills?: string[];
   bio?: string;
   location?: string;
+  country?: string;
   experience_years?: string;
 }
 
@@ -45,6 +62,7 @@ interface ExtractedData {
   skills?: string[];
   bio?: string;
   location?: string;
+  country?: string;
   experienceYears?: number;
   workHistory?: WorkHistoryEntry[];
   education?: EducationEntry[];
@@ -78,13 +96,18 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     skills: true,
     bio: true,
     location: true,
+    country: true,
     experienceYears: true,
     workHistory: true,
     education: true,
     certifications: true,
   });
 
-  const { data: parsingStatus, isLoading, refetch } = useQuery<ParsingStatus>({
+  const {
+    data: parsingStatus,
+    isLoading,
+    refetch,
+  } = useQuery<ParsingStatus>({
     queryKey: ["/api/cv/parse/status"],
     refetchInterval: (query) => {
       const data = query.state.data as ParsingStatus | undefined;
@@ -94,7 +117,9 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   });
 
   const refetchRef = useRef(refetch);
-  useEffect(() => { refetchRef.current = refetch; }, [refetch]);
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
 
   useEffect(() => {
     if (parsingStatus?.status !== "parsing" && parsingStatus?.status !== "pending") return;
@@ -155,6 +180,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
         if (p.skills?.length) formFields.skills = p.skills;
         if (p.bio) formFields.bio = p.bio;
         if (p.location) formFields.location = p.location;
+        if ((p as any).country) formFields.country = (p as any).country;
         if (p.experience_years != null) {
           formFields.experience_years = String(p.experience_years);
         }
@@ -198,7 +224,10 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     mutationFn: async () => apiRequest("/api/cv/parse/reject", { method: "POST" }),
     onSuccess: () => {
       setDismissed(true);
-      toast({ title: "Suggestions dismissed", description: "You can always edit your profile manually." });
+      toast({
+        title: "Suggestions dismissed",
+        description: "You can always edit your profile manually.",
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/cv/parse/status"] });
     },
     onError: (error) => {
@@ -213,12 +242,15 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   const reparseMutation = useMutation({
     mutationFn: async () => apiRequest("/api/cv/reparse", { method: "POST" }),
     onSuccess: () => {
-      toast({ title: "Re-analysing CV", description: "We're extracting information from your CV again." });
+      toast({
+        title: "Re-analysing CV",
+        description: "We're extracting information from your CV again.",
+      });
       queryClient.setQueryData(["/api/cv/parse/status"], { status: "parsing" });
       (async () => {
         let active = true;
         while (active) {
-          await new Promise(r => setTimeout(r, 3000));
+          await new Promise((r) => setTimeout(r, 3000));
           try {
             const statusData = await apiRequest("/api/cv/parse/status");
             queryClient.setQueryData(["/api/cv/parse/status"], statusData);
@@ -240,14 +272,14 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   });
 
   const toggleField = (field: string) => {
-    setSelectedFields(prev => ({ ...prev, [field]: !prev[field] }));
+    setSelectedFields((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
   if (isLoading) {
     return (
       <Card className="min-w-0 max-w-full overflow-hidden">
-        <CardContent className="py-6 flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <CardContent className="flex items-center justify-center py-6">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -268,11 +300,12 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       <Card className="min-w-0 max-w-full overflow-hidden border-orange-200 bg-orange-50/50 dark:border-orange-800 dark:bg-orange-950/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Loader2 className="w-5 h-5 animate-spin text-orange-600" />
+            <Loader2 className="h-5 w-5 animate-spin text-orange-600" />
             Analysing your CV...
           </CardTitle>
           <CardDescription>
-            We're running a multi-stage analysis to extract your skills, experience, and qualifications.
+            We&apos;re running a multi-stage analysis to extract your skills, experience, and
+            qualifications.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -284,11 +317,12 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       <Card className="min-w-0 max-w-full overflow-hidden border-red-200 dark:border-red-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <AlertCircle className="w-5 h-5 text-red-600" />
+            <AlertCircle className="h-5 w-5 text-red-600" />
             CV Analysis Failed
           </CardTitle>
           <CardDescription>
-            {parsingStatus.errorMessage || "We couldn't extract information from your CV. You can still fill in your profile manually."}
+            {parsingStatus.errorMessage ||
+              "We couldn't extract information from your CV. You can still fill in your profile manually."}
           </CardDescription>
         </CardHeader>
         <CardFooter>
@@ -298,7 +332,11 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             onClick={() => reparseMutation.mutate()}
             disabled={reparseMutation.isPending}
           >
-            {reparseMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+            {reparseMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
             Try Again
           </Button>
         </CardFooter>
@@ -310,7 +348,8 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     const data = parsingStatus.extractedData;
     const conf = data.confidenceData || {};
 
-    const hasBasicInfo = data.fullName || data.title || data.bio || data.location || data.experienceYears;
+    const hasBasicInfo =
+      data.fullName || data.title || data.bio || data.location || data.experienceYears;
     const hasSkills = data.skills?.length;
     const hasCertifications = data.certifications?.length;
     const hasWorkHistory = data.workHistory?.length;
@@ -324,20 +363,22 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       <Card className="min-w-0 max-w-full overflow-hidden border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Sparkles className="w-5 h-5 text-green-600" />
+            <Sparkles className="h-5 w-5 text-green-600" />
             CV Analysis Complete
           </CardTitle>
           <CardDescription>
-            Your profile has been pre-filled with the data below. Review the fields and save when ready.
+            Your profile has been pre-filled with the data below. Review the fields and save when
+            ready.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
-
           {/* ── Basic Info ── */}
           {hasBasicInfo && (
             <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Basic Info</h4>
+              <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Basic Info
+              </h4>
 
               {data.fullName && (
                 <FieldRow
@@ -364,11 +405,22 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
               {data.location && (
                 <FieldRow
                   id="location"
-                  label="Location"
+                  label="City / Location"
                   value={data.location}
                   checked={selectedFields.location}
                   onToggle={() => toggleField("location")}
                   confidence={conf.location?.confidence}
+                />
+              )}
+
+              {data.country && (
+                <FieldRow
+                  id="country"
+                  label="Country"
+                  value={data.country}
+                  checked={selectedFields.country}
+                  onToggle={() => toggleField("country")}
+                  confidence={conf.country?.confidence}
                 />
               )}
 
@@ -402,7 +454,9 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             <>
               <Separator />
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Skills</h4>
+                <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Skills
+                </h4>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
                   <div className="flex min-w-0 flex-1 items-start gap-3">
                     <Checkbox
@@ -412,7 +466,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                       onCheckedChange={() => toggleField("skills")}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="mb-1 flex items-center gap-2">
                         <Label htmlFor="field-skills" className="cursor-pointer font-medium">
                           Technical Skills
                         </Label>
@@ -420,10 +474,14 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {data.skills!.slice(0, 15).map((skill, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">{skill}</Badge>
+                          <Badge key={i} variant="outline" className="text-xs">
+                            {skill}
+                          </Badge>
                         ))}
                         {data.skills!.length > 15 && (
-                          <Badge variant="outline" className="text-xs">+{data.skills!.length - 15} more</Badge>
+                          <Badge variant="outline" className="text-xs">
+                            +{data.skills!.length - 15} more
+                          </Badge>
                         )}
                       </div>
                     </div>
@@ -441,8 +499,8 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             <>
               <Separator />
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                  <Award className="w-4 h-4" />
+                <h4 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Award className="h-4 w-4" />
                   Certifications
                 </h4>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
@@ -454,15 +512,20 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                       onCheckedChange={() => toggleField("certifications")}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Label htmlFor="field-certifications" className="cursor-pointer font-medium">
+                      <div className="mb-1 flex items-center gap-2">
+                        <Label
+                          htmlFor="field-certifications"
+                          className="cursor-pointer font-medium"
+                        >
                           Licences & Certifications
                         </Label>
                         <ConfidenceBadge confidence={conf.certifications?.confidence} />
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {data.certifications!.map((cert, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">{cert}</Badge>
+                          <Badge key={i} variant="outline" className="text-xs">
+                            {cert}
+                          </Badge>
                         ))}
                       </div>
                     </div>
@@ -480,8 +543,8 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             <>
               <Separator />
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                  <Briefcase className="w-4 h-4" />
+                <h4 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Briefcase className="h-4 w-4" />
                   Work History
                 </h4>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
@@ -495,20 +558,26 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex items-center gap-2">
                         <Label htmlFor="field-workHistory" className="cursor-pointer font-medium">
-                          Work Experience ({data.workHistory!.length} {data.workHistory!.length === 1 ? "role" : "roles"})
+                          Work Experience ({data.workHistory!.length}{" "}
+                          {data.workHistory!.length === 1 ? "role" : "roles"})
                         </Label>
                         <ConfidenceBadge confidence={conf.workHistory?.confidence} />
                       </div>
                       {data.workHistory!.slice(0, 4).map((entry, i) => (
-                        <div key={i} className="rounded-md border bg-background/60 px-3 py-2 text-sm">
+                        <div
+                          key={i}
+                          className="rounded-md border bg-background/60 px-3 py-2 text-sm"
+                        >
                           <p className="font-medium">{entry.jobTitle}</p>
                           {(entry.company || entry.dates) && (
-                            <p className="text-muted-foreground text-xs">
+                            <p className="text-xs text-muted-foreground">
                               {[entry.company, entry.dates].filter(Boolean).join(" · ")}
                             </p>
                           )}
                           {entry.details && (
-                            <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{entry.details}</p>
+                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                              {entry.details}
+                            </p>
                           )}
                         </div>
                       ))}
@@ -532,8 +601,8 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             <>
               <Separator />
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                  <GraduationCap className="w-4 h-4" />
+                <h4 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <GraduationCap className="h-4 w-4" />
                   Education
                 </h4>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
@@ -547,15 +616,19 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex items-center gap-2">
                         <Label htmlFor="field-education" className="cursor-pointer font-medium">
-                          Education History ({data.education!.length} {data.education!.length === 1 ? "entry" : "entries"})
+                          Education History ({data.education!.length}{" "}
+                          {data.education!.length === 1 ? "entry" : "entries"})
                         </Label>
                         <ConfidenceBadge confidence={conf.education?.confidence} />
                       </div>
                       {data.education!.map((entry, i) => (
-                        <div key={i} className="rounded-md border bg-background/60 px-3 py-2 text-sm">
+                        <div
+                          key={i}
+                          className="rounded-md border bg-background/60 px-3 py-2 text-sm"
+                        >
                           <p className="font-medium">{entry.qualification}</p>
                           {(entry.institution || entry.dates) && (
-                            <p className="text-muted-foreground text-xs">
+                            <p className="text-xs text-muted-foreground">
                               {[entry.institution, entry.dates].filter(Boolean).join(" · ")}
                             </p>
                           )}
@@ -581,9 +654,9 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             disabled={rejectMutation.isPending}
           >
             {rejectMutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <XCircle className="w-4 h-4 mr-2" />
+              <XCircle className="mr-2 h-4 w-4" />
             )}
             Dismiss
           </Button>
@@ -624,7 +697,7 @@ function FieldRow({ id, label, value, checked, onToggle, clamp, confidence }: Fi
             </Label>
             <ConfidenceBadge confidence={confidence} />
           </div>
-          <p className={`text-sm text-muted-foreground break-words ${clamp ? "line-clamp-3" : ""}`}>
+          <p className={`break-words text-sm text-muted-foreground ${clamp ? "line-clamp-3" : ""}`}>
             {value}
           </p>
         </div>

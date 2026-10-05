@@ -1,6 +1,7 @@
 import { insertRatingRequestSchema, insertRatingSchema } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
+import { getEmployerCompanyId } from "../utils/team.util";
 
 // Create a rating
 export async function createRating(req: Request, res: Response) {
@@ -10,9 +11,9 @@ export async function createRating(req: Request, res: Response) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    // Derive recruiter_id from user if missing in body
+    // Derive recruiter_id from company context if missing in body
     if (user.role === "recruiter" && !req.body.recruiter_id) {
-      req.body.recruiter_id = user.id;
+      req.body.recruiter_id = getEmployerCompanyId(req);
     }
 
     // Validate the rating data
@@ -64,11 +65,10 @@ export async function createRating(req: Request, res: Response) {
       // For now, we trust the authentication
     }
 
-    // Verify the recruiter_id matches the authenticated user
-    if (user.role !== "admin" && user.id !== result.data.recruiter_id) {
-      console.warn(
-        `Unauthorized rating attempt: User ${user.id} tried to rate as ${result.data.recruiter_id}`
-      );
+    if (user.role !== "admin" && getEmployerCompanyId(req) !== result.data.recruiter_id) {
+      return res.status(403).json({
+        error: "You are not authorized to submit a rating for this company",
+      });
     }
 
     // Prepare notification data

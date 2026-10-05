@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWebSocket } from "@/contexts/WebSocketContext";
@@ -14,11 +11,12 @@ import {
   Conversation,
   getAvatarInitials,
   getDisplayName,
+  getUserHeadline,
   isUserDeleted,
   Message,
 } from "@/lib/utils/user";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Clock, MessageCircle, Send, User as UserIcon } from "lucide-react";
+import { ArrowLeft, MessageCircle, Send } from "lucide-react";
 
 const URL_REGEX = /https?:\/\/[^\s<>"']+/g;
 
@@ -33,7 +31,7 @@ function renderWithLinks(content: string, isMyMessage: boolean) {
           href={urls[i]}
           target="_blank"
           rel="noopener noreferrer"
-          className={`underline break-all ${isMyMessage ? "text-white/90 hover:text-white" : "text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"}`}
+          className={`break-all underline ${isMyMessage ? "text-white/90 hover:text-white" : "text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"}`}
         >
           {urls[i]}
         </a>
@@ -42,11 +40,31 @@ function renderWithLinks(content: string, isMyMessage: boolean) {
   ));
 }
 
+function ConversationAvatar({
+  photoUrl,
+  initials,
+  size = "md",
+}: {
+  photoUrl?: string | null;
+  initials: string;
+  size?: "sm" | "md" | "lg";
+}) {
+  const sizeClass =
+    size === "lg" ? "w-10 h-10 text-sm" : size === "sm" ? "w-7 h-7 text-xs" : "w-9 h-9 text-xs";
+  const colorClass = "bg-primary/20 text-primary";
+  return (
+    <div
+      className={`${sizeClass} ${colorClass} flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold`}
+    >
+      {photoUrl ? <img src={photoUrl} alt="" className="h-full w-full object-cover" /> : initials}
+    </div>
+  );
+}
+
 interface Props {
   initialConversationId?: number | null;
 }
 
-// --- COMPONENT ---
 export function MessagingInterface({ initialConversationId }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -58,11 +76,19 @@ export function MessagingInterface({ initialConversationId }: Props) {
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Update selected conversation when prop changes
+  // Track whether we're in the desktop two-pane layout (matches the `lg:` breakpoint).
+  // Below this width the UI is single-pane, so we must not auto-open a conversation.
+  const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
-    if (initialConversationId) {
-      setSelectedConversation(initialConversationId);
-    }
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setIsDesktop(mql.matches);
+    onChange();
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (initialConversationId) setSelectedConversation(initialConversationId);
   }, [initialConversationId]);
 
   // --- FETCH CONVERSATIONS ---
@@ -73,6 +99,37 @@ export function MessagingInterface({ initialConversationId }: Props) {
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
+
+  // Auto-select the most recent conversation on first load — desktop only.
+  // On mobile the messages tab must open on the conversation list, and selecting
+  // null (via the back arrow) must keep it there instead of re-opening a chat.
+  useEffect(() => {
+    if (isDesktop && !initialConversationId && !selectedConversation && conversations.length > 0) {
+      setSelectedConversation(conversations[0].id);
+    }
+  }, [isDesktop, conversations, initialConversationId, selectedConversation]);
+
+  // Fetch own profile photo directly so it's always up-to-date
+  const { data: ownProfile } = useQuery<{
+    profile_photo_url?: string | null;
+    company_logo_url?: string | null;
+  }>({
+    queryKey: ["/api/own-profile-photo", user?.id, user?.role],
+    queryFn: () => {
+      if (!user?.id) return Promise.resolve({});
+      if (user.role === "freelancer") return apiRequest(`/api/freelancer/${user.id}`);
+      if (user.role === "recruiter") return apiRequest(`/api/recruiter/${user.id}`);
+      return Promise.resolve({});
+    },
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+
+  const ownPhotoUrl =
+    ownProfile?.profile_photo_url ||
+    ownProfile?.company_logo_url ||
+    user?.profile_photo_url ||
+    null;
 
   // --- FETCH MESSAGES ---
   const { data: messages = [], isLoading: messagesLoading } = useQuery<Message[]>({
@@ -85,18 +142,12 @@ export function MessagingInterface({ initialConversationId }: Props) {
     refetchOnMount: "always",
   });
 
-  // When opening a conversation, ensure server-marked read state is reflected via server & websocket
+  // Mark as read when opening a conversation
   useEffect(() => {
     if (!selectedConversation || messagesLoading || !user?.id) return;
-
-    // Tell the server to mark all messages in this conversation as read; server will broadcast updated counts/notifications
-    apiRequest(`/api/conversations/${selectedConversation}/mark-read`, {
-      method: "PATCH",
-    }).catch(err => {
-      console.error("Failed to mark conversation messages as read:", err);
-    });
-
-    // Rely on server state: refetch messages and conversations rather than mutating cache directly
+    apiRequest(`/api/conversations/${selectedConversation}/mark-read`, { method: "PATCH" }).catch(
+      () => {}
+    );
     queryClient
       .refetchQueries({ queryKey: ["/api/conversations", selectedConversation, "messages"] })
       .catch(() => {});
@@ -106,11 +157,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
   // --- SEND MESSAGE MUTATION ---
   const sendMessageMutation = useMutation({
     mutationFn: async (payload: { conversation_id: number; content: string }) =>
-      apiRequest("/api/messages", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
-
+      apiRequest("/api/messages", { method: "POST", body: JSON.stringify(payload) }),
     onSuccess: async () => {
       await queryClient.refetchQueries({
         queryKey: ["/api/conversations", selectedConversation, "messages"],
@@ -120,11 +167,7 @@ export function MessagingInterface({ initialConversationId }: Props) {
       });
     },
     onError: (_err, variables) => {
-      toast({
-        title: "Failed to send message",
-        variant: "destructive",
-      });
-      // restore content back to text box
+      toast({ title: "Failed to send message", variant: "destructive" });
       setNewMessage(variables.content);
     },
   });
@@ -145,193 +188,331 @@ export function MessagingInterface({ initialConversationId }: Props) {
 
   // --- WEBSOCKET SUBSCRIPTION ---
   useEffect(() => {
-    const unsubscribe = subscribe(data => {
+    const unsubscribe = subscribe((data) => {
       if (data.type !== "new_message") return;
-
       const { message, sender } = data;
-      // Extract conversation_id from the message object since it's not at the root
       const conversation_id = message?.conversation_id;
-
       if (!message || !sender) return;
 
-      console.log(
-        `🔔 [WebSocket] Received new_message for conversation ${conversation_id}, message ID: ${message.id}`
-      );
-
-      // If the user is viewing this conversation, ask the server to mark it read and refetch messages.
-      // We do NOT mutate the local cache directly; we rely on server responses / websocket broadcasts to update UI state.
       if (selectedConversation === conversation_id) {
-        apiRequest(`/api/conversations/${conversation_id}/mark-read`, {
-          method: "PATCH",
-        }).catch(err => {
-          console.error("Failed to mark conversation messages as read on incoming message:", err);
-        });
-
+        apiRequest(`/api/conversations/${conversation_id}/mark-read`, { method: "PATCH" }).catch(
+          () => {}
+        );
         queryClient
           .refetchQueries({ queryKey: ["/api/conversations", conversation_id, "messages"] })
           .catch(() => {});
       } else {
-        // Not viewing this conversation: refetch conversations so last_message_at and unread counts reflect server state
         queryClient.refetchQueries({ queryKey: ["/api/conversations"] }).catch(() => {});
       }
     });
-
     return unsubscribe;
   }, [subscribe, queryClient, selectedConversation]);
 
   // --- AUTO SCROLL ---
+  // Scroll only the messages viewport to the latest message. Using scrollIntoView
+  // here would scroll every scrollable ancestor (including the window), jumping the
+  // whole page down past the header on mobile.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const end = messagesEndRef.current;
+    if (!end) return;
+    const viewport = end.closest("[data-radix-scroll-area-viewport]") as HTMLElement | null;
+    if (viewport) viewport.scrollTop = viewport.scrollHeight;
   }, [messages]);
 
-  // --- JSX RENDERING ---
+  const activeConv = conversations.find((c) => c.id === selectedConversation);
+
+  // --- JSX ---
   return (
-    <div className="space-y-6">
-      <div className={`flex items-center gap-2 ${selectedConversation ? "hidden lg:flex" : "flex"}`}>
+    <div className="flex flex-col gap-0">
+      {/* Title bar — hidden when a conversation is open on mobile */}
+      <div
+        className={`mb-4 flex items-center gap-2 ${selectedConversation ? "hidden lg:flex" : "flex"}`}
+      >
         <MessageCircle className="h-5 w-5" />
         <h1 className="text-2xl font-bold">Messages</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* --- Conversations List --- */}
-        <Card className={`${selectedConversation ? "hidden lg:block" : "block"}`}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserIcon className="h-5 w-5" />
+      <div
+        className="flex rounded-xl border border-border bg-background shadow-sm"
+        style={{ minHeight: "200px" }}
+      >
+        {/* ===== LEFT: Conversation list ===== */}
+        <div
+          className={`flex w-full flex-shrink-0 flex-col border-r border-border lg:w-[320px] lg:min-w-[280px] ${selectedConversation ? "hidden lg:flex" : "flex"}`}
+        >
+          <div className="border-b border-border px-4 py-3">
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Conversations
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[500px]">
-              {conversations.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-8 text-center">
-                  <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p>No conversations yet</p>
-                </div>
-              ) : (
-                conversations.map(c => {
-                  const isDeleted = isUserDeleted(c.otherUser);
-                  return (
-                    <div
-                      key={c.id}
-                      className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${selectedConversation === c.id ? "bg-primary/10 border-primary" : "hover:bg-muted"} ${isDeleted ? "opacity-60" : ""}`}
+            </p>
+          </div>
+
+          <ScrollArea className="max-h-[70vh]">
+            {conversations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-10 text-center text-muted-foreground">
+                <MessageCircle className="mb-3 h-10 w-10 opacity-40" />
+                <p className="text-sm">No conversations yet</p>
+              </div>
+            ) : (
+              conversations.map((c) => {
+                const isActive = selectedConversation === c.id;
+                const isDeleted = isUserDeleted(c.otherUser);
+                const unread = (c.unread_count ?? 0) > 0;
+                const preview = c.last_message_preview;
+
+                return (
+                  <div key={c.id} className="border-b border-border/50 last:border-b-0">
+                    <button
+                      className={`flex w-full items-start gap-3 border-l-4 px-4 py-3 text-left transition-colors ${isDeleted ? "opacity-60" : ""}`}
+                      style={
+                        isActive
+                          ? {
+                              borderLeftColor: "hsl(var(--primary))",
+                              backgroundColor: "hsl(var(--accent) / 0.15)",
+                            }
+                          : {
+                              borderLeftColor: "transparent",
+                              backgroundColor: "hsl(var(--primary) / 0.04)",
+                            }
+                      }
+                      onMouseEnter={(e) => {
+                        if (!isActive)
+                          (e.currentTarget as HTMLElement).style.backgroundColor =
+                            "hsl(var(--primary) / 0.07)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive)
+                          (e.currentTarget as HTMLElement).style.backgroundColor =
+                            "hsl(var(--primary) / 0.04)";
+                      }}
                       onClick={() => setSelectedConversation(c.id)}
                     >
-                      <Avatar className={isDeleted ? "opacity-50" : ""}>
-                        <AvatarFallback>{getAvatarInitials(c.otherUser)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
+                      <ConversationAvatar
+                        photoUrl={c.otherUser.profile_photo_url}
+                        initials={getAvatarInitials(c.otherUser)}
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-1">
                           <p
-                            className={`font-medium truncate ${isDeleted ? "text-muted-foreground" : ""}`}
+                            className={`truncate text-sm ${unread ? "font-semibold" : "font-medium"} ${isDeleted ? "text-muted-foreground" : ""}`}
                           >
                             {getDisplayName(c.otherUser)}
                           </p>
-                          {isDeleted && <Badge variant="secondary">Deleted</Badge>}
-                        </div>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                          <p className="text-xs text-muted-foreground">
-                            {formatRelativeTime(c.last_message_at)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        {/* --- Chat Area --- */}
-        <Card className={`lg:col-span-2 ${!selectedConversation ? "hidden lg:block" : "block"}`}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {selectedConversation ? (
-                <div className="flex items-center gap-2 w-full">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="lg:hidden"
-                    onClick={() => setSelectedConversation(null)}
-                  >
-                    <ArrowLeft className="h-5 w-5" />
-                  </Button>
-                  <UserIcon className="h-5 w-5" />
-                  <span className="truncate">
-                    {conversations.find(c => c.id === selectedConversation)?.otherUser.email ||
-                      "Chat"}
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-5 w-5" /> Select a conversation
-                </div>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col h-[500px]">
-            {selectedConversation ? (
-              <>
-                <ScrollArea className="flex-1 mb-4 pr-4">
-                  <div className="space-y-4">
-                    {messagesLoading ? (
-                      <div className="flex items-center justify-center p-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                      </div>
-                    ) : messages.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center p-8 text-center">
-                        <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                        <p>No messages yet</p>
-                      </div>
-                    ) : (
-                      messages.map(msg => {
-                        const isMyMessage = msg.sender_id === user?.id;
-                        const isSystemMessage = msg.sender_id === null;
-
-                        return (
-                          <div
-                            key={msg.id}
-                            className={`flex ${isSystemMessage ? "justify-center" : isMyMessage ? "justify-end" : "justify-start"}`}
-                          >
-                            <div
-                              className={`max-w-[70%] p-3 rounded-lg ${isSystemMessage ? "bg-muted text-muted-foreground text-center text-sm" : isMyMessage ? "bg-blue-500 text-white rounded-br-none" : "bg-gray-200 dark:bg-gray-700 text-foreground rounded-bl-none"}`}
-                            >
-                              <p className="break-words whitespace-pre-wrap">{renderWithLinks(msg.content, isMyMessage)}</p>
-                              <p
-                                className={`text-xs mt-1 ${isSystemMessage ? "text-muted-foreground" : isMyMessage ? "text-white/70" : "text-muted-foreground"}`}
-                              >
-                                {formatRelativeTime(msg.created_at)}
-                              </p>
-                            </div>
+                          <div className="flex flex-shrink-0 items-center gap-1.5">
+                            {unread && (
+                              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-primary" />
+                            )}
+                            <span className="whitespace-nowrap text-[11px] text-muted-foreground">
+                              {formatRelativeTime(c.last_message_at)}
+                            </span>
                           </div>
-                        );
-                      })
-                    )}
-                    <div ref={messagesEndRef} />
+                        </div>
+
+                        {!isDeleted && (
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                            {getUserHeadline(c.otherUser)}
+                          </p>
+                        )}
+
+                        {preview && (
+                          <p
+                            className={`mt-1 truncate text-xs ${unread ? "font-medium text-foreground" : "text-muted-foreground"}`}
+                          >
+                            {preview}
+                          </p>
+                        )}
+                      </div>
+                    </button>
                   </div>
-                </ScrollArea>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Type a message..."
-                    value={newMessage}
-                    onChange={e => setNewMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                  />
-                  <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
-                    <Send className="h-4 w-4 mr-2" /> Send
-                  </Button>
-                </div>
+                );
+              })
+            )}
+          </ScrollArea>
+        </div>
+
+        {/* ===== RIGHT: Chat area ===== */}
+        <div
+          className={`flex min-w-0 flex-1 flex-col ${!selectedConversation ? "hidden lg:flex" : "flex"}`}
+        >
+          {/* Chat header */}
+          <div className="flex items-center gap-3 border-b border-border bg-background px-4 py-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 lg:hidden"
+              onClick={() => setSelectedConversation(null)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+
+            {activeConv ? (
+              <>
+                {isUserDeleted(activeConv.otherUser) ? (
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ConversationAvatar
+                      photoUrl={activeConv.otherUser.profile_photo_url}
+                      initials={getAvatarInitials(activeConv.otherUser)}
+                      size="lg"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold leading-tight text-muted-foreground">
+                        {getDisplayName(activeConv.otherUser)}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <a
+                    href={`/profile/${activeConv.otherUser.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex min-w-0 items-center gap-3"
+                  >
+                    <div className="transition-opacity group-hover:opacity-80">
+                      <ConversationAvatar
+                        photoUrl={activeConv.otherUser.profile_photo_url}
+                        initials={getAvatarInitials(activeConv.otherUser)}
+                        size="lg"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold leading-tight transition-colors group-hover:text-primary group-hover:underline">
+                        {getDisplayName(activeConv.otherUser)}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {getUserHeadline(activeConv.otherUser)}
+                      </p>
+                    </div>
+                  </a>
+                )}
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <MessageCircle className="h-16 w-16 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium text-muted-foreground">Select a conversation</p>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <MessageCircle className="h-5 w-5" />
+                <span className="text-sm">Select a conversation</span>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Messages */}
+          {selectedConversation ? (
+            <>
+              <ScrollArea className="max-h-[60vh] px-4 py-4">
+                <div className="space-y-3">
+                  {messagesLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <MessageCircle className="mb-3 h-10 w-10 opacity-40" />
+                      <p className="text-sm">No messages yet. Say hello!</p>
+                    </div>
+                  ) : (
+                    messages.map((msg) => {
+                      const isMyMessage = msg.sender_id === user?.id;
+                      const isSystemMessage = msg.sender_id === null;
+
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex items-end gap-2 ${
+                            isSystemMessage
+                              ? "justify-center"
+                              : isMyMessage
+                                ? "justify-end"
+                                : "justify-start"
+                          }`}
+                        >
+                          {!isMyMessage && !isSystemMessage && activeConv && (
+                            <ConversationAvatar
+                              photoUrl={activeConv.otherUser.profile_photo_url}
+                              initials={getAvatarInitials(activeConv.otherUser)}
+                              size="sm"
+                            />
+                          )}
+                          <div
+                            className={`max-w-[68%] rounded-2xl px-3 py-2 text-sm ${
+                              isSystemMessage
+                                ? "bg-muted px-4 text-center text-xs text-muted-foreground"
+                                : isMyMessage
+                                  ? "rounded-br-sm bg-primary text-primary-foreground"
+                                  : "rounded-bl-sm"
+                            }`}
+                            style={
+                              !isSystemMessage && !isMyMessage
+                                ? { backgroundColor: "rgb(254 243 199)", color: "rgb(120 53 15)" }
+                                : undefined
+                            }
+                          >
+                            <p className="whitespace-pre-wrap break-words leading-relaxed">
+                              {renderWithLinks(msg.content, isMyMessage)}
+                            </p>
+                            <p
+                              className={`mt-1 text-[10px] ${
+                                isSystemMessage
+                                  ? "text-muted-foreground"
+                                  : isMyMessage
+                                    ? "text-right text-primary-foreground/70"
+                                    : ""
+                              }`}
+                              style={
+                                !isSystemMessage && !isMyMessage
+                                  ? { color: "rgb(180 83 9 / 0.7)" }
+                                  : undefined
+                              }
+                            >
+                              {formatRelativeTime(msg.created_at)}
+                            </p>
+                          </div>
+                          {isMyMessage && (
+                            <ConversationAvatar
+                              photoUrl={ownPhotoUrl}
+                              initials={
+                                user
+                                  ? (user.first_name?.[0] ?? "") + (user.last_name?.[0] ?? "") ||
+                                    user.email?.substring(0, 2).toUpperCase() ||
+                                    "Me"
+                                  : "Me"
+                              }
+                              size="sm"
+                            />
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+              </ScrollArea>
+
+              {/* Input */}
+              <div className="border-t border-border bg-background px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="Write a message..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    className="rounded-full border-none bg-muted focus-visible:ring-1"
+                  />
+                  <Button
+                    size="icon"
+                    onClick={handleSendMessage}
+                    disabled={!newMessage.trim()}
+                    className="h-9 w-9 flex-shrink-0 rounded-full"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <MessageCircle className="mb-4 h-16 w-16 opacity-30" />
+              <p className="text-base font-medium">Select a conversation to start messaging</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

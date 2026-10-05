@@ -13,6 +13,7 @@ import {
   updateRecruiterProfile,
 } from "../controllers/profile.controller";
 import { authenticateJWT } from "../middleware/auth.middleware";
+import { resolveCompanyId } from "../middleware/team.middleware";
 
 export function registerProfileRoutes(app: Express) {
   // Get user by ID
@@ -34,10 +35,10 @@ export function registerProfileRoutes(app: Express) {
   app.get("/api/recruiter/:userId", getRecruiterProfile);
 
   // Create recruiter profile
-  app.post("/api/recruiter", authenticateJWT, createRecruiterProfile);
+  app.post("/api/recruiter", authenticateJWT, resolveCompanyId, createRecruiterProfile);
 
   // Update recruiter profile
-  app.put("/api/recruiter/:userId", authenticateJWT, updateRecruiterProfile);
+  app.put("/api/recruiter/:userId", authenticateJWT, resolveCompanyId, updateRecruiterProfile);
 
   // Get all freelancers (for recruiter job search)
   app.get("/api/freelancers", getAllFreelancers);

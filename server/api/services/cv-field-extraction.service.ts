@@ -6,6 +6,7 @@ export interface RawFieldResult {
   fullName?: { value: string; confidence: number; source: string };
   title?: { value: string; confidence: number; source: string };
   location?: { value: string; confidence: number; source: string };
+  country?: { value: string; confidence: number; source: string };
   bio?: { value: string; confidence: number; source: string };
   experienceYears?: { value: number; confidence: number; source: string };
   skills?: { value: string[]; confidence: number; source: string };
@@ -32,16 +33,19 @@ async function callAI(systemPrompt: string, userPrompt: string, label: string): 
   const abortTimer = setTimeout(() => abortController.abort(), 60000);
   let response;
   try {
-    response = await getOpenAIClient().chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 2000,
-      temperature: 0.0,
-    }, { signal: abortController.signal });
+    response = await getOpenAIClient().chat.completions.create(
+      {
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 2000,
+        temperature: 0.0,
+      },
+      { signal: abortController.signal }
+    );
   } finally {
     clearTimeout(abortTimer);
   }
@@ -70,7 +74,8 @@ export class CvFieldExtractionService {
 
     if (skillsAndCerts.status === "fulfilled") {
       if (skillsAndCerts.value.skills) result.skills = skillsAndCerts.value.skills;
-      if (skillsAndCerts.value.certifications) result.certifications = skillsAndCerts.value.certifications;
+      if (skillsAndCerts.value.certifications)
+        result.certifications = skillsAndCerts.value.certifications;
     } else {
       console.warn("⚠️ Skills/certs extraction failed:", skillsAndCerts.reason);
     }
@@ -107,7 +112,8 @@ export class CvFieldExtractionService {
 Return a JSON object with these fields (omit any field you are not confident about):
 - fullName: person's full name (1-4 words, no email/phone/address)
 - title: professional job title (1-6 words, title case, must read like a job title — NOT a sentence)
-- location: where they are based (specific UK place only — reject vague values like "UK-wide", "nationwide", "remote")
+- location: city or region where they are based (specific place — reject vague values like "nationwide", "remote", or full country names)
+- country: country where they are based as a full English country name (e.g. "United Kingdom", "Germany", "Australia") — infer from address, phone prefix, or location if not explicit
 - bio: exact profile summary text (copy verbatim if a clearly written profile/about/summary section exists)
 - experienceYears: total years of experience as a number ONLY if explicitly stated (e.g. "8 years experience")
 
@@ -119,6 +125,7 @@ Return this structure:
   "fullName": { "value": "Jane Smith", "confidence": 0.95, "source": "headerBlock" },
   "title": { "value": "FOH Engineer", "confidence": 0.9, "source": "headerBlock" },
   "location": { "value": "Manchester", "confidence": 0.85, "source": "headerBlock" },
+  "country": { "value": "United Kingdom", "confidence": 0.9, "source": "headerBlock" },
   "bio": { "value": "...", "confidence": 0.9, "source": "summaryBlock" },
   "experienceYears": { "value": 8, "confidence": 0.8, "source": "summaryBlock" }
 }
@@ -129,11 +136,12 @@ ${inputText}`;
     const parsed = await callAI(system, prompt, "Identity");
     const result: Partial<RawFieldResult> = {};
 
-    for (const field of ["fullName", "title", "location", "bio"] as const) {
+    for (const field of ["fullName", "title", "location", "country", "bio"] as const) {
       if (parsed[field]?.value && typeof parsed[field].value === "string") {
         result[field] = {
           value: parsed[field].value,
-          confidence: typeof parsed[field].confidence === "number" ? parsed[field].confidence : 0.75,
+          confidence:
+            typeof parsed[field].confidence === "number" ? parsed[field].confidence : 0.75,
           source: parsed[field].source || "header",
         };
       }
@@ -144,7 +152,10 @@ ${inputText}`;
       if (!isNaN(n) && n >= 1 && n <= 50) {
         result.experienceYears = {
           value: n,
-          confidence: typeof parsed.experienceYears.confidence === "number" ? parsed.experienceYears.confidence : 0.7,
+          confidence:
+            typeof parsed.experienceYears.confidence === "number"
+              ? parsed.experienceYears.confidence
+              : 0.7,
           source: parsed.experienceYears.source || "summary",
         };
       }
@@ -213,7 +224,10 @@ ${combinedInput}`;
     if (parsed.certifications?.value && Array.isArray(parsed.certifications.value)) {
       result.certifications = {
         value: parsed.certifications.value.filter((c: any) => typeof c === "string"),
-        confidence: typeof parsed.certifications.confidence === "number" ? parsed.certifications.confidence : 0.8,
+        confidence:
+          typeof parsed.certifications.confidence === "number"
+            ? parsed.certifications.confidence
+            : 0.8,
         source: parsed.certifications.source || "certificationsBlock",
       };
     }
@@ -265,7 +279,8 @@ ${inputText}`;
 
     return {
       value: parsed.workHistory.value as WorkHistoryEntry[],
-      confidence: typeof parsed.workHistory.confidence === "number" ? parsed.workHistory.confidence : 0.8,
+      confidence:
+        typeof parsed.workHistory.confidence === "number" ? parsed.workHistory.confidence : 0.8,
       source: parsed.workHistory.source || "experienceBlock",
     };
   }
@@ -311,7 +326,8 @@ ${inputText}`;
 
     return {
       value: parsed.education.value as EducationEntry[],
-      confidence: typeof parsed.education.confidence === "number" ? parsed.education.confidence : 0.8,
+      confidence:
+        typeof parsed.education.confidence === "number" ? parsed.education.confidence : 0.8,
       source: parsed.education.source || "educationBlock",
     };
   }

@@ -1,0 +1,631 @@
+
+EVENTLINK
+Job Document Attachments
+Replit Agent 4 Build Instruction — Verified against live codebase
+
+
+This document provides the complete, codebase-verified instruction for adding file attachments (function sheets, purchase orders) to job postings on EventLink. Employers attach documents. Hired freelancers receive links in their confirmation email and can access documents from their booking card.
+
+For:  Replit Agent 4
+Date:  June 2026
+Codebase:  github.com/LorisBarbisan/EventLink-Main
+ 
+Codebase Notes — Read Before Starting
+Key findings from codebase review
+There is NO separate storage.service.ts. File upload logic lives directly in file.controller.ts and document.controller.ts. Do NOT import from a storage service — follow the same pattern used in file.controller.ts for handling multer uploads and object storage. The server/api/services folder only contains CV parsing and notification scheduler services.
+
+Before starting, read these files to understand the exact patterns in use:
+•	server/api/controllers/file.controller.ts — how multer and object storage are used for file uploads
+•	server/api/controllers/document.controller.ts — how documents are stored and retrieved
+•	server/api/controllers/applications.controller.ts — find the function that changes application status to hired/accepted and sends the confirmation email
+•	shared/schema.ts — check the exact field names on the jobs, applications, and users tables before writing any queries
+•	migrations/ — the latest migration number so you name the new one correctly
+
+Critical: check the hired status value
+The application status value for a hired freelancer may be 'hired', 'accepted', or something else — check the applications table in shared/schema.ts before writing any queries. Use the exact value from the schema, not an assumption.
+ 
+Sprint 1 — Database: job_documents table
+Check the latest migration file number in migrations/ and name this file accordingly — e.g. if the latest is 0009_something.sql then name this 0010_job_documents.sql.
+
+1.1  SQL Migration
+SQL
+-- File: migrations/[NEXT_NUMBER]_job_documents.sql
+
+CREATE TABLE IF NOT EXISTS "job_documents" (
+  "id" serial PRIMARY KEY NOT NULL,
+  "job_id" integer NOT NULL REFERENCES "jobs"("id") ON DELETE CASCADE,
+  "uploaded_by_user_id" integer NOT NULL REFERENCES "users"("id"),
+  "file_name" text NOT NULL,
+  -- Original filename shown to users
+  "file_key" text NOT NULL UNIQUE,
+  -- Storage key / path used to retrieve or delete the file
+  "file_url" text NOT NULL,
+  -- Full accessible URL for the file
+  "file_size" integer,
+  -- Size in bytes
+  "file_type" text,
+  -- MIME type e.g. application/pdf
+  "document_type" text NOT NULL DEFAULT 'other',
+  -- Values: 'function_sheet' | 'purchase_order' | 'other'
+  "created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS "job_documents_job_id_idx"
+  ON "job_documents"("job_id");
+CREATE INDEX IF NOT EXISTS "job_documents_uploaded_by_idx"
+  ON "job_documents"("uploaded_by_user_id");
+
+1.2  Schema additions — paste into shared/schema.ts
+TypeScript — shared/schema.ts
+export const jobDocuments = pgTable("job_documents", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id")
+    .notNull()
+    .references(() => jobs.id, { onDelete: "cascade" }),
+  uploadedByUserId: integer("uploaded_by_user_id")
+    .notNull()
+    .references(() => users.id),
+  fileName: text("file_name").notNull(),
+  fileKey: text("file_key").notNull().unique(),
+  fileUrl: text("file_url").notNull(),
+  fileSize: integer("file_size"),
+  fileType: text("file_type"),
+  documentType: text("document_type").notNull().default("other"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow().notNull(),
+});
+
+export type JobDocument = typeof jobDocuments.$inferSelect;
+export type InsertJobDocument = typeof jobDocuments.$inferInsert;
+
+Run the migration via npx drizzle-kit push before moving to Sprint 2.
+ 
+Sprint 2 — Backend: job-document.controller.ts
+Before writing this file
+Open file.controller.ts and copy the exact import path and function signature used for file uploads and object storage. Replace the uploadFile and deleteFile calls below with whatever pattern file.controller.ts uses — do not invent new imports.
+
+Create: server/api/controllers/job-document.controller.ts
+
+TypeScript — server/api/controllers/job-document.controller.ts
+import { Request, Response } from "express";
+import { db } from "../../storage";
+import {
+  jobDocuments,
+  jobs,
+  applications,
+  users,
+} from "../../../shared/schema";
+import { eq, and } from "drizzle-orm";
+import multer from "multer";
+
+// ── IMPORTANT ────────────────────────────────────────────────────────────
+// Add the same file upload / object storage imports that file.controller.ts
+// uses. Do NOT create new storage abstractions.
+// ─────────────────────────────────────────────────────────────────────────
+
+const ALLOWED_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
+const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+// ── Upload a document to a job ────────────────────────────────────────────
+export async function uploadJobDocument(req: Request, res: Response) {
+  try {
+    const employerId = req.companyId!;
+    const jobId = parseInt(req.params.jobId);
+    const { documentType = "other" } = req.body;
+
+    if (isNaN(jobId))
+      return res.status(400).json({ error: "Invalid job ID" });
+
+    // Verify job belongs to this employer
+    const [job] = await db.select().from(jobs)
+      .where(and(eq(jobs.id, jobId), eq(jobs.employerId, employerId)));
+
+    if (!job)
+      return res.status(403).json({ error: "Job not found or not yours" });
+
+    if (!req.file)
+      return res.status(400).json({ error: "No file provided" });
+
+    if (!ALLOWED_TYPES.includes(req.file.mimetype))
+      return res.status(400).json({
+        error: "Only PDF, Word, and Excel files are allowed",
+      });
+
+    if (req.file.size > MAX_SIZE)
+      return res.status(400).json({ error: "File too large. Max 10MB." });
+
+    // ── FILE UPLOAD ───────────────────────────────────────────────────────
+    // Use the same upload pattern as file.controller.ts
+    // Generate a unique key for storage:
+    const fileKey =
+      `job-documents/${jobId}/${Date.now()}-${req.file.originalname}`;
+
+    // Replace the lines below with the actual upload call from
+    // file.controller.ts, e.g.:
+    //   const fileUrl = await uploadToStorage(req.file.buffer, fileKey, ...)
+    // ─────────────────────────────────────────────────────────────────────
+    const fileUrl = ""; // REPLACE with actual upload call
+
+    const [doc] = await db.insert(jobDocuments).values({
+      jobId,
+      uploadedByUserId: req.user!.id,
+      fileName: req.file.originalname,
+      fileKey,
+      fileUrl,
+      fileSize: req.file.size,
+      fileType: req.file.mimetype,
+      documentType,
+    }).returning();
+
+    return res.status(201).json(doc);
+  } catch (err) {
+    console.error("uploadJobDocument:", err);
+    return res.status(500).json({ error: "Failed to upload document" });
+  }
+}
+
+// ── Get documents for a job ───────────────────────────────────────────────
+// Employer who owns the job OR a hired freelancer can access
+export async function getJobDocuments(req: Request, res: Response) {
+  try {
+    const userId = req.user!.id;
+    const jobId = parseInt(req.params.jobId);
+
+    if (isNaN(jobId))
+      return res.status(400).json({ error: "Invalid job ID" });
+
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, jobId));
+    if (!job) return res.status(404).json({ error: "Job not found" });
+
+    const isEmployer = req.companyId === job.employerId;
+
+    if (!isEmployer) {
+      // ── IMPORTANT: replace 'hired' with the actual hired status
+      // value from your applications table schema ──────────────────
+      const HIRED_STATUS = "hired"; // CHECK schema — may be 'accepted'
+      const [hired] = await db.select().from(applications).where(
+        and(
+          eq(applications.jobId, jobId),
+          eq(applications.freelancerId, userId),
+          eq(applications.status, HIRED_STATUS)
+        )
+      );
+      if (!hired)
+        return res.status(403).json({
+          error: "Documents are only available to hired freelancers",
+        });
+    }
+
+    const docs = await db.select().from(jobDocuments)
+      .where(eq(jobDocuments.jobId, jobId));
+
+    return res.json(docs);
+  } catch (err) {
+    console.error("getJobDocuments:", err);
+    return res.status(500).json({ error: "Failed to fetch documents" });
+  }
+}
+
+// ── Delete a document (employer only) ────────────────────────────────────
+export async function deleteJobDocument(req: Request, res: Response) {
+  try {
+    const employerId = req.companyId!;
+    const docId = parseInt(req.params.docId);
+
+    if (isNaN(docId))
+      return res.status(400).json({ error: "Invalid document ID" });
+
+    const result = await db
+      .select({ doc: jobDocuments, empId: jobs.employerId })
+      .from(jobDocuments)
+      .innerJoin(jobs, eq(jobDocuments.jobId, jobs.id))
+      .where(eq(jobDocuments.id, docId));
+
+    if (!result.length)
+      return res.status(404).json({ error: "Document not found" });
+
+    const { doc, empId } = result[0];
+
+    if (empId !== employerId)
+      return res.status(403).json({ error: "Not authorised" });
+
+    // ── Replace with actual delete-from-storage call ──────────────────────
+    // Use the same pattern as file.controller.ts for deleting from storage
+    // e.g.: await deleteFromStorage(doc.fileKey);
+    // ─────────────────────────────────────────────────────────────────────
+
+    await db.delete(jobDocuments).where(eq(jobDocuments.id, docId));
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("deleteJobDocument:", err);
+    return res.status(500).json({ error: "Failed to delete document" });
+  }
+}
+ 
+Sprint 3 — Backend: job-document.route.ts
+Create: server/api/routes/job-document.route.ts
+
+TypeScript — server/api/routes/job-document.route.ts
+import { Router } from "express";
+import multer from "multer";
+import { requireAuth } from "../middleware/auth.middleware";
+import { requireRole } from "../middleware/role.middleware";
+import { resolveCompanyId } from "../middleware/team.middleware";
+import {
+  uploadJobDocument,
+  getJobDocuments,
+  deleteJobDocument,
+} from "../controllers/job-document.controller";
+
+const router = Router();
+
+// Max 10MB per file, store in memory buffer
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+router.use(requireAuth);
+
+// Employer — upload document to their job
+router.post(
+  "/job/:jobId/documents",
+  requireRole("employer"),
+  resolveCompanyId,
+  upload.single("file"),
+  uploadJobDocument
+);
+
+// Employer — delete a document from their job
+router.delete(
+  "/job/:jobId/documents/:docId",
+  requireRole("employer"),
+  resolveCompanyId,
+  deleteJobDocument
+);
+
+// Both employer and hired freelancer — get documents for a job
+router.get("/job/:jobId/documents", getJobDocuments);
+
+export default router;
+
+Register the route
+Add to server/api/routes/index.ts:
+TypeScript — server/api/routes/index.ts
+import jobDocumentRouter from "./job-document.route";
+
+// Add alongside the other router.use() calls:
+router.use("/", jobDocumentRouter);
+ 
+Sprint 4 — Email: Add document links to hire confirmation
+Where to add this
+Open server/api/controllers/applications.controller.ts. Find the function that updates an application status to hired/accepted and sends the confirmation email to the freelancer. Add the document fetch and HTML/text blocks below, then insert them into the existing email template.
+
+4.1  Fetch documents after hire — add this after status update
+TypeScript — add inside hire handler, after status update
+// Fetch any documents attached to this job
+const docs = await db
+  .select()
+  .from(jobDocuments)
+  .where(eq(jobDocuments.jobId, application.jobId));
+
+const hasDocuments = docs.length > 0;
+
+4.2  HTML block for the email — insert before closing sign-off
+TypeScript — HTML email block
+const documentLinksHtml = hasDocuments ? `
+  <table width="100%" cellpadding="0" cellspacing="0"
+         style="margin:24px 0;">
+    <tr>
+      <td style="background-color:#F0F4FA;border-radius:8px;padding:20px;">
+        <p style="margin:0 0 12px 0;font-size:15px;font-weight:bold;
+                  color:#1B2A4A;">Job Documents</p>
+        <p style="margin:0 0 16px 0;font-size:14px;color:#374151;">
+          The employer has attached the following documents:
+        </p>
+        ${docs.map(doc => `
+          <table cellpadding="0" cellspacing="0"
+                 style="margin-bottom:8px;">
+            <tr>
+              <td style="background-color:#D8690E;border-radius:6px;">
+                <a href="${doc.fileUrl}"
+                   style="display:inline-block;padding:10px 20px;
+                          font-size:14px;font-weight:bold;
+                          color:#ffffff;text-decoration:none;">
+                  &#128196; ${doc.fileName}
+                </a>
+              </td>
+            </tr>
+          </table>
+        `).join('')}
+        <p style="margin:12px 0 0;font-size:13px;color:#6B7280;">
+          You can also access these documents from your
+          bookings dashboard at any time.
+        </p>
+      </td>
+    </tr>
+  </table>
+` : '';
+
+4.3  Plain text fallback — add to text version of email
+TypeScript — plain text block
+const documentLinksText = hasDocuments
+  ? `\n\nJob Documents:\n${
+      docs.map(d => `- ${d.fileName}: ${d.fileUrl}`).join('\n')
+    }\n\nYou can also access these from your bookings dashboard.\n`
+  : '';
+
+Insert ${documentLinksHtml} and ${documentLinksText} into the existing hire email template just before the closing sign-off — Loris / The EventLink Team / eventlink.one.
+ 
+Sprint 5 — Frontend: Document panel on employer job card
+Where to add this
+Find the employer job card component — the component that renders each job in the My Jobs tab and shows the expanded view. Add the Documents section at the bottom of the expanded card content.
+
+5.1  State, refs, and query — add to component
+TypeScript — component state and handlers
+import { useState, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from
+  "@tanstack/react-query";
+
+// Inside the job card component:
+const queryClient = useQueryClient();
+const fileInputRef = useRef<HTMLInputElement>(null);
+const [showUploadWarning, setShowUploadWarning] = useState(false);
+const [pendingFile, setPendingFile] = useState<File | null>(null);
+const [docType, setDocType] = useState("function_sheet");
+const [uploading, setUploading] = useState(false);
+
+// Fetch documents for this job
+const { data: documents = [] } = useQuery<JobDocument[]>({
+  queryKey: [`/api/job/${job.id}/documents`],
+});
+
+const handleFileSelect = (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  setPendingFile(file);
+  setShowUploadWarning(true); // show warning BEFORE uploading
+  // Reset input so same file can be re-selected if needed
+  e.target.value = "";
+};
+
+const confirmUpload = async () => {
+  if (!pendingFile) return;
+  setShowUploadWarning(false);
+  setUploading(true);
+  try {
+    const formData = new FormData();
+    formData.append("file", pendingFile);
+    formData.append("documentType", docType);
+    await fetch(`/api/job/${job.id}/documents`, {
+      method: "POST",
+      body: formData,
+    });
+    queryClient.invalidateQueries({
+      queryKey: [`/api/job/${job.id}/documents`],
+    });
+  } finally {
+    setUploading(false);
+    setPendingFile(null);
+  }
+};
+
+const deleteDocument = async (docId: number) => {
+  await fetch(`/api/job/${job.id}/documents/${docId}`, {
+    method: "DELETE",
+  });
+  queryClient.invalidateQueries({
+    queryKey: [`/api/job/${job.id}/documents`],
+  });
+};
+
+5.2  Upload warning popup modal — add to JSX return
+TSX — upload warning modal
+{showUploadWarning && (
+  <div className="fixed inset-0 bg-black/50 flex items-center
+                  justify-center z-50 p-4">
+    <div className="bg-white rounded-2xl shadow-xl max-w-md
+                    w-full p-8">
+      <div className="text-4xl mb-4 text-center">&#128203;</div>
+      <h2 className="text-xl font-bold text-gray-900 mb-3 text-center">
+        Before you upload
+      </h2>
+      <p className="text-gray-600 text-sm leading-relaxed mb-4 text-center">
+        Once a freelancer is hired for this job, they will be able
+        to view and download all documents you attach to it.
+      </p>
+      <p className="text-gray-500 text-sm leading-relaxed mb-6 text-center">
+        Make sure the file does not contain any sensitive
+        information you would not want the hired technician to see.
+      </p>
+      <div className="mb-5">
+        <label className="block text-sm font-medium text-gray-700
+                           mb-2">
+          Document type
+        </label>
+        <select
+          value={docType}
+          onChange={e => setDocType(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg
+                     px-3 py-2 text-sm"
+        >
+          <option value="function_sheet">Function Sheet</option>
+          <option value="purchase_order">Purchase Order</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div className="flex gap-3">
+        <button
+          onClick={confirmUpload}
+          disabled={uploading}
+          className="flex-1 py-3 bg-orange-600 text-white font-semibold
+                     rounded-xl hover:bg-orange-700 disabled:opacity-50
+                     transition-colors"
+        >
+          {uploading ? "Uploading..." : "Upload"}
+        </button>
+        <button
+          onClick={() => {
+            setShowUploadWarning(false);
+            setPendingFile(null);
+          }}
+          className="flex-1 py-3 border border-gray-300 text-gray-700
+                     font-semibold rounded-xl hover:bg-gray-50
+                     transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+5.3  Documents panel — add inside expanded job card JSX
+TSX — documents panel in expanded job card
+<div className="mt-4 pt-4 border-t border-gray-100">
+  <div className="flex items-center justify-between mb-3">
+    <h4 className="text-sm font-semibold text-gray-700">
+      Job Documents
+    </h4>
+    <button
+      onClick={() => fileInputRef.current?.click()}
+      className="text-xs px-3 py-1.5 bg-orange-50 text-orange-700
+                 border border-orange-200 rounded-lg hover:bg-orange-100
+                 transition-colors font-medium"
+    >
+      + Attach file
+    </button>
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept=".pdf,.doc,.docx,.xls,.xlsx"
+      className="hidden"
+      onChange={handleFileSelect}
+    />
+  </div>
+
+  {documents.length === 0 ? (
+    <p className="text-xs text-gray-400 italic">
+      No documents attached. Add a function sheet or purchase order.
+    </p>
+  ) : (
+    documents.map(doc => (
+      <div key={doc.id}
+           className="flex items-center justify-between py-2 px-3
+                      bg-gray-50 rounded-lg mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-gray-400 text-sm">&#128196;</span>
+          <a
+            href={doc.fileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-blue-600 hover:underline truncate"
+          >
+            {doc.fileName}
+          </a>
+          <span className="text-xs text-gray-400 flex-shrink-0">
+            {doc.documentType === "function_sheet"
+              ? "Function Sheet"
+              : doc.documentType === "purchase_order"
+              ? "Purchase Order"
+              : ""}
+          </span>
+        </div>
+        <button
+          onClick={() => deleteDocument(doc.id)}
+          className="text-gray-400 hover:text-red-500 transition-colors
+                     text-xs ml-2 flex-shrink-0"
+        >
+          Remove
+        </button>
+      </div>
+    ))
+  )}
+</div>
+ 
+Sprint 6 — Frontend: Documents on freelancer booking card
+Where to add this
+Find the freelancer booking card component — MyJobs.tsx or equivalent. Add the document query and render block below. Documents only fetch and display when the booking status is the hired/accepted status value. Check the actual status value in the codebase before implementing.
+
+6.1  Add document query to freelancer booking card
+TypeScript — query
+// Add to the freelancer booking card component
+// Replace 'hired' with the actual hired status value from your schema
+const HIRED_STATUS = "hired"; // CHECK — may be 'accepted' in your schema
+
+const { data: documents = [] } = useQuery<JobDocument[]>({
+  queryKey: [`/api/job/${booking.jobId}/documents`],
+  // Only fetch documents when the freelancer is hired
+  enabled: booking.status === HIRED_STATUS,
+});
+
+6.2  Render documents section in booking card JSX
+TSX — documents section in freelancer booking card
+// Add inside the booking card, after the booking detail rows
+// Only renders when hired and documents exist
+{booking.status === HIRED_STATUS && documents.length > 0 && (
+  <div className="mt-3 pt-3 border-t border-gray-100">
+    <p className="text-xs font-semibold text-gray-600 mb-2">
+      Job Documents
+    </p>
+    {documents.map(doc => (
+      <a
+        key={doc.id}
+        href={doc.fileUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 py-2 px-3 bg-orange-50
+                   rounded-lg mb-1.5 hover:bg-orange-100 transition-colors"
+      >
+        <span className="text-sm">&#128196;</span>
+        <span className="text-sm text-orange-700 font-medium truncate">
+          {doc.fileName}
+        </span>
+        <span className="text-xs text-orange-500 ml-auto flex-shrink-0">
+          {doc.documentType === "function_sheet"
+            ? "Function Sheet"
+            : doc.documentType === "purchase_order"
+            ? "PO"
+            : "Document"}
+        </span>
+      </a>
+    ))}
+  </div>
+)}
+ 
+Testing Checklist & File Summary
+Testing Checklist
+Complete all of the following before considering the feature deployed:
+☐	Employer attaches a PDF to a job — upload warning popup appears before upload starts
+☐	Warning popup shows document type selector (Function Sheet / Purchase Order / Other)
+☐	Cancel on the popup discards the file — no upload happens
+☐	Confirming upload — document appears in the job card with label and working download link
+☐	Employer can remove a document — it disappears from the card
+☐	Hire a freelancer for a job that has documents — hire confirmation email contains clickable document links
+☐	Hire a freelancer for a job with NO documents — hire email is unchanged (no broken document section)
+☐	Hired freelancer logs in — document section appears on their booking card
+☐	Non-hired freelancer calls GET /api/job/:id/documents — receives 403
+☐	Upload a non-PDF file (.exe, .zip) — rejected with clear error message
+☐	Upload a file over 10MB — rejected with clear error message
+☐	Team member (Manager role) can upload documents to jobs they posted
+
+Files to Create or Modify
+File	Action	What changes
+migrations/[NEXT]_job_documents.sql	New	Creates job_documents table
+shared/schema.ts	Modify	Add jobDocuments table definition and types
+server/api/controllers/job-document.controller.ts	New	Upload, get, delete document handlers
+server/api/routes/job-document.route.ts	New	Routes for document upload, get, delete
+server/api/routes/index.ts	Modify	Register job-document route
+server/api/controllers/applications.controller.ts	Modify	Add document links to hire confirmation email
+Employer job card component	Modify	Add documents panel + upload warning popup
+Freelancer booking card (MyJobs.tsx)	Modify	Add documents section when status is hired
+
+EventLink — Job Documents Feature — June 2026 — eventlink.one

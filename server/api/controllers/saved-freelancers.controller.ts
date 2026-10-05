@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
+import { getEmployerCompanyId } from "../utils/team.util";
 
 export async function saveFreelancer(req: Request, res: Response) {
   try {
@@ -15,7 +16,7 @@ export async function saveFreelancer(req: Request, res: Response) {
       return res.status(400).json({ error: "freelancerId is required" });
     }
 
-    const result = await storage.saveFreelancer((req as any).user.id, freelancerId);
+    const result = await storage.saveFreelancer(getEmployerCompanyId(req), freelancerId);
     res.json(result);
   } catch (error) {
     console.error("Error saving freelancer:", error);
@@ -37,7 +38,7 @@ export async function unsaveFreelancer(req: Request, res: Response) {
       return res.status(400).json({ error: "Invalid freelancer ID" });
     }
 
-    await storage.unsaveFreelancer((req as any).user.id, freelancerId);
+    await storage.unsaveFreelancer(getEmployerCompanyId(req), freelancerId);
     res.json({ success: true });
   } catch (error) {
     console.error("Error unsaving freelancer:", error);
@@ -51,7 +52,7 @@ export async function getSavedFreelancerIds(req: Request, res: Response) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    const ids = await storage.getSavedFreelancerIds((req as any).user.id);
+    const ids = await storage.getSavedFreelancerIds(getEmployerCompanyId(req));
     res.json(ids);
   } catch (error) {
     console.error("Error getting saved freelancer IDs:", error);
@@ -72,7 +73,7 @@ export async function getMyCrewFreelancers(req: Request, res: Response) {
     const location = req.query.location as string | undefined;
     const tab = (req.query.tab as "all" | "saved" | "worked") || "all";
 
-    const results = await storage.getMyCrewFreelancers((req as any).user.id, {
+    const results = await storage.getMyCrewFreelancers(getEmployerCompanyId(req), {
       keyword,
       location,
       tab,

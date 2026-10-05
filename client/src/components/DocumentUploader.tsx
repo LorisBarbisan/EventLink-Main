@@ -265,44 +265,29 @@ export function DocumentUploader({
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
       });
       if (response.ok) {
-        const contentType = response.headers.get("content-type") || "";
-        if (contentType.includes("application/json")) {
-          const data = await response.json();
-          if (data.downloadUrl) {
-            window.open(data.downloadUrl, "_blank");
-          }
-        } else {
-          // Server streamed the file directly (local storage fallback)
-          const blob = await response.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          const a = Object.assign(document.createElement("a"), {
-            href: blobUrl,
-            download: document.original_filename || "document",
-            target: "_blank",
-          });
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-        }
+        const arrayBuffer = await response.arrayBuffer();
+        const mimeType =
+          response.headers.get("Content-Type") || document.file_type || "application/octet-stream";
+        const blob = new Blob([arrayBuffer], { type: mimeType });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank");
+      } else if (response.status === 401 || response.status === 403) {
+        toast({
+          title: "Access denied",
+          description: "You are not authorised to download this file.",
+          variant: "destructive",
+        });
       } else {
-        let errMsg = `HTTP ${response.status}`;
-        try {
-          const errData = await response.json();
-          errMsg = errData.error || errMsg;
-        } catch { /* not json */ }
-        console.error("Document download error:", errMsg);
         toast({
           title: "Download failed",
-          description: errMsg,
+          description: "Failed to download document. Please try again.",
           variant: "destructive",
         });
       }
-    } catch (err) {
-      console.error("Document download exception:", err);
+    } catch {
       toast({
         title: "Download failed",
-        description: err instanceof Error ? err.message : "Network error",
+        description: "Failed to download document. Please try again.",
         variant: "destructive",
       });
     }
@@ -457,7 +442,10 @@ export function DocumentUploader({
                     <FileText className="h-4 w-4 text-primary" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <Badge variant="secondary" className="mb-1">
+                    <Badge
+                      variant="secondary"
+                      className="mb-1 max-w-full whitespace-normal break-words rounded-md"
+                    >
                       {doc.document_type === "Other" && doc.custom_type_name
                         ? doc.custom_type_name
                         : DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type}
@@ -563,6 +551,7 @@ interface DocumentBadgesProps {
 }
 
 export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBadgesProps) {
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const isSignedIn = !!viewerRole || !!isOwner;
 
@@ -580,31 +569,21 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
         },
       });
       if (response.ok) {
-        const contentType = response.headers.get("content-type") || "";
-        if (contentType.includes("application/json")) {
-          const data = await response.json();
-          if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
-        } else {
-          const blob = await response.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          const a = Object.assign(document.createElement("a"), {
-            href: blobUrl,
-            download: document.original_filename || "document",
-            target: "_blank",
-          });
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-        }
-      } else {
-        let errMsg = `HTTP ${response.status}`;
-        try { const e = await response.json(); errMsg = e.error || errMsg; } catch { /* not json */ }
-        console.error("Document download error:", errMsg);
-        alert(`Could not open document: ${errMsg}`);
+        const arrayBuffer = await response.arrayBuffer();
+        const mimeType =
+          response.headers.get("Content-Type") || document.file_type || "application/octet-stream";
+        const blob = new Blob([arrayBuffer], { type: mimeType });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, "_blank");
+      } else if (response.status === 401 || response.status === 403) {
+        toast({
+          title: "Access denied",
+          description: "You are not authorised to download this file.",
+          variant: "destructive",
+        });
       }
-    } catch (err) {
-      console.error("Failed to download document", err);
+    } catch {
+      console.error("Failed to download document");
     }
   };
 

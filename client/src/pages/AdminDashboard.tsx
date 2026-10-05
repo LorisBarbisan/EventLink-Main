@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TabBadge } from "@/components/ui/tab-badge";
+import { CountrySelect } from "@/components/ui/country-select";
 import {
   Table,
   TableBody,
@@ -60,7 +61,9 @@ import { formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
   Briefcase,
+  Building2,
   Check,
+  ChevronLeft,
   Download,
   FileText,
   Mail,
@@ -120,6 +123,7 @@ interface User {
   created_at: string;
   last_login_at?: string;
   profile_status?: "no_profile" | "incomplete" | "complete";
+  profile_country?: string | null;
   job_alerts_opt_out?: boolean;
   job_alert_frequency_preference?: "instant" | "weekly" | "none";
 }
@@ -194,28 +198,35 @@ function AdminDashboardContent() {
       setCsvDownloading(false);
     }
   };
-  const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
+  const [, setSelectedFeedback] = useState<FeedbackItem | null>(null);
   const [adminResponse, setAdminResponse] = useState("");
   const [feedbackFilters, setFeedbackFilters] = useState({
     status: "all",
     type: "all",
   });
 
+  // Contact tab filters (client-side; contact messages are fetched as a full list)
+  const [contactFilters, setContactFilters] = useState({
+    status: "all",
+    search: "",
+  });
+
   // Contact message reply state
-  const [selectedContactMessage, setSelectedContactMessage] = useState<ContactMessage | null>(null);
+  const [, setSelectedContactMessage] = useState<ContactMessage | null>(null);
   const [contactReply, setContactReply] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
 
   // Admin management state
   const [isBootstrapping, setIsBootstrapping] = useState(false);
 
-  const [, setLocation] = useLocation();
+  useLocation();
 
   // Users Tab State
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [profileStatusFilter, setProfileStatusFilter] = useState("all");
+  const [userCountryFilter, setUserCountryFilter] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -244,13 +255,25 @@ function AdminDashboardContent() {
   // Jobs Tab State
   const [jobSearch, setJobSearch] = useState("");
   const [jobStatusFilter, setJobStatusFilter] = useState("all");
-  const [jobTypeFilter, setJobTypeFilter] = useState("all");
+  const [jobTypeFilter, setJobTypeFilter] = useState("internal");
+  const [jobCountryFilter, setJobCountryFilter] = useState("all");
   const [jobSortBy, setJobSortBy] = useState("company");
   const [jobSortOrder, setJobSortOrder] = useState<"asc" | "desc">("desc");
   const [jobCurrentPage, setJobCurrentPage] = useState(1);
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
 
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+
+  // Guest job moderation state
+  const [moderateJobId, setModerateJobId] = useState<number | null>(null);
+  const [moderateDecision, setModerateDecision] = useState<"approved" | "rejected" | null>(null);
+  const [moderateNote, setModerateNote] = useState("");
+
+  // Teams Tab State
+  const [teamsSearch, setTeamsSearch] = useState("");
+  const [teamsSort, setTeamsSort] = useState("newest");
+  const [teamsPage, setTeamsPage] = useState(1);
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ userId, status }: { userId: number; status: string }) => {
@@ -338,7 +361,15 @@ function AdminDashboardContent() {
   useEffect(() => {
     const handleHashSync = () => {
       const hash = window.location.hash.replace("#", "");
-      const validTabs = ["overview", "users", "jobs", "feedback", "contact", "admin-management"];
+      const validTabs = [
+        "overview",
+        "users",
+        "jobs",
+        "feedback",
+        "contact",
+        "teams",
+        "admin-management",
+      ];
       if (hash && validTabs.includes(hash)) {
         setActiveTab((prev) => (prev !== hash ? hash : prev));
       }
@@ -417,6 +448,7 @@ function AdminDashboardContent() {
       profileStatusFilter,
       sortBy,
       sortOrder,
+      userCountryFilter,
     ],
     queryFn: () => {
       const params = new URLSearchParams();
@@ -426,6 +458,7 @@ function AdminDashboardContent() {
       if (roleFilter !== "all") params.append("role", roleFilter);
       if (statusFilter !== "all") params.append("status", statusFilter);
       if (profileStatusFilter !== "all") params.append("profileStatus", profileStatusFilter);
+      if (userCountryFilter.trim()) params.append("country", userCountryFilter.trim());
       params.append("sortBy", sortBy);
       params.append("sortOrder", sortOrder);
       return apiRequest(`/api/admin/users?${params.toString()}`);
@@ -498,6 +531,7 @@ function AdminDashboardContent() {
       application_count: number;
       hired_count: number;
       closure_email_count: number;
+      notified_email_count: number;
       recruiter_email?: string;
       recruiter_name?: string;
     }>;
@@ -512,6 +546,7 @@ function AdminDashboardContent() {
       jobSearch,
       jobStatusFilter,
       jobTypeFilter,
+      jobCountryFilter,
       jobSortBy,
       jobSortOrder,
     ],
@@ -522,6 +557,8 @@ function AdminDashboardContent() {
       if (jobSearch) params.append("search", jobSearch);
       if (jobStatusFilter !== "all") params.append("status", jobStatusFilter);
       if (jobTypeFilter !== "all") params.append("type", jobTypeFilter);
+      if (jobCountryFilter && jobCountryFilter !== "all")
+        params.append("country", jobCountryFilter);
       params.append("sortBy", jobSortBy);
       params.append("sortOrder", jobSortOrder);
       return apiRequest(`/api/admin/jobs?${params.toString()}`);
@@ -573,6 +610,145 @@ function AdminDashboardContent() {
     queryFn: () => apiRequest(`/api/admin/jobs/${selectedJobId}`),
     enabled: selectedJobId !== null,
     retry: 1,
+  });
+
+  // Pending guest jobs moderation queue
+  const { data: pendingGuestJobsData, isLoading: pendingGuestJobsLoading } = useQuery<{
+    jobs: Array<{
+      id: number;
+      title: string;
+      company: string;
+      location: string;
+      country?: string | null;
+      rate: string;
+      description: string;
+      event_date?: string | null;
+      created_at: string;
+      contact_email: string | null;
+    }>;
+    total: number;
+  }>({
+    queryKey: ["/api/admin/jobs/pending-guest"],
+    queryFn: () => apiRequest("/api/admin/jobs/pending-guest"),
+    staleTime: 0,
+  });
+
+  const moderateJobMutation = useMutation({
+    mutationFn: async ({
+      jobId,
+      decision,
+      note,
+    }: {
+      jobId: number;
+      decision: "approved" | "rejected";
+      note?: string;
+    }) => {
+      await apiRequest(`/api/admin/jobs/${jobId}/moderate`, {
+        method: "POST",
+        body: JSON.stringify({ decision, note }),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/jobs/pending-guest"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/jobs"] });
+      setModerateJobId(null);
+      setModerateDecision(null);
+      setModerateNote("");
+      toast({
+        title: "Job moderated",
+        description:
+          moderateDecision === "approved"
+            ? "Job approved and published."
+            : "Job rejected and closed.",
+      });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to moderate job.", variant: "destructive" });
+    },
+  });
+
+  // Teams queries
+  const { data: teamsData, isLoading: teamsLoading } = useQuery<{
+    teams: Array<{
+      company_user_id: number;
+      company_name: string | null;
+      owner_email: string;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
+      member_count: number;
+      pending_invitations: number;
+      active_jobs: number;
+      closed_jobs: number;
+      total_hired: number;
+      created_at: string;
+    }>;
+    total: number;
+    totalPages: number;
+    page: number;
+    limit: number;
+  }>({
+    queryKey: ["/api/admin/teams", teamsPage, teamsSearch, teamsSort],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.append("page", teamsPage.toString());
+      params.append("limit", "20");
+      if (teamsSearch.trim()) params.append("search", teamsSearch.trim());
+      if (teamsSort !== "newest") params.append("sort", teamsSort);
+      return apiRequest(`/api/admin/teams?${params.toString()}`);
+    },
+    enabled: activeTab === "teams",
+    retry: 1,
+    staleTime: 0,
+    gcTime: 0,
+    placeholderData: keepPreviousData,
+  });
+
+  const { data: teamDetailData, isLoading: teamDetailLoading } = useQuery<{
+    company: {
+      company_user_id: number;
+      company_name: string | null;
+      owner_email: string;
+      owner_first_name: string | null;
+      owner_last_name: string | null;
+      member_count: number;
+      pending_invitations: number;
+      active_jobs: number;
+      closed_jobs: number;
+      total_hired: number;
+      created_at: string;
+      website_url: string | null;
+      location: string | null;
+      company_type: string | null;
+    };
+    members: Array<{
+      id: number;
+      user_id: number | null;
+      email: string;
+      name: string;
+      role: string;
+      joined_at: string | null;
+      invite_accepted: boolean;
+      account_status: string | null;
+      jobs_posted: number;
+    }>;
+    jobs: Array<{
+      id: number;
+      title: string;
+      status: string;
+      is_published: boolean;
+      created_at: string;
+      application_count: number;
+      hired_count: number;
+      recruiter_name: string;
+    }>;
+  }>({
+    queryKey: ["/api/admin/teams", selectedTeamId, "detail"],
+    queryFn: () => apiRequest(`/api/admin/teams/${selectedTeamId}`),
+    enabled: selectedTeamId !== null && activeTab === "teams",
+    retry: 1,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   // Send job alert emails mutation
@@ -635,6 +811,16 @@ function AdminDashboardContent() {
     refetchOnMount: true,
   });
 
+  // Contact messages filtered client-side by status + search
+  const filteredContactMessages = (contactMessages ?? []).filter((m) => {
+    if (contactFilters.status !== "all" && m.status !== contactFilters.status) return false;
+    const q = contactFilters.search.trim().toLowerCase();
+    if (q && !`${m.name} ${m.email} ${m.subject} ${m.message}`.toLowerCase().includes(q)) {
+      return false;
+    }
+    return true;
+  });
+
   const totalPages = usersData?.totalPages || 1;
   const paginatedUsers = usersData?.users || [];
 
@@ -644,7 +830,7 @@ function AdminDashboardContent() {
 
   useEffect(() => {
     setJobCurrentPage(1);
-  }, [jobSearch, jobStatusFilter, jobTypeFilter, jobSortBy, jobSortOrder]);
+  }, [jobSearch, jobStatusFilter, jobTypeFilter, jobCountryFilter, jobSortBy, jobSortOrder]);
 
   // Automatically mark notifications as read when the relevant tab is active
   useEffect(() => {
@@ -834,36 +1020,74 @@ function AdminDashboardContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7 p-1">
-          <TabsTrigger value="overview" className="flex items-center justify-center gap-2">
+        {/* Mobile: dropdown tab selector */}
+        <div className="sm:hidden">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="overview">Overview</SelectItem>
+              <SelectItem value="feedback">
+                Feedback{counts.feedback > 0 ? ` (${counts.feedback})` : ""}
+              </SelectItem>
+              <SelectItem value="moderation">
+                Moderation
+                {(pendingGuestJobsData?.total ?? 0) > 0 ? ` (${pendingGuestJobsData!.total})` : ""}
+              </SelectItem>
+              <SelectItem value="contact">
+                Contact{counts.contact_messages > 0 ? ` (${counts.contact_messages})` : ""}
+              </SelectItem>
+              <SelectItem value="jobs">Jobs</SelectItem>
+              <SelectItem value="users">Users</SelectItem>
+              <SelectItem value="teams">Teams</SelectItem>
+              <SelectItem value="admin-management">Admin</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Desktop: tab bar */}
+        <TabsList className="hidden w-full grid-cols-8 gap-1 p-1 sm:grid">
+          <TabsTrigger value="overview" className="flex items-center justify-center gap-2 text-sm">
             <TrendingUp className="h-4 w-4" />
             Overview
           </TabsTrigger>
-          <TabsTrigger value="feedback" className="flex items-center justify-center gap-2">
+          <TabsTrigger value="feedback" className="flex items-center justify-center gap-2 text-sm">
             <MessageSquare className="h-4 w-4" />
             Feedback
             <TabBadge count={counts.feedback} />
           </TabsTrigger>
-          <TabsTrigger value="moderation" className="flex items-center justify-center gap-2">
+          <TabsTrigger
+            value="moderation"
+            className="flex items-center justify-center gap-2 text-sm"
+          >
             <Shield className="h-4 w-4" />
             Moderation
+            <TabBadge count={pendingGuestJobsData?.total ?? 0} />
           </TabsTrigger>
-          <TabsTrigger value="contact" className="flex items-center justify-center gap-2">
+          <TabsTrigger value="contact" className="flex items-center justify-center gap-2 text-sm">
             <Mail className="h-4 w-4" />
             Contact
             <TabBadge count={counts.contact_messages} />
           </TabsTrigger>
-          <TabsTrigger value="jobs" className="flex items-center justify-center gap-2">
+          <TabsTrigger value="jobs" className="flex items-center justify-center gap-2 text-sm">
             <Briefcase className="h-4 w-4" />
             Jobs
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center justify-center gap-2">
+          <TabsTrigger value="users" className="flex items-center justify-center gap-2 text-sm">
             <Users className="h-4 w-4" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="admin-management" className="flex items-center justify-center gap-2">
+          <TabsTrigger value="teams" className="flex items-center justify-center gap-2 text-sm">
+            <Building2 className="h-4 w-4" />
+            Teams
+          </TabsTrigger>
+          <TabsTrigger
+            value="admin-management"
+            className="flex items-center justify-center gap-2 text-sm"
+          >
             <UserCheck className="h-4 w-4" />
-            Admin Management
+            Admin
           </TabsTrigger>
         </TabsList>
 
@@ -1130,6 +1354,151 @@ function AdminDashboardContent() {
         </TabsContent>
 
         <TabsContent value="moderation" className="space-y-6">
+          {/* Guest job moderation queue */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Guest Job Queue
+                {(pendingGuestJobsData?.total ?? 0) > 0 && (
+                  <Badge className="ml-1 bg-amber-500 hover:bg-amber-600">
+                    {pendingGuestJobsData!.total}
+                  </Badge>
+                )}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Jobs submitted by guests awaiting review before going live
+              </p>
+            </CardHeader>
+            <CardContent>
+              {pendingGuestJobsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+                </div>
+              ) : !pendingGuestJobsData?.jobs.length ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  No guest jobs pending review.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {pendingGuestJobsData.jobs.map((job) => (
+                    <div key={job.id} className="space-y-3 rounded-lg border border-border p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="truncate font-semibold">{job.title}</span>
+                            <Badge variant="outline" className="shrink-0 text-xs">
+                              {job.company}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {job.location}
+                            {job.country ? `, ${job.country}` : ""} &middot; {job.rate}
+                            {job.event_date ? ` &middot; ${job.event_date}` : ""}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Contact: <span className="font-medium">{job.contact_email ?? "—"}</span>
+                            &nbsp;&middot; Submitted{" "}
+                            {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                          </p>
+                          {job.description && (
+                            <p className="line-clamp-3 pt-1 text-sm text-foreground/80">
+                              {job.description}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <Button
+                            size="sm"
+                            className="h-8 bg-green-600 text-white hover:bg-green-700"
+                            onClick={() => {
+                              setModerateJobId(job.id);
+                              setModerateDecision("approved");
+                              setModerateNote("");
+                            }}
+                          >
+                            <Check className="mr-1 h-3.5 w-3.5" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-8"
+                            onClick={() => {
+                              setModerateJobId(job.id);
+                              setModerateDecision("rejected");
+                              setModerateNote("");
+                            }}
+                          >
+                            <X className="mr-1 h-3.5 w-3.5" />
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Moderation confirm dialog */}
+          <AlertDialog
+            open={moderateJobId !== null}
+            onOpenChange={(open) => {
+              if (!open) {
+                setModerateJobId(null);
+                setModerateDecision(null);
+                setModerateNote("");
+              }
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {moderateDecision === "approved" ? "Approve job post?" : "Reject job post?"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {moderateDecision === "approved"
+                    ? "The job will be published immediately and visible to all freelancers."
+                    : "The job will be closed and the poster will not be notified automatically."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="py-2">
+                <label className="text-sm font-medium">Note (optional)</label>
+                <Textarea
+                  className="mt-1"
+                  rows={2}
+                  placeholder="Internal note about this decision…"
+                  value={moderateNote}
+                  onChange={(e) => setModerateNote(e.target.value)}
+                />
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className={
+                    moderateDecision === "approved"
+                      ? "bg-green-600 text-white hover:bg-green-700"
+                      : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  }
+                  onClick={() => {
+                    if (moderateJobId && moderateDecision) {
+                      moderateJobMutation.mutate({
+                        jobId: moderateJobId,
+                        decision: moderateDecision,
+                        note: moderateNote || undefined,
+                      });
+                    }
+                  }}
+                >
+                  {moderateDecision === "approved" ? "Approve & Publish" : "Reject"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Existing content moderation (reported ratings) */}
           <Card>
             <CardHeader>
               <CardTitle>Content Moderation</CardTitle>
@@ -1147,10 +1516,43 @@ function AdminDashboardContent() {
         <TabsContent value="contact" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Contact Messages</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Messages submitted through the Contact Us form
-              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle>Contact Messages</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Messages submitted through the Contact Us form
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Select
+                    value={contactFilters.status}
+                    onValueChange={(value) =>
+                      setContactFilters((prev) => ({ ...prev, status: value }))
+                    }
+                  >
+                    <SelectTrigger className="w-full sm:w-[150px]">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="replied">Replied</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search name, email, subject..."
+                      value={contactFilters.search}
+                      onChange={(e) =>
+                        setContactFilters((prev) => ({ ...prev, search: e.target.value }))
+                      }
+                      className="pl-8"
+                    />
+                  </div>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {contactMessagesLoading && !contactMessages ? (
@@ -1163,8 +1565,12 @@ function AdminDashboardContent() {
                     <div className="py-8 text-center text-muted-foreground">
                       No contact messages yet.
                     </div>
+                  ) : filteredContactMessages.length === 0 ? (
+                    <div className="py-8 text-center text-muted-foreground">
+                      No contact messages match your filters.
+                    </div>
                   ) : (
-                    contactMessages.map((message: ContactMessage) => (
+                    filteredContactMessages.map((message: ContactMessage) => (
                       <div
                         key={message.id}
                         className="space-y-3 rounded-lg border border-border p-4"
@@ -1320,14 +1726,23 @@ function AdminDashboardContent() {
 
                     <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}>
                       <SelectTrigger className="w-[160px]">
-                        <SelectValue placeholder="Type" />
+                        <SelectValue placeholder="Source" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="internal">EventLink only</SelectItem>
+                        <SelectItem value="all">All (incl. imported)</SelectItem>
+                        <SelectItem value="external">Imported only</SelectItem>
                         <SelectItem value="published">Published</SelectItem>
                         <SelectItem value="private">Private</SelectItem>
                       </SelectContent>
                     </Select>
+
+                    <CountrySelect
+                      value={jobCountryFilter === "all" ? "" : jobCountryFilter}
+                      onChange={(v) => setJobCountryFilter(v || "all")}
+                      placeholder="All countries"
+                      className="w-[160px]"
+                    />
 
                     <Select value={jobSortBy} onValueChange={setJobSortBy}>
                       <SelectTrigger className="w-[160px]">
@@ -1353,20 +1768,20 @@ function AdminDashboardContent() {
                     </Select>
                   </div>
 
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Title</TableHead>
-                          <TableHead>Company</TableHead>
-                          <TableHead>Location</TableHead>
+                          <TableHead className="hidden sm:table-cell">Company</TableHead>
+                          <TableHead className="hidden md:table-cell">Location</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Applications</TableHead>
-                          <TableHead>Hired</TableHead>
-                          <TableHead>Notified</TableHead>
-                          <TableHead>Event Date</TableHead>
-                          <TableHead>Posted By</TableHead>
-                          <TableHead>Created</TableHead>
+                          <TableHead className="hidden md:table-cell">Applications</TableHead>
+                          <TableHead className="hidden lg:table-cell">Hired</TableHead>
+                          <TableHead className="hidden lg:table-cell">Notified</TableHead>
+                          <TableHead className="hidden sm:table-cell">Event Date</TableHead>
+                          <TableHead className="hidden lg:table-cell">Posted By</TableHead>
+                          <TableHead className="hidden lg:table-cell">Created</TableHead>
                           <TableHead></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1385,13 +1800,13 @@ function AdminDashboardContent() {
                                 {job.title}
                               </TableCell>
                               <TableCell
-                                className="max-w-[150px] truncate py-2"
+                                className="hidden max-w-[150px] truncate py-2 sm:table-cell"
                                 title={job.company}
                               >
                                 {job.company}
                               </TableCell>
                               <TableCell
-                                className="max-w-[120px] truncate py-2"
+                                className="hidden max-w-[120px] truncate py-2 md:table-cell"
                                 title={job.location}
                               >
                                 {job.location}
@@ -1414,10 +1829,10 @@ function AdminDashboardContent() {
                                   {job.status}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="py-2 text-center">
+                              <TableCell className="hidden py-2 text-center md:table-cell">
                                 <Badge variant="secondary">{job.application_count}</Badge>
                               </TableCell>
-                              <TableCell className="py-2 text-center">
+                              <TableCell className="hidden py-2 text-center lg:table-cell">
                                 {job.hired_count > 0 ? (
                                   <Badge
                                     variant="default"
@@ -1429,11 +1844,24 @@ function AdminDashboardContent() {
                                   <span className="text-xs text-muted-foreground">0</span>
                                 )}
                               </TableCell>
-                              <TableCell className="py-2 text-center">
-                                {job.closure_email_count > 0 ? (
+                              <TableCell className="hidden py-2 text-center lg:table-cell">
+                                {job.notified_email_count > 0 ? (
                                   <Badge
                                     variant="secondary"
                                     className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                                    title={
+                                      job.closure_email_count > 0
+                                        ? `${job.notified_email_count} notified by email · ${job.closure_email_count} closure email(s) sent`
+                                        : `${job.notified_email_count} freelancer(s) notified by email`
+                                    }
+                                  >
+                                    ✉ {job.notified_email_count} notified
+                                  </Badge>
+                                ) : job.closure_email_count > 0 ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                                    title={`${job.closure_email_count} closure email(s) sent to unsuccessful applicants`}
                                   >
                                     ✉ {job.closure_email_count} notified
                                   </Badge>
@@ -1441,17 +1869,17 @@ function AdminDashboardContent() {
                                   <span className="text-xs text-muted-foreground">—</span>
                                 )}
                               </TableCell>
-                              <TableCell className="py-2 text-xs">
+                              <TableCell className="hidden py-2 text-xs sm:table-cell">
                                 {job.event_date || "-"}
                                 {job.end_date ? ` - ${job.end_date}` : ""}
                               </TableCell>
                               <TableCell
-                                className="max-w-[150px] truncate py-2 text-xs"
+                                className="hidden max-w-[150px] truncate py-2 text-xs lg:table-cell"
                                 title={job.recruiter_name || job.recruiter_email || "External"}
                               >
                                 {job.recruiter_name || job.recruiter_email || "External"}
                               </TableCell>
-                              <TableCell className="py-2 text-xs">
+                              <TableCell className="hidden py-2 text-xs lg:table-cell">
                                 {new Date(job.created_at).toLocaleDateString()}
                               </TableCell>
                               <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
@@ -1461,6 +1889,7 @@ function AdminDashboardContent() {
                                     <Button
                                       size="sm"
                                       variant="outline"
+                                      data-help="action.job.notify"
                                       className="h-7 border-orange-300 px-2 text-xs text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
                                       onClick={() => openNotifyDialog(job)}
                                     >
@@ -1757,7 +2186,10 @@ function AdminDashboardContent() {
                                                 : ""
                                             }
                                           >
-                                            {app.status}
+                                            {app.status === "rejected"
+                                              ? "Declined"
+                                              : app.status.charAt(0).toUpperCase() +
+                                                app.status.slice(1)}
                                           </Badge>
                                         </TableCell>
                                         <TableCell className="py-2 text-xs">
@@ -1877,7 +2309,7 @@ function AdminDashboardContent() {
                               </Badge>
                             )}
                             {searchTerm && (
-                              <Badge variant="secondary">Search: "{searchTerm}"</Badge>
+                              <Badge variant="secondary">Search: &quot;{searchTerm}&quot;</Badge>
                             )}
                             {roleFilter === "all" &&
                               statusFilter === "all" &&
@@ -2132,6 +2564,13 @@ function AdminDashboardContent() {
                         </SelectContent>
                       </Select>
 
+                      <CountrySelect
+                        value={userCountryFilter}
+                        onChange={(v) => setUserCountryFilter(v)}
+                        placeholder="All countries"
+                        className="h-9 w-full text-xs sm:text-sm"
+                      />
+
                       <Select value={sortBy} onValueChange={setSortBy}>
                         <SelectTrigger className="h-9 w-full text-xs sm:text-sm">
                           <SelectValue placeholder="Sort by" />
@@ -2161,7 +2600,7 @@ function AdminDashboardContent() {
                     </div>
                   </div>
 
-                  <div className="rounded-md border">
+                  <div className="overflow-x-auto rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -2172,7 +2611,7 @@ function AdminDashboardContent() {
                           <TableHead>Status</TableHead>
                           <TableHead>Joined</TableHead>
                           <TableHead>Last Login</TableHead>
-                          <TableHead>Job Alerts</TableHead>
+                          <TableHead>Country</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2186,7 +2625,19 @@ function AdminDashboardContent() {
                                   : "N/A"}
                               </TableCell>
                               <TableCell className="py-2">
-                                {rowUser.role !== "admin" ? (
+                                {rowUser.role === "recruiter" ? (
+                                  <button
+                                    className="text-left text-primary hover:underline"
+                                    onClick={() => {
+                                      setSelectedTeamId(rowUser.id);
+                                      setActiveTab("teams");
+                                      window.history.replaceState(null, "", "#teams");
+                                    }}
+                                    title="View company/team"
+                                  >
+                                    {rowUser.email}
+                                  </button>
+                                ) : rowUser.role !== "admin" ? (
                                   <a
                                     href={`/profile/${rowUser.id}`}
                                     target="_blank"
@@ -2259,16 +2710,8 @@ function AdminDashboardContent() {
                                   : "Never"}
                               </TableCell>
                               <TableCell className="py-2">
-                                {rowUser.role === "freelancer" ? (
-                                  rowUser.job_alerts_opt_out ? (
-                                    <Badge variant="destructive" className="text-xs">Opted Out</Badge>
-                                  ) : rowUser.job_alert_frequency_preference === "none" ? (
-                                    <Badge variant="secondary" className="text-xs">None</Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="text-xs border-green-500 text-green-700">
-                                      {rowUser.job_alert_frequency_preference || "instant"}
-                                    </Badge>
-                                  )
+                                {rowUser.profile_country ? (
+                                  <span className="text-xs">{rowUser.profile_country}</span>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">-</span>
                                 )}
@@ -2377,6 +2820,497 @@ function AdminDashboardContent() {
                     </Pagination>
                   )}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Teams / Companies Tab */}
+        <TabsContent value="teams" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    {selectedTeamId && teamDetailData ? (
+                      <span>
+                        {teamDetailData.company.company_name || teamDetailData.company.owner_email}
+                      </span>
+                    ) : (
+                      <span>Employer Companies</span>
+                    )}
+                  </CardTitle>
+                  {!selectedTeamId && (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      All recruiter accounts and their team structure
+                    </p>
+                  )}
+                </div>
+                {selectedTeamId ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedTeamId(null)}
+                    className="flex items-center gap-1 self-start"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Back to Companies
+                  </Button>
+                ) : (
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                    <div className="relative w-full sm:w-72">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search companies, emails..."
+                        value={teamsSearch}
+                        onChange={(e) => {
+                          setTeamsSearch(e.target.value);
+                          setTeamsPage(1);
+                        }}
+                        className="pl-8"
+                      />
+                    </div>
+                    <Select
+                      value={teamsSort}
+                      onValueChange={(value) => {
+                        setTeamsSort(value);
+                        setTeamsPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[160px]">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="newest">Newest first</SelectItem>
+                        <SelectItem value="oldest">Oldest first</SelectItem>
+                        <SelectItem value="company">Company A–Z</SelectItem>
+                        <SelectItem value="email">Owner email A–Z</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Team Detail View */}
+              {selectedTeamId ? (
+                teamDetailLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  </div>
+                ) : teamDetailData ? (
+                  <div className="space-y-6">
+                    {/* Overview Stats */}
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {[
+                        { label: "Team Members", value: teamDetailData.company.member_count },
+                        {
+                          label: "Pending Invites",
+                          value: teamDetailData.company.pending_invitations,
+                        },
+                        { label: "Active Jobs", value: teamDetailData.company.active_jobs },
+                        { label: "Total Hired", value: teamDetailData.company.total_hired },
+                      ].map((s) => (
+                        <div
+                          key={s.label}
+                          className="rounded-lg border bg-muted/30 p-3 text-center"
+                        >
+                          <div className="text-2xl font-bold">{s.value}</div>
+                          <div className="text-xs text-muted-foreground">{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Company Info */}
+                    <div className="rounded-lg border p-4 text-sm">
+                      <h3 className="mb-3 font-semibold">Company Info</h3>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div>
+                          <span className="text-muted-foreground">Owner:</span>{" "}
+                          <a
+                            href={`/profile/${teamDetailData.company.company_user_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            {teamDetailData.company.owner_first_name &&
+                            teamDetailData.company.owner_last_name
+                              ? `${teamDetailData.company.owner_first_name} ${teamDetailData.company.owner_last_name}`
+                              : teamDetailData.company.owner_email}
+                          </a>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Email:</span>{" "}
+                          {teamDetailData.company.owner_email}
+                        </div>
+                        {teamDetailData.company.location && (
+                          <div>
+                            <span className="text-muted-foreground">Location:</span>{" "}
+                            {teamDetailData.company.location}
+                          </div>
+                        )}
+                        {teamDetailData.company.company_type && (
+                          <div>
+                            <span className="text-muted-foreground">Type:</span>{" "}
+                            {teamDetailData.company.company_type}
+                          </div>
+                        )}
+                        {teamDetailData.company.website_url && (
+                          <div>
+                            <span className="text-muted-foreground">Website:</span>{" "}
+                            <a
+                              href={teamDetailData.company.website_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              {teamDetailData.company.website_url}
+                            </a>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-muted-foreground">Joined:</span>{" "}
+                          {new Date(teamDetailData.company.created_at).toLocaleDateString()}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Active / Closed Jobs:</span>{" "}
+                          {teamDetailData.company.active_jobs} /{" "}
+                          {teamDetailData.company.closed_jobs}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Team Members */}
+                    <div>
+                      <h3 className="mb-3 font-semibold">
+                        Team Members{" "}
+                        <span className="text-sm font-normal text-muted-foreground">
+                          ({teamDetailData.members.length})
+                        </span>
+                      </h3>
+                      {teamDetailData.members.length === 0 ? (
+                        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                          No team members — this is a solo employer account.
+                        </p>
+                      ) : (
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Name / Email</TableHead>
+                                <TableHead>Role</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Joined</TableHead>
+                                <TableHead>Jobs Posted</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {teamDetailData.members.map((m) => (
+                                <TableRow key={m.id}>
+                                  <TableCell className="py-2">
+                                    <div className="font-medium">{m.name}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {m.user_id ? (
+                                        <a
+                                          href={`/profile/${m.user_id}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-primary hover:underline"
+                                        >
+                                          {m.email}
+                                        </a>
+                                      ) : (
+                                        m.email
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    <Badge variant="outline" className="capitalize">
+                                      {m.role}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    {m.invite_accepted ? (
+                                      <Badge className="bg-green-600 text-xs hover:bg-green-700">
+                                        Accepted
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="secondary" className="text-xs">
+                                        Pending
+                                      </Badge>
+                                    )}
+                                    {m.account_status && (
+                                      <span className="ml-1 text-xs capitalize text-muted-foreground">
+                                        · {m.account_status}
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="py-2 text-sm">
+                                    {m.joined_at ? new Date(m.joined_at).toLocaleDateString() : "—"}
+                                  </TableCell>
+                                  <TableCell className="py-2 text-sm">{m.jobs_posted}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Jobs */}
+                    <div>
+                      <h3 className="mb-3 font-semibold">
+                        Jobs{" "}
+                        <span className="text-sm font-normal text-muted-foreground">
+                          ({teamDetailData.jobs.length})
+                        </span>
+                      </h3>
+                      {teamDetailData.jobs.length === 0 ? (
+                        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                          No jobs posted yet.
+                        </p>
+                      ) : (
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Visibility</TableHead>
+                                <TableHead>Posted By</TableHead>
+                                <TableHead>Applications</TableHead>
+                                <TableHead>Hired</TableHead>
+                                <TableHead>Date</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {teamDetailData.jobs.map((j) => (
+                                <TableRow key={j.id}>
+                                  <TableCell className="py-2 font-medium">
+                                    <button
+                                      className="text-left text-primary hover:underline"
+                                      onClick={() => {
+                                        setSelectedJobId(j.id);
+                                        setActiveTab("jobs");
+                                        window.history.replaceState(null, "", "#jobs");
+                                      }}
+                                    >
+                                      {j.title}
+                                    </button>
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    <Badge
+                                      variant={
+                                        j.status === "active"
+                                          ? "default"
+                                          : j.status === "closed"
+                                            ? "destructive"
+                                            : "secondary"
+                                      }
+                                      className="text-xs capitalize"
+                                    >
+                                      {j.status}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="py-2 text-xs">
+                                    {j.is_published ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="border-green-500 text-xs text-green-700"
+                                      >
+                                        Posted
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-xs">
+                                        Private
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="py-2 text-sm">{j.recruiter_name}</TableCell>
+                                  <TableCell className="py-2 text-sm">
+                                    {j.application_count}
+                                  </TableCell>
+                                  <TableCell className="py-2 text-sm">{j.hired_count}</TableCell>
+                                  <TableCell className="py-2 text-xs">
+                                    {new Date(j.created_at).toLocaleDateString()}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Company not found.
+                  </p>
+                )
+              ) : /* Teams List View */
+              teamsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              ) : (
+                <>
+                  <div className="mb-2 text-sm text-muted-foreground">
+                    {teamsData?.total ?? 0} employer account{teamsData?.total !== 1 ? "s" : ""}
+                    {teamsSearch && ` matching "${teamsSearch}"`}
+                  </div>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Company</TableHead>
+                          <TableHead>Owner</TableHead>
+                          <TableHead>Members</TableHead>
+                          <TableHead>Pending Invites</TableHead>
+                          <TableHead>Active Jobs</TableHead>
+                          <TableHead>Hired</TableHead>
+                          <TableHead>Joined</TableHead>
+                          <TableHead />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(teamsData?.teams ?? []).length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={8}
+                              className="py-8 text-center text-muted-foreground"
+                            >
+                              {teamsSearch
+                                ? "No companies match your search."
+                                : "No employer accounts found."}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          (teamsData?.teams ?? []).map((team) => (
+                            <TableRow
+                              key={team.company_user_id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => setSelectedTeamId(team.company_user_id)}
+                            >
+                              <TableCell className="py-2 font-medium">
+                                {team.company_name || (
+                                  <span className="italic text-muted-foreground">
+                                    No company name
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <div className="text-sm">
+                                  {team.owner_first_name || team.owner_last_name
+                                    ? `${team.owner_first_name ?? ""} ${team.owner_last_name ?? ""}`.trim()
+                                    : "—"}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {team.owner_email}
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-2 text-center">
+                                {team.member_count > 0 ? (
+                                  <Badge className="bg-blue-600 text-xs hover:bg-blue-700">
+                                    {team.member_count}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2 text-center">
+                                {team.pending_invitations > 0 ? (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {team.pending_invitations}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2 text-center text-sm">
+                                {team.active_jobs}
+                              </TableCell>
+                              <TableCell className="py-2 text-center text-sm">
+                                {team.total_hired}
+                              </TableCell>
+                              <TableCell className="py-2 text-xs">
+                                {new Date(team.created_at).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedTeamId(team.company_user_id);
+                                  }}
+                                >
+                                  View
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Pagination */}
+                  {(teamsData?.totalPages ?? 1) > 1 && (
+                    <div className="mt-4 flex justify-center">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              onClick={() => setTeamsPage((p) => Math.max(1, p - 1))}
+                              className={
+                                teamsPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
+                              }
+                            />
+                          </PaginationItem>
+                          {Array.from({ length: teamsData?.totalPages ?? 1 }, (_, i) => i + 1)
+                            .filter(
+                              (p) =>
+                                p === 1 ||
+                                p === (teamsData?.totalPages ?? 1) ||
+                                Math.abs(p - teamsPage) <= 1
+                            )
+                            .map((p, i, arr) => (
+                              <>
+                                {i > 0 && arr[i - 1] !== p - 1 && (
+                                  <PaginationItem key={`ellipsis-${p}`}>
+                                    <span className="px-2">…</span>
+                                  </PaginationItem>
+                                )}
+                                <PaginationItem key={p}>
+                                  <PaginationLink
+                                    isActive={p === teamsPage}
+                                    onClick={() => setTeamsPage(p)}
+                                    className="cursor-pointer"
+                                  >
+                                    {p}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              </>
+                            ))}
+                          <PaginationItem>
+                            <PaginationNext
+                              onClick={() =>
+                                setTeamsPage((p) => Math.min(teamsData?.totalPages ?? 1, p + 1))
+                              }
+                              className={
+                                teamsPage >= (teamsData?.totalPages ?? 1)
+                                  ? "pointer-events-none opacity-50"
+                                  : "cursor-pointer"
+                              }
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

@@ -1,3 +1,5 @@
+import { CountrySelect } from "@/components/ui/country-select";
+import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,17 +23,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { usePersistentState } from "@/hooks/usePersistentState";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
+  Banknote,
   BookOpen,
   Briefcase,
   Calendar,
   Camera,
   CheckCircle,
   Clock,
-  PoundSterling,
+  Globe,
+  Lock,
   Mail,
   MapPin,
   MessageCircle,
@@ -64,6 +68,7 @@ interface FreelancerProfile {
   bio: string;
   superpower: string;
   location: string;
+  country: string;
   experience_years: number | null;
   skills: string[];
   portfolio_url: string;
@@ -95,6 +100,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
       bio: "",
       superpower: "",
       location: "",
+      country: "",
       experience_years: null,
       skills: [],
       portfolio_url: "",
@@ -107,6 +113,8 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
   const [hasProfile, setHasProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [profileIsPublic, setProfileIsPublic] = useState(false);
+  const [togglingPrivacy, setTogglingPrivacy] = useState(false);
   const [newSkill, setNewSkill] = useState("");
   const [activeTab, setActiveTab] = useState("profile");
   const [lastViewedJobs, setLastViewedJobs] = useState<number>(() => {
@@ -189,6 +197,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
             bio: data.bio || "",
             superpower: data.superpower || "",
             location: data.location || "",
+            country: data.country || "",
             experience_years: data.experience_years || null,
             skills: data.skills || [],
             portfolio_url: data.portfolio_url || "",
@@ -202,6 +211,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
             cv_file_url: data.cv_file_url,
           });
         }
+        setProfileIsPublic(data.profile_is_public ?? false);
         setHasProfile(true);
       }
     } catch (error) {
@@ -219,6 +229,28 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     await fetchFreelancerProfile(true);
   };
 
+  const toggleProfilePrivacy = async () => {
+    setTogglingPrivacy(true);
+    const newValue = !profileIsPublic;
+    try {
+      await apiRequest(`/api/freelancer/${profile.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ profile_is_public: newValue }),
+      });
+      setProfileIsPublic(newValue);
+      toast({
+        title: newValue ? "Profile set to public" : "Profile set to private",
+        description: newValue
+          ? "Anyone can now view your CV and documents without logging in."
+          : "Only signed-in employers can view your CV and documents.",
+      });
+    } catch {
+      toast({ title: "Failed to update privacy setting", variant: "destructive" });
+    } finally {
+      setTogglingPrivacy(false);
+    }
+  };
+
   const saveProfile = async () => {
     setSaving(true);
     try {
@@ -230,6 +262,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
         bio: freelancerProfile.bio,
         superpower: freelancerProfile.superpower,
         location: freelancerProfile.location,
+        country: freelancerProfile.country,
         experience_years: freelancerProfile.experience_years,
         skills: freelancerProfile.skills,
         portfolio_url: freelancerProfile.portfolio_url,
@@ -242,6 +275,14 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
       console.log(
         "Saving profile with photo URL length:",
         payload.profile_photo_url ? payload.profile_photo_url.length : 0
+      );
+      console.log(
+        "[SAVE] hasProfile:",
+        hasProfile,
+        "| country:",
+        payload.country,
+        "| userId:",
+        profile.id
       );
 
       if (hasProfile) {
@@ -355,6 +396,12 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     }
   };
 
+  // Get bookings (hired jobs) for the freelancer — must be before early return
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery<any[]>({
+    queryKey: ["/api/freelancer", freelancerProfile?.user_id, "bookings"],
+    enabled: !!freelancerProfile?.user_id,
+  });
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -364,34 +411,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
       </div>
     );
   }
-
-  // Messages based on your actual profile as a Sound Engineer
-  const profileMessages = [
-    {
-      id: 1,
-      sender: "Live Nation Events",
-      subject: `Sound Engineer - ${freelancerProfile.first_name} ${freelancerProfile.last_name}`,
-      preview: `Hi ${freelancerProfile.first_name}, we saw your profile and are interested in your ${freelancerProfile.experience_years} years of experience...`,
-      time: "2 hours ago",
-      unread: true,
-    },
-    {
-      id: 2,
-      sender: "AV Solutions Ltd",
-      subject: "Re: AV Specialist Position",
-      preview: `Thank you for your interest in working with us on upcoming events. Your expertise in ${freelancerProfile.skills[0] || "audio engineering"} is exactly what we need...`,
-      time: "1 day ago",
-      unread: false,
-    },
-    {
-      id: 3,
-      sender: "Conference Tech Ltd",
-      subject: "Follow-up: Technical Director Role",
-      preview: `Following our discussion about the ${freelancerProfile.location} event, we'd like to confirm your availability...`,
-      time: "3 days ago",
-      unread: false,
-    },
-  ];
 
   // Transform job applications data for display
   const profileJobs = jobApplications.map((application: any) => ({
@@ -412,12 +431,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     rejectionMessage: application.rejection_message,
   }));
 
-  // Get bookings (hired jobs) for the freelancer
-  const { data: bookings = [], isLoading: bookingsLoading } = useQuery<any[]>({
-    queryKey: ["/api/freelancer", freelancerProfile?.user_id, "bookings"],
-    enabled: !!freelancerProfile?.user_id,
-  });
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -433,7 +446,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                     <img
                       src={freelancerProfile.profile_photo_url}
                       alt="Profile"
-                      className="h-full w-full object-cover"
+                      className="h-full w-full bg-white object-cover"
                       onLoad={() => console.log("Profile photo loaded successfully")}
                       onError={(e) => console.log("Profile photo failed to load:", e)}
                     />
@@ -454,8 +467,27 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
               </div>
               <div className="flex items-center gap-3">
                 {hasProfile && (
-                  <ShareProfileButton userId={parseInt(profile.id)} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleProfilePrivacy}
+                    disabled={togglingPrivacy}
+                    className="gap-1.5 text-xs"
+                    title={
+                      profileIsPublic
+                        ? "Profile is public — click to make private"
+                        : "Profile is private — click to make public"
+                    }
+                  >
+                    {profileIsPublic ? (
+                      <Globe className="h-3.5 w-3.5 text-green-600" />
+                    ) : (
+                      <Lock className="h-3.5 w-3.5 text-gray-500" />
+                    )}
+                    {profileIsPublic ? "Public" : "Private"}
+                  </Button>
                 )}
+                {hasProfile && <ShareProfileButton userId={parseInt(profile.id)} />}
                 <div className="flex items-center gap-2">
                   <div
                     className={`h-3 w-3 rounded-full ${
@@ -556,7 +588,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                       <img
                         src={freelancerProfile.profile_photo_url}
                         alt="Profile"
-                        className="h-full w-full object-cover"
+                        className="h-full w-full bg-white object-cover"
                       />
                     ) : (
                       <Camera className="h-8 w-8 text-white" />
@@ -640,16 +672,24 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="location">Location (Optional)</Label>
-                    <Input
-                      id="location"
-                      value={freelancerProfile.location}
-                      onChange={(e) =>
-                        setFreelancerProfile((prev) => ({ ...prev, location: e.target.value }))
-                      }
-                      placeholder="City, Country"
+                    <Label htmlFor="country">Country *</Label>
+                    <CountrySelect
+                      id="country"
+                      value={freelancerProfile.country}
+                      onChange={(v) => setFreelancerProfile((prev) => ({ ...prev, country: v }))}
+                      required
                     />
                   </div>
+                  <GlobalLocationInput
+                    id="location"
+                    label="City / Location"
+                    value={freelancerProfile.location}
+                    onChange={(v) => setFreelancerProfile((prev) => ({ ...prev, location: v }))}
+                    placeholder="Start typing a city..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="experience_years">Years of Experience (Optional)</Label>
                     <Input
@@ -757,7 +797,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                       freelancerProfile.cv_file_name
                         ? {
                             fileName: freelancerProfile.cv_file_name,
-                            fileType: freelancerProfile.cv_file_type,
                             fileSize: freelancerProfile.cv_file_size,
                             fileUrl: freelancerProfile.cv_file_url,
                           }
@@ -780,9 +819,11 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                         ...(fields.title !== undefined && { title: fields.title }),
                         ...(fields.bio !== undefined && { bio: fields.bio }),
                         ...(fields.location !== undefined && { location: fields.location }),
+                        ...(fields.country !== undefined && { country: fields.country }),
                         ...(fields.skills !== undefined && { skills: fields.skills }),
                         ...(fields.experience_years !== undefined && {
-                          experience_years: parseInt(fields.experience_years) || prev.experience_years,
+                          experience_years:
+                            parseInt(fields.experience_years) || prev.experience_years,
                         }),
                       }));
                     }}
@@ -892,7 +933,9 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                             : ""
                                 }`}
                               >
-                                {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                                {job.status === "rejected"
+                                  ? "Declined"
+                                  : job.status.charAt(0).toUpperCase() + job.status.slice(1)}
                               </Badge>
                             </div>
                             <div className="space-y-1 text-sm text-muted-foreground">
@@ -906,7 +949,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                   Applied: {job.applicationDate}
                                 </span>
                                 <span className="flex items-center gap-1">
-                                  <PoundSterling className="h-3 w-3" />
+                                  <Banknote className="h-3 w-3" />
                                   {job.rate}
                                 </span>
                               </div>
@@ -943,9 +986,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                       <div className="flex items-start space-x-3">
                                         <AlertCircle className="mt-0.5 h-5 w-5 text-red-500" />
                                         <div>
-                                          <h4 className="font-medium text-red-800">
-                                            Rejection Message
-                                          </h4>
+                                          <h4 className="font-medium text-red-800">Message</h4>
                                           <p className="mt-1 text-red-700">
                                             {job.rejectionMessage}
                                           </p>
@@ -1001,7 +1042,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                       No Bookings Yet
                     </h3>
                     <p className="mb-4 text-sm text-muted-foreground">
-                      When you get hired for jobs, they'll appear here as confirmed bookings.
+                      When you get hired for jobs, they&apos;ll appear here as confirmed bookings.
                     </p>
                     <Button variant="outline" onClick={() => setActiveTab("find-jobs")}>
                       <Search className="mr-2 h-4 w-4" />
@@ -1051,7 +1092,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                     : "Date TBD"}
                                 </span>
                                 <span className="flex items-center gap-1">
-                                  <PoundSterling className="h-3 w-3" />
+                                  <Banknote className="h-3 w-3" />
                                   {booking.rate}
                                 </span>
                               </div>

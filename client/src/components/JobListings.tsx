@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, PoundSterling, Calendar, Building, Users, ArrowRight } from "lucide-react";
+import { MapPin, Clock, Calendar, Building, ArrowRight } from "lucide-react";
 
 const featuredJobs = [
   {
@@ -64,32 +64,32 @@ const featuredJobs = [
 
 export const JobListings = () => {
   return (
-    <section className="py-16 lg:py-24 hidden">
+    <section className="hidden py-16 lg:py-24">
       <div className="container mx-auto px-4">
         {/* Section Header */}
-        <div className="flex items-center justify-between mb-12">
+        <div className="mb-12 flex items-center justify-between">
           <div className="space-y-2">
-            <h2 className="text-3xl lg:text-4xl font-bold">Featured Jobs</h2>
+            <h2 className="text-3xl font-bold lg:text-4xl">Featured Jobs</h2>
             <p className="text-muted-foreground">Latest opportunities from top event companies</p>
           </div>
           <Button variant="outline" className="hidden md:flex">
             View All Jobs
-            <ArrowRight className="w-4 h-4 ml-2" />
+            <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
 
         {/* Jobs Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {featuredJobs.map(job => (
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {featuredJobs.map((job) => (
             <Card
               key={job.id}
-              className="hover:shadow-lg transition-all duration-200 hover:-translate-y-1"
+              className="transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
             >
               <CardHeader className="pb-4">
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
-                      <h3 className="font-semibold text-lg">{job.title}</h3>
+                      <h3 className="text-lg font-semibold">{job.title}</h3>
                       {job.urgent && (
                         <Badge variant="destructive" className="text-xs">
                           Urgent
@@ -97,7 +97,7 @@ export const JobListings = () => {
                       )}
                     </div>
                     <div className="flex items-center text-muted-foreground">
-                      <Building className="w-4 h-4 mr-2" />
+                      <Building className="mr-2 h-4 w-4" />
                       <span className="text-sm">{job.company}</span>
                     </div>
                   </div>
@@ -114,15 +114,15 @@ export const JobListings = () => {
                 {/* Job Details */}
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div className="flex items-center text-muted-foreground">
-                    <MapPin className="w-4 h-4 mr-2" />
+                    <MapPin className="mr-2 h-4 w-4" />
                     {job.location}
                   </div>
                   <div className="flex items-center text-muted-foreground">
-                    <Clock className="w-4 h-4 mr-2" />
+                    <Clock className="mr-2 h-4 w-4" />
                     {job.duration}
                   </div>
                   <div className="flex items-center text-muted-foreground">
-                    <Calendar className="w-4 h-4 mr-2" />
+                    <Calendar className="mr-2 h-4 w-4" />
                     {job.date}
                   </div>
                 </div>
@@ -138,7 +138,7 @@ export const JobListings = () => {
 
                 {/* Actions */}
                 <div className="flex space-x-3 pt-2">
-                  <Button className="flex-1 bg-gradient-primary hover:bg-primary-hover">
+                  <Button className="bg-gradient-primary hover:bg-primary-hover flex-1">
                     Apply Now
                   </Button>
                 </div>
@@ -151,7 +151,7 @@ export const JobListings = () => {
         <div className="text-center md:hidden">
           <Button variant="outline">
             View All Jobs
-            <ArrowRight className="w-4 h-4 ml-2" />
+            <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
       </div>
