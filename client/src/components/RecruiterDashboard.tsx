@@ -85,7 +85,9 @@ export default function SimplifiedRecruiterDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [location, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("jobs");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try { return sessionStorage.getItem("recruiter_active_tab") || "jobs"; } catch { return "jobs"; }
+  });
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [showJobForm, setShowJobForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
@@ -394,7 +396,8 @@ export default function SimplifiedRecruiterDashboard() {
   const [calendarDefaulted, setCalendarDefaulted] = useState(false);
   useEffect(() => {
     if (isSubscribed && !calendarDefaulted) {
-      setActiveTab("calendar");
+      const stored = (() => { try { return sessionStorage.getItem("recruiter_active_tab"); } catch { return null; } })();
+      if (!stored) setActiveTab("calendar");
       setCalendarDefaulted(true);
     }
   }, [isSubscribed, calendarDefaulted]);
@@ -640,6 +643,7 @@ export default function SimplifiedRecruiterDashboard() {
 
   // Helper functions
   const handleTabChange = (tab: string) => {
+    try { sessionStorage.setItem("recruiter_active_tab", tab); } catch {}
     setActiveTab(tab);
 
     // Update URL to reflect tab change so polling doesn't revert it
