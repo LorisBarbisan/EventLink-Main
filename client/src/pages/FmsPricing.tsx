@@ -2,7 +2,7 @@ import { Layout } from "@/components/Layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Check, Loader2, X, Zap } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -42,7 +42,6 @@ const ANNUAL_MONTHLY_EQUIV = (ANNUAL_PRICE / 12).toFixed(2);
 export default function FmsPricing() {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
   const { data: subData } = useQuery<{ subscribed: boolean; tier: string | null }>({
@@ -79,8 +78,7 @@ export default function FmsPricing() {
         body: JSON.stringify({ tier: "pro" }),
       });
       if (devRes.ok) {
-        await queryClient.invalidateQueries({ queryKey: ["/api/subscription/status"] });
-        setLocation("/dashboard");
+        window.location.href = "/dashboard";
         return;
       }
       // Production: Stripe checkout
@@ -198,3 +196,5 @@ export default function FmsPricing() {
     </Layout>
   );
 }
+
+
