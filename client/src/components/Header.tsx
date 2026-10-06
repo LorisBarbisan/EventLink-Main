@@ -132,7 +132,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
       )}
 
       {user ? (
-        <div className="flex items-center space-x-1 sm:space-x-2">
+        <div className="flex items-center space-x-1 sm:space-x-2" style={isFmsSubscribed ? { color: "#ffffff" } : {}}>
           <NotificationSystem userId={user.id} />
           <UserMenu />
         </div>
@@ -151,7 +151,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
 
       <Sheet>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="sm:hidden">
+          <Button variant="ghost" size="icon" className="sm:hidden" style={isFmsSubscribed ? { color: "#ffffff" } : {}}>
             <Menu className="h-6 w-6" />
           </Button>
         </SheetTrigger>
@@ -167,7 +167,7 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
       className="border-b shadow-sm"
       style={
         isFmsSubscribed
-          ? { backgroundColor: "#192743", borderColor: "#253558" }
+          ? { backgroundColor: "#192743", borderColor: "#253558", borderBottomWidth: "3px", borderBottomStyle: "solid", borderBottomColor: "#E8610A" }
           : { backgroundColor: "#F4F2EE" }
       }
     >
