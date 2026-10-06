@@ -390,6 +390,15 @@ export default function SimplifiedRecruiterDashboard() {
     }
   }, [isSubscribed, subLoading, activeTab]);
 
+  // Default subscribed employers to calendar on first load
+  const [calendarDefaulted, setCalendarDefaulted] = useState(false);
+  useEffect(() => {
+    if (isSubscribed && !calendarDefaulted) {
+      setActiveTab("calendar");
+      setCalendarDefaulted(true);
+    }
+  }, [isSubscribed, calendarDefaulted]);
+
 
 
   // Fetch unread message count with optimized polling
@@ -780,22 +789,16 @@ export default function SimplifiedRecruiterDashboard() {
   );
 
 
-  const fmsVars = isSubscribed ? {
-    "--primary": "204 100% 59%",
-    "--primary-hover": "204 100% 54%",
-    "--ring": "204 100% 59%",
-    "--gradient-primary": "linear-gradient(135deg, hsl(204 100% 59%), hsl(204 100% 74%))",
-  } as React.CSSProperties : {};
 
   return (
-    <div style={fmsVars}>
+    <div>
       <div className="container mx-auto min-w-0 max-w-full px-1 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-6">
       {/* Dashboard header */}
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
             {isSubscribed ? (
-              <><span className="text-primary">FMS</span> Dashboard</>
+              <><span style={{ color: "hsl(204 100% 42%)" }}>FMS</span> Dashboard</>
             ) : (
               <>Employer Dashboard</>
             )}
