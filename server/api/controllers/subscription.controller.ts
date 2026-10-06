@@ -162,9 +162,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
 };
 
 export const activateDev = async (req: Request, res: Response) => {
-  if (process.env.NODE_ENV === "production" && process.env.STRIPE_SECRET_KEY) {
-    return res.status(403).json({ error: "Only available outside production with Stripe configured" });
-  }
   try {
     const employerId = req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
@@ -183,3 +180,4 @@ export const activateDev = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Failed to activate dev subscription" });
   }
 };
+
