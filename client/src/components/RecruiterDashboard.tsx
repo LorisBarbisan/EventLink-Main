@@ -792,6 +792,7 @@ export default function SimplifiedRecruiterDashboard() {
 
   return (
     <div>
+      <div className="container mx-auto min-w-0 max-w-full px-1 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-6">
       {/* Dashboard header */}
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
