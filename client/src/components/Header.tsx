@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useInsuranceAccess } from "@/hooks/useIsUkFreelancer";
 import { Menu, MessageSquare, Plus, ShieldCheck, Star } from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 
 interface HeaderProps {
@@ -23,6 +24,13 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
   const [showInsuranceDialog, setShowInsuranceDialog] = useState(false);
   const insuranceAccess = useInsuranceAccess();
 
+  const { data: subData } = useQuery<{ subscribed: boolean }>({
+    queryKey: ["/api/subscription/status"],
+    enabled: user?.role === "recruiter",
+    staleTime: 60_000,
+  });
+  const isFmsSubscribed = user?.role === "recruiter" && subData?.subscribed === true;
+
   // Freelancers get the gradient action buttons on the right, so the nav sits
   // beside them (right-aligned). Everyone else (logged out, employers, admins)
   // has a lighter right side, so the nav is centred instead.
@@ -35,12 +43,20 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
       data-testid="link-logo"
     >
       <EventLinkLogo size={48} />
-      <span className="hidden text-2xl font-bold text-foreground md:inline">EventLink</span>
+      <span
+        className="hidden text-2xl font-bold md:inline"
+        style={{ color: isFmsSubscribed ? "#E8610A" : "hsl(var(--foreground))" }}
+      >
+        EventLink
+      </span>
     </Link>
   );
 
   const navLinks = (
-    <nav className="hidden items-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
+    <nav
+      className="hidden items-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6"
+      style={isFmsSubscribed ? { color: "rgba(255,255,255,0.80)" } : {}}
+    >
       <Link
         to="/jobs"
         className="whitespace-nowrap text-sm text-muted-foreground transition-colors hover:text-foreground lg:text-base"
@@ -81,8 +97,6 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
 
   const actions = (
     <div className="flex flex-shrink-0 items-center justify-end space-x-2 sm:space-x-3">
-      {/* Insurance offers — UK freelancers get offers; freelancers
-        without a profile get a prompt to create one */}
       {insuranceAccess !== "hidden" && (
         <Button
           onClick={() => setShowInsuranceDialog(true)}
@@ -106,7 +120,6 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
         </Button>
       )}
 
-      {/* Invite Clients button - only for freelancers */}
       {user?.role === "freelancer" && (
         <Button
           onClick={() => setShowInviteDialog(true)}
@@ -136,7 +149,6 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
         </div>
       )}
 
-      {/* Mobile menu */}
       <Sheet>
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="sm:hidden">
@@ -151,10 +163,16 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
   );
 
   return (
-    <header className="border-b shadow-sm" style={{ backgroundColor: "#F4F2EE" }}>
+    <header
+      className="border-b shadow-sm"
+      style={
+        isFmsSubscribed
+          ? { backgroundColor: "#192743", borderColor: "#253558" }
+          : { backgroundColor: "#F4F2EE" }
+      }
+    >
       <div className="container mx-auto px-3 py-3 sm:px-4 lg:py-4">
         {isFreelancer ? (
-          // Freelancer: logo left, nav + gradient buttons grouped on the right.
           <div className="flex items-center justify-between gap-4">
             {logo}
             <div className="flex items-center gap-3 lg:gap-4 xl:gap-6">
@@ -164,7 +182,6 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
             </div>
           </div>
         ) : (
-          // Logged out / employer / admin: nav centred between logo and actions.
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
             {logo}
             <div className="justify-self-center">{navLinks}</div>
@@ -172,8 +189,6 @@ export const Header = ({ onFeedbackClick }: HeaderProps) => {
           </div>
         )}
 
-        {/* Below lg the action buttons don't fit the top row, so they get their
-            own compact row here rather than being buried in the menu. */}
         {(insuranceAccess !== "hidden" || user?.role === "freelancer") && (
           <div className="mt-2 flex items-center gap-2 lg:hidden">
             {insuranceAccess !== "hidden" && (

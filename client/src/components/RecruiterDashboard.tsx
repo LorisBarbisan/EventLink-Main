@@ -792,28 +792,11 @@ export default function SimplifiedRecruiterDashboard() {
 
   return (
     <div>
-      {/* FMS blue header banner */}
-      {isSubscribed && (
-        <div
-          style={{ background: "linear-gradient(135deg, hsl(210 80% 28%), hsl(204 80% 40%))" }}
-          className="w-full px-4 py-5 sm:px-8"
-        >
-          <div className="container mx-auto flex items-center justify-between max-w-full">
-            <div>
-              <h1 className="text-2xl font-bold text-white sm:text-3xl">FMS Dashboard</h1>
-              <p className="mt-1 text-sm text-white/70">Manage your company profile, job postings, and applications</p>
-            </div>
-            <ExportButton />
-          </div>
-        </div>
-      )}
-      <div className="container mx-auto min-w-0 max-w-full px-1 pb-6 pt-4 sm:px-6 sm:pb-8 sm:pt-6">
-      {/* Dashboard header — free tier only */}
-      {!isSubscribed && (
+      {/* Dashboard header */}
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-              Employer Dashboard
+            {isSubscribed ? "FMS Dashboard" : "Employer Dashboard"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Manage your company profile, job postings, and applications
@@ -829,7 +812,6 @@ export default function SimplifiedRecruiterDashboard() {
         </div>
         <ExportButton />
       </div>
-      )}
 
 
       {/* Accounting details incomplete banner */}
