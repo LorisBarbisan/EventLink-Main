@@ -6,6 +6,7 @@
                       import { UKLocationInput } from "@/components/ui/uk-location-input";
                       import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
                       import { TabBadge } from "@/components/ui/tab-badge";
+                      import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
                       import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
                       import MyBookings from "@/pages/employer/MyBookings";
                       import { useToast } from "@/hooks/use-toast";
@@ -43,6 +44,7 @@
                       import { MessagingInterface } from "./MessagingInterface";
                       import { ProfileForm } from "./ProfileForm";
                       import { TeamManagement } from "./TeamManagement";
+                      import { CrewAvailabilityPanel } from "./fms/CrewAvailabilityPanel";
 
                       const showTeamTab = import.meta.env.VITE_SHOW_TEAM_TAB !== "false";
 
@@ -52,6 +54,7 @@
                           "applications",
                           "messages",
                           "crew",
+                          "crew-availability",
                           "bookings",
                           ...(showTeam ? (["team"] as const) : []),
                           ...(showProfile ? (["profile"] as const) : []),
@@ -719,26 +722,45 @@
                             </div>
 
                             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-                              <TabsList
-                                className={`grid w-full grid-cols-4 ${MD_GRID_COLS[tabCount] ?? "md:grid-cols-6"}`}
-                              >
-                                <TabsTrigger value="jobs" className="gap-2">
-                                  My Jobs
-                                  <TabBadge count={roleSpecificCounts.jobs || 0} />
-                                </TabsTrigger>
-                                <TabsTrigger value="applications" className="gap-2">
-                                  Applications
-                                  <TabBadge count={roleSpecificCounts.applications || 0} />
-                                </TabsTrigger>
-                                <TabsTrigger value="messages" className="gap-2">
-                                  Messages
-                                  <TabBadge count={roleSpecificCounts.messages || 0} />
-                                </TabsTrigger>
-                                <TabsTrigger value="bookings">Bookings</TabsTrigger>
-                                <TabsTrigger value="crew">My Crew</TabsTrigger>
-                                {showTeamTabForUser && <TabsTrigger value="team">Team</TabsTrigger>}
-                                {showProfileTab && <TabsTrigger value="profile">Profile</TabsTrigger>}
-                              </TabsList>
+                              {/* Compact dropdown nav */}
+                              <div className="flex items-center gap-3">
+                                <Select value={activeTab} onValueChange={handleTabChange}>
+                                  <SelectTrigger className="w-52">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="jobs">
+                                      <span className="flex items-center gap-2">
+                                        My Jobs
+                                        {(roleSpecificCounts.jobs || 0) > 0 && (
+                                          <Badge variant="destructive" className="text-xs">{roleSpecificCounts.jobs}</Badge>
+                                        )}
+                                      </span>
+                                    </SelectItem>
+                                    <SelectItem value="applications">
+                                      <span className="flex items-center gap-2">
+                                        Applications
+                                        {(roleSpecificCounts.applications || 0) > 0 && (
+                                          <Badge variant="destructive" className="text-xs">{roleSpecificCounts.applications}</Badge>
+                                        )}
+                                      </span>
+                                    </SelectItem>
+                                    <SelectItem value="messages">
+                                      <span className="flex items-center gap-2">
+                                        Messages
+                                        {(roleSpecificCounts.messages || 0) > 0 && (
+                                          <Badge variant="destructive" className="text-xs">{roleSpecificCounts.messages}</Badge>
+                                        )}
+                                      </span>
+                                    </SelectItem>
+                                    <SelectItem value="bookings">Bookings</SelectItem>
+                                    <SelectItem value="crew">My Crew</SelectItem>
+                                    <SelectItem value="crew-availability">Crew Availability</SelectItem>
+                                    {showTeamTabForUser && <SelectItem value="team">Team</SelectItem>}
+                                    {showProfileTab && <SelectItem value="profile">Profile</SelectItem>}
+                                  </SelectContent>
+                                </Select>
+                              </div>
 
                               {/* Profile Tab */}
                               {showProfileTab && (
@@ -1360,6 +1382,13 @@
                                     );
                                   })()
                                 )}
+                              </TabsContent>
+
+                              {/* Crew Availability Tab */}
+                              <TabsContent value="crew-availability" className="space-y-4">
+                                <div className="rounded-lg border bg-card p-4 sm:p-6">
+                                  <CrewAvailabilityPanel />
+                                </div>
                               </TabsContent>
 
                               {/* Bookings Tab */}

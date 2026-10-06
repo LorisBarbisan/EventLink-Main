@@ -1090,3 +1090,26 @@ export const teamMembers = pgTable(
 
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type InsertTeamMember = typeof teamMembers.$inferInsert;
+
+// ============================================================
+// FMS — Crew Date Availability (traffic-light system)
+// ============================================================
+export const freelancer_date_availability = pgTable(
+  "freelancer_date_availability",
+  {
+    id: serial("id").primaryKey(),
+    freelancerId: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // ISO "YYYY-MM-DD"
+    status: text("status")
+      .notNull()
+      .$type<"available" | "tentative" | "unavailable">(),
+    note: text("note"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    freelancerDateUnique: index("fda_freelancer_date_idx").on(table.freelancerId, table.date),
+  })
+);
+export type FreelancerDateAvailability = typeof freelancer_date_availability.$inferSelect;

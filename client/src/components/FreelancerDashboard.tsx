@@ -20,6 +20,7 @@ import { DocumentUploader } from "./DocumentUploader";
 import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
 import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
+import { MyAvailabilityPanel } from "./fms/MyAvailabilityPanel";
 
 const RATING_LABELS: Record<string, { label: string; stars: number }> = {
   excellent: { label: "Excellent", stars: 5 },
@@ -187,7 +188,7 @@ export default function SimplifiedFreelancerDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
             My Applications
@@ -205,6 +206,7 @@ export default function SimplifiedFreelancerDashboard() {
             <ShieldCheck className="h-4 w-4" />
             References
           </TabsTrigger>
+          <TabsTrigger value="availability">Availability</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -403,6 +405,12 @@ export default function SimplifiedFreelancerDashboard() {
         {/* References Tab */}
         <TabsContent value="references" className="space-y-6">
           <ReferenceRequestsSection userId={user.id} />
+        </TabsContent>
+
+        <TabsContent value="availability" className="space-y-4">
+          <div className="rounded-lg border bg-card p-4 sm:p-6">
+            <MyAvailabilityPanel />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
