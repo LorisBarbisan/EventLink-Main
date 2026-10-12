@@ -1273,7 +1273,7 @@ function AdminDashboardContent() {
                                 item.user?.first_name ||
                                 item.user_email ||
                                 "Anonymous"}{" "}
-                              •{new Date(item.created_at).toLocaleDateString()}
+                              •{new Date(item.created_at).toLocaleDateString("en-GB")}
                             </p>
                           </div>
                           <div className="flex w-full flex-row gap-2 sm:w-auto sm:flex-row">
@@ -1594,7 +1594,7 @@ function AdminDashboardContent() {
                             </div>
                             <p className="text-sm text-muted-foreground">
                               From: {message.name} ({message.email}) •
-                              {new Date(message.created_at).toLocaleDateString()} at{" "}
+                              {new Date(message.created_at).toLocaleDateString("en-GB")} at{" "}
                               {new Date(message.created_at).toLocaleTimeString()}
                             </p>
                           </div>
@@ -1880,7 +1880,7 @@ function AdminDashboardContent() {
                                 {job.recruiter_name || job.recruiter_email || "External"}
                               </TableCell>
                               <TableCell className="hidden py-2 text-xs lg:table-cell">
-                                {new Date(job.created_at).toLocaleDateString()}
+                                {new Date(job.created_at).toLocaleDateString("en-GB")}
                               </TableCell>
                               <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                                 {job.status === "active" && (
@@ -2069,7 +2069,7 @@ function AdminDashboardContent() {
                             <div>
                               <p className="text-sm text-muted-foreground">Created</p>
                               <p className="font-medium">
-                                {new Date(jobDetailData.job.created_at).toLocaleDateString()}
+                                {new Date(jobDetailData.job.created_at).toLocaleDateString("en-GB")}
                               </p>
                             </div>
                             {jobDetailData.job.external_source && (
@@ -2193,7 +2193,7 @@ function AdminDashboardContent() {
                                           </Badge>
                                         </TableCell>
                                         <TableCell className="py-2 text-xs">
-                                          {new Date(app.applied_at).toLocaleDateString()}
+                                          {new Date(app.applied_at).toLocaleDateString("en-GB")}
                                         </TableCell>
                                         <TableCell className="py-2">
                                           <a
@@ -2696,11 +2696,11 @@ function AdminDashboardContent() {
                                 )}
                               </TableCell>
                               <TableCell className="py-2">
-                                {new Date(rowUser.created_at).toLocaleDateString()}
+                                {new Date(rowUser.created_at).toLocaleDateString("en-GB")}
                               </TableCell>
                               <TableCell className="py-2">
                                 {rowUser.last_login_at
-                                  ? new Date(rowUser.last_login_at).toLocaleString([], {
+                                  ? new Date(rowUser.last_login_at).toLocaleString("en-GB", {
                                       year: "numeric",
                                       month: "numeric",
                                       day: "numeric",
@@ -2971,7 +2971,7 @@ function AdminDashboardContent() {
                         )}
                         <div>
                           <span className="text-muted-foreground">Joined:</span>{" "}
-                          {new Date(teamDetailData.company.created_at).toLocaleDateString()}
+                          {new Date(teamDetailData.company.created_at).toLocaleDateString("en-GB")}
                         </div>
                         <div>
                           <span className="text-muted-foreground">Active / Closed Jobs:</span>{" "}
@@ -3047,7 +3047,9 @@ function AdminDashboardContent() {
                                     )}
                                   </TableCell>
                                   <TableCell className="py-2 text-sm">
-                                    {m.joined_at ? new Date(m.joined_at).toLocaleDateString() : "—"}
+                                    {m.joined_at
+                                      ? new Date(m.joined_at).toLocaleDateString("en-GB")
+                                      : "—"}
                                   </TableCell>
                                   <TableCell className="py-2 text-sm">{m.jobs_posted}</TableCell>
                                 </TableRow>
@@ -3133,7 +3135,7 @@ function AdminDashboardContent() {
                                   </TableCell>
                                   <TableCell className="py-2 text-sm">{j.hired_count}</TableCell>
                                   <TableCell className="py-2 text-xs">
-                                    {new Date(j.created_at).toLocaleDateString()}
+                                    {new Date(j.created_at).toLocaleDateString("en-GB")}
                                   </TableCell>
                                 </TableRow>
                               ))}
@@ -3234,7 +3236,7 @@ function AdminDashboardContent() {
                                 {team.total_hired}
                               </TableCell>
                               <TableCell className="py-2 text-xs">
-                                {new Date(team.created_at).toLocaleDateString()}
+                                {new Date(team.created_at).toLocaleDateString("en-GB")}
                               </TableCell>
                               <TableCell className="py-2">
                                 <Button

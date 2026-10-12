@@ -282,7 +282,9 @@ export default function Jobs() {
   // Transform jobs for consistent format
   const transformedJobs = jobs.map((job: any) => ({
     ...job,
-    posted: job.created_at ? new Date(job.created_at).toLocaleDateString() : "Recently posted",
+    posted: job.created_at
+      ? new Date(job.created_at).toLocaleDateString("en-GB")
+      : "Recently posted",
   }));
 
   // Server-side filtering handles search, location, and date; client-side for freelancer toggle
@@ -610,9 +612,9 @@ export default function Jobs() {
                               <div className="flex items-center gap-2 font-medium text-primary">
                                 <CalendarIcon className="h-4 w-4 text-primary" />
                                 <span>
-                                  {new Date(job.event_date).toLocaleDateString()}
+                                  {new Date(job.event_date).toLocaleDateString("en-GB")}
                                   {job.end_date &&
-                                    ` - ${new Date(job.end_date).toLocaleDateString()}`}
+                                    ` - ${new Date(job.end_date).toLocaleDateString("en-GB")}`}
                                 </span>
                               </div>
                             )}

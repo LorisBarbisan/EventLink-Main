@@ -269,7 +269,7 @@ function ReviewsSection({ freelancerId }: { freelancerId: number }) {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {rating.job_title && <span>Project: {rating.job_title} • </span>}
-                      {format(new Date(rating.created_at), "MMM d, yyyy")}
+                      {format(new Date(rating.created_at), "d MMM yyyy")}
                     </p>
                   </div>
                 </div>

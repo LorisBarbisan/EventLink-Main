@@ -419,12 +419,12 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
     company: application.job?.company || "Company",
     location: application.job?.location || "Location",
     date: application.job?.created_at
-      ? new Date(application.job.created_at).toLocaleDateString()
+      ? new Date(application.job.created_at).toLocaleDateString("en-GB")
       : "Date",
     rate: application.job?.rate || "Rate",
     status: application.status || "applied",
     applicationDate: application.created_at
-      ? new Date(application.created_at).toLocaleDateString()
+      ? new Date(application.created_at).toLocaleDateString("en-GB")
       : "",
     jobId: application.job_id,
     externalUrl: application.job?.external_url,
@@ -1088,7 +1088,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                                 <span className="flex items-center gap-1">
                                   <Calendar className="h-3 w-3" />
                                   {booking.event_date
-                                    ? new Date(booking.event_date).toLocaleDateString()
+                                    ? new Date(booking.event_date).toLocaleDateString("en-GB")
                                     : "Date TBD"}
                                 </span>
                                 <span className="flex items-center gap-1">
@@ -1098,7 +1098,7 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                               </div>
                               <p className="font-medium text-foreground">{booking.company_name}</p>
                               <p className="font-medium text-primary">
-                                Hired on {new Date(booking.hired_at).toLocaleDateString()}
+                                Hired on {new Date(booking.hired_at).toLocaleDateString("en-GB")}
                               </p>
                             </div>
                           </div>
