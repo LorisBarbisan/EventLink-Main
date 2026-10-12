@@ -73,7 +73,7 @@ export default function ExternalJobsSection({ showInJobsPage = false }: External
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5" />
+            <Settings className="h-5 w-5" />
             External Job Platforms
           </CardTitle>
           <CardDescription>
@@ -112,7 +112,7 @@ export default function ExternalJobsSection({ showInJobsPage = false }: External
                   data-testid="button-sync-external-jobs"
                 >
                   <RefreshCw
-                    className={`w-4 h-4 mr-2 ${syncExternalJobsMutation.isPending ? "animate-spin" : ""}`}
+                    className={`mr-2 h-4 w-4 ${syncExternalJobsMutation.isPending ? "animate-spin" : ""}`}
                   />
                   {syncExternalJobsMutation.isPending ? "Syncing..." : "Sync Jobs"}
                 </Button>
@@ -152,7 +152,7 @@ export default function ExternalJobsSection({ showInJobsPage = false }: External
           data-testid="button-refresh-external-jobs"
         >
           <RefreshCw
-            className={`w-4 h-4 mr-2 ${syncExternalJobsMutation.isPending ? "animate-spin" : ""}`}
+            className={`mr-2 h-4 w-4 ${syncExternalJobsMutation.isPending ? "animate-spin" : ""}`}
           />
           Refresh
         </Button>
@@ -169,35 +169,36 @@ export default function ExternalJobsSection({ showInJobsPage = false }: External
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="mb-2 flex items-center gap-2">
                       <h3 className="text-lg font-semibold">{job.title}</h3>
                       <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                         {job.external_source}
                       </Badge>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground mb-3">
+                    <div className="mb-3 grid grid-cols-1 gap-4 text-sm text-muted-foreground md:grid-cols-3">
                       <div className="flex items-center gap-1">
-                        <Building2 className="w-4 h-4" />
+                        <Building2 className="h-4 w-4" />
                         {job.company}
                       </div>
                       <div className="flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
+                        <MapPin className="h-4 w-4" />
                         {job.location}
                       </div>
                       <div className="flex items-center gap-1">
-                        <PoundSterling className="w-4 h-4" />
+                        <PoundSterling className="h-4 w-4" />
                         {job.rate}
                       </div>
                     </div>
 
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
+                    <p className="mb-3 line-clamp-3 text-sm text-muted-foreground">
                       {job.description}
                     </p>
 
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Calendar className="w-3 h-3" />
-                      Posted: {job.posted_date || new Date(job.created_at).toLocaleDateString()}
+                      <Calendar className="h-3 w-3" />
+                      Posted:{" "}
+                      {job.posted_date || new Date(job.created_at).toLocaleDateString("en-GB")}
                     </div>
                   </div>
 
@@ -210,7 +211,7 @@ export default function ExternalJobsSection({ showInJobsPage = false }: External
                         className="flex items-center gap-1"
                       >
                         Apply on {job.external_source}
-                        <ExternalLink className="w-3 h-3" />
+                        <ExternalLink className="h-3 w-3" />
                       </a>
                     </Button>
                   </div>
@@ -222,9 +223,9 @@ export default function ExternalJobsSection({ showInJobsPage = false }: External
       ) : (
         <Card>
           <CardContent className="p-8 text-center">
-            <RefreshCw className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">No External Jobs Found</h3>
-            <p className="text-muted-foreground mb-4">
+            <RefreshCw className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+            <h3 className="mb-2 text-lg font-medium">No External Jobs Found</h3>
+            <p className="mb-4 text-muted-foreground">
               Configure API credentials and sync to display jobs from Reed and Adzuna.
             </p>
             <Button onClick={handleSyncJobs} disabled={syncExternalJobsMutation.isPending}>

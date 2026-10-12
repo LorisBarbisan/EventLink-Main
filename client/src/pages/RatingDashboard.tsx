@@ -89,9 +89,9 @@ export function RatingDashboard() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="container mx-auto space-y-6 p-6">
         <div className="flex items-center gap-3">
-          <Award className="w-8 h-8 text-yellow-500" />
+          <Award className="h-8 w-8 text-yellow-500" />
           <div>
             <h1 className="text-3xl font-bold">My Ratings</h1>
             <p className="text-muted-foreground">Track your performance ratings from employers</p>
@@ -99,7 +99,7 @@ export function RatingDashboard() {
         </div>
 
         {/* Rating Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
@@ -151,7 +151,7 @@ export function RatingDashboard() {
               </div>
               <p className="text-xs text-muted-foreground">
                 {ratings.length > 0
-                  ? format(new Date(ratings[0].created_at), "MMM dd, yyyy")
+                  ? format(new Date(ratings[0].created_at), "dd MMM yyyy")
                   : "No ratings yet"}
               </p>
             </CardContent>
@@ -166,14 +166,14 @@ export function RatingDashboard() {
           </CardHeader>
           <CardContent>
             {ratingsLoading ? (
-              <div className="text-center py-8">
+              <div className="py-8 text-center">
                 <p>Loading ratings...</p>
               </div>
             ) : ratings.length === 0 ? (
-              <div className="text-center py-8">
-                <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No ratings yet</h3>
-                <p className="text-muted-foreground mb-4">
+              <div className="py-8 text-center">
+                <Star className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 className="mb-2 text-lg font-medium">No ratings yet</h3>
+                <p className="mb-4 text-muted-foreground">
                   Complete projects and get hired to receive ratings from employers.
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -186,7 +186,7 @@ export function RatingDashboard() {
                   <div key={rating.id}>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
+                        <div className="mb-2 flex items-center gap-3">
                           <StarRating rating={rating.rating} readonly size="sm" />
                           <Badge variant="outline">{rating.rating}/5</Badge>
                         </div>
@@ -200,23 +200,23 @@ export function RatingDashboard() {
                               : "Employer"}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {format(new Date(rating.created_at), "MMMM dd, yyyy • h:mm a")}
+                            {format(new Date(rating.created_at), "dd MMMM yyyy • HH:mm")}
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-end gap-3 text-right">
                         {rating.review && (
-                          <div className="flex flex-col items-end max-w-[300px]">
-                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">
+                          <div className="flex max-w-[300px] flex-col items-end">
+                            <span className="mb-0.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                               Review
                             </span>
-                            <span className="text-sm font-medium text-foreground italic">
+                            <span className="text-sm font-medium italic text-foreground">
                               &quot;{rating.review}&quot;
                             </span>
                           </div>
                         )}
-                        <div className="text-3xl font-bold text-yellow-600 pl-4 border-l border-border/50">
+                        <div className="border-l border-border/50 pl-4 text-3xl font-bold text-yellow-600">
                           {rating.rating}
                         </div>
                       </div>
@@ -227,10 +227,10 @@ export function RatingDashboard() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-muted-foreground hover:text-destructive gap-2 h-8"
+                          className="h-8 gap-2 text-muted-foreground hover:text-destructive"
                           onClick={() => handleReportClick(rating.id)}
                         >
-                          <Flag className="w-3 h-3" />
+                          <Flag className="h-3 w-3" />
                           <span className="text-xs">Report Review</span>
                         </Button>
                       )}
@@ -245,7 +245,7 @@ export function RatingDashboard() {
         </Card>
 
         {/* Rating Tips */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <CardHeader>
             <CardTitle className="text-blue-900">Improve Your Ratings</CardTitle>
           </CardHeader>

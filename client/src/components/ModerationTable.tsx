@@ -88,7 +88,7 @@ export function ModerationTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">Filter by status:</span>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -107,10 +107,10 @@ export function ModerationTable() {
 
       {isLoading ? (
         <div className="flex justify-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary"></div>
         </div>
       ) : (
-        <div className="border rounded-md">
+        <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -126,15 +126,15 @@ export function ModerationTable() {
             <TableBody>
               {!ratings || ratings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                     No ratings found.
                   </TableCell>
                 </TableRow>
               ) : (
-                ratings.map(rating => (
+                ratings.map((rating) => (
                   <TableRow key={rating.id}>
                     <TableCell className="whitespace-nowrap">
-                      {format(new Date(rating.created_at), "MMM d, yyyy")}
+                      {format(new Date(rating.created_at), "d MMM yyyy")}
                     </TableCell>
                     <TableCell>
                       <div className="text-sm font-medium">
@@ -146,9 +146,9 @@ export function ModerationTable() {
                       <StarRating rating={rating.rating} readonly size="sm" />
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm italic ">{rating.review || "No review text"}</div>
+                      <div className="text-sm italic">{rating.review || "No review text"}</div>
                       {rating.job_title && (
-                        <div className="text-xs text-muted-foreground mt-1">
+                        <div className="mt-1 text-xs text-muted-foreground">
                           Job: {rating.job_title}
                         </div>
                       )}
@@ -163,33 +163,33 @@ export function ModerationTable() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            className="h-8 w-8 p-0 text-green-600 hover:bg-green-50 hover:text-green-700"
                             onClick={() => handleActionClick(rating, "restore")}
                             title="Restore"
                           >
-                            <CheckCircle className="w-4 h-4" />
+                            <CheckCircle className="h-4 w-4" />
                           </Button>
                         )}
                         {rating.status !== "removed" && (
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => handleActionClick(rating, "remove")}
                             title="Remove"
                           >
-                            <EyeOff className="w-4 h-4" />
+                            <EyeOff className="h-4 w-4" />
                           </Button>
                         )}
                         {rating.status === "active" && (
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8 w-8 p-0 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
+                            className="h-8 w-8 p-0 text-yellow-600 hover:bg-yellow-50 hover:text-yellow-700"
                             onClick={() => handleActionClick(rating, "flag")}
                             title="Flag"
                           >
-                            <Flag className="w-4 h-4" />
+                            <Flag className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
@@ -225,7 +225,7 @@ export function ModerationTable() {
                 id="notes"
                 placeholder="Add internal notes about this action..."
                 value={moderationNotes}
-                onChange={e => setModerationNotes(e.target.value)}
+                onChange={(e) => setModerationNotes(e.target.value)}
               />
             </div>
           </div>

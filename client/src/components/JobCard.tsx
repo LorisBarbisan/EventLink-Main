@@ -310,8 +310,8 @@ export function JobCard({
               {job.event_date && (
                 <div className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" />
-                  {new Date(job.event_date).toLocaleDateString()}
-                  {job.end_date && ` - ${new Date(job.end_date).toLocaleDateString()}`}
+                  {new Date(job.event_date).toLocaleDateString("en-GB")}
+                  {job.end_date && ` - ${new Date(job.end_date).toLocaleDateString("en-GB")}`}
                 </div>
               )}
               {formatDuration(job) && (

@@ -47,7 +47,7 @@ export async function submitContactForm(req: Request, res: Response) {
               <p><strong>From:</strong> ${result.data.name}</p>
               <p><strong>Email:</strong> <a href="mailto:${result.data.email}">${result.data.email}</a></p>
               <p><strong>Subject:</strong> ${result.data.subject}</p>
-              <p><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
+              <p><strong>Submitted:</strong> ${new Date().toLocaleString("en-GB")}</p>
             </div>
             <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
               <h3 style="color: #333; margin-top: 0;">Message:</h3>
@@ -87,7 +87,7 @@ export async function submitContactForm(req: Request, res: Response) {
         wsService.broadcastBadgeCounts(admin.id, counts);
       }
 
-      const adminIds = admins.map(a => a.id);
+      const adminIds = admins.map((a) => a.id);
       if (adminIds.length > 0) {
         wsService.broadcastToUsers(adminIds, {
           type: "new_contact_message",

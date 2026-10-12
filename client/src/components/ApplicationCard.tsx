@@ -377,7 +377,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                   </div>
                 </>
               )}
-              <div>Applied: {new Date(application.applied_at).toLocaleDateString()}</div>
+              <div>Applied: {new Date(application.applied_at).toLocaleDateString("en-GB")}</div>
             </div>
 
             {application.cover_letter && (
@@ -426,7 +426,8 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">
-                          Declined on: {new Date(application.updated_at).toLocaleDateString()}
+                          Declined on:{" "}
+                          {new Date(application.updated_at).toLocaleDateString("en-GB")}
                         </p>
                       </div>
                     </div>
