@@ -274,6 +274,10 @@ function AdminDashboardContent() {
   const [teamsSort, setTeamsSort] = useState("newest");
   const [teamsPage, setTeamsPage] = useState(1);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+  // "Add an employer to this team" picker (admin consolidates duplicate companies)
+  const [addMemberSearch, setAddMemberSearch] = useState("");
+  const [addMemberRole, setAddMemberRole] = useState<"manager" | "admin">("manager");
+  const [addMemberUserId, setAddMemberUserId] = useState<number | null>(null);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ userId, status }: { userId: number; status: string }) => {
@@ -749,6 +753,49 @@ function AdminDashboardContent() {
     retry: 1,
     staleTime: 0,
     gcTime: 0,
+  });
+
+  // Employer picker for "add an employer to this team" (role = recruiter/employer)
+  const { data: addMemberPickerData, isLoading: addMemberPickerLoading } = useQuery<UsersResponse>({
+    queryKey: ["/api/admin/users", "teamMemberPicker", addMemberSearch],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.append("page", "1");
+      params.append("limit", "20");
+      params.append("role", "recruiter");
+      if (addMemberSearch.trim()) params.append("search", addMemberSearch.trim());
+      params.append("sortBy", "created_at");
+      params.append("sortOrder", "desc");
+      return apiRequest(`/api/admin/users?${params.toString()}`);
+    },
+    enabled: selectedTeamId !== null && activeTab === "teams" && addMemberSearch.trim().length > 0,
+    staleTime: 10000,
+  });
+
+  // Admin links an existing employer account to this company as a team member
+  const linkTeamMemberMutation = useMutation({
+    mutationFn: (vars: { companyId: number; userId: number; role: string }) =>
+      apiRequest("/api/admin/team/link", {
+        method: "POST",
+        body: JSON.stringify(vars),
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Employer added to team",
+        description: "They now belong to this company's team.",
+      });
+      setAddMemberUserId(null);
+      setAddMemberSearch("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/teams", selectedTeamId, "detail"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/teams"] });
+    },
+    onError: (err: unknown) => {
+      toast({
+        title: "Could not add employer",
+        description: err instanceof Error ? err.message : "They may already belong to a team.",
+        variant: "destructive",
+      });
+    },
   });
 
   // Send job alert emails mutation
@@ -3056,6 +3103,105 @@ function AdminDashboardContent() {
                           </Table>
                         </div>
                       )}
+                    </div>
+
+                    {/* Admin: add an existing employer account to this team */}
+                    <div className="rounded-lg border border-dashed bg-muted/30 p-4">
+                      <h3 className="mb-1 font-semibold">Add an employer to this team</h3>
+                      <p className="mb-3 text-sm text-muted-foreground">
+                        Link another employer account to this company — useful when someone signed
+                        up separately and created a duplicate company instead of joining the team.
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <Input
+                          placeholder="Search employers by name or email..."
+                          value={addMemberSearch}
+                          onChange={(e) => {
+                            setAddMemberSearch(e.target.value);
+                            setAddMemberUserId(null);
+                          }}
+                          className="sm:flex-1"
+                        />
+                        <Select
+                          value={addMemberRole}
+                          onValueChange={(v) => setAddMemberRole(v as "manager" | "admin")}
+                        >
+                          <SelectTrigger className="w-full sm:w-[150px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manager">Manager</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {addMemberSearch.trim() && (
+                        <div className="mt-2 max-h-56 overflow-y-auto rounded-md border bg-background">
+                          {addMemberPickerLoading ? (
+                            <p className="p-3 text-sm text-muted-foreground">Searching…</p>
+                          ) : (
+                            (() => {
+                              const excluded = new Set<number>([
+                                teamDetailData.company.company_user_id,
+                                ...teamDetailData.members
+                                  .map((m) => m.user_id)
+                                  .filter((x): x is number => x != null),
+                              ]);
+                              const candidates = (addMemberPickerData?.users || []).filter(
+                                (u) => !excluded.has(u.id)
+                              );
+                              if (candidates.length === 0) {
+                                return (
+                                  <p className="p-3 text-sm text-muted-foreground">
+                                    No matching employers available to add.
+                                  </p>
+                                );
+                              }
+                              return candidates.map((u) => {
+                                const label =
+                                  [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
+                                return (
+                                  <button
+                                    key={u.id}
+                                    type="button"
+                                    onClick={() => setAddMemberUserId(u.id)}
+                                    className={cn(
+                                      "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-accent",
+                                      addMemberUserId === u.id && "bg-accent"
+                                    )}
+                                  >
+                                    <span className="min-w-0">
+                                      <span className="font-medium">{label}</span>
+                                      <span className="ml-2 text-xs text-muted-foreground">
+                                        {u.email}
+                                      </span>
+                                    </span>
+                                    {addMemberUserId === u.id && (
+                                      <Check className="h-4 w-4 shrink-0 text-primary" />
+                                    )}
+                                  </button>
+                                );
+                              });
+                            })()
+                          )}
+                        </div>
+                      )}
+                      <div className="mt-3 flex justify-end">
+                        <Button
+                          size="sm"
+                          disabled={!addMemberUserId || linkTeamMemberMutation.isPending}
+                          onClick={() =>
+                            addMemberUserId &&
+                            linkTeamMemberMutation.mutate({
+                              companyId: teamDetailData.company.company_user_id,
+                              userId: addMemberUserId,
+                              role: addMemberRole,
+                            })
+                          }
+                        >
+                          {linkTeamMemberMutation.isPending ? "Adding…" : "Add to team"}
+                        </Button>
+                      </div>
                     </div>
 
                     {/* Jobs */}
