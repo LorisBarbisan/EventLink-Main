@@ -1,5 +1,5 @@
 import { db } from "../config/db";
-import { jobs, users } from "@shared/schema";
+import { jobs, users, teamMembers, job_applications } from "@shared/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { sendEmail } from "../utils/emailService";
 
@@ -15,14 +15,18 @@ type ReminderJob = {
 };
 
 /**
- * Emails employers whose job will auto-close soon (default: in 2 days / 48h),
- * reminding them to close it manually and — if they have chosen someone — to
- * officially hire that freelancer on the platform.
+ * Emails the employer team whose job will auto-close soon (default: in 2 days /
+ * 48h), but ONLY when no freelancer has been hired yet — reminding them to hire
+ * their chosen freelancer officially and to close the job manually.
  *
  * Why this matters: when a job simply lapses on its event date nothing is
  * recorded as a hire, so no booking exists and neither side can leave a rating
  * or review. Those reviews are what build freelancers' reputations, so a job
- * that closes on its own is a missed opportunity for everyone.
+ * that closes on its own with no hire is a missed opportunity for everyone. A
+ * job that already has a hire doesn't need this nudge.
+ *
+ * The reminder goes to the whole team — the company owner plus every linked
+ * team member — so whoever is handling the job sees it.
  *
  * Runs once a day and targets the single day exactly `daysAhead` out, so each
  * job is reminded exactly once — no per-job guard flag needed.
@@ -45,27 +49,70 @@ export async function sendDueCloseReminders(daysAhead = 2): Promise<number> {
       )
     );
 
+  let jobsReminded = 0;
   let sent = 0;
   for (const job of dueJobs) {
     if (!job.recruiter_id) continue; // external/aggregated jobs have no owner to email
-    const [employer] = await db
-      .select({ email: users.email, first_name: users.first_name })
-      .from(users)
-      .where(eq(users.id, job.recruiter_id))
-      .limit(1);
-    if (!employer?.email) continue;
 
-    const ok = await sendCloseReminderEmail(job, employer).catch((err) => {
-      console.error(`Close-reminder email error for job ${job.id}:`, err);
-      return false;
-    });
-    if (ok) sent++;
+    // Only nudge when nobody has been hired — a recorded hire means the booking
+    // (and the ratings/reviews that follow) is already taken care of.
+    const [hired] = await db
+      .select({ id: job_applications.id })
+      .from(job_applications)
+      .where(and(eq(job_applications.job_id, job.id), eq(job_applications.status, "hired")))
+      .limit(1);
+    if (hired) continue;
+
+    const recipients = await getTeamRecipients(job.recruiter_id);
+    if (recipients.length === 0) continue;
+
+    let anySent = false;
+    for (const recipient of recipients) {
+      const ok = await sendCloseReminderEmail(job, recipient).catch((err) => {
+        console.error(`Close-reminder email error for job ${job.id} -> ${recipient.email}:`, err);
+        return false;
+      });
+      if (ok) {
+        sent++;
+        anySent = true;
+      }
+    }
+    if (anySent) jobsReminded++;
   }
 
   if (dueJobs.length > 0) {
-    console.log(`Close-reminder scheduler: ${sent}/${dueJobs.length} employer reminder(s) sent.`);
+    console.log(
+      `Close-reminder scheduler: ${sent} email(s) sent across ${jobsReminded} job(s) with no hire.`
+    );
   }
   return sent;
+}
+
+/**
+ * The company owner plus every linked team member, deduped by email. Used so a
+ * reminder reaches everyone who could act on the job, not just the account that
+ * happens to own it.
+ */
+async function getTeamRecipients(
+  companyId: number
+): Promise<Array<{ email: string; first_name: string | null }>> {
+  const [owner] = await db
+    .select({ email: users.email, first_name: users.first_name })
+    .from(users)
+    .where(eq(users.id, companyId))
+    .limit(1);
+
+  const members = await db
+    .select({ email: users.email, first_name: users.first_name })
+    .from(teamMembers)
+    .innerJoin(users, eq(users.id, teamMembers.userId))
+    .where(and(eq(teamMembers.companyId, companyId), eq(teamMembers.inviteAccepted, true)));
+
+  const byEmail = new Map<string, { email: string; first_name: string | null }>();
+  for (const r of [owner, ...members]) {
+    if (r?.email) byEmail.set(r.email.toLowerCase(), r);
+  }
+  return Array.from(byEmail.values());
 }
 
 async function sendCloseReminderEmail(
