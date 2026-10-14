@@ -2186,6 +2186,19 @@ export class DatabaseStorage implements IStorage {
       console.log(
         `Auto-closed ${result.length} expired job(s): ${result.map((j) => j.id).join(", ")}`
       );
+      // Notify each closed job's applicants that it has closed (and that another
+      // candidate may have been chosen). Idempotent via closure_email_sent, so a
+      // job the daily cron also closes won't be emailed twice. Fire-and-forget so
+      // this never slows down job listing/search, which also triggers this path.
+      void import("./api/services/job-closure-email.service.js")
+        .then(({ sendJobClosureEmails }) => {
+          for (const j of result) {
+            sendJobClosureEmails(j.id).catch((err) =>
+              console.error(`Auto-close closure email error for job ${j.id}:`, err)
+            );
+          }
+        })
+        .catch((err) => console.error("Failed to load closure email service:", err));
     }
     return result.length;
   }
