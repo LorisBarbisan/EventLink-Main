@@ -85,6 +85,8 @@ import {
   guest_application_tokens,
   type GuestApplicationToken,
   type User,
+  freelancer_date_availability,
+  type FreelancerDateAvailability,
 } from "@shared/schema";
 import {
   and,
@@ -690,6 +692,11 @@ export interface IStorage {
   }): Promise<GuestApplicationToken>;
   getGuestApplicationToken(tokenHash: string): Promise<GuestApplicationToken | undefined>;
   markGuestApplicationTokenViewed(tokenHash: string): Promise<void>;
+
+  // Crew date availability
+  upsertFreelancerDateAvailability(freelancerId: number, date: string, status: "available" | "tentative" | "unavailable", note?: string): Promise<FreelancerDateAvailability>;
+  getFreelancerDateAvailability(freelancerId: number, fromDate: string, toDate: string): Promise<FreelancerDateAvailability[]>;
+  getCrewAvailability(employerId: number, fromDate: string, toDate: string): Promise<Array<FreelancerDateAvailability & { freelancer_name: string; profile_photo_url: string | null }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7063,6 +7070,61 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return !!access;
+  }
+
+  async upsertFreelancerDateAvailability(freelancerId: number, date: string, status: "available" | "tentative" | "unavailable", note?: string): Promise<FreelancerDateAvailability> {
+    const [row] = await db
+      .insert(freelancer_date_availability)
+      .values({ freelancerId, date, status, note: note ?? null, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: [freelancer_date_availability.freelancerId, freelancer_date_availability.date],
+        set: { status, note: note ?? null, updatedAt: new Date() },
+      })
+      .returning();
+    return row;
+  }
+
+  async getFreelancerDateAvailability(freelancerId: number, fromDate: string, toDate: string): Promise<FreelancerDateAvailability[]> {
+    return db
+      .select()
+      .from(freelancer_date_availability)
+      .where(
+        and(
+          eq(freelancer_date_availability.freelancerId, freelancerId),
+          gte(freelancer_date_availability.date, fromDate),
+          lte(freelancer_date_availability.date, toDate)
+        )
+      );
+  }
+
+  async getCrewAvailability(employerId: number, fromDate: string, toDate: string): Promise<Array<FreelancerDateAvailability & { freelancer_name: string; profile_photo_url: string | null }>> {
+    const savedIds = await db
+      .select({ freelancer_id: saved_freelancers.freelancer_id })
+      .from(saved_freelancers)
+      .where(eq(saved_freelancers.recruiter_id, employerId));
+    if (savedIds.length === 0) return [];
+    const ids = savedIds.map((r) => r.freelancer_id);
+    const rows = await db
+      .select({
+        id: freelancer_date_availability.id,
+        freelancerId: freelancer_date_availability.freelancerId,
+        date: freelancer_date_availability.date,
+        status: freelancer_date_availability.status,
+        note: freelancer_date_availability.note,
+        updatedAt: freelancer_date_availability.updatedAt,
+        freelancer_name: sql<string>`concat(${users.first_name}, ' ', ${users.last_name})`,
+        profile_photo_url: users.profile_photo_url,
+      })
+      .from(freelancer_date_availability)
+      .innerJoin(users, eq(users.id, freelancer_date_availability.freelancerId))
+      .where(
+        and(
+          inArray(freelancer_date_availability.freelancerId, ids),
+          gte(freelancer_date_availability.date, fromDate),
+          lte(freelancer_date_availability.date, toDate)
+        )
+      );
+    return rows;
   }
 }
 

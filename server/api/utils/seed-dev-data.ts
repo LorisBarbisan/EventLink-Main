@@ -401,7 +401,7 @@ for (const m of teamMemberDefs) {
   const companyOwner = companyUsers[m.companyEmail];
   if (!companyOwner) continue;
 
-  let memberUser = m.accepted
+  const memberUser = m.accepted
     ? await upsertUser(m.email, "recruiter", m.firstName, m.lastName)
     : null;
 
