@@ -35,6 +35,7 @@ import teamRouter from "./api/routes/team.route.js";
 import jobDocumentRouter from "./api/routes/job-document.route.js";
 import helpRouter from "./api/routes/help.route.js";
 import subscriptionRouter from "./api/routes/subscription.route.js";
+import availabilityRouter from "./api/routes/availability.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { JWT_SECRET, SESSION_SECRET } from "./api/config/env.js";
 import { wsService } from "./api/websocket/websocketService";
@@ -282,6 +283,7 @@ export async function registerRoutes(
   app.use("/api/job", jobDocumentRouter);
   app.use("/api/help", helpRouter);
   app.use("/api/subscription", subscriptionRouter);
+  app.use("/api/availability", availabilityRouter);
   registerContactRoutes(app);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering
