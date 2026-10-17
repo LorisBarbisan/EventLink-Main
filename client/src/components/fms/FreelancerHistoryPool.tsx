@@ -201,8 +201,10 @@ export function FreelancerHistoryPool({ onRehire }: Props) {
                     size="sm"
                     variant="outline"
                     onClick={async () => {
-                      await apiRequest(`/api/saved-freelancers/${entry.freelancerId}`, {
+                      await apiRequest("/api/saved-freelancers", {
                         method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ freelancerId: entry.freelancerId }),
                       });
                     }}
                   >

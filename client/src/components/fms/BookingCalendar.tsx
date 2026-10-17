@@ -44,7 +44,7 @@ export function BookingCalendar({ onDateClick }: BookingCalendarProps = {}) {
 
   const { data: calendarData = [], isLoading } = useQuery({
     queryKey: ["/api/bookings/calendar"],
-    queryFn: () => apiRequest("/api/bookings/calendar"),
+    queryFn: () => apiRequest("/api/bookings/calendar").then((r) => r.json()),
   });
 
   // Listen for context menu custom events

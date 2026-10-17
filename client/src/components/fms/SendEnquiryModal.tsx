@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -70,6 +70,7 @@ export function SendEnquiryModal({ open, onOpenChange, preselectedFreelancerIds 
   const [step, setStep] = useState<"select-job" | "enquiry-form">("select-job");
   const [selectedJob, setSelectedJob] = useState<RecruiterJob | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>(preselectedFreelancerIds);
+  useEffect(() => { setSelectedIds(preselectedFreelancerIds); }, [preselectedFreelancerIds]);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<EnquiryFormValues>({
     defaultValues: { callTime: "", roleRequired: "", agreedRate: "", additionalNotes: "" },
@@ -77,7 +78,7 @@ export function SendEnquiryModal({ open, onOpenChange, preselectedFreelancerIds 
 
   const { data: recruiterJobs = [], isLoading: jobsLoading } = useQuery<RecruiterJob[]>({
     queryKey: ["/api/jobs/recruiter", user?.id],
-    queryFn: () => apiRequest(`/api/jobs/recruiter/${user?.id}`),
+    queryFn: () => apiRequest(`/api/jobs/recruiter/${user?.id}`).then((r) => r.json()),
     enabled: open && !!user?.id,
   });
 
@@ -85,7 +86,7 @@ export function SendEnquiryModal({ open, onOpenChange, preselectedFreelancerIds 
 
   const { data: crew = [], isLoading: crewLoading } = useQuery<CrewFreelancer[]>({
     queryKey: ["/api/my-crew"],
-    queryFn: () => apiRequest("/api/my-crew"),
+    queryFn: () => apiRequest("/api/my-crew").then((r) => r.json()),
     enabled: open && step === "enquiry-form",
   });
 

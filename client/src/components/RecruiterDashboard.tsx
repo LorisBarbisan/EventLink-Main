@@ -28,6 +28,7 @@ import { BookingCalendar } from "./fms/BookingCalendar";
 import { CompanyProfilePanel } from "./fms/CompanyProfilePanel";
 import { InvoicePanel } from "./fms/InvoicePanel";
 import { EnquiryList } from "./fms/EnquiryList";
+import { CrewAvailabilityPanel } from "./fms/CrewAvailabilityPanel";
 import { ExportButton } from "./fms/ExportButton";
 import { SendEnquiryModal } from "./fms/SendEnquiryModal";
 import { FreelancerHistoryPool } from "./fms/FreelancerHistoryPool";
@@ -1699,7 +1700,7 @@ export default function SimplifiedRecruiterDashboard() {
               </p>
             </div>
           </div>
-          <EnquiryList />
+          <CrewAvailabilityPanel />
         </TabsContent>
 
         {/* IR35 Tab */}

@@ -7126,7 +7126,6 @@ export class DatabaseStorage implements IStorage {
       );
     return rows;
   }
-}
 
   // ── Freelancer History Pool ──────────────────────────────────────────────
   async getFreelancerHistoryPool(employerId: number) {
@@ -7202,4 +7201,6 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+
+}
 export const storage = new DatabaseStorage();
