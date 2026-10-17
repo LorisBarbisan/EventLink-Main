@@ -30,6 +30,7 @@ import { InvoicePanel } from "./fms/InvoicePanel";
 import { EnquiryList } from "./fms/EnquiryList";
 import { ExportButton } from "./fms/ExportButton";
 import { SendEnquiryModal } from "./fms/SendEnquiryModal";
+import { FreelancerHistoryPool } from "./fms/FreelancerHistoryPool";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
@@ -45,6 +46,7 @@ import type { Job, JobApplication, JobFormData } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Clock,
   Bookmark,
   Check,
   Zap,
@@ -895,12 +897,18 @@ export default function SimplifiedRecruiterDashboard() {
                     </Badge>
                   )}
                 </span>
-              </SelectItem>
-              <SelectItem value="crew">
+              </SelectItem>              <SelectItem value="crew">
                 <span className="flex items-center gap-2">
                   <Users className="h-4 w-4" /> My Crew
                 </span>
               </SelectItem>
+              {isSubscribed && (
+              <SelectItem value="history">
+                <span className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" /> History Pool
+                </span>
+              </SelectItem>
+              )}
               {isSubscribed && (
               <SelectItem value="invoices">
                 <span className="flex items-center gap-2">
@@ -930,6 +938,23 @@ export default function SimplifiedRecruiterDashboard() {
         <TabsContent value="profile">
           <CompanyProfilePanel />
         </TabsContent>
+                {/* History Pool Tab */}
+        {isSubscribed && (
+        <TabsContent value="history" className="space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">History Pool</h2>
+              <p className="text-muted-foreground">Every freelancer you&apos;ve ever hired, with full booking history</p>
+            </div>
+          </div>
+          <FreelancerHistoryPool
+            onRehire={(freelancerId, name) => {
+              setPreselectedCrewIds([freelancerId]);
+              setSendEnquiryOpen(true);
+            }}
+          />
+        </TabsContent>
+        )}
         {/* Invoices Tab */}
         <TabsContent value="invoices">
           <InvoicePanel />

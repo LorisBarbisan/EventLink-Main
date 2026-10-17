@@ -7128,4 +7128,78 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
+  // ── Freelancer History Pool ──────────────────────────────────────────────
+  async getFreelancerHistoryPool(employerId: number) {
+    const rows = await db
+      .select({
+        freelancerId: bookings.freelancerId,
+        bookingCount: count(bookings.id),
+        lastBookedAt: sql<string>`max(${bookings.createdAt})`,
+      })
+      .from(bookings)
+      .where(eq(bookings.employerId, employerId))
+      .groupBy(bookings.freelancerId)
+      .orderBy(sql`max(${bookings.createdAt}) desc`);
+
+    if (!rows.length) return [];
+
+    const freelancerIds = rows.map((r) => r.freelancerId);
+
+    const profiles = await db
+      .select()
+      .from(freelancer_profiles)
+      .where(inArray(freelancer_profiles.user_id, freelancerIds));
+
+    const userRows = await db
+      .select({ id: users.id, first_name: users.first_name, last_name: users.last_name, email: users.email })
+      .from(users)
+      .where(inArray(users.id, freelancerIds));
+
+    const allBookings = await db
+      .select({ freelancerId: bookings.freelancerId, employerNotes: bookings.employerNotes, status: bookings.status, createdAt: bookings.createdAt })
+      .from(bookings)
+      .where(and(eq(bookings.employerId, employerId), inArray(bookings.freelancerId, freelancerIds)));
+
+    const ratingRows = await db
+      .select()
+      .from(ratings)
+      .where(and(eq(ratings.recruiter_id, employerId), inArray(ratings.freelancer_id, freelancerIds)));
+
+    const savedRows = await db
+      .select({ freelancerId: saved_freelancers.freelancer_id })
+      .from(saved_freelancers)
+      .where(and(eq(saved_freelancers.recruiter_id, employerId), inArray(saved_freelancers.freelancer_id, freelancerIds)));
+    const savedSet = new Set(savedRows.map((r) => r.freelancerId));
+
+    return rows.map((row) => {
+      const profile = profiles.find((p) => p.user_id === row.freelancerId);
+      const user = userRows.find((u) => u.id === row.freelancerId);
+      const fBookings = allBookings.filter((b) => b.freelancerId === row.freelancerId);
+      const fRatings = ratingRows.filter((r) => r.freelancer_id === row.freelancerId);
+      const avgRating = fRatings.length > 0 ? fRatings.reduce((s, r) => s + r.rating, 0) / fRatings.length : null;
+      return {
+        freelancerId: row.freelancerId,
+        firstName: profile?.first_name ?? user?.first_name ?? "Unknown",
+        lastName: profile?.last_name ?? user?.last_name ?? "",
+        email: user?.email ?? "",
+        title: profile?.title ?? null,
+        skills: profile?.skills ?? [],
+        profilePhotoUrl: profile?.profile_photo_url ?? null,
+        location: profile?.location ?? null,
+        bookingCount: Number(row.bookingCount),
+        lastBookedAt: row.lastBookedAt,
+        isSaved: savedSet.has(row.freelancerId),
+        avgRating,
+        ratingCount: fRatings.length,
+        latestRating: fRatings.sort((a, b) => b.id - a.id)[0] ?? null,
+        privateNotes: fBookings.filter((b) => b.employerNotes).map((b) => ({ note: b.employerNotes!, date: b.createdAt.toISOString() })),
+        statusBreakdown: {
+          completed: fBookings.filter((b) => b.status === "completed").length,
+          confirmed: fBookings.filter((b) => b.status === "confirmed").length,
+          cancelled: fBookings.filter((b) => b.status === "cancelled").length,
+        },
+      };
+    });
+  }
+
 export const storage = new DatabaseStorage();

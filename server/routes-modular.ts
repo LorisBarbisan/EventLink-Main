@@ -41,6 +41,7 @@ import invoiceRouter from "./api/routes/invoice.route.js";
 import calendarRouter from "./api/routes/calendar.route.js";
 import briefRouter from "./api/routes/brief.route.js";
 import exportRouter from "./api/routes/export.route.js";
+import historyPoolRouter from "./api/routes/historyPool.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { JWT_SECRET, SESSION_SECRET } from "./api/config/env.js";
 import { wsService } from "./api/websocket/websocketService";
@@ -294,6 +295,7 @@ export async function registerRoutes(
   app.use("/api/calendar", calendarRouter);
   app.use("/api/briefs", briefRouter);
   app.use("/api/export", exportRouter);
+  app.use("/api/fms/history-pool", historyPoolRouter);
   registerContactRoutes(app);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering
