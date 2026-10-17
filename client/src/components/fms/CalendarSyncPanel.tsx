@@ -217,7 +217,7 @@ export default function CalendarSyncPanel() {
               onClick={async () => {
                 if (!isSubscribed) { setPaywallOpen(true); return; }
                 try {
-                  const data = await apiRequest("/api/calendar/google/connect").then(r => r.json());
+                  const data = await apiRequest("/api/calendar/google/connect");
                   if (data?.url) window.location.href = data.url;
                   else toast({ title: "Connection error", description: "No redirect URL returned. Please try again.", variant: "destructive" });
                 } catch (err: any) {
@@ -233,7 +233,7 @@ export default function CalendarSyncPanel() {
               className="gap-2 border-gray-300 hover:border-gray-400 text-sm"
               onClick={async () => {
                 if (!isSubscribed) { setPaywallOpen(true); return; }
-                const data = await apiRequest("/api/calendar/outlook/connect").then(r => r.json());
+                const data = await apiRequest("/api/calendar/outlook/connect");
                 if (data?.url) window.location.href = data.url;
               }}
             >

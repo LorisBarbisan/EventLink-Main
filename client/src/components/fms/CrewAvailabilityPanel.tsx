@@ -34,12 +34,12 @@ export function CrewAvailabilityPanel() {
   const { data: rows = [], isLoading } = useQuery<CrewRow[]>({
     queryKey: ["/api/availability/crew", from, to],
     queryFn: () =>
-      apiRequest(`/api/availability/crew?from=${from}&to=${to}`).then((r) => r.json()),
+      apiRequest(`/api/availability/crew?from=${from}&to=${to}`),
     staleTime: 60_000,
   });
 
   const inviteMutation = useMutation({
-    mutationFn: () => apiRequest("/api/availability/invite", { method: "POST", body: "{}" }).then((r) => r.json()),
+    mutationFn: () => apiRequest("/api/availability/invite", { method: "POST", body: "{}" }),
     onSuccess: (data: { sent: number }) => {
       toast({
         title: "Invitations sent",

@@ -78,7 +78,7 @@ export function SendEnquiryModal({ open, onOpenChange, preselectedFreelancerIds 
 
   const { data: recruiterJobs = [], isLoading: jobsLoading } = useQuery<RecruiterJob[]>({
     queryKey: ["/api/jobs/recruiter", user?.id],
-    queryFn: () => apiRequest(`/api/jobs/recruiter/${user?.id}`).then((r) => r.json()),
+    queryFn: () => apiRequest(`/api/jobs/recruiter/${user?.id}`),
     enabled: open && !!user?.id,
   });
 
@@ -86,7 +86,7 @@ export function SendEnquiryModal({ open, onOpenChange, preselectedFreelancerIds 
 
   const { data: crew = [], isLoading: crewLoading } = useQuery<CrewFreelancer[]>({
     queryKey: ["/api/my-crew"],
-    queryFn: () => apiRequest("/api/my-crew").then((r) => r.json()),
+    queryFn: () => apiRequest("/api/my-crew"),
     enabled: open && step === "enquiry-form",
   });
 

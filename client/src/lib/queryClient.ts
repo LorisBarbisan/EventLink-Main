@@ -45,7 +45,7 @@ export const queryClient = new QueryClient({
 export async function apiRequest(
   url: string,
   options?: RequestInit & { skipAuthRedirect?: boolean }
-) {
+): Promise<unknown> {
   // Get JWT token from localStorage
   const token = localStorage.getItem("auth_token");
 

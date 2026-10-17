@@ -140,7 +140,7 @@ export function SendBriefModal({ open, onOpenChange, booking, job }: Props) {
       const entry: PendingFile = { file, objectPath: null, uploading: true };
       setPendingFiles((prev) => [...prev, entry]);
       try {
-        const { uploadURL } = await apiRequest("/api/briefs/attachment-upload-url").then(r => r.json());
+        const { uploadURL } = await apiRequest("/api/briefs/attachment-upload-url");
         await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
         // Extract path from signed URL
         const url = new URL(uploadURL);

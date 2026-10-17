@@ -36,7 +36,7 @@ export function MyAvailabilityPanel() {
   const { data: rows = [] } = useQuery<AvailabilityRow[]>({
     queryKey: ["/api/availability/my", from, to],
     queryFn: () =>
-      apiRequest(`/api/availability/my?from=${from}&to=${to}`).then((r) => r.json()),
+      apiRequest(`/api/availability/my?from=${from}&to=${to}`),
     staleTime: 30_000,
   });
 
@@ -48,7 +48,7 @@ export function MyAvailabilityPanel() {
         // No DELETE endpoint yet — set to a no-op by re-querying; skip server call
         return Promise.resolve();
       }
-      return apiRequest("/api/availability/my", { method: "PUT", body: JSON.stringify({ date, status }) }).then((r) => r.json());
+      return apiRequest("/api/availability/my", { method: "PUT", body: JSON.stringify({ date, status }) });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/availability/my"] }),
   });

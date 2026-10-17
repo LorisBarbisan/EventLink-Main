@@ -37,7 +37,7 @@ export function FreelancerHistoryPool({ onRehire }: Props) {
 
   const { data: pool = [], isLoading } = useQuery<HistoryEntry[]>({
     queryKey: ["/api/fms/history-pool"],
-    queryFn: () => apiRequest("/api/fms/history-pool").then((r) => r.json()),
+    queryFn: () => apiRequest("/api/fms/history-pool"),
   });
 
   const filtered = pool.filter((entry) => {
