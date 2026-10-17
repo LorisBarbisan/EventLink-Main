@@ -1,3 +1,10 @@
+  app.use("/api/availability", availabilityRouter);
+import connectPgSimple from "connect-pg-simple";
+}
+  app.use("/api/availability", availabilityRouter);
+import connectPgSimple from "connect-pg-simple";
+}
+import availabilityRouter from "./api/routes/availability.route.js";
 import connectPgSimple from "connect-pg-simple";
 import cors from "cors";
 import type { Express } from "express";
@@ -29,6 +36,7 @@ import { registerRatingsRoutes } from "./api/routes/rating.route.js";
 import { registerSeoRoutes } from "./api/routes/seo.route.js";
 import { registerSavedFreelancerRoutes } from "./api/routes/saved-freelancers.route.js";
 import referenceRouter from "./api/routes/reference.route.js";
+import availabilityRouter from "./api/routes/availability.route.js";
 import bookingRouter from "./api/routes/booking.route.js";
 import teamRouter from "./api/routes/team.route.js";
 import availabilityRouter from "./api/routes/availability.route.js";
