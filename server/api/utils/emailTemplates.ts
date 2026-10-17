@@ -964,3 +964,158 @@ export function guestApplicationNotificationEmail(data: {
     html: masterTemplate(content),
   };
 }
+
+// ─── FMS: Enquiry email templates ────────────────────────────────────────────
+
+export function generateAvailabilityEnquiryEmail(data: {
+  freelancerFirstName: string;
+  employerName: string;
+  eventTitle: string;
+  eventDate: string;
+  callTime?: string;
+  venueAddress?: string;
+  roleRequired?: string;
+  agreedRate?: string;
+  additionalNotes?: string;
+  responseToken: string;
+  baseUrl: string;
+}): { subject: string; html: string } {
+  const respondUrl = `${data.baseUrl}/enquiry/respond?token=${data.responseToken}`;
+  const content = `
+    <h2>Availability check: ${data.eventTitle}</h2>
+    <p>Hi ${data.freelancerFirstName},</p>
+    <p><strong>${data.employerName}</strong> wants to check your availability for an upcoming event.</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr><td style="padding:6px 0;color:#666;width:140px;">Event</td><td><strong>${data.eventTitle}</strong></td></tr>
+      <tr><td style="padding:6px 0;color:#666;">Date</td><td>${data.eventDate}</td></tr>
+      ${data.callTime ? `<tr><td style="padding:6px 0;color:#666;">Call time</td><td>${data.callTime}</td></tr>` : ""}
+      ${data.venueAddress ? `<tr><td style="padding:6px 0;color:#666;">Venue</td><td>${data.venueAddress}</td></tr>` : ""}
+      ${data.roleRequired ? `<tr><td style="padding:6px 0;color:#666;">Role</td><td>${data.roleRequired}</td></tr>` : ""}
+      ${data.agreedRate ? `<tr><td style="padding:6px 0;color:#666;">Rate</td><td>${data.agreedRate}</td></tr>` : ""}
+    </table>
+    ${data.additionalNotes ? `<p><strong>Notes:</strong> ${data.additionalNotes}</p>` : ""}
+    <p>
+      <a href="${respondUrl}" class="button">Respond to Availability Check</a>
+    </p>
+    <p style="color:#666;font-size:13px;">Or copy this link: <span style="color:#D8690E;">${respondUrl}</span></p>
+  `;
+  return {
+    subject: `Availability check: ${data.eventTitle} on ${data.eventDate}`,
+    html: masterTemplate(content),
+  };
+}
+
+export function generateEnquiryCancelledEmail(data: {
+  freelancerFirstName: string;
+  employerName: string;
+  eventTitle: string;
+  eventDate: string;
+}): string {
+  const content = `
+    <h2>Availability check cancelled</h2>
+    <p>Hi ${data.freelancerFirstName},</p>
+    <p><strong>${data.employerName}</strong> has cancelled their availability check for the following event:</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr><td style="padding:6px 0;color:#666;width:140px;">Event</td><td><strong>${data.eventTitle}</strong></td></tr>
+      <tr><td style="padding:6px 0;color:#666;">Date</td><td>${data.eventDate}</td></tr>
+    </table>
+    <p>No further action is needed from you.</p>
+  `;
+  return masterTemplate(content);
+}
+
+export function generateEnquiryUpdatedEmail(data: {
+  freelancerFirstName: string;
+  employerName: string;
+  eventTitle: string;
+  eventDate: string;
+  eventEndDate?: string;
+  callTime?: string;
+  venueAddress?: string;
+  responseToken: string;
+  baseUrl: string;
+}): string {
+  const respondUrl = `${data.baseUrl}/enquiry/respond?token=${data.responseToken}`;
+  const content = `
+    <h2>Updated event details: ${data.eventTitle}</h2>
+    <p>Hi ${data.freelancerFirstName},</p>
+    <p><strong>${data.employerName}</strong> has updated the details of an event you were checked for.</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr><td style="padding:6px 0;color:#666;width:140px;">Event</td><td><strong>${data.eventTitle}</strong></td></tr>
+      <tr><td style="padding:6px 0;color:#666;">Date</td><td>${data.eventDate}${data.eventEndDate ? ` &ndash; ${data.eventEndDate}` : ""}</td></tr>
+      ${data.callTime ? `<tr><td style="padding:6px 0;color:#666;">Call time</td><td>${data.callTime}</td></tr>` : ""}
+      ${data.venueAddress ? `<tr><td style="padding:6px 0;color:#666;">Venue</td><td>${data.venueAddress}</td></tr>` : ""}
+    </table>
+    <p>Please review the updated details and confirm your availability.</p>
+    <p>
+      <a href="${respondUrl}" class="button">Review Updated Details</a>
+    </p>
+    <p style="color:#666;font-size:13px;">Or copy this link: <span style="color:#D8690E;">${respondUrl}</span></p>
+  `;
+  return masterTemplate(content);
+}
+
+export function generateEnquiryRemovedEmail(data: {
+  freelancerFirstName: string;
+  employerName: string;
+  eventTitle: string;
+  eventDate: string;
+}): string {
+  const content = `
+    <h2>Availability check withdrawn</h2>
+    <p>Hi ${data.freelancerFirstName},</p>
+    <p><strong>${data.employerName}</strong> has withdrawn their availability check for the following event:</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr><td style="padding:6px 0;color:#666;width:140px;">Event</td><td><strong>${data.eventTitle}</strong></td></tr>
+      <tr><td style="padding:6px 0;color:#666;">Date</td><td>${data.eventDate}</td></tr>
+    </table>
+    <p>No action is required. You have been removed from this availability check.</p>
+  `;
+  return masterTemplate(content);
+}
+
+export function generateBriefEmail(data: {
+  freelancerFirstName: string;
+  employerName: string;
+  eventTitle: string;
+  eventDate: string;
+  callTime?: string;
+  venueAddress?: string;
+  roleRequired?: string;
+  agreedRate?: string;
+  details?: string;
+  dresscode?: string;
+  parkingInfo?: string;
+  contactOnDay?: string;
+  scheduleNotes?: string;
+  hasAttachments: boolean;
+  acknowledgeToken: string;
+  baseUrl: string;
+}): string {
+  const ackUrl = `${data.baseUrl}/brief/acknowledge?token=${data.acknowledgeToken}`;
+  const content = `
+    <h2>Job brief: ${data.eventTitle}</h2>
+    <p>Hi ${data.freelancerFirstName},</p>
+    <p>Your employer <strong>${data.employerName}</strong> has sent you a brief for the following booking.</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <tr><td style="padding:6px 0;color:#666;width:160px;">Event</td><td><strong>${data.eventTitle}</strong></td></tr>
+      <tr><td style="padding:6px 0;color:#666;">Date</td><td>${data.eventDate}</td></tr>
+      ${data.callTime ? `<tr><td style="padding:6px 0;color:#666;">Call time</td><td>${data.callTime}</td></tr>` : ""}
+      ${data.venueAddress ? `<tr><td style="padding:6px 0;color:#666;">Venue</td><td>${data.venueAddress}</td></tr>` : ""}
+      ${data.roleRequired ? `<tr><td style="padding:6px 0;color:#666;">Role</td><td>${data.roleRequired}</td></tr>` : ""}
+      ${data.agreedRate ? `<tr><td style="padding:6px 0;color:#666;">Agreed rate</td><td>${data.agreedRate}</td></tr>` : ""}
+      ${data.dresscode ? `<tr><td style="padding:6px 0;color:#666;">Dress code</td><td>${data.dresscode}</td></tr>` : ""}
+      ${data.parkingInfo ? `<tr><td style="padding:6px 0;color:#666;">Parking</td><td>${data.parkingInfo}</td></tr>` : ""}
+      ${data.contactOnDay ? `<tr><td style="padding:6px 0;color:#666;">Contact on day</td><td>${data.contactOnDay}</td></tr>` : ""}
+    </table>
+    ${data.details ? `<p><strong>Details:</strong> ${data.details}</p>` : ""}
+    ${data.scheduleNotes ? `<p><strong>Schedule notes:</strong> ${data.scheduleNotes}</p>` : ""}
+    ${data.hasAttachments ? `<p>&#128206; This brief includes attachments. Please log in to EventLink to download them.</p>` : ""}
+    <p>Please acknowledge receipt of this brief:</p>
+    <p>
+      <a href="${ackUrl}" class="button">Acknowledge Brief</a>
+    </p>
+    <p style="color:#666;font-size:13px;">Or copy this link: <span style="color:#D8690E;">${ackUrl}</span></p>
+  `;
+  return masterTemplate(content);
+}
