@@ -12,7 +12,8 @@
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "help:check": "node scripts/help-key-check.mjs",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "prepare": "husky install"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1110.0",
@@ -163,7 +164,8 @@
     "@types/react-dom": "^18.3.7",
     "@types/ws": "^8.18.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "husky": "^9.1.7"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"

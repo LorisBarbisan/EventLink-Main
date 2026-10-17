@@ -545,10 +545,7 @@ export default function MyBookings() {
       status: BookingStatus;
       cancellationReason?: string;
     }) => {
-      return apiRequest("PATCH", `/api/bookings/${bookingId}/status`, {
-        status,
-        cancellationReason,
-      });
+      return apiRequest(`/api/bookings/${bookingId}/status`, { method: "PATCH", body: JSON.stringify({ status, cancellationReason }) });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings/employer"] });
