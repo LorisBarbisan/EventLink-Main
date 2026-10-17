@@ -142,6 +142,11 @@ export class ObjectStorageService {
   }
 
   // Get a signed upload URL for message attachments.
+  async getBriefAttachmentUploadURL(): Promise<string> {
+    const objectKey = `brief-attachments/${randomUUID()}`;
+    return ObjectStorageService.getUploadUrl(objectKey, "application/octet-stream");
+  }
+
   async getObjectEntityUploadURL(): Promise<string> {
     const objectKey = `uploads/${randomUUID()}`;
     return ObjectStorageService.getUploadUrl(objectKey, "application/octet-stream");
@@ -192,3 +197,6 @@ export class ObjectStorageService {
 function normalizeKey(objectPath: string): string {
   return objectPath.replace(/^\/+/, "");
 }
+
+
+export const objectStorageService = new ObjectStorageService();
