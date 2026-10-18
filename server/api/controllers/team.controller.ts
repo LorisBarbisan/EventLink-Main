@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+﻿import { Request, Response } from "express";
 import { db } from "../config/db";
 import { teamMembers, users, recruiter_profiles } from "../../../shared/schema";
 import { eq, and } from "drizzle-orm";
@@ -56,24 +56,64 @@ function inviteExpiryError(membership: InviteMembership): { status: number; erro
 export async function getTeamMembers(req: Request, res: Response) {
   try {
     const companyId = req.companyId!;
+    const userId = req.user!.id;
 
-    const members = await db
+    const rows = await db
       .select({
-        id: teamMembers.id,
-        role: teamMembers.role,
-        invitedEmail: teamMembers.invitedEmail,
-        inviteAccepted: teamMembers.inviteAccepted,
-        inviteSentAt: teamMembers.inviteSentAt,
-        inviteAcceptedAt: teamMembers.inviteAcceptedAt,
-        userId: teamMembers.userId,
-        firstName: users.first_name,
-        lastName: users.last_name,
+        member: {
+          id: teamMembers.id,
+          userId: teamMembers.userId,
+          role: teamMembers.role,
+          inviteAccepted: teamMembers.inviteAccepted,
+          invitedEmail: teamMembers.invitedEmail,
+        },
+        user: {
+          id: users.id,
+          email: users.email,
+          first_name: users.first_name,
+          last_name: users.last_name,
+        },
+        profile: {
+          company_name: recruiter_profiles.company_name,
+          company_logo_url: recruiter_profiles.company_logo_url,
+        },
       })
       .from(teamMembers)
       .leftJoin(users, eq(teamMembers.userId, users.id))
+      .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
       .where(eq(teamMembers.companyId, companyId));
 
-    return res.json(members);
+    const members = rows.map(({ member, user, profile }) => ({
+      member: {
+        ...member,
+        status: member.inviteAccepted ? "active" : "pending",
+      },
+      user: (user as any).id != null ? user : null,
+      profile:
+        (profile as any)?.company_name || (profile as any)?.company_logo_url ? profile : null,
+    }));
+
+    const isOwner = companyId === userId;
+    const ownRow = rows.find((r) => r.member.userId === userId);
+    const role: string = isOwner ? "owner" : (ownRow?.member.role ?? null)!;
+
+    const companyName = await getCompanyName(companyId);
+    const sub = await storage.getSubscription(companyId);
+    const tier = sub?.tier ?? "pro";
+    const seatLimit = tier === "teams" ? 10 : 1;
+    const seatsUsed = members.filter((m) => m.member.status === "active").length;
+
+    const delegateAccess = await storage.getTeamDelegateAccess(companyId);
+
+    return res.json({
+      team: { id: companyId, name: companyName, ownerId: companyId },
+      role,
+      isOwner,
+      members,
+      delegateAccess,
+      seatLimit,
+      seatsUsed,
+    });
   } catch (error) {
     console.error("getTeamMembers error:", error);
     return res.status(500).json({ error: "Failed to fetch team members" });
@@ -117,7 +157,6 @@ export async function inviteTeamMember(req: Request, res: Response) {
     const token = crypto.randomUUID();
 
     if (existing && !existing.inviteAccepted) {
-      // Update existing pending invitation with fresh token
       await db
         .update(teamMembers)
         .set({
@@ -128,7 +167,6 @@ export async function inviteTeamMember(req: Request, res: Response) {
         })
         .where(eq(teamMembers.id, existing.id));
     } else if (!existing) {
-      // Create new invitation
       await db.insert(teamMembers).values({
         companyId,
         userId: null,
@@ -139,11 +177,9 @@ export async function inviteTeamMember(req: Request, res: Response) {
         inviteSentAt: new Date(),
       });
     } else {
-      // resend for accepted member — just resend email (already accepted)
       return res.json({ success: true, message: "Member is already active" });
     }
 
-    // Send invitation email
     const inviteUrl = `https://eventlink.one/join-team?token=${token}`;
     const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
 
@@ -235,7 +271,6 @@ export async function acceptInvitation(req: Request, res: Response) {
       });
     }
 
-    // POST — authenticated user accepting the invitation
     if (!req.user) {
       return res.status(401).json({ error: "You must be signed in to accept this invitation" });
     }
@@ -253,7 +288,6 @@ export async function acceptInvitation(req: Request, res: Response) {
       return res.status(404).json({ error: "User account not found" });
     }
 
-    // Team invite link proves inbox access — allow sign-in for invited employer emails
     if (!acceptingUser.email_verified) {
       await db
         .update(users)
@@ -295,7 +329,6 @@ export async function acceptInvitation(req: Request, res: Response) {
       return res.status(409).json({ error: "This invitation has already been accepted" });
     }
 
-    // Check: the user shouldn't already be linked to another company
     const [existingLink] = await db
       .select()
       .from(teamMembers)
