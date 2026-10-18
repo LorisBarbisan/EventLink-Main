@@ -9,6 +9,8 @@ import {
   registerTeamMember,
   updateTeamMemberRole,
   removeTeamMember,
+  grantDelegateAccess,
+  revokeDelegateAccess,
 } from "../controllers/team.controller";
 
 const router = Router();
@@ -23,5 +25,8 @@ router.get("/", getTeamMembers);
 router.post("/invite", inviteTeamMember);
 router.patch("/:id/role", updateTeamMemberRole);
 router.delete("/:id", removeTeamMember);
+
+router.post("/delegate", grantDelegateAccess);
+router.delete("/delegate", revokeDelegateAccess);
 
 export default router;

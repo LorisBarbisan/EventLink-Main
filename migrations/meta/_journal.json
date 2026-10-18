@@ -64,6 +64,13 @@
       "when": 1770400000000,
       "tag": "0008_team_members",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792325200397,
+      "tag": "0009_demonic_captain_britain",
+      "breakpoints": true
     }
   ]
 }

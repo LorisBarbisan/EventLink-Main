@@ -466,3 +466,55 @@ export async function getBookingsSummary(req: Request, res: Response) {
     return res.status(500).json({ error: "Failed to fetch bookings summary" });
   }
 }
+
+// ── Calendar view — bookings + jobs for employer ──────────
+export async function getCalendarBookings(req: Request, res: Response) {
+  try {
+    const employerId = req.companyId ?? req.user!.id;
+
+    const rows = await db
+      .select({
+        booking: bookings,
+        job: {
+          id: jobs.id,
+          title: jobs.title,
+          eventDate: jobs.event_date,
+        },
+        freelancer: {
+          firstName: users.first_name,
+          lastName: users.last_name,
+        },
+      })
+      .from(bookings)
+      .innerJoin(jobs, eq(bookings.jobId, jobs.id))
+      .innerJoin(users, eq(bookings.freelancerId, users.id))
+      .where(eq(bookings.employerId, employerId));
+
+    const jobMap = new Map<number, object>();
+    const bookingItems: object[] = [];
+
+    for (const { booking, job, freelancer } of rows) {
+      if (job.id && !jobMap.has(job.id)) {
+        jobMap.set(job.id, {
+          calendarType: "job",
+          id: job.id,
+          title: job.title,
+          eventDate: job.eventDate ? String(job.eventDate) : null,
+        });
+      }
+      bookingItems.push({
+        calendarType: "booking",
+        id: booking.id,
+        freelancerName: `${freelancer.firstName} ${freelancer.lastName}`,
+        eventDate: job.eventDate ? String(job.eventDate) : null,
+        createdAt: booking.createdAt,
+        status: booking.status,
+      });
+    }
+
+    return res.json([...Array.from(jobMap.values()), ...bookingItems]);
+  } catch (error) {
+    console.error("getCalendarBookings error:", error);
+    return res.status(500).json({ error: "Failed to fetch calendar data" });
+  }
+}

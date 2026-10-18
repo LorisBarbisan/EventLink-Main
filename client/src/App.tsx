@@ -51,7 +51,6 @@ const PostJob = lazy(() => import("./pages/PostJob"));
 const AvailabilityResponse = lazy(() => import("./pages/AvailabilityResponse"));
 const BriefAcknowledgePage = lazy(() => import("./pages/BriefAcknowledgePage"));
 const Pricing = lazy(() => import("./pages/Pricing"));
-const FmsPricing = lazy(() => import("./pages/FmsPricing"));
 const AcceptInvitePage = lazy(() => import("./pages/AcceptInvitePage"));
 const ConfirmJob = lazy(() => import("./pages/ConfirmJob"));
 const GuestApplicationView = lazy(() => import("./pages/GuestApplicationView"));
@@ -109,7 +108,7 @@ function AppRouter() {
           <Route path="/availability/responded" component={AvailabilityResponse} />
           <Route path="/brief/acknowledge/:token" component={BriefAcknowledgePage} />
           <Route path="/pricing" component={Pricing} />
-          <Route path="/fms-pricing" component={FmsPricing} />
+          <Route path="/fms-pricing" component={Pricing} />
           <Route path="/team/accept-invite/:token" component={AcceptInvitePage} />
           <Route path="/confirm-job" component={ConfirmJob} />
           <Route path="/applications/guest-view" component={GuestApplicationView} />

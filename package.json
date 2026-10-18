@@ -13,7 +13,7 @@
     "check": "tsc",
     "help:check": "node scripts/help-key-check.mjs",
     "db:push": "drizzle-kit push",
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1110.0",

@@ -94,10 +94,10 @@ export function TeamManagementPanel() {
   });
 
   const updateRoleMutation = useMutation({
-    mutationFn: ({ targetUserId, role }: { targetUserId: number; role: string }) =>
-      apiRequest("/api/team/members/role", {
+    mutationFn: ({ memberId, role }: { memberId: number; role: string }) =>
+      apiRequest(`/api/team/${memberId}/role`, {
         method: "PATCH",
-        body: JSON.stringify({ targetUserId, role }),
+        body: JSON.stringify({ role }),
       }),
     onSuccess: () => {
       toast({ title: "Role updated" });
@@ -107,8 +107,8 @@ export function TeamManagementPanel() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (userId: number) =>
-      apiRequest(`/api/team/members/${userId}`, { method: "DELETE" }),
+    mutationFn: (memberId: number) =>
+      apiRequest(`/api/team/${memberId}`, { method: "DELETE" }),
     onSuccess: () => {
       toast({ title: "Member removed" });
       queryClient.invalidateQueries({ queryKey: ["/api/team"] });
@@ -282,7 +282,7 @@ export function TeamManagementPanel() {
                                 <DropdownMenuItem
                                   onClick={() =>
                                     updateRoleMutation.mutate({
-                                      targetUserId: m.member.userId!,
+                                      memberId: m.member.id,
                                       role: "admin",
                                     })
                                   }
@@ -294,7 +294,7 @@ export function TeamManagementPanel() {
                                 <DropdownMenuItem
                                   onClick={() =>
                                     updateRoleMutation.mutate({
-                                      targetUserId: m.member.userId!,
+                                      memberId: m.member.id,
                                       role: "manager",
                                     })
                                   }
@@ -305,7 +305,7 @@ export function TeamManagementPanel() {
                               {canRemove && (
                                 <DropdownMenuItem
                                   className="text-red-600"
-                                  onClick={() => setConfirmRemove(m.member.userId!)}
+                                  onClick={() => setConfirmRemove(m.member.id)}
                                 >
                                   Remove Member
                                 </DropdownMenuItem>

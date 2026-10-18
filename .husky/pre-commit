@@ -1,13 +1,19 @@
 #!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
 
-# Ratchet: block commits only when tsc error count rises above baseline
+# Ratchet: block commit only when tsc error count rises
 BASELINE=$(cat "$(git rev-parse --show-toplevel)/.tsc-baseline" 2>/dev/null || echo 9999)
-COUNT=$(npx --no-install tsc --noEmit 2>&1 | grep -c "error TS" || true)
+TSC_OUTPUT=$(npx --no-install tsc --noEmit 2>&1)
+TSC_EXIT=$?
+# Exit codes: 0 = no errors, 2 = type errors found, anything else = tsc failed to run
+if [ "$TSC_EXIT" -ne 0 ] && [ "$TSC_EXIT" -ne 2 ]; then
+  echo "tsc failed to run (exit $TSC_EXIT) — commit blocked"
+  exit 1
+fi
+COUNT=$(echo "$TSC_OUTPUT" | grep -c "error TS" || true)
 if [ "$COUNT" -gt "$BASELINE" ]; then
   echo "tsc errors rose: was $BASELINE, now $COUNT — commit blocked"
   exit 1
 fi
-# Update baseline with new (equal or lower) count
 echo "$COUNT" > "$(git rev-parse --show-toplevel)/.tsc-baseline"
+git add "$(git rev-parse --show-toplevel)/.tsc-baseline"
 npx lint-staged

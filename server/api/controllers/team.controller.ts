@@ -541,3 +541,38 @@ export async function removeTeamMember(req: Request, res: Response) {
     return res.status(500).json({ error: "Failed to remove team member" });
   }
 }
+
+export async function grantDelegateAccess(req: Request, res: Response) {
+  try {
+    const companyId = req.companyId!;
+    const { delegatorUserId, delegateUserId } = req.body;
+    if (!delegatorUserId || !delegateUserId) {
+      return res.status(400).json({ error: "delegatorUserId and delegateUserId are required" });
+    }
+    const access = await storage.grantDelegateAccess({
+      teamId: companyId,
+      delegatorUserId,
+      delegateUserId,
+      grantedByUserId: req.user!.id,
+    });
+    return res.json(access);
+  } catch (error) {
+    console.error("grantDelegateAccess error:", error);
+    return res.status(500).json({ error: "Failed to grant delegate access" });
+  }
+}
+
+export async function revokeDelegateAccess(req: Request, res: Response) {
+  try {
+    const companyId = req.companyId!;
+    const { delegatorUserId, delegateUserId } = req.body;
+    if (!delegatorUserId || !delegateUserId) {
+      return res.status(400).json({ error: "delegatorUserId and delegateUserId are required" });
+    }
+    await storage.revokeDelegateAccess(companyId, delegatorUserId, delegateUserId);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("revokeDelegateAccess error:", error);
+    return res.status(500).json({ error: "Failed to revoke delegate access" });
+  }
+}

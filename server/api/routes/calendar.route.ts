@@ -3,7 +3,6 @@ import { authenticateJWT } from "../middleware/auth.middleware.js";
 import { requireRole } from "../middleware/role.middleware.js";
 import { requireFmsAccess } from "../middleware/subscription.middleware.js";
 import {
-  debugCalendar,
   getCalendarStatus,
   connectGoogle,
   googleCallback,
@@ -15,7 +14,6 @@ import {
 
 const calendarRouter = express.Router();
 
-calendarRouter.get("/debug", debugCalendar);
 calendarRouter.get("/status", authenticateJWT, requireRole("recruiter"), requireFmsAccess, getCalendarStatus);
 calendarRouter.get("/google/connect", authenticateJWT, requireRole("recruiter"), requireFmsAccess, connectGoogle);
 calendarRouter.get("/google/callback", googleCallback);

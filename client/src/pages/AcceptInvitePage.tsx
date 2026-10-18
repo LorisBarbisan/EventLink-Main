@@ -27,7 +27,7 @@ export default function AcceptInvitePage() {
   useEffect(() => {
     if (!authLoading && isLoggedIn && token) {
       setProcessing(true);
-      window.location.href = `/api/team/accept-invite/${token}`;
+      window.location.href = `/api/team/accept/${token}`;
     }
   }, [isLoggedIn, authLoading, token]);
 
