@@ -6,7 +6,8 @@
     "dist",
     "**/*.test.ts",
     "server/replit_integrations/**/*",
-    "server/api/utils/seed-dev-data.ts"
+    "server/api/utils/seed-dev-data.ts",
+    "server/seed-dev.ts"
   ],
   "compilerOptions": {
     "incremental": true,

@@ -4,8 +4,8 @@
 BASELINE=$(cat "$(git rev-parse --show-toplevel)/.tsc-baseline" 2>/dev/null || echo 9999)
 TSC_OUTPUT=$(npx --no-install tsc --noEmit 2>&1)
 TSC_EXIT=$?
-# Exit codes: 0 = no errors, 2 = type errors found, anything else = tsc failed to run
-if [ "$TSC_EXIT" -ne 0 ] && [ "$TSC_EXIT" -ne 2 ]; then
+# Exit codes: 0 = no errors, 1 or 2 = type errors found, anything else = tsc failed to run
+if [ "$TSC_EXIT" -ne 0 ] && [ "$TSC_EXIT" -ne 1 ] && [ "$TSC_EXIT" -ne 2 ]; then
   echo "tsc failed to run (exit $TSC_EXIT) — commit blocked"
   exit 1
 fi

@@ -1,4 +1,4 @@
-CREATE TABLE "availability_enquiries" (
+CREATE TABLE IF NOT EXISTS "availability_enquiries" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"employer_id" integer NOT NULL,
 	"job_id" integer,
@@ -16,7 +16,7 @@ CREATE TABLE "availability_enquiries" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "availability_responses" (
+CREATE TABLE IF NOT EXISTS "availability_responses" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"enquiry_id" integer NOT NULL,
 	"freelancer_id" integer NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE "availability_responses" (
 	CONSTRAINT "availability_responses_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
-CREATE TABLE "booking_status_history" (
+CREATE TABLE IF NOT EXISTS "booking_status_history" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"booking_id" integer NOT NULL,
 	"from_status" text,
@@ -40,7 +40,7 @@ CREATE TABLE "booking_status_history" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "bookings" (
+CREATE TABLE IF NOT EXISTS "bookings" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"job_id" integer,
 	"employer_id" integer NOT NULL,
@@ -68,7 +68,7 @@ CREATE TABLE "bookings" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "brief_attachments" (
+CREATE TABLE IF NOT EXISTS "brief_attachments" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"brief_id" integer NOT NULL,
 	"object_path" text NOT NULL,
@@ -78,7 +78,7 @@ CREATE TABLE "brief_attachments" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "brief_templates" (
+CREATE TABLE IF NOT EXISTS "brief_templates" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"employer_id" integer NOT NULL,
 	"name" text NOT NULL,
@@ -94,7 +94,7 @@ CREATE TABLE "brief_templates" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "briefs" (
+CREATE TABLE IF NOT EXISTS "briefs" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"booking_id" integer NOT NULL,
 	"employer_id" integer NOT NULL,
@@ -120,7 +120,7 @@ CREATE TABLE "briefs" (
 	CONSTRAINT "briefs_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
-CREATE TABLE "calendar_connections" (
+CREATE TABLE IF NOT EXISTS "calendar_connections" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"employer_id" integer NOT NULL,
 	"provider" text NOT NULL,
@@ -133,7 +133,7 @@ CREATE TABLE "calendar_connections" (
 	CONSTRAINT "calendar_connections_employer_id_unique" UNIQUE("employer_id")
 );
 --> statement-breakpoint
-CREATE TABLE "cv_parsed_data" (
+CREATE TABLE IF NOT EXISTS "cv_parsed_data" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" integer NOT NULL,
 	"status" text DEFAULT 'pending' NOT NULL,
@@ -158,7 +158,7 @@ CREATE TABLE "cv_parsed_data" (
 	CONSTRAINT "cv_parsed_data_user_id_unique" UNIQUE("user_id")
 );
 --> statement-breakpoint
-CREATE TABLE "freelancer_date_availability" (
+CREATE TABLE IF NOT EXISTS "freelancer_date_availability" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"freelancer_id" integer NOT NULL,
 	"date" text NOT NULL,
@@ -167,7 +167,7 @@ CREATE TABLE "freelancer_date_availability" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "freelancer_references" (
+CREATE TABLE IF NOT EXISTS "freelancer_references" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"freelancer_id" integer NOT NULL,
 	"referee_name" text,
@@ -194,7 +194,7 @@ CREATE TABLE "freelancer_references" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "guest_application_tokens" (
+CREATE TABLE IF NOT EXISTS "guest_application_tokens" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"token_hash" text NOT NULL,
 	"application_id" integer NOT NULL,
@@ -206,7 +206,7 @@ CREATE TABLE "guest_application_tokens" (
 	CONSTRAINT "guest_application_tokens_token_hash_unique" UNIQUE("token_hash")
 );
 --> statement-breakpoint
-CREATE TABLE "help_content_overrides" (
+CREATE TABLE IF NOT EXISTS "help_content_overrides" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"key" text NOT NULL,
 	"title" text,
@@ -218,7 +218,7 @@ CREATE TABLE "help_content_overrides" (
 	CONSTRAINT "help_content_overrides_key_unique" UNIQUE("key")
 );
 --> statement-breakpoint
-CREATE TABLE "help_route_visits" (
+CREATE TABLE IF NOT EXISTS "help_route_visits" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" integer NOT NULL,
 	"route" text NOT NULL,
@@ -228,7 +228,7 @@ CREATE TABLE "help_route_visits" (
 	CONSTRAINT "help_route_visits_user_route_unique" UNIQUE("user_id","route")
 );
 --> statement-breakpoint
-CREATE TABLE "help_user_state" (
+CREATE TABLE IF NOT EXISTS "help_user_state" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" integer NOT NULL,
 	"help_key" text NOT NULL,
@@ -242,7 +242,7 @@ CREATE TABLE "help_user_state" (
 	CONSTRAINT "help_user_state_user_key_unique" UNIQUE("user_id","help_key")
 );
 --> statement-breakpoint
-CREATE TABLE "invoice_line_items" (
+CREATE TABLE IF NOT EXISTS "invoice_line_items" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"invoice_id" integer NOT NULL,
 	"description" text NOT NULL,
@@ -252,7 +252,7 @@ CREATE TABLE "invoice_line_items" (
 	"sort_order" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "invoices" (
+CREATE TABLE IF NOT EXISTS "invoices" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"employer_id" integer NOT NULL,
 	"quote_id" integer,
@@ -283,7 +283,7 @@ CREATE TABLE "invoices" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "job_documents" (
+CREATE TABLE IF NOT EXISTS "job_documents" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"job_id" integer NOT NULL,
 	"uploaded_by_user_id" integer NOT NULL,
@@ -296,7 +296,7 @@ CREATE TABLE "job_documents" (
 	CONSTRAINT "job_documents_file_key_unique" UNIQUE("file_key")
 );
 --> statement-breakpoint
-CREATE TABLE "job_drafts" (
+CREATE TABLE IF NOT EXISTS "job_drafts" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"payload" jsonb NOT NULL,
 	"contact_name" text NOT NULL,
@@ -313,7 +313,7 @@ CREATE TABLE "job_drafts" (
 	CONSTRAINT "job_drafts_token_hash_unique" UNIQUE("token_hash")
 );
 --> statement-breakpoint
-CREATE TABLE "job_link_views" (
+CREATE TABLE IF NOT EXISTS "job_link_views" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"job_id" integer NOT NULL,
 	"source" text,
@@ -322,7 +322,7 @@ CREATE TABLE "job_link_views" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "profile_nudge_emails" (
+CREATE TABLE IF NOT EXISTS "profile_nudge_emails" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" integer NOT NULL,
 	"nudge_1_sent_at" timestamp with time zone,
@@ -332,7 +332,7 @@ CREATE TABLE "profile_nudge_emails" (
 	CONSTRAINT "profile_nudge_emails_user_id_unique" UNIQUE("user_id")
 );
 --> statement-breakpoint
-CREATE TABLE "quote_line_items" (
+CREATE TABLE IF NOT EXISTS "quote_line_items" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"quote_id" integer NOT NULL,
 	"description" text NOT NULL,
@@ -342,7 +342,7 @@ CREATE TABLE "quote_line_items" (
 	"sort_order" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "quotes" (
+CREATE TABLE IF NOT EXISTS "quotes" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"employer_id" integer NOT NULL,
 	"client_name" text NOT NULL,
@@ -372,7 +372,7 @@ CREATE TABLE "quotes" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "reference_reports" (
+CREATE TABLE IF NOT EXISTS "reference_reports" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"reference_id" integer NOT NULL,
 	"reporter_id" integer NOT NULL,
@@ -381,7 +381,7 @@ CREATE TABLE "reference_reports" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "reference_requests" (
+CREATE TABLE IF NOT EXISTS "reference_requests" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"freelancer_id" integer NOT NULL,
 	"referee_email" text NOT NULL,
@@ -393,14 +393,14 @@ CREATE TABLE "reference_requests" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "saved_freelancers" (
+CREATE TABLE IF NOT EXISTS "saved_freelancers" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"recruiter_id" integer NOT NULL,
 	"freelancer_id" integer NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "subscriptions" (
+CREATE TABLE IF NOT EXISTS "subscriptions" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"employer_id" integer NOT NULL,
 	"stripe_customer_id" text NOT NULL,
@@ -417,7 +417,7 @@ CREATE TABLE "subscriptions" (
 	CONSTRAINT "subscriptions_stripe_subscription_id_unique" UNIQUE("stripe_subscription_id")
 );
 --> statement-breakpoint
-CREATE TABLE "team_members" (
+CREATE TABLE IF NOT EXISTS "team_members" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"team_id" integer NOT NULL,
 	"user_id" integer,
@@ -433,7 +433,7 @@ CREATE TABLE "team_members" (
 	CONSTRAINT "team_members_invite_token_unique" UNIQUE("invite_token")
 );
 --> statement-breakpoint
-CREATE TABLE "team_accounts" (
+CREATE TABLE IF NOT EXISTS "team_accounts" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"owner_id" integer NOT NULL,
 	"name" text NOT NULL,
@@ -442,7 +442,7 @@ CREATE TABLE "team_accounts" (
 	CONSTRAINT "team_accounts_owner_id_unique" UNIQUE("owner_id")
 );
 --> statement-breakpoint
-CREATE TABLE "team_delegate_access" (
+CREATE TABLE IF NOT EXISTS "team_delegate_access" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"team_id" integer NOT NULL,
 	"delegator_user_id" integer NOT NULL,
@@ -451,7 +451,7 @@ CREATE TABLE "team_delegate_access" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "user_sessions" (
+CREATE TABLE IF NOT EXISTS "user_sessions" (
 	"sid" varchar NOT NULL,
 	"sess" json NOT NULL,
 	"expire" timestamp (6) NOT NULL,

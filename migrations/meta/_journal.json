@@ -1,76 +1,153 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "7",
       "when": 1762967625577,
+      "version": "7",
       "tag": "0000_sad_absorbing_man",
       "breakpoints": true
     },
     {
       "idx": 1,
-      "version": "7",
       "when": 1762968763870,
+      "version": "7",
       "tag": "0001_grey_jocasta",
       "breakpoints": true
     },
     {
       "idx": 2,
-      "version": "7",
       "when": 1769452149926,
+      "version": "7",
       "tag": "0002_messy_cerise",
       "breakpoints": true
     },
     {
       "idx": 3,
-      "version": "7",
       "when": 1769505428946,
+      "version": "7",
       "tag": "0003_lyrical_hairball",
       "breakpoints": true
     },
     {
       "idx": 4,
-      "version": "7",
       "when": 1770000000000,
+      "version": "7",
       "tag": "0004_seo_slugs",
       "breakpoints": true
     },
     {
       "idx": 5,
-      "version": "7",
       "when": 1770100000000,
+      "version": "7",
       "tag": "0005_notification_batch_fields",
       "breakpoints": true
     },
     {
       "idx": 6,
-      "version": "7",
       "when": 1770200000000,
+      "version": "7",
       "tag": "0006_fms_phase1_bookings",
       "breakpoints": true
     },
     {
       "idx": 7,
-      "version": "7",
       "when": 1770300000000,
+      "version": "7",
       "tag": "0007_job_closure_email",
       "breakpoints": true
     },
     {
       "idx": 8,
-      "version": "7",
       "when": 1770400000000,
+      "version": "7",
       "tag": "0008_team_members",
       "breakpoints": true
     },
     {
       "idx": 9,
+      "when": 1770500000000,
       "version": "7",
-      "when": 1792325200397,
-      "tag": "0009_demonic_captain_britain",
+      "tag": "0009_remove_viewer_team_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "when": 1770600000000,
+      "version": "7",
+      "tag": "0010_job_posted_by_user_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "when": 1770700000000,
+      "version": "7",
+      "tag": "0011_normalize_recruiter_application_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "when": 1770800000000,
+      "version": "7",
+      "tag": "0012_backfill_job_posted_by_user_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "when": 1770900000000,
+      "version": "7",
+      "tag": "0013_job_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "when": 1771000000000,
+      "version": "7",
+      "tag": "0014_freelancer_posted_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "when": 1771100000000,
+      "version": "7",
+      "tag": "0015_freelancer_profile_privacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "when": 1771200000000,
+      "version": "7",
+      "tag": "0016_profile_nudge_emails",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "when": 1771300000000,
+      "version": "7",
+      "tag": "0017_profile_state_province",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "when": 1771400000000,
+      "version": "7",
+      "tag": "0018_freelancer_is_demo",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "when": 1771500000000,
+      "version": "7",
+      "tag": "0019_guest_job_posting",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792331562325,
+      "tag": "0020_slim_swarm",
       "breakpoints": true
     }
-  ]
+  ],
+  "version": "7",
+  "dialect": "postgresql"
 }
