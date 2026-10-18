@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query";
+﻿import { QueryClient } from "@tanstack/react-query";
 
 // Custom error class for authentication errors
 export class AuthError extends Error {
@@ -42,10 +42,10 @@ export const queryClient = new QueryClient({
   },
 });
 
-export async function apiRequest(
+export async function apiRequest<T = unknown>(
   url: string,
   options?: RequestInit & { skipAuthRedirect?: boolean }
-): Promise<unknown> {
+): Promise<T> {
   // Get JWT token from localStorage
   const token = localStorage.getItem("auth_token");
 
@@ -119,8 +119,8 @@ export async function apiRequest(
   // Handle empty responses gracefully
   const contentLength = response.headers.get("content-length");
   if (contentLength === "0") {
-    return { success: true };
+    return { success: true } as T;
   }
 
-  return response.json().catch(() => ({ success: true }));
+  return response.json().catch(() => ({ success: true })) as Promise<T>;
 }
