@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FMS Phase 2 — Availability Enquiry Routes
 // File: server/api/routes/enquiry.route.ts
 // ============================================================
@@ -30,7 +30,7 @@ router.get("/respond/:token", getResponseByTokenHandler);
 router.post("/respond/:token", respondToEnquiry);
 
 // ── Employer-only routes ──────────────────────────────────
-const fms = [authenticateJWT, requireRole("recruiter"), requireFmsAccess] as any[];
+const fms = [authenticateJWT, requireRole("recruiter"), requireFmsAccess()] as any[];
 
 router.get("/archived", ...fms, getArchivedEnquiries);
 router.get("/", ...fms, getEnquiriesForEmployer);

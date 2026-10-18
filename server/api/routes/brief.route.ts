@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware.js";
 import { requireRole } from "../middleware/role.middleware.js";
 import { requireFmsAccess } from "../middleware/subscription.middleware.js";
@@ -21,7 +21,7 @@ briefRouter.get("/acknowledge/:token", getBriefByTokenHandler);
 briefRouter.post("/acknowledge/:token", acknowledgeBriefHandler);
 
 // Employer routes
-const fms = [authenticateJWT, requireRole("recruiter"), requireFmsAccess] as any[];
+const fms = [authenticateJWT, requireRole("recruiter"), requireFmsAccess()] as any[];
 
 briefRouter.post("/booking/:bookingId", ...fms, sendBrief);
 briefRouter.get("/booking/:bookingId", ...fms, getBriefForBooking);

@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware.js";
 import { requireRole } from "../middleware/role.middleware.js";
 import { requireFmsAccess } from "../middleware/subscription.middleware.js";
@@ -10,7 +10,7 @@ historyPoolRouter.get(
   "/",
   authenticateJWT,
   requireRole("recruiter"),
-  requireFmsAccess,
+  requireFmsAccess(),
   getHistoryPool
 );
 

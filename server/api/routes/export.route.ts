@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import { authenticateJWT } from "../middleware/auth.middleware.js";
 import { requireRole } from "../middleware/role.middleware.js";
 import { requireFmsAccess } from "../middleware/subscription.middleware.js";
@@ -13,7 +13,7 @@ import {
 
 const exportRouter = express.Router();
 
-const auth = [authenticateJWT, requireRole("recruiter"), requireFmsAccess];
+const auth = [authenticateJWT, requireRole("recruiter"), requireFmsAccess()];
 
 exportRouter.get("/bookings/excel", ...auth, exportBookingsExcel);
 exportRouter.get("/bookings/csv", ...auth, exportBookingsCsv);

@@ -1,4 +1,4 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { requireFmsAccess } from "../middleware/subscription.middleware";
@@ -21,7 +21,7 @@ import {
 } from "../controllers/invoice.controller";
 
 const router = Router();
-const auth = [authenticateJWT, requireRole("employer"), requireFmsAccess];
+const auth = [authenticateJWT, requireRole("employer"), requireFmsAccess()];
 
 // Quotes
 router.get("/quotes", ...auth, listQuotes);

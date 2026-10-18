@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS "availability_enquiries" (
+﻿CREATE TABLE IF NOT EXISTS "availability_enquiries" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"employer_id" integer NOT NULL,
 	"job_id" integer,
@@ -458,144 +458,144 @@ CREATE TABLE IF NOT EXISTS "user_sessions" (
 	CONSTRAINT "session_pkey" PRIMARY KEY("sid")
 );
 --> statement-breakpoint
-ALTER TABLE "freelancer_profiles" ADD COLUMN "country" text;--> statement-breakpoint
-ALTER TABLE "freelancer_profiles" ADD COLUMN "state_province" text;--> statement-breakpoint
-ALTER TABLE "freelancer_profiles" ADD COLUMN "profile_is_public" boolean DEFAULT true NOT NULL;--> statement-breakpoint
-ALTER TABLE "freelancer_profiles" ADD COLUMN "reference_token" text;--> statement-breakpoint
-ALTER TABLE "freelancer_profiles" ADD COLUMN "slug" text;--> statement-breakpoint
-ALTER TABLE "freelancer_profiles" ADD COLUMN "custom_slug" text;--> statement-breakpoint
-ALTER TABLE "freelancer_profiles" ADD COLUMN "is_demo" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "freelancer_profiles" ADD COLUMN "work_history" jsonb;--> statement-breakpoint
-ALTER TABLE "freelancer_profiles" ADD COLUMN "education_history" jsonb;--> statement-breakpoint
-ALTER TABLE "freelancer_profiles" ADD COLUMN "certifications" text[];--> statement-breakpoint
-ALTER TABLE "job_alert_filters" ADD COLUMN "location_radius_km" integer DEFAULT 30;--> statement-breakpoint
-ALTER TABLE "job_applications" ADD COLUMN "closure_email_sent" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "job_applications" ADD COLUMN "closure_email_sent_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "posted_by_user_id" integer;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "country" text;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "currency" text DEFAULT 'GBP';--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "slug" text;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "last_notified_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "notification_batch_window" text;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "notification_sent_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "is_urgent" boolean DEFAULT false;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "is_freelancer_posted" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "poster_type" text DEFAULT 'company' NOT NULL;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "moderation_status" text DEFAULT 'approved' NOT NULL;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "moderated_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "moderated_by_user_id" integer;--> statement-breakpoint
-ALTER TABLE "jobs" ADD COLUMN "moderation_note" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "company_size" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "founded_year" integer;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "company_registration_number" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "vat_number" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "mission_statement" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "notable_clients" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "cover_image_url" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "slug" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "address_line1" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "address_line2" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "city" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "county" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "postcode" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "phone" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "instagram_url" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "twitter_url" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "billing_same_as_company" boolean DEFAULT true;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "billing_address_line1" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "billing_address_line2" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "billing_city" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "billing_county" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "billing_postcode" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "specialisations" text[];--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "typical_roles" text[];--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "day_rate_min" integer;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "day_rate_max" integer;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "payment_terms" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "ir35_preference" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "public_liability_value" text;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "employers_liability" boolean DEFAULT false;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "professional_indemnity" boolean DEFAULT false;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "gdpr_compliant" boolean DEFAULT false;--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "industry_bodies" text[];--> statement-breakpoint
-ALTER TABLE "recruiter_profiles" ADD COLUMN "other_accreditations" text;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "welcome_email_sent" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "marketing_emails_opt_out" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "unsubscribe_token" text;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "job_alerts_opt_out" boolean DEFAULT false;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "last_job_alert_sent_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "job_alert_frequency_preference" text DEFAULT 'instant';--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "created_via" text;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "posting_suspended_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "stripe_customer_id" text;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "stripe_subscription_id" text;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "subscription_tier" text DEFAULT 'free';--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "subscription_expires_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "help_mode" text DEFAULT 'full';--> statement-breakpoint
-ALTER TABLE "availability_enquiries" ADD CONSTRAINT "availability_enquiries_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "availability_enquiries" ADD CONSTRAINT "availability_enquiries_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "availability_responses" ADD CONSTRAINT "availability_responses_enquiry_id_availability_enquiries_id_fk" FOREIGN KEY ("enquiry_id") REFERENCES "public"."availability_enquiries"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "availability_responses" ADD CONSTRAINT "availability_responses_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "availability_responses" ADD CONSTRAINT "availability_responses_converted_to_booking_id_bookings_id_fk" FOREIGN KEY ("converted_to_booking_id") REFERENCES "public"."bookings"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "booking_status_history" ADD CONSTRAINT "booking_status_history_booking_id_bookings_id_fk" FOREIGN KEY ("booking_id") REFERENCES "public"."bookings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "booking_status_history" ADD CONSTRAINT "booking_status_history_changed_by_id_users_id_fk" FOREIGN KEY ("changed_by_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "bookings" ADD CONSTRAINT "bookings_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "bookings" ADD CONSTRAINT "bookings_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "bookings" ADD CONSTRAINT "bookings_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "brief_attachments" ADD CONSTRAINT "brief_attachments_brief_id_briefs_id_fk" FOREIGN KEY ("brief_id") REFERENCES "public"."briefs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "brief_templates" ADD CONSTRAINT "brief_templates_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "briefs" ADD CONSTRAINT "briefs_booking_id_bookings_id_fk" FOREIGN KEY ("booking_id") REFERENCES "public"."bookings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "briefs" ADD CONSTRAINT "briefs_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "briefs" ADD CONSTRAINT "briefs_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "calendar_connections" ADD CONSTRAINT "calendar_connections_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "cv_parsed_data" ADD CONSTRAINT "cv_parsed_data_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "freelancer_date_availability" ADD CONSTRAINT "freelancer_date_availability_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "freelancer_references" ADD CONSTRAINT "freelancer_references_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "freelancer_references" ADD CONSTRAINT "freelancer_references_eventlink_user_id_users_id_fk" FOREIGN KEY ("eventlink_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "guest_application_tokens" ADD CONSTRAINT "guest_application_tokens_application_id_job_applications_id_fk" FOREIGN KEY ("application_id") REFERENCES "public"."job_applications"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "guest_application_tokens" ADD CONSTRAINT "guest_application_tokens_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "help_content_overrides" ADD CONSTRAINT "help_content_overrides_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "help_route_visits" ADD CONSTRAINT "help_route_visits_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "help_user_state" ADD CONSTRAINT "help_user_state_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "invoice_line_items" ADD CONSTRAINT "invoice_line_items_invoice_id_invoices_id_fk" FOREIGN KEY ("invoice_id") REFERENCES "public"."invoices"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "invoices" ADD CONSTRAINT "invoices_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "invoices" ADD CONSTRAINT "invoices_quote_id_quotes_id_fk" FOREIGN KEY ("quote_id") REFERENCES "public"."quotes"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "invoices" ADD CONSTRAINT "invoices_booking_id_bookings_id_fk" FOREIGN KEY ("booking_id") REFERENCES "public"."bookings"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "job_documents" ADD CONSTRAINT "job_documents_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "job_documents" ADD CONSTRAINT "job_documents_uploaded_by_user_id_users_id_fk" FOREIGN KEY ("uploaded_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "job_drafts" ADD CONSTRAINT "job_drafts_published_job_id_jobs_id_fk" FOREIGN KEY ("published_job_id") REFERENCES "public"."jobs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "job_link_views" ADD CONSTRAINT "job_link_views_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "profile_nudge_emails" ADD CONSTRAINT "profile_nudge_emails_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "quote_line_items" ADD CONSTRAINT "quote_line_items_quote_id_quotes_id_fk" FOREIGN KEY ("quote_id") REFERENCES "public"."quotes"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "quotes" ADD CONSTRAINT "quotes_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "quotes" ADD CONSTRAINT "quotes_booking_id_bookings_id_fk" FOREIGN KEY ("booking_id") REFERENCES "public"."bookings"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "reference_reports" ADD CONSTRAINT "reference_reports_reference_id_freelancer_references_id_fk" FOREIGN KEY ("reference_id") REFERENCES "public"."freelancer_references"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "reference_reports" ADD CONSTRAINT "reference_reports_reporter_id_users_id_fk" FOREIGN KEY ("reporter_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "reference_requests" ADD CONSTRAINT "reference_requests_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "reference_requests" ADD CONSTRAINT "reference_requests_reference_id_freelancer_references_id_fk" FOREIGN KEY ("reference_id") REFERENCES "public"."freelancer_references"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "saved_freelancers" ADD CONSTRAINT "saved_freelancers_recruiter_id_users_id_fk" FOREIGN KEY ("recruiter_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "saved_freelancers" ADD CONSTRAINT "saved_freelancers_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_members" ADD CONSTRAINT "team_members_team_id_team_accounts_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."team_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_members" ADD CONSTRAINT "team_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_members" ADD CONSTRAINT "team_members_invited_by_user_id_users_id_fk" FOREIGN KEY ("invited_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_accounts" ADD CONSTRAINT "team_accounts_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_delegate_access" ADD CONSTRAINT "team_delegate_access_team_id_team_accounts_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."team_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_delegate_access" ADD CONSTRAINT "team_delegate_access_delegator_user_id_users_id_fk" FOREIGN KEY ("delegator_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_delegate_access" ADD CONSTRAINT "team_delegate_access_delegate_user_id_users_id_fk" FOREIGN KEY ("delegate_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_delegate_access" ADD CONSTRAINT "team_delegate_access_granted_by_user_id_users_id_fk" FOREIGN KEY ("granted_by_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "booking_history_booking_id_idx" ON "booking_status_history" USING btree ("booking_id");--> statement-breakpoint
-CREATE INDEX "fda_freelancer_date_idx" ON "freelancer_date_availability" USING btree ("freelancer_id","date");--> statement-breakpoint
-CREATE INDEX "help_user_state_user_idx" ON "help_user_state" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "job_documents_job_id_idx" ON "job_documents" USING btree ("job_id");--> statement-breakpoint
-CREATE INDEX "job_documents_uploaded_by_idx" ON "job_documents" USING btree ("uploaded_by_user_id");--> statement-breakpoint
-CREATE INDEX "job_drafts_email_idx" ON "job_drafts" USING btree ("contact_email");--> statement-breakpoint
-CREATE INDEX "job_drafts_expiry_idx" ON "job_drafts" USING btree ("expires_at");--> statement-breakpoint
-CREATE INDEX "job_link_views_job_id_idx" ON "job_link_views" USING btree ("job_id");--> statement-breakpoint
-CREATE INDEX "job_link_views_created_at_idx" ON "job_link_views" USING btree ("created_at");--> statement-breakpoint
-CREATE INDEX "saved_freelancers_recruiter_idx" ON "saved_freelancers" USING btree ("recruiter_id");--> statement-breakpoint
-CREATE INDEX "saved_freelancers_unique_pair_idx" ON "saved_freelancers" USING btree ("recruiter_id","freelancer_id");--> statement-breakpoint
-CREATE INDEX "IDX_session_expire" ON "user_sessions" USING btree ("expire");--> statement-breakpoint
-ALTER TABLE "jobs" ADD CONSTRAINT "jobs_posted_by_user_id_users_id_fk" FOREIGN KEY ("posted_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "jobs" ADD CONSTRAINT "jobs_moderated_by_user_id_users_id_fk" FOREIGN KEY ("moderated_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "users_unsubscribe_token_unique" ON "users" USING btree ("unsubscribe_token") WHERE "users"."unsubscribe_token" IS NOT NULL;
+ALTER TABLE "freelancer_profiles" ADD COLUMN IF NOT EXISTS "country" text;--> statement-breakpoint
+ALTER TABLE "freelancer_profiles" ADD COLUMN IF NOT EXISTS "state_province" text;--> statement-breakpoint
+ALTER TABLE "freelancer_profiles" ADD COLUMN IF NOT EXISTS "profile_is_public" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "freelancer_profiles" ADD COLUMN IF NOT EXISTS "reference_token" text;--> statement-breakpoint
+ALTER TABLE "freelancer_profiles" ADD COLUMN IF NOT EXISTS "slug" text;--> statement-breakpoint
+ALTER TABLE "freelancer_profiles" ADD COLUMN IF NOT EXISTS "custom_slug" text;--> statement-breakpoint
+ALTER TABLE "freelancer_profiles" ADD COLUMN IF NOT EXISTS "is_demo" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "freelancer_profiles" ADD COLUMN IF NOT EXISTS "work_history" jsonb;--> statement-breakpoint
+ALTER TABLE "freelancer_profiles" ADD COLUMN IF NOT EXISTS "education_history" jsonb;--> statement-breakpoint
+ALTER TABLE "freelancer_profiles" ADD COLUMN IF NOT EXISTS "certifications" text[];--> statement-breakpoint
+ALTER TABLE "job_alert_filters" ADD COLUMN IF NOT EXISTS "location_radius_km" integer DEFAULT 30;--> statement-breakpoint
+ALTER TABLE "job_applications" ADD COLUMN IF NOT EXISTS "closure_email_sent" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "job_applications" ADD COLUMN IF NOT EXISTS "closure_email_sent_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "posted_by_user_id" integer;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "country" text;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "currency" text DEFAULT 'GBP';--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "slug" text;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "last_notified_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "notification_batch_window" text;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "notification_sent_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "is_urgent" boolean DEFAULT false;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "is_freelancer_posted" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "poster_type" text DEFAULT 'company' NOT NULL;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "moderation_status" text DEFAULT 'approved' NOT NULL;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "moderated_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "moderated_by_user_id" integer;--> statement-breakpoint
+ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "moderation_note" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "company_size" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "founded_year" integer;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "company_registration_number" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "vat_number" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "mission_statement" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "notable_clients" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "cover_image_url" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "slug" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "address_line1" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "address_line2" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "city" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "county" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "postcode" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "phone" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "instagram_url" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "twitter_url" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "billing_same_as_company" boolean DEFAULT true;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "billing_address_line1" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "billing_address_line2" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "billing_city" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "billing_county" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "billing_postcode" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "specialisations" text[];--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "typical_roles" text[];--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "day_rate_min" integer;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "day_rate_max" integer;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "payment_terms" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "ir35_preference" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "public_liability_value" text;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "employers_liability" boolean DEFAULT false;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "professional_indemnity" boolean DEFAULT false;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "gdpr_compliant" boolean DEFAULT false;--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "industry_bodies" text[];--> statement-breakpoint
+ALTER TABLE "recruiter_profiles" ADD COLUMN IF NOT EXISTS "other_accreditations" text;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "welcome_email_sent" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "marketing_emails_opt_out" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "unsubscribe_token" text;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "job_alerts_opt_out" boolean DEFAULT false;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "last_job_alert_sent_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "job_alert_frequency_preference" text DEFAULT 'instant';--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "created_via" text;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "posting_suspended_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "stripe_customer_id" text;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "stripe_subscription_id" text;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "subscription_tier" text DEFAULT 'free';--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "subscription_expires_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "help_mode" text DEFAULT 'full';--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'availability_enquiries_employer_id_users_id_fk') THEN ALTER TABLE "availability_enquiries" ADD CONSTRAINT "availability_enquiries_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'availability_enquiries_job_id_jobs_id_fk') THEN ALTER TABLE "availability_enquiries" ADD CONSTRAINT "availability_enquiries_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE set null ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'availability_responses_enquiry_id_availability_enquiries_id_fk') THEN ALTER TABLE "availability_responses" ADD CONSTRAINT "availability_responses_enquiry_id_availability_enquiries_id_fk" FOREIGN KEY ("enquiry_id") REFERENCES "public"."availability_enquiries"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'availability_responses_freelancer_id_users_id_fk') THEN ALTER TABLE "availability_responses" ADD CONSTRAINT "availability_responses_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'availability_responses_converted_to_booking_id_bookings_id_fk') THEN ALTER TABLE "availability_responses" ADD CONSTRAINT "availability_responses_converted_to_booking_id_bookings_id_fk" FOREIGN KEY ("converted_to_booking_id") REFERENCES "public"."bookings"("id") ON DELETE set null ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'booking_status_history_booking_id_bookings_id_fk') THEN ALTER TABLE "booking_status_history" ADD CONSTRAINT "booking_status_history_booking_id_bookings_id_fk" FOREIGN KEY ("booking_id") REFERENCES "public"."bookings"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'booking_status_history_changed_by_id_users_id_fk') THEN ALTER TABLE "booking_status_history" ADD CONSTRAINT "booking_status_history_changed_by_id_users_id_fk" FOREIGN KEY ("changed_by_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'bookings_job_id_jobs_id_fk') THEN ALTER TABLE "bookings" ADD CONSTRAINT "bookings_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE set null ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'bookings_employer_id_users_id_fk') THEN ALTER TABLE "bookings" ADD CONSTRAINT "bookings_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'bookings_freelancer_id_users_id_fk') THEN ALTER TABLE "bookings" ADD CONSTRAINT "bookings_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'brief_attachments_brief_id_briefs_id_fk') THEN ALTER TABLE "brief_attachments" ADD CONSTRAINT "brief_attachments_brief_id_briefs_id_fk" FOREIGN KEY ("brief_id") REFERENCES "public"."briefs"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'brief_templates_employer_id_users_id_fk') THEN ALTER TABLE "brief_templates" ADD CONSTRAINT "brief_templates_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'briefs_booking_id_bookings_id_fk') THEN ALTER TABLE "briefs" ADD CONSTRAINT "briefs_booking_id_bookings_id_fk" FOREIGN KEY ("booking_id") REFERENCES "public"."bookings"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'briefs_employer_id_users_id_fk') THEN ALTER TABLE "briefs" ADD CONSTRAINT "briefs_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'briefs_freelancer_id_users_id_fk') THEN ALTER TABLE "briefs" ADD CONSTRAINT "briefs_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'calendar_connections_employer_id_users_id_fk') THEN ALTER TABLE "calendar_connections" ADD CONSTRAINT "calendar_connections_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'cv_parsed_data_user_id_users_id_fk') THEN ALTER TABLE "cv_parsed_data" ADD CONSTRAINT "cv_parsed_data_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'freelancer_date_availability_freelancer_id_users_id_fk') THEN ALTER TABLE "freelancer_date_availability" ADD CONSTRAINT "freelancer_date_availability_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'freelancer_references_freelancer_id_users_id_fk') THEN ALTER TABLE "freelancer_references" ADD CONSTRAINT "freelancer_references_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'freelancer_references_eventlink_user_id_users_id_fk') THEN ALTER TABLE "freelancer_references" ADD CONSTRAINT "freelancer_references_eventlink_user_id_users_id_fk" FOREIGN KEY ("eventlink_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'guest_application_tokens_application_id_job_applications_id_fk') THEN ALTER TABLE "guest_application_tokens" ADD CONSTRAINT "guest_application_tokens_application_id_job_applications_id_fk" FOREIGN KEY ("application_id") REFERENCES "public"."job_applications"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'guest_application_tokens_job_id_jobs_id_fk') THEN ALTER TABLE "guest_application_tokens" ADD CONSTRAINT "guest_application_tokens_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'help_content_overrides_updated_by_users_id_fk') THEN ALTER TABLE "help_content_overrides" ADD CONSTRAINT "help_content_overrides_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'help_route_visits_user_id_users_id_fk') THEN ALTER TABLE "help_route_visits" ADD CONSTRAINT "help_route_visits_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'help_user_state_user_id_users_id_fk') THEN ALTER TABLE "help_user_state" ADD CONSTRAINT "help_user_state_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoice_line_items_invoice_id_invoices_id_fk') THEN ALTER TABLE "invoice_line_items" ADD CONSTRAINT "invoice_line_items_invoice_id_invoices_id_fk" FOREIGN KEY ("invoice_id") REFERENCES "public"."invoices"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoices_employer_id_users_id_fk') THEN ALTER TABLE "invoices" ADD CONSTRAINT "invoices_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoices_quote_id_quotes_id_fk') THEN ALTER TABLE "invoices" ADD CONSTRAINT "invoices_quote_id_quotes_id_fk" FOREIGN KEY ("quote_id") REFERENCES "public"."quotes"("id") ON DELETE set null ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invoices_booking_id_bookings_id_fk') THEN ALTER TABLE "invoices" ADD CONSTRAINT "invoices_booking_id_bookings_id_fk" FOREIGN KEY ("booking_id") REFERENCES "public"."bookings"("id") ON DELETE set null ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_documents_job_id_jobs_id_fk') THEN ALTER TABLE "job_documents" ADD CONSTRAINT "job_documents_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_documents_uploaded_by_user_id_users_id_fk') THEN ALTER TABLE "job_documents" ADD CONSTRAINT "job_documents_uploaded_by_user_id_users_id_fk" FOREIGN KEY ("uploaded_by_user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_drafts_published_job_id_jobs_id_fk') THEN ALTER TABLE "job_drafts" ADD CONSTRAINT "job_drafts_published_job_id_jobs_id_fk" FOREIGN KEY ("published_job_id") REFERENCES "public"."jobs"("id") ON DELETE set null ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'job_link_views_job_id_jobs_id_fk') THEN ALTER TABLE "job_link_views" ADD CONSTRAINT "job_link_views_job_id_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."jobs"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profile_nudge_emails_user_id_users_id_fk') THEN ALTER TABLE "profile_nudge_emails" ADD CONSTRAINT "profile_nudge_emails_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'quote_line_items_quote_id_quotes_id_fk') THEN ALTER TABLE "quote_line_items" ADD CONSTRAINT "quote_line_items_quote_id_quotes_id_fk" FOREIGN KEY ("quote_id") REFERENCES "public"."quotes"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'quotes_employer_id_users_id_fk') THEN ALTER TABLE "quotes" ADD CONSTRAINT "quotes_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'quotes_booking_id_bookings_id_fk') THEN ALTER TABLE "quotes" ADD CONSTRAINT "quotes_booking_id_bookings_id_fk" FOREIGN KEY ("booking_id") REFERENCES "public"."bookings"("id") ON DELETE set null ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'reference_reports_reference_id_freelancer_references_id_fk') THEN ALTER TABLE "reference_reports" ADD CONSTRAINT "reference_reports_reference_id_freelancer_references_id_fk" FOREIGN KEY ("reference_id") REFERENCES "public"."freelancer_references"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'reference_reports_reporter_id_users_id_fk') THEN ALTER TABLE "reference_reports" ADD CONSTRAINT "reference_reports_reporter_id_users_id_fk" FOREIGN KEY ("reporter_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'reference_requests_freelancer_id_users_id_fk') THEN ALTER TABLE "reference_requests" ADD CONSTRAINT "reference_requests_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'reference_requests_reference_id_freelancer_references_id_fk') THEN ALTER TABLE "reference_requests" ADD CONSTRAINT "reference_requests_reference_id_freelancer_references_id_fk" FOREIGN KEY ("reference_id") REFERENCES "public"."freelancer_references"("id") ON DELETE no action ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'saved_freelancers_recruiter_id_users_id_fk') THEN ALTER TABLE "saved_freelancers" ADD CONSTRAINT "saved_freelancers_recruiter_id_users_id_fk" FOREIGN KEY ("recruiter_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'saved_freelancers_freelancer_id_users_id_fk') THEN ALTER TABLE "saved_freelancers" ADD CONSTRAINT "saved_freelancers_freelancer_id_users_id_fk" FOREIGN KEY ("freelancer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'subscriptions_employer_id_users_id_fk') THEN ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_employer_id_users_id_fk" FOREIGN KEY ("employer_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'team_members_team_id_team_accounts_id_fk') THEN ALTER TABLE "team_members" ADD CONSTRAINT "team_members_team_id_team_accounts_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."team_accounts"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'team_members_user_id_users_id_fk') THEN ALTER TABLE "team_members" ADD CONSTRAINT "team_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'team_members_invited_by_user_id_users_id_fk') THEN ALTER TABLE "team_members" ADD CONSTRAINT "team_members_invited_by_user_id_users_id_fk" FOREIGN KEY ("invited_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'team_accounts_owner_id_users_id_fk') THEN ALTER TABLE "team_accounts" ADD CONSTRAINT "team_accounts_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'team_delegate_access_team_id_team_accounts_id_fk') THEN ALTER TABLE "team_delegate_access" ADD CONSTRAINT "team_delegate_access_team_id_team_accounts_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."team_accounts"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'team_delegate_access_delegator_user_id_users_id_fk') THEN ALTER TABLE "team_delegate_access" ADD CONSTRAINT "team_delegate_access_delegator_user_id_users_id_fk" FOREIGN KEY ("delegator_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'team_delegate_access_delegate_user_id_users_id_fk') THEN ALTER TABLE "team_delegate_access" ADD CONSTRAINT "team_delegate_access_delegate_user_id_users_id_fk" FOREIGN KEY ("delegate_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'team_delegate_access_granted_by_user_id_users_id_fk') THEN ALTER TABLE "team_delegate_access" ADD CONSTRAINT "team_delegate_access_granted_by_user_id_users_id_fk" FOREIGN KEY ("granted_by_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "booking_history_booking_id_idx" ON "booking_status_history" USING btree ("booking_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "fda_freelancer_date_idx" ON "freelancer_date_availability" USING btree ("freelancer_id","date");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "help_user_state_user_idx" ON "help_user_state" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "job_documents_job_id_idx" ON "job_documents" USING btree ("job_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "job_documents_uploaded_by_idx" ON "job_documents" USING btree ("uploaded_by_user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "job_drafts_email_idx" ON "job_drafts" USING btree ("contact_email");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "job_drafts_expiry_idx" ON "job_drafts" USING btree ("expires_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "job_link_views_job_id_idx" ON "job_link_views" USING btree ("job_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "job_link_views_created_at_idx" ON "job_link_views" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "saved_freelancers_recruiter_idx" ON "saved_freelancers" USING btree ("recruiter_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "saved_freelancers_unique_pair_idx" ON "saved_freelancers" USING btree ("recruiter_id","freelancer_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "user_sessions" USING btree ("expire");--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'jobs_posted_by_user_id_users_id_fk') THEN ALTER TABLE "jobs" ADD CONSTRAINT "jobs_posted_by_user_id_users_id_fk" FOREIGN KEY ("posted_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'jobs_moderated_by_user_id_users_id_fk') THEN ALTER TABLE "jobs" ADD CONSTRAINT "jobs_moderated_by_user_id_users_id_fk" FOREIGN KEY ("moderated_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action; END IF; END $$;--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "users_unsubscribe_token_unique" ON "users" USING btree ("unsubscribe_token") WHERE "users"."unsubscribe_token" IS NOT NULL;
