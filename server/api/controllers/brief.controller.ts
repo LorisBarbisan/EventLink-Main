@@ -5,7 +5,7 @@ import { ObjectStorageService } from "../utils/object-storage.js";
 // 5.1 — Send a brief for a confirmed booking
 export const sendBrief = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const bookingId = parseInt(req.params.bookingId);
     if (isNaN(bookingId)) return res.status(400).json({ error: "Invalid booking ID" });
@@ -17,11 +17,34 @@ export const sendBrief = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Can only send briefs for confirmed bookings" });
     }
 
+    // eventTitle comes from the job; eventDate comes from the booking
+    let eventTitle: string = req.body.eventTitle ?? "";
+    let eventDate: string = req.body.eventDate ?? "";
+    if (!eventTitle && booking.jobId) {
+      const job = await storage.getJobById(booking.jobId);
+      if (job) eventTitle = job.title ?? "";
+    }
+    if (!eventDate && booking.eventDate) {
+      eventDate = String(booking.eventDate);
+    }
+    if (!eventTitle) return res.status(400).json({ error: "eventTitle is required" });
+    if (!eventDate) return res.status(400).json({ error: "eventDate is required" });
+
     const brief = await storage.createBrief({
       bookingId,
       employerId,
       freelancerId: booking.freelancerId,
-      ...req.body,
+      eventTitle,
+      eventDate,
+      callTime: req.body.callTime ?? booking.callTime ?? null,
+      venueAddress: req.body.venueAddress ?? booking.venueAddress ?? null,
+      roleRequired: req.body.roleRequired ?? (booking as any).roleRequired ?? null,
+      agreedRate: req.body.agreedRate ?? booking.agreedRate ?? null,
+      details: req.body.details ?? null,
+      dresscode: req.body.dresscode ?? null,
+      parkingInfo: req.body.parkingInfo ?? null,
+      contactOnDay: req.body.contactOnDay ?? null,
+      scheduleNotes: req.body.scheduleNotes ?? null,
     });
 
     await storage.updateBookingStatus(bookingId, "briefed", employerId, "Brief sent");
@@ -40,15 +63,15 @@ export const sendBrief = async (req: Request, res: Response) => {
       employerName: employer?.company_name ?? "Your employer",
       eventTitle: brief.eventTitle,
       eventDate: brief.eventDate,
-      callTime: brief.callTime,
-      venueAddress: brief.venueAddress,
-      roleRequired: brief.roleRequired,
-      agreedRate: brief.agreedRate,
-      details: brief.details,
-      dresscode: brief.dresscode,
-      parkingInfo: brief.parkingInfo,
-      contactOnDay: brief.contactOnDay,
-      scheduleNotes: brief.scheduleNotes,
+      callTime: brief.callTime ?? undefined,
+      venueAddress: brief.venueAddress ?? undefined,
+      roleRequired: brief.roleRequired ?? undefined,
+      agreedRate: brief.agreedRate ?? undefined,
+      details: brief.details ?? undefined,
+      dresscode: brief.dresscode ?? undefined,
+      parkingInfo: brief.parkingInfo ?? undefined,
+      contactOnDay: brief.contactOnDay ?? undefined,
+      scheduleNotes: brief.scheduleNotes ?? undefined,
       hasAttachments: (briefWithAttachments?.attachments?.length ?? 0) > 0,
       acknowledgeToken: brief.token,
       baseUrl,
@@ -75,7 +98,7 @@ export const sendBrief = async (req: Request, res: Response) => {
 // 5.2 — Get brief for a booking (employer)
 export const getBriefForBooking = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const bookingId = parseInt(req.params.bookingId);
     if (isNaN(bookingId)) return res.status(400).json({ error: "Invalid booking ID" });
@@ -150,7 +173,7 @@ export const acknowledgeBriefHandler = async (req: Request, res: Response) => {
 // 5.5 — Template controllers
 export const getBriefTemplates = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const templates = await storage.getBriefTemplates(employerId);
     return res.json(templates);
@@ -162,7 +185,7 @@ export const getBriefTemplates = async (req: Request, res: Response) => {
 
 export const createBriefTemplate = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const template = await storage.createBriefTemplate({ employerId, ...req.body });
     return res.status(201).json(template);
@@ -174,7 +197,7 @@ export const createBriefTemplate = async (req: Request, res: Response) => {
 
 export const deleteBriefTemplate = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const templateId = parseInt(req.params.templateId);
     if (isNaN(templateId)) return res.status(400).json({ error: "Invalid template ID" });
@@ -204,7 +227,7 @@ export const getBriefAttachmentUploadUrl = async (req: Request, res: Response) =
 // 5.6 — Add attachment to a brief after upload
 export const addBriefAttachment = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const bookingId = parseInt(req.params.bookingId);
     if (isNaN(bookingId)) return res.status(400).json({ error: "Invalid booking ID" });

@@ -45,7 +45,7 @@ async function nextSequence(
 // ── QUOTES ─────────────────────────────────────────────────────────────────
 
 export async function listQuotes(req: Request, res: Response) {
-  const employerId = req.user!.id;
+  const employerId = req.companyId ?? req.user!.id;
   const rows = await db
     .select()
     .from(quotes)
@@ -55,9 +55,12 @@ export async function listQuotes(req: Request, res: Response) {
 }
 
 export async function getQuote(req: Request, res: Response) {
-  const employerId = req.user!.id;
+  const employerId = req.companyId ?? req.user!.id;
   const id = parseInt(req.params.id);
-  const [quote] = await db.select().from(quotes).where(and(eq(quotes.id, id), eq(quotes.employerId, employerId)));
+  const [quote] = await db
+    .select()
+    .from(quotes)
+    .where(and(eq(quotes.id, id), eq(quotes.employerId, employerId)));
   if (!quote) return res.status(404).json({ error: "Quote not found" });
   const lines = await db.select().from(quote_line_items).where(eq(quote_line_items.quoteId, id));
   return res.json({ quote, lines });
@@ -65,7 +68,7 @@ export async function getQuote(req: Request, res: Response) {
 
 export async function createQuote(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
     const { lines = [], discount = 0, vatRate = 20, ...rest } = req.body;
     const quoteNumber = await nextSequence("QT", quotes, "quoteNumber", employerId);
     const totals = calcTotals(lines, vatRate, discount);
@@ -94,9 +97,12 @@ export async function createQuote(req: Request, res: Response) {
 
 export async function updateQuote(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
     const id = parseInt(req.params.id);
-    const [existing] = await db.select().from(quotes).where(and(eq(quotes.id, id), eq(quotes.employerId, employerId)));
+    const [existing] = await db
+      .select()
+      .from(quotes)
+      .where(and(eq(quotes.id, id), eq(quotes.employerId, employerId)));
     if (!existing) return res.status(404).json({ error: "Quote not found" });
 
     const { lines, discount, vatRate, ...rest } = req.body;
@@ -134,14 +140,14 @@ export async function updateQuote(req: Request, res: Response) {
 }
 
 export async function deleteQuote(req: Request, res: Response) {
-  const employerId = req.user!.id;
+  const employerId = req.companyId ?? req.user!.id;
   const id = parseInt(req.params.id);
   await db.delete(quotes).where(and(eq(quotes.id, id), eq(quotes.employerId, employerId)));
   return res.json({ success: true });
 }
 
 export async function sendQuote(req: Request, res: Response) {
-  const employerId = req.user!.id;
+  const employerId = req.companyId ?? req.user!.id;
   const id = parseInt(req.params.id);
   const [updated] = await db
     .update(quotes)
@@ -160,12 +166,18 @@ export async function acceptQuote(req: Request, res: Response) {
     const realIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0] ?? req.ip ?? "";
     const [updated] = await db
       .update(quotes)
-      .set({ status: "accepted", acceptedAt: new Date(), acceptedByName: name ?? null, acceptedByIp: ip ?? realIp, updatedAt: new Date() })
+      .set({
+        status: "accepted",
+        acceptedAt: new Date(),
+        acceptedByName: name ?? null,
+        acceptedByIp: ip ?? realIp,
+        updatedAt: new Date(),
+      })
       .where(eq(quotes.id, id))
       .returning();
     if (!updated) return res.status(404).json({ error: "Quote not found" });
     return res.json({ success: true });
-  } catch (err: any) {
+  } catch {
     return res.status(500).json({ error: "Failed to accept quote" });
   }
 }
@@ -173,9 +185,12 @@ export async function acceptQuote(req: Request, res: Response) {
 // Convert accepted quote to invoice
 export async function quoteToInvoice(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
     const id = parseInt(req.params.id);
-    const [quote] = await db.select().from(quotes).where(and(eq(quotes.id, id), eq(quotes.employerId, employerId)));
+    const [quote] = await db
+      .select()
+      .from(quotes)
+      .where(and(eq(quotes.id, id), eq(quotes.employerId, employerId)));
     if (!quote) return res.status(404).json({ error: "Quote not found" });
 
     const lines = await db.select().from(quote_line_items).where(eq(quote_line_items.quoteId, id));
@@ -231,7 +246,7 @@ export async function quoteToInvoice(req: Request, res: Response) {
 // ── INVOICES ───────────────────────────────────────────────────────────────
 
 export async function listInvoices(req: Request, res: Response) {
-  const employerId = req.user!.id;
+  const employerId = req.companyId ?? req.user!.id;
   const rows = await db
     .select()
     .from(invoices)
@@ -241,19 +256,28 @@ export async function listInvoices(req: Request, res: Response) {
 }
 
 export async function getInvoice(req: Request, res: Response) {
-  const employerId = req.user!.id;
+  const employerId = req.companyId ?? req.user!.id;
   const id = parseInt(req.params.id);
-  const [invoice] = await db.select().from(invoices).where(and(eq(invoices.id, id), eq(invoices.employerId, employerId)));
+  const [invoice] = await db
+    .select()
+    .from(invoices)
+    .where(and(eq(invoices.id, id), eq(invoices.employerId, employerId)));
   if (!invoice) return res.status(404).json({ error: "Invoice not found" });
-  const lines = await db.select().from(invoice_line_items).where(eq(invoice_line_items.invoiceId, id));
+  const lines = await db
+    .select()
+    .from(invoice_line_items)
+    .where(eq(invoice_line_items.invoiceId, id));
   // Fetch employer profile for invoice header
-  const [profile] = await db.select().from(recruiter_profiles).where(eq(recruiter_profiles.user_id, employerId));
+  const [profile] = await db
+    .select()
+    .from(recruiter_profiles)
+    .where(eq(recruiter_profiles.user_id, employerId));
   return res.json({ invoice, lines, profile });
 }
 
 export async function createInvoice(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
     const { lines = [], discount = 0, vatRate = 20, ...rest } = req.body;
     const invoiceNumber = await nextSequence("INV", invoices, "invoiceNumber", employerId);
     const totals = calcTotals(lines, vatRate, discount);
@@ -282,9 +306,12 @@ export async function createInvoice(req: Request, res: Response) {
 
 export async function updateInvoice(req: Request, res: Response) {
   try {
-    const employerId = req.user!.id;
+    const employerId = req.companyId ?? req.user!.id;
     const id = parseInt(req.params.id);
-    const [existing] = await db.select().from(invoices).where(and(eq(invoices.id, id), eq(invoices.employerId, employerId)));
+    const [existing] = await db
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.id, id), eq(invoices.employerId, employerId)));
     if (!existing) return res.status(404).json({ error: "Invoice not found" });
 
     const { lines, vatRate, ...rest } = req.body;
@@ -321,11 +348,16 @@ export async function updateInvoice(req: Request, res: Response) {
 }
 
 export async function markInvoicePaid(req: Request, res: Response) {
-  const employerId = req.user!.id;
+  const employerId = req.companyId ?? req.user!.id;
   const id = parseInt(req.params.id);
   const [updated] = await db
     .update(invoices)
-    .set({ status: "paid", paidAt: new Date(), amountPaid: req.body.amountPaid ?? undefined, updatedAt: new Date() })
+    .set({
+      status: "paid",
+      paidAt: new Date(),
+      amountPaid: req.body.amountPaid ?? undefined,
+      updatedAt: new Date(),
+    })
     .where(and(eq(invoices.id, id), eq(invoices.employerId, employerId)))
     .returning();
   if (!updated) return res.status(404).json({ error: "Invoice not found" });
@@ -333,14 +365,14 @@ export async function markInvoicePaid(req: Request, res: Response) {
 }
 
 export async function deleteInvoice(req: Request, res: Response) {
-  const employerId = req.user!.id;
+  const employerId = req.companyId ?? req.user!.id;
   const id = parseInt(req.params.id);
   await db.delete(invoices).where(and(eq(invoices.id, id), eq(invoices.employerId, employerId)));
   return res.json({ success: true });
 }
 
 export async function sendInvoice(req: Request, res: Response) {
-  const employerId = req.user!.id;
+  const employerId = req.companyId ?? req.user!.id;
   const id = parseInt(req.params.id);
   const [updated] = await db
     .update(invoices)

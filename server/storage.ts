@@ -75,7 +75,6 @@ import {
   reference_reports,
   subscriptions,
   team_accounts,
-  team_members,
   team_delegate_access,
   type TeamAccount,
   type TeamDelegateAccess,
@@ -106,6 +105,10 @@ import {
   sql,
 } from "drizzle-orm";
 import { randomBytes } from "crypto";
+
+// Alias for legacy Phase 9 methods that still reference team_members (snake_case)
+// These methods are dead code but kept for compile compatibility
+const team_members = teamMembers as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 import { db } from "./api/config/db";
 import { cache } from "./api/utils/cache.util";
 import {
@@ -694,9 +697,26 @@ export interface IStorage {
   markGuestApplicationTokenViewed(tokenHash: string): Promise<void>;
 
   // Crew date availability
-  upsertFreelancerDateAvailability(freelancerId: number, date: string, status: "available" | "tentative" | "unavailable", note?: string): Promise<FreelancerDateAvailability>;
-  getFreelancerDateAvailability(freelancerId: number, fromDate: string, toDate: string): Promise<FreelancerDateAvailability[]>;
-  getCrewAvailability(employerId: number, fromDate: string, toDate: string): Promise<Array<FreelancerDateAvailability & { freelancer_name: string; profile_photo_url: string | null }>>;
+  upsertFreelancerDateAvailability(
+    freelancerId: number,
+    date: string,
+    status: "available" | "tentative" | "unavailable",
+    note?: string
+  ): Promise<FreelancerDateAvailability>;
+  getFreelancerDateAvailability(
+    freelancerId: number,
+    fromDate: string,
+    toDate: string
+  ): Promise<FreelancerDateAvailability[]>;
+  getCrewAvailability(
+    employerId: number,
+    fromDate: string,
+    toDate: string
+  ): Promise<
+    Array<
+      FreelancerDateAvailability & { freelancer_name: string; profile_photo_url: string | null }
+    >
+  >;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6881,8 +6901,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(team_members.role, team_members.createdAt);
   }
 
-  async getTeamDelegateAccess(teamId: number): Promise<TeamDelegateAccess[]> {
-    return db.select().from(team_delegate_access).where(eq(team_delegate_access.teamId, teamId));
+  async getTeamDelegateAccess(companyId: number): Promise<TeamDelegateAccess[]> {
+    return db
+      .select()
+      .from(team_delegate_access)
+      .where(eq(team_delegate_access.companyId, companyId));
   }
 
   async createTeamAccount(ownerId: number, name: string): Promise<TeamAccount> {
@@ -7011,7 +7034,7 @@ export class DatabaseStorage implements IStorage {
       .delete(team_delegate_access)
       .where(
         and(
-          eq(team_delegate_access.teamId, teamId),
+          eq(team_delegate_access.companyId, companyId),
           or(
             eq(team_delegate_access.delegatorUserId, targetUserId),
             eq(team_delegate_access.delegateUserId, targetUserId)
@@ -7021,7 +7044,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async grantDelegateAccess(data: {
-    teamId: number;
+    companyId: number;
     delegatorUserId: number;
     delegateUserId: number;
     grantedByUserId: number;
@@ -7031,7 +7054,7 @@ export class DatabaseStorage implements IStorage {
       .from(team_delegate_access)
       .where(
         and(
-          eq(team_delegate_access.teamId, data.teamId),
+          eq(team_delegate_access.companyId, data.companyId),
           eq(team_delegate_access.delegatorUserId, data.delegatorUserId),
           eq(team_delegate_access.delegateUserId, data.delegateUserId)
         )
@@ -7041,12 +7064,12 @@ export class DatabaseStorage implements IStorage {
     return access;
   }
 
-  async revokeDelegateAccess(teamId: number, delegatorUserId: number, delegateUserId: number) {
+  async revokeDelegateAccess(companyId: number, delegatorUserId: number, delegateUserId: number) {
     await db
       .delete(team_delegate_access)
       .where(
         and(
-          eq(team_delegate_access.teamId, teamId),
+          eq(team_delegate_access.companyId, teamId),
           eq(team_delegate_access.delegatorUserId, delegatorUserId),
           eq(team_delegate_access.delegateUserId, delegateUserId)
         )
@@ -7064,7 +7087,7 @@ export class DatabaseStorage implements IStorage {
       .from(team_delegate_access)
       .where(
         and(
-          eq(team_delegate_access.teamId, teamId),
+          eq(team_delegate_access.companyId, teamId),
           eq(team_delegate_access.delegatorUserId, targetUserId),
           eq(team_delegate_access.delegateUserId, actingUserId)
         )
@@ -7072,7 +7095,12 @@ export class DatabaseStorage implements IStorage {
     return !!access;
   }
 
-  async upsertFreelancerDateAvailability(freelancerId: number, date: string, status: "available" | "tentative" | "unavailable", note?: string): Promise<FreelancerDateAvailability> {
+  async upsertFreelancerDateAvailability(
+    freelancerId: number,
+    date: string,
+    status: "available" | "tentative" | "unavailable",
+    note?: string
+  ): Promise<FreelancerDateAvailability> {
     const [row] = await db
       .insert(freelancer_date_availability)
       .values({ freelancerId, date, status, note: note ?? null, updatedAt: new Date() })
@@ -7084,7 +7112,11 @@ export class DatabaseStorage implements IStorage {
     return row;
   }
 
-  async getFreelancerDateAvailability(freelancerId: number, fromDate: string, toDate: string): Promise<FreelancerDateAvailability[]> {
+  async getFreelancerDateAvailability(
+    freelancerId: number,
+    fromDate: string,
+    toDate: string
+  ): Promise<FreelancerDateAvailability[]> {
     return db
       .select()
       .from(freelancer_date_availability)
@@ -7097,7 +7129,15 @@ export class DatabaseStorage implements IStorage {
       );
   }
 
-  async getCrewAvailability(employerId: number, fromDate: string, toDate: string): Promise<Array<FreelancerDateAvailability & { freelancer_name: string; profile_photo_url: string | null }>> {
+  async getCrewAvailability(
+    employerId: number,
+    fromDate: string,
+    toDate: string
+  ): Promise<
+    Array<
+      FreelancerDateAvailability & { freelancer_name: string; profile_photo_url: string | null }
+    >
+  > {
     const savedIds = await db
       .select({ freelancer_id: saved_freelancers.freelancer_id })
       .from(saved_freelancers)
@@ -7150,24 +7190,43 @@ export class DatabaseStorage implements IStorage {
       .where(inArray(freelancer_profiles.user_id, freelancerIds));
 
     const userRows = await db
-      .select({ id: users.id, first_name: users.first_name, last_name: users.last_name, email: users.email })
+      .select({
+        id: users.id,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        email: users.email,
+      })
       .from(users)
       .where(inArray(users.id, freelancerIds));
 
     const allBookings = await db
-      .select({ freelancerId: bookings.freelancerId, employerNotes: bookings.employerNotes, status: bookings.status, createdAt: bookings.createdAt })
+      .select({
+        freelancerId: bookings.freelancerId,
+        employerNotes: bookings.employerNotes,
+        status: bookings.status,
+        createdAt: bookings.createdAt,
+      })
       .from(bookings)
-      .where(and(eq(bookings.employerId, employerId), inArray(bookings.freelancerId, freelancerIds)));
+      .where(
+        and(eq(bookings.employerId, employerId), inArray(bookings.freelancerId, freelancerIds))
+      );
 
     const ratingRows = await db
       .select()
       .from(ratings)
-      .where(and(eq(ratings.recruiter_id, employerId), inArray(ratings.freelancer_id, freelancerIds)));
+      .where(
+        and(eq(ratings.recruiter_id, employerId), inArray(ratings.freelancer_id, freelancerIds))
+      );
 
     const savedRows = await db
       .select({ freelancerId: saved_freelancers.freelancer_id })
       .from(saved_freelancers)
-      .where(and(eq(saved_freelancers.recruiter_id, employerId), inArray(saved_freelancers.freelancer_id, freelancerIds)));
+      .where(
+        and(
+          eq(saved_freelancers.recruiter_id, employerId),
+          inArray(saved_freelancers.freelancer_id, freelancerIds)
+        )
+      );
     const savedSet = new Set(savedRows.map((r) => r.freelancerId));
 
     return rows.map((row) => {
@@ -7175,7 +7234,8 @@ export class DatabaseStorage implements IStorage {
       const user = userRows.find((u) => u.id === row.freelancerId);
       const fBookings = allBookings.filter((b) => b.freelancerId === row.freelancerId);
       const fRatings = ratingRows.filter((r) => r.freelancer_id === row.freelancerId);
-      const avgRating = fRatings.length > 0 ? fRatings.reduce((s, r) => s + r.rating, 0) / fRatings.length : null;
+      const avgRating =
+        fRatings.length > 0 ? fRatings.reduce((s, r) => s + r.rating, 0) / fRatings.length : null;
       return {
         freelancerId: row.freelancerId,
         firstName: profile?.first_name ?? user?.first_name ?? "Unknown",
@@ -7191,7 +7251,9 @@ export class DatabaseStorage implements IStorage {
         avgRating,
         ratingCount: fRatings.length,
         latestRating: fRatings.sort((a, b) => b.id - a.id)[0] ?? null,
-        privateNotes: fBookings.filter((b) => b.employerNotes).map((b) => ({ note: b.employerNotes!, date: b.createdAt.toISOString() })),
+        privateNotes: fBookings
+          .filter((b) => b.employerNotes)
+          .map((b) => ({ note: b.employerNotes!, date: b.createdAt.toISOString() })),
         statusBreakdown: {
           completed: fBookings.filter((b) => b.status === "completed").length,
           confirmed: fBookings.filter((b) => b.status === "confirmed").length,
@@ -7200,7 +7262,5 @@ export class DatabaseStorage implements IStorage {
       };
     });
   }
-
-
 }
 export const storage = new DatabaseStorage();

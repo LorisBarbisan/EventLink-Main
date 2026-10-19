@@ -9,7 +9,7 @@ import { storage } from "../../storage";
 // 4.1 — Create enquiry and dispatch emails to selected freelancers
 export const createEnquiry = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
 
     const { freelancerIds, ...enquiryData } = req.body;
@@ -35,18 +35,17 @@ export const createEnquiry = async (req: Request, res: Response) => {
         const user = await storage.getUser(resp.freelancerId);
         if (!user?.email) return;
         const profile = await storage.getFreelancerProfile(resp.freelancerId);
-        const firstName =
-          (profile as any)?.first_name ?? (user as any).firstName ?? "there";
+        const firstName = (profile as any)?.first_name ?? (user as any).firstName ?? "there";
         const { html } = generateAvailabilityEnquiryEmail({
           freelancerFirstName: firstName,
           employerName,
-          eventTitle: enquiry.eventTitle,
-          eventDate: enquiry.eventDate,
-          callTime: enquiry.callTime,
-          venueAddress: enquiry.venueAddress,
-          roleRequired: enquiry.roleRequired,
-          agreedRate: enquiry.agreedRate,
-          additionalNotes: enquiry.additionalNotes,
+          eventTitle: enquiry.eventTitle ?? undefined,
+          eventDate: enquiry.eventDate ?? undefined,
+          callTime: enquiry.callTime ?? undefined,
+          venueAddress: enquiry.venueAddress ?? undefined,
+          roleRequired: enquiry.roleRequired ?? undefined,
+          agreedRate: enquiry.agreedRate ?? undefined,
+          additionalNotes: enquiry.additionalNotes ?? undefined,
           responseToken: resp.token,
           baseUrl,
         });
@@ -60,7 +59,10 @@ export const createEnquiry = async (req: Request, res: Response) => {
 
     return res.status(201).json({ enquiry, responses });
   } catch (error) {
-    console.error("createEnquiry FULL ERROR:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    console.error(
+      "createEnquiry FULL ERROR:",
+      JSON.stringify(error, Object.getOwnPropertyNames(error))
+    );
     return res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -68,7 +70,7 @@ export const createEnquiry = async (req: Request, res: Response) => {
 // 4.2 — List all enquiries for the authenticated employer
 export const getEnquiriesForEmployer = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const enquiries = await storage.getEnquiriesForEmployer(employerId);
     return res.json(enquiries);
@@ -81,11 +83,10 @@ export const getEnquiriesForEmployer = async (req: Request, res: Response) => {
 // 4.3 — Get full response detail for a specific enquiry
 export const getEnquiryResponses = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const enquiryId = parseInt(req.params.id);
-    if (isNaN(enquiryId))
-      return res.status(400).json({ error: "Invalid enquiry ID" });
+    if (isNaN(enquiryId)) return res.status(400).json({ error: "Invalid enquiry ID" });
     const result = await storage.getEnquiryResponses(enquiryId, employerId);
     if (!result) return res.status(404).json({ error: "Enquiry not found" });
     return res.json(result);
@@ -139,14 +140,14 @@ export const getResponseByTokenHandler = async (req: Request, res: Response) => 
       },
       enquiry: {
         id: enquiry.id,
-        eventTitle: enquiry.eventTitle,
-        eventDate: enquiry.eventDate,
-        eventEndDate: enquiry.eventEndDate,
-        callTime: enquiry.callTime,
-        venueAddress: enquiry.venueAddress,
-        roleRequired: enquiry.roleRequired,
-        agreedRate: enquiry.agreedRate,
-        additionalNotes: enquiry.additionalNotes,
+        eventTitle: enquiry.eventTitle ?? undefined,
+        eventDate: enquiry.eventDate ?? undefined,
+        eventEndDate: enquiry.eventEndDate ?? undefined,
+        callTime: enquiry.callTime ?? undefined,
+        venueAddress: enquiry.venueAddress ?? undefined,
+        roleRequired: enquiry.roleRequired ?? undefined,
+        agreedRate: enquiry.agreedRate ?? undefined,
+        additionalNotes: enquiry.additionalNotes ?? undefined,
         status: enquiry.status,
       },
       freelancer: { firstName: user.firstName },
@@ -160,7 +161,7 @@ export const getResponseByTokenHandler = async (req: Request, res: Response) => 
 // 4.5 — Convert a "yes" response into a confirmed booking
 export const convertResponseToBooking = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const enquiryId = parseInt(req.params.id);
     const responseId = parseInt(req.params.responseId);
@@ -181,172 +182,192 @@ export const convertResponseToBooking = async (req: Request, res: Response) => {
 // 4.6 — Cancel an entire enquiry
 export const cancelEnquiry = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
-    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const employerId = req.companyId ?? req.user?.id;
+    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const enquiryId = parseInt(req.params.id);
-    if (isNaN(enquiryId)) return res.status(400).json({ error: 'Invalid enquiry ID' });
+    if (isNaN(enquiryId)) return res.status(400).json({ error: "Invalid enquiry ID" });
     const { enquiry, freelancerIds } = await storage.cancelEnquiry(enquiryId, employerId);
     const employer = await storage.getRecruiterProfile(employerId);
-    const employerName = employer?.company_name ?? 'An employer';
-    const { sendEmail } = await import('../utils/emailService.js');
-    const { generateEnquiryCancelledEmail } = await import('../utils/emailTemplates.js');
-    await Promise.allSettled(freelancerIds.map(async (fId) => {
-      const user = await storage.getUser(fId);
-      if (!user?.email) return;
-      const profile = await storage.getFreelancerProfile(fId);
-      const firstName = (profile as any)?.first_name ?? user.first_name ?? 'there';
-      const html = generateEnquiryCancelledEmail({
-        freelancerFirstName: firstName,
-        employerName,
-        eventTitle: enquiry.eventTitle,
-        eventDate: enquiry.eventDate,
-      });
-      await sendEmail({
-        to: user.email,
-        subject: `Availability check cancelled: ${enquiry.eventTitle}`,
-        html,
-      });
-    }));
+    const employerName = employer?.company_name ?? "An employer";
+    const { sendEmail } = await import("../utils/emailService.js");
+    const { generateEnquiryCancelledEmail } = await import("../utils/emailTemplates.js");
+    await Promise.allSettled(
+      freelancerIds.map(async (fId) => {
+        const user = await storage.getUser(fId);
+        if (!user?.email) return;
+        const profile = await storage.getFreelancerProfile(fId);
+        const firstName = (profile as any)?.first_name ?? user.first_name ?? "there";
+        const html = generateEnquiryCancelledEmail({
+          freelancerFirstName: firstName,
+          employerName,
+          eventTitle: enquiry.eventTitle ?? undefined,
+          eventDate: enquiry.eventDate ?? undefined,
+        });
+        await sendEmail({
+          to: user.email,
+          subject: `Availability check cancelled: ${enquiry.eventTitle}`,
+          html,
+        });
+      })
+    );
     return res.json({ success: true, enquiry });
   } catch (error: any) {
-    console.error('cancelEnquiry error:', error.message, error.stack);
-    if (error.message === 'Enquiry already closed') {
+    console.error("cancelEnquiry error:", error.message, error.stack);
+    if (error.message === "Enquiry already closed") {
       return res.status(409).json({ error: error.message });
     }
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 // 4.7 — Update editable fields on an active enquiry
 export const updateEnquiry = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
-    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const employerId = req.companyId ?? req.user?.id;
+    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const enquiryId = parseInt(req.params.id);
-    if (isNaN(enquiryId)) return res.status(400).json({ error: 'Invalid enquiry ID' });
-    const { enquiry, significantChange, freelancerIds } =
-      await storage.updateEnquiryDetails(enquiryId, employerId, req.body);
+    if (isNaN(enquiryId)) return res.status(400).json({ error: "Invalid enquiry ID" });
+    const { enquiry, significantChange, freelancerIds } = await storage.updateEnquiryDetails(
+      enquiryId,
+      employerId,
+      req.body
+    );
     if (significantChange && freelancerIds.length > 0) {
       const employer = await storage.getRecruiterProfile(employerId);
-      const employerName = employer?.company_name ?? 'An employer';
-      const baseUrl = req.protocol + '://' + req.get('host');
-      const { sendEmail } = await import('../utils/emailService.js');
-      const { generateEnquiryUpdatedEmail } = await import('../utils/emailTemplates.js');
+      const employerName = employer?.company_name ?? "An employer";
+      const baseUrl = req.protocol + "://" + req.get("host");
+      const { sendEmail } = await import("../utils/emailService.js");
+      const { generateEnquiryUpdatedEmail } = await import("../utils/emailTemplates.js");
       const responses = await storage.getEnquiryResponses(enquiryId, employerId);
-      await Promise.allSettled(freelancerIds.map(async (fId) => {
-        const user = await storage.getUser(fId);
-        if (!user?.email) return;
-        const profile = await storage.getFreelancerProfile(fId);
-        const firstName = (profile as any)?.first_name ?? user.first_name ?? 'there';
-        const respRow = responses?.responses?.find(
-          (r: any) => r.response.freelancerId === fId
-        );
-        if (!respRow) return;
-        const html = generateEnquiryUpdatedEmail({
-          freelancerFirstName: firstName,
-          employerName,
-          eventTitle: enquiry.eventTitle,
-          eventDate: enquiry.eventDate,
-          eventEndDate: enquiry.eventEndDate,
-          callTime: enquiry.callTime,
-          venueAddress: enquiry.venueAddress,
-          responseToken: respRow.response.token,
-          baseUrl,
-        });
-        await sendEmail({
-          to: user.email,
-          subject: `Updated details: ${enquiry.eventTitle} on ${enquiry.eventDate}`,
-          html,
-        });
-      }));
+      await Promise.allSettled(
+        freelancerIds.map(async (fId) => {
+          const user = await storage.getUser(fId);
+          if (!user?.email) return;
+          const profile = await storage.getFreelancerProfile(fId);
+          const firstName = (profile as any)?.first_name ?? user.first_name ?? "there";
+          const respRow = responses?.responses?.find((r: any) => r.response.freelancerId === fId);
+          if (!respRow) return;
+          const html = generateEnquiryUpdatedEmail({
+            freelancerFirstName: firstName,
+            employerName,
+            eventTitle: enquiry.eventTitle ?? undefined,
+            eventDate: enquiry.eventDate ?? undefined,
+            eventEndDate: enquiry.eventEndDate ?? undefined,
+            callTime: enquiry.callTime ?? undefined,
+            venueAddress: enquiry.venueAddress ?? undefined,
+            responseToken: respRow.response.token,
+            baseUrl,
+          });
+          await sendEmail({
+            to: user.email,
+            subject: `Updated details: ${enquiry.eventTitle} on ${enquiry.eventDate}`,
+            html,
+          });
+        })
+      );
     }
     return res.json({ success: true, enquiry, emailsSent: significantChange });
   } catch (error: any) {
-    console.error('updateEnquiry error:', error.message, error.stack);
-    if (error.message === 'Cannot edit a closed enquiry' || error.message === 'Enquiry not found or not owned by employer') {
+    console.error("updateEnquiry error:", error.message, error.stack);
+    if (
+      error.message === "Cannot edit a closed enquiry" ||
+      error.message === "Enquiry not found or not owned by employer"
+    ) {
       return res.status(409).json({ error: error.message });
     }
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 // 4.8 — Add freelancers to an existing active enquiry
 export const addFreelancers = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
-    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const employerId = req.companyId ?? req.user?.id;
+    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const enquiryId = parseInt(req.params.id);
-    if (isNaN(enquiryId)) return res.status(400).json({ error: 'Invalid enquiry ID' });
+    if (isNaN(enquiryId)) return res.status(400).json({ error: "Invalid enquiry ID" });
     const { freelancerIds } = req.body;
     if (!freelancerIds?.length) {
-      return res.status(400).json({ error: 'No freelancer IDs provided' });
+      return res.status(400).json({ error: "No freelancer IDs provided" });
     }
-    const { enquiry, newResponses } =
-      await storage.addFreelancersToEnquiry(enquiryId, employerId, freelancerIds);
+    const { enquiry, newResponses } = await storage.addFreelancersToEnquiry(
+      enquiryId,
+      employerId,
+      freelancerIds
+    );
     if (newResponses.length === 0) {
-      return res.json({ success: true, message: 'All freelancers already on enquiry', newResponses: [] });
+      return res.json({
+        success: true,
+        message: "All freelancers already on enquiry",
+        newResponses: [],
+      });
     }
     const employer = await storage.getRecruiterProfile(employerId);
-    const employerName = employer?.company_name ?? 'An employer';
-    const baseUrl = req.protocol + '://' + req.get('host');
-    const { sendEmail } = await import('../utils/emailService.js');
-    const { generateAvailabilityEnquiryEmail } = await import('../utils/emailTemplates.js');
-    await Promise.allSettled(newResponses.map(async (resp) => {
-      const user = await storage.getUser(resp.freelancerId);
-      if (!user?.email) return;
-      const profile = await storage.getFreelancerProfile(resp.freelancerId);
-      const firstName = (profile as any)?.first_name ?? user.first_name ?? 'there';
-      const { html } = generateAvailabilityEnquiryEmail({
-        freelancerFirstName: firstName,
-        employerName,
-        eventTitle: enquiry.eventTitle,
-        eventDate: enquiry.eventDate,
-        callTime: enquiry.callTime,
-        venueAddress: enquiry.venueAddress,
-        roleRequired: enquiry.roleRequired,
-        agreedRate: enquiry.agreedRate,
-        additionalNotes: enquiry.additionalNotes,
-        responseToken: resp.token,
-        baseUrl,
-      });
-      await sendEmail({
-        to: user.email,
-        subject: `Availability check: ${enquiry.eventTitle} on ${enquiry.eventDate}`,
-        html,
-      });
-    }));
+    const employerName = employer?.company_name ?? "An employer";
+    const baseUrl = req.protocol + "://" + req.get("host");
+    const { sendEmail } = await import("../utils/emailService.js");
+    const { generateAvailabilityEnquiryEmail } = await import("../utils/emailTemplates.js");
+    await Promise.allSettled(
+      newResponses.map(async (resp) => {
+        const user = await storage.getUser(resp.freelancerId);
+        if (!user?.email) return;
+        const profile = await storage.getFreelancerProfile(resp.freelancerId);
+        const firstName = (profile as any)?.first_name ?? user.first_name ?? "there";
+        const { html } = generateAvailabilityEnquiryEmail({
+          freelancerFirstName: firstName,
+          employerName,
+          eventTitle: enquiry.eventTitle ?? undefined,
+          eventDate: enquiry.eventDate ?? undefined,
+          callTime: enquiry.callTime ?? undefined,
+          venueAddress: enquiry.venueAddress ?? undefined,
+          roleRequired: enquiry.roleRequired ?? undefined,
+          agreedRate: enquiry.agreedRate ?? undefined,
+          additionalNotes: enquiry.additionalNotes ?? undefined,
+          responseToken: resp.token,
+          baseUrl,
+        });
+        await sendEmail({
+          to: user.email,
+          subject: `Availability check: ${enquiry.eventTitle} on ${enquiry.eventDate}`,
+          html,
+        });
+      })
+    );
     return res.status(201).json({ success: true, newResponses });
   } catch (error: any) {
-    console.error('addFreelancers error:', error.message, error.stack);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("addFreelancers error:", error.message, error.stack);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 // 4.9 — Remove a single freelancer from an active enquiry
 export const removeFreelancer = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
-    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const employerId = req.companyId ?? req.user?.id;
+    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const enquiryId = parseInt(req.params.id);
     const freelancerId = parseInt(req.params.freelancerId);
     if (isNaN(enquiryId) || isNaN(freelancerId)) {
-      return res.status(400).json({ error: 'Invalid ID' });
+      return res.status(400).json({ error: "Invalid ID" });
     }
-    const { enquiry, removedResponse } =
-      await storage.removeFreelancerFromEnquiry(enquiryId, employerId, freelancerId);
+    const { enquiry } = await storage.removeFreelancerFromEnquiry(
+      enquiryId,
+      employerId,
+      freelancerId
+    );
     const user = await storage.getUser(freelancerId);
     if (user?.email) {
       const employer = await storage.getRecruiterProfile(employerId);
-      const employerName = employer?.company_name ?? 'An employer';
-      const { sendEmail } = await import('../utils/emailService.js');
-      const { generateEnquiryRemovedEmail } = await import('../utils/emailTemplates.js');
+      const employerName = employer?.company_name ?? "An employer";
+      const { sendEmail } = await import("../utils/emailService.js");
+      const { generateEnquiryRemovedEmail } = await import("../utils/emailTemplates.js");
       const profile = await storage.getFreelancerProfile(freelancerId);
-      const firstName = (profile as any)?.first_name ?? user.first_name ?? 'there';
+      const firstName = (profile as any)?.first_name ?? user.first_name ?? "there";
       const html = generateEnquiryRemovedEmail({
         freelancerFirstName: firstName,
         employerName,
-        eventTitle: enquiry.eventTitle,
-        eventDate: enquiry.eventDate,
+        eventTitle: enquiry.eventTitle ?? undefined,
+        eventDate: enquiry.eventDate ?? undefined,
       });
       await sendEmail({
         to: user.email,
@@ -356,59 +377,62 @@ export const removeFreelancer = async (req: Request, res: Response) => {
     }
     return res.json({ success: true });
   } catch (error: any) {
-    console.error('removeFreelancer error:', error.message, error.stack);
-    if (error.message === 'Cannot remove a freelancer who has been booked') {
+    console.error("removeFreelancer error:", error.message, error.stack);
+    if (error.message === "Cannot remove a freelancer who has been booked") {
       return res.status(409).json({ error: error.message });
     }
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 // 4.10 — Archive a closed enquiry
 export const archiveEnquiry = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
-    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const employerId = req.companyId ?? req.user?.id;
+    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const enquiryId = parseInt(req.params.id);
-    if (isNaN(enquiryId)) return res.status(400).json({ error: 'Invalid enquiry ID' });
+    if (isNaN(enquiryId)) return res.status(400).json({ error: "Invalid enquiry ID" });
     const enquiry = await storage.archiveEnquiry(enquiryId, employerId);
     return res.json({ success: true, enquiry });
   } catch (error: any) {
-    console.error('archiveEnquiry error:', error.message, error.stack);
-    if (error.message === 'Close the enquiry before archiving' || error.message === 'Enquiry already archived') {
+    console.error("archiveEnquiry error:", error.message, error.stack);
+    if (
+      error.message === "Close the enquiry before archiving" ||
+      error.message === "Enquiry already archived"
+    ) {
       return res.status(409).json({ error: error.message });
     }
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 // 4.11 — Reactivate an archived enquiry
 export const reactivateEnquiry = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
-    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const employerId = req.companyId ?? req.user?.id;
+    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const enquiryId = parseInt(req.params.id);
-    if (isNaN(enquiryId)) return res.status(400).json({ error: 'Invalid enquiry ID' });
+    if (isNaN(enquiryId)) return res.status(400).json({ error: "Invalid enquiry ID" });
     const enquiry = await storage.reactivateEnquiry(enquiryId, employerId);
     return res.json({ success: true, enquiry });
   } catch (error: any) {
-    console.error('reactivateEnquiry error:', error.message, error.stack);
-    if (error.message === 'Only archived enquiries can be reactivated') {
+    console.error("reactivateEnquiry error:", error.message, error.stack);
+    if (error.message === "Only archived enquiries can be reactivated") {
       return res.status(409).json({ error: error.message });
     }
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 // 4.12 — List archived enquiries for employer
 export const getArchivedEnquiries = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
-    if (!employerId) return res.status(401).json({ error: 'Unauthorised' });
+    const employerId = req.companyId ?? req.user?.id;
+    if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const enquiries = await storage.getArchivedEnquiries(employerId);
     return res.json(enquiries);
   } catch (error: any) {
-    console.error('getArchivedEnquiries error:', error.message, error.stack);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("getArchivedEnquiries error:", error.message, error.stack);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };

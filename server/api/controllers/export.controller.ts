@@ -25,7 +25,7 @@ function buildFilename(base: string, ext: string, dateFrom?: string, dateTo?: st
 
 export const exportBookingsExcel = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const { dateFrom, dateTo } = getDateRange(req);
     const data = await storage.getBookingsForExport(employerId, dateFrom, dateTo);
@@ -45,7 +45,7 @@ export const exportBookingsExcel = async (req: Request, res: Response) => {
 
 export const exportBookingsCsv = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const { dateFrom, dateTo } = getDateRange(req);
     const data = await storage.getBookingsForExport(employerId, dateFrom, dateTo);
@@ -64,7 +64,7 @@ export const exportBookingsCsv = async (req: Request, res: Response) => {
 
 export const exportCrewExcel = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const data = await storage.getCrewListForExport(employerId);
     const buffer = await generateCrewListExcel(data);
@@ -82,7 +82,7 @@ export const exportCrewExcel = async (req: Request, res: Response) => {
 
 export const exportCrewCsv = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const data = await storage.getCrewListForExport(employerId);
     const csv = await generateCrewListCsv(data);
@@ -99,7 +99,7 @@ export const exportCrewCsv = async (req: Request, res: Response) => {
 
 export const exportAvailabilityExcel = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const { dateFrom, dateTo } = getDateRange(req);
     const data = await storage.getAvailabilityForExport(employerId, dateFrom, dateTo);
@@ -119,7 +119,7 @@ export const exportAvailabilityExcel = async (req: Request, res: Response) => {
 
 export const exportAvailabilityCsv = async (req: Request, res: Response) => {
   try {
-    const employerId = req.user?.id;
+    const employerId = req.companyId ?? req.user?.id;
     if (!employerId) return res.status(401).json({ error: "Unauthorised" });
     const { dateFrom, dateTo } = getDateRange(req);
     const data = await storage.getAvailabilityForExport(employerId, dateFrom, dateTo);

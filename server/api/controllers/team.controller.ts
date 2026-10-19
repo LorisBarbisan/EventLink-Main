@@ -1,4 +1,4 @@
-﻿import { Request, Response } from "express";
+import { Request, Response } from "express";
 import { db } from "../config/db";
 import { teamMembers, users, recruiter_profiles } from "../../../shared/schema";
 import { eq, and } from "drizzle-orm";
@@ -88,9 +88,8 @@ export async function getTeamMembers(req: Request, res: Response) {
         ...member,
         status: member.inviteAccepted ? "active" : "pending",
       },
-      user: (user as any).id != null ? user : null,
-      profile:
-        (profile as any)?.company_name || (profile as any)?.company_logo_url ? profile : null,
+      user: user?.id != null ? user : null,
+      profile: profile?.company_name != null || profile?.company_logo_url != null ? profile : null,
     }));
 
     const isOwner = companyId === userId;
@@ -583,7 +582,7 @@ export async function grantDelegateAccess(req: Request, res: Response) {
       return res.status(400).json({ error: "delegatorUserId and delegateUserId are required" });
     }
     const access = await storage.grantDelegateAccess({
-      teamId: companyId,
+      companyId: companyId,
       delegatorUserId,
       delegateUserId,
       grantedByUserId: req.user!.id,

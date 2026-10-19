@@ -194,6 +194,10 @@ app.use((req, res, next) => {
   app.use(ogTagMiddleware);
 
   const { httpServer: server, wss } = await registerRoutes(app);
+  // Return 404 JSON for unmatched /api routes — must be before the SPA catch-all
+  app.use("/api", (_req: Request, res: Response) => {
+    res.status(404).json({ error: "Not found" });
+  });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

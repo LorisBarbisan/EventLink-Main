@@ -1447,30 +1447,11 @@ export const team_accounts = pgTable("team_accounts", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const team_members = pgTable("team_members", {
-  id: serial("id").primaryKey(),
-  teamId: integer("team_id")
-    .notNull()
-    .references(() => team_accounts.id, { onDelete: "cascade" }),
-  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
-  role: text("role").notNull().default("manager").$type<"owner" | "admin" | "manager">(),
-  status: text("status").notNull().default("active").$type<"active" | "invited" | "suspended">(),
-  invitedByUserId: integer("invited_by_user_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  inviteToken: text("invite_token").unique(),
-  inviteEmail: text("invite_email"),
-  inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }),
-  joinedAt: timestamp("joined_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
 export const team_delegate_access = pgTable("team_delegate_access", {
   id: serial("id").primaryKey(),
-  teamId: integer("team_id")
+  companyId: integer("company_id")
     .notNull()
-    .references(() => team_accounts.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "cascade" }),
   delegatorUserId: integer("delegator_user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
@@ -1484,7 +1465,6 @@ export const team_delegate_access = pgTable("team_delegate_access", {
 });
 
 export type TeamAccount = typeof team_accounts.$inferSelect;
-export type TeamMember = typeof team_members.$inferSelect;
 export type TeamDelegateAccess = typeof team_delegate_access.$inferSelect;
 
 // ============================================================
@@ -1807,7 +1787,6 @@ export type HelpRouteVisit = typeof help_route_visits.$inferSelect;
 export type HelpContentOverride = typeof help_content_overrides.$inferSelect;
 export type HelpMode = "full" | "hover_only" | "off";
 
-
 // ============================================================
 // FMS — Crew Date Availability (traffic-light system)
 // ============================================================
@@ -1820,9 +1799,7 @@ export const freelancer_date_availability = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     date: text("date").notNull(), // ISO "YYYY-MM-DD"
-    status: text("status")
-      .notNull()
-      .$type<"available" | "tentative" | "unavailable">(),
+    status: text("status").notNull().$type<"available" | "tentative" | "unavailable">(),
     note: text("note"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
