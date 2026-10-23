@@ -19,12 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Eye, FileText, Shield, Trash2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { useLocation } from "wouter";
+import {
+  DOCUMENT_TYPE_META,
+  credentialStatus,
+  type CredentialStatus,
+  type DocumentType,
+} from "@shared/credentials";
 
 interface Document {
   id: number;
@@ -36,6 +43,31 @@ interface Document {
   file_size: number;
   file_type: string;
   uploaded_at: string;
+  issue_date?: string | null;
+  expiry_date?: string | null;
+  expiry_source?: "entered" | "derived" | "not_applicable" | null;
+  archived_at?: string | null;
+}
+
+// Small coloured status pill for a credential's expiry state.
+const STATUS_LABEL: Record<CredentialStatus, string> = {
+  valid: "Valid",
+  expiring_soon: "Expiring soon",
+  expired: "Expired",
+  incomplete: "Needs a date",
+};
+const STATUS_CLASS: Record<CredentialStatus, string> = {
+  valid: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
+  expiring_soon: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200",
+  expired: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
+  incomplete: "bg-muted text-muted-foreground",
+};
+
+function addMonthsISO(iso: string, months: number): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().slice(0, 10);
 }
 
 interface DocumentUploaderProps {
@@ -87,12 +119,42 @@ export function DocumentUploader({
   const [, setLocation] = useLocation();
   const [selectedType, setSelectedType] = useState<string>("");
   const [customTypeName, setCustomTypeName] = useState<string>("");
+  const [issueDate, setIssueDate] = useState<string>("");
+  const [expiryDate, setExpiryDate] = useState<string>("");
+  const [expiryTouched, setExpiryTouched] = useState(false);
+  const [issuingBody, setIssuingBody] = useState<string>("");
+  const [referenceNumber, setReferenceNumber] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
   const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
   const privacyConfirmedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isSignedIn = !!viewerRole || !!publicToken;
+
+  const selectedMeta = selectedType ? DOCUMENT_TYPE_META[selectedType as DocumentType] : null;
+  const isCredential = selectedMeta?.class === "credential";
+  const canSuggestExpiry = !!(
+    selectedMeta?.defaultValidityMonths && selectedMeta.validityConfirmed
+  );
+
+  const resetUploadForm = () => {
+    setSelectedType("");
+    setCustomTypeName("");
+    setIssueDate("");
+    setExpiryDate("");
+    setExpiryTouched(false);
+    setIssuingBody("");
+    setReferenceNumber("");
+  };
+
+  // When the issue date changes and this type has a confirmed scheme validity,
+  // suggest an expiry (issue + months) unless the freelancer has typed their own.
+  const handleIssueDateChange = (value: string) => {
+    setIssueDate(value);
+    if (canSuggestExpiry && value && !expiryTouched) {
+      setExpiryDate(addMonthsISO(value, selectedMeta!.defaultValidityMonths!));
+    }
+  };
 
   const { data: documents = [], isLoading } = useQuery<Document[]>({
     queryKey: [`/api/documents/${userId}`],
@@ -102,6 +164,10 @@ export function DocumentUploader({
   const { data: documentTypes = [] } = useQuery<string[]>({
     queryKey: ["/api/documents/types"],
   });
+
+  // Superseded (archived) credentials are kept as history but hidden from the
+  // current list so renewals don't show up as duplicates.
+  const visibleDocuments = documents.filter((d) => !d.archived_at);
 
   const deleteMutation = useMutation({
     mutationFn: async (documentId: number) => {
@@ -149,6 +215,16 @@ export function DocumentUploader({
       toast({
         title: "Enter document type name",
         description: "Please enter a name for your custom document type.",
+        variant: "destructive",
+      });
+      event.target.value = "";
+      return;
+    }
+
+    if (isCredential && !expiryDate) {
+      toast({
+        title: "Expiry date needed",
+        description: "Please add the expiry date for this credential before uploading.",
         variant: "destructive",
       });
       event.target.value = "";
@@ -203,12 +279,20 @@ export function DocumentUploader({
               contentType: file.type,
               documentType: selectedType,
               customTypeName: selectedType === "Other" ? customTypeName.trim() : null,
+              issuingBody: isCredential ? issuingBody.trim() || null : null,
+              referenceNumber: isCredential ? referenceNumber.trim() || null : null,
+              issueDate: isCredential ? issueDate || null : null,
+              expiryDate: isCredential ? expiryDate || null : null,
+              expirySource: !isCredential
+                ? "not_applicable"
+                : canSuggestExpiry && !expiryTouched
+                  ? "derived"
+                  : "entered",
             }),
           });
 
           queryClient.invalidateQueries({ queryKey: [`/api/documents/${userId}`] });
-          setSelectedType("");
-          setCustomTypeName("");
+          resetUploadForm();
 
           toast({
             title: "Document uploaded",
@@ -325,7 +409,7 @@ export function DocumentUploader({
     );
   }
 
-  if (!isOwner && documents.length === 0) {
+  if (!isOwner && visibleDocuments.length === 0) {
     return null;
   }
 
@@ -364,6 +448,12 @@ export function DocumentUploader({
                   if (value !== "Other") {
                     setCustomTypeName("");
                   }
+                  // Changing type clears any dates entered for the previous one.
+                  setIssueDate("");
+                  setExpiryDate("");
+                  setExpiryTouched(false);
+                  setIssuingBody("");
+                  setReferenceNumber("");
                 }}
               >
                 <SelectTrigger className="flex-1">
@@ -383,7 +473,8 @@ export function DocumentUploader({
                 disabled={
                   isUploading ||
                   !selectedType ||
-                  (selectedType === "Other" && !customTypeName.trim())
+                  (selectedType === "Other" && !customTypeName.trim()) ||
+                  (isCredential && !expiryDate)
                 }
                 onClick={() => setShowPrivacyDialog(true)}
               >
@@ -411,13 +502,79 @@ export function DocumentUploader({
               />
             )}
 
+            {/* Credential date + reference fields. Hidden for job_documents
+                (risk assessments / method statements), which never expire. */}
+            {isCredential && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="cred-issue-date" className="mb-1 block text-xs">
+                    Issue date
+                  </Label>
+                  <Input
+                    id="cred-issue-date"
+                    type="date"
+                    value={issueDate}
+                    onChange={(e) => handleIssueDateChange(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cred-expiry-date" className="mb-1 block text-xs">
+                    Expiry date <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="cred-expiry-date"
+                    type="date"
+                    value={expiryDate}
+                    onChange={(e) => {
+                      setExpiryDate(e.target.value);
+                      setExpiryTouched(true);
+                    }}
+                  />
+                  {canSuggestExpiry && expiryDate && !expiryTouched && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Suggested from the issue date — edit if your certificate says otherwise.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="cred-issuer" className="mb-1 block text-xs">
+                    Issuing body{" "}
+                    <span className="text-muted-foreground">
+                      (optional
+                      {selectedMeta?.issuingBodyHint
+                        ? `, e.g. ${selectedMeta.issuingBodyHint}`
+                        : ""}
+                      )
+                    </span>
+                  </Label>
+                  <Input
+                    id="cred-issuer"
+                    value={issuingBody}
+                    onChange={(e) => setIssuingBody(e.target.value)}
+                    maxLength={120}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cred-ref" className="mb-1 block text-xs">
+                    Card / policy number <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="cred-ref"
+                    value={referenceNumber}
+                    onChange={(e) => setReferenceNumber(e.target.value)}
+                    maxLength={120}
+                  />
+                </div>
+              </div>
+            )}
+
             <p className="text-center text-xs text-muted-foreground">
               Accepted: PDF, JPG, PNG (max 10MB)
             </p>
           </div>
         )}
 
-        {documents.length === 0 ? (
+        {visibleDocuments.length === 0 ? (
           <div className="py-8 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
               <FileText className="h-8 w-8 text-muted-foreground" />
@@ -432,58 +589,80 @@ export function DocumentUploader({
         ) : isOwner ? (
           /* Owner view - shows file details and delete option */
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {documents.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <div className="shrink-0 rounded bg-primary/10 p-2">
-                    <FileText className="h-4 w-4 text-primary" />
+            {visibleDocuments.map((doc) => {
+              const status = credentialStatus({
+                document_type: doc.document_type as DocumentType,
+                expiry_date: doc.expiry_date,
+              });
+              const isCred =
+                DOCUMENT_TYPE_META[doc.document_type as DocumentType]?.class === "credential";
+              return (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="shrink-0 rounded bg-primary/10 p-2">
+                      <FileText className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <Badge
+                        variant="secondary"
+                        className="mb-1 max-w-full whitespace-normal break-words rounded-md"
+                      >
+                        {doc.document_type === "Other" && doc.custom_type_name
+                          ? doc.custom_type_name
+                          : DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type}
+                      </Badge>
+                      {isCred && (
+                        <div className="mb-1">
+                          <span
+                            className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${STATUS_CLASS[status]}`}
+                          >
+                            {STATUS_LABEL[status]}
+                            {doc.expiry_date && status !== "incomplete"
+                              ? ` · ${new Date(doc.expiry_date).toLocaleDateString("en-GB")}`
+                              : ""}
+                          </span>
+                        </div>
+                      )}
+                      <p className="truncate text-xs text-muted-foreground">
+                        {doc.original_filename}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatFileSize(doc.file_size)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <Badge
-                      variant="secondary"
-                      className="mb-1 max-w-full whitespace-normal break-words rounded-md"
+                  <div className="ml-2 flex shrink-0 gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDownload(doc)}
+                      title="View"
+                      className="gap-1"
                     >
-                      {doc.document_type === "Other" && doc.custom_type_name
-                        ? doc.custom_type_name
-                        : DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type}
-                    </Badge>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {doc.original_filename}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{formatFileSize(doc.file_size)}</p>
+                      <Eye className="h-4 w-4" />
+                      View
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteMutation.mutate(doc.id)}
+                      disabled={deleteMutation.isPending}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
                   </div>
                 </div>
-                <div className="ml-2 flex shrink-0 gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDownload(doc)}
-                    title="View"
-                    className="gap-1"
-                  >
-                    <Eye className="h-4 w-4" />
-                    View
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteMutation.mutate(doc.id)}
-                    disabled={deleteMutation.isPending}
-                    title="Delete"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           /* Viewer view - simple orange buttons with just the type name */
           <div className="flex flex-wrap gap-2">
-            {documents.map((doc) => (
+            {visibleDocuments.map((doc) => (
               <Button
                 key={doc.id}
                 onClick={() => (isSignedIn ? handleDownload(doc) : redirectToAuth())}
