@@ -13,6 +13,25 @@ const MAX_DOCUMENTS = 9;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
 
+// Shared expiry sanity check (spec: reject more than 10 years out or 5 years past).
+// Returns a human-readable error, or null when the date is acceptable.
+function expiryDateError(value: string): string | null {
+  const expiry = new Date(value);
+  if (Number.isNaN(expiry.getTime())) return "Expiry date is not a valid date.";
+  const now = new Date();
+  const maxFuture = new Date(now);
+  maxFuture.setFullYear(now.getFullYear() + 10);
+  const maxPast = new Date(now);
+  maxPast.setFullYear(now.getFullYear() - 5);
+  if (expiry.getTime() > maxFuture.getTime()) {
+    return "That expiry date is more than 10 years away — please check it.";
+  }
+  if (expiry.getTime() < maxPast.getTime()) {
+    return "That expiry date is more than 5 years in the past — please check it.";
+  }
+  return null;
+}
+
 export async function uploadDocument(req: Request, res: Response) {
   try {
     if (!(req as any).user || (req as any).user.role !== "freelancer") {
@@ -30,6 +49,7 @@ export async function uploadDocument(req: Request, res: Response) {
       issueDate,
       expiryDate,
       expirySource,
+      supersedesDocumentId,
     } = req.body;
 
     if (!fileData || !filename || !contentType || !documentType) {
@@ -78,24 +98,9 @@ export async function uploadDocument(req: Request, res: Response) {
       if (!expiryDate) {
         return res.status(400).json({ error: "An expiry date is required for this credential." });
       }
-      const expiry = new Date(expiryDate);
-      if (Number.isNaN(expiry.getTime())) {
-        return res.status(400).json({ error: "Expiry date is not a valid date." });
-      }
-      const now = new Date();
-      const maxFuture = new Date(now);
-      maxFuture.setFullYear(now.getFullYear() + 10);
-      const maxPast = new Date(now);
-      maxPast.setFullYear(now.getFullYear() - 5);
-      if (expiry.getTime() > maxFuture.getTime()) {
-        return res
-          .status(400)
-          .json({ error: "That expiry date is more than 10 years away — please check it." });
-      }
-      if (expiry.getTime() < maxPast.getTime()) {
-        return res
-          .status(400)
-          .json({ error: "That expiry date is more than 5 years in the past — please check it." });
+      const err = expiryDateError(expiryDate);
+      if (err) {
+        return res.status(400).json({ error: err });
       }
       resolvedIssueDate = issueDate || null;
       resolvedExpiry = expiryDate;
@@ -179,6 +184,16 @@ export async function uploadDocument(req: Request, res: Response) {
 
     const document = await storage.createFreelancerDocument(validationResult.data);
 
+    // Renewal: if this replaces an existing credential, keep the old row as
+    // history (superseded_by_id + archived_at) rather than deleting it. Scoped
+    // to the owner, so a freelancer can only supersede their own document.
+    if (supersedesDocumentId) {
+      const oldId = Number(supersedesDocumentId);
+      if (Number.isInteger(oldId) && oldId !== document.id) {
+        await storage.supersedeFreelancerDocument(oldId, document.id, (req as any).user.id);
+      }
+    }
+
     console.log(`✅ Document metadata saved for user ${(req as any).user.id}: ${filename}`);
     res.status(201).json({
       message: "Document uploaded successfully",
@@ -189,6 +204,72 @@ export async function uploadDocument(req: Request, res: Response) {
     res
       .status(500)
       .json({ error: error instanceof Error ? error.message : "Failed to upload document" });
+  }
+}
+
+// Backfill: the signed-in freelancer's own credentials that still need a date.
+export async function getIncompleteCredentials(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== "freelancer") {
+      return res.status(403).json({ error: "Only freelancers have credentials" });
+    }
+    const documents = await storage.getIncompleteCredentials(user.id);
+    res.json(documents);
+  } catch (error) {
+    console.error("Get incomplete credentials error:", error);
+    res.status(500).json({ error: "Failed to load credentials" });
+  }
+}
+
+// Backfill: date one or more already-uploaded credentials in a single submit.
+export async function saveCredentialDates(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== "freelancer") {
+      return res.status(403).json({ error: "Only freelancers can update credentials" });
+    }
+
+    const { updates } = req.body as {
+      updates?: Array<{ documentId: number; issueDate?: string | null; expiryDate: string }>;
+    };
+
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ error: "No credential dates were provided" });
+    }
+
+    // Validate everything before writing anything, so a bad row rejects the batch.
+    for (const u of updates) {
+      if (!u || typeof u.documentId !== "number" || !u.expiryDate) {
+        return res
+          .status(400)
+          .json({ error: "Each credential needs a document id and an expiry date" });
+      }
+      const err = expiryDateError(u.expiryDate);
+      if (err) {
+        return res.status(400).json({ error: err, documentId: u.documentId });
+      }
+    }
+
+    const saved = [];
+    for (const u of updates) {
+      const updated = await storage.updateCredentialDates(u.documentId, user.id, {
+        issue_date: u.issueDate ?? null,
+        expiry_date: u.expiryDate,
+        expiry_source: "entered",
+      });
+      if (!updated) {
+        return res
+          .status(404)
+          .json({ error: "One of those documents wasn't found", documentId: u.documentId });
+      }
+      saved.push(updated);
+    }
+
+    res.json({ saved: saved.length, documents: saved });
+  } catch (error) {
+    console.error("Save credential dates error:", error);
+    res.status(500).json({ error: "Failed to save credential dates" });
   }
 }
 

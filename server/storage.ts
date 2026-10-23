@@ -5,6 +5,7 @@ import {
   email_notification_logs,
   feedback,
   freelancer_documents,
+  DOCUMENT_TYPE_META,
   freelancer_profiles,
   job_alert_filters,
   job_applications,
@@ -534,6 +535,17 @@ export interface IStorage {
   getFreelancerDocumentCount(freelancerId: number): Promise<number>;
   createFreelancerDocument(document: InsertFreelancerDocument): Promise<FreelancerDocument>;
   deleteFreelancerDocument(documentId: number, freelancerId: number): Promise<void>;
+  getIncompleteCredentials(freelancerId: number): Promise<FreelancerDocument[]>;
+  updateCredentialDates(
+    documentId: number,
+    freelancerId: number,
+    dates: { issue_date: string | null; expiry_date: string; expiry_source: "entered" | "derived" }
+  ): Promise<FreelancerDocument | undefined>;
+  supersedeFreelancerDocument(
+    oldDocumentId: number,
+    newDocumentId: number,
+    freelancerId: number
+  ): Promise<void>;
 
   // Job link view tracking
   createJobLinkView(view: InsertJobLinkView): Promise<JobLinkView>;
@@ -5047,6 +5059,63 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(freelancer_documents.id, documentId),
+          eq(freelancer_documents.freelancer_id, freelancerId)
+        )
+      );
+  }
+
+  // Credentials belonging to the freelancer that still need an expiry date (the
+  // backfill backlog). job_documents never need one, so they're excluded.
+  async getIncompleteCredentials(freelancerId: number): Promise<FreelancerDocument[]> {
+    const docs = await db
+      .select()
+      .from(freelancer_documents)
+      .where(
+        and(
+          eq(freelancer_documents.freelancer_id, freelancerId),
+          isNull(freelancer_documents.expiry_date),
+          isNull(freelancer_documents.archived_at)
+        )
+      )
+      .orderBy(desc(freelancer_documents.uploaded_at));
+    return docs.filter((d) => DOCUMENT_TYPE_META[d.document_type].class === "credential");
+  }
+
+  // Backfill: date an existing (already-uploaded) credential. Scoped to the owner.
+  async updateCredentialDates(
+    documentId: number,
+    freelancerId: number,
+    dates: { issue_date: string | null; expiry_date: string; expiry_source: "entered" | "derived" }
+  ): Promise<FreelancerDocument | undefined> {
+    const result = await db
+      .update(freelancer_documents)
+      .set({
+        issue_date: dates.issue_date,
+        expiry_date: dates.expiry_date,
+        expiry_source: dates.expiry_source,
+      })
+      .where(
+        and(
+          eq(freelancer_documents.id, documentId),
+          eq(freelancer_documents.freelancer_id, freelancerId)
+        )
+      )
+      .returning();
+    return result[0];
+  }
+
+  // Renewal: keep the old credential as history rather than deleting it.
+  async supersedeFreelancerDocument(
+    oldDocumentId: number,
+    newDocumentId: number,
+    freelancerId: number
+  ): Promise<void> {
+    await db
+      .update(freelancer_documents)
+      .set({ superseded_by_id: newDocumentId, archived_at: new Date() })
+      .where(
+        and(
+          eq(freelancer_documents.id, oldDocumentId),
           eq(freelancer_documents.freelancer_id, freelancerId)
         )
       );
