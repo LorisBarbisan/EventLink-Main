@@ -53,6 +53,9 @@ export const users = pgTable(
     status: text("status").default("pending").notNull(),
     welcome_email_sent: boolean("welcome_email_sent").default(false).notNull(),
     marketing_emails_opt_out: boolean("marketing_emails_opt_out").default(false).notNull(),
+    // Separate from marketing: a reminder about the freelancer's own expiring
+    // credential is a service message about their own data, not direct marketing.
+    credential_reminders_opt_out: boolean("credential_reminders_opt_out").default(false).notNull(),
     unsubscribe_token: text("unsubscribe_token"),
     job_alerts_opt_out: boolean("job_alerts_opt_out").default(false), // Freelancer has unsubscribed from job alert emails
     last_job_alert_sent_at: timestamp("last_job_alert_sent_at", { withTimezone: true }), // Timestamp of last job alert email sent
@@ -349,6 +352,7 @@ export const notifications = pgTable("notifications", {
       | "system"
       | "feedback"
       | "contact_message"
+      | "credential_expiry"
     >(),
   title: text("title").notNull(),
   message: text("message").notNull(),
@@ -913,6 +917,42 @@ export const insertFreelancerDocumentSchema = createInsertSchema(freelancer_docu
     expiry_date: z.string().nullable().optional(),
     expiry_source: z.enum(["entered", "derived", "not_applicable"]).nullable().optional(),
   });
+
+// Renewal-reminder ledger (Epic 2). One row per (document, stage) acts as the
+// idempotency guard — the unique index means a double cron run inserts nothing
+// twice — and records which rungs of the ladder a credential has been through.
+export const credential_reminders = pgTable(
+  "credential_reminders",
+  {
+    id: serial("id").primaryKey(),
+    document_id: integer("document_id")
+      .notNull()
+      .references(() => freelancer_documents.id, { onDelete: "cascade" }),
+    stage: text("stage").$type<"d90" | "d30" | "d7" | "day_of" | "overdue">().notNull(),
+    sent_at: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    uniq: uniqueIndex("credential_reminders_doc_stage_idx").on(t.document_id, t.stage),
+  })
+);
+
+export type CredentialReminder = typeof credential_reminders.$inferSelect;
+export type CredentialReminderStage = "d90" | "d30" | "d7" | "day_of" | "overdue";
+
+// One-off backfill campaign ledger (Epic 2) — tracks which freelancers have been
+// asked to date their undated credentials, so the 10-day follow-up goes only to
+// round-1 recipients who still haven't, and then stops. One row per freelancer.
+export const credential_backfill_campaign = pgTable("credential_backfill_campaign", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  round1_sent_at: timestamp("round1_sent_at", { withTimezone: true }),
+  round2_sent_at: timestamp("round2_sent_at", { withTimezone: true }),
+});
+
+export type CredentialBackfillCampaign = typeof credential_backfill_campaign.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertSocialUser = z.infer<typeof insertSocialUserSchema>;

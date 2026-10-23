@@ -115,6 +115,7 @@ export interface IStorage {
   markWelcomeEmailSent(userId: number): Promise<void>;
   getUserByUnsubscribeToken(token: string): Promise<User | undefined>;
   setMarketingOptOut(userId: number): Promise<void>;
+  setCredentialRemindersOptOut(userId: number): Promise<void>;
   canSendMessageToUser(
     senderId: number,
     recipientId: number
@@ -949,6 +950,14 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(users)
       .set({ marketing_emails_opt_out: true, updated_at: new Date() })
+      .where(eq(users.id, userId));
+    cache.delete(`user:${userId}`);
+  }
+
+  async setCredentialRemindersOptOut(userId: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ credential_reminders_opt_out: true, updated_at: new Date() })
       .where(eq(users.id, userId));
     cache.delete(`user:${userId}`);
   }

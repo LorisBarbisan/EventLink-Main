@@ -10,6 +10,7 @@ import { registerJobNotificationScheduler } from "./api/services/job-notificatio
 import { registerGuestJobNudgeScheduler } from "./api/services/guest-job-nudge.service";
 
 import { registerProfileNudgeScheduler } from "./api/services/profile-nudge-scheduler.service";
+import { registerCredentialReminderScheduler } from "./api/services/credential-reminder-scheduler.service";
 
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
@@ -188,6 +189,7 @@ app.use((req, res, next) => {
   registerJobNotificationScheduler();
   registerGuestJobNudgeScheduler();
   registerProfileNudgeScheduler();
+  registerCredentialReminderScheduler();
 
   // OG tag middleware for social media crawlers (must be before Vite catch-all)
   app.use(ogTagMiddleware);
