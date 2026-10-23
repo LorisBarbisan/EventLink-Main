@@ -1,4 +1,8 @@
-import { DOCUMENT_TYPES, insertFreelancerDocumentSchema } from "@shared/schema";
+import {
+  DOCUMENT_TYPES,
+  insertFreelancerDocumentSchema,
+  matchRestrictedDocumentTerm,
+} from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { ObjectStorageService } from "../utils/object-storage";
@@ -25,6 +29,21 @@ export async function uploadDocument(req: Request, res: Response) {
     if (documentType === "Other" && (!customTypeName || !customTypeName.trim())) {
       return res.status(400).json({
         error: "Custom type name is required when document type is 'Other'",
+      });
+    }
+
+    // DBS (criminal-record) and medical/health documents must not be stored here.
+    // They carry special-category / criminal-offence obligations that this general
+    // document store is not set up for. Reject with an explanation, not a bare error.
+    const restricted = matchRestrictedDocumentTerm(customTypeName);
+    if (restricted) {
+      return res.status(400).json({
+        error:
+          "DBS, criminal-record and medical/health documents can't be stored here. " +
+          "This document store is for training and insurance credentials only, and those " +
+          "documents carry data-protection obligations we handle separately. Please don't " +
+          "upload them — contact support if an employer has asked you to share one.",
+        restrictedTerm: restricted,
       });
     }
 
