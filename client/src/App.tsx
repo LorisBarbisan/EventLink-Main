@@ -21,6 +21,7 @@ const AdminHelp = lazy(() => import("./pages/AdminHelp"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ContactUs = lazy(() => import("./pages/ContactUs"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const CredentialBackfill = lazy(() => import("./pages/CredentialBackfill"));
 const About = lazy(() => import("./pages/About"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
@@ -72,6 +73,7 @@ function AppRouter() {
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />
           <Route path="/dashboard" component={Dashboard} />
+          <Route path="/credentials" component={CredentialBackfill} />
           <Route path="/profile" component={Profile} />
           <Route path="/profile/:userId" component={Profile} />
           {/* Slug-based profile URLs e.g. /u/james-smith-sound-engineer */}

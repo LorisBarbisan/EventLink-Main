@@ -19,6 +19,7 @@ import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import { useHelpComplete } from "@/help/useHelp";
+import { CredentialBacklogBanner } from "@/pages/CredentialBackfill";
 import type { FreelancerFormData, JobApplication } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -225,6 +226,9 @@ export default function SimplifiedFreelancerDashboard() {
           Manage your profile, applications, and messages
         </p>
       </div>
+
+      {/* Prompts the freelancer to date any certificates still missing an expiry */}
+      <CredentialBacklogBanner />
 
       {/* Persistent share bar — visible on every tab */}
       <div className="mb-4 flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">

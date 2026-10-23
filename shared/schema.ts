@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   index,
   integer,
   json,
@@ -17,6 +18,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { DOCUMENT_TYPES, type DocumentType } from "./credentials";
 
 export const users = pgTable(
   "users",
@@ -844,22 +846,12 @@ export const insertJobLinkViewSchema = createInsertSchema(job_link_views).omit({
   created_at: true,
 });
 
-// Document type constants for controlled list
-export const DOCUMENT_TYPES = [
-  "PLI",
-  "BS7909",
-  "IPAF",
-  "NRC",
-  "PASMA",
-  "First Aid",
-  "Electrical Safety",
-  "Working at Height",
-  "Risk Assessment",
-  "Method Statement",
-  "Other",
-] as const;
-
-export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+// Credential vocabulary and status helpers live in ./credentials — a
+// drizzle-free module so the client can import their runtime values without
+// pulling the ORM. Re-exported here so existing "@shared/schema" imports keep
+// working; DOCUMENT_TYPES / DocumentType are also imported at the top of this
+// file for use in the table and insert-schema definitions below.
+export * from "./credentials";
 
 // Freelancer documents/certifications table
 export const freelancer_documents = pgTable(
@@ -876,9 +868,24 @@ export const freelancer_documents = pgTable(
     file_size: integer("file_size").notNull(),
     file_type: text("file_type").notNull(),
     uploaded_at: timestamp("uploaded_at", { withTimezone: true }).defaultNow().notNull(),
+    // Credential register (Epic 1). expiry_date is nullable even though the new
+    // upload form makes it mandatory — null marks the backlog the backfill works
+    // through. Never backfill with a guessed value.
+    issuing_body: text("issuing_body"),
+    reference_number: text("reference_number"), // card or policy number
+    issue_date: date("issue_date"),
+    expiry_date: date("expiry_date"),
+    expiry_source: text("expiry_source").$type<"entered" | "derived" | "not_applicable">(),
+    verification_status: text("verification_status")
+      .$type<"self_declared" | "document_on_file" | "scheme_verified">()
+      .notNull()
+      .default("document_on_file"),
+    superseded_by_id: integer("superseded_by_id"), // self-ref; renewal chain
+    archived_at: timestamp("archived_at", { withTimezone: true }),
   },
   (table) => ({
     freelancerIdx: index("freelancer_documents_freelancer_idx").on(table.freelancer_id),
+    expiryIdx: index("freelancer_documents_expiry_idx").on(table.expiry_date),
   })
 );
 
@@ -886,6 +893,10 @@ export const insertFreelancerDocumentSchema = createInsertSchema(freelancer_docu
   .omit({
     id: true,
     uploaded_at: true,
+    // Server-managed — never set from the client upload payload.
+    verification_status: true,
+    superseded_by_id: true,
+    archived_at: true,
   })
   .extend({
     freelancer_id: z.number(),
@@ -895,6 +906,12 @@ export const insertFreelancerDocumentSchema = createInsertSchema(freelancer_docu
     original_filename: z.string().min(1),
     file_size: z.number().positive(),
     file_type: z.string().min(1),
+    // Credential register fields (ISO yyyy-mm-dd strings for the date columns).
+    issuing_body: z.string().max(120).nullable().optional(),
+    reference_number: z.string().max(120).nullable().optional(),
+    issue_date: z.string().nullable().optional(),
+    expiry_date: z.string().nullable().optional(),
+    expiry_source: z.enum(["entered", "derived", "not_applicable"]).nullable().optional(),
   });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
