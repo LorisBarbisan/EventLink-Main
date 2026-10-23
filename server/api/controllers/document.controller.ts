@@ -1,5 +1,6 @@
 import {
   DOCUMENT_TYPES,
+  DOCUMENT_TYPE_META,
   insertFreelancerDocumentSchema,
   matchRestrictedDocumentTerm,
 } from "@shared/schema";
@@ -18,7 +19,18 @@ export async function uploadDocument(req: Request, res: Response) {
       return res.status(403).json({ error: "Only freelancers can upload documents" });
     }
 
-    const { fileData, filename, contentType, documentType, customTypeName } = req.body;
+    const {
+      fileData,
+      filename,
+      contentType,
+      documentType,
+      customTypeName,
+      issuingBody,
+      referenceNumber,
+      issueDate,
+      expiryDate,
+      expirySource,
+    } = req.body;
 
     if (!fileData || !filename || !contentType || !documentType) {
       return res.status(400).json({
@@ -52,6 +64,43 @@ export async function uploadDocument(req: Request, res: Response) {
         error: "Invalid document type",
         allowed: DOCUMENT_TYPES,
       });
+    }
+
+    // Credential register: job_documents never carry an expiry; credentials must.
+    const meta = DOCUMENT_TYPE_META[documentType as (typeof DOCUMENT_TYPES)[number]];
+    let resolvedIssueDate: string | null = null;
+    let resolvedExpiry: string | null = null;
+    let resolvedExpirySource: "entered" | "derived" | "not_applicable" | null = null;
+
+    if (meta.class === "job_document") {
+      resolvedExpirySource = "not_applicable";
+    } else {
+      if (!expiryDate) {
+        return res.status(400).json({ error: "An expiry date is required for this credential." });
+      }
+      const expiry = new Date(expiryDate);
+      if (Number.isNaN(expiry.getTime())) {
+        return res.status(400).json({ error: "Expiry date is not a valid date." });
+      }
+      const now = new Date();
+      const maxFuture = new Date(now);
+      maxFuture.setFullYear(now.getFullYear() + 10);
+      const maxPast = new Date(now);
+      maxPast.setFullYear(now.getFullYear() - 5);
+      if (expiry.getTime() > maxFuture.getTime()) {
+        return res
+          .status(400)
+          .json({ error: "That expiry date is more than 10 years away — please check it." });
+      }
+      if (expiry.getTime() < maxPast.getTime()) {
+        return res
+          .status(400)
+          .json({ error: "That expiry date is more than 5 years in the past — please check it." });
+      }
+      resolvedIssueDate = issueDate || null;
+      resolvedExpiry = expiryDate;
+      // Trust the client's "derived" marker only; anything else is a typed date.
+      resolvedExpirySource = expirySource === "derived" ? "derived" : "entered";
     }
 
     if (!ALLOWED_FILE_TYPES.includes(contentType)) {
@@ -103,6 +152,11 @@ export async function uploadDocument(req: Request, res: Response) {
       original_filename: filename,
       file_size: actualSize,
       file_type: contentType,
+      issuing_body: meta.class === "credential" ? issuingBody?.trim() || null : null,
+      reference_number: meta.class === "credential" ? referenceNumber?.trim() || null : null,
+      issue_date: resolvedIssueDate,
+      expiry_date: resolvedExpiry,
+      expiry_source: resolvedExpirySource,
     };
 
     const validationResult = insertFreelancerDocumentSchema.safeParse(documentData);

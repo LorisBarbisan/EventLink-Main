@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   index,
   integer,
   json,
@@ -852,6 +853,8 @@ export const DOCUMENT_TYPES = [
   "NRC",
   "PASMA",
   "First Aid",
+  "IRATA",
+  "CSCS",
   "Electrical Safety",
   "Working at Height",
   "Risk Assessment",
@@ -912,6 +915,20 @@ export const DOCUMENT_TYPE_META: Record<
     issuingBodyHint: "Training provider",
     validitySource: "First Aid at Work is valid 3 years (HSE)",
     validityConfirmed: true,
+  },
+  IRATA: {
+    class: "credential",
+    defaultValidityMonths: null,
+    issuingBodyHint: "IRATA",
+    validitySource: "Enter the date by hand (rope-access cert validity to be confirmed)",
+    validityConfirmed: false,
+  },
+  CSCS: {
+    class: "credential",
+    defaultValidityMonths: null,
+    issuingBodyHint: "CSCS",
+    validitySource: "Card validity varies by card type — enter the date by hand",
+    validityConfirmed: false,
   },
   NRC: {
     class: "credential",
@@ -993,6 +1010,31 @@ export function matchRestrictedDocumentTerm(value: string | null | undefined): s
   return null;
 }
 
+// Derived credential status — compute, never store. A stored status goes stale
+// the moment the clock moves.
+export type CredentialStatus = "valid" | "expiring_soon" | "expired" | "incomplete";
+
+export const EXPIRING_SOON_DAYS = 90;
+
+/**
+ * Status of a credential from its expiry date. job_documents don't expire and
+ * are always "valid". A credential with no expiry date is "incomplete" (the
+ * backlog the backfill campaign works through), within 90 days is
+ * "expiring_soon", past is "expired". `now` is injectable for testing.
+ */
+export function credentialStatus(
+  doc: { document_type: DocumentType; expiry_date: string | Date | null | undefined },
+  now: Date = new Date()
+): CredentialStatus {
+  if (DOCUMENT_TYPE_META[doc.document_type].class === "job_document") return "valid";
+  if (!doc.expiry_date) return "incomplete";
+  const expiry = typeof doc.expiry_date === "string" ? new Date(doc.expiry_date) : doc.expiry_date;
+  const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / 86_400_000);
+  if (daysLeft < 0) return "expired";
+  if (daysLeft <= EXPIRING_SOON_DAYS) return "expiring_soon";
+  return "valid";
+}
+
 // Freelancer documents/certifications table
 export const freelancer_documents = pgTable(
   "freelancer_documents",
@@ -1008,9 +1050,24 @@ export const freelancer_documents = pgTable(
     file_size: integer("file_size").notNull(),
     file_type: text("file_type").notNull(),
     uploaded_at: timestamp("uploaded_at", { withTimezone: true }).defaultNow().notNull(),
+    // Credential register (Epic 1). expiry_date is nullable even though the new
+    // upload form makes it mandatory — null marks the backlog the backfill works
+    // through. Never backfill with a guessed value.
+    issuing_body: text("issuing_body"),
+    reference_number: text("reference_number"), // card or policy number
+    issue_date: date("issue_date"),
+    expiry_date: date("expiry_date"),
+    expiry_source: text("expiry_source").$type<"entered" | "derived" | "not_applicable">(),
+    verification_status: text("verification_status")
+      .$type<"self_declared" | "document_on_file" | "scheme_verified">()
+      .notNull()
+      .default("document_on_file"),
+    superseded_by_id: integer("superseded_by_id"), // self-ref; renewal chain
+    archived_at: timestamp("archived_at", { withTimezone: true }),
   },
   (table) => ({
     freelancerIdx: index("freelancer_documents_freelancer_idx").on(table.freelancer_id),
+    expiryIdx: index("freelancer_documents_expiry_idx").on(table.expiry_date),
   })
 );
 
@@ -1018,6 +1075,10 @@ export const insertFreelancerDocumentSchema = createInsertSchema(freelancer_docu
   .omit({
     id: true,
     uploaded_at: true,
+    // Server-managed — never set from the client upload payload.
+    verification_status: true,
+    superseded_by_id: true,
+    archived_at: true,
   })
   .extend({
     freelancer_id: z.number(),
@@ -1027,6 +1088,12 @@ export const insertFreelancerDocumentSchema = createInsertSchema(freelancer_docu
     original_filename: z.string().min(1),
     file_size: z.number().positive(),
     file_type: z.string().min(1),
+    // Credential register fields (ISO yyyy-mm-dd strings for the date columns).
+    issuing_body: z.string().max(120).nullable().optional(),
+    reference_number: z.string().max(120).nullable().optional(),
+    issue_date: z.string().nullable().optional(),
+    expiry_date: z.string().nullable().optional(),
+    expiry_source: z.enum(["entered", "derived", "not_applicable"]).nullable().optional(),
   });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
