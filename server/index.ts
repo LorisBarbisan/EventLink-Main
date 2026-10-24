@@ -10,6 +10,8 @@ import { registerJobNotificationScheduler } from "./api/services/job-notificatio
 import { registerGuestJobNudgeScheduler } from "./api/services/guest-job-nudge.service";
 
 import { registerProfileNudgeScheduler } from "./api/services/profile-nudge-scheduler.service";
+import { registerCredentialReminderScheduler } from "./api/services/credential-reminder-scheduler.service";
+import { ensureAdditiveSchema } from "./api/utils/ensure-additive-schema";
 
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
 import { registerRoutes } from "./routes-modular";
@@ -179,6 +181,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Ensure additive schema (new columns/tables) exists BEFORE any query runs, so
+  // a deploy can't be ahead of the database and break reads/writes. Idempotent.
+  await ensureAdditiveSchema();
+
   // Reconcile admin users on startup
   await reconcileAdminUsers();
   await seedProductionJobs();
@@ -188,6 +194,7 @@ app.use((req, res, next) => {
   registerJobNotificationScheduler();
   registerGuestJobNudgeScheduler();
   registerProfileNudgeScheduler();
+  registerCredentialReminderScheduler();
 
   // OG tag middleware for social media crawlers (must be before Vite catch-all)
   app.use(ogTagMiddleware);
