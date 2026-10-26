@@ -54,6 +54,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   credentialStatus,
   DOCUMENT_TYPE_META,
+  DOCUMENT_TYPES,
   type CredentialStatus,
   type DocumentType,
 } from "@shared/credentials";
@@ -283,7 +284,9 @@ function AdminDashboardContent() {
   // "Add an employer to this team" picker (admin consolidates duplicate companies)
   // Documents tab state
   const [docsSearch, setDocsSearch] = useState("");
-  const [docsNeedsExpiryOnly, setDocsNeedsExpiryOnly] = useState(false);
+  const [docsType, setDocsType] = useState<string>("all");
+  const [docsStatus, setDocsStatus] = useState<string>("all");
+  const [docsSort, setDocsSort] = useState<string>("expiry_asc");
   const [docDateEdits, setDocDateEdits] = useState<
     Record<number, { issueDate: string; expiryDate: string }>
   >({});
@@ -3540,20 +3543,49 @@ function AdminDashboardContent() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
                 <Input
                   placeholder="Search by name, email, type or file…"
                   value={docsSearch}
                   onChange={(e) => setDocsSearch(e.target.value)}
-                  className="sm:max-w-sm"
+                  className="lg:max-w-xs"
                 />
-                <Button
-                  variant={docsNeedsExpiryOnly ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setDocsNeedsExpiryOnly((v) => !v)}
-                >
-                  Needs expiry only
-                </Button>
+                <Select value={docsType} onValueChange={setDocsType}>
+                  <SelectTrigger className="h-9 w-full lg:w-[180px]">
+                    <SelectValue placeholder="All types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All types</SelectItem>
+                    {DOCUMENT_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={docsStatus} onValueChange={setDocsStatus}>
+                  <SelectTrigger className="h-9 w-full lg:w-[170px]">
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="incomplete">No expiry date</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                    <SelectItem value="expiring_soon">Expiring soon</SelectItem>
+                    <SelectItem value="valid">Valid</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={docsSort} onValueChange={setDocsSort}>
+                  <SelectTrigger className="h-9 w-full lg:w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="expiry_asc">Expiry: soonest first</SelectItem>
+                    <SelectItem value="expiry_desc">Expiry: latest first</SelectItem>
+                    <SelectItem value="uploaded_desc">Recently uploaded</SelectItem>
+                    <SelectItem value="name_asc">Freelancer A–Z</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {adminDocsLoading ? (
@@ -3574,19 +3606,61 @@ function AdminDashboardContent() {
                     incomplete: "No expiry date",
                   };
                   const term = docsSearch.trim().toLowerCase();
-                  const rows = adminDocuments.filter((d) => {
-                    const isCred =
-                      DOCUMENT_TYPE_META[d.document_type as DocumentType]?.class === "credential";
-                    if (docsNeedsExpiryOnly && (!isCred || d.expiry_date)) return false;
-                    if (!term) return true;
-                    const label =
-                      d.document_type === "Other" && d.custom_type_name
-                        ? d.custom_type_name
-                        : d.document_type;
-                    return [d.freelancer_name, d.freelancer_email, label, d.original_filename]
-                      .filter(Boolean)
-                      .some((s) => s.toLowerCase().includes(term));
-                  });
+                  const rows = adminDocuments
+                    .filter((d) => {
+                      if (docsType !== "all" && d.document_type !== docsType) return false;
+                      if (docsStatus !== "all") {
+                        // Status applies to credentials only (job documents never expire).
+                        const isCred =
+                          DOCUMENT_TYPE_META[d.document_type as DocumentType]?.class ===
+                          "credential";
+                        if (!isCred) return false;
+                        const st = credentialStatus({
+                          document_type: d.document_type as DocumentType,
+                          expiry_date: d.expiry_date,
+                        });
+                        if (st !== docsStatus) return false;
+                      }
+                      if (term) {
+                        const label =
+                          d.document_type === "Other" && d.custom_type_name
+                            ? d.custom_type_name
+                            : d.document_type;
+                        const hit = [
+                          d.freelancer_name,
+                          d.freelancer_email,
+                          label,
+                          d.original_filename,
+                        ]
+                          .filter(Boolean)
+                          .some((s) => s.toLowerCase().includes(term));
+                        if (!hit) return false;
+                      }
+                      return true;
+                    })
+                    .sort((a, b) => {
+                      const ax = a.expiry_date ?? "";
+                      const bx = b.expiry_date ?? "";
+                      switch (docsSort) {
+                        case "expiry_asc":
+                          // Rows with no expiry date sort to the end.
+                          if (!ax && !bx) return 0;
+                          if (!ax) return 1;
+                          if (!bx) return -1;
+                          return ax.localeCompare(bx);
+                        case "expiry_desc":
+                          if (!ax && !bx) return 0;
+                          if (!ax) return 1;
+                          if (!bx) return -1;
+                          return bx.localeCompare(ax);
+                        case "uploaded_desc":
+                          return (b.uploaded_at ?? "").localeCompare(a.uploaded_at ?? "");
+                        case "name_asc":
+                          return a.freelancer_name.localeCompare(b.freelancer_name);
+                        default:
+                          return 0;
+                      }
+                    });
                   if (rows.length === 0) {
                     return (
                       <p className="py-8 text-center text-sm text-muted-foreground">
