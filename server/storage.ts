@@ -537,6 +537,25 @@ export interface IStorage {
   createFreelancerDocument(document: InsertFreelancerDocument): Promise<FreelancerDocument>;
   deleteFreelancerDocument(documentId: number, freelancerId: number): Promise<void>;
   getIncompleteCredentials(freelancerId: number): Promise<FreelancerDocument[]>;
+  getAdminDocuments(): Promise<
+    Array<{
+      id: number;
+      freelancer_id: number;
+      freelancer_name: string;
+      freelancer_email: string;
+      document_type: string;
+      custom_type_name: string | null;
+      original_filename: string;
+      issue_date: string | null;
+      expiry_date: string | null;
+      verification_status: string | null;
+      uploaded_at: Date;
+    }>
+  >;
+  adminSetDocumentDates(
+    documentId: number,
+    dates: { issue_date: string | null; expiry_date: string }
+  ): Promise<FreelancerDocument | undefined>;
   updateCredentialDates(
     documentId: number,
     freelancerId: number,
@@ -5111,6 +5130,75 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
     return result[0];
+  }
+
+  // Admin: every current (non-archived) document with its owner, for the admin
+  // documents view. Freelancer name/email included so the table needs no extra lookups.
+  async getAdminDocuments(): Promise<
+    Array<{
+      id: number;
+      freelancer_id: number;
+      freelancer_name: string;
+      freelancer_email: string;
+      document_type: string;
+      custom_type_name: string | null;
+      original_filename: string;
+      issue_date: string | null;
+      expiry_date: string | null;
+      verification_status: string | null;
+      uploaded_at: Date;
+    }>
+  > {
+    const rows = await db
+      .select({
+        id: freelancer_documents.id,
+        freelancer_id: freelancer_documents.freelancer_id,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        email: users.email,
+        document_type: freelancer_documents.document_type,
+        custom_type_name: freelancer_documents.custom_type_name,
+        original_filename: freelancer_documents.original_filename,
+        issue_date: freelancer_documents.issue_date,
+        expiry_date: freelancer_documents.expiry_date,
+        verification_status: freelancer_documents.verification_status,
+        uploaded_at: freelancer_documents.uploaded_at,
+      })
+      .from(freelancer_documents)
+      .innerJoin(users, eq(users.id, freelancer_documents.freelancer_id))
+      .where(isNull(freelancer_documents.archived_at))
+      .orderBy(desc(freelancer_documents.uploaded_at));
+
+    return rows.map((r) => ({
+      id: r.id,
+      freelancer_id: r.freelancer_id,
+      freelancer_name: [r.first_name, r.last_name].filter(Boolean).join(" ") || r.email,
+      freelancer_email: r.email,
+      document_type: r.document_type,
+      custom_type_name: r.custom_type_name,
+      original_filename: r.original_filename,
+      issue_date: r.issue_date,
+      expiry_date: r.expiry_date,
+      verification_status: r.verification_status,
+      uploaded_at: r.uploaded_at,
+    }));
+  }
+
+  // Admin: set a document's dates regardless of owner (admins filling in gaps).
+  async adminSetDocumentDates(
+    documentId: number,
+    dates: { issue_date: string | null; expiry_date: string }
+  ): Promise<FreelancerDocument | undefined> {
+    const [row] = await db
+      .update(freelancer_documents)
+      .set({
+        issue_date: dates.issue_date,
+        expiry_date: dates.expiry_date,
+        expiry_source: "entered",
+      })
+      .where(eq(freelancer_documents.id, documentId))
+      .returning();
+    return row;
   }
 
   // Renewal: keep the old credential as history rather than deleting it.

@@ -3,6 +3,8 @@ import {
   addFeedbackResponse,
   adminDeleteUser,
   adminLinkTeamMember,
+  adminUpdateDocumentDates,
+  getAdminDocuments,
   bootstrapCreateFirstAdmin,
   bootstrapGrantAdminAccess,
   exportAdminXLSX,
@@ -101,6 +103,10 @@ export function registerAdminRoutes(app: Express) {
 
   // Admin: link two existing employer accounts as company + team member
   app.post("/api/admin/team/link", requireAdminAuth, adminLinkTeamMember);
+
+  // Admin Documents — see all uploaded docs + fill in missing expiry dates
+  app.get("/api/admin/documents", requireAdminAuth, getAdminDocuments);
+  app.patch("/api/admin/documents/:id/dates", requireAdminAuth, adminUpdateDocumentDates);
 
   // Bootstrap endpoint for initial admin setup (no auth required)
   // Special override endpoint for admin@eventlink.one production access

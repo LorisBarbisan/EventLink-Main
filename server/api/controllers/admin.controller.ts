@@ -1242,3 +1242,61 @@ export async function adminLinkTeamMember(req: Request, res: Response) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+
+// Reject an expiry date more than 10 years out or more than 5 years past.
+function adminExpiryDateError(value: string): string | null {
+  const expiry = new Date(value);
+  if (Number.isNaN(expiry.getTime())) return "Expiry date is not a valid date.";
+  const now = new Date();
+  const maxFuture = new Date(now);
+  maxFuture.setFullYear(now.getFullYear() + 10);
+  const maxPast = new Date(now);
+  maxPast.setFullYear(now.getFullYear() - 5);
+  if (expiry.getTime() > maxFuture.getTime()) return "That expiry date is more than 10 years away.";
+  if (expiry.getTime() < maxPast.getTime())
+    return "That expiry date is more than 5 years in the past.";
+  return null;
+}
+
+// Admin documents view: every current document with owner + expiry status.
+export async function getAdminDocuments(_req: Request, res: Response) {
+  try {
+    const documents = await storage.getAdminDocuments();
+    res.json(documents);
+  } catch (error) {
+    console.error("getAdminDocuments error:", error);
+    res.status(500).json({ error: "Failed to load documents" });
+  }
+}
+
+// Admin sets/corrects a document's expiry (and optional issue) date.
+export async function adminUpdateDocumentDates(req: Request, res: Response) {
+  try {
+    const documentId = parseInt(req.params.id, 10);
+    if (Number.isNaN(documentId)) {
+      return res.status(400).json({ error: "Invalid document id" });
+    }
+    const { issueDate, expiryDate } = req.body as {
+      issueDate?: string | null;
+      expiryDate?: string;
+    };
+    if (!expiryDate) {
+      return res.status(400).json({ error: "An expiry date is required" });
+    }
+    const err = adminExpiryDateError(expiryDate);
+    if (err) {
+      return res.status(400).json({ error: err });
+    }
+    const updated = await storage.adminSetDocumentDates(documentId, {
+      issue_date: issueDate || null,
+      expiry_date: expiryDate,
+    });
+    if (!updated) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+    res.json({ success: true, document: updated });
+  } catch (error) {
+    console.error("adminUpdateDocumentDates error:", error);
+    res.status(500).json({ error: "Failed to update document dates" });
+  }
+}

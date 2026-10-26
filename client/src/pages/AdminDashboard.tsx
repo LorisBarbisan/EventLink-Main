@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -51,6 +51,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import {
+  credentialStatus,
+  DOCUMENT_TYPE_META,
+  type CredentialStatus,
+  type DocumentType,
+} from "@shared/credentials";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { trackAdminAnalytics } from "@/lib/analytics";
@@ -275,6 +281,12 @@ function AdminDashboardContent() {
   const [teamsPage, setTeamsPage] = useState(1);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   // "Add an employer to this team" picker (admin consolidates duplicate companies)
+  // Documents tab state
+  const [docsSearch, setDocsSearch] = useState("");
+  const [docsNeedsExpiryOnly, setDocsNeedsExpiryOnly] = useState(false);
+  const [docDateEdits, setDocDateEdits] = useState<
+    Record<number, { issueDate: string; expiryDate: string }>
+  >({});
   const [addMemberSearch, setAddMemberSearch] = useState("");
   const [addMemberRole, setAddMemberRole] = useState<"manager" | "admin">("manager");
   const [addMemberUserId, setAddMemberUserId] = useState<number | null>(null);
@@ -798,6 +810,51 @@ function AdminDashboardContent() {
     },
   });
 
+  // Admin documents list
+  interface AdminDocument {
+    id: number;
+    freelancer_id: number;
+    freelancer_name: string;
+    freelancer_email: string;
+    document_type: string;
+    custom_type_name: string | null;
+    original_filename: string;
+    issue_date: string | null;
+    expiry_date: string | null;
+    verification_status: string | null;
+    uploaded_at: string;
+  }
+
+  const { data: adminDocuments = [], isLoading: adminDocsLoading } = useQuery<AdminDocument[]>({
+    queryKey: ["/api/admin/documents"],
+    queryFn: () => apiRequest("/api/admin/documents"),
+    enabled: activeTab === "documents",
+  });
+
+  const updateDocDatesMutation = useMutation({
+    mutationFn: (vars: { id: number; issueDate: string | null; expiryDate: string }) =>
+      apiRequest(`/api/admin/documents/${vars.id}/dates`, {
+        method: "PATCH",
+        body: JSON.stringify({ issueDate: vars.issueDate, expiryDate: vars.expiryDate }),
+      }),
+    onSuccess: (_data, vars) => {
+      toast({ title: "Expiry date saved", description: "The document has been updated." });
+      setDocDateEdits((prev) => {
+        const next = { ...prev };
+        delete next[vars.id];
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/documents"] });
+    },
+    onError: (err: unknown) => {
+      toast({
+        title: "Could not save",
+        description: err instanceof Error ? err.message : "Please check the date and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Send job alert emails mutation
   const sendAlertsMutation = useMutation({
     mutationFn: ({ jobId, userIds }: { jobId: number; userIds?: number[] }) =>
@@ -1088,13 +1145,14 @@ function AdminDashboardContent() {
               <SelectItem value="jobs">Jobs</SelectItem>
               <SelectItem value="users">Users</SelectItem>
               <SelectItem value="teams">Teams</SelectItem>
+              <SelectItem value="documents">Documents</SelectItem>
               <SelectItem value="admin-management">Admin</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* Desktop: tab bar */}
-        <TabsList className="hidden w-full grid-cols-8 gap-1 p-1 sm:grid">
+        <TabsList className="hidden w-full grid-cols-9 gap-1 p-1 sm:grid">
           <TabsTrigger value="overview" className="flex items-center justify-center gap-2 text-sm">
             <TrendingUp className="h-4 w-4" />
             Overview
@@ -1128,6 +1186,10 @@ function AdminDashboardContent() {
           <TabsTrigger value="teams" className="flex items-center justify-center gap-2 text-sm">
             <Building2 className="h-4 w-4" />
             Teams
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex items-center justify-center gap-2 text-sm">
+            <FileText className="h-4 w-4" />
+            Documents
           </TabsTrigger>
           <TabsTrigger
             value="admin-management"
@@ -3459,6 +3521,189 @@ function AdminDashboardContent() {
                     </div>
                   )}
                 </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Documents Tab */}
+        <TabsContent value="documents" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Uploaded Documents
+              </CardTitle>
+              <CardDescription>
+                Every freelancer document on file. Add a missing expiry date so renewal reminders
+                can run for that credential.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Input
+                  placeholder="Search by name, email, type or file…"
+                  value={docsSearch}
+                  onChange={(e) => setDocsSearch(e.target.value)}
+                  className="sm:max-w-sm"
+                />
+                <Button
+                  variant={docsNeedsExpiryOnly ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDocsNeedsExpiryOnly((v) => !v)}
+                >
+                  Needs expiry only
+                </Button>
+              </div>
+
+              {adminDocsLoading ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+              ) : (
+                (() => {
+                  const STATUS_CLASS: Record<CredentialStatus, string> = {
+                    valid: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
+                    expiring_soon:
+                      "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200",
+                    expired: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
+                    incomplete: "bg-muted text-muted-foreground",
+                  };
+                  const STATUS_LABEL: Record<CredentialStatus, string> = {
+                    valid: "Valid",
+                    expiring_soon: "Expiring soon",
+                    expired: "Expired",
+                    incomplete: "No expiry date",
+                  };
+                  const term = docsSearch.trim().toLowerCase();
+                  const rows = adminDocuments.filter((d) => {
+                    const isCred =
+                      DOCUMENT_TYPE_META[d.document_type as DocumentType]?.class === "credential";
+                    if (docsNeedsExpiryOnly && (!isCred || d.expiry_date)) return false;
+                    if (!term) return true;
+                    const label =
+                      d.document_type === "Other" && d.custom_type_name
+                        ? d.custom_type_name
+                        : d.document_type;
+                    return [d.freelancer_name, d.freelancer_email, label, d.original_filename]
+                      .filter(Boolean)
+                      .some((s) => s.toLowerCase().includes(term));
+                  });
+                  if (rows.length === 0) {
+                    return (
+                      <p className="py-8 text-center text-sm text-muted-foreground">
+                        No documents match.
+                      </p>
+                    );
+                  }
+                  return (
+                    <div className="overflow-x-auto rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Freelancer</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>File</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Expiry date</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rows.map((d) => {
+                            const isCred =
+                              DOCUMENT_TYPE_META[d.document_type as DocumentType]?.class ===
+                              "credential";
+                            const status = credentialStatus({
+                              document_type: d.document_type as DocumentType,
+                              expiry_date: d.expiry_date,
+                            });
+                            const label =
+                              d.document_type === "Other" && d.custom_type_name
+                                ? d.custom_type_name
+                                : d.document_type;
+                            const edit = docDateEdits[d.id];
+                            const expiryValue = edit ? edit.expiryDate : (d.expiry_date ?? "");
+                            const dirty =
+                              !!edit &&
+                              !!edit.expiryDate &&
+                              edit.expiryDate !== (d.expiry_date ?? "");
+                            return (
+                              <TableRow key={d.id}>
+                                <TableCell className="py-2">
+                                  <a
+                                    href={`/profile/${d.freelancer_id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium text-primary hover:underline"
+                                  >
+                                    {d.freelancer_name}
+                                  </a>
+                                  <div className="text-xs text-muted-foreground">
+                                    {d.freelancer_email}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-2 text-sm">{label}</TableCell>
+                                <TableCell className="py-2 text-xs text-muted-foreground">
+                                  <span className="block max-w-[180px] truncate">
+                                    {d.original_filename}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="py-2">
+                                  {isCred ? (
+                                    <span
+                                      className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${STATUS_CLASS[status]}`}
+                                    >
+                                      {STATUS_LABEL[status]}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">No expiry</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="py-2">
+                                  {isCred ? (
+                                    <Input
+                                      type="date"
+                                      className="h-8 w-[150px]"
+                                      value={expiryValue}
+                                      onChange={(e) =>
+                                        setDocDateEdits((prev) => ({
+                                          ...prev,
+                                          [d.id]: {
+                                            issueDate: d.issue_date ?? "",
+                                            expiryDate: e.target.value,
+                                          },
+                                        }))
+                                      }
+                                    />
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="py-2 text-right">
+                                  {isCred && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={!dirty || updateDocDatesMutation.isPending}
+                                      onClick={() =>
+                                        updateDocDatesMutation.mutate({
+                                          id: d.id,
+                                          issueDate: d.issue_date ?? null,
+                                          expiryDate: expiryValue,
+                                        })
+                                      }
+                                    >
+                                      Save
+                                    </Button>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  );
+                })()
               )}
             </CardContent>
           </Card>
