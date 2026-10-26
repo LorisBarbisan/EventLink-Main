@@ -1146,17 +1146,14 @@ export async function sendBulkMessages(req: Request, res: Response) {
         });
 
         // Send the FULL message as a branded EventLink email (not just a preview).
-        // Non-blocking — an email failure doesn't abort the loop.
-        const recipientName =
-          recipient.first_name && recipient.last_name
-            ? `${recipient.first_name} ${recipient.last_name}`
-            : recipient.email;
+        // Greeting uses the first name only. Non-blocking — a failure doesn't abort.
+        const greetingName = recipient.first_name?.trim() || "there";
 
         sendEmail({
           to: recipient.email,
           subject: broadcastSubject,
-          text: buildBroadcastText(recipientName, message.trim()),
-          html: buildBroadcastEmailHtml(recipientName, message.trim()),
+          text: buildBroadcastText(greetingName, message.trim()),
+          html: buildBroadcastEmailHtml(greetingName, message.trim()),
           fromName: "EventLink Team",
         }).catch((err: unknown) =>
           console.error(`Bulk message email failed for user ${recipient.id}:`, err)
