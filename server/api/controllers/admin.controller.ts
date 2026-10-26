@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import ExcelJS from "exceljs";
 import { storage } from "../../storage";
 import { generateJWTToken } from "../utils/auth.util";
-import { sendContactReplyEmail } from "../utils/emailService";
+import { sendContactReplyEmail, sendEmail } from "../utils/emailService";
 import { emailService } from "../utils/emailNotificationService";
 import { db } from "../config/db";
 import { teamMembers, users } from "../../../shared/schema";
@@ -1018,6 +1018,47 @@ export async function exportAdminXLSX(req: Request, res: Response) {
 }
 
 // Send bulk in-app messages to filtered users (admin only)
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Renders an admin broadcast as a full branded EventLink email (same navy/orange
+// template as the automatic emails), carrying the whole message — not a preview.
+function buildBroadcastEmailHtml(recipientName: string, body: string): string {
+  const site = "https://eventlink.one";
+  const bodyHtml = escapeHtml(body).replace(/\r?\n/g, "<br/>");
+  return `
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+<body style="margin:0;padding:0;background-color:#F3F4F6;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F3F4F6;padding:32px 16px;"><tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+      <tr><td style="background-color:#1B2A4A;padding:28px 36px 20px 36px;border-bottom:4px solid #D8690E;">
+        <p style="margin:0;font-size:22px;font-weight:bold;color:#D8690E;letter-spacing:1px;">EventLink</p>
+        <p style="margin:4px 0 0 0;font-size:12px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.5px;">Event Industry Professional Network</p>
+      </td></tr>
+      <tr><td style="padding:36px 36px 24px 36px;">
+        <p style="margin:0 0 16px 0;font-size:16px;color:#1F2937;">Hi ${escapeHtml(recipientName)},</p>
+        <div style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">${bodyHtml}</div>
+        <p style="margin:24px 0 0 0;font-size:14px;color:#374151;">The EventLink Team<br/><a href="${site}" style="color:#D8690E;text-decoration:none;">eventlink.one</a></p>
+      </td></tr>
+      <tr><td style="background-color:#F9FAFB;padding:20px 36px;border-top:1px solid #E5E7EB;">
+        <p style="margin:0;font-size:12px;color:#9CA3AF;line-height:1.6;">You are receiving this because you have an EventLink account. You can reply to this message from your dashboard.</p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`.trim();
+}
+
+function buildBroadcastText(recipientName: string, body: string): string {
+  return `Hi ${recipientName},\n\n${body}\n\nThe EventLink Team\neventlink.one`;
+}
+
 export async function sendBulkMessages(req: Request, res: Response) {
   try {
     const adminUser = (req as any).user;
@@ -1078,6 +1119,11 @@ export async function sendBulkMessages(req: Request, res: Response) {
         ? `${adminUser.first_name} ${adminUser.last_name}`
         : "EventLink";
 
+    const broadcastSubject =
+      typeof emailSubject === "string" && emailSubject.trim()
+        ? emailSubject.trim()
+        : "A message from EventLink";
+
     for (const recipient of recipients) {
       try {
         const conversation = await storage.getOrCreateConversation(adminUser.id, recipient.id);
@@ -1099,30 +1145,22 @@ export async function sendBulkMessages(req: Request, res: Response) {
           action_url: conversationUrl,
         });
 
-        // Send email notification (non-blocking — failures don't abort the loop)
+        // Send the FULL message as a branded EventLink email (not just a preview).
+        // Non-blocking — an email failure doesn't abort the loop.
         const recipientName =
           recipient.first_name && recipient.last_name
             ? `${recipient.first_name} ${recipient.last_name}`
             : recipient.email;
-        const messagePreview =
-          message.trim().length > 150 ? `${message.trim().substring(0, 150)}...` : message.trim();
 
-        emailService
-          .sendMessageNotification({
-            recipientId: recipient.id,
-            recipientEmail: recipient.email,
-            recipientName,
-            senderName: adminName,
-            messagePreview,
-            conversationId: conversation.id,
-            emailSubject:
-              typeof emailSubject === "string" && emailSubject.trim()
-                ? emailSubject.trim()
-                : undefined,
-          })
-          .catch((err: any) =>
-            console.error(`Bulk message email failed for user ${recipient.id}:`, err)
-          );
+        sendEmail({
+          to: recipient.email,
+          subject: broadcastSubject,
+          text: buildBroadcastText(recipientName, message.trim()),
+          html: buildBroadcastEmailHtml(recipientName, message.trim()),
+          fromName: "EventLink Team",
+        }).catch((err: unknown) =>
+          console.error(`Bulk message email failed for user ${recipient.id}:`, err)
+        );
 
         sent++;
       } catch (err) {
