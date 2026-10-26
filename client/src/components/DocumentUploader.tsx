@@ -666,7 +666,7 @@ export function DocumentUploader({
               <Button
                 key={doc.id}
                 onClick={() => (isSignedIn ? handleDownload(doc) : redirectToAuth())}
-                className="bg-gradient-primary hover:bg-primary-hover h-10 w-[140px] text-sm"
+                className="bg-gradient-primary hover:bg-primary-hover h-auto min-h-10 max-w-full whitespace-normal break-words px-4 py-2 text-center text-sm leading-snug"
               >
                 {doc.document_type === "Other" && doc.custom_type_name
                   ? doc.custom_type_name
@@ -783,7 +783,7 @@ export function DocumentBadges({ freelancerId, viewerRole, isOwner }: DocumentBa
             }
             handleDownload(doc);
           }}
-          className="bg-gradient-primary hover:bg-primary-hover h-10 w-[140px] text-sm"
+          className="bg-gradient-primary hover:bg-primary-hover h-auto min-h-10 max-w-full whitespace-normal break-words px-4 py-2 text-center text-sm leading-snug"
         >
           {doc.document_type === "Other" && doc.custom_type_name
             ? doc.custom_type_name
