@@ -27,7 +27,11 @@ function stageForDays(days: number): CredentialReminderStage | null {
   if (days >= 28 && days <= 30) return "d30";
   if (days >= 6 && days <= 7) return "d7";
   if (days === 0) return "day_of";
-  if (days >= -8 && days <= -7) return "overdue";
+  // Any credential 7+ days past expiry that hasn't had an overdue nudge yet gets
+  // one. The ledger's unique (document, 'overdue') guard means it still fires
+  // exactly once — so this also catches credentials dated as already-expired
+  // during backfill (which never went through the 90→7-day run-up).
+  if (days <= -7) return "overdue";
   return null;
 }
 
@@ -186,7 +190,11 @@ async function createInAppNotification(batch: FreelancerBatch): Promise<void> {
     count === 1
       ? `${batch.due[0].typeLabel} ${STAGE_PHRASE[batch.due[0].stage]}`
       : `${count} credentials need renewing`;
-  const lines = batch.due.map((d) => `${d.typeLabel} — expires ${fmt(d.expiry)}`).join("; ");
+  const lines = batch.due
+    .map(
+      (d) => `${d.typeLabel} — ${d.stage === "overdue" ? "expired on" : "expires"} ${fmt(d.expiry)}`
+    )
+    .join("; ");
   await storage.createNotification({
     user_id: batch.freelancerId,
     type: "credential_expiry",
@@ -210,11 +218,16 @@ async function sendReminderEmail(batch: FreelancerBatch): Promise<boolean> {
     batch.unsubscribeToken ? `&token=${batch.unsubscribeToken}` : ""
   }`;
 
-  const itemsText = batch.due.map((d) => `• ${d.typeLabel} — expires ${fmt(d.expiry)}`).join("\n");
+  const itemsText = batch.due
+    .map(
+      (d) =>
+        `• ${d.typeLabel} — ${d.stage === "overdue" ? "expired on" : "expires"} ${fmt(d.expiry)}`
+    )
+    .join("\n");
   const itemsHtml = batch.due
     .map(
       (d) =>
-        `<li style="margin:0 0 6px 0;"><strong>${d.typeLabel}</strong> — expires ${fmt(d.expiry)}</li>`
+        `<li style="margin:0 0 6px 0;"><strong>${d.typeLabel}</strong> — ${d.stage === "overdue" ? "expired on" : "expires"} ${fmt(d.expiry)}</li>`
     )
     .join("");
 
