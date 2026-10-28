@@ -97,6 +97,18 @@ import {
   freelancerLocationCondition,
 } from "./api/utils/freelancer-search.util";
 
+// User shapes that are safe to send to clients: never include password hashes or auth tokens.
+export type PublicUserSummary = Pick<User, "id" | "role" | "first_name" | "last_name">;
+export type SafeUser = Omit<
+  User,
+  | "password"
+  | "email_verification_token"
+  | "email_verification_expires"
+  | "password_reset_token"
+  | "password_reset_expires"
+  | "unsubscribe_token"
+>;
+
 export interface IStorage {
   // User management
   getUser(id: number): Promise<User | undefined>;
@@ -345,7 +357,7 @@ export interface IStorage {
   getRatingByJobApplication(jobApplicationId: number): Promise<Rating | undefined>;
   getFreelancerRatings(
     freelancerId: number
-  ): Promise<Array<Rating & { recruiter: User; job_title?: string }>>;
+  ): Promise<Array<Rating & { recruiter: PublicUserSummary; job_title?: string }>>;
   getFreelancerAverageRating(freelancerId: number): Promise<{ average: number; count: number }>;
   canRecruiterRateFreelancer(
     recruiterId: number,
@@ -361,7 +373,7 @@ export interface IStorage {
   updateRating(ratingId: number, updates: Partial<Rating>): Promise<Rating | undefined>;
   getAllRatings(filters?: {
     status?: string;
-  }): Promise<Array<Rating & { recruiter: User; job_title?: string }>>;
+  }): Promise<Array<Rating & { recruiter: SafeUser; job_title?: string }>>;
 
   createRatingRequestWithNotification(
     request: InsertRatingRequest,
@@ -373,10 +385,10 @@ export interface IStorage {
   getRatingRequestByJobApplication(jobApplicationId: number): Promise<RatingRequest | undefined>;
   getRecruiterRatingRequests(
     recruiterId: number
-  ): Promise<Array<RatingRequest & { freelancer: User; job_title?: string }>>;
+  ): Promise<Array<RatingRequest & { freelancer: PublicUserSummary; job_title?: string }>>;
   getFreelancerRatingRequests(
     freelancerId: number
-  ): Promise<Array<RatingRequest & { recruiter: User; job_title?: string }>>;
+  ): Promise<Array<RatingRequest & { recruiter: PublicUserSummary; job_title?: string }>>;
   updateRatingRequestStatus(
     requestId: number,
     status: "completed" | "declined"
@@ -384,7 +396,7 @@ export interface IStorage {
 
   // Feedback management for admin dashboard
   createFeedback(feedback: InsertFeedback): Promise<Feedback>;
-  getAllFeedback(status?: string, type?: string): Promise<Array<Feedback & { user?: User }>>;
+  getAllFeedback(status?: string, type?: string): Promise<Array<Feedback & { user?: SafeUser }>>;
   getFeedbackById(id: number): Promise<Feedback | undefined>;
   updateFeedbackStatus(
     id: number,
@@ -394,7 +406,7 @@ export interface IStorage {
   addAdminResponse(id: number, response: string, adminUserId: number): Promise<Feedback>;
   getFeedbackByStatus(
     status: "pending" | "in_review" | "resolved" | "closed"
-  ): Promise<Array<Feedback & { user?: User }>>;
+  ): Promise<Array<Feedback & { user?: SafeUser }>>;
   getFeedbackStats(): Promise<{
     total: number;
     pending: number;
@@ -3991,7 +4003,7 @@ export class DatabaseStorage implements IStorage {
 
   async getFreelancerRatings(
     freelancerId: number
-  ): Promise<Array<Rating & { recruiter: User; job_title?: string }>> {
+  ): Promise<Array<Rating & { recruiter: PublicUserSummary; job_title?: string }>> {
     const result = await db
       .select({
         id: ratings.id,
@@ -4007,19 +4019,9 @@ export class DatabaseStorage implements IStorage {
         updated_at: ratings.updated_at,
         recruiter: {
           id: users.id,
-          email: users.email,
           role: users.role,
           first_name: users.first_name,
           last_name: users.last_name,
-          email_verified: users.email_verified,
-          email_verification_token: users.email_verification_token,
-          email_verification_expires: users.email_verification_expires,
-          password_reset_token: users.password_reset_token,
-          password_reset_expires: users.password_reset_expires,
-          created_at: users.created_at,
-          updated_at: users.updated_at,
-          password: users.password,
-          status: users.status,
         },
         job_title: jobs.title,
       })
@@ -4035,7 +4037,7 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(ratings.created_at));
 
-    return result as Array<Rating & { recruiter: User; job_title?: string }>;
+    return result as Array<Rating & { recruiter: PublicUserSummary; job_title?: string }>;
   }
 
   async updateRating(ratingId: number, updates: Partial<Rating>): Promise<Rating | undefined> {
@@ -4049,7 +4051,7 @@ export class DatabaseStorage implements IStorage {
 
   async getAllRatings(filters?: {
     status?: string;
-  }): Promise<Array<Rating & { recruiter: User; job_title?: string }>> {
+  }): Promise<Array<Rating & { recruiter: SafeUser; job_title?: string }>> {
     const conditions = [];
     if (filters?.status) {
       if (filters.status === "flagged") {
@@ -4079,13 +4081,8 @@ export class DatabaseStorage implements IStorage {
           first_name: users.first_name,
           last_name: users.last_name,
           email_verified: users.email_verified,
-          email_verification_token: users.email_verification_token,
-          email_verification_expires: users.email_verification_expires,
-          password_reset_token: users.password_reset_token,
-          password_reset_expires: users.password_reset_expires,
           created_at: users.created_at,
           updated_at: users.updated_at,
-          password: users.password,
           status: users.status,
         },
         job_title: jobs.title,
@@ -4223,7 +4220,7 @@ export class DatabaseStorage implements IStorage {
 
   async getRecruiterRatingRequests(
     recruiterId: number
-  ): Promise<Array<RatingRequest & { freelancer: User; job_title?: string }>> {
+  ): Promise<Array<RatingRequest & { freelancer: PublicUserSummary; job_title?: string }>> {
     const result = await db
       .select({
         id: rating_requests.id,
@@ -4237,18 +4234,9 @@ export class DatabaseStorage implements IStorage {
         updated_at: rating_requests.updated_at,
         freelancer: {
           id: users.id,
-          email: users.email,
           role: users.role,
           first_name: users.first_name,
           last_name: users.last_name,
-          email_verified: users.email_verified,
-          email_verification_token: users.email_verification_token,
-          email_verification_expires: users.email_verification_expires,
-          password_reset_token: users.password_reset_token,
-          password_reset_expires: users.password_reset_expires,
-          created_at: users.created_at,
-          updated_at: users.updated_at,
-          password: users.password,
         },
         job_title: jobs.title,
       })
@@ -4259,12 +4247,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(rating_requests.recruiter_id, recruiterId))
       .orderBy(desc(rating_requests.requested_at));
 
-    return result as Array<RatingRequest & { freelancer: User; job_title?: string }>;
+    return result as Array<RatingRequest & { freelancer: PublicUserSummary; job_title?: string }>;
   }
 
   async getFreelancerRatingRequests(
     freelancerId: number
-  ): Promise<Array<RatingRequest & { recruiter: User; job_title?: string }>> {
+  ): Promise<Array<RatingRequest & { recruiter: PublicUserSummary; job_title?: string }>> {
     const result = await db
       .select({
         id: rating_requests.id,
@@ -4278,18 +4266,9 @@ export class DatabaseStorage implements IStorage {
         updated_at: rating_requests.updated_at,
         recruiter: {
           id: users.id,
-          email: users.email,
           role: users.role,
           first_name: users.first_name,
           last_name: users.last_name,
-          email_verified: users.email_verified,
-          email_verification_token: users.email_verification_token,
-          email_verification_expires: users.email_verification_expires,
-          password_reset_token: users.password_reset_token,
-          password_reset_expires: users.password_reset_expires,
-          created_at: users.created_at,
-          updated_at: users.updated_at,
-          password: users.password,
         },
         job_title: jobs.title,
       })
@@ -4300,7 +4279,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(rating_requests.freelancer_id, freelancerId))
       .orderBy(desc(rating_requests.requested_at));
 
-    return result as Array<RatingRequest & { recruiter: User; job_title?: string }>;
+    return result as Array<RatingRequest & { recruiter: PublicUserSummary; job_title?: string }>;
   }
 
   async updateRatingRequestStatus(
@@ -4328,7 +4307,10 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getAllFeedback(status?: string, type?: string): Promise<Array<Feedback & { user?: User }>> {
+  async getAllFeedback(
+    status?: string,
+    type?: string
+  ): Promise<Array<Feedback & { user?: SafeUser }>> {
     const conditions = [];
 
     if (status && status !== "all") {
@@ -4363,13 +4345,8 @@ export class DatabaseStorage implements IStorage {
           first_name: users.first_name,
           last_name: users.last_name,
           email_verified: users.email_verified,
-          email_verification_token: users.email_verification_token,
-          email_verification_expires: users.email_verification_expires,
-          password_reset_token: users.password_reset_token,
-          password_reset_expires: users.password_reset_expires,
           created_at: users.created_at,
           updated_at: users.updated_at,
-          password: users.password,
           auth_provider: users.auth_provider,
           google_id: users.google_id,
           facebook_id: users.facebook_id,
@@ -4388,7 +4365,7 @@ export class DatabaseStorage implements IStorage {
 
     const result = await query.orderBy(desc(feedback.created_at));
 
-    return result as Array<Feedback & { user?: User }>;
+    return result as Array<Feedback & { user?: SafeUser }>;
   }
 
   async getFeedbackById(id: number): Promise<Feedback | undefined> {
@@ -4434,7 +4411,7 @@ export class DatabaseStorage implements IStorage {
 
   async getFeedbackByStatus(
     status: "pending" | "in_review" | "resolved" | "closed"
-  ): Promise<Array<Feedback & { user?: User }>> {
+  ): Promise<Array<Feedback & { user?: SafeUser }>> {
     const result = await db
       .select({
         id: feedback.id,
@@ -4459,13 +4436,8 @@ export class DatabaseStorage implements IStorage {
           first_name: users.first_name,
           last_name: users.last_name,
           email_verified: users.email_verified,
-          email_verification_token: users.email_verification_token,
-          email_verification_expires: users.email_verification_expires,
-          password_reset_token: users.password_reset_token,
-          password_reset_expires: users.password_reset_expires,
           created_at: users.created_at,
           updated_at: users.updated_at,
-          password: users.password,
           auth_provider: users.auth_provider,
           google_id: users.google_id,
           facebook_id: users.facebook_id,
@@ -4480,7 +4452,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(feedback.status, status))
       .orderBy(desc(feedback.created_at));
 
-    return result as Array<Feedback & { user?: User }>;
+    return result as Array<Feedback & { user?: SafeUser }>;
   }
 
   async getFeedbackStats(): Promise<{
