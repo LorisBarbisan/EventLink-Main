@@ -8,6 +8,7 @@ import {
   VerificationBadge,
   DomainTrustIndicator,
   EventLinkMemberBadge,
+  ratingBadge,
   ReferenceBadges,
 } from "@/components/ReferenceBadges";
 import { StandaloneRatingDialog } from "@/components/StandaloneRatingDialog";
@@ -292,12 +293,7 @@ function ClientFeedbackSection({
       .map((r: any) => ({ kind: "reference" as const, data: r })),
   ].sort((a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime());
 
-  // Star ratings count towards the same tallies as references:
-  // 5 stars = Highly Recommended, 4 stars = Recommended, 3 or fewer aren't tallied
-  // (matching how a "mixed" reference gets no public badge).
-  const ratingBadge = (stars: number) =>
-    stars >= 5 ? "highly_recommended" : stars === 4 ? "recommended" : null;
-
+  // Star ratings count towards the same tallies as references (see ratingBadge).
   const badgeCounts = (["highly_recommended", "recommended", "work_history_confirmed"] as const)
     .map((badge) => ({
       badge,
