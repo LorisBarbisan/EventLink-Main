@@ -7,6 +7,7 @@ import {
   BADGE_CONFIG,
   VerificationBadge,
   DomainTrustIndicator,
+  EventLinkMemberBadge,
   ReferenceBadges,
 } from "@/components/ReferenceBadges";
 import { StandaloneRatingDialog } from "@/components/StandaloneRatingDialog";
@@ -291,15 +292,18 @@ function ClientFeedbackSection({
       .map((r: any) => ({ kind: "reference" as const, data: r })),
   ].sort((a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime());
 
-  const ratedReviews = ratings.filter((r: any) => r.rating);
-  const averageStars = ratedReviews.length
-    ? ratedReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / ratedReviews.length
-    : 0;
+  // Star ratings count towards the same tallies as references:
+  // 5 stars = Highly Recommended, 4 stars = Recommended, 3 or fewer aren't tallied
+  // (matching how a "mixed" reference gets no public badge).
+  const ratingBadge = (stars: number) =>
+    stars >= 5 ? "highly_recommended" : stars === 4 ? "recommended" : null;
 
   const badgeCounts = (["highly_recommended", "recommended", "work_history_confirmed"] as const)
     .map((badge) => ({
       badge,
-      count: references.filter((r: any) => r.badge_result === badge).length,
+      count:
+        references.filter((r: any) => r.badge_result === badge).length +
+        ratings.filter((r: any) => ratingBadge(r.rating) === badge).length,
     }))
     .filter((b) => b.count > 0);
 
@@ -317,13 +321,6 @@ function ClientFeedbackSection({
         </CardHeader>
         <CardContent>
           <div className="mb-4 flex flex-wrap gap-2">
-            {ratedReviews.length > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-yellow-300 bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-800">
-                <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
-                {averageStars.toFixed(1)} · {ratedReviews.length}{" "}
-                {ratedReviews.length === 1 ? "rating" : "ratings"}
-              </span>
-            )}
             {badgeCounts.map(({ badge, count }) => {
               const cfg = BADGE_CONFIG[badge];
               return (
@@ -357,7 +354,7 @@ function ClientFeedbackSection({
                                 {d.recruiter?.last_name ? ` ${d.recruiter.last_name}` : ""}
                                 {d.job_title ? ` · ${d.job_title}` : ""}
                               </p>
-                              <StarRating rating={d.rating} readonly size="sm" />
+                              {d.recruiter?.id && <EventLinkMemberBadge userId={d.recruiter.id} />}
                             </>
                           ) : (
                             <>
