@@ -737,6 +737,17 @@ export default function Profile() {
     }
   }, [user, location, freelancerProfile, setLocation, profile]); // Added setLocation to dependencies
 
+  // Navigating between profiles (e.g. a reviewer's "EventLink Member" badge) reuses this
+  // component, so clear the previous profile or it would keep rendering instead of the new one.
+  useEffect(() => {
+    setProfile(null);
+    setFreelancerProfile(null);
+    setRecruiterProfile(null);
+    setLoading(true);
+    setProfileDataLoaded(false);
+    window.scrollTo(0, 0);
+  }, [userId]);
+
   useEffect(() => {
     if (!authLoading) {
       if (userId) {
