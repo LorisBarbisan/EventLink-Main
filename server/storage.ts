@@ -1724,8 +1724,20 @@ export class DatabaseStorage implements IStorage {
         .groupBy(freelancer_references.freelancer_id)
         .as("ref_counts");
 
+      // Subquery: 4-5 star job reviews per freelancer. These show on profiles as
+      // Recommended / Highly Recommended, so they rank the same as a reference.
+      const reviewCountsSq = db
+        .select({
+          freelancer_id: ratings.freelancer_id,
+          review_count: sql<number>`COUNT(*)::int`.as("review_count"),
+        })
+        .from(ratings)
+        .where(and(ne(ratings.status, "removed"), gte(ratings.rating, 4)))
+        .groupBy(ratings.freelancer_id)
+        .as("review_counts");
+
       // Fetch other results (excluding EventLink)
-      // Order: profiles with references first (most → fewest), then by join date (newest first)
+      // Order: most recommendations (references + 4-5 star reviews) first, then by join date (newest first)
       const otherResults = await db
         .select({
           id: freelancer_profiles.id,
@@ -1755,9 +1767,10 @@ export class DatabaseStorage implements IStorage {
         .from(freelancer_profiles)
         .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
         .leftJoin(refCountsSq, eq(freelancer_profiles.user_id, refCountsSq.freelancer_id))
+        .leftJoin(reviewCountsSq, eq(freelancer_profiles.user_id, reviewCountsSq.freelancer_id))
         .where(and(...excludeEventlinkConditions))
         .orderBy(
-          sql`COALESCE(${refCountsSq.ref_count}, 0) DESC`,
+          sql`COALESCE(${refCountsSq.ref_count}, 0) + COALESCE(${reviewCountsSq.review_count}, 0) DESC`,
           desc(freelancer_profiles.created_at)
         )
         .limit(effectiveLimit)

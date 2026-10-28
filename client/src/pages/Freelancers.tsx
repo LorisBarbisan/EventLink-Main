@@ -10,16 +10,7 @@ import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  Bookmark,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  MapPin,
-  Search,
-  Star,
-  User,
-} from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, Loader2, MapPin, Search, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { usePageSeo } from "@/hooks/usePageSeo";
@@ -416,12 +407,6 @@ export default function Freelancers() {
                         </div>
                       )}
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                        {freelancer.rating > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 fill-current text-yellow-500" />
-                            <span>{freelancer.rating.toFixed(1)}</span>
-                          </div>
-                        )}
                         <Badge
                           variant={
                             freelancer.availability === "Available" ? "default" : "secondary"

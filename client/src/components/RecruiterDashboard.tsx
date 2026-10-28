@@ -38,7 +38,6 @@ import {
   MapPin,
   Plus,
   Search,
-  Star,
   User,
   Users,
 } from "lucide-react";
@@ -974,15 +973,6 @@ export default function SimplifiedRecruiterDashboard() {
                           <div className="mb-2 flex items-center gap-1 text-xs text-muted-foreground">
                             <MapPin className="h-3 w-3" />
                             {[freelancer.location, freelancer.country].filter(Boolean).join(", ")}
-                          </div>
-                        )}
-
-                        {freelancer.average_rating > 0 && (
-                          <div className="mb-2 flex items-center gap-1 text-xs">
-                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            <span className="font-medium">
-                              {Number(freelancer.average_rating).toFixed(1)}
-                            </span>
                           </div>
                         )}
 
