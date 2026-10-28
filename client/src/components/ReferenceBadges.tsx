@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ShieldCheck, UserCheck, Mail, Linkedin, Building2, Star } from "lucide-react";
+import { Link } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const RATING_LABELS: Record<string, { label: string; stars: number }> = {
@@ -10,20 +11,66 @@ const RATING_LABELS: Record<string, { label: string; stars: number }> = {
 };
 
 export const BADGE_CONFIG: Record<string, { label: string; colour: string; icon: string }> = {
-  highly_recommended: { label: "Highly Recommended", colour: "bg-green-100 text-green-800 border-green-300", icon: "⭐" },
-  recommended: { label: "Recommended", colour: "bg-emerald-100 text-emerald-800 border-emerald-300", icon: "✅" },
-  work_history_confirmed: { label: "Work History Confirmed", colour: "bg-blue-100 text-blue-800 border-blue-300", icon: "🔵" },
+  highly_recommended: {
+    label: "Highly Recommended",
+    colour: "bg-green-100 text-green-800 border-green-300",
+    icon: "⭐",
+  },
+  recommended: {
+    label: "Recommended",
+    colour: "bg-emerald-100 text-emerald-800 border-emerald-300",
+    icon: "✅",
+  },
+  work_history_confirmed: {
+    label: "Work History Confirmed",
+    colour: "bg-blue-100 text-blue-800 border-blue-300",
+    icon: "🔵",
+  },
 };
 
-export const VERIFICATION_BADGE: Record<string, { label: string; colour: string; icon: typeof ShieldCheck }> = {
-  eventlink_member: { label: "EventLink Member", colour: "bg-green-50 text-green-700 border-green-400", icon: UserCheck },
-  linkedin: { label: "LinkedIn Verified", colour: "bg-sky-50 text-sky-700 border-sky-300", icon: Linkedin },
-  email: { label: "Email Verified", colour: "bg-amber-50 text-amber-700 border-amber-300", icon: Mail },
+export const VERIFICATION_BADGE: Record<
+  string,
+  { label: string; colour: string; icon: typeof ShieldCheck }
+> = {
+  eventlink_member: {
+    label: "EventLink Member",
+    colour: "bg-green-50 text-green-700 border-green-400",
+    icon: UserCheck,
+  },
+  linkedin: {
+    label: "LinkedIn Verified",
+    colour: "bg-sky-50 text-sky-700 border-sky-300",
+    icon: Linkedin,
+  },
+  email: {
+    label: "Email Verified",
+    colour: "bg-amber-50 text-amber-700 border-amber-300",
+    icon: Mail,
+  },
 };
+
+// "EventLink Member" badge that links to that member's EventLink profile.
+export function EventLinkMemberBadge({ userId }: { userId: number }) {
+  const config = VERIFICATION_BADGE.eventlink_member;
+  const Icon = config.icon;
+  return (
+    <Link
+      href={`/profile/${userId}`}
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-opacity hover:opacity-80 ${config.colour}`}
+      title="View their EventLink profile"
+    >
+      <Icon className="h-3 w-3" />
+      {config.label}
+    </Link>
+  );
+}
 
 export function VerificationBadge({ reference }: { reference: any }) {
   const vType = reference.verification_type;
   if (!vType || vType === "none") return null;
+  if (vType === "eventlink_member" && reference.eventlink_user_id) {
+    return <EventLinkMemberBadge userId={reference.eventlink_user_id} />;
+  }
   const config = VERIFICATION_BADGE[vType];
   if (!config) return null;
   const Icon = config.icon;
@@ -34,12 +81,10 @@ export function VerificationBadge({ reference }: { reference: any }) {
     if (reference.linkedin_title) detail += `, ${reference.linkedin_title}`;
     if (reference.linkedin_company) detail += ` at ${reference.linkedin_company}`;
   }
-  if (vType === "eventlink_member" && reference.eventlink_user_id) {
-    detail = "";
-  }
-
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${config.colour}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${config.colour}`}
+    >
       <Icon className="h-3 w-3" />
       {config.label}
       {detail && <span className="ml-0.5 font-normal">— {detail}</span>}
@@ -50,7 +95,11 @@ export function VerificationBadge({ reference }: { reference: any }) {
 export function DomainTrustIndicator({ level }: { level: string | null }) {
   if (!level) return null;
   if (level === "high") {
-    return <span className="inline-flex items-center gap-0.5 text-[10px] text-green-600 font-medium"><ShieldCheck className="h-2.5 w-2.5" /> Corporate email</span>;
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-green-600">
+        <ShieldCheck className="h-2.5 w-2.5" /> Corporate email
+      </span>
+    );
   }
   return null;
 }
@@ -68,7 +117,15 @@ function useReferences(freelancerId: number) {
   });
 }
 
-function ReferenceListPopup({ references, open, onOpenChange }: { references: any[]; open: boolean; onOpenChange: (open: boolean) => void }) {
+function ReferenceListPopup({
+  references,
+  open,
+  onOpenChange,
+}: {
+  references: any[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -78,25 +135,32 @@ function ReferenceListPopup({ references, open, onOpenChange }: { references: an
             References ({references.length})
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
           {references.map((ref: any) => {
             const badge = BADGE_CONFIG[ref.badge_result];
             const rating = RATING_LABELS[ref.q2_rating];
             return (
-              <div key={ref.id} className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 last:border-0">
-                <div className="flex-1 min-w-0">
+              <div
+                key={ref.id}
+                className="flex items-center justify-between gap-3 border-b border-gray-100 py-2 last:border-0"
+              >
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-sm font-medium truncate">{ref.referee_organisation || "Organisation not specified"}</span>
+                    <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate text-sm font-medium">
+                      {ref.referee_organisation || "Organisation not specified"}
+                    </span>
                   </div>
                   {badge && (
-                    <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full border mt-1 ${badge.colour}`}>
+                    <span
+                      className={`mt-1 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-medium ${badge.colour}`}
+                    >
                       {badge.icon} {badge.label}
                     </span>
                   )}
                 </div>
                 {rating && (
-                  <div className="flex items-center gap-0.5 shrink-0">
+                  <div className="flex shrink-0 items-center gap-0.5">
                     {Array.from({ length: rating.stars }).map((_, i) => (
                       <Star key={i} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                     ))}
@@ -127,8 +191,12 @@ export function ReferenceBadges({ freelancerId }: { freelancerId: number }) {
     }
   }
 
-  const verifiedCount = references.filter((r: any) => r.verification_type && r.verification_type !== "none").length;
-  const topBadge = ["highly_recommended", "recommended", "work_history_confirmed"].find(b => counts[b]);
+  const verifiedCount = references.filter(
+    (r: any) => r.verification_type && r.verification_type !== "none"
+  ).length;
+  const topBadge = ["highly_recommended", "recommended", "work_history_confirmed"].find(
+    (b) => counts[b]
+  );
   if (!topBadge) return null;
 
   const cfg = BADGE_CONFIG[topBadge];
@@ -139,18 +207,27 @@ export function ReferenceBadges({ freelancerId }: { freelancerId: number }) {
       <div
         role="button"
         tabIndex={0}
-        className="flex items-center gap-2 mt-1 flex-wrap cursor-pointer hover:opacity-80 transition-opacity"
+        className="mt-1 flex cursor-pointer flex-wrap items-center gap-2 transition-opacity hover:opacity-80"
         onClick={() => setPopupOpen(true)}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPopupOpen(true); } }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setPopupOpen(true);
+          }
+        }}
         title="Click to view references"
       >
-        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${cfg.colour}`}>
+        <span
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${cfg.colour}`}
+        >
           <ShieldCheck className="h-3.5 w-3.5" />
           {cfg.icon} {cfg.label}
         </span>
-        <span className="text-xs text-muted-foreground">{total} reference{total !== 1 ? "s" : ""}</span>
+        <span className="text-xs text-muted-foreground">
+          {total} reference{total !== 1 ? "s" : ""}
+        </span>
         {verifiedCount > 0 && (
-          <span className="text-xs text-green-600 font-medium">{verifiedCount} verified</span>
+          <span className="text-xs font-medium text-green-600">{verifiedCount} verified</span>
         )}
       </div>
       <ReferenceListPopup references={references} open={popupOpen} onOpenChange={setPopupOpen} />
@@ -171,7 +248,9 @@ export function CompactReferenceBadge({ freelancerId }: { freelancerId: number }
     }
   }
 
-  const topBadge = ["highly_recommended", "recommended", "work_history_confirmed"].find(b => counts[b]);
+  const topBadge = ["highly_recommended", "recommended", "work_history_confirmed"].find(
+    (b) => counts[b]
+  );
   if (!topBadge) return null;
 
   const cfg = BADGE_CONFIG[topBadge];
@@ -182,12 +261,24 @@ export function CompactReferenceBadge({ freelancerId }: { freelancerId: number }
       <div
         role="button"
         tabIndex={0}
-        className="flex items-center gap-1.5 mt-1 cursor-pointer hover:opacity-80 transition-opacity"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPopupOpen(true); }}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setPopupOpen(true); } }}
+        className="mt-1 flex cursor-pointer items-center gap-1.5 transition-opacity hover:opacity-80"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setPopupOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            setPopupOpen(true);
+          }
+        }}
         title="Click to view references"
       >
-        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full border ${cfg.colour}`}>
+        <span
+          className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-medium ${cfg.colour}`}
+        >
           <ShieldCheck className="h-3 w-3" />
           {cfg.icon} {cfg.label}
         </span>
