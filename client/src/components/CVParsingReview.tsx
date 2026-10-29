@@ -89,6 +89,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
   const { toast } = useToast();
   const { subscribe } = useWebSocket();
   const [dismissed, setDismissed] = useState(false);
+  const autoAppliedRef = useRef(false);
   const [selectedFields, setSelectedFields] = useState<Record<string, boolean>>({
     fullName: true,
     title: true,
@@ -198,6 +199,29 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
       });
     },
   });
+
+  // Reset the one-time auto-apply flag whenever a new parse begins.
+  useEffect(() => {
+    if (parsingStatus?.status === "parsing" || parsingStatus?.status === "pending") {
+      autoAppliedRef.current = false;
+    }
+  }, [parsingStatus?.status]);
+
+  // Apply the parsed fields automatically the moment parsing completes, so the
+  // profile is filled without extra clicks (this is what keeps completion high).
+  // The freelancer can then Dismiss the suggestions card, or edit any field on
+  // their profile.
+  useEffect(() => {
+    if (
+      parsingStatus?.status === "completed" &&
+      parsingStatus.extractedData &&
+      !autoAppliedRef.current &&
+      !confirmMutation.isPending
+    ) {
+      autoAppliedRef.current = true;
+      confirmMutation.mutate(selectedFields);
+    }
+  }, [parsingStatus?.status, parsingStatus?.extractedData, confirmMutation, selectedFields]);
 
   const rejectMutation = useMutation({
     mutationFn: async () => apiRequest("/api/cv/parse/reject", { method: "POST" }),
@@ -343,11 +367,11 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="h-5 w-5 text-green-600" />
-            We found this in your CV
+            We&apos;ve filled your profile from your CV
           </CardTitle>
           <CardDescription>
-            Nothing has been added to your profile yet. Untick anything you don&apos;t want, then
-            choose &ldquo;Add to my profile&rdquo; — or dismiss these suggestions entirely.
+            These details have been added to your profile. Edit anything that needs changing on your
+            profile below — or Dismiss to hide these suggestions.
           </CardDescription>
         </CardHeader>
 
@@ -466,7 +490,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                     </div>
                   </div>
                   <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                    Found
+                    Applied
                   </Badge>
                 </div>
               </div>
@@ -510,7 +534,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                     </div>
                   </div>
                   <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                    Found
+                    Applied
                   </Badge>
                 </div>
               </div>
@@ -568,7 +592,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                     </div>
                   </div>
                   <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                    Found
+                    Applied
                   </Badge>
                 </div>
               </div>
@@ -616,7 +640,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
                     </div>
                   </div>
                   <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-                    Found
+                    Applied
                   </Badge>
                 </div>
               </div>
@@ -625,7 +649,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
         </CardContent>
 
         <Separator />
-        <CardFooter className="flex flex-wrap items-center justify-between gap-2 pt-4">
+        <CardFooter className="flex items-center justify-start pt-4">
           <Button
             variant="ghost"
             size="sm"
@@ -638,22 +662,6 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
               <XCircle className="mr-2 h-4 w-4" />
             )}
             Dismiss
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => confirmMutation.mutate(selectedFields)}
-            disabled={
-              confirmMutation.isPending ||
-              rejectMutation.isPending ||
-              !Object.values(selectedFields).some(Boolean)
-            }
-          >
-            {confirmMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="mr-2 h-4 w-4" />
-            )}
-            Add to my profile
           </Button>
         </CardFooter>
       </Card>
@@ -698,7 +706,7 @@ function FieldRow({ id, label, value, checked, onToggle, clamp, confidence }: Fi
         </div>
       </div>
       <Badge variant="secondary" className="w-fit shrink-0 text-xs sm:self-start">
-        Found
+        Applied
       </Badge>
     </div>
   );
