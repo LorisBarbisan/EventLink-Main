@@ -414,7 +414,9 @@ export default function Freelancers() {
                           className={
                             freelancer.availability === "Available"
                               ? "bg-green-100 text-green-800"
-                              : ""
+                              : freelancer.availability === "Busy"
+                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                                : ""
                           }
                         >
                           {freelancer.availability}
