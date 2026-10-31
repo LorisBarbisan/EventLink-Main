@@ -208,6 +208,7 @@ export interface IStorage {
   ): Promise<number | null>;
   updateJob(jobId: number, job: Partial<InsertJob>): Promise<Job | undefined>;
   deleteJob(jobId: number): Promise<void>;
+  softDeleteJob(jobId: number): Promise<void>;
   searchJobs(filters: {
     keyword?: string;
     location?: string;
@@ -1848,11 +1849,15 @@ export class DatabaseStorage implements IStorage {
   // Job management methods
 
   async getAllJobs(): Promise<Job[]> {
-    return await db.select().from(jobs);
+    return await db.select().from(jobs).where(isNull(jobs.deleted_at));
   }
 
   async getAllJobsSortedByDate(): Promise<Job[]> {
-    return await db.select().from(jobs).orderBy(desc(jobs.created_at));
+    return await db
+      .select()
+      .from(jobs)
+      .where(isNull(jobs.deleted_at))
+      .orderBy(desc(jobs.created_at));
   }
 
   async getAdminJobs(
@@ -1877,6 +1882,9 @@ export class DatabaseStorage implements IStorage {
   }> {
     const offset = (page - 1) * limit;
     const conditions = [];
+
+    // Exclude soft-deleted jobs from the admin job list
+    conditions.push(isNull(jobs.deleted_at));
 
     if (search) {
       const searchLower = search.toLowerCase();
@@ -2188,7 +2196,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(jobs)
-      .where(eq(jobs.recruiter_id, recruiterId))
+      .where(and(eq(jobs.recruiter_id, recruiterId), isNull(jobs.deleted_at)))
       .orderBy(desc(jobs.created_at));
   }
 
@@ -2200,7 +2208,13 @@ export class DatabaseStorage implements IStorage {
     const jobRows = await db
       .select()
       .from(jobs)
-      .where(and(eq(jobs.posted_by_user_id, userId), eq(jobs.poster_type, "freelancer")))
+      .where(
+        and(
+          eq(jobs.posted_by_user_id, userId),
+          eq(jobs.poster_type, "freelancer"),
+          isNull(jobs.deleted_at)
+        )
+      )
       .orderBy(desc(jobs.created_at));
 
     if (jobRows.length === 0) return [];
@@ -2269,12 +2283,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getJobById(jobId: number): Promise<Job | undefined> {
-    const result = await db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1);
+    const result = await db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.id, jobId), isNull(jobs.deleted_at)))
+      .limit(1);
     return result[0];
   }
 
   async getJobBySlug(slug: string): Promise<Job | undefined> {
-    const result = await db.select().from(jobs).where(eq(jobs.slug, slug)).limit(1);
+    const result = await db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.slug, slug), isNull(jobs.deleted_at)))
+      .limit(1);
     return result[0];
   }
 
@@ -2302,7 +2324,9 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select()
       .from(jobs)
-      .where(and(ilike(jobs.title, `%${role}%`), eq(jobs.status, "active")))
+      .where(
+        and(ilike(jobs.title, `%${role}%`), eq(jobs.status, "active"), isNull(jobs.deleted_at))
+      )
       .orderBy(desc(jobs.created_at))
       .limit(limit);
     return result;
@@ -2312,7 +2336,9 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select()
       .from(jobs)
-      .where(and(ilike(jobs.location, `%${city}%`), eq(jobs.status, "active")))
+      .where(
+        and(ilike(jobs.location, `%${city}%`), eq(jobs.status, "active"), isNull(jobs.deleted_at))
+      )
       .orderBy(desc(jobs.created_at))
       .limit(limit);
     return result;
@@ -2379,6 +2405,20 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJob(jobId: number): Promise<void> {
     await db.delete(jobs).where(eq(jobs.id, jobId));
+
+    // Clear cached job and application lists
+    cache.clear();
+  }
+
+  // Soft delete: mark the job deleted and hide it from all listings, but keep
+  // the row so applicants retain their application history (a hard delete
+  // cascades job_applications away). Used for the employer/admin delete action;
+  // the hard deleteJob above stays for aggregator duplicate cleanup.
+  async softDeleteJob(jobId: number): Promise<void> {
+    await db
+      .update(jobs)
+      .set({ deleted_at: new Date(), status: "closed", updated_at: new Date() })
+      .where(eq(jobs.id, jobId));
 
     // Clear cached job and application lists
     cache.clear();
@@ -2469,6 +2509,9 @@ export class DatabaseStorage implements IStorage {
 
       // Build conditions array
       const conditions = [];
+
+      // Never show soft-deleted jobs
+      conditions.push(isNull(jobs.deleted_at));
 
       // Show active jobs + jobs closed within the last 24 hours
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -5558,6 +5601,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(jobs.status, "active"),
+          isNull(jobs.deleted_at),
           eq(jobs.notification_batch_window as any, window),
           isNull(jobs.notification_sent_at as any),
           eq(jobs.is_urgent as any, false)
@@ -6041,7 +6085,11 @@ export class DatabaseStorage implements IStorage {
       .from(jobs)
       .leftJoin(users, eq(jobs.posted_by_user_id, users.id))
       .where(
-        and(eq(jobs.poster_type as any, "guest"), eq(jobs.moderation_status as any, "pending"))
+        and(
+          eq(jobs.poster_type as any, "guest"),
+          eq(jobs.moderation_status as any, "pending"),
+          isNull(jobs.deleted_at)
+        )
       )
       .orderBy(asc(jobs.created_at));
     return rows.map((r) => ({ ...r.job, contact_email: r.contact_email ?? null }));
