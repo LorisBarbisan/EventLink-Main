@@ -532,7 +532,10 @@ export async function deleteJob(req: Request, res: Response) {
       });
     }
 
-    await storage.deleteJob(jobId);
+    // Soft delete: hides the job from all listings but keeps the row, so
+    // freelancers who applied retain their application history (a hard delete
+    // cascades job_applications away).
+    await storage.softDeleteJob(jobId);
 
     res.set("Cache-Control", "no-store");
     res.json({

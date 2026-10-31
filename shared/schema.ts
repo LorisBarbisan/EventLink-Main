@@ -197,6 +197,7 @@ export const jobs = pgTable("jobs", {
   days: integer("days"), // Number of days if duration_type = 'days'
   hours: integer("hours"), // Number of hours if duration_type = 'hours'
   status: text("status").default("private").$type<"active" | "paused" | "closed" | "private">(),
+  deleted_at: timestamp("deleted_at", { withTimezone: true }), // NULL = live; timestamp = soft-deleted by employer/admin (applications are preserved)
   external_id: text("external_id"), // For external job IDs (reed_123, adzuna_456)
   external_source: text("external_source").$type<
     "reed" | "adzuna" | "jooble" | "careerjet" | "jsearch" | null

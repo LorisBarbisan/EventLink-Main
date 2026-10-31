@@ -35,6 +35,10 @@ const STATEMENTS = [
      round1_sent_at timestamptz,
      round2_sent_at timestamptz
    )`,
+  // Job soft-delete: deleting a job marks it deleted instead of removing the
+  // row, so applicants keep their application history (job_applications.job_id
+  // cascades on a hard delete).
+  `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS deleted_at timestamptz`,
 ];
 
 export async function ensureAdditiveSchema(): Promise<void> {
