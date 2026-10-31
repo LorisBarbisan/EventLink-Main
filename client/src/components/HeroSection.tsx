@@ -6,9 +6,11 @@ import { Link } from "wouter";
 export const HeroSection = () => {
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-background via-secondary/20 to-background">
-      <div className="container mx-auto px-4 py-10 lg:py-14">
-        <div className="mx-auto max-w-3xl space-y-6 text-center">
-          <div className="flex items-center justify-center gap-3">
+      <div className="container mx-auto px-4 py-6 sm:py-10 lg:py-14">
+        <div className="mx-auto max-w-3xl space-y-5 text-center sm:space-y-6">
+          {/* Logo is hidden on mobile — the header already shows one, and a second
+              one here pushes the primary actions below the fold. */}
+          <div className="hidden items-center justify-center gap-3 sm:flex">
             <img
               src={eventlinkLogo}
               alt="EventLink Logo"
@@ -21,13 +23,13 @@ export const HeroSection = () => {
             />
           </div>
 
-          <h1 className="text-center text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
+          <h1 className="text-center text-3xl font-bold leading-tight sm:text-5xl lg:text-6xl">
             EventLink: <span className="text-primary">the freelance</span>{" "}
             <span className="text-accent">events crew</span>{" "}
             <span className="text-primary">network</span>
           </h1>
 
-          <p className="text-xl leading-relaxed text-muted-foreground">
+          <p className="text-base leading-relaxed text-muted-foreground sm:text-xl">
             EventLink is where freelance event professionals build trusted profiles, showcase their
             experience, and connect with the companies that power live events - get seen and grow
             your network - all in one place.

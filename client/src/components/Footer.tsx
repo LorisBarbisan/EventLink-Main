@@ -9,6 +9,10 @@ export const Footer = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Give every footer nav link/button a 44px minimum tap height so stacked
+  // links on mobile are comfortable to hit (Apple/Android tap-target guidance).
+  const footerLink = "inline-flex min-h-[44px] items-center hover:text-foreground";
+
   return (
     <footer className="mt-auto border-t">
       <div style={{ backgroundColor: "#F4F2EE" }}>
@@ -30,18 +34,14 @@ export const Footer = () => {
               </h4>
               <ul className="space-y-1 text-xs text-muted-foreground">
                 <li>
-                  <Link
-                    to="/jobs"
-                    className="hover:text-foreground"
-                    data-testid="footer-link-browse-jobs"
-                  >
+                  <Link to="/jobs" className={footerLink} data-testid="footer-link-browse-jobs">
                     Browse Jobs
                   </Link>
                 </li>
                 <li>
                   <button
                     onClick={() => setLocation(user ? "/dashboard" : "/auth")}
-                    className="hover:text-foreground"
+                    className={footerLink}
                     data-testid="footer-button-create-profile"
                   >
                     Create Profile
@@ -50,7 +50,7 @@ export const Footer = () => {
                 <li>
                   <Link
                     to="/how-it-works"
-                    className="hover:text-foreground"
+                    className={footerLink}
                     data-testid="footer-link-how-it-works"
                   >
                     How Does It Work
@@ -67,7 +67,7 @@ export const Footer = () => {
                 <li>
                   <Link
                     to="/freelancers"
-                    className="hover:text-foreground"
+                    className={footerLink}
                     data-testid="footer-link-find-crew"
                   >
                     Find Crew
@@ -89,7 +89,7 @@ export const Footer = () => {
                         setLocation("/dashboard?tab=jobs&action=post");
                       }
                     }}
-                    className="hover:text-foreground"
+                    className={footerLink}
                     data-testid="footer-button-post-job"
                   >
                     Post a Job
@@ -98,7 +98,7 @@ export const Footer = () => {
                 <li>
                   <Link
                     to="/auth?tab=signup"
-                    className="hover:text-foreground"
+                    className={footerLink}
                     data-testid="footer-link-company-signup"
                   >
                     Get Started
@@ -113,25 +113,17 @@ export const Footer = () => {
               </h4>
               <ul className="space-y-1 text-xs text-muted-foreground">
                 <li>
-                  <Link
-                    to="/contact-us"
-                    className="hover:text-foreground"
-                    data-testid="footer-link-contact"
-                  >
+                  <Link to="/contact-us" className={footerLink} data-testid="footer-link-contact">
                     Contact Us
                   </Link>
                 </li>
                 <li>
-                  <Link to="/faq" className="hover:text-foreground" data-testid="footer-link-faq">
+                  <Link to="/faq" className={footerLink} data-testid="footer-link-faq">
                     FAQ
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    to="/about"
-                    className="hover:text-foreground"
-                    data-testid="footer-link-about"
-                  >
+                  <Link to="/about" className={footerLink} data-testid="footer-link-about">
                     About
                   </Link>
                 </li>
@@ -140,17 +132,13 @@ export const Footer = () => {
                     href="/terms-of-use.pdf"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-foreground"
+                    className={footerLink}
                   >
                     Terms &amp; Conditions
                   </a>
                 </li>
                 <li>
-                  <Link
-                    to="/privacy"
-                    className="hover:text-foreground"
-                    data-testid="footer-link-privacy"
-                  >
+                  <Link to="/privacy" className={footerLink} data-testid="footer-link-privacy">
                     Privacy Policy
                   </Link>
                 </li>
