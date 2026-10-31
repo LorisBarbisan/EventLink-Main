@@ -1,4 +1,4 @@
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   clearClientAuthState,
   clearSignedOutMark,
@@ -64,11 +64,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // Dev convenience login — never on invite/auth pages or after explicit sign-out
-      if (
-        import.meta.env.DEV &&
-        !wasSignedOut() &&
-        !isPublicAuthPath()
-      ) {
+      if (import.meta.env.DEV && !wasSignedOut() && !isPublicAuthPath()) {
         fetch("/api/auth/dev-admin-login")
           .then((r) => r.json())
           .then((data) => {
@@ -141,6 +137,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       persistAuthSession(result.token, result.user);
+      // Drop any cached queries from a previous/anonymous session so the fresh
+      // session always refetches current data (e.g. the dashboard applications
+      // list) — a safety net against any missed cache invalidation.
+      queryClient.clear();
       setUser(result.user);
 
       return { error: null, user: result.user as User, token: result.token as string };
