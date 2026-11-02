@@ -4,6 +4,23 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertCircle,
@@ -13,6 +30,9 @@ import {
   TrendingUp,
   RefreshCw,
   Download,
+  Plus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { KitTab } from "./KitTab";
 
@@ -52,14 +72,20 @@ interface EarningsEntry {
   id: number;
   description: string | null;
   work_date: string;
+  work_end_date?: string | null;
   gross_amount_pence: number;
   currency: string;
   status: string;
+  source?: string;
   needs_review: boolean;
   client_id: number | null;
+  client_name?: string | null;
   invoice_id: number | null;
   paid_date: string | null;
   paid_amount_pence: number | null;
+  unit?: string | null;
+  quantity?: string | null;
+  notes?: string | null;
 }
 
 interface SummaryGroup {
@@ -159,16 +185,303 @@ function ExportCard() {
   );
 }
 
+// ── Gig dialog (add / edit manual entries) ───────────────────────────────────
+
+interface GigForm {
+  description: string;
+  client_name: string;
+  work_date: string;
+  work_end_date: string;
+  unit: "day" | "hour" | "job";
+  quantity: string;
+  gross_amount: string;
+  currency: string;
+  status: "expected" | "paid";
+  paid_date: string;
+  notes: string;
+}
+
+const EMPTY_FORM: GigForm = {
+  description: "",
+  client_name: "",
+  work_date: "",
+  work_end_date: "",
+  unit: "day",
+  quantity: "1",
+  gross_amount: "",
+  currency: "GBP",
+  status: "expected",
+  paid_date: "",
+  notes: "",
+};
+
+function GigDialog({
+  open,
+  onClose,
+  editing,
+  clients,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editing: EarningsEntry | null;
+  clients: Array<{ id: number; name: string }>;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<GigForm>(EMPTY_FORM);
+
+  // Reset form when dialog opens
+  useState(() => {
+    if (open) {
+      if (editing) {
+        setForm({
+          description: editing.description ?? "",
+          client_name: editing.client_name ?? "",
+          work_date: editing.work_date?.slice(0, 10) ?? "",
+          work_end_date: editing.work_end_date?.slice(0, 10) ?? "",
+          unit: (editing.unit as GigForm["unit"]) ?? "day",
+          quantity: String(editing.quantity ?? 1),
+          gross_amount:
+            editing.gross_amount_pence != null ? (editing.gross_amount_pence / 100).toFixed(2) : "",
+          currency: editing.currency ?? "GBP",
+          status: (editing.status as GigForm["status"]) ?? "expected",
+          paid_date: editing.paid_date?.slice(0, 10) ?? "",
+          notes: editing.notes ?? "",
+        });
+      } else {
+        setForm(EMPTY_FORM);
+      }
+    }
+  });
+
+  const set = (k: keyof GigForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const saveMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      editing
+        ? apiRequest(`/api/earnings/${editing.id}`, { method: "PATCH", body: JSON.stringify(body) })
+        : apiRequest("/api/earnings", { method: "POST", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      toast({ title: editing ? "Gig updated" : "Gig added" });
+      onClose();
+    },
+    onError: (e: Error) =>
+      toast({ title: "Failed to save", description: e.message, variant: "destructive" }),
+  });
+
+  const handleSave = () => {
+    if (!form.description.trim() || !form.work_date || !form.gross_amount) return;
+    saveMutation.mutate({
+      description: form.description.trim(),
+      client_name: form.client_name.trim() || null,
+      work_date: form.work_date,
+      work_end_date: form.work_end_date || null,
+      unit: form.unit,
+      quantity: parseFloat(form.quantity) || 1,
+      gross_amount: parseFloat(form.gross_amount),
+      currency: form.currency,
+      status: form.status,
+      paid_date: form.status === "paid" ? form.paid_date || form.work_date : null,
+      notes: form.notes || null,
+    });
+  };
+
+  const clientNames = clients.map((c) => c.name);
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{editing ? "Edit gig" : "Add gig"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1">
+            <Label htmlFor="gig-desc">Job / gig description *</Label>
+            <Input
+              id="gig-desc"
+              placeholder="e.g. Wedding photography, Corporate AV"
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="gig-client">Client name</Label>
+            <Input
+              id="gig-client"
+              list="gig-clients-list"
+              placeholder="Type or pick an existing client"
+              value={form.client_name}
+              onChange={(e) => set("client_name", e.target.value)}
+            />
+            <datalist id="gig-clients-list">
+              {clientNames.map((n) => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="gig-date">Work date *</Label>
+              <Input
+                id="gig-date"
+                type="date"
+                value={form.work_date}
+                onChange={(e) => set("work_date", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="gig-end">End date (optional)</Label>
+              <Input
+                id="gig-end"
+                type="date"
+                value={form.work_end_date}
+                onChange={(e) => set("work_end_date", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label>Unit</Label>
+              <Select value={form.unit} onValueChange={(v) => set("unit", v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day">Per day</SelectItem>
+                  <SelectItem value="hour">Per hour</SelectItem>
+                  <SelectItem value="job">Per job</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="gig-qty">Qty</Label>
+              <Input
+                id="gig-qty"
+                type="number"
+                min="0.5"
+                step="0.5"
+                value={form.quantity}
+                onChange={(e) => set("quantity", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Currency</Label>
+              <Select value={form.currency} onValueChange={(v) => set("currency", v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="GBP">GBP £</SelectItem>
+                  <SelectItem value="EUR">EUR €</SelectItem>
+                  <SelectItem value="USD">USD $</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="gig-amount">Total amount *</Label>
+            <Input
+              id="gig-amount"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={form.gross_amount}
+              onChange={(e) => set("gross_amount", e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Enter the full amount you&apos;re owed or were paid (not the day rate).
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Status</Label>
+              <Select value={form.status} onValueChange={(v) => set("status", v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="expected">Expected / owed</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {form.status === "paid" && (
+              <div className="space-y-1">
+                <Label htmlFor="gig-paid-date">Date paid</Label>
+                <Input
+                  id="gig-paid-date"
+                  type="date"
+                  value={form.paid_date}
+                  onChange={(e) => set("paid_date", e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="gig-notes">Notes (optional)</Label>
+            <Textarea
+              id="gig-notes"
+              rows={2}
+              placeholder="Any extra details…"
+              value={form.notes}
+              onChange={(e) => set("notes", e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={
+              saveMutation.isPending ||
+              !form.description.trim() ||
+              !form.work_date ||
+              !form.gross_amount
+            }
+          >
+            {editing ? "Save changes" : "Add gig"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Top-level tabs ─────────────────────────────────────────────────────────────
 
 export function BooksTab() {
   const [section, setSection] = useState<"earnings" | "kit">("earnings");
+  const [gigDialogOpen, setGigDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery<EarningsData>({
     queryKey: ["/api/earnings/summary"],
     queryFn: () => apiRequest("/api/earnings/summary").then((r) => r.json()),
+  });
+
+  const { data: clients = [] } = useQuery<Array<{ id: number; name: string }>>({
+    queryKey: ["/api/earnings/clients"],
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/earnings/${id}/archive`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      toast({ title: "Entry removed" });
+    },
+    onError: () => toast({ title: "Failed to remove entry", variant: "destructive" }),
   });
 
   const backfillMutation = useMutation({
@@ -183,6 +496,15 @@ export function BooksTab() {
     },
     onError: () => toast({ title: "Backfill failed", variant: "destructive" }),
   });
+
+  const openAdd = () => {
+    setEditingEntry(null);
+    setGigDialogOpen(true);
+  };
+  const openEdit = (e: EarningsEntry) => {
+    setEditingEntry(e);
+    setGigDialogOpen(true);
+  };
 
   const sectionSwitcher = (
     <div className="flex w-fit gap-1 rounded-md border p-1">
@@ -363,17 +685,23 @@ export function BooksTab() {
             <BookOpen className="h-4 w-4" />
             Full gig log
           </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => backfillMutation.mutate()}
-            disabled={backfillMutation.isPending}
-          >
-            <RefreshCw
-              className={`mr-2 h-3 w-3 ${backfillMutation.isPending ? "animate-spin" : ""}`}
-            />
-            Sync past bookings
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={openAdd}>
+              <Plus className="mr-1 h-3 w-3" />
+              Add gig
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => backfillMutation.mutate()}
+              disabled={backfillMutation.isPending}
+            >
+              <RefreshCw
+                className={`mr-2 h-3 w-3 ${backfillMutation.isPending ? "animate-spin" : ""}`}
+              />
+              Sync bookings
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {entries.length === 0 ? (
@@ -381,9 +709,13 @@ export function BooksTab() {
               <BookOpen className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
               <p className="mb-1 font-medium text-muted-foreground">No entries yet</p>
               <p className="text-sm text-muted-foreground">
-                Entries are created automatically when bookings complete. Use &ldquo;Sync past
-                bookings&rdquo; to import your history.
+                Add a gig manually, or use &ldquo;Sync bookings&rdquo; to import completed EventLink
+                bookings.
               </p>
+              <Button className="mt-4" size="sm" onClick={openAdd}>
+                <Plus className="mr-1 h-3 w-3" />
+                Add your first gig
+              </Button>
             </div>
           ) : (
             <div className="space-y-2">
@@ -399,15 +731,34 @@ export function BooksTab() {
                       <p className="truncate text-sm font-medium">
                         {entry.description ?? "Freelance work"}
                       </p>
-                      <p className="text-xs text-muted-foreground">{fmtDate(entry.work_date)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {fmtDate(entry.work_date)}
+                        {entry.client_name ? ` · ${entry.client_name}` : ""}
+                      </p>
                     </div>
-                    <div className="ml-4 flex items-center gap-3">
+                    <div className="ml-4 flex items-center gap-2">
                       <StatusBadge entry={entry} />
-                      <span className="text-sm font-medium tabular-nums">
+                      <span className="min-w-[72px] text-right text-sm font-medium tabular-nums">
                         {entry.needs_review
                           ? "—"
                           : formatPence(entry.gross_amount_pence, entry.currency)}
                       </span>
+                      <button
+                        className="text-muted-foreground transition-colors hover:text-foreground"
+                        title="Edit"
+                        onClick={() => openEdit(entry)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      {entry.source === "manual" && (
+                        <button
+                          className="text-muted-foreground transition-colors hover:text-destructive"
+                          title="Remove"
+                          onClick={() => archiveMutation.mutate(entry.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -415,6 +766,13 @@ export function BooksTab() {
           )}
         </CardContent>
       </Card>
+
+      <GigDialog
+        open={gigDialogOpen}
+        onClose={() => setGigDialogOpen(false)}
+        editing={editingEntry}
+        clients={clients}
+      />
     </div>
   );
 }
