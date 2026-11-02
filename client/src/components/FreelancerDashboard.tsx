@@ -44,6 +44,7 @@ import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
+import { BooksTab } from "./BooksTab";
 import { InvoicesTab } from "./InvoicesTab";
 import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
@@ -410,6 +411,7 @@ export default function SimplifiedFreelancerDashboard() {
               <SelectItem value="references">References</SelectItem>
               <SelectItem value="posted-jobs">My Jobs</SelectItem>
               <SelectItem value="invoices">Invoices</SelectItem>
+              {isPro && <SelectItem value="books">Books</SelectItem>}
             </SelectContent>
           </Select>
         </div>
@@ -433,6 +435,7 @@ export default function SimplifiedFreelancerDashboard() {
           </TabsTrigger>
           <TabsTrigger value="posted-jobs">My Jobs</TabsTrigger>
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          {isPro && <TabsTrigger value="books">Books</TabsTrigger>}
         </TabsList>
 
         {/* Profile Tab */}
@@ -635,6 +638,11 @@ export default function SimplifiedFreelancerDashboard() {
         {/* Invoices Tab */}
         <TabsContent value="invoices">
           <InvoicesTab isPro={isPro} />
+        </TabsContent>
+
+        {/* Books Tab */}
+        <TabsContent value="books">
+          <BooksTab isPro={isPro} />
         </TabsContent>
 
         {/* Post a Job Tab */}

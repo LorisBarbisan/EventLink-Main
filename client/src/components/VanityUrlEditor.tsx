@@ -36,11 +36,16 @@ export function VanityUrlEditor({ userId, currentCustomSlug, currentSlug }: Prop
 
   const slugToCheck = dirty && debouncedSlug.length >= 3 ? debouncedSlug : "";
 
-  const { data: checkResult, isFetching: checking } = useQuery<{ available: boolean; reason?: string }>({
+  const { data: checkResult, isFetching: checking } = useQuery<{
+    available: boolean;
+    reason?: string;
+  }>({
     queryKey: ["/api/slug/check", slugToCheck, userId],
     queryFn: async () => {
       if (!slugToCheck) return { available: true };
-      const res = await fetch(`/api/slug/check?slug=${encodeURIComponent(slugToCheck)}&userId=${userId}`);
+      const res = await fetch(
+        `/api/slug/check?slug=${encodeURIComponent(slugToCheck)}&userId=${userId}`
+      );
       return res.json();
     },
     enabled: slugToCheck.length >= 3,
@@ -49,9 +54,13 @@ export function VanityUrlEditor({ userId, currentCustomSlug, currentSlug }: Prop
 
   const saveSlug = useMutation({
     mutationFn: async (slug: string | null) => {
+      const token = localStorage.getItem("auth_token");
       const res = await fetch("/api/freelancer/custom-slug", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ slug }),
       });
       if (!res.ok) {
@@ -90,7 +99,6 @@ export function VanityUrlEditor({ userId, currentCustomSlug, currentSlug }: Prop
   const normalizedInput = input.toLowerCase().trim();
   const isValidFormat = normalizedInput === "" || SLUG_REGEX.test(normalizedInput);
   const isChecking = checking && dirty && normalizedInput.length >= 3;
-  const isAvailable = !dirty || !normalizedInput || (checkResult?.available && isValidFormat);
   const showStatus = dirty && normalizedInput.length >= 3 && !isChecking;
 
   const displaySlug = currentCustomSlug || currentSlug;
@@ -165,7 +173,8 @@ export function VanityUrlEditor({ userId, currentCustomSlug, currentSlug }: Prop
         )}
 
         <p className="text-xs text-muted-foreground">
-          Your auto-generated URL (<span className="font-mono">{currentSlug}</span>) will always work as a fallback.
+          Your auto-generated URL (<span className="font-mono">{currentSlug}</span>) will always
+          work as a fallback.
         </p>
       </CardContent>
     </Card>

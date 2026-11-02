@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/queryClient";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsPro } from "@/hooks/useIsPro";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import {
@@ -45,7 +46,9 @@ export default function FreelancerCard() {
   const { userId } = useParams();
   const { toast } = useToast();
   const { user } = useAuth();
+  const isPro = useIsPro();
   const urlPt = new URLSearchParams(window.location.search).get("pt") ?? "";
+  const isOwner = user && String(user.id) === String(userId);
 
   const [flipped, setFlipped] = useState(false);
   const [detail, setDetail] = useState<Detail>(null);
@@ -197,6 +200,49 @@ export default function FreelancerCard() {
         }}
       >
         <p style={{ color: C.text3, fontSize: 13 }}>Loading…</p>
+      </div>
+    );
+  }
+
+  // Free users viewing their own card see an upgrade prompt instead of the card
+  if (isOwner && !isPro) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+          background: C.bg3,
+          padding: 24,
+          textAlign: "center",
+        }}
+      >
+        <Lock size={40} color={C.orange} />
+        <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
+          Digital Business Card is a Pro feature
+        </h2>
+        <p style={{ color: C.text2, maxWidth: 340, margin: 0, fontSize: 15 }}>
+          Upgrade to Pro to create your Digital Business Card, customise your theme, and share it
+          with employers.
+        </p>
+        <a
+          href="/billing"
+          style={{
+            marginTop: 8,
+            padding: "10px 28px",
+            borderRadius: 8,
+            background: C.orange,
+            color: "#fff",
+            fontWeight: 600,
+            fontSize: 15,
+            textDecoration: "none",
+          }}
+        >
+          Upgrade to Pro
+        </a>
       </div>
     );
   }
