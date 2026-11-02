@@ -1311,20 +1311,24 @@ export async function adminUpdateDocumentDates(req: Request, res: Response) {
     if (Number.isNaN(documentId)) {
       return res.status(400).json({ error: "Invalid document id" });
     }
-    const { issueDate, expiryDate } = req.body as {
+    const { issueDate, expiryDate, noExpiry } = req.body as {
       issueDate?: string | null;
       expiryDate?: string;
+      noExpiry?: boolean;
     };
-    if (!expiryDate) {
-      return res.status(400).json({ error: "An expiry date is required" });
-    }
-    const err = adminExpiryDateError(expiryDate);
-    if (err) {
-      return res.status(400).json({ error: err });
+    if (!noExpiry) {
+      if (!expiryDate) {
+        return res.status(400).json({ error: "An expiry date is required" });
+      }
+      const err = adminExpiryDateError(expiryDate);
+      if (err) {
+        return res.status(400).json({ error: err });
+      }
     }
     const updated = await storage.adminSetDocumentDates(documentId, {
       issue_date: issueDate || null,
-      expiry_date: expiryDate,
+      expiry_date: noExpiry ? null : expiryDate!,
+      expiry_source: noExpiry ? "not_applicable" : "entered",
     });
     if (!updated) {
       return res.status(404).json({ error: "Document not found" });

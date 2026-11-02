@@ -180,15 +180,22 @@ export const EXPIRING_SOON_DAYS = 90;
 
 /**
  * Status of a credential from its expiry date. job_documents don't expire and
- * are always "valid". A credential with no expiry date is "incomplete" (the
+ * are always "valid". A credential explicitly marked non-expiring
+ * (expiry_source "not_applicable" — e.g. a degree or a completed course) is
+ * also always "valid". A credential with no expiry date is "incomplete" (the
  * backlog the backfill campaign works through), within 90 days is
  * "expiring_soon", past is "expired". `now` is injectable for testing.
  */
 export function credentialStatus(
-  doc: { document_type: DocumentType; expiry_date: string | Date | null | undefined },
+  doc: {
+    document_type: DocumentType;
+    expiry_date: string | Date | null | undefined;
+    expiry_source?: string | null;
+  },
   now: Date = new Date()
 ): CredentialStatus {
   if (DOCUMENT_TYPE_META[doc.document_type].class === "job_document") return "valid";
+  if (doc.expiry_source === "not_applicable") return "valid";
   if (!doc.expiry_date) return "incomplete";
   const expiry = typeof doc.expiry_date === "string" ? new Date(doc.expiry_date) : doc.expiry_date;
   const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / 86_400_000);
