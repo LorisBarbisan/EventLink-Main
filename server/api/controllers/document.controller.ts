@@ -49,6 +49,7 @@ export async function uploadDocument(req: Request, res: Response) {
       issueDate,
       expiryDate,
       expirySource,
+      noExpiry,
       supersedesDocumentId,
     } = req.body;
 
@@ -93,6 +94,11 @@ export async function uploadDocument(req: Request, res: Response) {
     let resolvedExpirySource: "entered" | "derived" | "not_applicable" | null = null;
 
     if (meta.class === "job_document") {
+      resolvedExpirySource = "not_applicable";
+    } else if (noExpiry) {
+      // Credential the freelancer marks as non-expiring (e.g. a degree or a
+      // completed course): no expiry date, never chased for one.
+      resolvedIssueDate = issueDate || null;
       resolvedExpirySource = "not_applicable";
     } else {
       if (!expiryDate) {

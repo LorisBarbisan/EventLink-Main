@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -122,6 +123,7 @@ export function DocumentUploader({
   const [issueDate, setIssueDate] = useState<string>("");
   const [expiryDate, setExpiryDate] = useState<string>("");
   const [expiryTouched, setExpiryTouched] = useState(false);
+  const [noExpiry, setNoExpiry] = useState(false);
   const [issuingBody, setIssuingBody] = useState<string>("");
   const [referenceNumber, setReferenceNumber] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
@@ -143,6 +145,7 @@ export function DocumentUploader({
     setIssueDate("");
     setExpiryDate("");
     setExpiryTouched(false);
+    setNoExpiry(false);
     setIssuingBody("");
     setReferenceNumber("");
   };
@@ -221,7 +224,7 @@ export function DocumentUploader({
       return;
     }
 
-    if (isCredential && !expiryDate) {
+    if (isCredential && !noExpiry && !expiryDate) {
       toast({
         title: "Expiry date needed",
         description: "Please add the expiry date for this credential before uploading.",
@@ -282,12 +285,14 @@ export function DocumentUploader({
               issuingBody: isCredential ? issuingBody.trim() || null : null,
               referenceNumber: isCredential ? referenceNumber.trim() || null : null,
               issueDate: isCredential ? issueDate || null : null,
-              expiryDate: isCredential ? expiryDate || null : null,
-              expirySource: !isCredential
-                ? "not_applicable"
-                : canSuggestExpiry && !expiryTouched
-                  ? "derived"
-                  : "entered",
+              expiryDate: isCredential && !noExpiry ? expiryDate || null : null,
+              noExpiry: isCredential && noExpiry,
+              expirySource:
+                !isCredential || noExpiry
+                  ? "not_applicable"
+                  : canSuggestExpiry && !expiryTouched
+                    ? "derived"
+                    : "entered",
             }),
           });
 
@@ -474,7 +479,7 @@ export function DocumentUploader({
                   isUploading ||
                   !selectedType ||
                   (selectedType === "Other" && !customTypeName.trim()) ||
-                  (isCredential && !expiryDate)
+                  (isCredential && !noExpiry && !expiryDate)
                 }
                 onClick={() => setShowPrivacyDialog(true)}
               >
@@ -519,22 +524,31 @@ export function DocumentUploader({
                 </div>
                 <div>
                   <Label htmlFor="cred-expiry-date" className="mb-1 block text-xs">
-                    Expiry date <span className="text-destructive">*</span>
+                    Expiry date {!noExpiry && <span className="text-destructive">*</span>}
                   </Label>
                   <Input
                     id="cred-expiry-date"
                     type="date"
-                    value={expiryDate}
+                    value={noExpiry ? "" : expiryDate}
+                    disabled={noExpiry}
                     onChange={(e) => {
                       setExpiryDate(e.target.value);
                       setExpiryTouched(true);
                     }}
                   />
-                  {canSuggestExpiry && expiryDate && !expiryTouched && (
+                  {canSuggestExpiry && !noExpiry && expiryDate && !expiryTouched && (
                     <p className="mt-1 text-xs text-muted-foreground">
                       Suggested from the issue date — edit if your certificate says otherwise.
                     </p>
                   )}
+                  <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Checkbox
+                      checked={noExpiry}
+                      onCheckedChange={(v) => setNoExpiry(v === true)}
+                      data-testid="checkbox-no-expiry"
+                    />
+                    This document does not expire (e.g. a degree or completed course)
+                  </label>
                 </div>
                 <div>
                   <Label htmlFor="cred-issuer" className="mb-1 block text-xs">
@@ -593,9 +607,11 @@ export function DocumentUploader({
               const status = credentialStatus({
                 document_type: doc.document_type as DocumentType,
                 expiry_date: doc.expiry_date,
+                expiry_source: doc.expiry_source,
               });
               const isCred =
                 DOCUMENT_TYPE_META[doc.document_type as DocumentType]?.class === "credential";
+              const nonExpiring = doc.expiry_source === "not_applicable";
               return (
                 <div
                   key={doc.id}
@@ -620,9 +636,11 @@ export function DocumentUploader({
                             className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${STATUS_CLASS[status]}`}
                           >
                             {STATUS_LABEL[status]}
-                            {doc.expiry_date && status !== "incomplete"
-                              ? ` · ${new Date(doc.expiry_date).toLocaleDateString("en-GB")}`
-                              : ""}
+                            {nonExpiring
+                              ? " · No expiry"
+                              : doc.expiry_date && status !== "incomplete"
+                                ? ` · ${new Date(doc.expiry_date).toLocaleDateString("en-GB")}`
+                                : ""}
                           </span>
                         </div>
                       )}

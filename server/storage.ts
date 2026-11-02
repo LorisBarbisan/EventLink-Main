@@ -567,7 +567,11 @@ export interface IStorage {
   >;
   adminSetDocumentDates(
     documentId: number,
-    dates: { issue_date: string | null; expiry_date: string }
+    dates: {
+      issue_date: string | null;
+      expiry_date: string | null;
+      expiry_source: "entered" | "not_applicable";
+    }
   ): Promise<FreelancerDocument | undefined>;
   updateCredentialDates(
     documentId: number,
@@ -5134,7 +5138,13 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(freelancer_documents.uploaded_at));
-    return docs.filter((d) => DOCUMENT_TYPE_META[d.document_type].class === "credential");
+    // Credentials still needing an expiry date — but not ones explicitly marked
+    // as never expiring (expiry_source "not_applicable"), which are complete.
+    return docs.filter(
+      (d) =>
+        DOCUMENT_TYPE_META[d.document_type].class === "credential" &&
+        d.expiry_source !== "not_applicable"
+    );
   }
 
   // Backfill: date an existing (already-uploaded) credential. Scoped to the owner.
@@ -5173,6 +5183,7 @@ export class DatabaseStorage implements IStorage {
       original_filename: string;
       issue_date: string | null;
       expiry_date: string | null;
+      expiry_source: string | null;
       verification_status: string | null;
       uploaded_at: Date;
     }>
@@ -5189,6 +5200,7 @@ export class DatabaseStorage implements IStorage {
         original_filename: freelancer_documents.original_filename,
         issue_date: freelancer_documents.issue_date,
         expiry_date: freelancer_documents.expiry_date,
+        expiry_source: freelancer_documents.expiry_source,
         verification_status: freelancer_documents.verification_status,
         uploaded_at: freelancer_documents.uploaded_at,
       })
@@ -5207,6 +5219,7 @@ export class DatabaseStorage implements IStorage {
       original_filename: r.original_filename,
       issue_date: r.issue_date,
       expiry_date: r.expiry_date,
+      expiry_source: r.expiry_source,
       verification_status: r.verification_status,
       uploaded_at: r.uploaded_at,
     }));
@@ -5215,14 +5228,18 @@ export class DatabaseStorage implements IStorage {
   // Admin: set a document's dates regardless of owner (admins filling in gaps).
   async adminSetDocumentDates(
     documentId: number,
-    dates: { issue_date: string | null; expiry_date: string }
+    dates: {
+      issue_date: string | null;
+      expiry_date: string | null;
+      expiry_source: "entered" | "not_applicable";
+    }
   ): Promise<FreelancerDocument | undefined> {
     const [row] = await db
       .update(freelancer_documents)
       .set({
         issue_date: dates.issue_date,
         expiry_date: dates.expiry_date,
-        expiry_source: "entered",
+        expiry_source: dates.expiry_source,
       })
       .where(eq(freelancer_documents.id, documentId))
       .returning();

@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -288,7 +289,7 @@ function AdminDashboardContent() {
   const [docsStatus, setDocsStatus] = useState<string>("all");
   const [docsSort, setDocsSort] = useState<string>("expiry_asc");
   const [docDateEdits, setDocDateEdits] = useState<
-    Record<number, { issueDate: string; expiryDate: string }>
+    Record<number, { issueDate: string; expiryDate: string; noExpiry?: boolean }>
   >({});
   const [addMemberSearch, setAddMemberSearch] = useState("");
   const [addMemberRole, setAddMemberRole] = useState<"manager" | "admin">("manager");
@@ -824,6 +825,7 @@ function AdminDashboardContent() {
     original_filename: string;
     issue_date: string | null;
     expiry_date: string | null;
+    expiry_source: string | null;
     verification_status: string | null;
     uploaded_at: string;
   }
@@ -835,10 +837,19 @@ function AdminDashboardContent() {
   });
 
   const updateDocDatesMutation = useMutation({
-    mutationFn: (vars: { id: number; issueDate: string | null; expiryDate: string }) =>
+    mutationFn: (vars: {
+      id: number;
+      issueDate: string | null;
+      expiryDate: string;
+      noExpiry?: boolean;
+    }) =>
       apiRequest(`/api/admin/documents/${vars.id}/dates`, {
         method: "PATCH",
-        body: JSON.stringify({ issueDate: vars.issueDate, expiryDate: vars.expiryDate }),
+        body: JSON.stringify({
+          issueDate: vars.issueDate,
+          expiryDate: vars.expiryDate,
+          noExpiry: vars.noExpiry ?? false,
+        }),
       }),
     onSuccess: (_data, vars) => {
       toast({ title: "Expiry date saved", description: "The document has been updated." });
@@ -3619,6 +3630,7 @@ function AdminDashboardContent() {
                         const st = credentialStatus({
                           document_type: d.document_type as DocumentType,
                           expiry_date: d.expiry_date,
+                          expiry_source: d.expiry_source,
                         });
                         if (st !== docsStatus) return false;
                       }
@@ -3690,17 +3702,21 @@ function AdminDashboardContent() {
                             const status = credentialStatus({
                               document_type: d.document_type as DocumentType,
                               expiry_date: d.expiry_date,
+                              expiry_source: d.expiry_source,
                             });
                             const label =
                               d.document_type === "Other" && d.custom_type_name
                                 ? d.custom_type_name
                                 : d.document_type;
                             const edit = docDateEdits[d.id];
+                            const nonExpiring = d.expiry_source === "not_applicable";
+                            const editNoExpiry = edit ? !!edit.noExpiry : nonExpiring;
                             const expiryValue = edit ? edit.expiryDate : (d.expiry_date ?? "");
                             const dirty =
                               !!edit &&
-                              !!edit.expiryDate &&
-                              edit.expiryDate !== (d.expiry_date ?? "");
+                              (editNoExpiry
+                                ? !nonExpiring
+                                : !!edit.expiryDate && edit.expiryDate !== (d.expiry_date ?? ""));
                             return (
                               <TableRow key={d.id}>
                                 <TableCell className="py-2">
@@ -3728,6 +3744,7 @@ function AdminDashboardContent() {
                                       className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${STATUS_CLASS[status]}`}
                                     >
                                       {STATUS_LABEL[status]}
+                                      {nonExpiring ? " · No expiry" : ""}
                                     </span>
                                   ) : (
                                     <span className="text-xs text-muted-foreground">No expiry</span>
@@ -3735,20 +3752,42 @@ function AdminDashboardContent() {
                                 </TableCell>
                                 <TableCell className="py-2">
                                   {isCred ? (
-                                    <Input
-                                      type="date"
-                                      className="h-8 w-[150px]"
-                                      value={expiryValue}
-                                      onChange={(e) =>
-                                        setDocDateEdits((prev) => ({
-                                          ...prev,
-                                          [d.id]: {
-                                            issueDate: d.issue_date ?? "",
-                                            expiryDate: e.target.value,
-                                          },
-                                        }))
-                                      }
-                                    />
+                                    <div className="flex flex-col gap-1">
+                                      <Input
+                                        type="date"
+                                        className="h-8 w-[150px]"
+                                        value={editNoExpiry ? "" : expiryValue}
+                                        disabled={editNoExpiry}
+                                        onChange={(e) =>
+                                          setDocDateEdits((prev) => ({
+                                            ...prev,
+                                            [d.id]: {
+                                              issueDate: d.issue_date ?? "",
+                                              expiryDate: e.target.value,
+                                              noExpiry: false,
+                                            },
+                                          }))
+                                        }
+                                      />
+                                      <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                        <Checkbox
+                                          checked={editNoExpiry}
+                                          onCheckedChange={(v) =>
+                                            setDocDateEdits((prev) => ({
+                                              ...prev,
+                                              [d.id]: {
+                                                issueDate: d.issue_date ?? "",
+                                                expiryDate:
+                                                  v === true ? "" : (prev[d.id]?.expiryDate ?? ""),
+                                                noExpiry: v === true,
+                                              },
+                                            }))
+                                          }
+                                          data-testid={`admin-no-expiry-${d.id}`}
+                                        />
+                                        No expiry
+                                      </label>
+                                    </div>
                                   ) : (
                                     <span className="text-xs text-muted-foreground">—</span>
                                   )}
@@ -3763,7 +3802,8 @@ function AdminDashboardContent() {
                                         updateDocDatesMutation.mutate({
                                           id: d.id,
                                           issueDate: d.issue_date ?? null,
-                                          expiryDate: expiryValue,
+                                          expiryDate: editNoExpiry ? "" : expiryValue,
+                                          noExpiry: editNoExpiry,
                                         })
                                       }
                                     >
