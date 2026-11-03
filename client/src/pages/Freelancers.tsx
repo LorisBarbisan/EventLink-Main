@@ -10,7 +10,16 @@ import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bookmark, ChevronLeft, ChevronRight, Loader2, MapPin, Search, User } from "lucide-react";
+import {
+  Bookmark,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  MapPin,
+  Search,
+  User,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { usePageSeo } from "@/hooks/usePageSeo";
@@ -25,6 +34,9 @@ export default function Freelancers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
+  // On mobile the search/filter panel is collapsed by default so the freelancer
+  // cards are the first thing seen; it is always open from md up.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [, setLocation] = useLocation();
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -158,13 +170,26 @@ export default function Freelancers() {
 
         {/* Search and Filters */}
         <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5 text-primary" />
-              Search & Filter Freelancers
-            </CardTitle>
+          <CardHeader className="pb-3 md:pb-6">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              aria-expanded={filtersOpen}
+              className="flex w-full items-center justify-between gap-2 md:pointer-events-none"
+              data-testid="button-toggle-crew-filters"
+            >
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5 text-primary" />
+                Search & Filter Freelancers
+              </CardTitle>
+              <ChevronDown
+                className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform md:hidden ${
+                  filtersOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
           </CardHeader>
-          <CardContent>
+          <CardContent className={`${filtersOpen ? "block" : "hidden"} md:block`}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
               <div className="md:col-span-2">
                 <Input
