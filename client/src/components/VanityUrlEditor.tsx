@@ -74,6 +74,12 @@ export function VanityUrlEditor({ userId, currentCustomSlug, currentSlug }: Prop
       return res.json();
     },
     onSuccess: (data) => {
+      // Directly patch every cached profile entry so getProfileUrl() updates
+      // immediately without waiting for a network round-trip.
+      queryClient.setQueriesData({ queryKey: ["/api/freelancer/profile"] }, (old: unknown) => {
+        if (!old || typeof old !== "object") return old;
+        return { ...(old as Record<string, unknown>), custom_slug: data.slug ?? null };
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/freelancer/profile"] });
       queryClient.invalidateQueries({ queryKey: [`/api/freelancer/${userId}`] });
       setLocalSavedSlug(data.slug ?? null);
