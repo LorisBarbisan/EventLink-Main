@@ -4,6 +4,7 @@ import { requireRole } from "../middleware/role.middleware";
 import {
   getBillingProfile,
   upsertBillingProfile,
+  getBlankTemplate,
   listInvoices,
   getInvoice,
   createInvoiceFromBooking,
@@ -28,6 +29,7 @@ export function registerInvoiceRoutes(app: Express) {
   // Billing profile
   app.get("/api/billing-profile", ...freelancer, getBillingProfile);
   app.put("/api/billing-profile", ...freelancer, upsertBillingProfile);
+  app.get("/api/billing-profile/blank-template", ...freelancer, getBlankTemplate);
 
   // Invoice CRUD
   app.get("/api/invoices", ...freelancer, listInvoices);

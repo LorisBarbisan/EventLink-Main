@@ -1,7 +1,12 @@
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { parseRateToPence, deriveQuantity } from "../utils/invoice-parsing";
-import { renderInvoicePDF, storeInvoicePDF } from "../services/invoice-pdf.service";
+import {
+  renderInvoicePDF,
+  storeInvoicePDF,
+  renderBlankTemplatePDF,
+  renderBlankTemplateDoc,
+} from "../services/invoice-pdf.service";
 import {
   linkInvoiceToEntry,
   recordInvoicePaid,
@@ -40,6 +45,8 @@ export async function upsertBillingProfile(req: Request, res: Response) {
     payment_terms_days,
     invoice_prefix,
     invoice_footer_note,
+    vat_registered,
+    vat_number,
   } = req.body;
 
   // Validate payment_terms_days if present
@@ -70,9 +77,38 @@ export async function upsertBillingProfile(req: Request, res: Response) {
   if (bank_iban !== undefined) data.bank_iban = bank_iban;
   if (payment_terms_days !== undefined) data.payment_terms_days = Number(payment_terms_days);
   if (invoice_prefix !== undefined) data.invoice_prefix = String(invoice_prefix).slice(0, 10);
+  if (vat_registered !== undefined) data.vat_registered = Boolean(vat_registered);
+  if (vat_number !== undefined) data.vat_number = vat_number ?? null;
 
   const saved = await storage.upsertBillingProfile(user.id, data);
   return res.json(maskBankDetails(saved));
+}
+
+export async function getBlankTemplate(req: Request, res: Response) {
+  const user = (req as any).user;
+  const format = (req.query.format as string) === "doc" ? "doc" : "pdf";
+  const profile = await storage.getBillingProfile(user.id);
+  if (!profile) {
+    return res
+      .status(400)
+      .json({ error: "Set up your billing profile before downloading a template" });
+  }
+  if (format === "doc") {
+    const html = renderBlankTemplateDoc(profile);
+    res.setHeader("Content-Type", "application/msword");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="invoice-template-${profile.invoice_prefix}.doc"`
+    );
+    return res.send(html);
+  }
+  const pdf = await renderBlankTemplatePDF(profile);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="invoice-template-${profile.invoice_prefix}.pdf"`
+  );
+  return res.send(pdf);
 }
 
 // ── Invoice list / detail ─────────────────────────────────────────────────────

@@ -20,10 +20,51 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Zap, AlertTriangle, Download, Plus, Trash2, Archive, Send } from "lucide-react";
+import {
+  FileText,
+  Zap,
+  AlertTriangle,
+  Download,
+  Plus,
+  Trash2,
+  Archive,
+  Send,
+  Settings,
+  ChevronDown,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 
-// ── PDF download (auth-aware) ─────────────────────────────────────────────────
+// ── Downloads (auth-aware) ────────────────────────────────────────────────────
+
+async function downloadBlankTemplate(format: "pdf" | "doc", prefix: string) {
+  try {
+    const token = localStorage.getItem("auth_token");
+    const res = await fetch(
+      `/api/billing-profile/blank-template?format=${format}&token=${token ?? ""}`,
+      {
+        credentials: "include",
+      }
+    );
+    if (!res.ok) throw new Error(`Download failed (${res.status})`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `invoice-template-${prefix}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch {
+    alert("Could not download template. Please try again.");
+  }
+}
 
 async function downloadInvoicePDF(invoiceId: number, invoiceNumber: string) {
   try {
@@ -89,11 +130,24 @@ interface LineItem {
 interface BillingProfile {
   id: number;
   trading_name: string | null;
-  invoice_prefix: string;
-  payment_terms_days: number;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  postcode: string | null;
+  country: string | null;
+  phone: string | null;
+  email: string | null;
+  utr: string | null;
+  company_number: string | null;
+  vat_registered: boolean;
+  vat_number: string | null;
   bank_account_name: string | null;
   bank_sort_code: string | null;
   bank_account_number: string | null;
+  bank_iban: string | null;
+  payment_terms_days: number;
+  invoice_prefix: string;
+  invoice_footer_note: string | null;
 }
 
 interface InvoicesSummary {
@@ -137,26 +191,70 @@ function emptyLine(): LineItem {
   return { description: "", rate_type: "day", quantity: 1, unit_price_pence: 0 };
 }
 
-// ── Billing Profile Setup Modal ───────────────────────────────────────────────
+// ── Billing Profile Modal ─────────────────────────────────────────────────────
+
+const EMPTY_BILLING_FORM = {
+  trading_name: "",
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  postcode: "",
+  country: "",
+  phone: "",
+  email: "",
+  utr: "",
+  company_number: "",
+  vat_registered: "false",
+  vat_number: "",
+  bank_account_name: "",
+  bank_sort_code: "",
+  bank_account_number: "",
+  bank_iban: "",
+  payment_terms_days: "30",
+  invoice_prefix: "INV",
+  invoice_footer_note: "",
+};
 
 function BillingProfileModal({
   open,
   onClose,
   onSaved,
+  existing,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  existing?: BillingProfile | null;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({
-    trading_name: "",
-    invoice_prefix: "INV",
-    payment_terms_days: "30",
-    bank_account_name: "",
-    bank_sort_code: "",
-    bank_account_number: "",
+  const [form, setForm] = useState(EMPTY_BILLING_FORM);
+
+  // Pre-populate from existing profile when modal opens
+  useState(() => {
+    if (existing) {
+      setForm({
+        trading_name: existing.trading_name ?? "",
+        address_line1: existing.address_line1 ?? "",
+        address_line2: existing.address_line2 ?? "",
+        city: existing.city ?? "",
+        postcode: existing.postcode ?? "",
+        country: existing.country ?? "",
+        phone: existing.phone ?? "",
+        email: existing.email ?? "",
+        utr: existing.utr ?? "",
+        company_number: existing.company_number ?? "",
+        vat_registered: existing.vat_registered ? "true" : "false",
+        vat_number: existing.vat_number ?? "",
+        bank_account_name: existing.bank_account_name ?? "",
+        bank_sort_code: existing.bank_sort_code ?? "",
+        bank_account_number: existing.bank_account_number ?? "",
+        bank_iban: existing.bank_iban ?? "",
+        payment_terms_days: String(existing.payment_terms_days ?? 30),
+        invoice_prefix: existing.invoice_prefix ?? "INV",
+        invoice_footer_note: existing.invoice_footer_note ?? "",
+      });
+    }
   });
 
   const saveMutation = useMutation({
@@ -166,28 +264,38 @@ function BillingProfileModal({
         body: JSON.stringify({
           ...form,
           payment_terms_days: parseInt(form.payment_terms_days) || 30,
+          vat_registered: form.vat_registered === "true",
+          vat_number: form.vat_number || null,
+          invoice_footer_note: form.invoice_footer_note || null,
         }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/billing-profile"] });
-      toast({ title: "Billing profile saved" });
+      toast({ title: "Invoice settings saved" });
       onSaved();
     },
-    onError: () => toast({ title: "Failed to save billing profile", variant: "destructive" }),
+    onError: () => toast({ title: "Failed to save settings", variant: "destructive" }),
   });
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const isVat = form.vat_registered === "true";
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Set up your billing profile</DialogTitle>
+          <DialogTitle>Invoice settings</DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">
-          This information appears on your invoices. You only need to do this once.
+          Your legal details — shown on every invoice you generate. Set these once and they
+          auto-fill.
         </p>
-        <div className="space-y-3 py-2">
+
+        {/* ── Trading identity ── */}
+        <div className="space-y-3 pt-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Trading identity
+          </p>
           <div>
             <Label>Trading name / your name</Label>
             <Input
@@ -198,27 +306,130 @@ function BillingProfileModal({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Invoice prefix</Label>
+              <Label>Company number</Label>
               <Input
-                value={form.invoice_prefix}
-                onChange={(e) => set("invoice_prefix", e.target.value)}
-                placeholder="INV"
-                maxLength={8}
+                value={form.company_number}
+                onChange={(e) => set("company_number", e.target.value)}
+                placeholder="12345678"
               />
             </div>
             <div>
-              <Label>Payment terms (days)</Label>
+              <Label>UTR (sole trader)</Label>
               <Input
-                type="number"
-                value={form.payment_terms_days}
-                onChange={(e) => set("payment_terms_days", e.target.value)}
-                min={0}
-                max={90}
+                value={form.utr}
+                onChange={(e) => set("utr", e.target.value)}
+                placeholder="1234567890"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>VAT registered?</Label>
+              <Select value={form.vat_registered} onValueChange={(v) => set("vat_registered", v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="false">No</SelectItem>
+                  <SelectItem value="true">Yes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {isVat && (
+              <div>
+                <Label>VAT number</Label>
+                <Input
+                  value={form.vat_number}
+                  onChange={(e) => set("vat_number", e.target.value)}
+                  placeholder="GB123456789"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Address ── */}
+        <div className="space-y-3 pt-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Address
+          </p>
+          <div>
+            <Label>Address line 1</Label>
+            <Input
+              value={form.address_line1}
+              onChange={(e) => set("address_line1", e.target.value)}
+              placeholder="123 High Street"
+            />
+          </div>
+          <div>
+            <Label>Address line 2</Label>
+            <Input
+              value={form.address_line2}
+              onChange={(e) => set("address_line2", e.target.value)}
+              placeholder="Suite 4"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>City</Label>
+              <Input
+                value={form.city}
+                onChange={(e) => set("city", e.target.value)}
+                placeholder="London"
+              />
+            </div>
+            <div>
+              <Label>Postcode</Label>
+              <Input
+                value={form.postcode}
+                onChange={(e) => set("postcode", e.target.value)}
+                placeholder="SW1A 1AA"
               />
             </div>
           </div>
           <div>
-            <Label>Bank account name</Label>
+            <Label>Country</Label>
+            <Input
+              value={form.country}
+              onChange={(e) => set("country", e.target.value)}
+              placeholder="United Kingdom"
+            />
+          </div>
+        </div>
+
+        {/* ── Contact ── */}
+        <div className="space-y-3 pt-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Contact
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Email on invoice</Label>
+              <Input
+                type="email"
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+                placeholder="jane@example.com"
+              />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input
+                value={form.phone}
+                onChange={(e) => set("phone", e.target.value)}
+                placeholder="+44 7700 900000"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Banking ── */}
+        <div className="space-y-3 pt-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Bank details
+          </p>
+          <div>
+            <Label>Account name</Label>
             <Input
               value={form.bank_account_name}
               onChange={(e) => set("bank_account_name", e.target.value)}
@@ -243,13 +454,59 @@ function BillingProfileModal({
               />
             </div>
           </div>
+          <div>
+            <Label>IBAN (international)</Label>
+            <Input
+              value={form.bank_iban}
+              onChange={(e) => set("bank_iban", e.target.value)}
+              placeholder="GB29 NWBK 6016 1331 9268 19"
+            />
+          </div>
         </div>
-        <DialogFooter>
+
+        {/* ── Invoice settings ── */}
+        <div className="space-y-3 pt-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Invoice settings
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Invoice prefix</Label>
+              <Input
+                value={form.invoice_prefix}
+                onChange={(e) => set("invoice_prefix", e.target.value)}
+                placeholder="INV"
+                maxLength={8}
+              />
+            </div>
+            <div>
+              <Label>Payment terms (days)</Label>
+              <Input
+                type="number"
+                value={form.payment_terms_days}
+                onChange={(e) => set("payment_terms_days", e.target.value)}
+                min={0}
+                max={365}
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Footer note</Label>
+            <Textarea
+              value={form.invoice_footer_note}
+              onChange={(e) => set("invoice_footer_note", e.target.value)}
+              placeholder="e.g. Please quote invoice number on your bank transfer."
+              rows={2}
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="pt-2">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            Save &amp; continue
+            Save settings
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -702,6 +959,7 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [showBillingSetup, setShowBillingSetup] = useState(false);
+  const [showBillingEdit, setShowBillingEdit] = useState(false);
   const [sendingInvoice, setSendingInvoice] = useState<Invoice | null>(null);
   const [sendMessage, setSendMessage] = useState("");
 
@@ -896,7 +1154,46 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
             variant="outline"
             size="sm"
             className="gap-2"
-            onClick={() => window.open("/api/invoices/export", "_blank")}
+            onClick={() => setShowBillingEdit(true)}
+          >
+            <Settings className="h-4 w-4" />
+            Invoice settings
+          </Button>
+          {billingProfile && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <Download className="h-4 w-4" />
+                  Template
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() =>
+                    downloadBlankTemplate("pdf", billingProfile.invoice_prefix ?? "INV")
+                  }
+                >
+                  Download as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    downloadBlankTemplate("doc", billingProfile.invoice_prefix ?? "INV")
+                  }
+                >
+                  Download as Word (.doc)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => {
+              const token = localStorage.getItem("auth_token");
+              window.open(`/api/invoices/export?token=${token ?? ""}`, "_blank");
+            }}
           >
             <Download className="h-4 w-4" />
             Export
@@ -1038,6 +1335,13 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
           setShowBillingSetup(false);
           createMutation.mutate();
         }}
+        existing={billingProfile}
+      />
+      <BillingProfileModal
+        open={showBillingEdit}
+        onClose={() => setShowBillingEdit(false)}
+        onSaved={() => setShowBillingEdit(false)}
+        existing={billingProfile}
       />
 
       {editingInvoice && (
