@@ -21,10 +21,14 @@ export function VanityUrlEditor({ userId, currentCustomSlug, currentSlug }: Prop
   const [input, setInput] = useState(currentCustomSlug ?? "");
   const [debouncedSlug, setDebouncedSlug] = useState("");
   const [dirty, setDirty] = useState(false);
+  // Local copy of the saved slug — updated immediately on save success so
+  // the displayed URL refreshes without waiting for the parent query to refetch.
+  const [localSavedSlug, setLocalSavedSlug] = useState<string | null>(currentCustomSlug ?? null);
 
-  // Update input when prop changes (e.g., after save)
+  // Keep in sync when the parent eventually refetches
   useEffect(() => {
     setInput(currentCustomSlug ?? "");
+    setLocalSavedSlug(currentCustomSlug ?? null);
     setDirty(false);
   }, [currentCustomSlug]);
 
@@ -72,6 +76,7 @@ export function VanityUrlEditor({ userId, currentCustomSlug, currentSlug }: Prop
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/freelancer/profile"] });
       queryClient.invalidateQueries({ queryKey: [`/api/freelancer/${userId}`] });
+      setLocalSavedSlug(data.slug ?? null);
       setDirty(false);
       toast({ title: data.slug ? "Vanity URL saved!" : "Custom URL removed." });
     },
@@ -101,7 +106,7 @@ export function VanityUrlEditor({ userId, currentCustomSlug, currentSlug }: Prop
   const isChecking = checking && dirty && normalizedInput.length >= 3;
   const showStatus = dirty && normalizedInput.length >= 3 && !isChecking;
 
-  const displaySlug = currentCustomSlug || currentSlug;
+  const displaySlug = localSavedSlug || currentSlug;
   const profileBase = window.location.origin;
 
   return (
@@ -143,7 +148,7 @@ export function VanityUrlEditor({ userId, currentCustomSlug, currentSlug }: Prop
             {saveSlug.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Save
           </Button>
-          {currentCustomSlug && (
+          {localSavedSlug && (
             <Button variant="outline" onClick={handleRemove} disabled={saveSlug.isPending}>
               Remove
             </Button>
