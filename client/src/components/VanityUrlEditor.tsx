@@ -70,7 +70,7 @@ export function VanityUrlEditor({ userId, currentCustomSlug, currentSlug }: Prop
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/freelancer/profile"] });
       queryClient.invalidateQueries({ queryKey: [`/api/freelancer/${userId}`] });
       setDirty(false);
       toast({ title: data.slug ? "Vanity URL saved!" : "Custom URL removed." });
