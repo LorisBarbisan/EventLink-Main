@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticateJWT, requirePro } from "../middleware/auth.middleware";
+import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import {
   listKitItems,
@@ -14,7 +14,7 @@ import {
 } from "../controllers/kit.controller";
 
 const router = Router();
-const auth = [authenticateJWT, requirePro, requireRole("freelancer")];
+const auth = [authenticateJWT, requireRole("freelancer")];
 
 router.get("/", auth, listKitItems);
 router.post("/", auth, createKitItem);

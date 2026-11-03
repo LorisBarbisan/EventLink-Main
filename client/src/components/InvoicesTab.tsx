@@ -22,7 +22,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   FileText,
-  Zap,
   AlertTriangle,
   Download,
   Plus,
@@ -953,7 +952,7 @@ function InvoiceRow({
 
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
-export function InvoicesTab({ isPro }: { isPro: boolean }) {
+export function InvoicesTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -965,12 +964,10 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
-    enabled: isPro,
   });
 
   const { data: billingProfile } = useQuery<BillingProfile | null>({
     queryKey: ["/api/billing-profile"],
-    enabled: isPro,
   });
 
   const markPaidMutation = useMutation({
@@ -1035,29 +1032,6 @@ export function InvoicesTab({ isPro }: { isPro: boolean }) {
       createMutation.mutate();
     }
   };
-
-  if (!isPro) {
-    return (
-      <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-          <div className="rounded-full bg-primary/10 p-4">
-            <FileText className="h-8 w-8 text-primary" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold">Invoices — Pro feature</h3>
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-              Generate invoices for any job — on or off the platform — chase late payments, and
-              export records.
-            </p>
-          </div>
-          <Button className="gap-2" onClick={() => (window.location.href = "/billing")}>
-            <Zap className="h-4 w-4" />
-            Upgrade to Pro
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
 
   // Compute summary
   const today = new Date();

@@ -48,7 +48,6 @@ export function useInsuranceAccess(): InsuranceAccess {
   });
 
   if (!isFreelancer) return "hidden";
-  if (user?.subscription_tier !== "pro") return "hidden";
 
   // The profile endpoint returns 404 when the freelancer hasn't created one.
   if (isError && (error as { status?: number })?.status === 404) {

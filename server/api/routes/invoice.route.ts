@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { authenticateJWT, requirePro } from "../middleware/auth.middleware";
+import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import {
   getBillingProfile,
@@ -23,7 +23,7 @@ import {
 } from "../controllers/invoice.controller";
 
 export function registerInvoiceRoutes(app: Express) {
-  const auth = [authenticateJWT, requirePro];
+  const auth = [authenticateJWT];
   const freelancer = [...auth, requireRole("freelancer")];
 
   // Billing profile

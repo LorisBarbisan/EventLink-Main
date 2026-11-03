@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticateJWT, requirePro } from "../middleware/auth.middleware";
+import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { backfillEarningsForFreelancer } from "../services/earnings.service";
 import { storage } from "../../storage";
@@ -7,7 +7,7 @@ import { currentTaxYear } from "@shared/tax-periods";
 import type { Request, Response } from "express";
 
 const router = Router();
-const auth = [authenticateJWT, requirePro, requireRole("freelancer")];
+const auth = [authenticateJWT, requireRole("freelancer")];
 
 // GET /api/earnings/summary
 // Returns: this-tax-year totals, owed-to-me list, and paginated full log

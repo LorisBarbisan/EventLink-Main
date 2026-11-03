@@ -13,14 +13,14 @@
 
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { authenticateJWT, requirePro } from "../middleware/auth.middleware";
+import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { storage } from "../../storage";
 import { buildCsv, penceToCsvDecimal, dateToCsvDate, exportFilename } from "../utils/csv";
 import { currentTaxYear } from "@shared/tax-periods";
 
 const router = Router();
-const auth = [authenticateJWT, requirePro, requireRole("freelancer")];
+const auth = [authenticateJWT, requireRole("freelancer")];
 
 // ── Helper: send CSV response ─────────────────────────────────────────────────
 
