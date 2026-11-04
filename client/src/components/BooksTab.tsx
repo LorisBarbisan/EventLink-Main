@@ -2124,7 +2124,7 @@ export function BooksTab() {
 
   const { data, isLoading, isError } = useQuery<EarningsData>({
     queryKey: ["/api/earnings/summary"],
-    queryFn: () => apiRequest("/api/earnings/summary").then((r) => r.json()),
+    queryFn: () => apiRequest("/api/earnings/summary"),
   });
 
   const { data: clients = [] } = useQuery<Array<{ id: number; name: string }>>({
@@ -2141,8 +2141,7 @@ export function BooksTab() {
   });
 
   const backfillMutation = useMutation({
-    mutationFn: () =>
-      apiRequest("/api/earnings/backfill", { method: "POST" }).then((r) => r.json()),
+    mutationFn: () => apiRequest("/api/earnings/backfill", { method: "POST" }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
       toast({
