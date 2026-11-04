@@ -41,6 +41,9 @@ import { registerExpenseRoutes } from "./api/routes/expense.route.js";
 import { registerReceiptRoutes } from "./api/routes/receipt.route.js";
 import { registerMileageRoutes } from "./api/routes/mileage.route.js";
 import { registerBooksRoutes } from "./api/routes/books.route.js";
+import earningsRouter from "./api/routes/earnings.route.js";
+import kitRouter from "./api/routes/kit.route.js";
+import exportsRouter from "./api/routes/exports.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { JWT_SECRET, SESSION_SECRET } from "./api/config/env.js";
 import { wsService } from "./api/websocket/websocketService";
@@ -295,6 +298,9 @@ export async function registerRoutes(
   registerReceiptRoutes(app);
   registerMileageRoutes(app);
   registerBooksRoutes(app);
+  app.use("/api/earnings", earningsRouter);
+  app.use("/api/kit", kitRouter);
+  app.use("/api/exports", exportsRouter);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering
   app.get("/api/jobs", async (req, res) => {
