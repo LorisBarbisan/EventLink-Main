@@ -26,9 +26,11 @@ import { useToast } from "@/hooks/use-toast";
 import {
   AlertCircle,
   BookOpen,
+  Camera,
   CheckCircle,
   ChevronDown,
   Clock,
+  ImageIcon,
   TrendingUp,
   RefreshCw,
   Download,
@@ -36,6 +38,7 @@ import {
   Pencil,
   Receipt,
   Trash2,
+  X,
 } from "lucide-react";
 import { KitTab } from "./KitTab";
 
@@ -799,6 +802,338 @@ function ExpenseDialog({
   );
 }
 
+// ── Receipt types ─────────────────────────────────────────────────────────────
+
+interface ReceiptRecord {
+  id: number;
+  expense_id: number | null;
+  file_name: string;
+  mime_type: string;
+  captured_at: string;
+  url: string;
+}
+
+// ── Receipt thumbnails + upload for a single expense ──────────────────────────
+
+function ReceiptRow({ expenseId }: { expenseId: number }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  const { data: recs = [] } = useQuery<ReceiptRecord[]>({
+    queryKey: ["/api/expenses", expenseId, "receipts"],
+    queryFn: () => {
+      const token = localStorage.getItem("auth_token");
+      return fetch(`/api/expenses/${expenseId}/receipts`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then((r) => r.json());
+    },
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const reader = new FileReader();
+      const fileData: string = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch("/api/receipts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          fileData,
+          filename: file.name,
+          contentType: file.type || "image/jpeg",
+          expense_id: expenseId,
+        }),
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses", expenseId, "receipts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/receipts/unattached/count"] });
+      toast({ title: "Receipt saved" });
+    },
+    onError: () => toast({ title: "Upload failed", variant: "destructive" }),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (id: number) => {
+      const token = localStorage.getItem("auth_token");
+      return fetch(`/api/receipts/${id}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses", expenseId, "receipts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/receipts/unattached/count"] });
+    },
+    onError: () => toast({ title: "Failed to remove receipt", variant: "destructive" }),
+  });
+
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      {recs.map((r) => (
+        <div key={r.id} className="group relative">
+          {r.mime_type.startsWith("image/") ? (
+            <button onClick={() => setLightboxUrl(r.url)}>
+              <img
+                src={r.url}
+                alt={r.file_name}
+                className="h-10 w-10 rounded border object-cover"
+              />
+            </button>
+          ) : (
+            <a href={r.url} target="_blank" rel="noreferrer">
+              <div className="flex h-10 w-10 items-center justify-center rounded border bg-muted">
+                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </a>
+          )}
+          <button
+            className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-destructive text-white group-hover:flex"
+            onClick={() => archiveMutation.mutate(r.id)}
+          >
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </div>
+      ))}
+
+      {/* Camera-first add button */}
+      <button
+        className="flex h-10 w-10 items-center justify-center rounded border border-dashed text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+        title="Add receipt"
+        disabled={uploadMutation.isPending}
+        onClick={() => fileRef.current?.click()}
+      >
+        {uploadMutation.isPending ? (
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        ) : (
+          <Camera className="h-4 w-4" />
+        )}
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*,application/pdf"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) uploadMutation.mutate(f);
+          e.target.value = "";
+        }}
+      />
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt="Receipt"
+            className="max-h-[90vh] max-w-[90vw] rounded object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            className="absolute right-4 top-4 text-white"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Unattached receipt inbox ───────────────────────────────────────────────────
+
+function UnattachedInbox({ expenses }: { expenses: Expense[] }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+
+  const { data: recs = [], refetch } = useQuery<ReceiptRecord[]>({
+    queryKey: ["/api/receipts/unattached"],
+    queryFn: () => {
+      const token = localStorage.getItem("auth_token");
+      return fetch("/api/receipts/unattached", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then((r) => r.json());
+    },
+    enabled: open,
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const reader = new FileReader();
+      const fileData: string = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch("/api/receipts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          fileData,
+          filename: file.name,
+          contentType: file.type || "image/jpeg",
+        }),
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/receipts/unattached"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/receipts/unattached/count"] });
+      toast({ title: "Receipt saved — attach it to an expense when ready" });
+      setOpen(true);
+      refetch();
+    },
+    onError: () => toast({ title: "Upload failed", variant: "destructive" }),
+  });
+
+  const attachMutation = useMutation({
+    mutationFn: ({ receiptId, expenseId }: { receiptId: number; expenseId: number }) => {
+      const token = localStorage.getItem("auth_token");
+      return fetch(`/api/receipts/${receiptId}/attach`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ expense_id: expenseId }),
+      });
+    },
+    onSuccess: (_, { expenseId }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/receipts/unattached"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/receipts/unattached/count"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses", expenseId, "receipts"] });
+      toast({ title: "Receipt attached" });
+    },
+    onError: () => toast({ title: "Failed to attach", variant: "destructive" }),
+  });
+
+  const { data: countData } = useQuery<{ count: number }>({
+    queryKey: ["/api/receipts/unattached/count"],
+    queryFn: () => {
+      const token = localStorage.getItem("auth_token");
+      return fetch("/api/receipts/unattached/count", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then((r) => r.json());
+    },
+  });
+
+  const unattachedCount = countData?.count ?? 0;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <button
+            className="flex items-center gap-2 text-base font-semibold"
+            onClick={() => setOpen((v) => !v)}
+          >
+            <Camera className="h-4 w-4" />
+            Receipt inbox
+            {unattachedCount > 0 && <Badge className="ml-1 text-xs">{unattachedCount}</Badge>}
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+            />
+          </button>
+          <button
+            className="flex h-8 w-8 items-center justify-center rounded border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+            title="Capture receipt now"
+            disabled={uploadMutation.isPending}
+            onClick={() => fileRef.current?.click()}
+          >
+            <Camera className="h-4 w-4" />
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*,application/pdf"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) uploadMutation.mutate(f);
+              e.target.value = "";
+            }}
+          />
+        </div>
+        {!open && unattachedCount === 0 && (
+          <p className="text-xs text-muted-foreground">
+            Capture receipts on site — attach to an expense later.
+          </p>
+        )}
+      </CardHeader>
+      {open && (
+        <CardContent>
+          {recs.length === 0 ? (
+            <p className="py-2 text-sm text-muted-foreground">No unattached receipts.</p>
+          ) : (
+            <div className="space-y-3">
+              {recs.map((r) => (
+                <div key={r.id} className="flex items-center gap-3 rounded-md border px-3 py-2">
+                  {r.mime_type.startsWith("image/") ? (
+                    <img src={r.url} alt={r.file_name} className="h-12 w-12 rounded object-cover" />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded bg-muted">
+                      <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{r.file_name}</p>
+                    <p className="text-xs text-muted-foreground">{fmtDate(r.captured_at)}</p>
+                  </div>
+                  {expenses.length > 0 && (
+                    <select
+                      className="rounded border bg-background px-2 py-1 text-xs"
+                      defaultValue=""
+                      onChange={(e) => {
+                        const expId = parseInt(e.target.value);
+                        if (expId) attachMutation.mutate({ receiptId: r.id, expenseId: expId });
+                        e.target.value = "";
+                      }}
+                    >
+                      <option value="" disabled>
+                        Attach to…
+                      </option>
+                      {expenses.slice(0, 20).map((exp) => (
+                        <option key={exp.id} value={exp.id}>
+                          {fmtDate(exp.expense_date)} · {exp.supplier || exp.description}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
 // ── Expenses section ──────────────────────────────────────────────────────────
 
 function ExpensesSection() {
@@ -971,6 +1306,7 @@ function ExpensesSection() {
                                   ? ` · ${expense.description}`
                                   : ""}
                               </p>
+                              <ReceiptRow expenseId={expense.id} />
                             </div>
                             <div className="ml-3 flex items-center gap-2">
                               <span className="min-w-[72px] text-right text-sm font-medium tabular-nums">
@@ -1005,6 +1341,8 @@ function ExpensesSection() {
           )}
         </CardContent>
       </Card>
+
+      <UnattachedInbox expenses={expenses} />
 
       <ExpenseDialog
         open={dialogOpen}

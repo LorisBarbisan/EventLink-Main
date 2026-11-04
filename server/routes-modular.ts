@@ -39,6 +39,7 @@ import { registerQRRoutes } from "./api/routes/qr.route.js";
 import { registerSlugRoutes } from "./api/routes/slug.route.js";
 import { registerStripeRoutes } from "./api/routes/stripe.route.js";
 import { registerExpenseRoutes } from "./api/routes/expense.route.js";
+import { registerReceiptRoutes } from "./api/routes/receipt.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { JWT_SECRET, SESSION_SECRET } from "./api/config/env.js";
 import { wsService } from "./api/websocket/websocketService";
@@ -291,6 +292,7 @@ export async function registerRoutes(
   registerContactRoutes(app);
   registerStripeRoutes(app);
   registerExpenseRoutes(app);
+  registerReceiptRoutes(app);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering
   app.get("/api/jobs", async (req, res) => {

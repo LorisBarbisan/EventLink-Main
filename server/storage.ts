@@ -84,6 +84,7 @@ import {
   kit_item_files,
   expense_categories,
   expenses,
+  receipts,
   type FreelancerBillingProfile,
   type InsertFreelancerBillingProfile,
   type Invoice,
@@ -103,6 +104,8 @@ import {
   type InsertExpenseCategory,
   type Expense,
   type InsertExpense,
+  type Receipt,
+  type InsertReceipt,
 } from "@shared/schema";
 import {
   and,
@@ -863,6 +866,19 @@ export interface IStorage {
     from: string,
     to: string
   ): Promise<(Expense & { category_name: string | null })[]>;
+
+  // ── Receipts ────────────────────────────────────────────────────────────────
+  createReceipt(data: InsertReceipt): Promise<Receipt>;
+  getReceipt(id: number): Promise<Receipt | undefined>;
+  listReceiptsForExpense(expenseId: number): Promise<Receipt[]>;
+  listUnattachedReceipts(freelancerId: number): Promise<Receipt[]>;
+  countUnattachedReceipts(freelancerId: number): Promise<number>;
+  attachReceipt(
+    id: number,
+    freelancerId: number,
+    expenseId: number | null
+  ): Promise<Receipt | undefined>;
+  archiveReceipt(id: number, freelancerId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6896,6 +6912,77 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(asc(expenses.expense_date));
     return rows as (Expense & { category_name: string | null })[];
+  }
+
+  // ── Receipts ────────────────────────────────────────────────────────────────
+
+  async createReceipt(data: InsertReceipt): Promise<Receipt> {
+    const [row] = await db.insert(receipts).values(data).returning();
+    return row;
+  }
+
+  async getReceipt(id: number): Promise<Receipt | undefined> {
+    const [row] = await db
+      .select()
+      .from(receipts)
+      .where(and(eq(receipts.id, id), eq(receipts.archived, false)));
+    return row;
+  }
+
+  async listReceiptsForExpense(expenseId: number): Promise<Receipt[]> {
+    return db
+      .select()
+      .from(receipts)
+      .where(and(eq(receipts.expense_id, expenseId), eq(receipts.archived, false)))
+      .orderBy(asc(receipts.captured_at));
+  }
+
+  async listUnattachedReceipts(freelancerId: number): Promise<Receipt[]> {
+    return db
+      .select()
+      .from(receipts)
+      .where(
+        and(
+          eq(receipts.freelancer_id, freelancerId),
+          isNull(receipts.expense_id),
+          eq(receipts.archived, false)
+        )
+      )
+      .orderBy(desc(receipts.captured_at));
+  }
+
+  async countUnattachedReceipts(freelancerId: number): Promise<number> {
+    const [row] = await db
+      .select({ total: count() })
+      .from(receipts)
+      .where(
+        and(
+          eq(receipts.freelancer_id, freelancerId),
+          isNull(receipts.expense_id),
+          eq(receipts.archived, false)
+        )
+      );
+    return Number(row?.total ?? 0);
+  }
+
+  async attachReceipt(
+    id: number,
+    freelancerId: number,
+    expenseId: number | null
+  ): Promise<Receipt | undefined> {
+    const [row] = await db
+      .update(receipts)
+      .set({ expense_id: expenseId, updated_at: new Date() })
+      .where(and(eq(receipts.id, id), eq(receipts.freelancer_id, freelancerId)))
+      .returning();
+    return row;
+  }
+
+  async archiveReceipt(id: number, freelancerId: number): Promise<void> {
+    await db
+      .update(receipts)
+      .set({ archived: true, updated_at: new Date() })
+      .where(and(eq(receipts.id, id), eq(receipts.freelancer_id, freelancerId)));
   }
 }
 
