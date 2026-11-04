@@ -405,6 +405,14 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery<any[]>({
     queryKey: ["/api/freelancer", freelancerProfile?.user_id, "bookings"],
     enabled: !!freelancerProfile?.user_id,
+    queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(`/api/freelancer/${freelancerProfile!.user_id}/bookings`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Failed to fetch bookings");
+      return res.json();
+    },
   });
 
   if (loading) {
@@ -1076,23 +1084,27 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                               <h4 className="font-semibold">{booking.job_title}</h4>
                               <Badge
                                 variant={
-                                  booking.status === "confirmed"
+                                  booking.status === "hired" || booking.status === "confirmed"
                                     ? "default"
                                     : booking.status === "completed"
                                       ? "secondary"
                                       : "outline"
                                 }
-                                className={`text-xs ${booking.status === "confirmed" ? "bg-green-600" : ""}`}
+                                className={`text-xs ${booking.status === "hired" || booking.status === "confirmed" ? "bg-green-600" : ""}`}
                               >
                                 <div className="flex items-center gap-1">
-                                  {booking.status === "confirmed" && (
+                                  {(booking.status === "hired" ||
+                                    booking.status === "confirmed") && (
                                     <CheckCircle className="h-3 w-3" />
                                   )}
                                   {booking.status === "completed" && (
                                     <CheckCircle className="h-3 w-3" />
                                   )}
                                   {booking.status === "pending" && <Clock className="h-3 w-3" />}
-                                  {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                                  {booking.status === "hired"
+                                    ? "Confirmed"
+                                    : booking.status.charAt(0).toUpperCase() +
+                                      booking.status.slice(1)}
                                 </div>
                               </Badge>
                             </div>
