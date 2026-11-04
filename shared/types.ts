@@ -40,7 +40,6 @@ export interface FreelancerProfile {
   state_province?: string;
   experience_years?: number;
   skills: string[];
-  portfolio_url?: string;
   linkedin_url?: string;
   website_url?: string;
   availability_status: "available" | "busy" | "unavailable";
@@ -156,7 +155,6 @@ export interface FreelancerFormData {
   state_province: string;
   experience_years: string;
   skills: string[];
-  portfolio_url: string;
   linkedin_url: string;
   website_url: string;
   availability_status: "available" | "busy" | "unavailable";

@@ -79,11 +79,10 @@ const FONT_CSS: Record<FontKey, string> = {
   "space-grotesk": "'Space Grotesk', sans-serif",
 };
 
-const DEFAULT_SECTIONS = ["about", "portfolio", "references", "documents", "contacts"];
+const DEFAULT_SECTIONS = ["about", "references", "documents", "contacts"];
 
 const SECTION_LABELS: Record<string, string> = {
   about: "About",
-  portfolio: "Portfolio",
   references: "References",
   documents: "Documents",
   contacts: "Contacts",

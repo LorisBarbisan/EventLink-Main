@@ -96,7 +96,6 @@ interface FreelancerProfile {
   location: string;
   experience_years: number | null;
   skills: string[];
-  portfolio_url: string;
   linkedin_url: string;
   website_url: string;
   availability_status: "available" | "busy" | "unavailable";
@@ -872,7 +871,6 @@ export default function Profile() {
               location: data.location || "",
               experience_years: data.experience_years || null,
               skills: data.skills || [],
-              portfolio_url: data.portfolio_url || "",
               linkedin_url: data.linkedin_url || "",
               website_url: data.website_url || "",
               availability_status: data.availability_status || "available",
@@ -955,7 +953,6 @@ export default function Profile() {
           superpower: profileData.superpower || "",
           experience_years: profileData.experience_years || null,
           skills: profileData.skills || [],
-          portfolio_url: profileData.portfolio_url || "",
           linkedin_url: profileData.linkedin_url || "",
           website_url: profileData.website_url || "",
           availability_status: profileData.availability_status || "available",
@@ -996,7 +993,6 @@ export default function Profile() {
               superpower: data.superpower || "",
               experience_years: data.experience_years || null,
               skills: data.skills || [],
-              portfolio_url: data.portfolio_url || "",
               linkedin_url: data.linkedin_url || "",
               website_url: data.website_url || "",
               availability_status: data.availability_status || "available",
@@ -1687,112 +1683,112 @@ export default function Profile() {
                 </Card>
               )}
 
-          {/* Freelancer-posted jobs — shown on freelancer profiles */}
-          {freelancerProfile && freelancerPostedJobs.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-primary" />
-                  Hiring For
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {freelancerPostedJobs.map((job: any) => (
-                  <a
-                    key={job.id}
-                    href={`/jobs?jobId=${job.id}`}
-                    className="block rounded-lg border p-4 transition-colors hover:bg-muted/50"
-                  >
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                      <h3 className="font-semibold leading-tight">{job.title}</h3>
-                      <Badge
-                        variant="secondary"
-                        className="shrink-0 bg-[#7B5EA7]/10 text-xs text-[#7B5EA7]"
+              {/* Freelancer-posted jobs — shown on freelancer profiles */}
+              {freelancerProfile && freelancerPostedJobs.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Briefcase className="h-5 w-5 text-primary" />
+                      Hiring For
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {freelancerPostedJobs.map((job: any) => (
+                      <a
+                        key={job.id}
+                        href={`/jobs?jobId=${job.id}`}
+                        className="block rounded-lg border p-4 transition-colors hover:bg-muted/50"
                       >
-                        Hiring
-                      </Badge>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                      {job.location && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {job.location}
-                        </span>
-                      )}
-                      {job.rate && <span>{job.rate}</span>}
-                      {job.event_date && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {new Date(job.event_date).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </span>
-                      )}
-                    </div>
-                  </a>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Active Job Openings (Recruiter profiles only) */}
-          {recruiterProfile && recruiterJobs.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-primary" />
-                  Current Openings
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {recruiterJobs.map((job) => (
-                  <a
-                    key={job.id}
-                    href={`/jobs?jobId=${job.id}`}
-                    className="block rounded-lg border p-4 transition-colors hover:bg-muted/50"
-                  >
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                      <h3 className="font-semibold leading-tight">{job.title}</h3>
-                      <Badge
-                        variant="secondary"
-                        className="shrink-0 bg-primary/10 text-xs text-primary"
-                      >
-                        Active
-                      </Badge>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                      {job.location && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {job.location}
-                        </span>
-                      )}
-                      {job.rate && (
-                        <span className="flex items-center gap-1">
-                          {(job as any).currency && (job as any).currency !== "GBP" && (
-                            <span className="text-xs font-medium">{(job as any).currency}</span>
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <h3 className="font-semibold leading-tight">{job.title}</h3>
+                          <Badge
+                            variant="secondary"
+                            className="shrink-0 bg-[#7B5EA7]/10 text-xs text-[#7B5EA7]"
+                          >
+                            Hiring
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                          {job.location && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5" />
+                              {job.location}
+                            </span>
                           )}
-                          {job.rate}
-                        </span>
-                      )}
-                      {job.event_date && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {new Date(job.event_date).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </span>
-                      )}
-                    </div>
-                  </a>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+                          {job.rate && <span>{job.rate}</span>}
+                          {job.event_date && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5" />
+                              {new Date(job.event_date).toLocaleDateString("en-GB", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      </a>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Active Job Openings (Recruiter profiles only) */}
+              {recruiterProfile && recruiterJobs.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Briefcase className="h-5 w-5 text-primary" />
+                      Current Openings
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {recruiterJobs.map((job) => (
+                      <a
+                        key={job.id}
+                        href={`/jobs?jobId=${job.id}`}
+                        className="block rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                      >
+                        <div className="mb-2 flex items-start justify-between gap-2">
+                          <h3 className="font-semibold leading-tight">{job.title}</h3>
+                          <Badge
+                            variant="secondary"
+                            className="shrink-0 bg-primary/10 text-xs text-primary"
+                          >
+                            Active
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                          {job.location && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5" />
+                              {job.location}
+                            </span>
+                          )}
+                          {job.rate && (
+                            <span className="flex items-center gap-1">
+                              {(job as any).currency && (job as any).currency !== "GBP" && (
+                                <span className="text-xs font-medium">{(job as any).currency}</span>
+                              )}
+                              {job.rate}
+                            </span>
+                          )}
+                          {job.event_date && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5" />
+                              {new Date(job.event_date).toLocaleDateString("en-GB", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      </a>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
             </>
           )}
         </div>

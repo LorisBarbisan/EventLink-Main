@@ -74,7 +74,6 @@ interface FreelancerProfile {
   country: string;
   experience_years: number | null;
   skills: string[];
-  portfolio_url: string;
   linkedin_url: string;
   website_url: string;
   availability_status: "available" | "busy" | "unavailable";
@@ -112,7 +111,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
       country: "",
       experience_years: null,
       skills: [],
-      portfolio_url: "",
       linkedin_url: "",
       website_url: "",
       availability_status: "available",
@@ -209,7 +207,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
             country: data.country || "",
             experience_years: data.experience_years || null,
             skills: data.skills || [],
-            portfolio_url: data.portfolio_url || "",
             linkedin_url: data.linkedin_url || "",
             website_url: data.website_url || "",
             availability_status: data.availability_status || "available",
@@ -274,7 +271,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
         country: freelancerProfile.country,
         experience_years: freelancerProfile.experience_years,
         skills: freelancerProfile.skills,
-        portfolio_url: freelancerProfile.portfolio_url,
         linkedin_url: freelancerProfile.linkedin_url,
         website_url: freelancerProfile.website_url,
         availability_status: freelancerProfile.availability_status,
@@ -747,17 +743,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="portfolio_url">Portfolio URL</Label>
-                    <Input
-                      id="portfolio_url"
-                      value={freelancerProfile.portfolio_url}
-                      onChange={(e) =>
-                        setFreelancerProfile((prev) => ({ ...prev, portfolio_url: e.target.value }))
-                      }
-                      placeholder="https://yourportfolio.com"
-                    />
-                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="linkedin_url">LinkedIn URL</Label>
                     <Input

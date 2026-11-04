@@ -110,7 +110,8 @@ export function ProfileForm({
     return !!(profile as FreelancerProfile).first_name;
   })();
 
-  const [isEditing, setIsEditing] = useState(!readOnly && !hasProfileContent);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_isEditing, setIsEditing] = useState(!readOnly && !hasProfileContent);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const draftKey = user?.id
     ? `${DRAFT_STORAGE_KEY_PREFIX}${userType}_${user.id}`
@@ -134,7 +135,6 @@ export function ProfileForm({
           state_province: freelancerProfile?.state_province || "",
           experience_years: freelancerProfile?.experience_years?.toString() || "",
           skills: freelancerProfile?.skills || [],
-          portfolio_url: freelancerProfile?.portfolio_url || "",
           linkedin_url: freelancerProfile?.linkedin_url || "",
           website_url: freelancerProfile?.website_url || "",
           availability_status: freelancerProfile?.availability_status || "available",

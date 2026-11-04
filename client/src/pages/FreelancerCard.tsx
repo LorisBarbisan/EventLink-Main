@@ -170,7 +170,7 @@ export default function FreelancerCard() {
 
   const { data: rating } = useFreelancerAverageRating(uid || 0);
 
-  // Share URL = card page with token so recipient gets portfolio/files access
+  // Share URL = card page with token so recipient gets files/documents access
   // Falls back to urlPt so recipients can re-share (owner's token travels with the URL)
   const cardShareUrl = () => {
     const base = window.location.origin;

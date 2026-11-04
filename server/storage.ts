@@ -71,9 +71,6 @@ import {
   guest_application_tokens,
   type GuestApplicationToken,
   type User,
-  portfolio_posts,
-  type PortfolioPost,
-  type InsertPortfolioPost,
   freelancer_billing_profiles,
   invoices,
   invoice_reminders,
@@ -682,18 +679,6 @@ export interface IStorage {
     subscriptionId: string | null
   ): Promise<void>;
   updateIdVerified(userId: number, verified: boolean, sessionId?: string): Promise<void>;
-
-  // Portfolio posts
-  getPortfolioPosts(userId: number): Promise<import("@shared/schema").PortfolioPost[]>;
-  getPortfolioPostById(id: number): Promise<import("@shared/schema").PortfolioPost | undefined>;
-  createPortfolioPost(
-    data: import("@shared/schema").InsertPortfolioPost
-  ): Promise<import("@shared/schema").PortfolioPost>;
-  updatePortfolioPost(
-    id: number,
-    data: Partial<import("@shared/schema").InsertPortfolioPost>
-  ): Promise<import("@shared/schema").PortfolioPost | undefined>;
-  deletePortfolioPost(id: number): Promise<void>;
 
   // Guest account upgrade
   upgradeGuestAccount(
@@ -1403,7 +1388,6 @@ export class DatabaseStorage implements IStorage {
       state_province: profile.state_province,
       experience_years: profile.experience_years,
       skills: profile.skills,
-      portfolio_url: profile.portfolio_url,
       linkedin_url: profile.linkedin_url,
       website_url: profile.website_url,
       availability_status: profile.availability_status as "available" | "busy" | "unavailable",
@@ -1436,7 +1420,6 @@ export class DatabaseStorage implements IStorage {
     if (profile.experience_years !== undefined)
       updateData.experience_years = profile.experience_years;
     if (profile.skills !== undefined) updateData.skills = profile.skills;
-    if (profile.portfolio_url !== undefined) updateData.portfolio_url = profile.portfolio_url;
     if (profile.linkedin_url !== undefined) updateData.linkedin_url = profile.linkedin_url;
     if (profile.website_url !== undefined) updateData.website_url = profile.website_url;
     if (profile.availability_status !== undefined)
@@ -1496,7 +1479,6 @@ export class DatabaseStorage implements IStorage {
         location: updateData.location || "",
         experience_years: updateData.experience_years || null,
         skills: updateData.skills || [],
-        portfolio_url: updateData.portfolio_url || "",
         linkedin_url: updateData.linkedin_url || "",
         website_url: updateData.website_url || "",
         availability_status: updateData.availability_status || "available",
@@ -1687,7 +1669,6 @@ export class DatabaseStorage implements IStorage {
         country: freelancer_profiles.country,
         experience_years: freelancer_profiles.experience_years,
         skills: freelancer_profiles.skills,
-        portfolio_url: freelancer_profiles.portfolio_url,
         linkedin_url: freelancer_profiles.linkedin_url,
         website_url: freelancer_profiles.website_url,
         availability_status: freelancer_profiles.availability_status,
@@ -1859,7 +1840,6 @@ export class DatabaseStorage implements IStorage {
           country: freelancer_profiles.country,
           experience_years: freelancer_profiles.experience_years,
           skills: freelancer_profiles.skills,
-          portfolio_url: freelancer_profiles.portfolio_url,
           linkedin_url: freelancer_profiles.linkedin_url,
           website_url: freelancer_profiles.website_url,
           availability_status: freelancer_profiles.availability_status,
@@ -1940,7 +1920,6 @@ export class DatabaseStorage implements IStorage {
           country: freelancer_profiles.country,
           experience_years: freelancer_profiles.experience_years,
           skills: freelancer_profiles.skills,
-          portfolio_url: freelancer_profiles.portfolio_url,
           linkedin_url: freelancer_profiles.linkedin_url,
           website_url: freelancer_profiles.website_url,
           availability_status: freelancer_profiles.availability_status,
@@ -2926,7 +2905,6 @@ export class DatabaseStorage implements IStorage {
           country: freelancer_profiles.country,
           experience_years: freelancer_profiles.experience_years,
           skills: freelancer_profiles.skills,
-          portfolio_url: freelancer_profiles.portfolio_url,
           linkedin_url: freelancer_profiles.linkedin_url,
           website_url: freelancer_profiles.website_url,
           availability_status: freelancer_profiles.availability_status,
@@ -6110,46 +6088,6 @@ export class DatabaseStorage implements IStorage {
       .set({ id_verified: verified, stripe_identity_session_id: sessionId ?? null })
       .where(eq(users.id, userId));
     cache.clearPattern(`user:${userId}`);
-  }
-
-  // Portfolio posts
-  async getPortfolioPosts(userId: number): Promise<PortfolioPost[]> {
-    return db
-      .select()
-      .from(portfolio_posts)
-      .where(eq(portfolio_posts.user_id, userId))
-      .orderBy(desc(portfolio_posts.created_at));
-  }
-
-  async getPortfolioPostById(id: number): Promise<PortfolioPost | undefined> {
-    const result = await db
-      .select()
-      .from(portfolio_posts)
-      .where(eq(portfolio_posts.id, id))
-      .limit(1);
-    return result[0];
-  }
-
-  async createPortfolioPost(data: InsertPortfolioPost): Promise<PortfolioPost> {
-    const result = await db.insert(portfolio_posts).values(data).returning();
-    if (!result[0]) throw new Error("Failed to create portfolio post");
-    return result[0];
-  }
-
-  async updatePortfolioPost(
-    id: number,
-    data: Partial<InsertPortfolioPost>
-  ): Promise<PortfolioPost | undefined> {
-    const result = await db
-      .update(portfolio_posts)
-      .set({ ...data, updated_at: new Date() })
-      .where(eq(portfolio_posts.id, id))
-      .returning();
-    return result[0];
-  }
-
-  async deletePortfolioPost(id: number): Promise<void> {
-    await db.delete(portfolio_posts).where(eq(portfolio_posts.id, id));
   }
 
   // ── Guest account upgrade ─────────────────────────────────────────────────────
