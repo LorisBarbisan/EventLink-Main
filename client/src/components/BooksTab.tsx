@@ -1865,12 +1865,40 @@ interface BooksSummary {
   mileage_trip_count: number;
 }
 
+interface TaxBand {
+  label: string;
+  ratePct: number;
+  onPence: number;
+  taxPence: number;
+}
+
+interface TaxEstimateData {
+  taxYearLabel: string;
+  netProfitPence: number;
+  incomeTaxBands: TaxBand[];
+  incomeTaxTotalPence: number;
+  niBands: TaxBand[];
+  niTotalPence: number;
+  totalTaxPence: number;
+  effectiveRatePct: number;
+}
+
 function OverviewSection() {
   const { data, isLoading } = useQuery<BooksSummary>({
     queryKey: ["/api/books/summary"],
     queryFn: () => {
       const token = localStorage.getItem("auth_token");
       return fetch("/api/books/summary", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then((r) => r.json());
+    },
+  });
+
+  const { data: taxData } = useQuery<TaxEstimateData>({
+    queryKey: ["/api/books/tax-estimate"],
+    queryFn: () => {
+      const token = localStorage.getItem("auth_token");
+      return fetch("/api/books/tax-estimate", {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       }).then((r) => r.json());
     },
@@ -1910,27 +1938,21 @@ function OverviewSection() {
     );
   }
 
-  const handleExport = () => {
+  function downloadWithAuth(url: string, filename: string) {
     const token = localStorage.getItem("auth_token");
-    const url = "/api/books/export";
-    // Open via link so the browser handles the file download
-    const a = document.createElement("a");
-    a.href = url;
-    if (token) {
-      // Fetch and trigger programmatically to include auth header
-      fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-        .then((r) => r.blob())
-        .then((blob) => {
-          const objUrl = URL.createObjectURL(blob);
-          a.href = objUrl;
-          a.download = "books-export.csv";
-          a.click();
-          URL.revokeObjectURL(objUrl);
-        });
-    } else {
-      a.click();
-    }
-  };
+    fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => r.blob())
+      .then((blob) => {
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objUrl;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(objUrl);
+      });
+  }
+
+  const handleExport = () => downloadWithAuth("/api/books/export", "books-export.csv");
 
   return (
     <div className="space-y-4">
@@ -2014,6 +2036,76 @@ function OverviewSection() {
           </CardContent>
         </Card>
       )}
+
+      {/* Tax estimate card */}
+      {taxData && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-4 w-4" />
+              Tax estimate — {taxData.taxYearLabel}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Rough guide only. Based on {formatPence(taxData.netProfitPence)} net profit, UK rates,
+              no other income assumed. Consult your accountant.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {[...taxData.incomeTaxBands, ...taxData.niBands].map((b, i) => (
+                <div
+                  key={i}
+                  className="flex items-baseline justify-between border-t border-dashed py-1.5"
+                >
+                  <p className="text-xs text-muted-foreground">{b.label}</p>
+                  <span className="text-sm tabular-nums">{formatPence(b.taxPence)}</span>
+                </div>
+              ))}
+              <div className="flex items-baseline justify-between border-t py-2">
+                <div>
+                  <p className="text-sm font-semibold">Estimated tax &amp; NI</p>
+                  <p className="text-xs text-muted-foreground">
+                    Effective rate {taxData.effectiveRatePct}%
+                  </p>
+                </div>
+                <span className="text-base font-bold tabular-nums text-destructive">
+                  {formatPence(taxData.totalTaxPence)}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between border-t py-2">
+                <p className="text-sm font-semibold">Take-home estimate</p>
+                <span className="text-base font-bold tabular-nums text-green-600 dark:text-green-400">
+                  {formatPence(taxData.netProfitPence - taxData.totalTaxPence)}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Year-end pack */}
+      <Card>
+        <CardHeader className="pb-1">
+          <CardTitle className="text-base">Year-end pack</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Download all records for your accountant or self-assessment return.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2 pt-2">
+          <Button size="sm" variant="outline" onClick={handleExport}>
+            <Download className="mr-1 h-3.5 w-3.5" />
+            Expenses &amp; mileage CSV
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => downloadWithAuth("/api/expenses/export", "expenses.csv")}
+          >
+            <Download className="mr-1 h-3.5 w-3.5" />
+            Expenses only
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

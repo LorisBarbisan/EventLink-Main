@@ -1,7 +1,8 @@
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-import { currentTaxYear } from "@shared/tax-periods";
+import { currentTaxYear, taxYearForDate } from "@shared/tax-periods";
 import { buildCsv, penceToCsvDecimal, dateToCsvDate, exportFilename } from "../utils/csv";
+import { bandsForTaxYear, estimateTax } from "@shared/tax-estimate";
 
 function taxYearParams(req: Request): { from: string; to: string } {
   const ty = currentTaxYear();
@@ -119,4 +120,32 @@ export async function booksExport(req: Request, res: Response) {
     `attachment; filename="${exportFilename("books", from, to)}"`
   );
   return res.send(csv);
+}
+
+// ── Tax estimate ──────────────────────────────────────────────────────────────
+
+export async function taxEstimate(req: Request, res: Response) {
+  const freelancerId = req.user!.id;
+  const { from, to } = taxYearParams(req);
+
+  const [earnings, expensesData, mileagePence] = await Promise.all([
+    storage.earningsSummary(freelancerId, { basis: "cash", from, to }),
+    storage.listExpensesForExport(freelancerId, from, to),
+    storage.sumMileagePence(freelancerId, from, to),
+  ]);
+
+  const earningsPence = earnings.total_pence - earnings.deductions_pence;
+  const expenseAllowablePence = expensesData.reduce((sum, e) => {
+    const total = e.net_amount_pence + e.vat_amount_pence;
+    return sum + Math.round((total * e.business_use_percent) / 100);
+  }, 0);
+
+  const netProfitPence = earningsPence - expenseAllowablePence - mileagePence;
+
+  // Determine which tax year bands to use from the `from` date
+  const ty = taxYearForDate(from);
+  const bands = bandsForTaxYear(ty.label);
+  const estimate = estimateTax(netProfitPence, bands);
+
+  return res.json(estimate);
 }
