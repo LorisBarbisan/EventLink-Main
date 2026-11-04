@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -26,12 +27,14 @@ import {
   AlertCircle,
   BookOpen,
   CheckCircle,
+  ChevronDown,
   Clock,
   TrendingUp,
   RefreshCw,
   Download,
   Plus,
   Pencil,
+  Receipt,
   Trash2,
 } from "lucide-react";
 import { KitTab } from "./KitTab";
@@ -457,10 +460,567 @@ function GigDialog({
   );
 }
 
+// ── Expense types ─────────────────────────────────────────────────────────────
+
+interface ExpenseCategory {
+  id: number;
+  name: string;
+  is_system: boolean;
+  freelancer_id: number | null;
+}
+
+interface Expense {
+  id: number;
+  category_id: number | null;
+  booking_id: number | null;
+  source: string;
+  supplier: string | null;
+  description: string;
+  expense_date: string;
+  net_amount_pence: number;
+  vat_amount_pence: number;
+  currency: string;
+  payment_method: string | null;
+  business_use_percent: number;
+  billable_to_client: boolean;
+  rebilled: boolean;
+  notes: string | null;
+}
+
+interface ExpenseForm {
+  description: string;
+  supplier: string;
+  expense_date: string;
+  net_amount: string;
+  category_id: string;
+  // more details
+  vat_amount: string;
+  business_use_percent: string;
+  payment_method: string;
+  billable_to_client: boolean;
+  notes: string;
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function emptyExpenseForm(lastCategoryId?: string): ExpenseForm {
+  return {
+    description: "",
+    supplier: "",
+    expense_date: todayIso(),
+    net_amount: "",
+    category_id: lastCategoryId ?? "",
+    vat_amount: "",
+    business_use_percent: "100",
+    payment_method: "",
+    billable_to_client: false,
+    notes: "",
+  };
+}
+
+// ── Expense dialog ────────────────────────────────────────────────────────────
+
+function ExpenseDialog({
+  open,
+  onClose,
+  editing,
+  categories,
+  vatRegistered,
+  prefill,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editing: Expense | null;
+  categories: ExpenseCategory[];
+  vatRegistered: boolean;
+  prefill?: Partial<ExpenseForm>;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const amountRef = useRef<HTMLInputElement>(null);
+  const lastCategoryRef = useRef<string>("");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [form, setForm] = useState<ExpenseForm>(emptyExpenseForm());
+
+  // Reset when dialog opens
+  useState(() => {
+    if (open) {
+      if (editing) {
+        setForm({
+          description: editing.description,
+          supplier: editing.supplier ?? "",
+          expense_date: editing.expense_date.slice(0, 10),
+          net_amount: (editing.net_amount_pence / 100).toFixed(2),
+          category_id: editing.category_id ? String(editing.category_id) : "",
+          vat_amount:
+            editing.vat_amount_pence > 0 ? (editing.vat_amount_pence / 100).toFixed(2) : "",
+          business_use_percent: String(editing.business_use_percent),
+          payment_method: editing.payment_method ?? "",
+          billable_to_client: editing.billable_to_client,
+          notes: editing.notes ?? "",
+        });
+        setMoreOpen(
+          editing.vat_amount_pence > 0 ||
+            editing.business_use_percent < 100 ||
+            !!editing.payment_method ||
+            editing.billable_to_client
+        );
+      } else {
+        const base = emptyExpenseForm(lastCategoryRef.current || undefined);
+        setForm({ ...base, ...prefill });
+        setMoreOpen(false);
+        // Focus amount field after render
+        setTimeout(() => amountRef.current?.focus(), 50);
+      }
+    }
+  });
+
+  const set = <K extends keyof ExpenseForm>(k: K, v: ExpenseForm[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
+
+  const saveMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) => {
+      const token = localStorage.getItem("auth_token");
+      const url = editing ? `/api/expenses/${editing.id}` : "/api/expenses";
+      const method = editing ? "PATCH" : "POST";
+      return apiRequest(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+    },
+    onSuccess: () => {
+      if (form.category_id) lastCategoryRef.current = form.category_id;
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      toast({ title: editing ? "Expense updated" : "Expense added" });
+      onClose();
+    },
+    onError: (e: Error) =>
+      toast({ title: "Failed to save", description: e.message, variant: "destructive" }),
+  });
+
+  const handleSave = () => {
+    if (!form.description.trim() || !form.expense_date || !form.net_amount) return;
+    saveMutation.mutate({
+      description: form.description.trim(),
+      supplier: form.supplier.trim() || null,
+      expense_date: form.expense_date,
+      net_amount_pence: Math.round(parseFloat(form.net_amount) * 100),
+      vat_amount_pence: form.vat_amount ? Math.round(parseFloat(form.vat_amount) * 100) : 0,
+      category_id: form.category_id ? parseInt(form.category_id) : null,
+      business_use_percent: parseInt(form.business_use_percent) || 100,
+      payment_method: form.payment_method || null,
+      billable_to_client: form.billable_to_client,
+      notes: form.notes.trim() || null,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{editing ? "Edit expense" : "Add expense"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          {/* Amount — focused first */}
+          <div className="space-y-1">
+            <Label htmlFor="exp-amount">Amount (£) *</Label>
+            <Input
+              id="exp-amount"
+              ref={amountRef}
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={form.net_amount}
+              onChange={(e) => set("net_amount", e.target.value)}
+              style={{ fontSize: "16px" }}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="exp-date">Date *</Label>
+              <Input
+                id="exp-date"
+                type="date"
+                value={form.expense_date}
+                onChange={(e) => set("expense_date", e.target.value)}
+                style={{ fontSize: "16px" }}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Category</Label>
+              <Select value={form.category_id} onValueChange={(v) => set("category_id", v)}>
+                <SelectTrigger style={{ fontSize: "16px" }}>
+                  <SelectValue placeholder="Pick one" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="exp-supplier">Supplier</Label>
+            <Input
+              id="exp-supplier"
+              placeholder="e.g. Shell, Travelodge, Screwfix"
+              value={form.supplier}
+              onChange={(e) => set("supplier", e.target.value)}
+              style={{ fontSize: "16px" }}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="exp-desc">Description *</Label>
+            <Input
+              id="exp-desc"
+              placeholder="What was this for?"
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              style={{ fontSize: "16px" }}
+            />
+          </div>
+
+          {/* More details — collapsed by default */}
+          <Collapsible open={moreOpen} onOpenChange={setMoreOpen}>
+            <CollapsibleTrigger asChild>
+              <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${moreOpen ? "rotate-180" : ""}`}
+                />
+                More details
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3 space-y-4">
+              {vatRegistered && (
+                <div className="space-y-1">
+                  <Label htmlFor="exp-vat">VAT amount (£)</Label>
+                  <Input
+                    id="exp-vat"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={form.vat_amount}
+                    onChange={(e) => set("vat_amount", e.target.value)}
+                    style={{ fontSize: "16px" }}
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label htmlFor="exp-biz">Business use %</Label>
+                <Input
+                  id="exp-biz"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={form.business_use_percent}
+                  onChange={(e) => set("business_use_percent", e.target.value)}
+                  style={{ fontSize: "16px" }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  For mixed personal/business use, e.g. 50% for a phone used half for work.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Payment method</Label>
+                <Select value={form.payment_method} onValueChange={(v) => set("payment_method", v)}>
+                  <SelectTrigger style={{ fontSize: "16px" }}>
+                    <SelectValue placeholder="Not specified" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="bank_transfer">Bank transfer</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="exp-billable"
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={form.billable_to_client}
+                  onChange={(e) => set("billable_to_client", e.target.checked)}
+                />
+                <Label htmlFor="exp-billable" className="cursor-pointer font-normal">
+                  Billable to client
+                </Label>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="exp-notes">Notes</Label>
+                <Textarea
+                  id="exp-notes"
+                  rows={2}
+                  placeholder="Any extra details…"
+                  value={form.notes}
+                  onChange={(e) => set("notes", e.target.value)}
+                />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={
+              saveMutation.isPending ||
+              !form.description.trim() ||
+              !form.expense_date ||
+              !form.net_amount
+            }
+          >
+            {editing ? "Save changes" : "Add expense"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Expenses section ──────────────────────────────────────────────────────────
+
+function ExpensesSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+
+  const { data: categoriesData = [] } = useQuery<ExpenseCategory[]>({
+    queryKey: ["/api/expense-categories"],
+  });
+
+  const { data: billingProfile } = useQuery<{ vat_registered?: boolean } | null>({
+    queryKey: ["/api/billing-profile"],
+    retry: false,
+  });
+
+  const { data: expensesData, isLoading } = useQuery<{
+    expenses: Expense[];
+    total: number;
+  }>({
+    queryKey: ["/api/expenses"],
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (id: number) => {
+      const token = localStorage.getItem("auth_token");
+      return apiRequest(`/api/expenses/${id}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      toast({ title: "Expense removed" });
+    },
+    onError: () => toast({ title: "Failed to remove expense", variant: "destructive" }),
+  });
+
+  const vatRegistered = Boolean(billingProfile?.vat_registered);
+  const expenses = expensesData?.expenses ?? [];
+
+  // Group expenses by YYYY-MM month
+  const byMonth = expenses.reduce<Record<string, Expense[]>>((acc, e) => {
+    const key = e.expense_date.slice(0, 7);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(e);
+    return acc;
+  }, {});
+
+  const monthKeys = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
+
+  const categoryMap = Object.fromEntries(categoriesData.map((c) => [c.id, c.name]));
+
+  function monthLabel(key: string) {
+    const [y, m] = key.split("-");
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    return `${months[parseInt(m) - 1]} ${y}`;
+  }
+
+  const openAdd = () => {
+    setEditingExpense(null);
+    setDialogOpen(true);
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Receipt className="h-4 w-4" />
+            Expenses
+          </CardTitle>
+          <Button size="sm" onClick={openAdd}>
+            <Plus className="mr-1 h-3 w-3" />
+            Add expense
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="animate-pulse rounded-lg border p-3">
+                  <div className="mb-1 h-3 w-1/3 rounded bg-muted" />
+                  <div className="h-3 w-1/2 rounded bg-muted" />
+                </div>
+              ))}
+            </div>
+          ) : expenses.length === 0 ? (
+            <div className="py-8 text-center">
+              <Receipt className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+              <p className="mb-1 font-medium text-muted-foreground">No expenses yet</p>
+              <p className="text-sm text-muted-foreground">
+                Add your first expense — travel and parking, tools, PPE, kit hire
+              </p>
+              <Button className="mt-4" size="sm" onClick={openAdd}>
+                <Plus className="mr-1 h-3 w-3" />
+                Add your first expense
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {monthKeys.map((key) => {
+                const monthExpenses = byMonth[key];
+                const monthTotal = monthExpenses.reduce(
+                  (sum, e) =>
+                    sum +
+                    Math.round(
+                      ((e.net_amount_pence + e.vat_amount_pence) * e.business_use_percent) / 100
+                    ),
+                  0
+                );
+                return (
+                  <div key={key}>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {monthLabel(key)}
+                      </span>
+                      <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                        {formatPence(monthTotal)}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {monthExpenses.map((expense) => {
+                        const total = expense.net_amount_pence + expense.vat_amount_pence;
+                        const allowable = Math.round((total * expense.business_use_percent) / 100);
+                        const catName = expense.category_id
+                          ? categoryMap[expense.category_id]
+                          : null;
+                        return (
+                          <div
+                            key={expense.id}
+                            className="flex items-start justify-between rounded-md border px-3 py-2"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <p className="truncate text-sm font-medium">
+                                  {expense.supplier || expense.description}
+                                </p>
+                                {catName && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {catName}
+                                  </Badge>
+                                )}
+                                {expense.billable_to_client && !expense.rebilled && (
+                                  <Badge
+                                    variant="outline"
+                                    className="border-blue-300 text-xs text-blue-600"
+                                  >
+                                    Billable
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {fmtDate(expense.expense_date)}
+                                {expense.supplier && expense.description !== expense.supplier
+                                  ? ` · ${expense.description}`
+                                  : ""}
+                              </p>
+                            </div>
+                            <div className="ml-3 flex items-center gap-2">
+                              <span className="min-w-[72px] text-right text-sm font-medium tabular-nums">
+                                {formatPence(allowable)}
+                              </span>
+                              <button
+                                className="text-muted-foreground transition-colors hover:text-foreground"
+                                title="Edit"
+                                onClick={() => {
+                                  setEditingExpense(expense);
+                                  setDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                className="text-muted-foreground transition-colors hover:text-destructive"
+                                title="Remove"
+                                onClick={() => archiveMutation.mutate(expense.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <ExpenseDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        editing={editingExpense}
+        categories={categoriesData}
+        vatRegistered={vatRegistered}
+      />
+    </div>
+  );
+}
+
 // ── Top-level tabs ─────────────────────────────────────────────────────────────
 
 export function BooksTab() {
-  const [section, setSection] = useState<"earnings" | "kit">("earnings");
+  const [section, setSection] = useState<"earnings" | "expenses" | "kit">("earnings");
   const [gigDialogOpen, setGigDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
   const { toast } = useToast();
@@ -515,6 +1075,12 @@ export function BooksTab() {
         Earnings
       </button>
       <button
+        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "expenses" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        onClick={() => setSection("expenses")}
+      >
+        Expenses
+      </button>
+      <button
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "kit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         onClick={() => setSection("kit")}
       >
@@ -522,6 +1088,15 @@ export function BooksTab() {
       </button>
     </div>
   );
+
+  if (section === "expenses") {
+    return (
+      <div className="space-y-4">
+        {sectionSwitcher}
+        <ExpensesSection />
+      </div>
+    );
+  }
 
   if (section === "kit") {
     return (
