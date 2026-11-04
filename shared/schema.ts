@@ -1649,7 +1649,118 @@ export type KitItem = typeof kit_items.$inferSelect;
 export type InsertKitItem = typeof kit_items.$inferInsert;
 export type KitItemFile = typeof kit_item_files.$inferSelect;
 export type InsertInvoiceReminder = typeof invoice_reminders.$inferInsert;
+// ── Receipts ──────────────────────────────────────────────────────────────────
+
+export const receipts = pgTable(
+  "receipts",
+  {
+    id: serial("id").primaryKey(),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expense_id: integer("expense_id").references(() => expenses.id, { onDelete: "set null" }),
+    file_key: text("file_key").notNull(),
+    file_name: text("file_name").notNull(),
+    mime_type: text("mime_type").notNull(),
+    size_bytes: integer("size_bytes").notNull(),
+    captured_at: timestamp("captured_at", { withTimezone: true }).defaultNow().notNull(),
+    ocr_status: text("ocr_status")
+      .notNull()
+      .default("none")
+      .$type<"none" | "pending" | "done" | "failed">(),
+    ocr_payload: jsonb("ocr_payload"),
+    archived: boolean("archived").notNull().default(false),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    freelancerIdx: index("receipts_freelancer_idx").on(t.freelancer_id, t.captured_at),
+    expenseIdx: index("receipts_expense_idx").on(t.expense_id),
+    unattachedIdx: index("receipts_unattached_idx").on(t.freelancer_id, t.expense_id),
+  })
+);
+
 export type ExpenseCategory = typeof expense_categories.$inferSelect;
 export type InsertExpenseCategory = typeof expense_categories.$inferInsert;
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = typeof expenses.$inferInsert;
+export type Receipt = typeof receipts.$inferSelect;
+export type InsertReceipt = typeof receipts.$inferInsert;
+
+// ── Mileage ───────────────────────────────────────────────────────────────────
+
+/** HMRC approved mileage rates (pence per mile). Effective from a date. */
+export const mileage_rates = pgTable(
+  "mileage_rates",
+  {
+    id: serial("id").primaryKey(),
+    vehicle_type: text("vehicle_type")
+      .notNull()
+      .$type<"car" | "motorcycle" | "bicycle">()
+      .default("car"),
+    /** Pence per mile for the first threshold miles in a tax year (e.g. 45p) */
+    rate_pence: integer("rate_pence").notNull(),
+    /** If set, a lower rate applies beyond this many miles in the tax year (e.g. 25p after 10 000) */
+    threshold_miles: integer("threshold_miles"),
+    /** Pence per mile beyond the threshold */
+    rate_above_pence: integer("rate_above_pence"),
+    effective_from: date("effective_from").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    vehicleFromIdx: index("mileage_rates_vehicle_from_idx").on(t.vehicle_type, t.effective_from),
+  })
+);
+
+/** Saved places for quick trip entry (home, office, client sites). */
+export const saved_places = pgTable("saved_places", {
+  id: serial("id").primaryKey(),
+  freelancer_id: integer("freelancer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  label: text("label").notNull(),
+  address: text("address"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/** Individual mileage trips. */
+export const mileage_trips = pgTable(
+  "mileage_trips",
+  {
+    id: serial("id").primaryKey(),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    trip_date: date("trip_date").notNull(),
+    from_place: text("from_place").notNull(),
+    to_place: text("to_place").notNull(),
+    miles: integer("miles").notNull(), // stored as integer miles (no half-miles needed)
+    purpose: text("purpose").notNull(),
+    vehicle_type: text("vehicle_type")
+      .notNull()
+      .$type<"car" | "motorcycle" | "bicycle">()
+      .default("car"),
+    /** Pence reimbursement calculated at log time (snapshot of rate) */
+    amount_pence: integer("amount_pence").notNull(),
+    /** Rate used for the first-band calculation */
+    rate_pence: integer("rate_pence").notNull(),
+    /** Rate used if trip crossed the threshold (null if not) */
+    rate_above_pence: integer("rate_above_pence"),
+    booking_id: integer("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    notes: text("notes"),
+    archived: boolean("archived").notNull().default(false),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    dateIdx: index("mileage_trips_freelancer_date_idx").on(t.freelancer_id, t.trip_date),
+    bookingIdx: index("mileage_trips_booking_idx").on(t.booking_id),
+  })
+);
+
+export type MileageRate = typeof mileage_rates.$inferSelect;
+export type InsertMileageRate = typeof mileage_rates.$inferInsert;
+export type SavedPlace = typeof saved_places.$inferSelect;
+export type InsertSavedPlace = typeof saved_places.$inferInsert;
+export type MileageTrip = typeof mileage_trips.$inferSelect;
+export type InsertMileageTrip = typeof mileage_trips.$inferInsert;

@@ -31,6 +31,8 @@ import {
   ChevronDown,
   Clock,
   ImageIcon,
+  MapPin,
+  Navigation,
   TrendingUp,
   RefreshCw,
   Download,
@@ -1355,10 +1357,504 @@ function ExpensesSection() {
   );
 }
 
+// ── Mileage section ───────────────────────────────────────────────────────────
+
+interface MileageTrip {
+  id: number;
+  trip_date: string;
+  from_place: string;
+  to_place: string;
+  miles: number;
+  purpose: string;
+  vehicle_type: string;
+  amount_pence: number;
+  rate_pence: number;
+  notes: string | null;
+}
+
+interface SavedPlace {
+  id: number;
+  label: string;
+  address: string | null;
+}
+
+interface MileageRate {
+  id: number;
+  vehicle_type: string;
+  rate_pence: number;
+  threshold_miles: number | null;
+  rate_above_pence: number | null;
+}
+
+interface TripForm {
+  trip_date: string;
+  from_place: string;
+  to_place: string;
+  miles: string;
+  purpose: string;
+  vehicle_type: string;
+  notes: string;
+}
+
+const EMPTY_TRIP: TripForm = {
+  trip_date: new Date().toISOString().slice(0, 10),
+  from_place: "",
+  to_place: "",
+  miles: "",
+  purpose: "",
+  vehicle_type: "car",
+  notes: "",
+};
+
+function TripDialog({
+  open,
+  onClose,
+  editing,
+  savedPlaces,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editing: MileageTrip | null;
+  savedPlaces: SavedPlace[];
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<TripForm>(EMPTY_TRIP);
+
+  // Prime form when opening
+  useState(() => {
+    if (open) {
+      if (editing) {
+        setForm({
+          trip_date: editing.trip_date,
+          from_place: editing.from_place,
+          to_place: editing.to_place,
+          miles: String(editing.miles),
+          purpose: editing.purpose,
+          vehicle_type: editing.vehicle_type,
+          notes: editing.notes ?? "",
+        });
+      } else {
+        setForm({ ...EMPTY_TRIP, trip_date: new Date().toISOString().slice(0, 10) });
+      }
+    }
+  });
+
+  const set =
+    (k: keyof TripForm) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const url = editing ? `/api/mileage/trips/${editing.id}` : "/api/mileage/trips";
+      const method = editing ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          ...form,
+          miles: parseInt(form.miles),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "Save failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/mileage/trips"] });
+      toast({ title: editing ? "Trip updated" : "Trip logged" });
+      onClose();
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const placeOptions = savedPlaces.map((p) => (
+    <option key={p.id} value={p.label}>
+      {p.label}
+    </option>
+  ));
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{editing ? "Edit trip" : "Log trip"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Date</Label>
+            <Input type="date" value={form.trip_date} onChange={set("trip_date")} />
+          </div>
+          <div>
+            <Label>From</Label>
+            <Input
+              list="saved-places-from"
+              placeholder="Starting point"
+              value={form.from_place}
+              onChange={set("from_place")}
+            />
+            <datalist id="saved-places-from">{placeOptions}</datalist>
+          </div>
+          <div>
+            <Label>To</Label>
+            <Input
+              list="saved-places-to"
+              placeholder="Destination"
+              value={form.to_place}
+              onChange={set("to_place")}
+            />
+            <datalist id="saved-places-to">{placeOptions}</datalist>
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Label>Miles</Label>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                placeholder="0"
+                value={form.miles}
+                onChange={set("miles")}
+              />
+            </div>
+            <div className="flex-1">
+              <Label>Vehicle</Label>
+              <select
+                className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={form.vehicle_type}
+                onChange={set("vehicle_type")}
+              >
+                <option value="car">Car</option>
+                <option value="motorcycle">Motorcycle</option>
+                <option value="bicycle">Bicycle</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <Label>Purpose</Label>
+            <Input
+              placeholder="Client visit, site survey…"
+              value={form.purpose}
+              onChange={set("purpose")}
+            />
+          </div>
+          <div>
+            <Label>Notes (optional)</Label>
+            <Textarea rows={2} value={form.notes} onChange={set("notes")} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={
+              saveMutation.isPending ||
+              !form.from_place ||
+              !form.to_place ||
+              !form.miles ||
+              !form.purpose
+            }
+          >
+            {saveMutation.isPending ? "Saving…" : editing ? "Save changes" : "Log trip"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MileageSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTrip, setEditingTrip] = useState<MileageTrip | null>(null);
+  const [showPlaces, setShowPlaces] = useState(false);
+  const [newPlaceLabel, setNewPlaceLabel] = useState("");
+
+  const { data: tripsData, isLoading } = useQuery<{ trips: MileageTrip[]; total_pence: number }>({
+    queryKey: ["/api/mileage/trips"],
+    queryFn: () => {
+      const token = localStorage.getItem("auth_token");
+      return fetch("/api/mileage/trips", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then((r) => r.json());
+    },
+  });
+
+  const { data: savedPlaces = [] } = useQuery<SavedPlace[]>({
+    queryKey: ["/api/mileage/places"],
+    queryFn: () => {
+      const token = localStorage.getItem("auth_token");
+      return fetch("/api/mileage/places", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then((r) => r.json());
+    },
+  });
+
+  const { data: rate } = useQuery<MileageRate>({
+    queryKey: ["/api/mileage/rate"],
+    queryFn: () => {
+      const token = localStorage.getItem("auth_token");
+      return fetch("/api/mileage/rate", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then((r) => r.json());
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (id: number) => {
+      const token = localStorage.getItem("auth_token");
+      return fetch(`/api/mileage/trips/${id}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/mileage/trips"] }),
+    onError: () => toast({ title: "Failed to remove trip", variant: "destructive" }),
+  });
+
+  const addPlaceMutation = useMutation({
+    mutationFn: (label: string) => {
+      const token = localStorage.getItem("auth_token");
+      return fetch("/api/mileage/places", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ label }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/mileage/places"] });
+      setNewPlaceLabel("");
+      toast({ title: "Place saved" });
+    },
+    onError: () => toast({ title: "Failed to save place", variant: "destructive" }),
+  });
+
+  const deletePlaceMutation = useMutation({
+    mutationFn: (id: number) => {
+      const token = localStorage.getItem("auth_token");
+      return fetch(`/api/mileage/places/${id}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/mileage/places"] }),
+    onError: () => toast({ title: "Failed to delete place", variant: "destructive" }),
+  });
+
+  const trips = tripsData?.trips ?? [];
+  const totalPence = tripsData?.total_pence ?? 0;
+
+  // Group by month
+  const byMonth = trips.reduce<Record<string, MileageTrip[]>>((acc, t) => {
+    const key = t.trip_date.slice(0, 7);
+    (acc[key] ??= []).push(t);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-4">
+      {/* Summary card */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Navigation className="h-4 w-4" />
+              Mileage
+            </CardTitle>
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditingTrip(null);
+                setDialogOpen(true);
+              }}
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Log trip
+            </Button>
+          </div>
+          {rate && (
+            <p className="text-xs text-muted-foreground">
+              Current rate: {rate.rate_pence}p/mile
+              {rate.threshold_miles
+                ? `, then ${rate.rate_above_pence}p after ${rate.threshold_miles.toLocaleString()} miles`
+                : ""}
+            </p>
+          )}
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold tabular-nums">{formatPence(totalPence)}</span>
+            <span className="text-sm text-muted-foreground">this tax year</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Trip list */}
+      <Card>
+        <CardHeader className="pb-2">
+          <p className="text-sm font-medium">Trips</p>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="animate-pulse space-y-2">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-10 rounded bg-muted" />
+              ))}
+            </div>
+          ) : trips.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-6 text-center text-muted-foreground">
+              <Navigation className="h-8 w-8 opacity-30" />
+              <p className="text-sm">No trips logged yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(byMonth)
+                .sort(([a], [b]) => b.localeCompare(a))
+                .map(([month, monthTrips]) => {
+                  const monthTotal = monthTrips.reduce((s, t) => s + t.amount_pence, 0);
+                  const [y, m] = month.split("-");
+                  const label = new Date(parseInt(y), parseInt(m) - 1).toLocaleString("en-GB", {
+                    month: "long",
+                    year: "numeric",
+                  });
+                  return (
+                    <div key={month}>
+                      <div className="mb-1 flex items-center justify-between">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {label}
+                        </p>
+                        <p className="text-xs tabular-nums text-muted-foreground">
+                          {formatPence(monthTotal)}
+                        </p>
+                      </div>
+                      <div className="space-y-1.5">
+                        {monthTrips.map((trip) => (
+                          <div
+                            key={trip.id}
+                            className="flex items-start justify-between rounded-md border px-3 py-2"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">
+                                {trip.from_place} → {trip.to_place}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {fmtDate(trip.trip_date)} · {trip.miles} mi · {trip.purpose}
+                              </p>
+                            </div>
+                            <div className="ml-3 flex items-center gap-2">
+                              <span className="min-w-[64px] text-right text-sm font-medium tabular-nums">
+                                {formatPence(trip.amount_pence)}
+                              </span>
+                              <button
+                                className="text-muted-foreground transition-colors hover:text-foreground"
+                                title="Edit"
+                                onClick={() => {
+                                  setEditingTrip(trip);
+                                  setDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                className="text-muted-foreground transition-colors hover:text-destructive"
+                                title="Remove"
+                                onClick={() => archiveMutation.mutate(trip.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Saved places */}
+      <Card>
+        <CardHeader className="pb-2">
+          <button
+            className="flex items-center gap-2 text-sm font-medium"
+            onClick={() => setShowPlaces((v) => !v)}
+          >
+            <MapPin className="h-4 w-4" />
+            Saved places
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${showPlaces ? "rotate-180" : ""}`}
+            />
+          </button>
+        </CardHeader>
+        {showPlaces && (
+          <CardContent className="space-y-2">
+            {savedPlaces.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between rounded border px-3 py-1.5 text-sm"
+              >
+                <span>{p.label}</span>
+                <button
+                  className="text-muted-foreground transition-colors hover:text-destructive"
+                  onClick={() => deletePlaceMutation.mutate(p.id)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <Input
+                placeholder="e.g. Home, Office, Client HQ"
+                value={newPlaceLabel}
+                onChange={(e) => setNewPlaceLabel(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newPlaceLabel.trim()) {
+                    addPlaceMutation.mutate(newPlaceLabel.trim());
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!newPlaceLabel.trim() || addPlaceMutation.isPending}
+                onClick={() => addPlaceMutation.mutate(newPlaceLabel.trim())}
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      <TripDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        editing={editingTrip}
+        savedPlaces={savedPlaces}
+      />
+    </div>
+  );
+}
+
 // ── Top-level tabs ─────────────────────────────────────────────────────────────
 
 export function BooksTab() {
-  const [section, setSection] = useState<"earnings" | "expenses" | "kit">("earnings");
+  const [section, setSection] = useState<"earnings" | "expenses" | "mileage" | "kit">("earnings");
   const [gigDialogOpen, setGigDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
   const { toast } = useToast();
@@ -1419,6 +1915,12 @@ export function BooksTab() {
         Expenses
       </button>
       <button
+        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "mileage" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        onClick={() => setSection("mileage")}
+      >
+        Mileage
+      </button>
+      <button
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "kit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         onClick={() => setSection("kit")}
       >
@@ -1432,6 +1934,15 @@ export function BooksTab() {
       <div className="space-y-4">
         {sectionSwitcher}
         <ExpensesSection />
+      </div>
+    );
+  }
+
+  if (section === "mileage") {
+    return (
+      <div className="space-y-4">
+        {sectionSwitcher}
+        <MileageSection />
       </div>
     );
   }

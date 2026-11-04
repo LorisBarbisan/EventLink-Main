@@ -85,6 +85,9 @@ import {
   expense_categories,
   expenses,
   receipts,
+  mileage_rates,
+  saved_places,
+  mileage_trips,
   type FreelancerBillingProfile,
   type InsertFreelancerBillingProfile,
   type Invoice,
@@ -106,6 +109,11 @@ import {
   type InsertExpense,
   type Receipt,
   type InsertReceipt,
+  type MileageRate,
+  type SavedPlace,
+  type InsertSavedPlace,
+  type MileageTrip,
+  type InsertMileageTrip,
 } from "@shared/schema";
 import {
   and,
@@ -124,6 +132,7 @@ import {
   ne,
   or,
   sql,
+  sum,
 } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { db } from "./api/config/db";
@@ -879,6 +888,20 @@ export interface IStorage {
     expenseId: number | null
   ): Promise<Receipt | undefined>;
   archiveReceipt(id: number, freelancerId: number): Promise<void>;
+  // Mileage
+  getActiveRates(vehicleType: string, tripDate: string): Promise<MileageRate | undefined>;
+  listSavedPlaces(freelancerId: number): Promise<SavedPlace[]>;
+  createSavedPlace(data: InsertSavedPlace): Promise<SavedPlace>;
+  deleteSavedPlace(id: number, freelancerId: number): Promise<void>;
+  listMileageTrips(freelancerId: number, from: string, to: string): Promise<MileageTrip[]>;
+  createMileageTrip(data: InsertMileageTrip): Promise<MileageTrip>;
+  updateMileageTrip(
+    id: number,
+    freelancerId: number,
+    data: Partial<InsertMileageTrip>
+  ): Promise<MileageTrip | undefined>;
+  archiveMileageTrip(id: number, freelancerId: number): Promise<void>;
+  sumMileagePence(freelancerId: number, from: string, to: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6983,6 +7006,97 @@ export class DatabaseStorage implements IStorage {
       .update(receipts)
       .set({ archived: true, updated_at: new Date() })
       .where(and(eq(receipts.id, id), eq(receipts.freelancer_id, freelancerId)));
+  }
+
+  // ── Mileage ──────────────────────────────────────────────────────────────────
+
+  async getActiveRates(vehicleType: string, tripDate: string): Promise<MileageRate | undefined> {
+    const [row] = await db
+      .select()
+      .from(mileage_rates)
+      .where(
+        and(
+          eq(mileage_rates.vehicle_type, vehicleType as "car" | "motorcycle" | "bicycle"),
+          sql`${mileage_rates.effective_from} <= ${tripDate}::date`
+        )
+      )
+      .orderBy(desc(mileage_rates.effective_from))
+      .limit(1);
+    return row;
+  }
+
+  async listSavedPlaces(freelancerId: number): Promise<SavedPlace[]> {
+    return db
+      .select()
+      .from(saved_places)
+      .where(eq(saved_places.freelancer_id, freelancerId))
+      .orderBy(asc(saved_places.label));
+  }
+
+  async createSavedPlace(data: InsertSavedPlace): Promise<SavedPlace> {
+    const [row] = await db.insert(saved_places).values(data).returning();
+    return row;
+  }
+
+  async deleteSavedPlace(id: number, freelancerId: number): Promise<void> {
+    await db
+      .delete(saved_places)
+      .where(and(eq(saved_places.id, id), eq(saved_places.freelancer_id, freelancerId)));
+  }
+
+  async listMileageTrips(freelancerId: number, from: string, to: string): Promise<MileageTrip[]> {
+    return db
+      .select()
+      .from(mileage_trips)
+      .where(
+        and(
+          eq(mileage_trips.freelancer_id, freelancerId),
+          eq(mileage_trips.archived, false),
+          sql`${mileage_trips.trip_date} >= ${from}::date`,
+          sql`${mileage_trips.trip_date} <= ${to}::date`
+        )
+      )
+      .orderBy(desc(mileage_trips.trip_date));
+  }
+
+  async createMileageTrip(data: InsertMileageTrip): Promise<MileageTrip> {
+    const [row] = await db.insert(mileage_trips).values(data).returning();
+    return row;
+  }
+
+  async updateMileageTrip(
+    id: number,
+    freelancerId: number,
+    data: Partial<InsertMileageTrip>
+  ): Promise<MileageTrip | undefined> {
+    const [row] = await db
+      .update(mileage_trips)
+      .set({ ...data, updated_at: new Date() })
+      .where(and(eq(mileage_trips.id, id), eq(mileage_trips.freelancer_id, freelancerId)))
+      .returning();
+    return row;
+  }
+
+  async archiveMileageTrip(id: number, freelancerId: number): Promise<void> {
+    await db
+      .update(mileage_trips)
+      .set({ archived: true, updated_at: new Date() })
+      .where(and(eq(mileage_trips.id, id), eq(mileage_trips.freelancer_id, freelancerId)));
+  }
+
+  async sumMileagePence(freelancerId: number, from: string, to: string): Promise<number> {
+    const [row] = await db
+      .select({ total: sum(mileage_trips.amount_pence) })
+      .from(mileage_trips)
+      .where(
+        and(
+          eq(mileage_trips.freelancer_id, freelancerId),
+          eq(mileage_trips.archived, false),
+          sql`${mileage_trips.trip_date} >= ${from}::date`,
+          sql`${mileage_trips.trip_date} <= ${to}::date`
+        )
+      );
+    return Number(row?.total ?? 0);
   }
 }
 
