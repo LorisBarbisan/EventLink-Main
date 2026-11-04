@@ -234,13 +234,13 @@ function KitItemDialog({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        }).then((r) => r.json());
+        });
       }
       return apiRequest("/api/kit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      }).then((r) => r.json());
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/kit"] });
@@ -473,7 +473,7 @@ function KitItemDetail({ item, onEdit }: { item: KitItem; onEdit: () => void }) 
 
   const { data: fullItem } = useQuery<KitItem & { files: KitItemFile[] }>({
     queryKey: ["/api/kit", item.id],
-    queryFn: () => apiRequest(`/api/kit/${item.id}`).then((r) => r.json()),
+    queryFn: () => apiRequest(`/api/kit/${item.id}`),
   });
 
   const uploadMutation = useMutation({
@@ -493,7 +493,7 @@ function KitItemDetail({ item, onEdit }: { item: KitItem; onEdit: () => void }) 
           contentType: f.type || "application/octet-stream",
           kind: "receipt",
         }),
-      }).then((r) => r.json());
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/kit", item.id] });
@@ -647,8 +647,7 @@ export function KitTab() {
     isError,
   } = useQuery<KitItem[]>({
     queryKey: ["/api/kit", includeDisposed],
-    queryFn: () =>
-      apiRequest(`/api/kit${includeDisposed ? "?includeDisposed=true" : ""}`).then((r) => r.json()),
+    queryFn: () => apiRequest(`/api/kit${includeDisposed ? "?includeDisposed=true" : ""}`),
   });
 
   if (isLoading) {
