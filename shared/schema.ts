@@ -1575,6 +1575,70 @@ export const kit_item_files = pgTable("kit_item_files", {
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ── Expense categories ────────────────────────────────────────────────────────
+
+export const expense_categories = pgTable(
+  "expense_categories",
+  {
+    id: serial("id").primaryKey(),
+    freelancer_id: integer("freelancer_id").references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    normalised_name: text("normalised_name").notNull(),
+    is_system: boolean("is_system").notNull().default(false),
+    sort_order: integer("sort_order").notNull().default(0),
+    archived: boolean("archived").notNull().default(false),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    freelancerIdx: index("expense_categories_freelancer_idx").on(t.freelancer_id),
+    uniqueName: uniqueIndex("expense_categories_freelancer_name_unique").on(
+      t.freelancer_id,
+      t.normalised_name
+    ),
+  })
+);
+
+// ── Expenses ──────────────────────────────────────────────────────────────────
+
+export const expenses = pgTable(
+  "expenses",
+  {
+    id: serial("id").primaryKey(),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    category_id: integer("category_id").references(() => expense_categories.id, {
+      onDelete: "set null",
+    }),
+    booking_id: integer("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    earnings_entry_id: integer("earnings_entry_id").references(() => earnings_entries.id, {
+      onDelete: "set null",
+    }),
+    source: text("source").notNull().default("manual").$type<"manual" | "receipt" | "bank">(),
+    supplier: text("supplier"),
+    description: text("description").notNull(),
+    expense_date: date("expense_date").notNull(),
+    net_amount_pence: bigint("net_amount_pence", { mode: "number" }).notNull(),
+    vat_amount_pence: bigint("vat_amount_pence", { mode: "number" }).notNull().default(0),
+    currency: text("currency").notNull().default("GBP"),
+    payment_method: text("payment_method").$type<"card" | "cash" | "bank_transfer" | "other">(),
+    business_use_percent: integer("business_use_percent").notNull().default(100),
+    billable_to_client: boolean("billable_to_client").notNull().default(false),
+    rebilled: boolean("rebilled").notNull().default(false),
+    notes: text("notes"),
+    archived: boolean("archived").notNull().default(false),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    dateIdx: index("expenses_freelancer_date_idx").on(t.freelancer_id, t.expense_date),
+    categoryIdx: index("expenses_freelancer_category_idx").on(t.freelancer_id, t.category_id),
+    bookingIdx: index("expenses_booking_idx").on(t.booking_id),
+    billableIdx: index("expenses_billable_idx").on(t.freelancer_id, t.billable_to_client),
+  })
+);
+
 export type EarningsClient = typeof earnings_clients.$inferSelect;
 export type InsertEarningsClient = typeof earnings_clients.$inferInsert;
 export type EarningsRole = typeof earnings_roles.$inferSelect;
@@ -1585,3 +1649,7 @@ export type KitItem = typeof kit_items.$inferSelect;
 export type InsertKitItem = typeof kit_items.$inferInsert;
 export type KitItemFile = typeof kit_item_files.$inferSelect;
 export type InsertInvoiceReminder = typeof invoice_reminders.$inferInsert;
+export type ExpenseCategory = typeof expense_categories.$inferSelect;
+export type InsertExpenseCategory = typeof expense_categories.$inferInsert;
+export type Expense = typeof expenses.$inferSelect;
+export type InsertExpense = typeof expenses.$inferInsert;

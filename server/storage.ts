@@ -82,6 +82,8 @@ import {
   earnings_entries,
   kit_items,
   kit_item_files,
+  expense_categories,
+  expenses,
   type FreelancerBillingProfile,
   type InsertFreelancerBillingProfile,
   type Invoice,
@@ -97,6 +99,10 @@ import {
   type KitItem,
   type InsertKitItem,
   type KitItemFile,
+  type ExpenseCategory,
+  type InsertExpenseCategory,
+  type Expense,
+  type InsertExpense,
 } from "@shared/schema";
 import {
   and,
@@ -104,12 +110,14 @@ import {
   count,
   desc,
   eq,
+  getTableColumns,
   gt,
   gte,
   ilike,
   inArray,
   isNotNull,
   isNull,
+  lte,
   ne,
   or,
   sql,
@@ -827,6 +835,34 @@ export interface IStorage {
   listKitItemFiles(kitItemId: number): Promise<KitItemFile[]>;
   createKitItemFile(data: Omit<KitItemFile, "id" | "created_at">): Promise<KitItemFile>;
   deleteKitItemFile(id: number): Promise<void>;
+
+  // ── Expense categories ──────────────────────────────────────────────────────
+  listExpenseCategories(freelancerId: number): Promise<ExpenseCategory[]>;
+  createExpenseCategory(data: InsertExpenseCategory): Promise<ExpenseCategory>;
+  updateExpenseCategory(
+    id: number,
+    freelancerId: number,
+    data: Partial<InsertExpenseCategory>
+  ): Promise<ExpenseCategory | undefined>;
+
+  // ── Expenses ────────────────────────────────────────────────────────────────
+  listExpenses(
+    freelancerId: number,
+    opts: { from?: string; to?: string; category_id?: number; booking_id?: number; page?: number }
+  ): Promise<{ expenses: Expense[]; total: number }>;
+  getExpense(id: number): Promise<Expense | undefined>;
+  createExpense(data: InsertExpense): Promise<Expense>;
+  updateExpense(
+    id: number,
+    freelancerId: number,
+    data: Partial<InsertExpense>
+  ): Promise<Expense | undefined>;
+  archiveExpense(id: number, freelancerId: number): Promise<void>;
+  listExpensesForExport(
+    freelancerId: number,
+    from: string,
+    to: string
+  ): Promise<(Expense & { category_name: string | null })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6739,6 +6775,127 @@ export class DatabaseStorage implements IStorage {
 
   async deleteKitItemFile(id: number): Promise<void> {
     await db.delete(kit_item_files).where(eq(kit_item_files.id, id));
+  }
+
+  // ── Expense categories ──────────────────────────────────────────────────────
+
+  async listExpenseCategories(freelancerId: number): Promise<ExpenseCategory[]> {
+    return db
+      .select()
+      .from(expense_categories)
+      .where(
+        and(
+          or(
+            isNull(expense_categories.freelancer_id),
+            eq(expense_categories.freelancer_id, freelancerId)
+          ),
+          eq(expense_categories.archived, false)
+        )
+      )
+      .orderBy(asc(expense_categories.sort_order), asc(expense_categories.name));
+  }
+
+  async createExpenseCategory(data: InsertExpenseCategory): Promise<ExpenseCategory> {
+    const [row] = await db.insert(expense_categories).values(data).returning();
+    return row;
+  }
+
+  async updateExpenseCategory(
+    id: number,
+    freelancerId: number,
+    data: Partial<InsertExpenseCategory>
+  ): Promise<ExpenseCategory | undefined> {
+    const [row] = await db
+      .update(expense_categories)
+      .set({ ...data, updated_at: new Date() })
+      .where(and(eq(expense_categories.id, id), eq(expense_categories.freelancer_id, freelancerId)))
+      .returning();
+    return row;
+  }
+
+  // ── Expenses ────────────────────────────────────────────────────────────────
+
+  async listExpenses(
+    freelancerId: number,
+    opts: { from?: string; to?: string; category_id?: number; booking_id?: number; page?: number }
+  ): Promise<{ expenses: Expense[]; total: number }> {
+    const PAGE_SIZE = 50;
+    const offset = ((opts.page ?? 1) - 1) * PAGE_SIZE;
+
+    const conditions = [eq(expenses.freelancer_id, freelancerId), eq(expenses.archived, false)];
+    if (opts.from) conditions.push(gte(expenses.expense_date, opts.from));
+    if (opts.to) conditions.push(lte(expenses.expense_date, opts.to));
+    if (opts.category_id) conditions.push(eq(expenses.category_id, opts.category_id));
+    if (opts.booking_id) conditions.push(eq(expenses.booking_id, opts.booking_id));
+
+    const where = and(...conditions);
+
+    const [rows, [countRow]] = await Promise.all([
+      db
+        .select()
+        .from(expenses)
+        .where(where)
+        .orderBy(desc(expenses.expense_date), desc(expenses.created_at))
+        .limit(PAGE_SIZE)
+        .offset(offset),
+      db.select({ total: count() }).from(expenses).where(where),
+    ]);
+
+    return { expenses: rows, total: Number(countRow?.total ?? 0) };
+  }
+
+  async getExpense(id: number): Promise<Expense | undefined> {
+    const [row] = await db.select().from(expenses).where(eq(expenses.id, id));
+    return row;
+  }
+
+  async createExpense(data: InsertExpense): Promise<Expense> {
+    const [row] = await db.insert(expenses).values(data).returning();
+    return row;
+  }
+
+  async updateExpense(
+    id: number,
+    freelancerId: number,
+    data: Partial<InsertExpense>
+  ): Promise<Expense | undefined> {
+    const [row] = await db
+      .update(expenses)
+      .set({ ...data, updated_at: new Date() })
+      .where(and(eq(expenses.id, id), eq(expenses.freelancer_id, freelancerId)))
+      .returning();
+    return row;
+  }
+
+  async archiveExpense(id: number, freelancerId: number): Promise<void> {
+    await db
+      .update(expenses)
+      .set({ archived: true, updated_at: new Date() })
+      .where(and(eq(expenses.id, id), eq(expenses.freelancer_id, freelancerId)));
+  }
+
+  async listExpensesForExport(
+    freelancerId: number,
+    from: string,
+    to: string
+  ): Promise<(Expense & { category_name: string | null })[]> {
+    const rows = await db
+      .select({
+        ...getTableColumns(expenses),
+        category_name: expense_categories.name,
+      })
+      .from(expenses)
+      .leftJoin(expense_categories, eq(expenses.category_id, expense_categories.id))
+      .where(
+        and(
+          eq(expenses.freelancer_id, freelancerId),
+          eq(expenses.archived, false),
+          gte(expenses.expense_date, from),
+          lte(expenses.expense_date, to)
+        )
+      )
+      .orderBy(asc(expenses.expense_date));
+    return rows as (Expense & { category_name: string | null })[];
   }
 }
 
