@@ -43,6 +43,7 @@ import {
   X,
 } from "lucide-react";
 import { KitTab } from "./KitTab";
+import { InvoicesTab } from "./InvoicesTab";
 
 // ── Money helpers ──────────────────────────────────────────────────────────────
 
@@ -2113,9 +2114,9 @@ function OverviewSection() {
 // ── Top-level tabs ─────────────────────────────────────────────────────────────
 
 export function BooksTab() {
-  const [section, setSection] = useState<"overview" | "earnings" | "expenses" | "mileage" | "kit">(
-    "overview"
-  );
+  const [section, setSection] = useState<
+    "overview" | "earnings" | "expenses" | "mileage" | "kit" | "invoices"
+  >("overview");
   const [gigDialogOpen, setGigDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
   const { toast } = useToast();
@@ -2193,6 +2194,12 @@ export function BooksTab() {
       >
         Kit register
       </button>
+      <button
+        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "invoices" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        onClick={() => setSection("invoices")}
+      >
+        Invoices
+      </button>
     </div>
   );
 
@@ -2229,6 +2236,15 @@ export function BooksTab() {
         {sectionSwitcher}
         <ExportCard />
         <KitTab />
+      </div>
+    );
+  }
+
+  if (section === "invoices") {
+    return (
+      <div className="space-y-4">
+        {sectionSwitcher}
+        <InvoicesTab />
       </div>
     );
   }

@@ -49,7 +49,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
 import { BooksTab } from "./BooksTab";
-import { InvoicesTab } from "./InvoicesTab";
+
 import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
 import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
@@ -165,7 +165,7 @@ export default function SimplifiedFreelancerDashboard() {
       : window.location.search.replace(/^\?/, "");
     const urlParams = new URLSearchParams(search);
     const tabParam = urlParams.get("tab");
-    return tabParam || "profile";
+    return tabParam || "books";
   });
 
   // Track active conversation ID from URL
@@ -479,6 +479,7 @@ export default function SimplifiedFreelancerDashboard() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="books">Books</SelectItem>
               <SelectItem value="profile">Edit Profile</SelectItem>
               <SelectItem value="jobs">
                 My Applications
@@ -496,12 +497,11 @@ export default function SimplifiedFreelancerDashboard() {
               </SelectItem>
               <SelectItem value="references">References</SelectItem>
               <SelectItem value="posted-jobs">My Jobs</SelectItem>
-              <SelectItem value="invoices">Invoices</SelectItem>
-              <SelectItem value="books">Books</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <TabsList className="hidden w-full grid-cols-4 sm:grid md:grid-cols-7">
+        <TabsList className="hidden w-full grid-cols-4 sm:grid md:grid-cols-6">
+          <TabsTrigger value="books">Books</TabsTrigger>
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
           <TabsTrigger value="jobs" className="gap-2">
             Applications
@@ -520,8 +520,6 @@ export default function SimplifiedFreelancerDashboard() {
             References
           </TabsTrigger>
           <TabsTrigger value="posted-jobs">My Jobs</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="books">Books</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -718,11 +716,6 @@ export default function SimplifiedFreelancerDashboard() {
         {/* References Tab */}
         <TabsContent value="references" className="space-y-6">
           <ReferenceRequestsSection userId={user.id} />
-        </TabsContent>
-
-        {/* Invoices Tab */}
-        <TabsContent value="invoices">
-          <InvoicesTab />
         </TabsContent>
 
         {/* Books Tab */}
