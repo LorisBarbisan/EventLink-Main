@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -12,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import MyJobs from "@/pages/freelancer/MyJobs";
+
 import MyPostedJobs from "@/pages/freelancer/MyPostedJobs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,14 +25,17 @@ import type { FreelancerFormData, JobApplication } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
+  Banknote,
   Briefcase,
   Building2,
+  Calendar,
   CheckCircle,
   Check,
   Clock,
   Copy,
   Download,
   Mail,
+  MapPin,
   Pencil,
   QrCode,
   Send,
@@ -50,6 +54,88 @@ import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
 import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
 import { VanityUrlEditor } from "./VanityUrlEditor";
+
+function HiredJobsSection({ userId }: { userId: number }) {
+  const { data: applications = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/freelancer", userId, "bookings"],
+    queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(`/api/freelancer/${userId}/bookings`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Failed to fetch bookings");
+      return res.json();
+    },
+  });
+
+  if (isLoading)
+    return <div className="py-8 text-center text-muted-foreground">Loading bookings…</div>;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Briefcase className="h-5 w-5" />
+          My Bookings
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {applications.length === 0 ? (
+          <div className="py-8 text-center">
+            <Briefcase className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
+            <p className="font-medium">No Bookings Yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              When you get hired for jobs, they&apos;ll appear here as confirmed bookings.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {applications.map((app: any) => (
+              <div key={app.id} className="rounded-lg border p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="mb-2 flex items-center gap-2">
+                      <h4 className="font-semibold">{app.job_title}</h4>
+                      <Badge className="bg-green-600 text-xs text-white">
+                        <CheckCircle className="mr-1 h-3 w-3" />
+                        Confirmed
+                      </Badge>
+                    </div>
+                    <div className="space-y-1 text-sm text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-4">
+                        {app.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {app.location}
+                          </span>
+                        )}
+                        {app.event_date && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(app.event_date).toLocaleDateString()}
+                          </span>
+                        )}
+                        {app.rate && (
+                          <span className="flex items-center gap-1">
+                            <Banknote className="h-3 w-3" />
+                            {app.rate}
+                          </span>
+                        )}
+                      </div>
+                      {app.company_name && (
+                        <p className="font-medium text-foreground">{app.company_name}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 const RATING_LABELS: Record<string, { label: string; stars: number }> = {
   excellent: { label: "Excellent", stars: 5 },
@@ -626,7 +712,7 @@ export default function SimplifiedFreelancerDashboard() {
 
         {/* Bookings Tab */}
         <TabsContent value="bookings" className="space-y-6">
-          <MyJobs />
+          <HiredJobsSection userId={user.id} />
         </TabsContent>
 
         {/* References Tab */}
