@@ -1851,10 +1851,179 @@ function MileageSection() {
   );
 }
 
+// ── Overview section ──────────────────────────────────────────────────────────
+
+interface BooksSummary {
+  from: string;
+  to: string;
+  earnings_pence: number;
+  expense_allowable_pence: number;
+  mileage_pence: number;
+  net_profit_pence: number;
+  entry_count: number;
+  expense_count: number;
+  mileage_trip_count: number;
+}
+
+function OverviewSection() {
+  const { data, isLoading } = useQuery<BooksSummary>({
+    queryKey: ["/api/books/summary"],
+    queryFn: () => {
+      const token = localStorage.getItem("auth_token");
+      return fetch("/api/books/summary", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then((r) => r.json());
+    },
+  });
+
+  function StatRow({
+    label,
+    pence,
+    sub,
+    bold,
+    positive,
+  }: {
+    label: string;
+    pence: number;
+    sub?: string;
+    bold?: boolean;
+    positive?: boolean;
+  }) {
+    const color =
+      positive === undefined
+        ? ""
+        : pence >= 0 && positive
+          ? "text-green-600 dark:text-green-400"
+          : "text-destructive";
+    return (
+      <div
+        className={`flex items-baseline justify-between py-2 ${bold ? "border-t" : "border-t border-dashed"}`}
+      >
+        <div>
+          <p className={`text-sm ${bold ? "font-semibold" : ""}`}>{label}</p>
+          {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+        </div>
+        <span className={`text-sm tabular-nums ${bold ? "text-base font-bold" : ""} ${color}`}>
+          {formatPence(pence)}
+        </span>
+      </div>
+    );
+  }
+
+  const handleExport = () => {
+    const token = localStorage.getItem("auth_token");
+    const url = "/api/books/export";
+    // Open via link so the browser handles the file download
+    const a = document.createElement("a");
+    a.href = url;
+    if (token) {
+      // Fetch and trigger programmatically to include auth header
+      fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => r.blob())
+        .then((blob) => {
+          const objUrl = URL.createObjectURL(blob);
+          a.href = objUrl;
+          a.download = "books-export.csv";
+          a.click();
+          URL.revokeObjectURL(objUrl);
+        });
+    } else {
+      a.click();
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BookOpen className="h-4 w-4" />
+              Tax year overview
+            </CardTitle>
+            <Button size="sm" variant="outline" onClick={handleExport}>
+              <Download className="mr-1 h-3.5 w-3.5" />
+              Export CSV
+            </Button>
+          </div>
+          {data && (
+            <p className="text-xs text-muted-foreground">
+              {fmtDate(data.from)} – {fmtDate(data.to)} · cash basis
+            </p>
+          )}
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="animate-pulse space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-8 rounded bg-muted" />
+              ))}
+            </div>
+          ) : data ? (
+            <div>
+              <StatRow
+                label="Gross earnings"
+                pence={data.earnings_pence}
+                sub={`${data.entry_count} ${data.entry_count === 1 ? "entry" : "entries"}`}
+              />
+              <StatRow
+                label="Allowable expenses"
+                pence={-data.expense_allowable_pence}
+                sub={`${data.expense_count} ${data.expense_count === 1 ? "expense" : "expenses"}`}
+              />
+              <StatRow
+                label="Mileage allowance"
+                pence={-data.mileage_pence}
+                sub={`${data.mileage_trip_count} ${data.mileage_trip_count === 1 ? "trip" : "trips"}`}
+              />
+              <StatRow label="Net profit" pence={data.net_profit_pence} bold positive />
+            </div>
+          ) : (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              Could not load summary.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {data && (
+        <Card>
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-2xl font-bold tabular-nums">
+                  {formatPence(data.earnings_pence)}
+                </p>
+                <p className="text-xs text-muted-foreground">Earnings</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold tabular-nums">
+                  {formatPence(data.expense_allowable_pence + data.mileage_pence)}
+                </p>
+                <p className="text-xs text-muted-foreground">Deductions</p>
+              </div>
+              <div>
+                <p
+                  className={`text-2xl font-bold tabular-nums ${data.net_profit_pence >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"}`}
+                >
+                  {formatPence(data.net_profit_pence)}
+                </p>
+                <p className="text-xs text-muted-foreground">Net profit</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // ── Top-level tabs ─────────────────────────────────────────────────────────────
 
 export function BooksTab() {
-  const [section, setSection] = useState<"earnings" | "expenses" | "mileage" | "kit">("earnings");
+  const [section, setSection] = useState<"overview" | "earnings" | "expenses" | "mileage" | "kit">(
+    "overview"
+  );
   const [gigDialogOpen, setGigDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
   const { toast } = useToast();
@@ -1903,6 +2072,12 @@ export function BooksTab() {
   const sectionSwitcher = (
     <div className="flex w-fit gap-1 rounded-md border p-1">
       <button
+        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "overview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        onClick={() => setSection("overview")}
+      >
+        Overview
+      </button>
+      <button
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "earnings" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         onClick={() => setSection("earnings")}
       >
@@ -1928,6 +2103,15 @@ export function BooksTab() {
       </button>
     </div>
   );
+
+  if (section === "overview") {
+    return (
+      <div className="space-y-4">
+        {sectionSwitcher}
+        <OverviewSection />
+      </div>
+    );
+  }
 
   if (section === "expenses") {
     return (
