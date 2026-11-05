@@ -251,6 +251,9 @@ export const job_applications = pgTable("job_applications", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   closure_email_sent: boolean("closure_email_sent").notNull().default(false),
   closure_email_sent_at: timestamp("closure_email_sent_at", { withTimezone: true }),
+  earnings_entry_id: integer("earnings_entry_id").references(() => earnings_entries.id, {
+    onDelete: "set null",
+  }),
 });
 
 export const conversations = pgTable("conversations", {

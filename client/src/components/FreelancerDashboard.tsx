@@ -37,6 +37,8 @@ import {
   Mail,
   MapPin,
   Pencil,
+  Plus,
+  PoundSterling,
   QrCode,
   Send,
   ShieldCheck,
@@ -55,8 +57,168 @@ import { ProfileForm } from "./ProfileForm";
 import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
 import { VanityUrlEditor } from "./VanityUrlEditor";
 
+type BookingApp = {
+  id: number;
+  job_title: string;
+  company_name?: string;
+  location?: string;
+  event_date?: string;
+  rate?: string;
+  earnings_entry_id?: number | null;
+};
+
+type LogPaymentForm = {
+  description: string;
+  client_name: string;
+  work_date: string;
+  gross_amount: string;
+  paid_date: string;
+  notes: string;
+};
+
+function bookingStatus(app: BookingApp): "upcoming" | "awaiting_payment" | "paid" {
+  if (app.earnings_entry_id) return "paid";
+  if (app.event_date && new Date(app.event_date) < new Date()) return "awaiting_payment";
+  return "upcoming";
+}
+
+function LogPaymentDialog({
+  app,
+  open,
+  onClose,
+}: {
+  app: BookingApp;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const eventDate = app.event_date?.slice(0, 10) ?? today;
+
+  const [form, setForm] = useState<LogPaymentForm>({
+    description: app.job_title ?? "",
+    client_name: app.company_name ?? "",
+    work_date: eventDate,
+    gross_amount: "",
+    paid_date: today,
+    notes: "",
+  });
+
+  // Reset when dialog opens for a new booking
+  useEffect(() => {
+    if (open) {
+      setForm({
+        description: app.job_title ?? "",
+        client_name: app.company_name ?? "",
+        work_date: eventDate,
+        gross_amount: "",
+        paid_date: today,
+        notes: "",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, app.id]);
+
+  const set = (k: keyof LogPaymentForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("/api/earnings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: form.description.trim(),
+          client_name: form.client_name.trim() || null,
+          work_date: form.work_date,
+          gross_amount: parseFloat(form.gross_amount),
+          currency: "GBP",
+          status: "paid",
+          paid_date: form.paid_date || form.work_date,
+          notes: form.notes || null,
+          job_application_id: app.id,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      toast({ title: "Payment logged", description: "Added to your earnings." });
+      onClose();
+    },
+    onError: () => toast({ title: "Failed to log payment", variant: "destructive" }),
+  });
+
+  const valid = form.description.trim() && form.work_date && parseFloat(form.gross_amount) > 0;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Log payment received</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1">
+            <Label>Job description *</Label>
+            <Input value={form.description} onChange={(e) => set("description", e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>Client / company</Label>
+            <Input value={form.client_name} onChange={(e) => set("client_name", e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Event date *</Label>
+              <Input
+                type="date"
+                value={form.work_date}
+                onChange={(e) => set("work_date", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Amount received (£) *</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={form.gross_amount}
+                onChange={(e) => set("gross_amount", e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label>Date money arrived</Label>
+            <Input
+              type="date"
+              value={form.paid_date}
+              onChange={(e) => set("paid_date", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Notes (optional)</Label>
+            <Input
+              placeholder="e.g. invoice ref, bank transfer"
+              value={form.notes}
+              onChange={(e) => set("notes", e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button disabled={!valid || saveMutation.isPending} onClick={() => saveMutation.mutate()}>
+            <PoundSterling className="mr-1 h-3 w-3" />
+            Log payment
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function HiredJobsSection({ userId }: { userId: number }) {
-  const { data: applications = [], isLoading } = useQuery<any[]>({
+  const { data: applications = [], isLoading } = useQuery<BookingApp[]>({
     queryKey: ["/api/freelancer", userId, "bookings"],
     queryFn: async () => {
       const token = localStorage.getItem("auth_token");
@@ -68,72 +230,136 @@ function HiredJobsSection({ userId }: { userId: number }) {
     },
   });
 
+  const [logPaymentFor, setLogPaymentFor] = useState<BookingApp | null>(null);
+
   if (isLoading)
     return <div className="py-8 text-center text-muted-foreground">Loading bookings…</div>;
 
+  const upcoming = applications.filter((a) => bookingStatus(a) === "upcoming");
+  const awaitingPayment = applications.filter((a) => bookingStatus(a) === "awaiting_payment");
+  const paid = applications.filter((a) => bookingStatus(a) === "paid");
+
+  const renderApp = (app: BookingApp) => {
+    const status = bookingStatus(app);
+    return (
+      <div key={app.id} className="rounded-lg border p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <h4 className="font-semibold">{app.job_title}</h4>
+              {status === "upcoming" && (
+                <Badge className="bg-green-600 text-xs text-white">
+                  <CheckCircle className="mr-1 h-3 w-3" />
+                  Confirmed
+                </Badge>
+              )}
+              {status === "awaiting_payment" && (
+                <Badge className="bg-amber-500 text-xs text-white">
+                  <Clock className="mr-1 h-3 w-3" />
+                  Awaiting payment
+                </Badge>
+              )}
+              {status === "paid" && (
+                <Badge className="bg-blue-600 text-xs text-white">
+                  <CheckCircle className="mr-1 h-3 w-3" />
+                  Paid
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              {app.location && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {app.location}
+                </span>
+              )}
+              {app.event_date && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  {new Date(app.event_date).toLocaleDateString("en-GB")}
+                </span>
+              )}
+              {app.rate && (
+                <span className="flex items-center gap-1">
+                  <Banknote className="h-3 w-3" />
+                  {app.rate}
+                </span>
+              )}
+            </div>
+            {app.company_name && (
+              <p className="mt-1 text-sm font-medium text-foreground">{app.company_name}</p>
+            )}
+          </div>
+          {status === "awaiting_payment" && (
+            <Button size="sm" onClick={() => setLogPaymentFor(app)}>
+              <Plus className="mr-1 h-3 w-3" />
+              Log payment
+            </Button>
+          )}
+          {status === "paid" && (
+            <span className="text-xs text-muted-foreground">Logged in Books</span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Briefcase className="h-5 w-5" />
-          My Bookings
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {applications.length === 0 ? (
-          <div className="py-8 text-center">
-            <Briefcase className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
-            <p className="font-medium">No Bookings Yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              When you get hired for jobs, they&apos;ll appear here as confirmed bookings.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {applications.map((app: any) => (
-              <div key={app.id} className="rounded-lg border p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="mb-2 flex items-center gap-2">
-                      <h4 className="font-semibold">{app.job_title}</h4>
-                      <Badge className="bg-green-600 text-xs text-white">
-                        <CheckCircle className="mr-1 h-3 w-3" />
-                        Confirmed
-                      </Badge>
-                    </div>
-                    <div className="space-y-1 text-sm text-muted-foreground">
-                      <div className="flex flex-wrap items-center gap-4">
-                        {app.location && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {app.location}
-                          </span>
-                        )}
-                        {app.event_date && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(app.event_date).toLocaleDateString()}
-                          </span>
-                        )}
-                        {app.rate && (
-                          <span className="flex items-center gap-1">
-                            <Banknote className="h-3 w-3" />
-                            {app.rate}
-                          </span>
-                        )}
-                      </div>
-                      {app.company_name && (
-                        <p className="font-medium text-foreground">{app.company_name}</p>
-                      )}
-                    </div>
-                  </div>
+    <>
+      {logPaymentFor && (
+        <LogPaymentDialog
+          app={logPaymentFor}
+          open={!!logPaymentFor}
+          onClose={() => setLogPaymentFor(null)}
+        />
+      )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Briefcase className="h-5 w-5" />
+            My Bookings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {applications.length === 0 ? (
+            <div className="py-8 text-center">
+              <Briefcase className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
+              <p className="font-medium">No Bookings Yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                When you get hired for jobs, they&apos;ll appear here as confirmed bookings.
+              </p>
+            </div>
+          ) : (
+            <>
+              {awaitingPayment.length > 0 && (
+                <div>
+                  <p className="mb-3 text-sm font-medium text-amber-600">
+                    Completed · Awaiting payment ({awaitingPayment.length})
+                  </p>
+                  <div className="space-y-3">{awaitingPayment.map(renderApp)}</div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              )}
+              {upcoming.length > 0 && (
+                <div>
+                  {awaitingPayment.length > 0 && (
+                    <p className="mb-3 text-sm font-medium text-muted-foreground">Upcoming</p>
+                  )}
+                  <div className="space-y-3">{upcoming.map(renderApp)}</div>
+                </div>
+              )}
+              {paid.length > 0 && (
+                <div>
+                  <p className="mb-3 text-sm font-medium text-muted-foreground">
+                    Paid ({paid.length})
+                  </p>
+                  <div className="space-y-3">{paid.map(renderApp)}</div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 }
 

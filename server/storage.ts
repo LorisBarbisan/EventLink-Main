@@ -324,6 +324,7 @@ export interface IStorage {
   // Job application management
   createJobApplication(application: InsertJobApplication): Promise<JobApplication>;
   getFreelancerApplications(freelancerId: number): Promise<JobApplication[]>;
+  linkJobApplicationEarning(appId: number, earningsEntryId: number | null): Promise<void>;
   getJobApplications(jobId: number): Promise<JobApplication[]>;
   getJobApplicationById(applicationId: number): Promise<JobApplication | undefined>;
   updateApplicationStatus(
@@ -2784,6 +2785,7 @@ export class DatabaseStorage implements IStorage {
         rating: sql<number>`(SELECT rating FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         review: sql<string>`(SELECT review FROM ratings WHERE ratings.job_application_id = ${job_applications.id} LIMIT 1)`,
         has_requested_rating: sql<boolean>`EXISTS(SELECT 1 FROM rating_requests WHERE rating_requests.job_application_id = ${job_applications.id} AND rating_requests.freelancer_id = ${freelancerId})`,
+        earnings_entry_id: job_applications.earnings_entry_id,
       })
       .from(job_applications)
       .innerJoin(jobs, eq(jobs.id, job_applications.job_id))
@@ -2795,6 +2797,13 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(job_applications.applied_at));
     return result as unknown as JobApplication[];
+  }
+
+  async linkJobApplicationEarning(appId: number, earningsEntryId: number | null): Promise<void> {
+    await db
+      .update(job_applications)
+      .set({ earnings_entry_id: earningsEntryId })
+      .where(eq(job_applications.id, appId));
   }
 
   async getJobApplications(jobId: number): Promise<JobApplication[]> {

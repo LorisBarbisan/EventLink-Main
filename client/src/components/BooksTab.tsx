@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import {
   AlertCircle,
   BookOpen,
@@ -229,18 +230,22 @@ function GigDialog({
   onClose,
   editing,
   clients,
+  prefill,
+  jobApplicationId,
 }: {
   open: boolean;
   onClose: () => void;
   editing: EarningsEntry | null;
   clients: Array<{ id: number; name: string }>;
+  prefill?: Partial<GigForm>;
+  jobApplicationId?: number;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<GigForm>(EMPTY_FORM);
 
   // Reset form when dialog opens
-  useState(() => {
+  useEffect(() => {
     if (open) {
       if (editing) {
         setForm({
@@ -258,10 +263,11 @@ function GigDialog({
           notes: editing.notes ?? "",
         });
       } else {
-        setForm(EMPTY_FORM);
+        setForm({ ...EMPTY_FORM, ...prefill });
       }
     }
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const set = (k: keyof GigForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -272,6 +278,7 @@ function GigDialog({
         : apiRequest("/api/earnings", { method: "POST", body: JSON.stringify(body) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
       toast({ title: editing ? "Gig updated" : "Gig added" });
       onClose();
     },
@@ -293,6 +300,7 @@ function GigDialog({
       status: form.status,
       paid_date: form.status === "paid" ? form.paid_date || form.work_date : null,
       notes: form.notes || null,
+      ...(jobApplicationId ? { job_application_id: jobApplicationId } : {}),
     });
   };
 
@@ -2113,14 +2121,24 @@ function OverviewSection() {
 
 // ── Top-level tabs ─────────────────────────────────────────────────────────────
 
+type UnloggedBooking = {
+  id: number;
+  job_title: string;
+  company_name?: string;
+  event_date?: string;
+  rate?: string;
+};
+
 export function BooksTab() {
   const [section, setSection] = useState<
     "overview" | "earnings" | "expenses" | "mileage" | "kit" | "invoices"
   >("overview");
   const [gigDialogOpen, setGigDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
+  const [fromBooking, setFromBooking] = useState<UnloggedBooking | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data, isLoading, isError } = useQuery<EarningsData>({
     queryKey: ["/api/earnings/summary"],
@@ -2130,6 +2148,24 @@ export function BooksTab() {
   const { data: clients = [] } = useQuery<Array<{ id: number; name: string }>>({
     queryKey: ["/api/earnings/clients"],
   });
+
+  // Bookings that have passed their event date but haven't been logged as earnings yet
+  const { data: allBookings = [] } = useQuery<UnloggedBooking[]>({
+    queryKey: ["/api/freelancer", user?.id, "bookings"],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(`/api/freelancer/${user!.id}/bookings`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const unloggedBookings = allBookings.filter(
+    (b: any) => !b.earnings_entry_id && b.event_date && new Date(b.event_date) < new Date()
+  );
 
   const archiveMutation = useMutation({
     mutationFn: (id: number) => apiRequest(`/api/earnings/${id}/archive`, { method: "DELETE" }),
@@ -2154,10 +2190,17 @@ export function BooksTab() {
 
   const openAdd = () => {
     setEditingEntry(null);
+    setFromBooking(null);
     setGigDialogOpen(true);
   };
   const openEdit = (e: EarningsEntry) => {
     setEditingEntry(e);
+    setFromBooking(null);
+    setGigDialogOpen(true);
+  };
+  const openFromBooking = (b: UnloggedBooking) => {
+    setEditingEntry(null);
+    setFromBooking(b);
     setGigDialogOpen(true);
   };
 
@@ -2400,7 +2443,23 @@ export function BooksTab() {
             <BookOpen className="h-4 w-4" />
             Full gig log
           </CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {unloggedBookings.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">From a booking:</span>
+                {unloggedBookings.map((b) => (
+                  <Button
+                    key={b.id}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => openFromBooking(b)}
+                  >
+                    {b.job_title}
+                  </Button>
+                ))}
+              </div>
+            )}
             <Button size="sm" onClick={openAdd}>
               <Plus className="mr-1 h-3 w-3" />
               Add gig
@@ -2484,9 +2543,24 @@ export function BooksTab() {
 
       <GigDialog
         open={gigDialogOpen}
-        onClose={() => setGigDialogOpen(false)}
+        onClose={() => {
+          setGigDialogOpen(false);
+          setFromBooking(null);
+        }}
         editing={editingEntry}
         clients={clients}
+        prefill={
+          fromBooking
+            ? {
+                description: fromBooking.job_title ?? "",
+                client_name: fromBooking.company_name ?? "",
+                work_date: fromBooking.event_date?.slice(0, 10) ?? "",
+                status: "paid",
+                paid_date: new Date().toISOString().slice(0, 10),
+              }
+            : undefined
+        }
+        jobApplicationId={fromBooking?.id}
       />
     </div>
   );

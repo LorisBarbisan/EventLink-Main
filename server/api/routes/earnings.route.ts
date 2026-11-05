@@ -87,6 +87,7 @@ router.post("/", auth, async (req: Request, res: Response) => {
       status = "expected",
       paid_date,
       notes,
+      job_application_id,
     } = req.body;
 
     if (!description || !work_date || gross_amount == null) {
@@ -122,6 +123,11 @@ router.post("/", auth, async (req: Request, res: Response) => {
       needs_review: false,
       archived: false,
     });
+
+    // Link back to the job application if provided
+    if (job_application_id) {
+      await storage.linkJobApplicationEarning(Number(job_application_id), entry.id);
+    }
 
     return res.status(201).json(entry);
   } catch (err) {
