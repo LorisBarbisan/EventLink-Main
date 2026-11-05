@@ -36,6 +36,8 @@ import {
   Clock,
   Copy,
   Download,
+  Globe,
+  Lock,
   Mail,
   MapPin,
   Pencil,
@@ -479,6 +481,38 @@ export default function SimplifiedFreelancerDashboard() {
   if (!profileQueryLoading) profileHasEverLoaded.current = true;
   const profileLoading = profileQueryLoading && !profileHasEverLoaded.current;
 
+  const [profileIsPublic, setProfileIsPublic] = useState<boolean>(true);
+  const [togglingPrivacy, setTogglingPrivacy] = useState(false);
+
+  useEffect(() => {
+    if (profile?.profile_is_public !== undefined) {
+      setProfileIsPublic(!!profile.profile_is_public);
+    }
+  }, [profile?.profile_is_public]);
+
+  const toggleProfilePrivacy = async () => {
+    if (!profile?.id) return;
+    setTogglingPrivacy(true);
+    const newValue = !profileIsPublic;
+    try {
+      await apiRequest(`/api/freelancer/${profile.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ profile_is_public: newValue }),
+      });
+      setProfileIsPublic(newValue);
+      toast({
+        title: newValue ? "Profile set to public" : "Profile set to private",
+        description: newValue
+          ? "Anyone can now view your CV and documents without logging in."
+          : "Only signed-in employers can view your CV and documents.",
+      });
+    } catch {
+      toast({ title: "Failed to update privacy setting", variant: "destructive" });
+    } finally {
+      setTogglingPrivacy(false);
+    }
+  };
+
   const [cardShareUrl, setCardShareUrl] = useState("");
   const [identityLoading, setIdentityLoading] = useState(false);
 
@@ -704,7 +738,20 @@ export default function SimplifiedFreelancerDashboard() {
             </p>
             <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button
+              onClick={toggleProfilePrivacy}
+              disabled={togglingPrivacy}
+              className="flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:text-foreground disabled:opacity-50"
+              title={profileIsPublic ? "Set profile to private" : "Set profile to public"}
+            >
+              {profileIsPublic ? (
+                <Globe className="h-3.5 w-3.5 text-green-600" />
+              ) : (
+                <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+              {profileIsPublic ? "Public" : "Private"}
+            </button>
             <Button
               size="sm"
               data-help="action.freelancer.postJob"
