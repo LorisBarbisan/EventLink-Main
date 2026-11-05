@@ -1225,20 +1225,31 @@ function ExpensesSection() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Receipt className="h-4 w-4" />
-            Expenses
-          </CardTitle>
-          <Button size="sm" onClick={openAdd}>
-            <Plus className="mr-1 h-3 w-3" />
-            Add expense
-          </Button>
-        </CardHeader>
-        <CardContent>
+      <Card className="overflow-hidden">
+        <div className="bg-amber-500 px-5 py-3 dark:bg-amber-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-amber-100" />
+              <p className="font-semibold text-white">Expenses</p>
+              {expenses.length > 0 && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">
+                  {expenses.length}
+                </span>
+              )}
+            </div>
+            <Button
+              size="sm"
+              className="h-7 bg-white text-xs text-amber-700 hover:bg-amber-50"
+              onClick={openAdd}
+            >
+              <Plus className="mr-1 h-3 w-3" />
+              Add expense
+            </Button>
+          </div>
+        </div>
+        <CardContent className="p-0">
           {isLoading ? (
-            <div className="space-y-2">
+            <div className="space-y-2 p-4">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="animate-pulse rounded-lg border p-3">
                   <div className="mb-1 h-3 w-1/3 rounded bg-muted" />
@@ -1247,8 +1258,8 @@ function ExpensesSection() {
               ))}
             </div>
           ) : expenses.length === 0 ? (
-            <div className="py-8 text-center">
-              <Receipt className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+            <div className="py-10 text-center">
+              <Receipt className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
               <p className="mb-1 font-medium text-muted-foreground">No expenses yet</p>
               <p className="text-sm text-muted-foreground">
                 Add your first expense — travel and parking, tools, PPE, kit hire
@@ -1259,8 +1270,8 @@ function ExpensesSection() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-5">
-              {monthKeys.map((key) => {
+            <div>
+              {monthKeys.map((key, mi) => {
                 const monthExpenses = byMonth[key];
                 const monthTotal = monthExpenses.reduce(
                   (sum, e) =>
@@ -1272,79 +1283,74 @@ function ExpensesSection() {
                 );
                 return (
                   <div key={key}>
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {/* Month header */}
+                    <div className="flex items-center justify-between border-b bg-amber-50/60 px-5 py-2 dark:bg-amber-950/20">
+                      <span className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
                         {monthLabel(key)}
                       </span>
-                      <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                      <span className="text-xs font-semibold tabular-nums text-amber-700 dark:text-amber-400">
                         {formatPence(monthTotal)}
                       </span>
                     </div>
-                    <div className="space-y-2">
-                      {monthExpenses.map((expense) => {
-                        const total = expense.net_amount_pence + expense.vat_amount_pence;
-                        const allowable = Math.round((total * expense.business_use_percent) / 100);
-                        const catName = expense.category_id
-                          ? categoryMap[expense.category_id]
-                          : null;
-                        return (
-                          <div
-                            key={expense.id}
-                            className="flex items-start justify-between rounded-md border px-3 py-2"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <p className="truncate text-sm font-medium">
-                                  {expense.supplier || expense.description}
-                                </p>
-                                {catName && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {catName}
-                                  </Badge>
-                                )}
-                                {expense.billable_to_client && !expense.rebilled && (
-                                  <Badge
-                                    variant="outline"
-                                    className="border-blue-300 text-xs text-blue-600"
-                                  >
-                                    Billable
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                {fmtDate(expense.expense_date)}
-                                {expense.supplier && expense.description !== expense.supplier
-                                  ? ` · ${expense.description}`
-                                  : ""}
+                    {monthExpenses.map((expense, i) => {
+                      const total = expense.net_amount_pence + expense.vat_amount_pence;
+                      const allowable = Math.round((total * expense.business_use_percent) / 100);
+                      const catName = expense.category_id ? categoryMap[expense.category_id] : null;
+                      return (
+                        <div
+                          key={expense.id}
+                          className={`flex items-start justify-between px-5 py-3 ${i % 2 === 0 ? "bg-muted/20" : ""}`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="truncate text-sm font-medium">
+                                {expense.supplier || expense.description}
                               </p>
-                              <ReceiptRow expenseId={expense.id} />
+                              {catName && (
+                                <Badge className="bg-amber-100 text-xs text-amber-800 hover:bg-amber-100">
+                                  {catName}
+                                </Badge>
+                              )}
+                              {expense.billable_to_client && !expense.rebilled && (
+                                <Badge className="bg-blue-100 text-xs text-blue-700 hover:bg-blue-100">
+                                  Billable
+                                </Badge>
+                              )}
                             </div>
-                            <div className="ml-3 flex items-center gap-2">
-                              <span className="min-w-[72px] text-right text-sm font-medium tabular-nums">
-                                {formatPence(allowable)}
-                              </span>
-                              <button
-                                className="text-muted-foreground transition-colors hover:text-foreground"
-                                title="Edit"
-                                onClick={() => {
-                                  setEditingExpense(expense);
-                                  setDialogOpen(true);
-                                }}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                className="text-muted-foreground transition-colors hover:text-destructive"
-                                title="Remove"
-                                onClick={() => archiveMutation.mutate(expense.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {fmtDate(expense.expense_date)}
+                              {expense.supplier && expense.description !== expense.supplier
+                                ? ` · ${expense.description}`
+                                : ""}
+                            </p>
+                            <ReceiptRow expenseId={expense.id} />
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div className="ml-3 flex items-center gap-2">
+                            <span className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                              {formatPence(allowable)}
+                            </span>
+                            <button
+                              className="text-muted-foreground transition-colors hover:text-foreground"
+                              title="Edit"
+                              onClick={() => {
+                                setEditingExpense(expense);
+                                setDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              className="text-muted-foreground transition-colors hover:text-destructive"
+                              title="Remove"
+                              onClick={() => archiveMutation.mutate(expense.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {mi < monthKeys.length - 1 && <div className="border-b" />}
                   </div>
                 );
               })}
@@ -1675,64 +1681,76 @@ function MileageSection() {
 
   return (
     <div className="space-y-4">
-      {/* Summary card */}
-      <Card>
-        <CardHeader className="pb-2">
+      {/* Summary + action header */}
+      <Card className="overflow-hidden">
+        <div className="bg-purple-600 px-5 py-3 dark:bg-purple-800">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Navigation className="h-4 w-4" />
-              Mileage
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Navigation className="h-4 w-4 text-purple-100" />
+              <p className="font-semibold text-white">Mileage</p>
+              {trips.length > 0 && (
+                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-bold text-purple-800">
+                  {trips.length} trips
+                </span>
+              )}
+            </div>
             <Button
               size="sm"
+              className="h-7 bg-white text-xs text-purple-700 hover:bg-purple-50"
               onClick={() => {
                 setEditingTrip(null);
                 setDialogOpen(true);
               }}
             >
-              <Plus className="mr-1 h-3.5 w-3.5" />
+              <Plus className="mr-1 h-3 w-3" />
               Log trip
             </Button>
           </div>
-          {rate && (
-            <p className="text-xs text-muted-foreground">
-              Current rate: {rate.rate_pence}p/mile
-              {rate.threshold_miles
-                ? `, then ${rate.rate_above_pence}p after ${rate.threshold_miles.toLocaleString()} miles`
-                : ""}
-            </p>
-          )}
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold tabular-nums">{formatPence(totalPence)}</span>
-            <span className="text-sm text-muted-foreground">this tax year</span>
+        </div>
+        <CardContent className="pt-4">
+          <div className="flex items-center gap-6">
+            <div className="rounded-lg bg-purple-50 px-5 py-3 dark:bg-purple-950/40">
+              <p className="text-xs font-medium uppercase tracking-wide text-purple-500">
+                Allowance this year
+              </p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-purple-700 dark:text-purple-300">
+                {formatPence(totalPence)}
+              </p>
+            </div>
+            {rate && (
+              <p className="text-xs text-muted-foreground">
+                {rate.rate_pence}p/mile
+                {rate.threshold_miles
+                  ? ` · then ${rate.rate_above_pence}p after ${rate.threshold_miles.toLocaleString()} miles`
+                  : ""}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Trip list */}
-      <Card>
-        <CardHeader className="pb-2">
-          <p className="text-sm font-medium">Trips</p>
-        </CardHeader>
-        <CardContent>
+      <Card className="overflow-hidden">
+        <div className="border-l-4 border-purple-400 bg-purple-50/40 px-5 py-3 dark:bg-purple-950/20">
+          <p className="font-semibold">Trips</p>
+        </div>
+        <CardContent className="p-0">
           {isLoading ? (
-            <div className="animate-pulse space-y-2">
+            <div className="animate-pulse space-y-2 p-4">
               {[1, 2].map((i) => (
                 <div key={i} className="h-10 rounded bg-muted" />
               ))}
             </div>
           ) : trips.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-6 text-center text-muted-foreground">
+            <div className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
               <Navigation className="h-8 w-8 opacity-30" />
               <p className="text-sm">No trips logged yet.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div>
               {Object.entries(byMonth)
                 .sort(([a], [b]) => b.localeCompare(a))
-                .map(([month, monthTrips]) => {
+                .map(([month, monthTrips], mi) => {
                   const monthTotal = monthTrips.reduce((s, t) => s + t.amount_pence, 0);
                   const [y, m] = month.split("-");
                   const label = new Date(parseInt(y), parseInt(m) - 1).toLocaleString("en-GB", {
@@ -1741,53 +1759,52 @@ function MileageSection() {
                   });
                   return (
                     <div key={month}>
-                      <div className="mb-1 flex items-center justify-between">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <div className="flex items-center justify-between border-b bg-purple-50/60 px-5 py-2 dark:bg-purple-950/20">
+                        <span className="text-xs font-bold uppercase tracking-wide text-purple-700 dark:text-purple-400">
                           {label}
-                        </p>
-                        <p className="text-xs tabular-nums text-muted-foreground">
+                        </span>
+                        <span className="text-xs font-semibold tabular-nums text-purple-700 dark:text-purple-400">
                           {formatPence(monthTotal)}
-                        </p>
+                        </span>
                       </div>
-                      <div className="space-y-1.5">
-                        {monthTrips.map((trip) => (
-                          <div
-                            key={trip.id}
-                            className="flex items-start justify-between rounded-md border px-3 py-2"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium">
-                                {trip.from_place} → {trip.to_place}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {fmtDate(trip.trip_date)} · {trip.miles} mi · {trip.purpose}
-                              </p>
-                            </div>
-                            <div className="ml-3 flex items-center gap-2">
-                              <span className="min-w-[64px] text-right text-sm font-medium tabular-nums">
-                                {formatPence(trip.amount_pence)}
-                              </span>
-                              <button
-                                className="text-muted-foreground transition-colors hover:text-foreground"
-                                title="Edit"
-                                onClick={() => {
-                                  setEditingTrip(trip);
-                                  setDialogOpen(true);
-                                }}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                className="text-muted-foreground transition-colors hover:text-destructive"
-                                title="Remove"
-                                onClick={() => archiveMutation.mutate(trip.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
+                      {monthTrips.map((trip, i) => (
+                        <div
+                          key={trip.id}
+                          className={`flex items-start justify-between px-5 py-3 ${i % 2 === 0 ? "bg-muted/20" : ""}`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">
+                              {trip.from_place} → {trip.to_place}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {fmtDate(trip.trip_date)} · {trip.miles} mi · {trip.purpose}
+                            </p>
                           </div>
-                        ))}
-                      </div>
+                          <div className="ml-3 flex items-center gap-2">
+                            <span className="min-w-[72px] text-right text-sm font-semibold tabular-nums text-purple-700 dark:text-purple-300">
+                              {formatPence(trip.amount_pence)}
+                            </span>
+                            <button
+                              className="text-muted-foreground transition-colors hover:text-foreground"
+                              title="Edit"
+                              onClick={() => {
+                                setEditingTrip(trip);
+                                setDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              className="text-muted-foreground transition-colors hover:text-destructive"
+                              title="Remove"
+                              onClick={() => archiveMutation.mutate(trip.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {mi < Object.keys(byMonth).length - 1 && <div className="border-b" />}
                     </div>
                   );
                 })}
@@ -1797,25 +1814,25 @@ function MileageSection() {
       </Card>
 
       {/* Saved places */}
-      <Card>
-        <CardHeader className="pb-2">
-          <button
-            className="flex items-center gap-2 text-sm font-medium"
-            onClick={() => setShowPlaces((v) => !v)}
-          >
-            <MapPin className="h-4 w-4" />
-            Saved places
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground transition-transform ${showPlaces ? "rotate-180" : ""}`}
-            />
-          </button>
-        </CardHeader>
+      <Card className="overflow-hidden">
+        <button
+          className="flex w-full items-center justify-between border-l-4 border-slate-400 bg-slate-50/60 px-5 py-3 dark:bg-slate-800/40"
+          onClick={() => setShowPlaces((v) => !v)}
+        >
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-slate-500" />
+            <p className="font-semibold">Saved places</p>
+          </div>
+          <ChevronDown
+            className={`h-4 w-4 text-muted-foreground transition-transform ${showPlaces ? "rotate-180" : ""}`}
+          />
+        </button>
         {showPlaces && (
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-2 pt-3">
             {savedPlaces.map((p) => (
               <div
                 key={p.id}
-                className="flex items-center justify-between rounded border px-3 py-1.5 text-sm"
+                className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2 text-sm"
               >
                 <span>{p.label}</span>
                 <button
@@ -1913,40 +1930,6 @@ function OverviewSection() {
     },
   });
 
-  function StatRow({
-    label,
-    pence,
-    sub,
-    bold,
-    positive,
-  }: {
-    label: string;
-    pence: number;
-    sub?: string;
-    bold?: boolean;
-    positive?: boolean;
-  }) {
-    const color =
-      positive === undefined
-        ? ""
-        : pence >= 0 && positive
-          ? "text-green-600 dark:text-green-400"
-          : "text-destructive";
-    return (
-      <div
-        className={`flex items-baseline justify-between py-2 ${bold ? "border-t" : "border-t border-dashed"}`}
-      >
-        <div>
-          <p className={`text-sm ${bold ? "font-semibold" : ""}`}>{label}</p>
-          {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
-        </div>
-        <span className={`text-sm tabular-nums ${bold ? "text-base font-bold" : ""} ${color}`}>
-          {formatPence(pence)}
-        </span>
-      </div>
-    );
-  }
-
   function downloadWithAuth(url: string, filename: string) {
     const token = localStorage.getItem("auth_token");
     fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
@@ -1963,144 +1946,226 @@ function OverviewSection() {
 
   const handleExport = () => downloadWithAuth("/api/books/export", "books-export.csv");
 
+  if (isLoading) {
+    return (
+      <div className="animate-pulse space-y-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-24 rounded-xl bg-muted" />
+          ))}
+        </div>
+        <div className="h-40 rounded-xl bg-muted" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <p className="py-4 text-center text-sm text-muted-foreground">Could not load summary.</p>
+    );
+  }
+
+  const profitPositive = data.net_profit_pence >= 0;
+
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <BookOpen className="h-4 w-4" />
-              Tax year overview
-            </CardTitle>
-            <Button size="sm" variant="outline" onClick={handleExport}>
-              <Download className="mr-1 h-3.5 w-3.5" />
-              Export CSV
-            </Button>
-          </div>
-          {data && (
-            <p className="text-xs text-muted-foreground">
-              {fmtDate(data.from)} – {fmtDate(data.to)} · cash basis
-            </p>
-          )}
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="animate-pulse space-y-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-8 rounded bg-muted" />
-              ))}
-            </div>
-          ) : data ? (
+      {/* ── Period label + export ── */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {fmtDate(data.from)} – {fmtDate(data.to)} · cash basis
+        </p>
+        <Button size="sm" variant="outline" onClick={handleExport}>
+          <Download className="mr-1 h-3.5 w-3.5" />
+          Export CSV
+        </Button>
+      </div>
+
+      {/* ── Big stat tiles ── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* Earnings — blue */}
+        <div className="rounded-xl bg-blue-50 p-4 dark:bg-blue-950/40">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+            Earnings
+          </p>
+          <p className="text-2xl font-bold tabular-nums text-blue-700 dark:text-blue-300">
+            {formatPence(data.earnings_pence)}
+          </p>
+          <p className="mt-1 text-xs text-blue-500 dark:text-blue-500">
+            {data.entry_count} {data.entry_count === 1 ? "entry" : "entries"}
+          </p>
+        </div>
+
+        {/* Expenses — amber */}
+        <div className="rounded-xl bg-amber-50 p-4 dark:bg-amber-950/40">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+            Expenses
+          </p>
+          <p className="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-300">
+            {formatPence(data.expense_allowable_pence)}
+          </p>
+          <p className="mt-1 text-xs text-amber-500">
+            {data.expense_count} {data.expense_count === 1 ? "expense" : "expenses"}
+          </p>
+        </div>
+
+        {/* Mileage — purple */}
+        <div className="rounded-xl bg-purple-50 p-4 dark:bg-purple-950/40">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400">
+            Mileage
+          </p>
+          <p className="text-2xl font-bold tabular-nums text-purple-700 dark:text-purple-300">
+            {formatPence(data.mileage_pence)}
+          </p>
+          <p className="mt-1 text-xs text-purple-500">
+            {data.mileage_trip_count} {data.mileage_trip_count === 1 ? "trip" : "trips"}
+          </p>
+        </div>
+
+        {/* Net profit — green or red */}
+        <div
+          className={`rounded-xl p-4 ${
+            profitPositive ? "bg-green-50 dark:bg-green-950/40" : "bg-red-50 dark:bg-red-950/40"
+          }`}
+        >
+          <p
+            className={`mb-1 text-xs font-semibold uppercase tracking-wide ${
+              profitPositive
+                ? "text-green-600 dark:text-green-400"
+                : "text-red-600 dark:text-red-400"
+            }`}
+          >
+            Net profit
+          </p>
+          <p
+            className={`text-2xl font-bold tabular-nums ${
+              profitPositive
+                ? "text-green-700 dark:text-green-300"
+                : "text-red-700 dark:text-red-300"
+            }`}
+          >
+            {formatPence(data.net_profit_pence)}
+          </p>
+          <p className={`mt-1 text-xs ${profitPositive ? "text-green-500" : "text-red-400"}`}>
+            after deductions
+          </p>
+        </div>
+      </div>
+
+      {/* ── Breakdown rows ── */}
+      <Card className="overflow-hidden">
+        <div className="border-l-4 border-blue-500 bg-blue-50/40 px-5 py-3 dark:bg-blue-950/20">
+          <div className="flex items-baseline justify-between">
             <div>
-              <StatRow
-                label="Gross earnings"
-                pence={data.earnings_pence}
-                sub={`${data.entry_count} ${data.entry_count === 1 ? "entry" : "entries"}`}
-              />
-              <StatRow
-                label="Allowable expenses"
-                pence={-data.expense_allowable_pence}
-                sub={`${data.expense_count} ${data.expense_count === 1 ? "expense" : "expenses"}`}
-              />
-              <StatRow
-                label="Mileage allowance"
-                pence={-data.mileage_pence}
-                sub={`${data.mileage_trip_count} ${data.mileage_trip_count === 1 ? "trip" : "trips"}`}
-              />
-              <StatRow label="Net profit" pence={data.net_profit_pence} bold positive />
+              <p className="font-semibold">Gross earnings</p>
+              <p className="text-xs text-muted-foreground">
+                {data.entry_count} {data.entry_count === 1 ? "entry" : "entries"}
+              </p>
             </div>
-          ) : (
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              Could not load summary.
-            </p>
-          )}
-        </CardContent>
+            <span className="text-lg font-bold tabular-nums text-blue-700 dark:text-blue-300">
+              {formatPence(data.earnings_pence)}
+            </span>
+          </div>
+        </div>
+        <div className="border-l-4 border-amber-400 bg-amber-50/40 px-5 py-3 dark:bg-amber-950/20">
+          <div className="flex items-baseline justify-between">
+            <div>
+              <p className="font-semibold">Allowable expenses</p>
+              <p className="text-xs text-muted-foreground">
+                {data.expense_count} {data.expense_count === 1 ? "expense" : "expenses"}
+              </p>
+            </div>
+            <span className="text-lg font-bold tabular-nums text-amber-700 dark:text-amber-300">
+              −{formatPence(data.expense_allowable_pence)}
+            </span>
+          </div>
+        </div>
+        <div className="border-l-4 border-purple-400 bg-purple-50/40 px-5 py-3 dark:bg-purple-950/20">
+          <div className="flex items-baseline justify-between">
+            <div>
+              <p className="font-semibold">Mileage allowance</p>
+              <p className="text-xs text-muted-foreground">
+                {data.mileage_trip_count} {data.mileage_trip_count === 1 ? "trip" : "trips"}
+              </p>
+            </div>
+            <span className="text-lg font-bold tabular-nums text-purple-700 dark:text-purple-300">
+              −{formatPence(data.mileage_pence)}
+            </span>
+          </div>
+        </div>
+        <div
+          className={`border-l-4 px-5 py-4 ${
+            profitPositive
+              ? "border-green-500 bg-green-50/60 dark:bg-green-950/30"
+              : "border-red-500 bg-red-50/60 dark:bg-red-950/30"
+          }`}
+        >
+          <div className="flex items-baseline justify-between">
+            <p className="text-base font-bold">Net profit</p>
+            <span
+              className={`text-xl font-bold tabular-nums ${
+                profitPositive
+                  ? "text-green-700 dark:text-green-300"
+                  : "text-red-700 dark:text-red-300"
+              }`}
+            >
+              {formatPence(data.net_profit_pence)}
+            </span>
+          </div>
+        </div>
       </Card>
 
-      {data && (
-        <Card>
-          <CardContent className="pt-4">
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-2xl font-bold tabular-nums">
-                  {formatPence(data.earnings_pence)}
-                </p>
-                <p className="text-xs text-muted-foreground">Earnings</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold tabular-nums">
-                  {formatPence(data.expense_allowable_pence + data.mileage_pence)}
-                </p>
-                <p className="text-xs text-muted-foreground">Deductions</p>
-              </div>
-              <div>
-                <p
-                  className={`text-2xl font-bold tabular-nums ${data.net_profit_pence >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"}`}
-                >
-                  {formatPence(data.net_profit_pence)}
-                </p>
-                <p className="text-xs text-muted-foreground">Net profit</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Tax estimate card */}
+      {/* ── Tax estimate ── */}
       {taxData && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <TrendingUp className="h-4 w-4" />
-              Tax estimate — {taxData.taxYearLabel}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Rough guide only. Based on {formatPence(taxData.netProfitPence)} net profit, UK rates,
-              no other income assumed. Consult your accountant.
+        <Card className="overflow-hidden">
+          <div className="bg-slate-800 px-5 py-3 dark:bg-slate-900">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-orange-400" />
+              <p className="font-semibold text-white">Tax estimate — {taxData.taxYearLabel}</p>
+            </div>
+            <p className="mt-0.5 text-xs text-slate-400">
+              Rough guide only · UK rates · no other income assumed · consult your accountant
             </p>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              {[...taxData.incomeTaxBands, ...taxData.niBands].map((b, i) => (
-                <div
-                  key={i}
-                  className="flex items-baseline justify-between border-t border-dashed py-1.5"
-                >
-                  <p className="text-xs text-muted-foreground">{b.label}</p>
-                  <span className="text-sm tabular-nums">{formatPence(b.taxPence)}</span>
-                </div>
-              ))}
-              <div className="flex items-baseline justify-between border-t py-2">
-                <div>
-                  <p className="text-sm font-semibold">Estimated tax &amp; NI</p>
-                  <p className="text-xs text-muted-foreground">
-                    Effective rate {taxData.effectiveRatePct}%
-                  </p>
-                </div>
-                <span className="text-base font-bold tabular-nums text-destructive">
-                  {formatPence(taxData.totalTaxPence)}
-                </span>
+          </div>
+          <CardContent className="p-0">
+            {[...taxData.incomeTaxBands, ...taxData.niBands].map((b, i) => (
+              <div
+                key={i}
+                className="flex items-baseline justify-between border-b px-5 py-2.5 last:border-0"
+              >
+                <p className="text-sm text-muted-foreground">{b.label}</p>
+                <span className="text-sm tabular-nums">{formatPence(b.taxPence)}</span>
               </div>
-              <div className="flex items-baseline justify-between border-t py-2">
-                <p className="text-sm font-semibold">Take-home estimate</p>
-                <span className="text-base font-bold tabular-nums text-green-600 dark:text-green-400">
-                  {formatPence(taxData.netProfitPence - taxData.totalTaxPence)}
-                </span>
+            ))}
+            <div className="flex items-baseline justify-between border-t-2 bg-slate-50 px-5 py-3 dark:bg-slate-900/40">
+              <div>
+                <p className="font-semibold">Estimated tax &amp; NI</p>
+                <p className="text-xs text-muted-foreground">
+                  Effective rate {taxData.effectiveRatePct}%
+                </p>
               </div>
+              <span className="text-lg font-bold tabular-nums text-red-600 dark:text-red-400">
+                {formatPence(taxData.totalTaxPence)}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between bg-green-50 px-5 py-3 dark:bg-green-950/30">
+              <p className="font-semibold">Take-home estimate</p>
+              <span className="text-lg font-bold tabular-nums text-green-700 dark:text-green-300">
+                {formatPence(taxData.netProfitPence - taxData.totalTaxPence)}
+              </span>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Year-end pack */}
-      <Card>
-        <CardHeader className="pb-1">
-          <CardTitle className="text-base">Year-end pack</CardTitle>
+      {/* ── Year-end pack ── */}
+      <Card className="overflow-hidden">
+        <div className="border-l-4 border-orange-400 bg-orange-50/50 px-5 py-3 dark:bg-orange-950/20">
+          <p className="font-semibold">Year-end pack</p>
           <p className="text-xs text-muted-foreground">
             Download all records for your accountant or self-assessment return.
           </p>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2 pt-2">
+        </div>
+        <CardContent className="flex flex-wrap gap-2 py-3">
           <Button size="sm" variant="outline" onClick={handleExport}>
             <Download className="mr-1 h-3.5 w-3.5" />
             Expenses &amp; mileage CSV
@@ -2326,54 +2391,72 @@ export function BooksTab() {
     <div className="space-y-6">
       {sectionSwitcher}
       <ExportCard />
+
       {/* ── Section 1: This tax year ── */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <TrendingUp className="h-4 w-4" />
-            Tax year {tax_year.label}
-          </CardTitle>
-          <span className="text-xs text-muted-foreground">
-            {fmtDate(tax_year.from)} – {fmtDate(tax_year.to)} · cash basis
-          </span>
-        </CardHeader>
-        <CardContent>
+      <Card className="overflow-hidden">
+        <div className="bg-blue-600 px-5 py-3 dark:bg-blue-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-blue-100" />
+              <p className="font-semibold text-white">Tax year {tax_year.label}</p>
+            </div>
+            <span className="text-xs text-blue-200">
+              {fmtDate(tax_year.from)} – {fmtDate(tax_year.to)} · cash basis
+            </span>
+          </div>
+        </div>
+        <CardContent className="pt-4">
           {summary.entry_count === 0 ? (
-            <p className="py-2 text-sm text-muted-foreground">
-              No paid income recorded for this tax year yet.
-            </p>
+            <div className="py-6 text-center">
+              <TrendingUp className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                No paid income recorded for this tax year yet.
+              </p>
+            </div>
           ) : (
             <>
-              <div className="mb-4 flex flex-wrap gap-6">
-                <div>
-                  <p className="text-xs text-muted-foreground">Gross income</p>
-                  <p className="text-2xl font-bold">{formatPence(summary.total_pence)}</p>
+              <div className="mb-4 grid grid-cols-3 gap-3">
+                <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-950/40">
+                  <p className="text-xs font-medium uppercase tracking-wide text-blue-500">
+                    Gross income
+                  </p>
+                  <p className="mt-1 text-xl font-bold tabular-nums text-blue-700 dark:text-blue-300">
+                    {formatPence(summary.total_pence)}
+                  </p>
                 </div>
                 {summary.deductions_pence > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">After deductions</p>
-                    <p className="text-2xl font-bold">{formatPence(netPence)}</p>
+                  <div className="rounded-lg bg-purple-50 p-3 dark:bg-purple-950/40">
+                    <p className="text-xs font-medium uppercase tracking-wide text-purple-500">
+                      After deductions
+                    </p>
+                    <p className="mt-1 text-xl font-bold tabular-nums text-purple-700 dark:text-purple-300">
+                      {formatPence(netPence)}
+                    </p>
                   </div>
                 )}
-                <div>
-                  <p className="text-xs text-muted-foreground">Gigs</p>
-                  <p className="text-2xl font-bold">{summary.entry_count}</p>
+                <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-800">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Gigs</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{summary.entry_count}</p>
                 </div>
               </div>
 
               {/* Monthly breakdown */}
               {summary.groups.length > 0 && (
-                <div className="space-y-1">
+                <div className="overflow-hidden rounded-lg border">
                   {summary.groups
+                    .slice()
                     .sort((a, b) => a.key.localeCompare(b.key))
-                    .map((g) => (
-                      <div key={g.key} className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{g.label}</span>
-                        <div className="flex items-center gap-3">
+                    .map((g, i) => (
+                      <div
+                        key={g.key}
+                        className={`flex items-center justify-between px-3 py-2.5 text-sm ${i % 2 === 0 ? "bg-muted/40" : ""}`}
+                      >
+                        <span className="font-medium">{g.label}</span>
+                        <div className="flex items-center gap-4">
                           <span className="text-xs text-muted-foreground">
                             {g.entry_count} gig{g.entry_count !== 1 ? "s" : ""}
                           </span>
-                          <span className="font-medium tabular-nums">
+                          <span className="min-w-[80px] text-right font-semibold tabular-nums text-blue-700 dark:text-blue-300">
                             {formatPence(g.total_pence)}
                           </span>
                         </div>
@@ -2385,46 +2468,46 @@ export function BooksTab() {
           )}
 
           {summary.excluded.needs_review > 0 && (
-            <p className="mt-3 text-xs text-amber-600">
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
               {summary.excluded.needs_review} entr
               {summary.excluded.needs_review === 1 ? "y" : "ies"} excluded — amount needs review.
-            </p>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* ── Section 2: Owed to me ── */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Clock className="h-4 w-4" />
-            Owed to me
+      <Card className="overflow-hidden">
+        <div className="border-l-4 border-orange-400 bg-orange-50/60 px-5 py-3 dark:bg-orange-950/20">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-orange-500" />
+            <p className="font-semibold">Owed to me</p>
             {owed.length > 0 && (
-              <Badge variant="outline" className="ml-1 text-xs">
+              <span className="rounded-full bg-orange-500 px-2 py-0.5 text-xs font-bold text-white">
                 {owed.length}
-              </Badge>
+              </span>
             )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+          </div>
+        </div>
+        <CardContent className="p-0">
           {owed.length === 0 ? (
-            <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
               <CheckCircle className="h-4 w-4 text-green-500" />
               All invoices settled.
             </div>
           ) : (
-            <div className="space-y-3">
-              {owed.map((entry) => (
+            <div>
+              {owed.map((entry, i) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between rounded-md border px-3 py-2"
+                  className={`flex items-center justify-between px-5 py-3 ${i % 2 === 0 ? "bg-orange-50/30 dark:bg-orange-950/10" : ""}`}
                 >
                   <div>
                     <p className="text-sm font-medium">{entry.description ?? "Freelance work"}</p>
                     <p className="text-xs text-muted-foreground">{fmtDate(entry.work_date)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium tabular-nums">
+                    <p className="font-semibold tabular-nums text-orange-700 dark:text-orange-300">
                       {formatPence(entry.gross_amount_pence, entry.currency)}
                     </p>
                     <StatusBadge entry={entry} />
@@ -2437,53 +2520,56 @@ export function BooksTab() {
       </Card>
 
       {/* ── Section 3: Full log ── */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <BookOpen className="h-4 w-4" />
-            Full gig log
-          </CardTitle>
-          <div className="flex flex-wrap items-center gap-2">
-            {unloggedBookings.length > 0 && (
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground">From a booking:</span>
-                {unloggedBookings.map((b) => (
-                  <Button
-                    key={b.id}
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => openFromBooking(b)}
-                  >
-                    {b.job_title}
-                  </Button>
-                ))}
-              </div>
-            )}
-            <Button size="sm" onClick={openAdd}>
-              <Plus className="mr-1 h-3 w-3" />
-              Add gig
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => backfillMutation.mutate()}
-              disabled={backfillMutation.isPending}
-            >
-              <RefreshCw
-                className={`mr-2 h-3 w-3 ${backfillMutation.isPending ? "animate-spin" : ""}`}
-              />
-              Sync bookings
-            </Button>
+      <Card className="overflow-hidden">
+        <div className="border-l-4 border-blue-500 bg-blue-50/40 px-5 py-3 dark:bg-blue-950/20">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-blue-600" />
+              <p className="font-semibold">Full gig log</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {unloggedBookings.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">From booking:</span>
+                  {unloggedBookings.map((b) => (
+                    <Button
+                      key={b.id}
+                      variant="outline"
+                      size="sm"
+                      className="h-6 border-blue-300 text-xs text-blue-700 hover:bg-blue-50"
+                      onClick={() => openFromBooking(b)}
+                    >
+                      {b.job_title}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <Button size="sm" className="h-7 text-xs" onClick={openAdd}>
+                <Plus className="mr-1 h-3 w-3" />
+                Add gig
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => backfillMutation.mutate()}
+                disabled={backfillMutation.isPending}
+              >
+                <RefreshCw
+                  className={`mr-1 h-3 w-3 ${backfillMutation.isPending ? "animate-spin" : ""}`}
+                />
+                Sync
+              </Button>
+            </div>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <CardContent className="p-0">
           {entries.length === 0 ? (
-            <div className="py-8 text-center">
-              <BookOpen className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+            <div className="py-10 text-center">
+              <BookOpen className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
               <p className="mb-1 font-medium text-muted-foreground">No entries yet</p>
               <p className="text-sm text-muted-foreground">
-                Add a gig manually, or use &ldquo;Sync bookings&rdquo; to import completed EventLink
+                Add a gig manually, or use &ldquo;Sync&rdquo; to import completed EventLink
                 bookings.
               </p>
               <Button className="mt-4" size="sm" onClick={openAdd}>
@@ -2492,14 +2578,20 @@ export function BooksTab() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div>
               {entries
                 .slice()
                 .sort((a, b) => b.work_date.localeCompare(a.work_date))
-                .map((entry) => (
+                .map((entry, i) => (
                   <div
                     key={entry.id}
-                    className={`flex items-center justify-between rounded-md border px-3 py-2 ${entry.needs_review ? "border-amber-200 bg-amber-50 dark:bg-amber-950/20" : ""}`}
+                    className={`flex items-center justify-between px-5 py-3 ${
+                      entry.needs_review
+                        ? "border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-950/20"
+                        : i % 2 === 0
+                          ? "bg-muted/30"
+                          : ""
+                    }`}
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
@@ -2510,9 +2602,9 @@ export function BooksTab() {
                         {entry.client_name ? ` · ${entry.client_name}` : ""}
                       </p>
                     </div>
-                    <div className="ml-4 flex items-center gap-2">
+                    <div className="ml-4 flex items-center gap-3">
                       <StatusBadge entry={entry} />
-                      <span className="min-w-[72px] text-right text-sm font-medium tabular-nums">
+                      <span className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-blue-700 dark:text-blue-300">
                         {entry.needs_review
                           ? "—"
                           : formatPence(entry.gross_amount_pence, entry.currency)}
