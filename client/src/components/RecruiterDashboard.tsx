@@ -26,6 +26,7 @@ import {
   isManagerTeamMember,
 } from "@/lib/employerContext";
 import { apiRequest } from "@/lib/queryClient";
+import { useHelpComplete } from "@/help/useHelp";
 import type { Job, JobApplication, JobFormData } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -37,7 +38,6 @@ import {
   MapPin,
   Plus,
   Search,
-  Star,
   User,
   Users,
 } from "lucide-react";
@@ -77,6 +77,7 @@ export default function SimplifiedRecruiterDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const completeHelp = useHelpComplete();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("jobs");
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
@@ -332,6 +333,7 @@ export default function SimplifiedRecruiterDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/my-crew"] });
       queryClient.invalidateQueries({ queryKey: ["/api/saved-freelancers"] });
+      completeHelp("dashboard.saveFreelancer");
       toast({
         title: "Saved to My Crew",
         description: "Freelancer saved to your My Crew list.",
@@ -623,6 +625,12 @@ export default function SimplifiedRecruiterDashboard() {
       queryClient.invalidateQueries({
         queryKey: ["/api/recruiter", effectiveCompanyId, "applications"],
       });
+    } else if (tab === "bookings") {
+      // Opening Bookings counts as using the feature — stop prompting about it.
+      completeHelp("dashboard.tab.bookings");
+    } else if (tab === "crew") {
+      // Opening My Crew counts as using the feature — stop prompting about it.
+      completeHelp("dashboard.tab.crew");
     }
     // Removed: markCategoryAsRead('messages') - keep message notifications unread until user reads them
   };
@@ -758,7 +766,11 @@ export default function SimplifiedRecruiterDashboard() {
             My Jobs
             <TabBadge count={roleSpecificCounts.jobs || 0} />
           </TabsTrigger>
-          <TabsTrigger value="applications" className="gap-2">
+          <TabsTrigger
+            value="applications"
+            className="gap-2"
+            data-help="dashboard.tab.applications"
+          >
             Applications
             <TabBadge count={roleSpecificCounts.applications || 0} />
           </TabsTrigger>
@@ -766,8 +778,12 @@ export default function SimplifiedRecruiterDashboard() {
             Messages
             <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
-          <TabsTrigger value="bookings">Bookings</TabsTrigger>
-          <TabsTrigger value="crew">My Crew</TabsTrigger>
+          <TabsTrigger value="bookings" data-help="dashboard.tab.bookings">
+            Bookings
+          </TabsTrigger>
+          <TabsTrigger value="crew" data-help="dashboard.tab.crew">
+            My Crew
+          </TabsTrigger>
           {showTeamTabForUser && <TabsTrigger value="team">Team</TabsTrigger>}
           {showProfileTab && <TabsTrigger value="profile">Profile</TabsTrigger>}
         </TabsList>
@@ -818,6 +834,7 @@ export default function SimplifiedRecruiterDashboard() {
                   value={crewSearch}
                   onChange={(e) => setCrewSearch(e.target.value)}
                   className="pl-9"
+                  data-help="dashboard.crewSearch"
                   data-testid="input-my-crew-search"
                 />
               </div>
@@ -931,6 +948,7 @@ export default function SimplifiedRecruiterDashboard() {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                data-help="dashboard.saveFreelancer"
                                 className={`h-8 w-8 ${isSaved ? "text-orange-500" : "text-muted-foreground"}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -955,15 +973,6 @@ export default function SimplifiedRecruiterDashboard() {
                           <div className="mb-2 flex items-center gap-1 text-xs text-muted-foreground">
                             <MapPin className="h-3 w-3" />
                             {[freelancer.location, freelancer.country].filter(Boolean).join(", ")}
-                          </div>
-                        )}
-
-                        {freelancer.average_rating > 0 && (
-                          <div className="mb-2 flex items-center gap-1 text-xs">
-                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            <span className="font-medium">
-                              {Number(freelancer.average_rating).toFixed(1)}
-                            </span>
                           </div>
                         )}
 
@@ -1043,6 +1052,7 @@ export default function SimplifiedRecruiterDashboard() {
             </div>
             <Button
               onClick={() => setShowJobForm(!showJobForm)}
+              data-help="action.job.create"
               data-testid="button-post-job"
               className="shrink-0"
             >

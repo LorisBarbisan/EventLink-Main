@@ -17,22 +17,30 @@ export function CookieConsentBanner() {
     <div
       role="dialog"
       aria-label="Cookie consent"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background p-4 shadow-lg"
+      className="fixed inset-x-0 bottom-0 z-50 p-3 sm:p-4"
     >
-      <div className="mx-auto flex max-w-4xl flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="mx-auto flex max-w-3xl flex-col gap-2 rounded-lg border border-border bg-background p-3 shadow-lg sm:flex-row sm:items-center sm:gap-4">
         <p className="flex-1 text-sm text-muted-foreground">
-          We use optional cookies for analytics and advertising to understand how EventLink is used
-          and to improve it. Essential cookies that keep you signed in are always on. See our{" "}
+          We use optional cookies for analytics and ads.{" "}
           <Link href="/privacy" className="underline hover:text-foreground">
-            Privacy Policy
-          </Link>{" "}
-          for details.
+            Privacy&nbsp;Policy
+          </Link>
+          .
         </p>
         <div className="flex shrink-0 gap-2">
-          <Button variant="outline" size="sm" onClick={() => decide("rejected")}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-11 flex-1 sm:h-9 sm:flex-none"
+            onClick={() => decide("rejected")}
+          >
             Reject
           </Button>
-          <Button size="sm" onClick={() => decide("accepted")}>
+          <Button
+            size="sm"
+            className="h-11 flex-1 sm:h-9 sm:flex-none"
+            onClick={() => decide("accepted")}
+          >
             Accept
           </Button>
         </div>

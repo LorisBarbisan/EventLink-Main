@@ -58,6 +58,9 @@ export default function Jobs() {
   const [locationFilter, setLocationFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
   const [freelancerPostedFilter, setFreelancerPostedFilter] = useState(false);
+  // On mobile the search/filter panel is collapsed by default so the jobs are
+  // the first thing a freelancer sees; it is always open from md up.
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Load initial search parameters from URL
   useEffect(() => {
@@ -282,7 +285,9 @@ export default function Jobs() {
   // Transform jobs for consistent format
   const transformedJobs = jobs.map((job: any) => ({
     ...job,
-    posted: job.created_at ? new Date(job.created_at).toLocaleDateString() : "Recently posted",
+    posted: job.created_at
+      ? new Date(job.created_at).toLocaleDateString("en-GB")
+      : "Recently posted",
   }));
 
   // Server-side filtering handles search, location, and date; client-side for freelancer toggle
@@ -359,7 +364,7 @@ export default function Jobs() {
             <span className="text-primary">Event Crew</span>{" "}
             <span className="text-accent">Jobs</span>
           </h1>
-          <p className="text-base text-muted-foreground sm:text-lg">
+          <p className="hidden text-base text-muted-foreground sm:block sm:text-lg">
             Discover exciting opportunities in the events industry. Connect with top companies
             looking for technical crew.
           </p>
@@ -367,7 +372,7 @@ export default function Jobs() {
 
         {/* Post-a-Job CTA — shown to guests and freelancers */}
         {(!currentUser || currentUser.role !== "recruiter") && (
-          <div className="mb-8 flex flex-col items-start justify-between gap-4 rounded-lg border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center">
+          <div className="mb-8 hidden flex-col items-start justify-between gap-4 rounded-lg border border-primary/20 bg-primary/5 p-4 sm:flex sm:flex-row sm:items-center">
             <div>
               <p className="font-semibold text-foreground">Hiring for an event?</p>
               <p className="text-sm text-muted-foreground">
@@ -385,13 +390,26 @@ export default function Jobs() {
 
         {/* Search and Filters */}
         <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5 text-primary" />
-              Search & Filter Jobs
-            </CardTitle>
+          <CardHeader className="pb-3 md:pb-6">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              aria-expanded={filtersOpen}
+              className="flex w-full items-center justify-between gap-2 md:pointer-events-none"
+              data-testid="button-toggle-filters"
+            >
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5 text-primary" />
+                Search & Filter Jobs
+              </CardTitle>
+              <ChevronDown
+                className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform md:hidden ${
+                  filtersOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
           </CardHeader>
-          <CardContent>
+          <CardContent className={`${filtersOpen ? "block" : "hidden"} md:block`}>
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
@@ -403,7 +421,7 @@ export default function Jobs() {
                     data-testid="input-search-jobs"
                   />
                 </div>
-                <div>
+                <div data-help="jobs.filter.country">
                   <CountrySelect
                     value={countryFilter}
                     onChange={setCountryFilter}
@@ -544,7 +562,7 @@ export default function Jobs() {
                                 className="cursor-pointer text-left font-medium text-muted-foreground transition-colors hover:text-primary hover:underline"
                                 data-testid={`link-company-${job.id}`}
                               >
-                                {job.company}
+                                Posted by a Freelancer
                               </button>
                             ) : job.recruiter_id && !job.external_source ? (
                               <button
@@ -610,9 +628,9 @@ export default function Jobs() {
                               <div className="flex items-center gap-2 font-medium text-primary">
                                 <CalendarIcon className="h-4 w-4 text-primary" />
                                 <span>
-                                  {new Date(job.event_date).toLocaleDateString()}
+                                  {new Date(job.event_date).toLocaleDateString("en-GB")}
                                   {job.end_date &&
-                                    ` - ${new Date(job.end_date).toLocaleDateString()}`}
+                                    ` - ${new Date(job.end_date).toLocaleDateString("en-GB")}`}
                                 </span>
                               </div>
                             )}

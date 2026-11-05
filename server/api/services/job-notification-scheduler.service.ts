@@ -7,6 +7,7 @@ import { db } from "../config/db";
 import { jobs } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { sendJobClosureEmails } from "./job-closure-email.service";
+import { sendDueCloseReminders } from "./job-close-reminder.service";
 
 const BASE_URL = process.env.FRONTEND_URL || "https://eventlink.one";
 
@@ -73,18 +74,20 @@ async function sendBatchEmail(params: {
   isUrgent?: boolean;
 }): Promise<boolean> {
   try {
-    const jobsData = params.jobs.map(job => {
+    const jobsData = params.jobs.map((job) => {
       const eventDate = job.event_date
         ? new Date(job.event_date).toLocaleDateString("en-GB", {
-            weekday: "short", year: "numeric", month: "short", day: "numeric",
+            weekday: "short",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
           })
         : "Date TBC";
       const descriptionPreview = job.description
-        ? job.description.slice(0, 120).replace(/\s+\S*$/, "") + (job.description.length > 120 ? "…" : "")
+        ? job.description.slice(0, 120).replace(/\s+\S*$/, "") +
+          (job.description.length > 120 ? "…" : "")
         : "";
-      const jobUrl = job.slug
-        ? `${BASE_URL}/jobs/${job.slug}`
-        : `${BASE_URL}/jobs?jobId=${job.id}`;
+      const jobUrl = job.slug ? `${BASE_URL}/jobs/${job.slug}` : `${BASE_URL}/jobs?jobId=${job.id}`;
       return {
         title: job.title,
         employerName: job.company,
@@ -114,7 +117,7 @@ async function sendBatchEmail(params: {
       status: "sent",
       related_entity_type: "job",
       related_entity_id: params.jobs[0]?.id ?? null,
-      metadata: JSON.stringify({ jobIds: params.jobs.map(j => j.id), batch: true }),
+      metadata: JSON.stringify({ jobIds: params.jobs.map((j) => j.id), batch: true }),
       error_message: null,
     });
 
@@ -129,11 +132,15 @@ async function sendBatchEmail(params: {
  * Determine if a freelancer matches a job using the same skill/location logic
  * as getFreelancersMatchingJob in storage.ts.
  */
-function freelancerMatchesJob(job: any, freelancerTitle: string | null, freelancerLocation: string | null): boolean {
+function freelancerMatchesJob(
+  job: any,
+  freelancerTitle: string | null,
+  freelancerLocation: string | null
+): boolean {
   const stopWords = new Set(["and", "or", "the", "a", "an", "in", "at", "of", "for", "to", "with"]);
   const jobTitleWords = job.title
     .toLowerCase()
-    .split(/[\s\-\/,]+/)
+    .split(/[\s\-/,]+/)
     .filter((w: string) => w.length > 2 && !stopWords.has(w));
   const jobLocationNorm = (job.location || "").toLowerCase();
 
@@ -165,7 +172,14 @@ export async function processBatchWindow(window: "morning" | "afternoon"): Promi
   console.log(`📋 Found ${batchJobs.length} job(s) in ${window} batch window.`);
 
   const { users: freelancerUsers } = await storage.getAllUsers(
-    1, 100000, undefined, "freelancer", "active", "created_at", "desc", undefined
+    1,
+    100000,
+    undefined,
+    "freelancer",
+    "active",
+    "created_at",
+    "desc",
+    undefined
   );
 
   const freelancerJobMap = new Map<number, typeof batchJobs>();
@@ -178,16 +192,17 @@ export async function processBatchWindow(window: "morning" | "afternoon"): Promi
     if (prefs.jobAlertsOptOut || prefs.jobAlertFrequencyPreference === "none") continue;
 
     if (prefs.lastJobAlertSentAt) {
-      const hoursSinceLast = (Date.now() - new Date(prefs.lastJobAlertSentAt).getTime()) / 3_600_000;
+      const hoursSinceLast =
+        (Date.now() - new Date(prefs.lastJobAlertSentAt).getTime()) / 3_600_000;
       if (hoursSinceLast < 24) continue;
     }
 
     const filters = await storage.getJobAlertFilters(user.id);
     const profile = await storage.getFreelancerProfile(user.id);
 
-    const matchedJobs = batchJobs.filter(job => {
+    const matchedJobs = batchJobs.filter((job) => {
       if (filters.length > 0) {
-        return filters.some(f => jobMatchesFilters(job, f));
+        return filters.some((f) => jobMatchesFilters(job, f));
       }
       return freelancerMatchesJob(job, profile?.title ?? null, profile?.location ?? null);
     });
@@ -199,7 +214,7 @@ export async function processBatchWindow(window: "morning" | "afternoon"): Promi
 
   let notifiedCount = 0;
   for (const [userId, matchedJobs] of Array.from(freelancerJobMap.entries())) {
-    const user = freelancerUsers.find(u => u.id === userId);
+    const user = freelancerUsers.find((u) => u.id === userId);
     if (!user) continue;
 
     const firstName = user.first_name || "there";
@@ -221,7 +236,9 @@ export async function processBatchWindow(window: "morning" | "afternoon"): Promi
     await storage.updateJobBatchNotification(job.id, null, new Date());
   }
 
-  console.log(`✅ ${window} batch complete: ${notifiedCount} freelancer(s) notified, ${batchJobs.length} job(s) processed.`);
+  console.log(
+    `✅ ${window} batch complete: ${notifiedCount} freelancer(s) notified, ${batchJobs.length} job(s) processed.`
+  );
 }
 
 /**
@@ -242,26 +259,22 @@ export async function sendUrgentJobNotification(job: any): Promise<void> {
       const prefs = await storage.getFreelancerJobAlertPrefs(freelancer.userId);
       if (prefs.jobAlertsOptOut || prefs.jobAlertFrequencyPreference === "none") continue;
 
-      const eventDate = job.event_date
-        ? new Date(job.event_date).toLocaleDateString("en-GB", {
-            weekday: "short", year: "numeric", month: "short", day: "numeric",
-          })
-        : "Date TBC";
-
       const ok = await sendBatchEmail({
         recipientId: freelancer.userId,
         recipientEmail: freelancer.email,
         recipientFirstName: freelancer.firstName || "there",
-        jobs: [{
-          id: job.id,
-          title: job.title,
-          company: job.company,
-          location: job.location,
-          rate: job.rate,
-          event_date: job.event_date,
-          description: job.description,
-          slug: (job as any).slug ?? null,
-        }],
+        jobs: [
+          {
+            id: job.id,
+            title: job.title,
+            company: job.company,
+            location: job.location,
+            rate: job.rate,
+            event_date: job.event_date,
+            description: job.description,
+            slug: (job as any).slug ?? null,
+          },
+        ],
         isUrgent: true,
       });
 
@@ -272,7 +285,9 @@ export async function sendUrgentJobNotification(job: any): Promise<void> {
     }
 
     await storage.setJobNotificationSentAt(job.id);
-    console.log(`✅ Urgent job ${job.id}: ${notifiedCount}/${matching.length} freelancer(s) notified.`);
+    console.log(
+      `✅ Urgent job ${job.id}: ${notifiedCount}/${matching.length} freelancer(s) notified.`
+    );
   } catch (err) {
     console.error(`❌ Failed to send urgent notification for job ${job.id}:`, err);
   }
@@ -282,53 +297,78 @@ export async function sendUrgentJobNotification(job: any): Promise<void> {
  * Register the morning (09:00) and afternoon (13:00) batch window cron jobs.
  */
 export function registerJobNotificationScheduler(): void {
-  cron.schedule("0 9 * * *", async () => {
-    try {
-      await processBatchWindow("morning");
-    } catch (err) {
-      console.error("❌ Morning batch window error:", err);
-    }
-  }, { timezone: "Europe/London" });
+  cron.schedule(
+    "0 9 * * *",
+    async () => {
+      try {
+        await processBatchWindow("morning");
+      } catch (err) {
+        console.error("❌ Morning batch window error:", err);
+      }
+    },
+    { timezone: "Europe/London" }
+  );
 
-  cron.schedule("0 13 * * *", async () => {
-    try {
-      await processBatchWindow("afternoon");
-    } catch (err) {
-      console.error("❌ Afternoon batch window error:", err);
-    }
-  }, { timezone: "Europe/London" });
+  cron.schedule(
+    "0 13 * * *",
+    async () => {
+      try {
+        await processBatchWindow("afternoon");
+      } catch (err) {
+        console.error("❌ Afternoon batch window error:", err);
+      }
+    },
+    { timezone: "Europe/London" }
+  );
 
   // Daily at 10:00am UK time — auto-close expired jobs and send closure emails
-  cron.schedule("0 10 * * *", async () => {
-    try {
-      const expiredJobs = await db
-        .select()
-        .from(jobs)
-        .where(
-          and(
-            eq(jobs.status, "active"),
-            sql`${jobs.event_date}::date < CURRENT_DATE`
-          )
-        );
+  cron.schedule(
+    "0 10 * * *",
+    async () => {
+      try {
+        const expiredJobs = await db
+          .select()
+          .from(jobs)
+          .where(and(eq(jobs.status, "active"), sql`${jobs.event_date}::date < CURRENT_DATE`));
 
-      for (const job of expiredJobs) {
-        await db
-          .update(jobs)
-          .set({ status: "closed", updated_at: new Date() })
-          .where(eq(jobs.id, job.id));
+        for (const job of expiredJobs) {
+          await db
+            .update(jobs)
+            .set({ status: "closed", updated_at: new Date() })
+            .where(eq(jobs.id, job.id));
 
-        await sendJobClosureEmails(job.id).catch((err) =>
-          console.error(`Scheduled closure email error for job ${job.id}:`, err)
-        );
+          await sendJobClosureEmails(job.id).catch((err) =>
+            console.error(`Scheduled closure email error for job ${job.id}:`, err)
+          );
+        }
+
+        if (expiredJobs.length > 0) {
+          console.log(
+            `Daily scheduler: auto-closed ${expiredJobs.length} expired jobs and sent closure emails`
+          );
+        }
+      } catch (err) {
+        console.error("❌ Daily auto-close scheduler error:", err);
       }
+    },
+    { timezone: "Europe/London" }
+  );
 
-      if (expiredJobs.length > 0) {
-        console.log(`Daily scheduler: auto-closed ${expiredJobs.length} expired jobs and sent closure emails`);
+  // Daily at 08:00 UK time — remind employers 48h before their job auto-closes
+  // to hire officially and close manually (so ratings/reviews can happen).
+  cron.schedule(
+    "0 8 * * *",
+    async () => {
+      try {
+        await sendDueCloseReminders(2);
+      } catch (err) {
+        console.error("❌ Close-reminder scheduler error:", err);
       }
-    } catch (err) {
-      console.error("❌ Daily auto-close scheduler error:", err);
-    }
-  }, { timezone: "Europe/London" });
+    },
+    { timezone: "Europe/London" }
+  );
 
-  console.log("✅ Job notification batch scheduler registered (09:00 & 13:00 UK time, 10:00 auto-close).");
+  console.log(
+    "✅ Job notification batch scheduler registered (08:00 close reminders, 09:00 & 13:00 batches, 10:00 auto-close)."
+  );
 }

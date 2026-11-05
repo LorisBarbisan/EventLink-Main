@@ -137,14 +137,17 @@ export function registerAuthRoutes(app: Express) {
 
   // Unsubscribe from marketing emails via token link (PECR compliance)
   app.get("/api/auth/unsubscribe", async (req: Request, res: Response) => {
-    const { token } = req.query as { token?: string };
+    const { token, type } = req.query as { token?: string; type?: string };
     if (!token) return res.status(400).json({ error: "Missing unsubscribe token" });
 
     try {
       const user = await storage.getUserByUnsubscribeToken(token);
       if (!user) return res.status(404).json({ error: "Invalid or expired unsubscribe token" });
 
-      if (!user.marketing_emails_opt_out) {
+      if (type === "credentials") {
+        // Credential expiry reminders are a separate preference from marketing.
+        await storage.setCredentialRemindersOptOut(user.id);
+      } else if (!user.marketing_emails_opt_out) {
         await storage.setMarketingOptOut(user.id);
       }
 

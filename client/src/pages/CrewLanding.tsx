@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, MapPin, ShieldCheck, Star } from "lucide-react";
+import { Loader2, MapPin, ShieldCheck } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { getCrewLandingPage, getRelatedCrewPages } from "@shared/crewLandingPages";
 import NotFound from "@/pages/NotFound";
@@ -133,12 +133,6 @@ export default function CrewLanding() {
                         </CardHeader>
                         <CardContent className="pt-0">
                           <div className="flex flex-wrap items-center gap-2 text-sm">
-                            {f.average_rating > 0 && (
-                              <span className="flex items-center gap-1">
-                                <Star className="h-4 w-4 fill-current text-yellow-500" />
-                                {f.average_rating.toFixed(1)}
-                              </span>
-                            )}
                             {f.availability_status === "available" && (
                               <Badge className="bg-green-100 text-green-800">Available</Badge>
                             )}

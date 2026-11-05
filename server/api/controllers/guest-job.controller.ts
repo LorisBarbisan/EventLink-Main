@@ -163,6 +163,8 @@ export async function confirmGuestJob(req: Request, res: Response) {
       } as any);
     }
 
+    const isFreelancerUser = user.role === "freelancer";
+
     // ── publish the job ─────────────────────────────────────────────────────
     const job = await storage.createJob({
       title: payload.title as string,
@@ -178,14 +180,36 @@ export async function confirmGuestJob(req: Request, res: Response) {
       end_time: (payload.end_time as string) || null,
       type: ((payload.type as string) || "freelance") as any,
       status: "active",
-      recruiter_id: user.id,
+      recruiter_id: isFreelancerUser ? (null as unknown as number) : user.id,
       posted_by_user_id: user.id,
-      is_freelancer_posted: false,
-      poster_type: "guest",
+      is_freelancer_posted: isFreelancerUser,
+      poster_type: isFreelancerUser ? "freelancer" : "guest",
       moderation_status: "approved", // auto-approved in Phase 2; Phase 7 will gate on trust
     } as any);
 
     await storage.consumeJobDraft(draft.id, job.id);
+
+    // Assign batch notification window (same as employer-posted jobs)
+    const { window: batchWindow, isUrgent } = assignBatchWindow(job);
+    try {
+      await storage.updateJobUrgencyAndBatch(job.id, isUrgent, batchWindow);
+      console.log(
+        `📋 Guest job ${job.id} batch window set: window=${batchWindow}, isUrgent=${isUrgent}`
+      );
+    } catch (err) {
+      console.error(`❌ Failed to assign batch window for guest job ${job.id}:`, err);
+    }
+    if (isUrgent) {
+      setTimeout(
+        () => {
+          sendUrgentJobNotification(job).catch((err) =>
+            console.error("Failed to send urgent notification for guest job:", err)
+          );
+        },
+        15 * 60 * 1000
+      );
+      console.log(`🚨 Guest job ${job.id} is urgent — notification scheduled in 15 minutes.`);
+    }
 
     // ── generate set-password token for the guest account ───────────────────
     let setPasswordToken: string | undefined;

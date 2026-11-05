@@ -34,9 +34,13 @@ const guestJobIpLimiter = rateLimit({
 const guestJobEmailLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 2,
+  // Key on the email only. IP-based limiting is handled by guestJobIpLimiter
+  // (whose default key-gen normalises IPv6 correctly); using req.ip here without
+  // the ipKeyGenerator helper trips express-rate-limit's IPv6 validation. The
+  // `skip` below guarantees an email is present whenever this limiter runs.
   keyGenerator: (req: Request) => {
     const email = (req.body?.contact_email as string | undefined) ?? "";
-    return email.toLowerCase().trim() || req.ip || "unknown";
+    return email.toLowerCase().trim() || "unknown";
   },
   message: {
     error: "This email address has already submitted the maximum number of job posts today.",

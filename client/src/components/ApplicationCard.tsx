@@ -377,7 +377,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                   </div>
                 </>
               )}
-              <div>Applied: {new Date(application.applied_at).toLocaleDateString()}</div>
+              <div>Applied: {new Date(application.applied_at).toLocaleDateString("en-GB")}</div>
             </div>
 
             {application.cover_letter && (
@@ -426,7 +426,8 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">
-                          Declined on: {new Date(application.updated_at).toLocaleDateString()}
+                          Declined on:{" "}
+                          {new Date(application.updated_at).toLocaleDateString("en-GB")}
                         </p>
                       </div>
                     </div>
@@ -472,6 +473,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             variant="default"
                             size="sm"
                             disabled={hireMutation.isPending}
+                            data-help="action.application.hire"
                             data-testid={`button-hire-${application.id}`}
                             className="bg-green-600 text-white hover:bg-green-700"
                           >
@@ -521,6 +523,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                             variant="outline"
                             size="sm"
                             disabled={rejectMutation.isPending}
+                            data-help="action.application.decline"
                             data-testid={`button-reject-${application.id}`}
                             className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                           >
@@ -630,6 +633,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         variant="outline"
                         size="sm"
                         disabled={deleteMutation.isPending}
+                        data-help="action.application.hide"
                         data-testid={`button-delete-${application.id}`}
                         className="border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-700"
                       >
@@ -679,6 +683,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                           variant="outline"
                           className="border-red-200 text-red-600 hover:bg-red-50"
                           size="sm"
+                          data-help="action.invitation.decline"
                           onClick={() => setShowDeclineInvitationDialog(true)}
                           disabled={respondMutation.isPending}
                         >
@@ -687,6 +692,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                         <Button
                           className="bg-green-600 text-white hover:bg-green-700"
                           size="sm"
+                          data-help="action.invitation.accept"
                           onClick={handleAcceptInvitation}
                           disabled={respondMutation.isPending}
                         >
@@ -1141,7 +1147,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     setDocType(e.target.value);
                     setCustomDocName("");
                   }}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base md:text-sm"
                 >
                   <option value="invoice">Invoice</option>
                   <option value="travel_receipt">Travel Receipt</option>
@@ -1159,7 +1165,7 @@ export function ApplicationCard({ application, userType, currentUserId }: Applic
                     value={customDocName}
                     onChange={(e) => setCustomDocName(e.target.value)}
                     placeholder="e.g. NDA, Timesheet"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-orange-400 md:text-sm"
                     maxLength={60}
                   />
                 </div>

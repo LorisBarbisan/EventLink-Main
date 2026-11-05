@@ -18,7 +18,7 @@ export interface Rating {
     id: number;
     first_name: string | null;
     last_name: string | null;
-    email: string;
+    email?: string; // only present on admin moderation responses
   };
   job_title?: string;
 }

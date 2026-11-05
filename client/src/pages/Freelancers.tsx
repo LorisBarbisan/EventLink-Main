@@ -12,12 +12,12 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Bookmark,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Loader2,
   MapPin,
   Search,
-  Star,
   User,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -34,6 +34,9 @@ export default function Freelancers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
+  // On mobile the search/filter panel is collapsed by default so the freelancer
+  // cards are the first thing seen; it is always open from md up.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [, setLocation] = useLocation();
   const [contactModalOpen, setContactModalOpen] = useState(false);
@@ -168,13 +171,26 @@ export default function Freelancers() {
 
         {/* Search and Filters */}
         <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5 text-primary" />
-              Search & Filter Freelancers
-            </CardTitle>
+          <CardHeader className="pb-3 md:pb-6">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              aria-expanded={filtersOpen}
+              className="flex w-full items-center justify-between gap-2 md:pointer-events-none"
+              data-testid="button-toggle-crew-filters"
+            >
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5 text-primary" />
+                Search & Filter Freelancers
+              </CardTitle>
+              <ChevronDown
+                className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform md:hidden ${
+                  filtersOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
           </CardHeader>
-          <CardContent>
+          <CardContent className={`${filtersOpen ? "block" : "hidden"} md:block`}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
               <div className="md:col-span-2">
                 <Input
@@ -419,12 +435,6 @@ export default function Freelancers() {
                         </div>
                       )}
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                        {freelancer.rating > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Star className="h-4 w-4 fill-current text-yellow-500" />
-                            <span>{freelancer.rating.toFixed(1)}</span>
-                          </div>
-                        )}
                         <Badge
                           variant={
                             freelancer.availability === "Available" ? "default" : "secondary"
@@ -432,7 +442,9 @@ export default function Freelancers() {
                           className={
                             freelancer.availability === "Available"
                               ? "bg-green-100 text-green-800"
-                              : ""
+                              : freelancer.availability === "Busy"
+                                ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                                : ""
                           }
                         >
                           {freelancer.availability}

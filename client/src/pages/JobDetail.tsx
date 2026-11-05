@@ -107,6 +107,11 @@ export default function JobDetail() {
     },
     onSuccess: (_, numericJobId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications/check", numericJobId] });
+      // Refresh the freelancer's dashboard applications list so the new
+      // application shows up without a reload/re-login, and the jobs list so
+      // the "applied" state is current. (Matches the Jobs page apply flow.)
+      queryClient.invalidateQueries({ queryKey: ["/api/freelancer/applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       setLocation(`/application-success/${numericJobId}`);
     },
     onError: (err: Error) => {

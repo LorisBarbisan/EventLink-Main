@@ -144,13 +144,6 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     }
   }, [parsingStatus?.status]);
 
-  // Reset auto-apply flag when a new parse begins
-  useEffect(() => {
-    if (parsingStatus?.status === "parsing" || parsingStatus?.status === "pending") {
-      autoAppliedRef.current = false;
-    }
-  }, [parsingStatus?.status]);
-
   const handleWebSocketEvent = useCallback((data: { type: string }) => {
     if (data.type === "cv_parsing_update") {
       refetchRef.current();
@@ -207,7 +200,17 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
     },
   });
 
-  // Auto-apply all fields the moment parsing completes
+  // Reset the one-time auto-apply flag whenever a new parse begins.
+  useEffect(() => {
+    if (parsingStatus?.status === "parsing" || parsingStatus?.status === "pending") {
+      autoAppliedRef.current = false;
+    }
+  }, [parsingStatus?.status]);
+
+  // Apply the parsed fields automatically the moment parsing completes, so the
+  // profile is filled without extra clicks (this is what keeps completion high).
+  // The freelancer can then Dismiss the suggestions card, or edit any field on
+  // their profile.
   useEffect(() => {
     if (
       parsingStatus?.status === "completed" &&
@@ -364,11 +367,11 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="h-5 w-5 text-green-600" />
-            CV Analysis Complete
+            We&apos;ve filled your profile from your CV
           </CardTitle>
           <CardDescription>
-            Your profile has been pre-filled with the data below. Review the fields and save when
-            ready.
+            These details have been added to your profile. Edit anything that needs changing on your
+            profile below — or Dismiss to hide these suggestions.
           </CardDescription>
         </CardHeader>
 
@@ -651,7 +654,7 @@ export function CVParsingReview({ onProfileUpdated, onFieldsConfirmed }: CVParsi
             variant="ghost"
             size="sm"
             onClick={() => rejectMutation.mutate()}
-            disabled={rejectMutation.isPending}
+            disabled={rejectMutation.isPending || confirmMutation.isPending}
           >
             {rejectMutation.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

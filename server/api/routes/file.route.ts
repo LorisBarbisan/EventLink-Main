@@ -16,6 +16,8 @@ import {
   downloadDocument,
   getDocuments,
   getDocumentTypes,
+  getIncompleteCredentials,
+  saveCredentialDates,
   uploadDocument,
 } from "../controllers/document.controller";
 import { authenticateJWT, authenticateOptionalJWT } from "../middleware/auth.middleware";
@@ -60,6 +62,11 @@ export function registerFileRoutes(app: Express) {
 
   // Upload document
   app.post("/api/documents", authenticateJWT, uploadDocument);
+
+  // Credential backfill — the signed-in freelancer's undated credentials, and a
+  // batch save. Registered before "/:freelancerId" so the literal path wins.
+  app.get("/api/documents/incomplete", authenticateJWT, getIncompleteCredentials);
+  app.post("/api/documents/backfill", authenticateJWT, saveCredentialDates);
 
   // Get freelancer documents (public - visible to all viewers)
   app.get("/api/documents/:freelancerId", getDocuments);

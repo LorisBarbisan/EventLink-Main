@@ -1,4 +1,4 @@
-import { EventLinkLogo } from "@/components/Logo";
+﻿import { EventLinkLogo } from "@/components/Logo";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
@@ -27,6 +27,9 @@ export const Footer = ({ dark = false }: FooterProps) => {
   const bottomBarClass = dark
     ? "border-t border-white/10 py-3 text-center text-xs text-white/50"
     : "border-t bg-white py-3 text-center text-xs text-muted-foreground";
+  // Give every footer nav link/button a 44px minimum tap height so stacked
+  // links on mobile are comfortable to hit (Apple/Android tap-target guidance).
+  const footerLink = `inline-flex min-h-[44px] items-center ${linkHover}`;
 
   return (
     <footer className={`mt-auto ${borderClass}`}>
@@ -45,14 +48,14 @@ export const Footer = ({ dark = false }: FooterProps) => {
               <h4 className={headingText}>For Freelancers</h4>
               <ul className={listClass}>
                 <li>
-                  <Link to="/jobs" className={linkHover} data-testid="footer-link-browse-jobs">
+                  <Link to="/jobs" className={footerLink} data-testid="footer-link-browse-jobs">
                     Browse Jobs
                   </Link>
                 </li>
                 <li>
                   <button
                     onClick={() => setLocation(user ? "/dashboard" : "/auth")}
-                    className={linkHover}
+                    className={footerLink}
                     data-testid="footer-button-create-profile"
                   >
                     Create Profile
@@ -61,7 +64,7 @@ export const Footer = ({ dark = false }: FooterProps) => {
                 <li>
                   <Link
                     to="/how-it-works"
-                    className={linkHover}
+                    className={footerLink}
                     data-testid="footer-link-how-it-works"
                   >
                     How Does It Work
@@ -74,7 +77,11 @@ export const Footer = ({ dark = false }: FooterProps) => {
               <h4 className={headingText}>For Companies</h4>
               <ul className={listClass}>
                 <li>
-                  <Link to="/freelancers" className={linkHover} data-testid="footer-link-find-crew">
+                  <Link
+                    to="/freelancers"
+                    className={footerLink}
+                    data-testid="footer-link-find-crew"
+                  >
                     Find Crew
                   </Link>
                 </li>
@@ -94,7 +101,7 @@ export const Footer = ({ dark = false }: FooterProps) => {
                         setLocation("/dashboard?tab=jobs&action=post");
                       }
                     }}
-                    className={linkHover}
+                    className={footerLink}
                     data-testid="footer-button-post-job"
                   >
                     Post a Job
@@ -103,7 +110,7 @@ export const Footer = ({ dark = false }: FooterProps) => {
                 <li>
                   <Link
                     to="/auth?tab=signup"
-                    className={linkHover}
+                    className={footerLink}
                     data-testid="footer-link-company-signup"
                   >
                     Get Started
@@ -116,17 +123,17 @@ export const Footer = ({ dark = false }: FooterProps) => {
               <h4 className={headingText}>Support</h4>
               <ul className={listClass}>
                 <li>
-                  <Link to="/contact-us" className={linkHover} data-testid="footer-link-contact">
+                  <Link to="/contact-us" className={footerLink} data-testid="footer-link-contact">
                     Contact Us
                   </Link>
                 </li>
                 <li>
-                  <Link to="/faq" className={linkHover} data-testid="footer-link-faq">
+                  <Link to="/faq" className={footerLink} data-testid="footer-link-faq">
                     FAQ
                   </Link>
                 </li>
                 <li>
-                  <Link to="/about" className={linkHover} data-testid="footer-link-about">
+                  <Link to="/about" className={footerLink} data-testid="footer-link-about">
                     About
                   </Link>
                 </li>
@@ -135,13 +142,13 @@ export const Footer = ({ dark = false }: FooterProps) => {
                     href="/terms-of-use.pdf"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={linkHover}
+                    className={footerLink}
                   >
                     Terms &amp; Conditions
                   </a>
                 </li>
                 <li>
-                  <Link to="/privacy" className={linkHover} data-testid="footer-link-privacy">
+                  <Link to="/privacy" className={footerLink} data-testid="footer-link-privacy">
                     Privacy Policy
                   </Link>
                 </li>

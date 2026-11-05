@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import {
+  credentialStatus,
+  DOCUMENT_TYPE_META,
+  DOCUMENT_TYPES,
+  type CredentialStatus,
+  type DocumentType,
+} from "@shared/credentials";
 import { useAuth } from "@/hooks/useAuth";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { trackAdminAnalytics } from "@/lib/analytics";
@@ -274,6 +282,18 @@ function AdminDashboardContent() {
   const [teamsSort, setTeamsSort] = useState("newest");
   const [teamsPage, setTeamsPage] = useState(1);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+  // "Add an employer to this team" picker (admin consolidates duplicate companies)
+  // Documents tab state
+  const [docsSearch, setDocsSearch] = useState("");
+  const [docsType, setDocsType] = useState<string>("all");
+  const [docsStatus, setDocsStatus] = useState<string>("all");
+  const [docsSort, setDocsSort] = useState<string>("expiry_asc");
+  const [docDateEdits, setDocDateEdits] = useState<
+    Record<number, { issueDate: string; expiryDate: string; noExpiry?: boolean }>
+  >({});
+  const [addMemberSearch, setAddMemberSearch] = useState("");
+  const [addMemberRole, setAddMemberRole] = useState<"manager" | "admin">("manager");
+  const [addMemberUserId, setAddMemberUserId] = useState<number | null>(null);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ userId, status }: { userId: number; status: string }) => {
@@ -751,6 +771,104 @@ function AdminDashboardContent() {
     gcTime: 0,
   });
 
+  // Employer picker for "add an employer to this team" (role = recruiter/employer)
+  const { data: addMemberPickerData, isLoading: addMemberPickerLoading } = useQuery<UsersResponse>({
+    queryKey: ["/api/admin/users", "teamMemberPicker", addMemberSearch],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.append("page", "1");
+      params.append("limit", "20");
+      params.append("role", "recruiter");
+      if (addMemberSearch.trim()) params.append("search", addMemberSearch.trim());
+      params.append("sortBy", "created_at");
+      params.append("sortOrder", "desc");
+      return apiRequest(`/api/admin/users?${params.toString()}`);
+    },
+    enabled: selectedTeamId !== null && activeTab === "teams" && addMemberSearch.trim().length > 0,
+    staleTime: 10000,
+  });
+
+  // Admin links an existing employer account to this company as a team member
+  const linkTeamMemberMutation = useMutation({
+    mutationFn: (vars: { companyId: number; userId: number; role: string }) =>
+      apiRequest("/api/admin/team/link", {
+        method: "POST",
+        body: JSON.stringify(vars),
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Employer added to team",
+        description: "They now belong to this company's team.",
+      });
+      setAddMemberUserId(null);
+      setAddMemberSearch("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/teams", selectedTeamId, "detail"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/teams"] });
+    },
+    onError: (err: unknown) => {
+      toast({
+        title: "Could not add employer",
+        description: err instanceof Error ? err.message : "They may already belong to a team.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Admin documents list
+  interface AdminDocument {
+    id: number;
+    freelancer_id: number;
+    freelancer_name: string;
+    freelancer_email: string;
+    document_type: string;
+    custom_type_name: string | null;
+    original_filename: string;
+    issue_date: string | null;
+    expiry_date: string | null;
+    expiry_source: string | null;
+    verification_status: string | null;
+    uploaded_at: string;
+  }
+
+  const { data: adminDocuments = [], isLoading: adminDocsLoading } = useQuery<AdminDocument[]>({
+    queryKey: ["/api/admin/documents"],
+    queryFn: () => apiRequest("/api/admin/documents"),
+    enabled: activeTab === "documents",
+  });
+
+  const updateDocDatesMutation = useMutation({
+    mutationFn: (vars: {
+      id: number;
+      issueDate: string | null;
+      expiryDate: string;
+      noExpiry?: boolean;
+    }) =>
+      apiRequest(`/api/admin/documents/${vars.id}/dates`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          issueDate: vars.issueDate,
+          expiryDate: vars.expiryDate,
+          noExpiry: vars.noExpiry ?? false,
+        }),
+      }),
+    onSuccess: (_data, vars) => {
+      toast({ title: "Expiry date saved", description: "The document has been updated." });
+      setDocDateEdits((prev) => {
+        const next = { ...prev };
+        delete next[vars.id];
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/documents"] });
+    },
+    onError: (err: unknown) => {
+      toast({
+        title: "Could not save",
+        description: err instanceof Error ? err.message : "Please check the date and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Send job alert emails mutation
   const sendAlertsMutation = useMutation({
     mutationFn: ({ jobId, userIds }: { jobId: number; userIds?: number[] }) =>
@@ -1041,13 +1159,14 @@ function AdminDashboardContent() {
               <SelectItem value="jobs">Jobs</SelectItem>
               <SelectItem value="users">Users</SelectItem>
               <SelectItem value="teams">Teams</SelectItem>
+              <SelectItem value="documents">Documents</SelectItem>
               <SelectItem value="admin-management">Admin</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* Desktop: tab bar */}
-        <TabsList className="hidden w-full grid-cols-8 gap-1 p-1 sm:grid">
+        <TabsList className="hidden w-full grid-cols-9 gap-1 p-1 sm:grid">
           <TabsTrigger value="overview" className="flex items-center justify-center gap-2 text-sm">
             <TrendingUp className="h-4 w-4" />
             Overview
@@ -1081,6 +1200,10 @@ function AdminDashboardContent() {
           <TabsTrigger value="teams" className="flex items-center justify-center gap-2 text-sm">
             <Building2 className="h-4 w-4" />
             Teams
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex items-center justify-center gap-2 text-sm">
+            <FileText className="h-4 w-4" />
+            Documents
           </TabsTrigger>
           <TabsTrigger
             value="admin-management"
@@ -1273,7 +1396,7 @@ function AdminDashboardContent() {
                                 item.user?.first_name ||
                                 item.user_email ||
                                 "Anonymous"}{" "}
-                              •{new Date(item.created_at).toLocaleDateString()}
+                              •{new Date(item.created_at).toLocaleDateString("en-GB")}
                             </p>
                           </div>
                           <div className="flex w-full flex-row gap-2 sm:w-auto sm:flex-row">
@@ -1594,7 +1717,7 @@ function AdminDashboardContent() {
                             </div>
                             <p className="text-sm text-muted-foreground">
                               From: {message.name} ({message.email}) •
-                              {new Date(message.created_at).toLocaleDateString()} at{" "}
+                              {new Date(message.created_at).toLocaleDateString("en-GB")} at{" "}
                               {new Date(message.created_at).toLocaleTimeString()}
                             </p>
                           </div>
@@ -1720,6 +1843,7 @@ function AdminDashboardContent() {
                         <SelectItem value="all">All Statuses</SelectItem>
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="paused">Paused</SelectItem>
+                        <SelectItem value="private">Private</SelectItem>
                         <SelectItem value="closed">Closed</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1880,7 +2004,7 @@ function AdminDashboardContent() {
                                 {job.recruiter_name || job.recruiter_email || "External"}
                               </TableCell>
                               <TableCell className="hidden py-2 text-xs lg:table-cell">
-                                {new Date(job.created_at).toLocaleDateString()}
+                                {new Date(job.created_at).toLocaleDateString("en-GB")}
                               </TableCell>
                               <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
                                 {job.status === "active" && (
@@ -1889,6 +2013,7 @@ function AdminDashboardContent() {
                                     <Button
                                       size="sm"
                                       variant="outline"
+                                      data-help="action.job.notify"
                                       className="h-7 border-orange-300 px-2 text-xs text-orange-600 hover:bg-orange-50 hover:text-orange-700 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-950"
                                       onClick={() => openNotifyDialog(job)}
                                     >
@@ -2068,7 +2193,7 @@ function AdminDashboardContent() {
                             <div>
                               <p className="text-sm text-muted-foreground">Created</p>
                               <p className="font-medium">
-                                {new Date(jobDetailData.job.created_at).toLocaleDateString()}
+                                {new Date(jobDetailData.job.created_at).toLocaleDateString("en-GB")}
                               </p>
                             </div>
                             {jobDetailData.job.external_source && (
@@ -2192,7 +2317,7 @@ function AdminDashboardContent() {
                                           </Badge>
                                         </TableCell>
                                         <TableCell className="py-2 text-xs">
-                                          {new Date(app.applied_at).toLocaleDateString()}
+                                          {new Date(app.applied_at).toLocaleDateString("en-GB")}
                                         </TableCell>
                                         <TableCell className="py-2">
                                           <a
@@ -2695,11 +2820,11 @@ function AdminDashboardContent() {
                                 )}
                               </TableCell>
                               <TableCell className="py-2">
-                                {new Date(rowUser.created_at).toLocaleDateString()}
+                                {new Date(rowUser.created_at).toLocaleDateString("en-GB")}
                               </TableCell>
                               <TableCell className="py-2">
                                 {rowUser.last_login_at
-                                  ? new Date(rowUser.last_login_at).toLocaleString([], {
+                                  ? new Date(rowUser.last_login_at).toLocaleString("en-GB", {
                                       year: "numeric",
                                       month: "numeric",
                                       day: "numeric",
@@ -2970,7 +3095,7 @@ function AdminDashboardContent() {
                         )}
                         <div>
                           <span className="text-muted-foreground">Joined:</span>{" "}
-                          {new Date(teamDetailData.company.created_at).toLocaleDateString()}
+                          {new Date(teamDetailData.company.created_at).toLocaleDateString("en-GB")}
                         </div>
                         <div>
                           <span className="text-muted-foreground">Active / Closed Jobs:</span>{" "}
@@ -3046,7 +3171,9 @@ function AdminDashboardContent() {
                                     )}
                                   </TableCell>
                                   <TableCell className="py-2 text-sm">
-                                    {m.joined_at ? new Date(m.joined_at).toLocaleDateString() : "—"}
+                                    {m.joined_at
+                                      ? new Date(m.joined_at).toLocaleDateString("en-GB")
+                                      : "—"}
                                   </TableCell>
                                   <TableCell className="py-2 text-sm">{m.jobs_posted}</TableCell>
                                 </TableRow>
@@ -3055,6 +3182,105 @@ function AdminDashboardContent() {
                           </Table>
                         </div>
                       )}
+                    </div>
+
+                    {/* Admin: add an existing employer account to this team */}
+                    <div className="rounded-lg border border-dashed bg-muted/30 p-4">
+                      <h3 className="mb-1 font-semibold">Add an employer to this team</h3>
+                      <p className="mb-3 text-sm text-muted-foreground">
+                        Link another employer account to this company — useful when someone signed
+                        up separately and created a duplicate company instead of joining the team.
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <Input
+                          placeholder="Search employers by name or email..."
+                          value={addMemberSearch}
+                          onChange={(e) => {
+                            setAddMemberSearch(e.target.value);
+                            setAddMemberUserId(null);
+                          }}
+                          className="sm:flex-1"
+                        />
+                        <Select
+                          value={addMemberRole}
+                          onValueChange={(v) => setAddMemberRole(v as "manager" | "admin")}
+                        >
+                          <SelectTrigger className="w-full sm:w-[150px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="manager">Manager</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {addMemberSearch.trim() && (
+                        <div className="mt-2 max-h-56 overflow-y-auto rounded-md border bg-background">
+                          {addMemberPickerLoading ? (
+                            <p className="p-3 text-sm text-muted-foreground">Searching…</p>
+                          ) : (
+                            (() => {
+                              const excluded = new Set<number>([
+                                teamDetailData.company.company_user_id,
+                                ...teamDetailData.members
+                                  .map((m) => m.user_id)
+                                  .filter((x): x is number => x != null),
+                              ]);
+                              const candidates = (addMemberPickerData?.users || []).filter(
+                                (u) => !excluded.has(u.id)
+                              );
+                              if (candidates.length === 0) {
+                                return (
+                                  <p className="p-3 text-sm text-muted-foreground">
+                                    No matching employers available to add.
+                                  </p>
+                                );
+                              }
+                              return candidates.map((u) => {
+                                const label =
+                                  [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
+                                return (
+                                  <button
+                                    key={u.id}
+                                    type="button"
+                                    onClick={() => setAddMemberUserId(u.id)}
+                                    className={cn(
+                                      "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-accent",
+                                      addMemberUserId === u.id && "bg-accent"
+                                    )}
+                                  >
+                                    <span className="min-w-0">
+                                      <span className="font-medium">{label}</span>
+                                      <span className="ml-2 text-xs text-muted-foreground">
+                                        {u.email}
+                                      </span>
+                                    </span>
+                                    {addMemberUserId === u.id && (
+                                      <Check className="h-4 w-4 shrink-0 text-primary" />
+                                    )}
+                                  </button>
+                                );
+                              });
+                            })()
+                          )}
+                        </div>
+                      )}
+                      <div className="mt-3 flex justify-end">
+                        <Button
+                          size="sm"
+                          disabled={!addMemberUserId || linkTeamMemberMutation.isPending}
+                          onClick={() =>
+                            addMemberUserId &&
+                            linkTeamMemberMutation.mutate({
+                              companyId: teamDetailData.company.company_user_id,
+                              userId: addMemberUserId,
+                              role: addMemberRole,
+                            })
+                          }
+                        >
+                          {linkTeamMemberMutation.isPending ? "Adding…" : "Add to team"}
+                        </Button>
+                      </div>
                     </div>
 
                     {/* Jobs */}
@@ -3132,7 +3358,7 @@ function AdminDashboardContent() {
                                   </TableCell>
                                   <TableCell className="py-2 text-sm">{j.hired_count}</TableCell>
                                   <TableCell className="py-2 text-xs">
-                                    {new Date(j.created_at).toLocaleDateString()}
+                                    {new Date(j.created_at).toLocaleDateString("en-GB")}
                                   </TableCell>
                                 </TableRow>
                               ))}
@@ -3233,7 +3459,7 @@ function AdminDashboardContent() {
                                 {team.total_hired}
                               </TableCell>
                               <TableCell className="py-2 text-xs">
-                                {new Date(team.created_at).toLocaleDateString()}
+                                {new Date(team.created_at).toLocaleDateString("en-GB")}
                               </TableCell>
                               <TableCell className="py-2">
                                 <Button
@@ -3310,6 +3536,289 @@ function AdminDashboardContent() {
                     </div>
                   )}
                 </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Documents Tab */}
+        <TabsContent value="documents" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Uploaded Documents
+              </CardTitle>
+              <CardDescription>
+                Every freelancer document on file. Add a missing expiry date so renewal reminders
+                can run for that credential.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
+                <Input
+                  placeholder="Search by name, email, type or file…"
+                  value={docsSearch}
+                  onChange={(e) => setDocsSearch(e.target.value)}
+                  className="lg:max-w-xs"
+                />
+                <Select value={docsType} onValueChange={setDocsType}>
+                  <SelectTrigger className="h-9 w-full lg:w-[180px]">
+                    <SelectValue placeholder="All types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All types</SelectItem>
+                    {DOCUMENT_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={docsStatus} onValueChange={setDocsStatus}>
+                  <SelectTrigger className="h-9 w-full lg:w-[170px]">
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="incomplete">No expiry date</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                    <SelectItem value="expiring_soon">Expiring soon</SelectItem>
+                    <SelectItem value="valid">Valid</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={docsSort} onValueChange={setDocsSort}>
+                  <SelectTrigger className="h-9 w-full lg:w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="expiry_asc">Expiry: soonest first</SelectItem>
+                    <SelectItem value="expiry_desc">Expiry: latest first</SelectItem>
+                    <SelectItem value="uploaded_desc">Recently uploaded</SelectItem>
+                    <SelectItem value="name_asc">Freelancer A–Z</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {adminDocsLoading ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+              ) : (
+                (() => {
+                  const STATUS_CLASS: Record<CredentialStatus, string> = {
+                    valid: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
+                    expiring_soon:
+                      "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200",
+                    expired: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
+                    incomplete: "bg-muted text-muted-foreground",
+                  };
+                  const STATUS_LABEL: Record<CredentialStatus, string> = {
+                    valid: "Valid",
+                    expiring_soon: "Expiring soon",
+                    expired: "Expired",
+                    incomplete: "No expiry date",
+                  };
+                  const term = docsSearch.trim().toLowerCase();
+                  const rows = adminDocuments
+                    .filter((d) => {
+                      if (docsType !== "all" && d.document_type !== docsType) return false;
+                      if (docsStatus !== "all") {
+                        // Status applies to credentials only (job documents never expire).
+                        const isCred =
+                          DOCUMENT_TYPE_META[d.document_type as DocumentType]?.class ===
+                          "credential";
+                        if (!isCred) return false;
+                        const st = credentialStatus({
+                          document_type: d.document_type as DocumentType,
+                          expiry_date: d.expiry_date,
+                          expiry_source: d.expiry_source,
+                        });
+                        if (st !== docsStatus) return false;
+                      }
+                      if (term) {
+                        const label =
+                          d.document_type === "Other" && d.custom_type_name
+                            ? d.custom_type_name
+                            : d.document_type;
+                        const hit = [
+                          d.freelancer_name,
+                          d.freelancer_email,
+                          label,
+                          d.original_filename,
+                        ]
+                          .filter(Boolean)
+                          .some((s) => s.toLowerCase().includes(term));
+                        if (!hit) return false;
+                      }
+                      return true;
+                    })
+                    .sort((a, b) => {
+                      const ax = a.expiry_date ?? "";
+                      const bx = b.expiry_date ?? "";
+                      switch (docsSort) {
+                        case "expiry_asc":
+                          // Rows with no expiry date sort to the end.
+                          if (!ax && !bx) return 0;
+                          if (!ax) return 1;
+                          if (!bx) return -1;
+                          return ax.localeCompare(bx);
+                        case "expiry_desc":
+                          if (!ax && !bx) return 0;
+                          if (!ax) return 1;
+                          if (!bx) return -1;
+                          return bx.localeCompare(ax);
+                        case "uploaded_desc":
+                          return (b.uploaded_at ?? "").localeCompare(a.uploaded_at ?? "");
+                        case "name_asc":
+                          return a.freelancer_name.localeCompare(b.freelancer_name);
+                        default:
+                          return 0;
+                      }
+                    });
+                  if (rows.length === 0) {
+                    return (
+                      <p className="py-8 text-center text-sm text-muted-foreground">
+                        No documents match.
+                      </p>
+                    );
+                  }
+                  return (
+                    <div className="overflow-x-auto rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Freelancer</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>File</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Expiry date</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {rows.map((d) => {
+                            const isCred =
+                              DOCUMENT_TYPE_META[d.document_type as DocumentType]?.class ===
+                              "credential";
+                            const status = credentialStatus({
+                              document_type: d.document_type as DocumentType,
+                              expiry_date: d.expiry_date,
+                              expiry_source: d.expiry_source,
+                            });
+                            const label =
+                              d.document_type === "Other" && d.custom_type_name
+                                ? d.custom_type_name
+                                : d.document_type;
+                            const edit = docDateEdits[d.id];
+                            const nonExpiring = d.expiry_source === "not_applicable";
+                            const editNoExpiry = edit ? !!edit.noExpiry : nonExpiring;
+                            const expiryValue = edit ? edit.expiryDate : (d.expiry_date ?? "");
+                            const dirty =
+                              !!edit &&
+                              (editNoExpiry
+                                ? !nonExpiring
+                                : !!edit.expiryDate && edit.expiryDate !== (d.expiry_date ?? ""));
+                            return (
+                              <TableRow key={d.id}>
+                                <TableCell className="py-2">
+                                  <a
+                                    href={`/profile/${d.freelancer_id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium text-primary hover:underline"
+                                  >
+                                    {d.freelancer_name}
+                                  </a>
+                                  <div className="text-xs text-muted-foreground">
+                                    {d.freelancer_email}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-2 text-sm">{label}</TableCell>
+                                <TableCell className="py-2 text-xs text-muted-foreground">
+                                  <span className="block max-w-[180px] truncate">
+                                    {d.original_filename}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="py-2">
+                                  {isCred ? (
+                                    <span
+                                      className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${STATUS_CLASS[status]}`}
+                                    >
+                                      {STATUS_LABEL[status]}
+                                      {nonExpiring ? " · No expiry" : ""}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">No expiry</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="py-2">
+                                  {isCred ? (
+                                    <div className="flex flex-col gap-1">
+                                      <Input
+                                        type="date"
+                                        className="h-8 w-[150px]"
+                                        value={editNoExpiry ? "" : expiryValue}
+                                        disabled={editNoExpiry}
+                                        onChange={(e) =>
+                                          setDocDateEdits((prev) => ({
+                                            ...prev,
+                                            [d.id]: {
+                                              issueDate: d.issue_date ?? "",
+                                              expiryDate: e.target.value,
+                                              noExpiry: false,
+                                            },
+                                          }))
+                                        }
+                                      />
+                                      <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                        <Checkbox
+                                          checked={editNoExpiry}
+                                          onCheckedChange={(v) =>
+                                            setDocDateEdits((prev) => ({
+                                              ...prev,
+                                              [d.id]: {
+                                                issueDate: d.issue_date ?? "",
+                                                expiryDate:
+                                                  v === true ? "" : (prev[d.id]?.expiryDate ?? ""),
+                                                noExpiry: v === true,
+                                              },
+                                            }))
+                                          }
+                                          data-testid={`admin-no-expiry-${d.id}`}
+                                        />
+                                        No expiry
+                                      </label>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="py-2 text-right">
+                                  {isCred && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={!dirty || updateDocDatesMutation.isPending}
+                                      onClick={() =>
+                                        updateDocDatesMutation.mutate({
+                                          id: d.id,
+                                          issueDate: d.issue_date ?? null,
+                                          expiryDate: editNoExpiry ? "" : expiryValue,
+                                          noExpiry: editNoExpiry,
+                                        })
+                                      }
+                                    >
+                                      Save
+                                    </Button>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  );
+                })()
               )}
             </CardContent>
           </Card>

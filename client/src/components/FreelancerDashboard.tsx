@@ -21,6 +21,8 @@ import { useIsPro } from "@/hooks/useIsPro";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
+import { useHelpComplete } from "@/help/useHelp";
+import { CredentialBacklogBanner } from "@/pages/CredentialBackfill";
 import type { FreelancerFormData, JobApplication } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -41,6 +43,7 @@ import {
   PoundSterling,
   QrCode,
   Send,
+  Share2,
   ShieldCheck,
   Star,
   X,
@@ -394,6 +397,8 @@ export default function SimplifiedFreelancerDashboard() {
     return tabParam || "books";
   });
 
+  const completeHelpMain = useHelpComplete();
+
   // Track active conversation ID from URL
   const [activeConversationId, setActiveConversationId] = useState<number | null>(() => {
     const search = location.includes("?")
@@ -555,6 +560,8 @@ export default function SimplifiedFreelancerDashboard() {
       markCategoryAsRead("applications");
     } else if (tab === "bookings") {
       markCategoryAsRead("ratings");
+      // Opening the Ratings tab counts as using it — stop prompting about it.
+      completeHelpMain("dashboard.tab.pendingRatings");
     }
     // Removed: markCategoryAsRead('messages') - keep message notifications unread until user reads them
   };
@@ -608,6 +615,9 @@ export default function SimplifiedFreelancerDashboard() {
         </p>
       </div>
 
+      {/* Prompts the freelancer to date any certificates still missing an expiry */}
+      <CredentialBacklogBanner />
+
       {/* Persistent share bar — Pro: purple gradient; Free: neutral */}
       {isPro ? (
         <div className="mb-4 flex flex-col gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 px-4 py-3 shadow-md sm:flex-row sm:items-center sm:justify-between">
@@ -630,6 +640,21 @@ export default function SimplifiedFreelancerDashboard() {
           <div className="flex shrink-0 gap-2">
             <Button
               size="sm"
+              data-help="action.freelancer.postJob"
+              onClick={() => {
+                handleTabChange("posted-jobs");
+                const url = new URL(window.location.href);
+                url.searchParams.set("openForm", "1");
+                window.history.replaceState({}, "", url.toString());
+              }}
+              className="border-0 bg-white/20 text-white hover:bg-white/30"
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Post a Job
+            </Button>
+            <Button
+              size="sm"
+              data-help="action.profile.shareLink"
               onClick={handleShareProfile}
               className="border-0 bg-white/20 text-white hover:bg-white/30"
             >
@@ -679,8 +704,27 @@ export default function SimplifiedFreelancerDashboard() {
             </p>
             <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
           </div>
-          <div className="flex shrink-0 gap-2">
-            <Button size="sm" variant="outline" onClick={handleShareProfile}>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button
+              size="sm"
+              data-help="action.freelancer.postJob"
+              onClick={() => {
+                handleTabChange("posted-jobs");
+                const url = new URL(window.location.href);
+                url.searchParams.set("openForm", "1");
+                window.history.replaceState({}, "", url.toString());
+              }}
+              className="bg-gradient-to-r from-[#7B5EA7] to-[#9B7DC7] text-white hover:from-[#6a4f94] hover:to-[#8a6cb6]"
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Post a Job
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              data-help="action.profile.shareLink"
+              onClick={handleShareProfile}
+            >
               {linkCopied ? (
                 <>
                   <Check className="mr-1.5 h-3.5 w-3.5 text-green-600" />
@@ -692,6 +736,12 @@ export default function SimplifiedFreelancerDashboard() {
                   Copy Link
                 </>
               )}
+            </Button>
+            <Button size="sm" variant="outline" data-help="action.profile.viewPublic" asChild>
+              <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
+                <Share2 className="mr-1.5 h-3.5 w-3.5" />
+                View Profile
+              </a>
             </Button>
           </div>
         </div>
@@ -729,23 +779,29 @@ export default function SimplifiedFreelancerDashboard() {
         <TabsList className="hidden w-full grid-cols-4 sm:grid md:grid-cols-6">
           <TabsTrigger value="books">Books</TabsTrigger>
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
-          <TabsTrigger value="jobs" className="gap-2">
-            Applications
+          <TabsTrigger
+            value="jobs"
+            className="gap-2"
+            data-help="dashboard.tab.freelancerApplications"
+          >
+            My Applications
             <TabBadge count={roleSpecificCounts.applications || 0} />
           </TabsTrigger>
           <TabsTrigger value="messages" className="gap-2">
             Messages
             <TabBadge count={roleSpecificCounts.messages || 0} />
           </TabsTrigger>
-          <TabsTrigger value="bookings" className="gap-2">
+          <TabsTrigger value="bookings" className="gap-2" data-help="dashboard.tab.pendingRatings">
             Bookings
             <TabBadge count={roleSpecificCounts.ratings || 0} />
           </TabsTrigger>
-          <TabsTrigger value="references" className="gap-2">
+          <TabsTrigger value="references" className="gap-2" data-help="profile.references">
             <ShieldCheck className="h-4 w-4" />
             References
           </TabsTrigger>
-          <TabsTrigger value="posted-jobs">My Jobs</TabsTrigger>
+          <TabsTrigger value="posted-jobs" data-help="dashboard.tab.freelancerPostedJobs">
+            My Jobs
+          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -1035,6 +1091,7 @@ export default function SimplifiedFreelancerDashboard() {
 
 function ReferenceRequestsSection({ userId }: { userId: number }) {
   const { toast } = useToast();
+  const completeHelp = useHelpComplete();
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
 
@@ -1060,6 +1117,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
       });
     },
     onSuccess: () => {
+      completeHelp("profile.references");
       toast({ title: "Request sent", description: "Reference request email has been sent." });
       setNewEmail("");
       setNewName("");
@@ -1178,6 +1236,7 @@ function ReferenceRequestsSection({ userId }: { userId: number }) {
             <Button
               onClick={() => createRequestMutation.mutate()}
               disabled={!newEmail.trim() || createRequestMutation.isPending}
+              data-help="action.reference.request"
               className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600"
             >
               {createRequestMutation.isPending ? "Sending..." : "Send Reference Request"}

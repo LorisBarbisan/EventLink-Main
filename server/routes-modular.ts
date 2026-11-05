@@ -44,6 +44,7 @@ import { registerBooksRoutes } from "./api/routes/books.route.js";
 import earningsRouter from "./api/routes/earnings.route.js";
 import kitRouter from "./api/routes/kit.route.js";
 import exportsRouter from "./api/routes/exports.route.js";
+import helpRouter from "./api/routes/help.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { JWT_SECRET, SESSION_SECRET } from "./api/config/env.js";
 import { wsService } from "./api/websocket/websocketService";
@@ -292,6 +293,7 @@ export async function registerRoutes(
   app.use("/api/bookings", bookingRouter);
   app.use("/api/team", teamRouter);
   app.use("/api/job", jobDocumentRouter);
+  app.use("/api/help", helpRouter);
   registerContactRoutes(app);
   registerStripeRoutes(app);
   registerExpenseRoutes(app);

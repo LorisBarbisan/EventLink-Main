@@ -3,16 +3,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Notification } from "@shared/schema";
 import {
-    AlertCircle,
-    Bell,
-    Briefcase,
-    Check,
-    Clock,
-    Mail,
-    MessageCircle,
-    MessageSquare,
-    User,
-    X,
+  AlertCircle,
+  Bell,
+  Briefcase,
+  Check,
+  Clock,
+  Mail,
+  MessageCircle,
+  MessageSquare,
+  User,
+  X,
 } from "lucide-react";
 import { memo } from "react";
 
@@ -27,26 +27,26 @@ interface Props {
 
 const getNotificationIcon = (type: string, priority: string) => {
   if (priority === "urgent") {
-    return <AlertCircle className="w-4 h-4 text-red-500" />;
+    return <AlertCircle className="h-4 w-4 text-red-500" />;
   }
 
   switch (type) {
     case "new_message":
-      return <MessageCircle className="w-4 h-4 text-blue-500" />;
+      return <MessageCircle className="h-4 w-4 text-blue-500" />;
     case "application_update":
-      return <Briefcase className="w-4 h-4 text-green-500" />;
+      return <Briefcase className="h-4 w-4 text-green-500" />;
     case "job_update":
-      return <Briefcase className="w-4 h-4 text-purple-500" />;
+      return <Briefcase className="h-4 w-4 text-purple-500" />;
     case "profile_view":
-      return <User className="w-4 h-4 text-orange-500" />;
+      return <User className="h-4 w-4 text-orange-500" />;
     case "feedback":
-      return <MessageSquare className="w-4 h-4 text-blue-500" />;
+      return <MessageSquare className="h-4 w-4 text-blue-500" />;
     case "contact_message":
-      return <Mail className="w-4 h-4 text-purple-500" />;
+      return <Mail className="h-4 w-4 text-purple-500" />;
     case "system":
-      return <Bell className="w-4 h-4 text-gray-500" />;
+      return <Bell className="h-4 w-4 text-gray-500" />;
     default:
-      return <Bell className="w-4 h-4 text-gray-500" />;
+      return <Bell className="h-4 w-4 text-gray-500" />;
   }
 };
 
@@ -77,7 +77,7 @@ const formatRelativeTime = (date: Date) => {
   if (mins < 60) return `${mins}m ago`;
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString();
+  return date.toLocaleDateString("en-GB");
 };
 
 const NotificationItem = memo(
@@ -91,21 +91,21 @@ const NotificationItem = memo(
   }: Props) => {
     return (
       <div
-        className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+        className={`cursor-pointer p-4 transition-colors hover:bg-gray-50 ${
           !notification.is_read ? getPriorityColor(notification.priority || "normal") : ""
         }`}
         onClick={onClick}
       >
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 mt-1">
+          <div className="mt-1 flex-shrink-0">
             {getNotificationIcon(notification.type, notification.priority || "normal")}
           </div>
 
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <p
-                  className={`text-sm font-medium truncate ${
+                  className={`truncate text-sm font-medium ${
                     !notification.is_read ? "text-gray-900" : "text-gray-600"
                   }`}
                 >
@@ -113,7 +113,7 @@ const NotificationItem = memo(
                 </p>
 
                 <p
-                  className={`text-sm mt-1 ${
+                  className={`mt-1 text-sm ${
                     !notification.is_read ? "text-gray-700" : "text-gray-500"
                   }`}
                 >
@@ -121,36 +121,36 @@ const NotificationItem = memo(
                 </p>
               </div>
 
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex flex-shrink-0 items-center gap-1">
                 {!notification.is_read && (
                   <Button
                     variant="ghost"
                     size="sm"
                     disabled={isMarkAsReadDisabled}
-                    onClick={e => {
+                    onClick={(e) => {
                       e.stopPropagation();
                       onMarkRead();
                     }}
                   >
-                    <Check className="w-3 h-3" />
+                    <Check className="h-3 w-3" />
                   </Button>
                 )}
                 <Button
                   variant="ghost"
                   size="sm"
                   disabled={isDeleteDisabled}
-                  onClick={e => {
+                  onClick={(e) => {
                     e.stopPropagation();
                     onDelete();
                   }}
                 >
-                  <X className="w-3 h-3" />
+                  <X className="h-3 w-3" />
                 </Button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 mt-2">
-              <Clock className="w-3 h-3 text-muted-foreground" />
+            <div className="mt-2 flex items-center gap-2">
+              <Clock className="h-3 w-3 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">
                 {formatRelativeTime(new Date(notification.created_at))}
               </span>
@@ -158,7 +158,7 @@ const NotificationItem = memo(
               {notification.priority !== "normal" && (
                 <Badge
                   variant={notification.priority === "urgent" ? "destructive" : "secondary"}
-                  className="text-xs px-1 py-0"
+                  className="px-1 py-0 text-xs"
                 >
                   {notification.priority}
                 </Badge>

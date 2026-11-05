@@ -58,7 +58,10 @@ export function StarRating({
             type="button"
             className={cn(
               "transition-colors",
-              !readonly && "cursor-pointer hover:scale-110",
+              // Interactive stars get a 44px tap area so they're comfortable to
+              // tap on mobile; the visible icon keeps its size, centred inside.
+              !readonly &&
+                "inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center hover:scale-110",
               readonly && "cursor-default"
             )}
             onClick={() => handleClick(star)}

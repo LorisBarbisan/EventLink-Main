@@ -6,6 +6,8 @@ import {
   BADGE_CONFIG,
   VerificationBadge,
   DomainTrustIndicator,
+  EventLinkMemberBadge,
+  ratingBadge,
   ReferenceBadges,
 } from "@/components/ReferenceBadges";
 import { StandaloneRatingDialog } from "@/components/StandaloneRatingDialog";
@@ -204,87 +206,198 @@ function FeaturedReviews({ freelancerId }: { freelancerId: number }) {
   );
 }
 
-function ReviewsSection({ freelancerId }: { freelancerId: number }) {
-  const { data: ratings = [] } = useFreelancerRatings(freelancerId);
-  const reviews = ratings.filter((r: any) => r.review);
-  const { mutate: reportRating, isPending: isReporting } = useReportRating();
+// Strips quote marks the author typed themselves, so we don't render ""text"".
+function stripWrappingQuotes(text: string) {
+  return text
+    .trim()
+    .replace(/^["“”']+|["“”']+$/g, "")
+    .trim();
+}
 
-  const [reportOpen, setReportOpen] = useState(false);
+// Platform reviews (star ratings from employers) and references (from past clients)
+// shown together as one testimonial list, newest first.
+function ClientFeedbackSection({
+  freelancerId,
+  currentUser,
+}: {
+  freelancerId: number;
+  currentUser?: any;
+}) {
+  const { data: ratings = [], isLoading: ratingsLoading } = useFreelancerRatings(freelancerId);
+  const { data: references = [], isLoading: referencesLoading } = useQuery<any[]>({
+    queryKey: [`/api/references/freelancer/${freelancerId}`],
+    enabled: !!freelancerId,
+    throwOnError: false,
+    retry: 1,
+  });
+  const { toast } = useToast();
+  const { mutate: reportRating, isPending: isReportingRating } = useReportRating();
+
+  const [reviewReportOpen, setReviewReportOpen] = useState(false);
   const [selectedRatingId, setSelectedRatingId] = useState<number | null>(null);
   const [reportFlag, setReportFlag] = useState("");
   const [reportNote, setReportNote] = useState("");
 
-  const handleReportClick = (ratingId: number) => {
+  const [reportingRefId, setReportingRefId] = useState<number | null>(null);
+  const [reportReason, setReportReason] = useState("");
+
+  const reportReferenceMutation = useMutation({
+    mutationFn: async (refId: number) => {
+      return apiRequest(`/api/references/report/${refId}`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reportReason.trim() || null }),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Report submitted",
+        description: "Thank you. This reference has been flagged for review.",
+      });
+      setReportingRefId(null);
+      setReportReason("");
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to submit report. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleReviewReportClick = (ratingId: number) => {
     setSelectedRatingId(ratingId);
     setReportFlag("");
     setReportNote("");
-    setReportOpen(true);
+    setReviewReportOpen(true);
   };
 
-  const submitReport = () => {
+  const submitReviewReport = () => {
     if (selectedRatingId && reportFlag) {
       const fullReason = reportNote ? `${reportFlag}: ${reportNote}` : reportFlag;
       reportRating(
         { ratingId: selectedRatingId, reason: fullReason },
         {
           onSuccess: () => {
-            setReportOpen(false);
+            setReviewReportOpen(false);
           },
         }
       );
     }
   };
 
+  const isEmployer = currentUser?.role === "recruiter" || currentUser?.role === "admin";
+
+  const items = [
+    ...ratings
+      .filter((r: any) => r.review && r.review.trim())
+      .map((r: any) => ({ kind: "review" as const, data: r as any })),
+    ...references
+      .filter((r: any) => r.comment && r.comment.trim())
+      .map((r: any) => ({ kind: "reference" as const, data: r })),
+  ].sort((a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime());
+
+  // Star ratings count towards the same tallies as references (see ratingBadge).
+  const badgeCounts = (["highly_recommended", "recommended", "work_history_confirmed"] as const)
+    .map((badge) => ({
+      badge,
+      count:
+        references.filter((r: any) => r.badge_result === badge).length +
+        ratings.filter((r: any) => ratingBadge(r.rating) === badge).length,
+    }))
+    .filter((b) => b.count > 0);
+
+  if (ratingsLoading || referencesLoading) return null;
+  if (ratings.length === 0 && references.length === 0) return null;
+
   return (
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Reviews</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-blue-600" />
+            What clients say
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            {reviews.map((rating: any, index: number) => (
-              <div key={rating.id}>
-                <div className="flex items-start gap-4">
-                  <div className="flex-1">
-                    <div className="mb-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">
-                          {rating.recruiter?.first_name || "Employer"}{" "}
-                          {rating.recruiter?.last_name || ""}
-                        </span>
-                        <span className="text-sm text-muted-foreground">•</span>
-                        <StarRating rating={rating.rating} readonly size="sm" />
-                      </div>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleReportClick(rating.id)}
-                        title="Report review"
-                      >
-                        <Flag className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="mb-2 text-sm italic text-muted-foreground">
-                      {" "}
-                      &quot;{rating.review}&quot;
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {rating.job_title && <span>Project: {rating.job_title} • </span>}
-                      {format(new Date(rating.created_at), "MMM d, yyyy")}
-                    </p>
-                  </div>
-                </div>
-                {index < reviews.length - 1 && <Separator className="mt-6" />}
-              </div>
-            ))}
+          <div className="mb-4 flex flex-wrap gap-2">
+            {badgeCounts.map(({ badge, count }) => {
+              const cfg = BADGE_CONFIG[badge];
+              return (
+                <span
+                  key={badge}
+                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium ${cfg.colour}`}
+                >
+                  {cfg.icon} {cfg.label} · {count}
+                </span>
+              );
+            })}
           </div>
+
+          {items.length > 0 && (
+            <div className="space-y-4">
+              {items.map((item, i) => {
+                const isReview = item.kind === "review";
+                const d = item.data;
+                const text = stripWrappingQuotes(isReview ? d.review : d.comment);
+                return (
+                  <div key={`${item.kind}-${d.id}`}>
+                    <div className="flex items-start gap-3">
+                      <Quote className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="flex-1">
+                        <p className="text-sm italic text-muted-foreground">&ldquo;{text}&rdquo;</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          {isReview ? (
+                            <>
+                              <p className="text-xs text-muted-foreground">
+                                — {d.recruiter?.first_name || "Employer"}
+                                {d.recruiter?.last_name ? ` ${d.recruiter.last_name}` : ""}
+                                {d.job_title ? ` · ${d.job_title}` : ""}
+                              </p>
+                              {d.recruiter?.id && <EventLinkMemberBadge userId={d.recruiter.id} />}
+                            </>
+                          ) : (
+                            <>
+                              {(d.referee_name || d.referee_organisation) && (
+                                <p className="text-xs text-muted-foreground">
+                                  — {d.referee_name || ""}
+                                  {d.referee_role ? `, ${d.referee_role}` : ""}
+                                  {d.referee_organisation ? ` at ${d.referee_organisation}` : ""}
+                                </p>
+                              )}
+                              <VerificationBadge reference={d} />
+                              <DomainTrustIndicator level={d.domain_trust_level} />
+                            </>
+                          )}
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(d.created_at), "MMM yyyy")}
+                          </p>
+                          {(isReview || isEmployer) && (
+                            <button
+                              onClick={() =>
+                                isReview ? handleReviewReportClick(d.id) : setReportingRefId(d.id)
+                              }
+                              className="flex items-center gap-0.5 text-xs text-gray-400 transition-colors hover:text-red-500"
+                              title={isReview ? "Report review" : "Report suspicious reference"}
+                            >
+                              <Flag className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {i < items.length - 1 && <Separator className="mt-4" />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+      <Dialog open={reviewReportOpen} onOpenChange={setReviewReportOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Report Review</DialogTitle>
@@ -320,15 +433,69 @@ function ReviewsSection({ freelancerId }: { freelancerId: number }) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReportOpen(false)}>
+            <Button variant="outline" onClick={() => setReviewReportOpen(false)}>
               Cancel
             </Button>
             <Button
-              onClick={submitReport}
-              disabled={!reportFlag || isReporting}
+              onClick={submitReviewReport}
+              disabled={!reportFlag || isReportingRating}
               variant="destructive"
             >
-              {isReporting ? "Submitting..." : "Submit Report"}
+              {isReportingRating ? "Submitting..." : "Submit Report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={reportingRefId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReportingRefId(null);
+            setReportReason("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Report Suspicious Reference
+            </DialogTitle>
+            <DialogDescription>
+              Flag this reference privately for the platform moderation team to review.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="mb-1 block text-sm text-gray-600">
+                Reason <span className="text-xs text-gray-400">(Optional)</span>
+              </Label>
+              <Textarea
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                placeholder="Why do you believe this reference is suspicious?"
+                className="resize-none"
+                maxLength={500}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReportingRefId(null);
+                setReportReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => reportingRefId && reportReferenceMutation.mutate(reportingRefId)}
+              disabled={reportReferenceMutation.isPending}
+            >
+              {reportReferenceMutation.isPending ? "Submitting..." : "Submit Report"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -384,75 +551,77 @@ function ReferencesSection({
   if (isLoading || references.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-blue-600" />
-          References
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-4 flex flex-wrap gap-2">
-          {(["highly_recommended", "recommended", "work_history_confirmed"] as const).map(
-            (badge) => {
-              const count = references.filter((r: any) => r.badge_result === badge).length;
-              if (!count) return null;
-              const cfg = BADGE_CONFIG[badge];
-              return (
-                <span
-                  key={badge}
-                  className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium ${cfg.colour}`}
-                >
-                  {cfg.icon} {cfg.label} · {count}
-                </span>
-              );
-            }
-          )}
-        </div>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-blue-600" />
+            References
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4 flex flex-wrap gap-2">
+            {(["highly_recommended", "recommended", "work_history_confirmed"] as const).map(
+              (badge) => {
+                const count = references.filter((r: any) => r.badge_result === badge).length;
+                if (!count) return null;
+                const cfg = BADGE_CONFIG[badge];
+                return (
+                  <span
+                    key={badge}
+                    className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium ${cfg.colour}`}
+                  >
+                    {cfg.icon} {cfg.label} · {count}
+                  </span>
+                );
+              }
+            )}
+          </div>
 
-        {withComments.length > 0 && (
-          <div className="space-y-4">
-            {withComments.map((ref: any, i: number) => (
-              <div key={ref.id}>
-                <div className="flex items-start gap-3">
-                  <Quote className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div className="flex-1">
-                    <p className="text-sm italic text-muted-foreground">
-                      &ldquo;{ref.comment}&rdquo;
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      {(ref.referee_name || ref.referee_organisation) && (
-                        <p className="text-xs text-muted-foreground">
-                          — {ref.referee_name || ""}
-                          {ref.referee_role ? `, ${ref.referee_role}` : ""}
-                          {ref.referee_organisation ? ` at ${ref.referee_organisation}` : ""}
-                        </p>
-                      )}
-                      <VerificationBadge reference={ref} />
-                      <DomainTrustIndicator level={ref.domain_trust_level} />
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(ref.created_at), "MMM yyyy")}
+          {withComments.length > 0 && (
+            <div className="space-y-4">
+              {withComments.map((ref: any, i: number) => (
+                <div key={ref.id}>
+                  <div className="flex items-start gap-3">
+                    <Quote className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="flex-1">
+                      <p className="text-sm italic text-muted-foreground">
+                        &ldquo;{ref.comment}&rdquo;
                       </p>
-                      {isEmployer && (
-                        <button
-                          onClick={() => setReportingRefId(ref.id)}
-                          className="flex items-center gap-0.5 text-xs text-gray-400 transition-colors hover:text-red-500"
-                          title="Report suspicious reference"
-                        >
-                          <Flag className="h-3 w-3" />
-                        </button>
-                      )}
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {(ref.referee_name || ref.referee_organisation) && (
+                          <p className="text-xs text-muted-foreground">
+                            — {ref.referee_name || ""}
+                            {ref.referee_role ? `, ${ref.referee_role}` : ""}
+                            {ref.referee_organisation ? ` at ${ref.referee_organisation}` : ""}
+                          </p>
+                        )}
+                        <VerificationBadge reference={ref} />
+                        <DomainTrustIndicator level={ref.domain_trust_level} />
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(ref.created_at), "MMM yyyy")}
+                        </p>
+                        {isEmployer && (
+                          <button
+                            onClick={() => setReportingRefId(ref.id)}
+                            className="flex items-center gap-0.5 text-xs text-gray-400 transition-colors hover:text-red-500"
+                            title="Report suspicious reference"
+                          >
+                            <Flag className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  {i < withComments.length - 1 && <Separator className="mt-4" />}
                 </div>
-                {i < withComments.length - 1 && <Separator className="mt-4" />}
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog
         open={reportingRefId !== null}
@@ -507,7 +676,7 @@ function ReferencesSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </>
   );
 }
 
@@ -814,6 +983,17 @@ export default function Profile() {
       }
     }
   }, [user, location, freelancerProfile, setLocation, profile]); // Added setLocation to dependencies
+
+  // Navigating between profiles (e.g. a reviewer's "EventLink Member" badge) reuses this
+  // component, so clear the previous profile or it would keep rendering instead of the new one.
+  useEffect(() => {
+    setProfile(null);
+    setFreelancerProfile(null);
+    setRecruiterProfile(null);
+    setLoading(true);
+    setProfileDataLoaded(false);
+    window.scrollTo(0, 0);
+  }, [userId]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -1542,7 +1722,10 @@ export default function Profile() {
                     freelancerId={freelancerProfile?.user_id || 0}
                     currentUser={user}
                   />
-                  <ReviewsSection freelancerId={freelancerProfile?.user_id || 0} />
+                  <ClientFeedbackSection
+                    freelancerId={freelancerProfile?.user_id || 0}
+                    currentUser={user}
+                  />
                 </div>
               )}
 

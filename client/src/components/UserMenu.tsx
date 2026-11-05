@@ -10,13 +10,25 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { getEffectiveCompanyId, isManagerTeamMember } from "@/lib/employerContext";
-import { Bell, CreditCard, LogOut, Settings, Star, User, UserCircle } from "lucide-react";
+import {
+  Bell,
+  CreditCard,
+  HelpCircle,
+  LogOut,
+  Settings,
+  Star,
+  User,
+  UserCircle,
+} from "lucide-react";
 import { useLocation } from "wouter";
 
 export const UserMenu = () => {
   const [, setLocation] = useLocation();
   const { user, signOut } = useAuth();
 
+  // Hooks must run before any early return (rules-of-hooks). These inputs are
+  // null-safe via optional chaining, and useProfile is disabled when there's no
+  // user id, so it's harmless when logged out.
   const userType = user?.role === "freelancer" ? "freelancer" : "recruiter";
   const profileUserId =
     user?.role === "recruiter" && user ? getEffectiveCompanyId(user) : user?.id || 0;
@@ -179,6 +191,16 @@ export const UserMenu = () => {
           <CreditCard className="mr-2 h-4 w-4" />
           Billing &amp; Plans
         </DropdownMenuItem>
+
+        {user.role === "admin" && (
+          <DropdownMenuItem
+            onClick={() => setLocation("/admin/help")}
+            data-testid="menu-admin-help"
+          >
+            <HelpCircle className="mr-2 h-4 w-4" />
+            Help content
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuItem onClick={() => setLocation("/settings")} data-testid="menu-settings">
           <Settings className="mr-2 h-4 w-4" />

@@ -21,5 +21,5 @@ export const formatRelativeTime = (dateString: string | Date) => {
   if (diffMonths < 12) return `${diffMonths}mo ago`;
   if (diffYears < 5) return `${diffYears}y ago`;
 
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "numeric" });
 };

@@ -20,6 +20,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { DOCUMENT_TYPES, type DocumentType } from "./credentials";
 
 export const users = pgTable(
   "users",
@@ -54,6 +55,9 @@ export const users = pgTable(
     status: text("status").default("pending").notNull(),
     welcome_email_sent: boolean("welcome_email_sent").default(false).notNull(),
     marketing_emails_opt_out: boolean("marketing_emails_opt_out").default(false).notNull(),
+    // Separate from marketing: a reminder about the freelancer's own expiring
+    // credential is a service message about their own data, not direct marketing.
+    credential_reminders_opt_out: boolean("credential_reminders_opt_out").default(false).notNull(),
     unsubscribe_token: text("unsubscribe_token"),
     job_alerts_opt_out: boolean("job_alerts_opt_out").default(false), // Freelancer has unsubscribed from job alert emails
     last_job_alert_sent_at: timestamp("last_job_alert_sent_at", { withTimezone: true }), // Timestamp of last job alert email sent
@@ -69,6 +73,10 @@ export const users = pgTable(
     subscription_expires_at: timestamp("subscription_expires_at", { withTimezone: true }),
     id_verified: boolean("id_verified").default(false).notNull(),
     stripe_identity_session_id: text("stripe_identity_session_id"),
+    // Contextual help system preference: "full" keeps both the passive hint layer
+    // and the discovery layer, "hover_only" keeps passive hints but silences the
+    // discovery layer, "off" disables everything. On by default.
+    help_mode: text("help_mode").default("full").$type<"full" | "hover_only" | "off">(),
   },
   (table) => ({
     statusCheck: check(
@@ -197,6 +205,7 @@ export const jobs = pgTable("jobs", {
   days: integer("days"), // Number of days if duration_type = 'days'
   hours: integer("hours"), // Number of hours if duration_type = 'hours'
   status: text("status").default("private").$type<"active" | "paused" | "closed" | "private">(),
+  deleted_at: timestamp("deleted_at", { withTimezone: true }), // NULL = live; timestamp = soft-deleted by employer/admin (applications are preserved)
   external_id: text("external_id"), // For external job IDs (reed_123, adzuna_456)
   external_source: text("external_source").$type<
     "reed" | "adzuna" | "jooble" | "careerjet" | "jsearch" | null
@@ -355,6 +364,7 @@ export const notifications = pgTable("notifications", {
       | "system"
       | "feedback"
       | "contact_message"
+      | "credential_expiry"
     >(),
   title: text("title").notNull(),
   message: text("message").notNull(),
@@ -483,6 +493,8 @@ export const insertJobSchema = createInsertSchema(jobs)
     company: z.string().min(1, "Company name is required"),
     title: z.string().min(1, "Job title is required"),
     location: z.string().min(1, "Location is required"),
+    country: z.string().min(1, "Country is required"),
+    rate: z.string().min(1, "Rate is required"),
     description: z.string().optional().default(""),
     type: z.string().optional().default("freelance"),
   });
@@ -506,6 +518,8 @@ export const insertFreelancerJobSchema = createInsertSchema(jobs)
   .extend({
     title: z.string().min(1, "Job title is required"),
     location: z.string().min(1, "Location is required"),
+    country: z.string().min(1, "Country is required"),
+    rate: z.string().min(1, "Rate is required"),
     description: z.string().optional().default(""),
     type: z.string().optional().default("freelance"),
     company: z.string().optional(),
@@ -848,22 +862,12 @@ export const insertJobLinkViewSchema = createInsertSchema(job_link_views).omit({
   created_at: true,
 });
 
-// Document type constants for controlled list
-export const DOCUMENT_TYPES = [
-  "PLI",
-  "BS7909",
-  "IPAF",
-  "NRC",
-  "PASMA",
-  "First Aid",
-  "Electrical Safety",
-  "Working at Height",
-  "Risk Assessment",
-  "Method Statement",
-  "Other",
-] as const;
-
-export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+// Credential vocabulary and status helpers live in ./credentials — a
+// drizzle-free module so the client can import their runtime values without
+// pulling the ORM. Re-exported here so existing "@shared/schema" imports keep
+// working; DOCUMENT_TYPES / DocumentType are also imported at the top of this
+// file for use in the table and insert-schema definitions below.
+export * from "./credentials";
 
 // Freelancer documents/certifications table
 export const freelancer_documents = pgTable(
@@ -880,9 +884,24 @@ export const freelancer_documents = pgTable(
     file_size: integer("file_size").notNull(),
     file_type: text("file_type").notNull(),
     uploaded_at: timestamp("uploaded_at", { withTimezone: true }).defaultNow().notNull(),
+    // Credential register (Epic 1). expiry_date is nullable even though the new
+    // upload form makes it mandatory — null marks the backlog the backfill works
+    // through. Never backfill with a guessed value.
+    issuing_body: text("issuing_body"),
+    reference_number: text("reference_number"), // card or policy number
+    issue_date: date("issue_date"),
+    expiry_date: date("expiry_date"),
+    expiry_source: text("expiry_source").$type<"entered" | "derived" | "not_applicable">(),
+    verification_status: text("verification_status")
+      .$type<"self_declared" | "document_on_file" | "scheme_verified">()
+      .notNull()
+      .default("document_on_file"),
+    superseded_by_id: integer("superseded_by_id"), // self-ref; renewal chain
+    archived_at: timestamp("archived_at", { withTimezone: true }),
   },
   (table) => ({
     freelancerIdx: index("freelancer_documents_freelancer_idx").on(table.freelancer_id),
+    expiryIdx: index("freelancer_documents_expiry_idx").on(table.expiry_date),
   })
 );
 
@@ -890,6 +909,10 @@ export const insertFreelancerDocumentSchema = createInsertSchema(freelancer_docu
   .omit({
     id: true,
     uploaded_at: true,
+    // Server-managed — never set from the client upload payload.
+    verification_status: true,
+    superseded_by_id: true,
+    archived_at: true,
   })
   .extend({
     freelancer_id: z.number(),
@@ -899,7 +922,49 @@ export const insertFreelancerDocumentSchema = createInsertSchema(freelancer_docu
     original_filename: z.string().min(1),
     file_size: z.number().positive(),
     file_type: z.string().min(1),
+    // Credential register fields (ISO yyyy-mm-dd strings for the date columns).
+    issuing_body: z.string().max(120).nullable().optional(),
+    reference_number: z.string().max(120).nullable().optional(),
+    issue_date: z.string().nullable().optional(),
+    expiry_date: z.string().nullable().optional(),
+    expiry_source: z.enum(["entered", "derived", "not_applicable"]).nullable().optional(),
   });
+
+// Renewal-reminder ledger (Epic 2). One row per (document, stage) acts as the
+// idempotency guard — the unique index means a double cron run inserts nothing
+// twice — and records which rungs of the ladder a credential has been through.
+export const credential_reminders = pgTable(
+  "credential_reminders",
+  {
+    id: serial("id").primaryKey(),
+    document_id: integer("document_id")
+      .notNull()
+      .references(() => freelancer_documents.id, { onDelete: "cascade" }),
+    stage: text("stage").$type<"d90" | "d30" | "d7" | "day_of" | "overdue">().notNull(),
+    sent_at: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    uniq: uniqueIndex("credential_reminders_doc_stage_idx").on(t.document_id, t.stage),
+  })
+);
+
+export type CredentialReminder = typeof credential_reminders.$inferSelect;
+export type CredentialReminderStage = "d90" | "d30" | "d7" | "day_of" | "overdue";
+
+// One-off backfill campaign ledger (Epic 2) — tracks which freelancers have been
+// asked to date their undated credentials, so the 10-day follow-up goes only to
+// round-1 recipients who still haven't, and then stops. One row per freelancer.
+export const credential_backfill_campaign = pgTable("credential_backfill_campaign", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  round1_sent_at: timestamp("round1_sent_at", { withTimezone: true }),
+  round2_sent_at: timestamp("round2_sent_at", { withTimezone: true }),
+});
+
+export type CredentialBackfillCampaign = typeof credential_backfill_campaign.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertSocialUser = z.infer<typeof insertSocialUserSchema>;
@@ -1744,3 +1809,78 @@ export type SavedPlace = typeof saved_places.$inferSelect;
 export type InsertSavedPlace = typeof saved_places.$inferInsert;
 export type MileageTrip = typeof mileage_trips.$inferSelect;
 export type InsertMileageTrip = typeof mileage_trips.$inferInsert;
+// ============================================================
+// Contextual help system ("talking clouds")
+// ============================================================
+
+// Per-user, per-help-key interaction state (seen / dismissed / completed).
+export const help_user_state = pgTable(
+  "help_user_state",
+  {
+    id: serial("id").primaryKey(),
+    user_id: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    help_key: text("help_key").notNull(),
+    seen_count: integer("seen_count").notNull().default(0),
+    last_seen_at: timestamp("last_seen_at", { withTimezone: true }),
+    dismissed_count: integer("dismissed_count").notNull().default(0),
+    dismissed_at: timestamp("dismissed_at", { withTimezone: true }),
+    // Set when the user actually used the thing the hint describes.
+    completed_at: timestamp("completed_at", { withTimezone: true }),
+    // Entry version at the time of the last interaction (for re-show on rewrite).
+    content_version: integer("content_version").notNull().default(1),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userKeyUnique: unique("help_user_state_user_key_unique").on(t.user_id, t.help_key),
+    userIdx: index("help_user_state_user_idx").on(t.user_id),
+  })
+);
+
+// Per-user, per-route-pattern visit counts (drives the eager-then-reactive speed model).
+export const help_route_visits = pgTable(
+  "help_route_visits",
+  {
+    id: serial("id").primaryKey(),
+    user_id: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    route: text("route").notNull(), // wouter pattern, e.g. "/jobs/:id"
+    visit_count: integer("visit_count").notNull().default(0),
+    first_visited_at: timestamp("first_visited_at", { withTimezone: true }).defaultNow().notNull(),
+    last_visited_at: timestamp("last_visited_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userRouteUnique: unique("help_route_visits_user_route_unique").on(t.user_id, t.route),
+  })
+);
+
+// Admin-editable copy overrides, merged over the code registry (override wins).
+export const help_content_overrides = pgTable("help_content_overrides", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  title: text("title"),
+  body: text("body"),
+  learn_more_href: text("learn_more_href"),
+  version: integer("version").notNull().default(1),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_by: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
+});
+
+export const insertHelpUserStateSchema = createInsertSchema(help_user_state).omit({
+  id: true,
+  updated_at: true,
+});
+export const insertHelpRouteVisitSchema = createInsertSchema(help_route_visits).omit({
+  id: true,
+});
+export const insertHelpContentOverrideSchema = createInsertSchema(help_content_overrides).omit({
+  id: true,
+  updated_at: true,
+});
+
+export type HelpUserState = typeof help_user_state.$inferSelect;
+export type HelpRouteVisit = typeof help_route_visits.$inferSelect;
+export type HelpContentOverride = typeof help_content_overrides.$inferSelect;
+export type HelpMode = "full" | "hover_only" | "off";

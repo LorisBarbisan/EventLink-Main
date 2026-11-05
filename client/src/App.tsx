@@ -3,6 +3,7 @@ import { TabNotificationManager } from "@/components/TabNotificationManager";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { HelpProvider } from "@/help/HelpProvider";
 import { WebSocketProvider } from "@/contexts/WebSocketContext";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -16,9 +17,11 @@ import { Route, Switch } from "wouter";
 import { ScrollToTop } from "@/components/ScrollToTop";
 
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminHelp = lazy(() => import("./pages/AdminHelp"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ContactUs = lazy(() => import("./pages/ContactUs"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const CredentialBackfill = lazy(() => import("./pages/CredentialBackfill"));
 const About = lazy(() => import("./pages/About"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
@@ -72,6 +75,7 @@ function AppRouter() {
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />
           <Route path="/dashboard" component={Dashboard} />
+          <Route path="/credentials" component={CredentialBackfill} />
           <Route path="/profile" component={Profile} />
           <Route path="/profile/:userId" component={Profile} />
           {/* Slug-based profile URLs e.g. /u/james-smith-sound-engineer */}
@@ -85,6 +89,7 @@ function AppRouter() {
           <Route path="/freelance-crew/:slug" component={CrewLanding} />
           <Route path="/ratings" component={RatingDashboard} />
           <Route path="/admin" component={AdminDashboard} />
+          <Route path="/admin/help" component={AdminHelp} />
           <Route path="/how-it-works" component={HowItWorks} />
           <Route path="/contact-us" component={ContactUs} />
           <Route path="/faq" component={FAQ} />
@@ -123,12 +128,14 @@ function App() {
       <AuthProvider>
         <WebSocketProvider>
           <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <LiveNotificationPopups />
-            <TabNotificationManager />
-            <CookieConsentBanner />
-            <AppRouter />
+            <HelpProvider>
+              <Toaster />
+              <Sonner />
+              <LiveNotificationPopups />
+              <TabNotificationManager />
+              <CookieConsentBanner />
+              <AppRouter />
+            </HelpProvider>
           </TooltipProvider>
         </WebSocketProvider>
       </AuthProvider>

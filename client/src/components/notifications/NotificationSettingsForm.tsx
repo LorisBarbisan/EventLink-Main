@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { UKLocationInput } from "@/components/ui/uk-location-input";
+import { useHelpComplete } from "@/help/useHelp";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { JobAlertFilter } from "@shared/schema";
@@ -33,6 +34,7 @@ interface NotificationPreferences {
 
 export function NotificationSettingsForm({ user }: NotificationSettingsFormProps) {
   const { toast } = useToast();
+  const completeHelp = useHelpComplete();
   const [localPreferences, setLocalPreferences] = useState<NotificationPreferences | null>(null);
 
   // Job alert filter state
@@ -130,6 +132,11 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
     const newPreferences = { ...localPreferences, [key]: value };
     setLocalPreferences(newPreferences);
     updateMutation.mutate({ [key]: value });
+
+    // Turning Job Alerts on counts as using the feature — stop prompting about it.
+    if (key === "email_job_alerts" && value) {
+      completeHelp("freelancer.jobAlerts");
+    }
   };
 
   // Job alert filter handlers
@@ -295,6 +302,7 @@ export function NotificationSettingsForm({ user }: NotificationSettingsFormProps
                   checked={localPreferences.email_job_alerts}
                   onCheckedChange={(checked) => handleToggle("email_job_alerts", checked)}
                   data-testid="switch-email-job-alerts"
+                  data-help="freelancer.jobAlerts"
                 />
               </div>
               <Separator />

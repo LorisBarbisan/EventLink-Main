@@ -5,6 +5,7 @@ import {
   email_notification_logs,
   feedback,
   freelancer_documents,
+  DOCUMENT_TYPE_META,
   freelancer_profiles,
   job_alert_filters,
   job_applications,
@@ -139,6 +140,18 @@ import {
   freelancerLocationCondition,
 } from "./api/utils/freelancer-search.util";
 
+// User shapes that are safe to send to clients: never include password hashes or auth tokens.
+export type PublicUserSummary = Pick<User, "id" | "role" | "first_name" | "last_name">;
+export type SafeUser = Omit<
+  User,
+  | "password"
+  | "email_verification_token"
+  | "email_verification_expires"
+  | "password_reset_token"
+  | "password_reset_expires"
+  | "unsubscribe_token"
+>;
+
 export interface IStorage {
   // User management
   getUser(id: number): Promise<User | undefined>;
@@ -158,6 +171,7 @@ export interface IStorage {
   markWelcomeEmailSent(userId: number): Promise<void>;
   getUserByUnsubscribeToken(token: string): Promise<User | undefined>;
   setMarketingOptOut(userId: number): Promise<void>;
+  setCredentialRemindersOptOut(userId: number): Promise<void>;
   canSendMessageToUser(
     senderId: number,
     recipientId: number
@@ -238,6 +252,7 @@ export interface IStorage {
   ): Promise<number | null>;
   updateJob(jobId: number, job: Partial<InsertJob>): Promise<Job | undefined>;
   deleteJob(jobId: number): Promise<void>;
+  softDeleteJob(jobId: number): Promise<void>;
   searchJobs(filters: {
     keyword?: string;
     location?: string;
@@ -389,7 +404,7 @@ export interface IStorage {
   getRatingByJobApplication(jobApplicationId: number): Promise<Rating | undefined>;
   getFreelancerRatings(
     freelancerId: number
-  ): Promise<Array<Rating & { recruiter: User; job_title?: string }>>;
+  ): Promise<Array<Rating & { recruiter: PublicUserSummary; job_title?: string }>>;
   getFreelancerAverageRating(freelancerId: number): Promise<{ average: number; count: number }>;
   canRecruiterRateFreelancer(
     recruiterId: number,
@@ -405,7 +420,7 @@ export interface IStorage {
   updateRating(ratingId: number, updates: Partial<Rating>): Promise<Rating | undefined>;
   getAllRatings(filters?: {
     status?: string;
-  }): Promise<Array<Rating & { recruiter: User; job_title?: string }>>;
+  }): Promise<Array<Rating & { recruiter: SafeUser; job_title?: string }>>;
 
   createRatingRequestWithNotification(
     request: InsertRatingRequest,
@@ -417,10 +432,10 @@ export interface IStorage {
   getRatingRequestByJobApplication(jobApplicationId: number): Promise<RatingRequest | undefined>;
   getRecruiterRatingRequests(
     recruiterId: number
-  ): Promise<Array<RatingRequest & { freelancer: User; job_title?: string }>>;
+  ): Promise<Array<RatingRequest & { freelancer: PublicUserSummary; job_title?: string }>>;
   getFreelancerRatingRequests(
     freelancerId: number
-  ): Promise<Array<RatingRequest & { recruiter: User; job_title?: string }>>;
+  ): Promise<Array<RatingRequest & { recruiter: PublicUserSummary; job_title?: string }>>;
   updateRatingRequestStatus(
     requestId: number,
     status: "completed" | "declined"
@@ -428,7 +443,7 @@ export interface IStorage {
 
   // Feedback management for admin dashboard
   createFeedback(feedback: InsertFeedback): Promise<Feedback>;
-  getAllFeedback(status?: string, type?: string): Promise<Array<Feedback & { user?: User }>>;
+  getAllFeedback(status?: string, type?: string): Promise<Array<Feedback & { user?: SafeUser }>>;
   getFeedbackById(id: number): Promise<Feedback | undefined>;
   updateFeedbackStatus(
     id: number,
@@ -438,7 +453,7 @@ export interface IStorage {
   addAdminResponse(id: number, response: string, adminUserId: number): Promise<Feedback>;
   getFeedbackByStatus(
     status: "pending" | "in_review" | "resolved" | "closed"
-  ): Promise<Array<Feedback & { user?: User }>>;
+  ): Promise<Array<Feedback & { user?: SafeUser }>>;
   getFeedbackStats(): Promise<{
     total: number;
     pending: number;
@@ -580,6 +595,40 @@ export interface IStorage {
   getFreelancerDocumentCount(freelancerId: number): Promise<number>;
   createFreelancerDocument(document: InsertFreelancerDocument): Promise<FreelancerDocument>;
   deleteFreelancerDocument(documentId: number, freelancerId: number): Promise<void>;
+  getIncompleteCredentials(freelancerId: number): Promise<FreelancerDocument[]>;
+  getAdminDocuments(): Promise<
+    Array<{
+      id: number;
+      freelancer_id: number;
+      freelancer_name: string;
+      freelancer_email: string;
+      document_type: string;
+      custom_type_name: string | null;
+      original_filename: string;
+      issue_date: string | null;
+      expiry_date: string | null;
+      verification_status: string | null;
+      uploaded_at: Date;
+    }>
+  >;
+  adminSetDocumentDates(
+    documentId: number,
+    dates: {
+      issue_date: string | null;
+      expiry_date: string | null;
+      expiry_source: "entered" | "not_applicable";
+    }
+  ): Promise<FreelancerDocument | undefined>;
+  updateCredentialDates(
+    documentId: number,
+    freelancerId: number,
+    dates: { issue_date: string | null; expiry_date: string; expiry_source: "entered" | "derived" }
+  ): Promise<FreelancerDocument | undefined>;
+  supersedeFreelancerDocument(
+    oldDocumentId: number,
+    newDocumentId: number,
+    freelancerId: number
+  ): Promise<void>;
 
   // Job link view tracking
   createJobLinkView(view: InsertJobLinkView): Promise<JobLinkView>;
@@ -1159,6 +1208,14 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(users)
       .set({ marketing_emails_opt_out: true, updated_at: new Date() })
+      .where(eq(users.id, userId));
+    cache.delete(`user:${userId}`);
+  }
+
+  async setCredentialRemindersOptOut(userId: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ credential_reminders_opt_out: true, updated_at: new Date() })
       .where(eq(users.id, userId));
     cache.delete(`user:${userId}`);
   }
@@ -1906,8 +1963,20 @@ export class DatabaseStorage implements IStorage {
         .groupBy(freelancer_references.freelancer_id)
         .as("ref_counts");
 
+      // Subquery: 4-5 star job reviews per freelancer. These show on profiles as
+      // Recommended / Highly Recommended, so they rank the same as a reference.
+      const reviewCountsSq = db
+        .select({
+          freelancer_id: ratings.freelancer_id,
+          review_count: sql<number>`COUNT(*)::int`.as("review_count"),
+        })
+        .from(ratings)
+        .where(and(ne(ratings.status, "removed"), gte(ratings.rating, 4)))
+        .groupBy(ratings.freelancer_id)
+        .as("review_counts");
+
       // Fetch other results (excluding EventLink)
-      // Order: profiles with references first (most → fewest), then by join date (newest first)
+      // Order: most recommendations (references + 4-5 star reviews) first, then by join date (newest first)
       const otherResults = await db
         .select({
           id: freelancer_profiles.id,
@@ -1937,9 +2006,10 @@ export class DatabaseStorage implements IStorage {
         .from(freelancer_profiles)
         .innerJoin(users, eq(freelancer_profiles.user_id, users.id))
         .leftJoin(refCountsSq, eq(freelancer_profiles.user_id, refCountsSq.freelancer_id))
+        .leftJoin(reviewCountsSq, eq(freelancer_profiles.user_id, reviewCountsSq.freelancer_id))
         .where(and(...excludeEventlinkConditions))
         .orderBy(
-          sql`COALESCE(${refCountsSq.ref_count}, 0) DESC`,
+          sql`COALESCE(${refCountsSq.ref_count}, 0) + COALESCE(${reviewCountsSq.review_count}, 0) DESC`,
           desc(freelancer_profiles.created_at)
         )
         .limit(effectiveLimit)
@@ -2015,11 +2085,15 @@ export class DatabaseStorage implements IStorage {
   // Job management methods
 
   async getAllJobs(): Promise<Job[]> {
-    return await db.select().from(jobs);
+    return await db.select().from(jobs).where(isNull(jobs.deleted_at));
   }
 
   async getAllJobsSortedByDate(): Promise<Job[]> {
-    return await db.select().from(jobs).orderBy(desc(jobs.created_at));
+    return await db
+      .select()
+      .from(jobs)
+      .where(isNull(jobs.deleted_at))
+      .orderBy(desc(jobs.created_at));
   }
 
   async getAdminJobs(
@@ -2044,6 +2118,9 @@ export class DatabaseStorage implements IStorage {
   }> {
     const offset = (page - 1) * limit;
     const conditions = [];
+
+    // Exclude soft-deleted jobs from the admin job list
+    conditions.push(isNull(jobs.deleted_at));
 
     if (search) {
       const searchLower = search.toLowerCase();
@@ -2355,7 +2432,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(jobs)
-      .where(eq(jobs.recruiter_id, recruiterId))
+      .where(and(eq(jobs.recruiter_id, recruiterId), isNull(jobs.deleted_at)))
       .orderBy(desc(jobs.created_at));
   }
 
@@ -2367,7 +2444,13 @@ export class DatabaseStorage implements IStorage {
     const jobRows = await db
       .select()
       .from(jobs)
-      .where(and(eq(jobs.posted_by_user_id, userId), eq(jobs.poster_type, "freelancer")))
+      .where(
+        and(
+          eq(jobs.posted_by_user_id, userId),
+          eq(jobs.poster_type, "freelancer"),
+          isNull(jobs.deleted_at)
+        )
+      )
       .orderBy(desc(jobs.created_at));
 
     if (jobRows.length === 0) return [];
@@ -2418,17 +2501,38 @@ export class DatabaseStorage implements IStorage {
       console.log(
         `Auto-closed ${result.length} expired job(s): ${result.map((j) => j.id).join(", ")}`
       );
+      // Notify each closed job's applicants that it has closed (and that another
+      // candidate may have been chosen). Idempotent via closure_email_sent, so a
+      // job the daily cron also closes won't be emailed twice. Fire-and-forget so
+      // this never slows down job listing/search, which also triggers this path.
+      void import("./api/services/job-closure-email.service.js")
+        .then(({ sendJobClosureEmails }) => {
+          for (const j of result) {
+            sendJobClosureEmails(j.id).catch((err) =>
+              console.error(`Auto-close closure email error for job ${j.id}:`, err)
+            );
+          }
+        })
+        .catch((err) => console.error("Failed to load closure email service:", err));
     }
     return result.length;
   }
 
   async getJobById(jobId: number): Promise<Job | undefined> {
-    const result = await db.select().from(jobs).where(eq(jobs.id, jobId)).limit(1);
+    const result = await db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.id, jobId), isNull(jobs.deleted_at)))
+      .limit(1);
     return result[0];
   }
 
   async getJobBySlug(slug: string): Promise<Job | undefined> {
-    const result = await db.select().from(jobs).where(eq(jobs.slug, slug)).limit(1);
+    const result = await db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.slug, slug), isNull(jobs.deleted_at)))
+      .limit(1);
     return result[0];
   }
 
@@ -2456,7 +2560,9 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select()
       .from(jobs)
-      .where(and(ilike(jobs.title, `%${role}%`), eq(jobs.status, "active")))
+      .where(
+        and(ilike(jobs.title, `%${role}%`), eq(jobs.status, "active"), isNull(jobs.deleted_at))
+      )
       .orderBy(desc(jobs.created_at))
       .limit(limit);
     return result;
@@ -2466,7 +2572,9 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select()
       .from(jobs)
-      .where(and(ilike(jobs.location, `%${city}%`), eq(jobs.status, "active")))
+      .where(
+        and(ilike(jobs.location, `%${city}%`), eq(jobs.status, "active"), isNull(jobs.deleted_at))
+      )
       .orderBy(desc(jobs.created_at))
       .limit(limit);
     return result;
@@ -2533,6 +2641,20 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJob(jobId: number): Promise<void> {
     await db.delete(jobs).where(eq(jobs.id, jobId));
+
+    // Clear cached job and application lists
+    cache.clear();
+  }
+
+  // Soft delete: mark the job deleted and hide it from all listings, but keep
+  // the row so applicants retain their application history (a hard delete
+  // cascades job_applications away). Used for the employer/admin delete action;
+  // the hard deleteJob above stays for aggregator duplicate cleanup.
+  async softDeleteJob(jobId: number): Promise<void> {
+    await db
+      .update(jobs)
+      .set({ deleted_at: new Date(), status: "closed", updated_at: new Date() })
+      .where(eq(jobs.id, jobId));
 
     // Clear cached job and application lists
     cache.clear();
@@ -2623,6 +2745,9 @@ export class DatabaseStorage implements IStorage {
 
       // Build conditions array
       const conditions = [];
+
+      // Never show soft-deleted jobs
+      conditions.push(isNull(jobs.deleted_at));
 
       // Show active jobs + jobs closed within the last 24 hours
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -4199,7 +4324,7 @@ export class DatabaseStorage implements IStorage {
 
   async getFreelancerRatings(
     freelancerId: number
-  ): Promise<Array<Rating & { recruiter: User; job_title?: string }>> {
+  ): Promise<Array<Rating & { recruiter: PublicUserSummary; job_title?: string }>> {
     const result = await db
       .select({
         id: ratings.id,
@@ -4215,19 +4340,9 @@ export class DatabaseStorage implements IStorage {
         updated_at: ratings.updated_at,
         recruiter: {
           id: users.id,
-          email: users.email,
           role: users.role,
           first_name: users.first_name,
           last_name: users.last_name,
-          email_verified: users.email_verified,
-          email_verification_token: users.email_verification_token,
-          email_verification_expires: users.email_verification_expires,
-          password_reset_token: users.password_reset_token,
-          password_reset_expires: users.password_reset_expires,
-          created_at: users.created_at,
-          updated_at: users.updated_at,
-          password: users.password,
-          status: users.status,
         },
         job_title: jobs.title,
       })
@@ -4243,7 +4358,7 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(ratings.created_at));
 
-    return result as Array<Rating & { recruiter: User; job_title?: string }>;
+    return result as Array<Rating & { recruiter: PublicUserSummary; job_title?: string }>;
   }
 
   async updateRating(ratingId: number, updates: Partial<Rating>): Promise<Rating | undefined> {
@@ -4257,7 +4372,7 @@ export class DatabaseStorage implements IStorage {
 
   async getAllRatings(filters?: {
     status?: string;
-  }): Promise<Array<Rating & { recruiter: User; job_title?: string }>> {
+  }): Promise<Array<Rating & { recruiter: SafeUser; job_title?: string }>> {
     const conditions = [];
     if (filters?.status) {
       if (filters.status === "flagged") {
@@ -4287,13 +4402,8 @@ export class DatabaseStorage implements IStorage {
           first_name: users.first_name,
           last_name: users.last_name,
           email_verified: users.email_verified,
-          email_verification_token: users.email_verification_token,
-          email_verification_expires: users.email_verification_expires,
-          password_reset_token: users.password_reset_token,
-          password_reset_expires: users.password_reset_expires,
           created_at: users.created_at,
           updated_at: users.updated_at,
-          password: users.password,
           status: users.status,
         },
         job_title: jobs.title,
@@ -4431,7 +4541,7 @@ export class DatabaseStorage implements IStorage {
 
   async getRecruiterRatingRequests(
     recruiterId: number
-  ): Promise<Array<RatingRequest & { freelancer: User; job_title?: string }>> {
+  ): Promise<Array<RatingRequest & { freelancer: PublicUserSummary; job_title?: string }>> {
     const result = await db
       .select({
         id: rating_requests.id,
@@ -4445,18 +4555,9 @@ export class DatabaseStorage implements IStorage {
         updated_at: rating_requests.updated_at,
         freelancer: {
           id: users.id,
-          email: users.email,
           role: users.role,
           first_name: users.first_name,
           last_name: users.last_name,
-          email_verified: users.email_verified,
-          email_verification_token: users.email_verification_token,
-          email_verification_expires: users.email_verification_expires,
-          password_reset_token: users.password_reset_token,
-          password_reset_expires: users.password_reset_expires,
-          created_at: users.created_at,
-          updated_at: users.updated_at,
-          password: users.password,
         },
         job_title: jobs.title,
       })
@@ -4467,12 +4568,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(rating_requests.recruiter_id, recruiterId))
       .orderBy(desc(rating_requests.requested_at));
 
-    return result as Array<RatingRequest & { freelancer: User; job_title?: string }>;
+    return result as Array<RatingRequest & { freelancer: PublicUserSummary; job_title?: string }>;
   }
 
   async getFreelancerRatingRequests(
     freelancerId: number
-  ): Promise<Array<RatingRequest & { recruiter: User; job_title?: string }>> {
+  ): Promise<Array<RatingRequest & { recruiter: PublicUserSummary; job_title?: string }>> {
     const result = await db
       .select({
         id: rating_requests.id,
@@ -4486,18 +4587,9 @@ export class DatabaseStorage implements IStorage {
         updated_at: rating_requests.updated_at,
         recruiter: {
           id: users.id,
-          email: users.email,
           role: users.role,
           first_name: users.first_name,
           last_name: users.last_name,
-          email_verified: users.email_verified,
-          email_verification_token: users.email_verification_token,
-          email_verification_expires: users.email_verification_expires,
-          password_reset_token: users.password_reset_token,
-          password_reset_expires: users.password_reset_expires,
-          created_at: users.created_at,
-          updated_at: users.updated_at,
-          password: users.password,
         },
         job_title: jobs.title,
       })
@@ -4508,7 +4600,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(rating_requests.freelancer_id, freelancerId))
       .orderBy(desc(rating_requests.requested_at));
 
-    return result as Array<RatingRequest & { recruiter: User; job_title?: string }>;
+    return result as Array<RatingRequest & { recruiter: PublicUserSummary; job_title?: string }>;
   }
 
   async updateRatingRequestStatus(
@@ -4536,7 +4628,10 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getAllFeedback(status?: string, type?: string): Promise<Array<Feedback & { user?: User }>> {
+  async getAllFeedback(
+    status?: string,
+    type?: string
+  ): Promise<Array<Feedback & { user?: SafeUser }>> {
     const conditions = [];
 
     if (status && status !== "all") {
@@ -4571,13 +4666,8 @@ export class DatabaseStorage implements IStorage {
           first_name: users.first_name,
           last_name: users.last_name,
           email_verified: users.email_verified,
-          email_verification_token: users.email_verification_token,
-          email_verification_expires: users.email_verification_expires,
-          password_reset_token: users.password_reset_token,
-          password_reset_expires: users.password_reset_expires,
           created_at: users.created_at,
           updated_at: users.updated_at,
-          password: users.password,
           auth_provider: users.auth_provider,
           google_id: users.google_id,
           facebook_id: users.facebook_id,
@@ -4596,7 +4686,7 @@ export class DatabaseStorage implements IStorage {
 
     const result = await query.orderBy(desc(feedback.created_at));
 
-    return result as Array<Feedback & { user?: User }>;
+    return result as Array<Feedback & { user?: SafeUser }>;
   }
 
   async getFeedbackById(id: number): Promise<Feedback | undefined> {
@@ -4642,7 +4732,7 @@ export class DatabaseStorage implements IStorage {
 
   async getFeedbackByStatus(
     status: "pending" | "in_review" | "resolved" | "closed"
-  ): Promise<Array<Feedback & { user?: User }>> {
+  ): Promise<Array<Feedback & { user?: SafeUser }>> {
     const result = await db
       .select({
         id: feedback.id,
@@ -4667,13 +4757,8 @@ export class DatabaseStorage implements IStorage {
           first_name: users.first_name,
           last_name: users.last_name,
           email_verified: users.email_verified,
-          email_verification_token: users.email_verification_token,
-          email_verification_expires: users.email_verification_expires,
-          password_reset_token: users.password_reset_token,
-          password_reset_expires: users.password_reset_expires,
           created_at: users.created_at,
           updated_at: users.updated_at,
-          password: users.password,
           auth_provider: users.auth_provider,
           google_id: users.google_id,
           facebook_id: users.facebook_id,
@@ -4688,7 +4773,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(feedback.status, status))
       .orderBy(desc(feedback.created_at));
 
-    return result as Array<Feedback & { user?: User }>;
+    return result as Array<Feedback & { user?: SafeUser }>;
   }
 
   async getFeedbackStats(): Promise<{
@@ -5300,6 +5385,145 @@ export class DatabaseStorage implements IStorage {
       );
   }
 
+  // Credentials belonging to the freelancer that still need an expiry date (the
+  // backfill backlog). job_documents never need one, so they're excluded.
+  async getIncompleteCredentials(freelancerId: number): Promise<FreelancerDocument[]> {
+    const docs = await db
+      .select()
+      .from(freelancer_documents)
+      .where(
+        and(
+          eq(freelancer_documents.freelancer_id, freelancerId),
+          isNull(freelancer_documents.expiry_date),
+          isNull(freelancer_documents.archived_at)
+        )
+      )
+      .orderBy(desc(freelancer_documents.uploaded_at));
+    // Credentials still needing an expiry date — but not ones explicitly marked
+    // as never expiring (expiry_source "not_applicable"), which are complete.
+    return docs.filter(
+      (d) =>
+        DOCUMENT_TYPE_META[d.document_type].class === "credential" &&
+        d.expiry_source !== "not_applicable"
+    );
+  }
+
+  // Backfill: date an existing (already-uploaded) credential. Scoped to the owner.
+  async updateCredentialDates(
+    documentId: number,
+    freelancerId: number,
+    dates: { issue_date: string | null; expiry_date: string; expiry_source: "entered" | "derived" }
+  ): Promise<FreelancerDocument | undefined> {
+    const result = await db
+      .update(freelancer_documents)
+      .set({
+        issue_date: dates.issue_date,
+        expiry_date: dates.expiry_date,
+        expiry_source: dates.expiry_source,
+      })
+      .where(
+        and(
+          eq(freelancer_documents.id, documentId),
+          eq(freelancer_documents.freelancer_id, freelancerId)
+        )
+      )
+      .returning();
+    return result[0];
+  }
+
+  // Admin: every current (non-archived) document with its owner, for the admin
+  // documents view. Freelancer name/email included so the table needs no extra lookups.
+  async getAdminDocuments(): Promise<
+    Array<{
+      id: number;
+      freelancer_id: number;
+      freelancer_name: string;
+      freelancer_email: string;
+      document_type: string;
+      custom_type_name: string | null;
+      original_filename: string;
+      issue_date: string | null;
+      expiry_date: string | null;
+      expiry_source: string | null;
+      verification_status: string | null;
+      uploaded_at: Date;
+    }>
+  > {
+    const rows = await db
+      .select({
+        id: freelancer_documents.id,
+        freelancer_id: freelancer_documents.freelancer_id,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        email: users.email,
+        document_type: freelancer_documents.document_type,
+        custom_type_name: freelancer_documents.custom_type_name,
+        original_filename: freelancer_documents.original_filename,
+        issue_date: freelancer_documents.issue_date,
+        expiry_date: freelancer_documents.expiry_date,
+        expiry_source: freelancer_documents.expiry_source,
+        verification_status: freelancer_documents.verification_status,
+        uploaded_at: freelancer_documents.uploaded_at,
+      })
+      .from(freelancer_documents)
+      .innerJoin(users, eq(users.id, freelancer_documents.freelancer_id))
+      .where(isNull(freelancer_documents.archived_at))
+      .orderBy(desc(freelancer_documents.uploaded_at));
+
+    return rows.map((r) => ({
+      id: r.id,
+      freelancer_id: r.freelancer_id,
+      freelancer_name: [r.first_name, r.last_name].filter(Boolean).join(" ") || r.email,
+      freelancer_email: r.email,
+      document_type: r.document_type,
+      custom_type_name: r.custom_type_name,
+      original_filename: r.original_filename,
+      issue_date: r.issue_date,
+      expiry_date: r.expiry_date,
+      expiry_source: r.expiry_source,
+      verification_status: r.verification_status,
+      uploaded_at: r.uploaded_at,
+    }));
+  }
+
+  // Admin: set a document's dates regardless of owner (admins filling in gaps).
+  async adminSetDocumentDates(
+    documentId: number,
+    dates: {
+      issue_date: string | null;
+      expiry_date: string | null;
+      expiry_source: "entered" | "not_applicable";
+    }
+  ): Promise<FreelancerDocument | undefined> {
+    const [row] = await db
+      .update(freelancer_documents)
+      .set({
+        issue_date: dates.issue_date,
+        expiry_date: dates.expiry_date,
+        expiry_source: dates.expiry_source,
+      })
+      .where(eq(freelancer_documents.id, documentId))
+      .returning();
+    return row;
+  }
+
+  // Renewal: keep the old credential as history rather than deleting it.
+  async supersedeFreelancerDocument(
+    oldDocumentId: number,
+    newDocumentId: number,
+    freelancerId: number
+  ): Promise<void> {
+    await db
+      .update(freelancer_documents)
+      .set({ superseded_by_id: newDocumentId, archived_at: new Date() })
+      .where(
+        and(
+          eq(freelancer_documents.id, oldDocumentId),
+          eq(freelancer_documents.freelancer_id, freelancerId)
+        )
+      );
+  }
+
   clearCache(): void {
     console.log("🧹 Clearing server-side SimpleCache...");
     cache.clear();
@@ -5655,6 +5879,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(jobs.status, "active"),
+          isNull(jobs.deleted_at),
           eq(jobs.notification_batch_window as any, window),
           isNull(jobs.notification_sent_at as any),
           eq(jobs.is_urgent as any, false)
@@ -6168,7 +6393,11 @@ export class DatabaseStorage implements IStorage {
       .from(jobs)
       .leftJoin(users, eq(jobs.posted_by_user_id, users.id))
       .where(
-        and(eq(jobs.poster_type as any, "guest"), eq(jobs.moderation_status as any, "pending"))
+        and(
+          eq(jobs.poster_type as any, "guest"),
+          eq(jobs.moderation_status as any, "pending"),
+          isNull(jobs.deleted_at)
+        )
       )
       .orderBy(asc(jobs.created_at));
     return rows.map((r) => ({ ...r.job, contact_email: r.contact_email ?? null }));
