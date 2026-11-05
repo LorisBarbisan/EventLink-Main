@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -148,6 +149,27 @@ interface BillingProfile {
   payment_terms_days: number;
   invoice_prefix: string;
   invoice_footer_note: string | null;
+}
+
+interface HiredBooking {
+  booking: {
+    id: number;
+    jobId: number;
+    employerId: number;
+    status: string;
+    agreedRate: string | null;
+  };
+  job: {
+    id: number;
+    title: string;
+    eventDate: string | null;
+  };
+  employer: {
+    id: number;
+    firstName: string | null;
+    lastName: string | null;
+    companyName: string | null;
+  };
 }
 
 interface InvoicesSummary {
@@ -546,6 +568,14 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(
+    invoice.booking_id ?? null
+  );
+
+  const { data: hiredBookings = [] } = useQuery<HiredBooking[]>({
+    queryKey: ["/api/bookings/freelancer"],
+  });
+
   const [toDetails, setToDetails] = useState({
     name: invoice.to_details?.name ?? "",
     company: invoice.to_details?.company ?? "",
@@ -579,6 +609,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
       apiRequest(`/api/invoices/${invoice.id}`, {
         method: "PATCH",
         body: JSON.stringify({
+          booking_id: selectedBookingId,
           to_details: toDetails,
           line_items: lineItems,
           subtotal_pence: subtotalPence,
@@ -646,6 +677,52 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
         </DialogHeader>
 
         <div className="space-y-5 py-1">
+          {/* Link to booking */}
+          {invoice.status === "draft" && hiredBookings.length > 0 && (
+            <div>
+              <p className="mb-2 text-sm font-medium">Linked job</p>
+              <Select
+                value={selectedBookingId?.toString() ?? "none"}
+                onValueChange={(val) => {
+                  if (val === "none") {
+                    setSelectedBookingId(null);
+                    return;
+                  }
+                  const id = parseInt(val);
+                  setSelectedBookingId(id);
+                  const hit = hiredBookings.find((b) => b.booking.id === id);
+                  if (hit) {
+                    const name =
+                      `${hit.employer.firstName ?? ""} ${hit.employer.lastName ?? ""}`.trim();
+                    setToDetails((d) => ({
+                      ...d,
+                      name,
+                      company: hit.employer.companyName ?? "",
+                    }));
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a job to link…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— No job linked —</SelectItem>
+                  {hiredBookings.map((b) => (
+                    <SelectItem key={b.booking.id} value={b.booking.id.toString()}>
+                      {b.job.title}
+                      {b.employer.companyName ? ` · ${b.employer.companyName}` : ""}
+                      {b.job.eventDate ? ` (${b.job.eventDate.slice(0, 10)})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Linking a job lets you send this invoice directly to the employer via EventLink
+                messages.
+              </p>
+            </div>
+          )}
+
           {/* Client details */}
           <div>
             <p className="mb-2 text-sm font-medium">Bill to</p>
@@ -951,7 +1028,7 @@ function InvoiceRow({
               <Archive className="h-4 w-4" />
             </button>
           )}
-          {invoice.status === "draft" && invoice.booking_id && (
+          {invoice.status === "draft" && (
             <Button
               size="sm"
               variant="outline"
@@ -982,15 +1059,22 @@ function InvoiceRow({
 export function InvoicesTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [showBillingSetup, setShowBillingSetup] = useState(false);
   const [showBillingEdit, setShowBillingEdit] = useState(false);
   const [sendingInvoice, setSendingInvoice] = useState<Invoice | null>(null);
   const [sendMessage, setSendMessage] = useState("");
+  const [sendRecipientBookingId, setSendRecipientBookingId] = useState<number | null>(null);
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
+  });
+
+  const { data: hiredBookings = [] } = useQuery<HiredBooking[]>({
+    queryKey: ["/api/bookings/freelancer"],
+    enabled: !!user,
   });
 
   const { data: billingProfile } = useQuery<BillingProfile | null>({
@@ -1025,16 +1109,28 @@ export function InvoicesTab() {
   });
 
   const sendMutation = useMutation({
-    mutationFn: ({ id, message }: { id: number; message: string }) =>
+    mutationFn: ({
+      id,
+      message,
+      recipientUserId,
+    }: {
+      id: number;
+      message: string;
+      recipientUserId?: number;
+    }) =>
       apiRequest(`/api/invoices/${id}/send-message`, {
         method: "POST",
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message,
+          ...(recipientUserId ? { recipient_user_id: recipientUserId } : {}),
+        }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       toast({ title: "Invoice sent via message" });
       setSendingInvoice(null);
       setSendMessage("");
+      setSendRecipientBookingId(null);
     },
     onError: () => toast({ title: "Failed to send invoice", variant: "destructive" }),
   });
@@ -1255,6 +1351,7 @@ export function InvoicesTab() {
                   onSend={(inv) => {
                     setSendingInvoice(inv);
                     setSendMessage("");
+                    setSendRecipientBookingId(null);
                   }}
                 />
               ))}
@@ -1353,7 +1450,15 @@ export function InvoicesTab() {
       )}
 
       {/* Send via message dialog */}
-      <Dialog open={!!sendingInvoice} onOpenChange={(o) => !o && setSendingInvoice(null)}>
+      <Dialog
+        open={!!sendingInvoice}
+        onOpenChange={(o) => {
+          if (!o) {
+            setSendingInvoice(null);
+            setSendRecipientBookingId(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Send invoice via message</DialogTitle>
@@ -1364,6 +1469,27 @@ export function InvoicesTab() {
               <span className="font-mono font-medium">{sendingInvoice?.invoice_number}</span> will
               be attached as a PDF in your conversation with the client.
             </p>
+            {!sendingInvoice?.booking_id && (
+              <div className="space-y-1">
+                <Label>Send to</Label>
+                <Select
+                  value={sendRecipientBookingId?.toString() ?? ""}
+                  onValueChange={(val) => setSendRecipientBookingId(parseInt(val))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a job / employer…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hiredBookings.map((b) => (
+                      <SelectItem key={b.booking.id} value={b.booking.id.toString()}>
+                        {b.job.title}
+                        {b.employer.companyName ? ` · ${b.employer.companyName}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1">
               <Label htmlFor="send-msg">Covering note</Label>
               <Textarea
@@ -1376,15 +1502,33 @@ export function InvoicesTab() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSendingInvoice(null)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSendingInvoice(null);
+                setSendRecipientBookingId(null);
+              }}
+            >
               Cancel
             </Button>
             <Button
-              disabled={!sendMessage.trim() || sendMutation.isPending}
-              onClick={() =>
-                sendingInvoice &&
-                sendMutation.mutate({ id: sendingInvoice.id, message: sendMessage })
+              disabled={
+                !sendMessage.trim() ||
+                sendMutation.isPending ||
+                (!sendingInvoice?.booking_id && !sendRecipientBookingId)
               }
+              onClick={() => {
+                if (!sendingInvoice) return;
+                const recipientUserId = sendingInvoice.booking_id
+                  ? undefined
+                  : hiredBookings.find((b) => b.booking.id === sendRecipientBookingId)?.booking
+                      .employerId;
+                sendMutation.mutate({
+                  id: sendingInvoice.id,
+                  message: sendMessage,
+                  recipientUserId,
+                });
+              }}
             >
               <Send className="mr-2 h-4 w-4" />
               Send

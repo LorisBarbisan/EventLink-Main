@@ -174,7 +174,12 @@ export async function backfillEarningsForFreelancer(
     })
     .from(bookings)
     .innerJoin(jobs, eq(bookings.jobId, jobs.id))
-    .where(and(eq(bookings.freelancerId, freelancerId), inArray(bookings.status, ["completed"])));
+    .where(
+      and(
+        eq(bookings.freelancerId, freelancerId),
+        inArray(bookings.status, ["completed", "confirmed"])
+      )
+    );
 
   for (const { booking, job } of completedBookings) {
     const existing = await storage.getEarningsEntryByBooking(booking.id);

@@ -321,6 +321,7 @@ export async function updateInvoice(req: Request, res: Response) {
       });
 
     const {
+      booking_id,
       from_details,
       to_details,
       line_items,
@@ -333,6 +334,8 @@ export async function updateInvoice(req: Request, res: Response) {
       notes,
     } = req.body;
     const updates: any = {};
+    if (booking_id !== undefined)
+      updates.booking_id = booking_id === null ? null : Number(booking_id);
     if (from_details !== undefined) updates.from_details = from_details;
     if (to_details !== undefined) updates.to_details = to_details;
     if (line_items !== undefined) updates.line_items = line_items;
