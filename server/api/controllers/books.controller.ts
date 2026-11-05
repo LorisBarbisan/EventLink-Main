@@ -122,6 +122,86 @@ export async function booksExport(req: Request, res: Response) {
   return res.send(csv);
 }
 
+// ── Monthly breakdown (for charts) ───────────────────────────────────────────
+
+export async function booksMonthly(req: Request, res: Response) {
+  const freelancerId = req.user!.id;
+  const { from, to } = taxYearParams(req);
+
+  const [earningsGroups, expensesRaw, mileageTrips] = await Promise.all([
+    storage.earningsSummary(freelancerId, { basis: "cash", from, to, groupBy: "month" }),
+    storage.listExpensesForExport(freelancerId, from, to),
+    storage.listMileageTrips(freelancerId, from, to),
+  ]);
+
+  // Build month buckets from from/to range
+  const months: string[] = [];
+  const cur = new Date(from + "T00:00:00Z");
+  const end = new Date(to + "T00:00:00Z");
+  while (cur <= end) {
+    months.push(cur.toISOString().slice(0, 7));
+    cur.setUTCMonth(cur.getUTCMonth() + 1);
+  }
+
+  // Earnings per month from the grouped summary
+  const earningsMap: Record<string, number> = {};
+  for (const g of earningsGroups.groups ?? []) {
+    earningsMap[g.label] = g.total_pence;
+  }
+
+  // Expenses per month
+  const expensesMap: Record<string, number> = {};
+  for (const e of expensesRaw) {
+    const m = e.expense_date.slice(0, 7);
+    const total = e.net_amount_pence + e.vat_amount_pence;
+    const allowable = Math.round((total * e.business_use_percent) / 100);
+    expensesMap[m] = (expensesMap[m] ?? 0) + allowable;
+  }
+
+  // Mileage per month
+  const mileageMap: Record<string, number> = {};
+  for (const t of mileageTrips) {
+    const m = t.trip_date.slice(0, 7);
+    mileageMap[m] = (mileageMap[m] ?? 0) + t.amount_pence;
+  }
+
+  const rows = months.map((m) => {
+    const earnings = earningsMap[m] ?? 0;
+    const expenses = (expensesMap[m] ?? 0) + (mileageMap[m] ?? 0);
+    return {
+      month: m,
+      earnings_pence: earnings,
+      expenses_pence: expenses,
+      profit_pence: earnings - expenses,
+    };
+  });
+
+  return res.json({ from, to, months: rows });
+}
+
+// ── Expense category breakdown (for donut chart) ──────────────────────────────
+
+export async function booksExpenseCategories(req: Request, res: Response) {
+  const freelancerId = req.user!.id;
+  const { from, to } = taxYearParams(req);
+
+  const expensesRaw = await storage.listExpensesForExport(freelancerId, from, to);
+
+  const catMap: Record<string, number> = {};
+  for (const e of expensesRaw) {
+    const cat = e.category_name ?? "Other";
+    const total = e.net_amount_pence + e.vat_amount_pence;
+    const allowable = Math.round((total * e.business_use_percent) / 100);
+    catMap[cat] = (catMap[cat] ?? 0) + allowable;
+  }
+
+  const categories = Object.entries(catMap)
+    .map(([name, pence]) => ({ name, pence }))
+    .sort((a, b) => b.pence - a.pence);
+
+  return res.json(categories);
+}
+
 // ── Tax estimate ──────────────────────────────────────────────────────────────
 
 export async function taxEstimate(req: Request, res: Response) {

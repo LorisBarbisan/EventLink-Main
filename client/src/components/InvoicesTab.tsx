@@ -140,6 +140,7 @@ interface BillingProfile {
   company_number: string | null;
   vat_registered: boolean;
   vat_number: string | null;
+  logo_url: string | null;
   bank_account_name: string | null;
   bank_sort_code: string | null;
   bank_account_number: string | null;
@@ -205,6 +206,7 @@ const EMPTY_BILLING_FORM = {
   company_number: "",
   vat_registered: "false",
   vat_number: "",
+  logo_url: "",
   bank_account_name: "",
   bank_sort_code: "",
   bank_account_number: "",
@@ -245,6 +247,7 @@ function BillingProfileModal({
         company_number: existing.company_number ?? "",
         vat_registered: existing.vat_registered ? "true" : "false",
         vat_number: existing.vat_number ?? "",
+        logo_url: existing.logo_url ?? "",
         bank_account_name: existing.bank_account_name ?? "",
         bank_sort_code: existing.bank_sort_code ?? "",
         bank_account_number: existing.bank_account_number ?? "",
@@ -265,6 +268,7 @@ function BillingProfileModal({
           payment_terms_days: parseInt(form.payment_terms_days) || 30,
           vat_registered: form.vat_registered === "true",
           vat_number: form.vat_number || null,
+          logo_url: form.logo_url || null,
           invoice_footer_note: form.invoice_footer_note || null,
         }),
       }),
@@ -488,6 +492,29 @@ function BillingProfileModal({
                 max={365}
               />
             </div>
+          </div>
+          <div>
+            <Label>Logo URL</Label>
+            <Input
+              value={form.logo_url}
+              onChange={(e) => set("logo_url", e.target.value)}
+              placeholder="https://example.com/logo.png"
+              type="url"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Optional. Paste a direct link to your logo image — it will appear at the top of your
+              invoices and templates.
+            </p>
+            {form.logo_url && (
+              <img
+                src={form.logo_url}
+                alt="Logo preview"
+                className="mt-2 max-h-12 rounded border border-border object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            )}
           </div>
           <div>
             <Label>Footer note</Label>
@@ -999,7 +1026,10 @@ export function InvoicesTab() {
 
   const sendMutation = useMutation({
     mutationFn: ({ id, message }: { id: number; message: string }) =>
-      apiRequest(`/api/invoices/${id}/send-message`, { method: "POST", body: { message } }),
+      apiRequest(`/api/invoices/${id}/send-message`, {
+        method: "POST",
+        body: JSON.stringify({ message }),
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       toast({ title: "Invoice sent via message" });

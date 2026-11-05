@@ -1,4 +1,16 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +39,7 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   AlertCircle,
   BookOpen,
+  Briefcase,
   Camera,
   CheckCircle,
   ChevronDown,
@@ -34,6 +47,7 @@ import {
   ImageIcon,
   MapPin,
   Navigation,
+  PoundSterling,
   TrendingUp,
   RefreshCw,
   Download,
@@ -1891,6 +1905,13 @@ interface BooksSummary {
   mileage_trip_count: number;
 }
 
+interface MonthlyRow {
+  month: string;
+  earnings_pence: number;
+  expenses_pence: number;
+  profit_pence: number;
+}
+
 interface TaxBand {
   label: string;
   ratePct: number;
@@ -1909,30 +1930,72 @@ interface TaxEstimateData {
   effectiveRatePct: number;
 }
 
+const DONUT_COLORS = [
+  "#3B82F6",
+  "#F59E0B",
+  "#8B5CF6",
+  "#10B981",
+  "#EF4444",
+  "#0EA5E9",
+  "#F97316",
+  "#6366F1",
+];
+
+function fmtMonth(yyyymm: string): string {
+  const [y, m] = yyyymm.split("-");
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  return `${months[parseInt(m) - 1]} '${y.slice(2)}`;
+}
+
+function PenceTick({ pence }: { pence: number }) {
+  const v = pence / 100;
+  if (Math.abs(v) >= 1000) return `£${(v / 1000).toFixed(1)}k`;
+  return `£${v.toFixed(0)}`;
+}
+
 function OverviewSection() {
+  const authHeaders = (): HeadersInit => {
+    const token = localStorage.getItem("auth_token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const { data, isLoading } = useQuery<BooksSummary>({
     queryKey: ["/api/books/summary"],
-    queryFn: () => {
-      const token = localStorage.getItem("auth_token");
-      return fetch("/api/books/summary", {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      }).then((r) => r.json());
-    },
+    queryFn: () => fetch("/api/books/summary", { headers: authHeaders() }).then((r) => r.json()),
+  });
+
+  const { data: monthlyData } = useQuery<{ months: MonthlyRow[] }>({
+    queryKey: ["/api/books/monthly"],
+    queryFn: () => fetch("/api/books/monthly", { headers: authHeaders() }).then((r) => r.json()),
+  });
+
+  const { data: catData } = useQuery<{ name: string; pence: number }[]>({
+    queryKey: ["/api/books/expense-categories"],
+    queryFn: () =>
+      fetch("/api/books/expense-categories", { headers: authHeaders() }).then((r) => r.json()),
   });
 
   const { data: taxData } = useQuery<TaxEstimateData>({
     queryKey: ["/api/books/tax-estimate"],
-    queryFn: () => {
-      const token = localStorage.getItem("auth_token");
-      return fetch("/api/books/tax-estimate", {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      }).then((r) => r.json());
-    },
+    queryFn: () =>
+      fetch("/api/books/tax-estimate", { headers: authHeaders() }).then((r) => r.json()),
   });
 
   function downloadWithAuth(url: string, filename: string) {
-    const token = localStorage.getItem("auth_token");
-    fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    fetch(url, { headers: authHeaders() })
       .then((r) => r.blob())
       .then((blob) => {
         const objUrl = URL.createObjectURL(blob);
@@ -1944,17 +2007,16 @@ function OverviewSection() {
       });
   }
 
-  const handleExport = () => downloadWithAuth("/api/books/export", "books-export.csv");
-
   if (isLoading) {
     return (
       <div className="animate-pulse space-y-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 rounded-xl bg-muted" />
+            <div key={i} className="h-20 rounded-xl bg-muted" />
           ))}
         </div>
-        <div className="h-40 rounded-xl bg-muted" />
+        <div className="h-56 rounded-xl bg-muted" />
+        <div className="h-48 rounded-xl bg-muted" />
       </div>
     );
   }
@@ -1967,6 +2029,28 @@ function OverviewSection() {
 
   const profitPositive = data.net_profit_pence >= 0;
 
+  // Chart-ready monthly data
+  const chartMonths = (monthlyData?.months ?? []).map((r) => ({
+    name: fmtMonth(r.month),
+    Earnings: r.earnings_pence / 100,
+    Expenses: r.expenses_pence / 100,
+    Profit: r.profit_pence / 100,
+  }));
+
+  // Top expense categories for donut (max 6 + "Other")
+  const rawCats = catData ?? [];
+  const topCats = rawCats.slice(0, 6);
+  const otherPence = rawCats.slice(6).reduce((s, c) => s + c.pence, 0);
+  const donutData =
+    topCats.length === 0
+      ? []
+      : [
+          ...topCats.map((c) => ({ name: c.name, value: c.pence / 100 })),
+          ...(otherPence > 0 ? [{ name: "Other", value: otherPence / 100 }] : []),
+        ];
+
+  const totalExpenses = data.expense_allowable_pence + data.mileage_pence;
+
   return (
     <div className="space-y-4">
       {/* ── Period label + export ── */}
@@ -1974,206 +2058,225 @@ function OverviewSection() {
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {fmtDate(data.from)} – {fmtDate(data.to)} · cash basis
         </p>
-        <Button size="sm" variant="outline" onClick={handleExport}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => downloadWithAuth("/api/books/export", "books-export.xlsx")}
+        >
           <Download className="mr-1 h-3.5 w-3.5" />
-          Export CSV
+          Export
         </Button>
       </div>
 
-      {/* ── Big stat tiles ── */}
+      {/* ── Stat tiles ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {/* Earnings — blue */}
         <div className="rounded-xl bg-blue-50 p-4 dark:bg-blue-950/40">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
             Earnings
           </p>
-          <p className="text-2xl font-bold tabular-nums text-blue-700 dark:text-blue-300">
+          <p className="text-xl font-bold tabular-nums text-blue-700 dark:text-blue-300">
             {formatPence(data.earnings_pence)}
           </p>
-          <p className="mt-1 text-xs text-blue-500 dark:text-blue-500">
+          <p className="mt-0.5 text-xs text-blue-500">
             {data.entry_count} {data.entry_count === 1 ? "entry" : "entries"}
           </p>
         </div>
-
-        {/* Expenses — amber */}
         <div className="rounded-xl bg-amber-50 p-4 dark:bg-amber-950/40">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
             Expenses
           </p>
-          <p className="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-300">
-            {formatPence(data.expense_allowable_pence)}
+          <p className="text-xl font-bold tabular-nums text-amber-700 dark:text-amber-300">
+            {formatPence(totalExpenses)}
           </p>
-          <p className="mt-1 text-xs text-amber-500">
-            {data.expense_count} {data.expense_count === 1 ? "expense" : "expenses"}
-          </p>
-        </div>
-
-        {/* Mileage — purple */}
-        <div className="rounded-xl bg-purple-50 p-4 dark:bg-purple-950/40">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400">
-            Mileage
-          </p>
-          <p className="text-2xl font-bold tabular-nums text-purple-700 dark:text-purple-300">
-            {formatPence(data.mileage_pence)}
-          </p>
-          <p className="mt-1 text-xs text-purple-500">
-            {data.mileage_trip_count} {data.mileage_trip_count === 1 ? "trip" : "trips"}
+          <p className="mt-0.5 text-xs text-amber-500">
+            {data.expense_count} {data.expense_count === 1 ? "expense" : "expenses"} +{" "}
+            {data.mileage_trip_count} trips
           </p>
         </div>
-
-        {/* Net profit — green or red */}
         <div
-          className={`rounded-xl p-4 ${
-            profitPositive ? "bg-green-50 dark:bg-green-950/40" : "bg-red-50 dark:bg-red-950/40"
-          }`}
+          className={`rounded-xl p-4 ${profitPositive ? "bg-green-50 dark:bg-green-950/40" : "bg-red-50 dark:bg-red-950/40"}`}
         >
           <p
-            className={`mb-1 text-xs font-semibold uppercase tracking-wide ${
-              profitPositive
-                ? "text-green-600 dark:text-green-400"
-                : "text-red-600 dark:text-red-400"
-            }`}
+            className={`mb-1 text-xs font-semibold uppercase tracking-wide ${profitPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
           >
             Net profit
           </p>
           <p
-            className={`text-2xl font-bold tabular-nums ${
-              profitPositive
-                ? "text-green-700 dark:text-green-300"
-                : "text-red-700 dark:text-red-300"
-            }`}
+            className={`text-xl font-bold tabular-nums ${profitPositive ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}
           >
             {formatPence(data.net_profit_pence)}
           </p>
-          <p className={`mt-1 text-xs ${profitPositive ? "text-green-500" : "text-red-400"}`}>
+          <p className={`mt-0.5 text-xs ${profitPositive ? "text-green-500" : "text-red-400"}`}>
             after deductions
           </p>
         </div>
-      </div>
-
-      {/* ── Breakdown rows ── */}
-      <Card className="overflow-hidden">
-        <div className="border-l-4 border-blue-500 bg-blue-50/40 px-5 py-3 dark:bg-blue-950/20">
-          <div className="flex items-baseline justify-between">
-            <div>
-              <p className="font-semibold">Gross earnings</p>
-              <p className="text-xs text-muted-foreground">
-                {data.entry_count} {data.entry_count === 1 ? "entry" : "entries"}
-              </p>
-            </div>
-            <span className="text-lg font-bold tabular-nums text-blue-700 dark:text-blue-300">
-              {formatPence(data.earnings_pence)}
-            </span>
-          </div>
-        </div>
-        <div className="border-l-4 border-amber-400 bg-amber-50/40 px-5 py-3 dark:bg-amber-950/20">
-          <div className="flex items-baseline justify-between">
-            <div>
-              <p className="font-semibold">Allowable expenses</p>
-              <p className="text-xs text-muted-foreground">
-                {data.expense_count} {data.expense_count === 1 ? "expense" : "expenses"}
-              </p>
-            </div>
-            <span className="text-lg font-bold tabular-nums text-amber-700 dark:text-amber-300">
-              −{formatPence(data.expense_allowable_pence)}
-            </span>
-          </div>
-        </div>
-        <div className="border-l-4 border-purple-400 bg-purple-50/40 px-5 py-3 dark:bg-purple-950/20">
-          <div className="flex items-baseline justify-between">
-            <div>
-              <p className="font-semibold">Mileage allowance</p>
-              <p className="text-xs text-muted-foreground">
-                {data.mileage_trip_count} {data.mileage_trip_count === 1 ? "trip" : "trips"}
-              </p>
-            </div>
-            <span className="text-lg font-bold tabular-nums text-purple-700 dark:text-purple-300">
-              −{formatPence(data.mileage_pence)}
-            </span>
-          </div>
-        </div>
-        <div
-          className={`border-l-4 px-5 py-4 ${
-            profitPositive
-              ? "border-green-500 bg-green-50/60 dark:bg-green-950/30"
-              : "border-red-500 bg-red-50/60 dark:bg-red-950/30"
-          }`}
-        >
-          <div className="flex items-baseline justify-between">
-            <p className="text-base font-bold">Net profit</p>
-            <span
-              className={`text-xl font-bold tabular-nums ${
-                profitPositive
-                  ? "text-green-700 dark:text-green-300"
-                  : "text-red-700 dark:text-red-300"
-              }`}
-            >
-              {formatPence(data.net_profit_pence)}
-            </span>
-          </div>
-        </div>
-      </Card>
-
-      {/* ── Tax estimate ── */}
-      {taxData && (
-        <Card className="overflow-hidden">
-          <div className="bg-slate-800 px-5 py-3 dark:bg-slate-900">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-orange-400" />
-              <p className="font-semibold text-white">Tax estimate — {taxData.taxYearLabel}</p>
-            </div>
+        {taxData && (
+          <div className="rounded-xl bg-slate-800 p-4 dark:bg-slate-900">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-orange-400">
+              Est. tax &amp; NI
+            </p>
+            <p className="text-xl font-bold tabular-nums text-red-300">
+              {formatPence(taxData.totalTaxPence)}
+            </p>
             <p className="mt-0.5 text-xs text-slate-400">
-              Rough guide only · UK rates · no other income assumed · consult your accountant
+              Take-home ~{formatPence(taxData.netProfitPence - taxData.totalTaxPence)}
             </p>
           </div>
-          <CardContent className="p-0">
-            {[...taxData.incomeTaxBands, ...taxData.niBands].map((b, i) => (
-              <div
-                key={i}
-                className="flex items-baseline justify-between border-b px-5 py-2.5 last:border-0"
-              >
-                <p className="text-sm text-muted-foreground">{b.label}</p>
-                <span className="text-sm tabular-nums">{formatPence(b.taxPence)}</span>
-              </div>
-            ))}
-            <div className="flex items-baseline justify-between border-t-2 bg-slate-50 px-5 py-3 dark:bg-slate-900/40">
-              <div>
-                <p className="font-semibold">Estimated tax &amp; NI</p>
-                <p className="text-xs text-muted-foreground">
-                  Effective rate {taxData.effectiveRatePct}%
-                </p>
-              </div>
-              <span className="text-lg font-bold tabular-nums text-red-600 dark:text-red-400">
-                {formatPence(taxData.totalTaxPence)}
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between bg-green-50 px-5 py-3 dark:bg-green-950/30">
-              <p className="font-semibold">Take-home estimate</p>
-              <span className="text-lg font-bold tabular-nums text-green-700 dark:text-green-300">
-                {formatPence(taxData.netProfitPence - taxData.totalTaxPence)}
-              </span>
-            </div>
+        )}
+      </div>
+
+      {/* ── P&L bar chart ── */}
+      {chartMonths.length > 0 && (
+        <Card className="overflow-hidden">
+          <div className="border-l-4 border-blue-500 bg-blue-50/30 px-5 py-3 dark:bg-blue-950/20">
+            <p className="font-semibold">Profit &amp; Loss — monthly</p>
+            <p className="text-xs text-muted-foreground">Income vs deductions each month</p>
+          </div>
+          <CardContent className="px-2 pb-4 pt-4">
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={chartMonths} barGap={2} barCategoryGap="28%">
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 10, fill: "#6B7280" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tickFormatter={(v) => PenceTick({ pence: v * 100 })}
+                  tick={{ fontSize: 10, fill: "#6B7280" }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={48}
+                />
+                <Tooltip
+                  formatter={(v: number, name: string) => [`£${v.toFixed(2)}`, name]}
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #E5E7EB" }}
+                />
+                <Bar dataKey="Earnings" fill="#3B82F6" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="Expenses" fill="#F59E0B" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="Profit" fill="#10B981" radius={[3, 3, 0, 0]} />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       )}
 
-      {/* ── Year-end pack ── */}
+      {/* ── Expense donut + breakdown ── */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {donutData.length > 0 && (
+          <Card className="overflow-hidden">
+            <div className="border-l-4 border-amber-400 bg-amber-50/30 px-5 py-3 dark:bg-amber-950/20">
+              <p className="font-semibold">Expenses by category</p>
+            </div>
+            <CardContent className="flex items-center justify-center pb-4 pt-4">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={donutData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={52}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {donutData.map((_, i) => (
+                      <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(v: number) => [`£${v.toFixed(2)}`]}
+                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                  />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* P&L summary */}
+        <Card className="overflow-hidden">
+          <div className="border-l-4 border-green-500 bg-green-50/30 px-5 py-3 dark:bg-green-950/20">
+            <p className="font-semibold">Summary</p>
+          </div>
+          <CardContent className="p-0">
+            <div className="flex items-baseline justify-between border-l-4 border-blue-500 px-5 py-2.5">
+              <p className="text-sm">Gross earnings</p>
+              <span className="font-semibold tabular-nums text-blue-700 dark:text-blue-300">
+                {formatPence(data.earnings_pence)}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between border-l-4 border-amber-400 px-5 py-2.5">
+              <p className="text-sm">Allowable expenses</p>
+              <span className="font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                −{formatPence(data.expense_allowable_pence)}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between border-l-4 border-purple-400 px-5 py-2.5">
+              <p className="text-sm">Mileage allowance</p>
+              <span className="font-semibold tabular-nums text-purple-700 dark:text-purple-300">
+                −{formatPence(data.mileage_pence)}
+              </span>
+            </div>
+            <div
+              className={`flex items-baseline justify-between border-l-4 px-5 py-3 ${profitPositive ? "border-green-500 bg-green-50/60 dark:bg-green-950/30" : "border-red-500 bg-red-50/60 dark:bg-red-950/30"}`}
+            >
+              <p className="font-bold">Net profit</p>
+              <span
+                className={`text-lg font-bold tabular-nums ${profitPositive ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}
+              >
+                {formatPence(data.net_profit_pence)}
+              </span>
+            </div>
+            {taxData && (
+              <>
+                <div className="flex items-baseline justify-between bg-slate-50 px-5 py-2.5 dark:bg-slate-900/40">
+                  <p className="text-sm text-muted-foreground">
+                    Est. tax &amp; NI ({taxData.effectiveRatePct}%)
+                  </p>
+                  <span className="font-semibold tabular-nums text-red-600 dark:text-red-400">
+                    −{formatPence(taxData.totalTaxPence)}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between bg-green-50 px-5 py-3 dark:bg-green-950/30">
+                  <p className="font-semibold">Est. take-home</p>
+                  <span className="text-lg font-bold tabular-nums text-green-700 dark:text-green-300">
+                    {formatPence(taxData.netProfitPence - taxData.totalTaxPence)}
+                  </span>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Year-end downloads ── */}
       <Card className="overflow-hidden">
         <div className="border-l-4 border-orange-400 bg-orange-50/50 px-5 py-3 dark:bg-orange-950/20">
           <p className="font-semibold">Year-end pack</p>
           <p className="text-xs text-muted-foreground">
-            Download all records for your accountant or self-assessment return.
+            Download all records for your accountant or self-assessment.
           </p>
         </div>
         <CardContent className="flex flex-wrap gap-2 py-3">
-          <Button size="sm" variant="outline" onClick={handleExport}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => downloadWithAuth("/api/books/export", "books-export.xlsx")}
+          >
             <Download className="mr-1 h-3.5 w-3.5" />
-            Expenses &amp; mileage CSV
+            Expenses &amp; mileage
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => downloadWithAuth("/api/expenses/export", "expenses.csv")}
+            onClick={() => downloadWithAuth("/api/expenses/export", "expenses.xlsx")}
           >
             <Download className="mr-1 h-3.5 w-3.5" />
             Expenses only
@@ -2230,6 +2333,16 @@ export function BooksTab() {
 
   const unloggedBookings = allBookings.filter(
     (b: any) => !b.earnings_entry_id && b.event_date && new Date(b.event_date) < new Date()
+  );
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // All hired bookings not yet logged — split into upcoming (future) and awaiting payment (past)
+  const upcomingHired = allBookings.filter(
+    (b: any) => !b.earnings_entry_id && (!b.event_date || new Date(b.event_date) >= today)
+  );
+  const awaitingPaymentHired = allBookings.filter(
+    (b: any) => !b.earnings_entry_id && b.event_date && new Date(b.event_date) < today
   );
 
   const archiveMutation = useMutation({
@@ -2476,7 +2589,83 @@ export function BooksTab() {
         </CardContent>
       </Card>
 
-      {/* ── Section 2: Owed to me ── */}
+      {/* ── Section 2: Booked jobs ── */}
+      {(upcomingHired.length > 0 || awaitingPaymentHired.length > 0) && (
+        <Card className="overflow-hidden">
+          <div className="border-l-4 border-indigo-500 bg-indigo-50/40 px-5 py-3 dark:bg-indigo-950/20">
+            <div className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-indigo-600" />
+              <p className="font-semibold">Booked jobs</p>
+              <span className="rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-bold text-white">
+                {upcomingHired.length + awaitingPaymentHired.length}
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Jobs you&apos;re hired for — log payment when money arrives
+            </p>
+          </div>
+          <CardContent className="p-0">
+            {awaitingPaymentHired.length > 0 && (
+              <div>
+                <div className="bg-amber-50/60 px-5 py-1.5 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-950/20 dark:text-amber-400">
+                  Awaiting payment
+                </div>
+                {awaitingPaymentHired.map((b: any, i: number) => (
+                  <div
+                    key={b.id}
+                    className={`flex items-center justify-between px-5 py-3 ${i % 2 === 0 ? "bg-amber-50/20 dark:bg-amber-950/10" : ""}`}
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{b.job_title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {b.company_name ? `${b.company_name} · ` : ""}
+                        {b.event_date ? fmtDate(b.event_date) : ""}
+                        {b.rate ? ` · ${b.rate}` : ""}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
+                      onClick={() => openFromBooking(b)}
+                    >
+                      <PoundSterling className="mr-1 h-3 w-3" />
+                      Log payment
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {upcomingHired.length > 0 && (
+              <div>
+                <div className="bg-green-50/60 px-5 py-1.5 text-xs font-semibold uppercase tracking-wide text-green-700 dark:bg-green-950/20 dark:text-green-400">
+                  Upcoming
+                </div>
+                {upcomingHired.map((b: any, i: number) => (
+                  <div
+                    key={b.id}
+                    className={`flex items-center justify-between px-5 py-3 ${i % 2 === 0 ? "bg-green-50/20 dark:bg-green-950/10" : ""}`}
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{b.job_title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {b.company_name ? `${b.company_name} · ` : ""}
+                        {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
+                        {b.rate ? ` · ${b.rate}` : ""}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      Confirmed
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Section 3: Owed to me ── */}
       <Card className="overflow-hidden">
         <div className="border-l-4 border-orange-400 bg-orange-50/60 px-5 py-3 dark:bg-orange-950/20">
           <div className="flex items-center gap-2">
@@ -2519,7 +2708,7 @@ export function BooksTab() {
         </CardContent>
       </Card>
 
-      {/* ── Section 3: Full log ── */}
+      {/* ── Section 4: Full log ── */}
       <Card className="overflow-hidden">
         <div className="border-l-4 border-blue-500 bg-blue-50/40 px-5 py-3 dark:bg-blue-950/20">
           <div className="flex items-center justify-between gap-2">

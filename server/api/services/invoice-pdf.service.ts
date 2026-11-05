@@ -1,6 +1,31 @@
 import PDFDocument from "pdfkit";
+import https from "https";
+import http from "http";
 import type { Invoice, FreelancerBillingProfile } from "@shared/schema";
 import { ObjectStorageService } from "../utils/object-storage";
+
+async function fetchImageBuffer(url: string): Promise<Buffer | null> {
+  try {
+    const parsed = new URL(url);
+    const lib = parsed.protocol === "https:" ? https : http;
+    return await new Promise<Buffer>((resolve, reject) => {
+      lib
+        .get(url, (res) => {
+          if (!res.statusCode || res.statusCode >= 400) {
+            reject(new Error(`HTTP ${res.statusCode}`));
+            return;
+          }
+          const chunks: Buffer[] = [];
+          res.on("data", (c: Buffer) => chunks.push(c));
+          res.on("end", () => resolve(Buffer.concat(chunks)));
+          res.on("error", reject);
+        })
+        .on("error", reject);
+    });
+  } catch {
+    return null;
+  }
+}
 
 export interface InvoiceRenderData {
   invoice: Invoice;
@@ -13,6 +38,10 @@ const ACCENT = "#1B2A4A";
 const LINE = "#E5E7EB";
 
 export async function renderInvoicePDF(data: InvoiceRenderData): Promise<Buffer> {
+  const logoBuffer = data.billingProfile.logo_url
+    ? await fetchImageBuffer(data.billingProfile.logo_url)
+    : null;
+
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: 60, bufferPages: true });
     const chunks: Buffer[] = [];
@@ -31,6 +60,16 @@ export async function renderInvoicePDF(data: InvoiceRenderData): Promise<Buffer>
     const R = doc.page.width - 60; // right margin
     const W = R - L;
     let y = 60;
+
+    // ── Logo (if set) ─────────────────────────────────────────────────────────
+    if (logoBuffer) {
+      try {
+        doc.image(logoBuffer, L, y, { height: 40, fit: [200, 40] });
+        y += 52;
+      } catch {
+        // logo failed to render — continue without it
+      }
+    }
 
     // ── Title + invoice number ─────────────────────────────────────────────────
     doc.font("Helvetica-Bold").fontSize(28).fillColor(ACCENT).text("Invoice", L, y);
@@ -237,6 +276,10 @@ export async function renderInvoicePDF(data: InvoiceRenderData): Promise<Buffer>
 export async function renderBlankTemplatePDF(
   billingProfile: FreelancerBillingProfile
 ): Promise<Buffer> {
+  const logoBuffer = billingProfile.logo_url
+    ? await fetchImageBuffer(billingProfile.logo_url)
+    : null;
+
   const today = new Date().toISOString().slice(0, 10);
   const prefix = billingProfile.invoice_prefix ?? "INV";
 
@@ -288,6 +331,16 @@ export async function renderBlankTemplatePDF(
     const R = doc.page.width - 60;
     const W = R - L;
     let y = 60;
+
+    // ── Logo (if set) ─────────────────────────────────────────────────────────
+    if (logoBuffer) {
+      try {
+        doc.image(logoBuffer, L, y, { height: 40, fit: [200, 40] });
+        y += 52;
+      } catch {
+        // logo failed to render — continue without it
+      }
+    }
 
     // Title
     doc.font("Helvetica-Bold").fontSize(28).fillColor(ACCENT).text("Invoice", L, y);
@@ -439,121 +492,422 @@ export async function renderBlankTemplatePDF(
   });
 }
 
-// ── Blank template (Word .doc HTML) ──────────────────────────────────────────
+// ── Blank template (Word .docx) ───────────────────────────────────────────────
 
-export function renderBlankTemplateDoc(billingProfile: FreelancerBillingProfile): string {
+export async function renderBlankTemplateDoc(
+  billingProfile: FreelancerBillingProfile
+): Promise<Buffer> {
+  const {
+    Document,
+    Packer,
+    Paragraph,
+    TextRun,
+    Table,
+    TableRow,
+    TableCell,
+    WidthType,
+    BorderStyle,
+    AlignmentType,
+    ShadingType,
+    UnderlineType,
+  } = await import("docx");
+
   const prefix = billingProfile.invoice_prefix ?? "INV";
   const fromLines = buildFromLines(billingProfile);
+  const terms =
+    billingProfile.invoice_footer_note ||
+    `Payment due within ${billingProfile.payment_terms_days ?? 30} days of invoice date.`;
+
   const hasBank =
     billingProfile.bank_account_name ||
     billingProfile.bank_sort_code ||
     billingProfile.bank_account_number ||
     billingProfile.bank_iban;
 
-  const bankHtml = hasBank
-    ? `<p style="font-size:9pt;margin:0"><strong>PAYMENT DETAILS</strong><br>
-      ${billingProfile.bank_account_name ? `Account name: ${billingProfile.bank_account_name}<br>` : ""}
-      ${billingProfile.bank_sort_code ? `Sort code: XX-XX-${billingProfile.bank_sort_code.replace(/\D/g, "").slice(-2)}<br>` : ""}
-      ${billingProfile.bank_account_number ? `Account: XXXX${billingProfile.bank_account_number.slice(-4)}<br>` : ""}
-      ${billingProfile.bank_iban ? `IBAN: ${billingProfile.bank_iban.slice(0, 4)}****${billingProfile.bank_iban.slice(-4)}<br>` : ""}
-    </p>`
-    : "";
+  const noBorder = {
+    top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+  };
 
-  const terms =
-    billingProfile.invoice_footer_note ||
-    `Payment due within ${billingProfile.payment_terms_days ?? 30} days of invoice date.`;
+  const DXA = WidthType.DXA;
+  const PAGE_W = 11906; // A4 width in DXA
+  const MARGIN = 1440; // 1 inch
+  const CONTENT_W = PAGE_W - MARGIN * 2;
+  const HALF = Math.floor(CONTENT_W / 2);
 
-  return `<!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office"
-      xmlns:w="urn:schemas-microsoft-com:office:word"
-      xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta charset="UTF-8">
-<title>Invoice Template — ${prefix}</title>
-<style>
-  body { font-family: Arial, sans-serif; font-size: 10pt; color: #111827; margin: 2cm; }
-  h1   { font-size: 22pt; color: #1B2A4A; margin: 0 0 4pt; }
-  .rule { border-top: 1px solid #E5E7EB; margin: 10pt 0; }
-  .row { display: flex; gap: 20pt; }
-  .col { flex: 1; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12pt; font-size: 9pt; }
-  th { background: #F9FAFB; padding: 5pt 4pt; text-align: left; font-size: 8pt; color: #6B7280; border-bottom: 1px solid #E5E7EB; }
-  td { padding: 7pt 4pt; border-bottom: 1px solid #F3F4F6; }
-  .total-row td { border-top: 1px solid #E5E7EB; font-weight: bold; font-size: 11pt; color: #1B2A4A; }
-  .footer { margin-top: 20pt; border-top: 1px solid #E5E7EB; padding-top: 10pt; display: flex; gap: 20pt; font-size: 8pt; color: #6B7280; }
-  .label { font-size: 7pt; color: #6B7280; font-weight: bold; letter-spacing: 0.05em; margin-bottom: 3pt; }
-  .field { border-bottom: 1px solid #9CA3AF; min-width: 120pt; display: inline-block; }
-</style>
-</head>
-<body>
-<table style="width:100%;border-collapse:collapse;margin-bottom:10pt">
-<tr>
-  <td style="vertical-align:top"><h1>Invoice</h1></td>
-  <td style="text-align:right;vertical-align:top;font-size:9pt;color:#6B7280">
-    <strong>${prefix}-<span class="field">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></strong><br>
-    Date: <span class="field">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><br>
-    Due: <span class="field">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-  </td>
-</tr>
-</table>
-<div class="rule"></div>
-<table style="width:100%;border-collapse:collapse;margin-bottom:12pt">
-<tr>
-  <td style="width:50%;vertical-align:top;padding-right:10pt">
-    <div class="label">FROM</div>
-    ${fromLines.map((l) => `<div style="font-size:9pt">${escapeHtml(l)}</div>`).join("")}
-  </td>
-  <td style="width:50%;vertical-align:top;padding-left:10pt">
-    <div class="label">BILL TO</div>
-    <div style="font-size:9pt">Company: <span class="field">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
-    <div style="font-size:9pt">Contact: <span class="field">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
-    <div style="font-size:9pt">Address: <span class="field">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
-    <div style="font-size:9pt">City/Post: <span class="field">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
-    <div style="font-size:9pt">Email: <span class="field">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
-  </td>
-</tr>
-</table>
-<table>
-<thead><tr>
-  <th style="width:45%">DESCRIPTION</th>
-  <th>RATE TYPE</th>
-  <th>QTY</th>
-  <th style="text-align:right">UNIT PRICE</th>
-  <th style="text-align:right">AMOUNT</th>
-</tr></thead>
-<tbody>
-${[1, 2, 3, 4]
-  .map(
-    () => `<tr>
-  <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
-  <td style="text-align:right">&nbsp;</td>
-  <td style="text-align:right">&nbsp;</td>
-</tr>`
-  )
-  .join("\n")}
-<tr>
-  <td colspan="3"></td>
-  <td style="text-align:right;font-size:8pt;color:#6B7280">Subtotal</td>
-  <td style="text-align:right">&nbsp;</td>
-</tr>
-<tr class="total-row">
-  <td colspan="3"></td>
-  <td style="text-align:right">Total</td>
-  <td style="text-align:right">&nbsp;</td>
-</tr>
-</tbody>
-</table>
-<div style="margin-top:14pt;font-size:9pt;color:#374151">
-  <div class="label">NOTES</div>
-  <div style="border-bottom:1px solid #D1D5DB;padding-bottom:6pt;min-height:20pt">&nbsp;</div>
-  <div style="border-bottom:1px solid #D1D5DB;padding-bottom:6pt;min-height:20pt;margin-top:6pt">&nbsp;</div>
-</div>
-<div class="footer">
-  <div style="flex:1">${bankHtml}</div>
-  <div style="flex:1;text-align:right">${escapeHtml(terms)}</div>
-</div>
-</body>
-</html>`;
+  const labelRun = (text: string) =>
+    new TextRun({ text, font: "Arial", size: 14, color: "6B7280", bold: true, allCaps: true });
+
+  const bodyRun = (text: string) => new TextRun({ text, font: "Arial", size: 18, color: "111827" });
+
+  const mutedRun = (text: string) =>
+    new TextRun({ text, font: "Arial", size: 16, color: "6B7280" });
+
+  const underlineRun = (width: number) =>
+    new TextRun({
+      text: " ".repeat(width),
+      font: "Arial",
+      size: 18,
+      underline: { type: UnderlineType.SINGLE, color: "9CA3AF" },
+    });
+
+  // Header table: Invoice title (left) + number/dates (right)
+  const headerTable = new Table({
+    width: { size: CONTENT_W, type: DXA },
+    columnWidths: [HALF, HALF],
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            borders: noBorder,
+            width: { size: HALF, type: DXA },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "Invoice",
+                    font: "Arial",
+                    size: 56,
+                    bold: true,
+                    color: "1B2A4A",
+                  }),
+                ],
+              }),
+            ],
+          }),
+          new TableCell({
+            borders: noBorder,
+            width: { size: HALF, type: DXA },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [
+                  new TextRun({ text: `${prefix}-`, font: "Arial", size: 20, color: "6B7280" }),
+                  underlineRun(8),
+                ],
+              }),
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [mutedRun("Date:  "), underlineRun(10)],
+              }),
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [mutedRun("Due:   "), underlineRun(10)],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+
+  // Rule paragraph
+  const rulePara = new Paragraph({
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "E5E7EB" } },
+    spacing: { before: 160, after: 160 },
+    children: [],
+  });
+
+  // From / Bill To table
+  const fromCells = [
+    new Paragraph({ children: [labelRun("FROM")] }),
+    ...fromLines.map((l) => new Paragraph({ children: [bodyRun(l)] })),
+  ];
+
+  const toBillCells = [
+    new Paragraph({ children: [labelRun("BILL TO")] }),
+    new Paragraph({ children: [bodyRun("Company: "), underlineRun(20)] }),
+    new Paragraph({ children: [bodyRun("Contact: "), underlineRun(20)] }),
+    new Paragraph({ children: [bodyRun("Address: "), underlineRun(20)] }),
+    new Paragraph({ children: [bodyRun("City/Post: "), underlineRun(18)] }),
+    new Paragraph({ children: [bodyRun("Email: "), underlineRun(22)] }),
+  ];
+
+  const fromBillTable = new Table({
+    width: { size: CONTENT_W, type: DXA },
+    columnWidths: [HALF, HALF],
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            borders: noBorder,
+            width: { size: HALF, type: DXA },
+            children: fromCells,
+          }),
+          new TableCell({
+            borders: noBorder,
+            width: { size: HALF, type: DXA },
+            children: toBillCells,
+          }),
+        ],
+      }),
+    ],
+  });
+
+  // Line items table
+  const colDesc = Math.round(CONTENT_W * 0.42);
+  const colRate = Math.round(CONTENT_W * 0.14);
+  const colQty = Math.round(CONTENT_W * 0.1);
+  const colUnit = Math.round(CONTENT_W * 0.17);
+  const colAmt = CONTENT_W - colDesc - colRate - colQty - colUnit;
+
+  const thCell = (text: string, w: number, align: string = AlignmentType.LEFT) =>
+    new TableCell({
+      shading: { type: ShadingType.CLEAR, color: "auto", fill: "F9FAFB" },
+      borders: {
+        top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+        bottom: { style: BorderStyle.SINGLE, size: 4, color: "E5E7EB" },
+        left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+        right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+      },
+      width: { size: w, type: DXA },
+      children: [
+        new Paragraph({
+          alignment: align as any,
+          children: [
+            new TextRun({
+              text,
+              font: "Arial",
+              size: 14,
+              bold: true,
+              color: "6B7280",
+              allCaps: true,
+            }),
+          ],
+        }),
+      ],
+    });
+
+  const tdCell = (w: number, align: string = AlignmentType.LEFT) =>
+    new TableCell({
+      borders: {
+        top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+        bottom: { style: BorderStyle.SINGLE, size: 2, color: "F3F4F6" },
+        left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+        right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+      },
+      width: { size: w, type: DXA },
+      children: [new Paragraph({ alignment: align as any, children: [bodyRun(" ")] })],
+    });
+
+  const blankRows = [1, 2, 3, 4].map(
+    () =>
+      new TableRow({
+        children: [
+          tdCell(colDesc),
+          tdCell(colRate),
+          tdCell(colQty),
+          tdCell(colUnit, AlignmentType.RIGHT),
+          tdCell(colAmt, AlignmentType.RIGHT),
+        ],
+      })
+  );
+
+  const subtotalRow = new TableRow({
+    children: [
+      new TableCell({
+        columnSpan: 3,
+        borders: noBorder,
+        width: { size: colDesc + colRate + colQty, type: DXA },
+        children: [new Paragraph({ children: [] })],
+      }),
+      new TableCell({
+        borders: {
+          bottom: { style: BorderStyle.SINGLE, size: 2, color: "E5E7EB" },
+          top: noBorder.top,
+          left: noBorder.left,
+          right: noBorder.right,
+        },
+        width: { size: colUnit, type: DXA },
+        children: [
+          new Paragraph({ alignment: AlignmentType.RIGHT, children: [mutedRun("Subtotal")] }),
+        ],
+      }),
+      new TableCell({
+        borders: {
+          bottom: { style: BorderStyle.SINGLE, size: 2, color: "E5E7EB" },
+          top: noBorder.top,
+          left: noBorder.left,
+          right: noBorder.right,
+        },
+        width: { size: colAmt, type: DXA },
+        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [underlineRun(10)] })],
+      }),
+    ],
+  });
+
+  const totalRow = new TableRow({
+    children: [
+      new TableCell({
+        columnSpan: 3,
+        borders: noBorder,
+        width: { size: colDesc + colRate + colQty, type: DXA },
+        children: [new Paragraph({ children: [] })],
+      }),
+      new TableCell({
+        borders: noBorder,
+        width: { size: colUnit, type: DXA },
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            children: [
+              new TextRun({ text: "Total", font: "Arial", size: 22, bold: true, color: "1B2A4A" }),
+            ],
+          }),
+        ],
+      }),
+      new TableCell({
+        borders: noBorder,
+        width: { size: colAmt, type: DXA },
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            children: [
+              new TextRun({
+                text: " ",
+                font: "Arial",
+                size: 22,
+                bold: true,
+                underline: { type: UnderlineType.SINGLE, color: "9CA3AF" },
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+
+  const lineItemsTable = new Table({
+    width: { size: CONTENT_W, type: DXA },
+    columnWidths: [colDesc, colRate, colQty, colUnit, colAmt],
+    rows: [
+      new TableRow({
+        children: [
+          thCell("Description", colDesc),
+          thCell("Rate Type", colRate),
+          thCell("Qty", colQty),
+          thCell("Unit Price", colUnit, AlignmentType.RIGHT),
+          thCell("Amount", colAmt, AlignmentType.RIGHT),
+        ],
+      }),
+      ...blankRows,
+      subtotalRow,
+      totalRow,
+    ],
+  });
+
+  // Notes section
+  const notesSection = [
+    new Paragraph({
+      spacing: { before: 240 },
+      border: { top: { style: BorderStyle.SINGLE, size: 6, color: "E5E7EB" } },
+      children: [labelRun("Notes")],
+    }),
+    new Paragraph({
+      spacing: { before: 80 },
+      border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: "D1D5DB" } },
+      children: [bodyRun(" ")],
+    }),
+    new Paragraph({
+      spacing: { before: 160 },
+      border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: "D1D5DB" } },
+      children: [bodyRun(" ")],
+    }),
+  ];
+
+  // Bank details rows
+  const bankLines: InstanceType<typeof Paragraph>[] = [];
+  if (hasBank) {
+    bankLines.push(new Paragraph({ children: [labelRun("Payment Details")] }));
+    if (billingProfile.bank_account_name)
+      bankLines.push(
+        new Paragraph({ children: [bodyRun(`Account name: ${billingProfile.bank_account_name}`)] })
+      );
+    if (billingProfile.bank_sort_code)
+      bankLines.push(
+        new Paragraph({
+          children: [
+            bodyRun(
+              `Sort code: XX-XX-${billingProfile.bank_sort_code.replace(/\D/g, "").slice(-2)}`
+            ),
+          ],
+        })
+      );
+    if (billingProfile.bank_account_number)
+      bankLines.push(
+        new Paragraph({
+          children: [bodyRun(`Account: XXXX${billingProfile.bank_account_number.slice(-4)}`)],
+        })
+      );
+    if (billingProfile.bank_iban)
+      bankLines.push(
+        new Paragraph({
+          children: [
+            bodyRun(
+              `IBAN: ${billingProfile.bank_iban.slice(0, 4)}****${billingProfile.bank_iban.slice(-4)}`
+            ),
+          ],
+        })
+      );
+  }
+
+  // Footer table (bank left, terms right)
+  const footerTable = new Table({
+    width: { size: CONTENT_W, type: DXA },
+    columnWidths: [HALF, HALF],
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            borders: { ...noBorder, top: { style: BorderStyle.SINGLE, size: 6, color: "E5E7EB" } },
+            width: { size: HALF, type: DXA },
+            children: bankLines.length ? bankLines : [new Paragraph({ children: [] })],
+          }),
+          new TableCell({
+            borders: { ...noBorder, top: { style: BorderStyle.SINGLE, size: 6, color: "E5E7EB" } },
+            width: { size: HALF, type: DXA },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [new TextRun({ text: terms, font: "Arial", size: 16, color: "6B7280" })],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+
+  const doc = new Document({
+    styles: {
+      default: {
+        document: { run: { font: "Arial", size: 18, color: "111827" } },
+      },
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: { top: MARGIN, bottom: MARGIN, left: MARGIN, right: MARGIN },
+          },
+        },
+        children: [
+          headerTable,
+          rulePara,
+          fromBillTable,
+          new Paragraph({ spacing: { before: 240 }, children: [] }),
+          lineItemsTable,
+          ...notesSection,
+          new Paragraph({ spacing: { before: 240 }, children: [] }),
+          footerTable,
+        ],
+      },
+    ],
+  });
+
+  return Packer.toBuffer(doc);
 }
 
 function buildFromLines(profile: FreelancerBillingProfile): string[] {
@@ -569,10 +923,6 @@ function buildFromLines(profile: FreelancerBillingProfile): string[] {
   if (profile.utr) lines.push(`UTR: ${profile.utr}`);
   if (profile.company_number) lines.push(`Co. No: ${profile.company_number}`);
   return lines.length ? lines : ["(no billing address set)"];
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 export async function storeInvoicePDF(

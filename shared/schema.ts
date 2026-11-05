@@ -1315,6 +1315,7 @@ export const freelancer_billing_profiles = pgTable("freelancer_billing_profiles"
   invoice_footer_note: text("invoice_footer_note"),
   vat_registered: boolean("vat_registered").notNull().default(false),
   vat_number: text("vat_number"),
+  logo_url: text("logo_url"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

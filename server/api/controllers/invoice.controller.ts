@@ -47,6 +47,7 @@ export async function upsertBillingProfile(req: Request, res: Response) {
     invoice_footer_note,
     vat_registered,
     vat_number,
+    logo_url,
   } = req.body;
 
   // Validate payment_terms_days if present
@@ -79,6 +80,7 @@ export async function upsertBillingProfile(req: Request, res: Response) {
   if (invoice_prefix !== undefined) data.invoice_prefix = String(invoice_prefix).slice(0, 10);
   if (vat_registered !== undefined) data.vat_registered = Boolean(vat_registered);
   if (vat_number !== undefined) data.vat_number = vat_number ?? null;
+  if (logo_url !== undefined) data.logo_url = logo_url ?? null;
 
   const saved = await storage.upsertBillingProfile(user.id, data);
   return res.json(maskBankDetails(saved));
@@ -94,13 +96,16 @@ export async function getBlankTemplate(req: Request, res: Response) {
       .json({ error: "Set up your billing profile before downloading a template" });
   }
   if (format === "doc") {
-    const html = renderBlankTemplateDoc(profile);
-    res.setHeader("Content-Type", "application/msword");
+    const docxBuffer = await renderBlankTemplateDoc(profile);
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="invoice-template-${profile.invoice_prefix}.doc"`
+      `attachment; filename="invoice-template-${profile.invoice_prefix}.docx"`
     );
-    return res.send(html);
+    return res.send(docxBuffer);
   }
   const pdf = await renderBlankTemplatePDF(profile);
   res.setHeader("Content-Type", "application/pdf");
@@ -763,9 +768,29 @@ export async function exportInvoicesCSV(req: Request, res: Response) {
       });
     }
 
+    // Style header row
+    const headerRow = ws.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1B2A4A" } };
+    headerRow.alignment = { vertical: "middle" };
+    headerRow.height = 20;
+
     // Format money columns as number
     ["net", "vat", "gross"].forEach((col) => {
       ws.getColumn(col).numFmt = "#,##0.00";
+    });
+
+    // Freeze header row + auto-filter
+    ws.views = [{ state: "frozen", ySplit: 1 }];
+    ws.autoFilter = { from: "A1", to: "K1" };
+
+    // Alternate row shading
+    ws.eachRow((row, rowNum) => {
+      if (rowNum > 1 && rowNum % 2 === 0) {
+        row.eachCell((cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } };
+        });
+      }
     });
 
     res.set({

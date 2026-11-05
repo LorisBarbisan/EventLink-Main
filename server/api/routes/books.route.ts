@@ -1,7 +1,13 @@
 import type { Express } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
-import { booksSummary, booksExport, taxEstimate } from "../controllers/books.controller";
+import {
+  booksSummary,
+  booksExport,
+  taxEstimate,
+  booksMonthly,
+  booksExpenseCategories,
+} from "../controllers/books.controller";
 
 export function registerBooksRoutes(app: Express) {
   const auth = [authenticateJWT, requireRole("freelancer")];
@@ -10,4 +16,6 @@ export function registerBooksRoutes(app: Express) {
   app.get("/api/books/export", ...auth, booksExport);
   app.get("/api/books/summary", ...auth, booksSummary);
   app.get("/api/books/tax-estimate", ...auth, taxEstimate);
+  app.get("/api/books/monthly", ...auth, booksMonthly);
+  app.get("/api/books/expense-categories", ...auth, booksExpenseCategories);
 }
