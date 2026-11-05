@@ -13,6 +13,7 @@ async function build(): Promise<Map<string, HelpEntry>> {
     import("./profile"),
     import("./dashboard"),
     import("./bookings"),
+    import("./books"),
   ]);
   const map = new Map<string, HelpEntry>();
   for (const mod of areas) {

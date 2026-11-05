@@ -680,7 +680,9 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
           {/* Link to booking */}
           {invoice.status === "draft" && hiredBookings.length > 0 && (
             <div>
-              <p className="mb-2 text-sm font-medium">Linked job</p>
+              <p data-help="books.invoices.linkJob" className="mb-2 text-sm font-medium">
+                Linked job
+              </p>
               <Select
                 value={selectedBookingId?.toString() ?? "none"}
                 onValueChange={(val) => {
@@ -1001,6 +1003,7 @@ function InvoiceRow({
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <button
+            data-help="books.invoices.download"
             className="text-muted-foreground transition-colors hover:text-foreground"
             title="Download PDF"
             onClick={() => downloadInvoicePDF(invoice.id, invoice.invoice_number)}
@@ -1009,6 +1012,7 @@ function InvoiceRow({
           </button>
           {(invoice.status === "sent" || invoice.status === "overdue") && (
             <Button
+              data-help="books.invoices.markPaid"
               size="sm"
               variant="outline"
               className="h-7 text-xs"
@@ -1030,6 +1034,7 @@ function InvoiceRow({
           )}
           {invoice.status === "draft" && (
             <Button
+              data-help="books.invoices.send"
               size="sm"
               variant="outline"
               className="h-7 text-xs"
@@ -1251,6 +1256,7 @@ export function InvoicesTab() {
         </div>
         <div className="flex items-center gap-2">
           <Button
+            data-help="books.invoices.settings"
             variant="outline"
             size="sm"
             className="gap-2"
@@ -1299,6 +1305,7 @@ export function InvoicesTab() {
             Export
           </Button>
           <Button
+            data-help="books.invoices.new"
             size="sm"
             className="gap-2"
             onClick={handleNewInvoice}

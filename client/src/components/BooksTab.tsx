@@ -2385,36 +2385,42 @@ export function BooksTab() {
   const sectionSwitcher = (
     <div className="flex w-fit gap-1 rounded-md border p-1">
       <button
+        data-help="books.section.overview"
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "overview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         onClick={() => setSection("overview")}
       >
         Overview
       </button>
       <button
+        data-help="books.section.earnings"
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "earnings" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         onClick={() => setSection("earnings")}
       >
         Earnings
       </button>
       <button
+        data-help="books.section.expenses"
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "expenses" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         onClick={() => setSection("expenses")}
       >
         Expenses
       </button>
       <button
+        data-help="books.section.mileage"
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "mileage" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         onClick={() => setSection("mileage")}
       >
         Mileage
       </button>
       <button
+        data-help="books.section.kit"
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "kit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         onClick={() => setSection("kit")}
       >
         Kit register
       </button>
       <button
+        data-help="books.section.invoices"
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "invoices" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         onClick={() => setSection("invoices")}
       >
@@ -2627,6 +2633,7 @@ export function BooksTab() {
                       size="sm"
                       variant="outline"
                       className="border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
+                      data-help="books.earnings.logPayment"
                       onClick={() => openFromBooking(b)}
                     >
                       <PoundSterling className="mr-1 h-3 w-3" />
@@ -2733,11 +2740,17 @@ export function BooksTab() {
                   ))}
                 </div>
               )}
-              <Button size="sm" className="h-7 text-xs" onClick={openAdd}>
+              <Button
+                data-help="books.earnings.addGig"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={openAdd}
+              >
                 <Plus className="mr-1 h-3 w-3" />
                 Add gig
               </Button>
               <Button
+                data-help="books.earnings.sync"
                 variant="outline"
                 size="sm"
                 className="h-7 text-xs"

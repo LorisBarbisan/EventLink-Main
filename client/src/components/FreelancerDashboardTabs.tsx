@@ -571,7 +571,11 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
               <BookOpen className="h-4 w-4" />
               Bookings
             </TabsTrigger>
-            <TabsTrigger value="books" className="flex items-center gap-2">
+            <TabsTrigger
+              value="books"
+              data-help="dashboard.tab.books"
+              className="flex items-center gap-2"
+            >
               <Banknote className="h-4 w-4" />
               Books
             </TabsTrigger>

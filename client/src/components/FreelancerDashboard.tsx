@@ -777,7 +777,9 @@ export default function SimplifiedFreelancerDashboard() {
           </Select>
         </div>
         <TabsList className="hidden w-full grid-cols-4 sm:grid md:grid-cols-6">
-          <TabsTrigger value="books">Books</TabsTrigger>
+          <TabsTrigger value="books" data-help="dashboard.tab.books">
+            Books
+          </TabsTrigger>
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
           <TabsTrigger
             value="jobs"
