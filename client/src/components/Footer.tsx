@@ -17,8 +17,8 @@ export const Footer = ({ dark = false }: FooterProps) => {
   const brandText = dark ? "text-sm font-semibold text-white" : "text-sm font-semibold";
   const descText = dark ? "text-xs text-white/60" : "text-xs text-muted-foreground";
   const headingText = dark
-    ? "mb-1 text-xs font-semibold uppercase tracking-wide text-white/50"
-    : "mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground";
+    ? "mb-0.5 text-xs font-semibold uppercase tracking-wide text-white/50"
+    : "mb-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground";
   const listClass = dark
     ? "space-y-1 text-xs text-white/60"
     : "space-y-1 text-xs text-muted-foreground";
@@ -29,13 +29,13 @@ export const Footer = ({ dark = false }: FooterProps) => {
     : "border-t bg-white py-3 text-center text-xs text-muted-foreground";
   // Give every footer nav link/button a 44px minimum tap height so stacked
   // links on mobile are comfortable to hit (Apple/Android tap-target guidance).
-  const footerLink = `inline-flex min-h-[44px] items-center ${linkHover}`;
+  const footerLink = `inline-flex min-h-[44px] items-center md:min-h-0 md:py-0.5 ${linkHover}`;
 
   return (
     <footer className={`mt-auto ${borderClass}`}>
       <div style={{ backgroundColor: bg }}>
-        <div className="container mx-auto px-4 py-4">
-          <div className="grid grid-cols-1 gap-4 text-center md:grid-cols-4 md:text-left">
+        <div className="container mx-auto px-4 py-3">
+          <div className="grid grid-cols-1 gap-3 text-center md:grid-cols-4 md:text-left">
             <div className="flex flex-col items-center md:items-start">
               <div className="mb-2 flex items-center justify-center space-x-2 md:justify-start">
                 <EventLinkLogo size={28} />
