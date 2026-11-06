@@ -460,12 +460,17 @@ export function CalendarTab() {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
+  function calendarConnectUrl(provider: "google" | "outlook"): string {
+    const token = localStorage.getItem("auth_token") ?? "";
+    return `/api/calendar/${provider}/connect?token=${encodeURIComponent(token)}`;
+  }
+
   function handleConnect(provider: "google" | "outlook") {
-    window.location.href = `/api/calendar/${provider}/connect`;
+    window.location.href = calendarConnectUrl(provider);
   }
 
   function handleReconnect(provider: "google" | "outlook") {
-    window.location.href = `/api/calendar/${provider}/connect`;
+    window.location.href = calendarConnectUrl(provider);
   }
 
   function prevMonth() {
