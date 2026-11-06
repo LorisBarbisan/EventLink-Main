@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { TabBadge } from "@/components/ui/tab-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -36,8 +37,6 @@ import {
   Clock,
   Copy,
   Download,
-  Globe,
-  Lock,
   Mail,
   MapPin,
   Pencil,
@@ -739,19 +738,20 @@ export default function SimplifiedFreelancerDashboard() {
             <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <button
-              onClick={toggleProfilePrivacy}
-              disabled={togglingPrivacy}
-              className="flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:text-foreground disabled:opacity-50"
-              title={profileIsPublic ? "Set profile to private" : "Set profile to public"}
-            >
-              {profileIsPublic ? (
-                <Globe className="h-3.5 w-3.5 text-green-600" />
-              ) : (
-                <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-              )}
-              {profileIsPublic ? "Public" : "Private"}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <Switch
+                id="profile-visibility-bar"
+                checked={profileIsPublic}
+                onCheckedChange={toggleProfilePrivacy}
+                disabled={togglingPrivacy}
+              />
+              <label
+                htmlFor="profile-visibility-bar"
+                className="cursor-pointer select-none text-xs font-medium text-muted-foreground"
+              >
+                {profileIsPublic ? "Public" : "Private"}
+              </label>
+            </div>
             <Button
               size="sm"
               data-help="action.freelancer.postJob"
