@@ -27,7 +27,7 @@ const app = express();
 // CRITICAL: Enable trust proxy for production deployment behind reverse proxy (Railway)
 // This fixes rate limiting and IP detection issues in production
 if (process.env.NODE_ENV === "production") {
-  app.set("trust proxy", true); // Trust Railway's reverse proxy chain
+  app.set("trust proxy", 1); // Trust one hop — Railway's reverse proxy
   console.log("✅ Trust proxy enabled for production");
 } else {
   // More specific trust proxy for development to avoid rate limiting warnings
