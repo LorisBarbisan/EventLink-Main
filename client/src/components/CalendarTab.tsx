@@ -534,11 +534,6 @@ export function CalendarTab() {
   const { data: bookingsData = [], isLoading } = useQuery<FreelancerBooking[]>({
     queryKey: ["/api/bookings/freelancer"],
     enabled: !!user,
-    queryFn: async () => {
-      const data = await apiRequest("/api/bookings/freelancer");
-      console.log("[CalendarTab] /api/bookings/freelancer raw response:", data);
-      return data as FreelancerBooking[];
-    },
   });
 
   // Availability: load a wide range (±3 months) using proper Date arithmetic so month overflow is handled
@@ -637,8 +632,6 @@ export function CalendarTab() {
   }
 
   // ── Build events ───────────────────────────────────────────────────────────
-
-  console.log("[CalendarTab] bookingsData count:", bookingsData.length, bookingsData[0] ?? "empty");
 
   const bookingEvents = bookingsData.map((b) => {
     // Use eventDate if available; undated bookings pin to current calendar view date
