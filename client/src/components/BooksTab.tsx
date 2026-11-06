@@ -2291,11 +2291,32 @@ function OverviewSection() {
 
 type UnloggedBooking = {
   id: number;
+  job_id?: number;
+  recruiter_id?: number;
   job_title: string;
   company_name?: string;
   event_date?: string;
   rate?: string;
+  location?: string;
+  status?: string;
 };
+
+interface HiredBooking {
+  booking: {
+    id: number;
+    jobId: number;
+    employerId: number;
+    status: string;
+    agreedRate: string | null;
+  };
+  job: { id: number; title: string; eventDate: string | null };
+  employer: {
+    id: number;
+    firstName: string | null;
+    lastName: string | null;
+    companyName: string | null;
+  };
+}
 
 export function BooksTab() {
   const [section, setSection] = useState<
@@ -2304,6 +2325,8 @@ export function BooksTab() {
   const [gigDialogOpen, setGigDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
   const [fromBooking, setFromBooking] = useState<UnloggedBooking | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<UnloggedBooking | null>(null);
+  const [creatingInvoiceForBooking, setCreatingInvoiceForBooking] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -2330,6 +2353,41 @@ export function BooksTab() {
       return res.json();
     },
   });
+
+  const { data: hiredBookings = [] } = useQuery<HiredBooking[]>({
+    queryKey: ["/api/bookings/freelancer"],
+    queryFn: () => apiRequest("/api/bookings/freelancer"),
+    enabled: !!user?.id,
+  });
+
+  const createInvoiceForBooking = async (b: UnloggedBooking) => {
+    setCreatingInvoiceForBooking(true);
+    try {
+      const inv = await apiRequest("/api/invoices", { method: "POST" });
+      // Find the matching booking in the new bookings table by jobId
+      const match = hiredBookings.find((hb) => hb.booking.jobId === b.job_id);
+      if (match) {
+        const toDetails = {
+          name:
+            `${match.employer.firstName ?? ""} ${match.employer.lastName ?? ""}`.trim() ||
+            (b.company_name ?? ""),
+          company: match.employer.companyName ?? b.company_name ?? "",
+        };
+        await apiRequest(`/api/invoices/${inv.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ booking_id: match.booking.id, to_details: toDetails }),
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      setSelectedBooking(null);
+      setSection("invoices");
+      toast({ title: "Draft invoice created", description: "Invoice linked to this job." });
+    } catch {
+      toast({ title: "Could not create invoice", variant: "destructive" });
+    } finally {
+      setCreatingInvoiceForBooking(false);
+    }
+  };
 
   const unloggedBookings = allBookings.filter(
     (b: any) => !b.earnings_entry_id && b.event_date && new Date(b.event_date) < new Date()
@@ -2381,6 +2439,76 @@ export function BooksTab() {
     setFromBooking(b);
     setGigDialogOpen(true);
   };
+
+  const bookingDetailDialog = selectedBooking && (
+    <Dialog
+      open={!!selectedBooking}
+      onOpenChange={(o) => {
+        if (!o) setSelectedBooking(null);
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{selectedBooking.job_title}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-1 text-sm">
+          {selectedBooking.company_name && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Client</span>
+              <span className="font-medium">{selectedBooking.company_name}</span>
+            </div>
+          )}
+          {selectedBooking.event_date && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Date</span>
+              <span className="font-medium">{fmtDate(selectedBooking.event_date)}</span>
+            </div>
+          )}
+          {selectedBooking.rate && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Rate</span>
+              <span className="font-medium">{selectedBooking.rate}</span>
+            </div>
+          )}
+          {selectedBooking.location && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Location</span>
+              <span className="font-medium">{selectedBooking.location}</span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Status</span>
+            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+              Confirmed
+            </span>
+          </div>
+        </div>
+        <DialogFooter className="flex-col gap-2 sm:flex-row">
+          {selectedBooking.event_date && new Date(selectedBooking.event_date) < new Date() && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                openFromBooking(selectedBooking);
+                setSelectedBooking(null);
+              }}
+            >
+              <PoundSterling className="mr-1.5 h-3.5 w-3.5" />
+              Log payment
+            </Button>
+          )}
+          <Button
+            size="sm"
+            disabled={creatingInvoiceForBooking}
+            onClick={() => createInvoiceForBooking(selectedBooking)}
+          >
+            <Receipt className="mr-1.5 h-3.5 w-3.5" />
+            {creatingInvoiceForBooking ? "Creating…" : "Create invoice"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
   const sectionSwitcher = (
     <div className="flex w-fit gap-1 rounded-md border p-1">
@@ -2619,7 +2747,8 @@ export function BooksTab() {
                 {awaitingPaymentHired.map((b: any, i: number) => (
                   <div
                     key={b.id}
-                    className={`flex items-center justify-between px-5 py-3 ${i % 2 === 0 ? "bg-amber-50/20 dark:bg-amber-950/10" : ""}`}
+                    className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-amber-50/40 dark:hover:bg-amber-950/20 ${i % 2 === 0 ? "bg-amber-50/20 dark:bg-amber-950/10" : ""}`}
+                    onClick={() => setSelectedBooking(b)}
                   >
                     <div>
                       <p className="text-sm font-medium">{b.job_title}</p>
@@ -2634,7 +2763,10 @@ export function BooksTab() {
                       variant="outline"
                       className="border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
                       data-help="books.earnings.logPayment"
-                      onClick={() => openFromBooking(b)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openFromBooking(b);
+                      }}
                     >
                       <PoundSterling className="mr-1 h-3 w-3" />
                       Log payment
@@ -2651,7 +2783,8 @@ export function BooksTab() {
                 {upcomingHired.map((b: any, i: number) => (
                   <div
                     key={b.id}
-                    className={`flex items-center justify-between px-5 py-3 ${i % 2 === 0 ? "bg-green-50/20 dark:bg-green-950/10" : ""}`}
+                    className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-green-50/40 dark:hover:bg-green-950/20 ${i % 2 === 0 ? "bg-green-50/20 dark:bg-green-950/10" : ""}`}
+                    onClick={() => setSelectedBooking(b)}
                   >
                     <div>
                       <p className="text-sm font-medium">{b.job_title}</p>
@@ -2856,6 +2989,7 @@ export function BooksTab() {
         }
         jobApplicationId={fromBooking?.id}
       />
+      {bookingDetailDialog}
     </div>
   );
 }
