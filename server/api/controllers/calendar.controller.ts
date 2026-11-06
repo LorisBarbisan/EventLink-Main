@@ -50,7 +50,9 @@ export function initiateGoogleConnect(req: Request, res: Response): void {
   }
 
   const state = createOAuthState(res, { uid: userId, purpose: "calendar" });
-  res.redirect(getGoogleAuthUrl(state));
+  const authUrl = getGoogleAuthUrl(state);
+  console.log("[calendar] Google OAuth redirect URL:", authUrl);
+  res.redirect(authUrl);
 }
 
 export async function googleCallback(req: Request, res: Response): Promise<void> {
