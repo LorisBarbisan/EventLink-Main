@@ -2352,9 +2352,22 @@ interface HiredBooking {
 }
 
 export function BooksTab() {
+  const initialSection = (() => {
+    const p = new URLSearchParams(window.location.search).get("section");
+    const valid = ["overview", "earnings", "expenses", "mileage", "kit", "calendar", "invoices"];
+    return (valid.includes(p ?? "") ? p : "overview") as
+      | "overview"
+      | "earnings"
+      | "expenses"
+      | "mileage"
+      | "kit"
+      | "calendar"
+      | "invoices";
+  })();
+
   const [section, setSection] = useState<
     "overview" | "earnings" | "expenses" | "mileage" | "kit" | "calendar" | "invoices"
-  >("overview");
+  >(initialSection);
   const [gigDialogOpen, setGigDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
   const [fromBooking, setFromBooking] = useState<UnloggedBooking | null>(null);

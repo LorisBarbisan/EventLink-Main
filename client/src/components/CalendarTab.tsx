@@ -1,25 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Calendar, dateFnsLocalizer, Views } from "react-big-calendar";
+import { format, parse, startOfWeek, getDay } from "date-fns";
+import { enGB } from "date-fns/locale";
+import "react-big-calendar/lib/css/react-big-calendar.css";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  AlertCircle,
-  Calendar,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  RefreshCw,
-  Unlink,
-  X,
-  Lock,
-} from "lucide-react";
+import { AlertCircle, CalendarCheck, CalendarX, Loader2, RefreshCw, Unplug } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +25,52 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+// ── react-big-calendar setup ──────────────────────────────────────────────────
+
+const locales = { "en-GB": enGB };
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
+
+// ── Colours ───────────────────────────────────────────────────────────────────
+
+const BOOKING_COLOURS: Record<string, string> = {
+  enquired: "#FFA500",
+  confirmed: "#1A6B3C",
+  briefed: "#1E3A5F",
+  completed: "#6B7280",
+  cancelled: "#EF4444",
+};
+
+const BOOKING_LABELS: Record<string, string> = {
+  enquired: "Enquired",
+  confirmed: "Confirmed",
+  briefed: "Briefed",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
+
+const AVAIL_COLOURS: Record<string, string> = {
+  available: "#16a34a",
+  tentative: "#d97706",
+  unavailable: "#dc2626",
+};
+
+const AVAIL_LABELS: Record<string, string> = {
+  available: "Available",
+  tentative: "Tentative",
+  unavailable: "Unavailable",
+};
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +93,28 @@ interface AvailabilityEntry {
   note?: string | null;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+interface FreelancerBooking {
+  booking: {
+    id: number;
+    status: string;
+    jobId: number;
+    agreedRate?: string | null;
+  };
+  job: {
+    id: number;
+    title: string;
+    location?: string | null;
+    eventDate?: string | null;
+  };
+  employer: {
+    id: number;
+    firstName?: string | null;
+    lastName?: string | null;
+    companyName?: string | null;
+  };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function isoDate(y: number, m: number, d: number): string {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -67,117 +125,181 @@ function daysInMonth(year: number, month: number): number {
 }
 
 function fmtDateTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-GB", {
+  return new Date(iso).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
+// ── Sync panel ────────────────────────────────────────────────────────────────
 
-const DAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-const STATUS_CELL: Record<string, string> = {
-  available: "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
-  tentative: "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30",
-  unavailable: "bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/30",
-};
-
-const STATUS_DOT: Record<string, string> = {
-  available: "bg-emerald-500",
-  tentative: "bg-amber-500",
-  unavailable: "bg-rose-500",
-};
-
-// ── Grid calendar ─────────────────────────────────────────────────────────────
-
-function CalendarGrid({
-  year,
-  month,
-  availability,
-  onDayTap,
+function CalendarSyncPanel({
+  status,
+  syncing,
+  onSync,
+  onConnect,
 }: {
-  year: number;
-  month: number;
-  availability: AvailabilityEntry[];
-  onDayTap: (date: string) => void;
+  status: CalendarStatus | undefined;
+  syncing: boolean;
+  onSync: () => void;
+  onConnect: (p: "google" | "outlook") => void;
 }) {
-  const availMap: Record<string, AvailabilityEntry> = {};
-  for (const a of availability) availMap[a.date] = a;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const today = new Date().toISOString().slice(0, 10);
+  const disconnectMut = useMutation({
+    mutationFn: () => apiRequest("/api/calendar/disconnect", { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/calendar/status"] });
+      toast({ title: "Calendar disconnected" });
+    },
+    onError: () => toast({ title: "Disconnect failed", variant: "destructive" }),
+  });
 
-  // Day-of-week the month starts on (Mon=0 … Sun=6)
-  const firstDow = (new Date(year, month - 1, 1).getDay() + 6) % 7;
-  const days = daysInMonth(year, month);
-
-  const cells: (number | null)[] = [
-    ...Array(firstDow).fill(null),
-    ...Array.from({ length: days }, (_, i) => i + 1),
-  ];
-  // pad to complete last row
-  while (cells.length % 7 !== 0) cells.push(null);
+  const providerLabel = status?.provider === "google" ? "Google Calendar" : "Outlook Calendar";
+  const needsReconnect = status?.status === "needs_reconnect" || status?.status === "error";
 
   return (
-    <div>
-      {/* Day headers */}
-      <div className="mb-1 grid grid-cols-7 gap-1">
-        {DAY_ABBR.map((d) => (
-          <div key={d} className="py-1 text-center text-[11px] font-medium text-muted-foreground">
-            {d}
-          </div>
-        ))}
-      </div>
-      {/* Day cells */}
-      <div className="grid grid-cols-7 gap-1">
-        {cells.map((day, i) => {
-          if (!day) return <div key={`empty-${i}`} />;
-          const date = isoDate(year, month, day);
-          const avail = availMap[date];
-          const isToday = date === today;
-          return (
-            <button
-              key={date}
-              onClick={() => onDayTap(date)}
-              className={`relative flex h-9 w-full flex-col items-center justify-center rounded-md border text-xs transition-colors hover:bg-muted/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${avail ? STATUS_CELL[avail.status] : "border-border bg-background"} ${isToday && !avail ? "border-primary font-semibold text-primary" : ""} `}
+    <div className="mb-4 rounded-xl border bg-card p-4">
+      {status?.connected ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-1 items-center gap-3">
+            <div
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${needsReconnect ? "bg-amber-100 dark:bg-amber-900/30" : "bg-emerald-100 dark:bg-emerald-900/30"}`}
             >
-              <span className={isToday && !avail ? "text-primary" : ""}>{day}</span>
-              {avail && (
-                <span className={`mt-0.5 h-1 w-1 rounded-full ${STATUS_DOT[avail.status]}`} />
+              {needsReconnect ? (
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+              ) : (
+                <CalendarCheck className="h-4 w-4 text-emerald-600" />
               )}
-            </button>
-          );
-        })}
-      </div>
-      {/* Legend */}
-      <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-        {[
-          { key: "available", label: "Available" },
-          { key: "tentative", label: "Tentative" },
-          { key: "unavailable", label: "Unavailable" },
-        ].map(({ key, label }) => (
-          <span key={key} className="flex items-center gap-1">
-            <span className={`h-2 w-2 rounded-full ${STATUS_DOT[key]}`} />
-            {label}
-          </span>
-        ))}
-      </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold">Connected to {providerLabel}</span>
+                <Badge
+                  className={
+                    needsReconnect
+                      ? "border-0 bg-amber-100 text-amber-700"
+                      : "border-0 bg-emerald-100 text-emerald-700"
+                  }
+                >
+                  {needsReconnect ? "Needs reconnect" : "Active"}
+                </Badge>
+              </div>
+              {status.last_read_sync_at && (
+                <p className="text-xs text-muted-foreground">
+                  Last sync: {fmtDateTime(status.last_read_sync_at)}
+                </p>
+              )}
+              {needsReconnect && status.last_error && (
+                <p className="text-xs text-amber-600">{status.last_error}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {needsReconnect ? (
+              <Button size="sm" variant="outline" onClick={() => onConnect(status.provider!)}>
+                Reconnect
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={onSync}
+                disabled={syncing}
+                className="gap-2 bg-orange-500 text-white hover:bg-orange-600"
+              >
+                <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                {syncing ? "Syncing…" : "Sync now"}
+              </Button>
+            )}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive">
+                  <Unplug className="h-3 w-3" />
+                  Disconnect
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Disconnect calendar?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This removes the calendar connection. Existing events created by EventLink will
+                    not be deleted.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => disconnectMut.mutate()}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    Disconnect
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="mb-3 flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
+              <CalendarX className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Sync bookings to your calendar</p>
+              <p className="text-xs text-muted-foreground">
+                Connect Google Calendar or Outlook to keep your schedule in sync.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => onConnect("google")}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  fill="#4285F4"
+                />
+                <path
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  fill="#34A853"
+                />
+                <path
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+                  fill="#FBBC05"
+                />
+                <path
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  fill="#EA4335"
+                />
+              </svg>
+              Connect Google Calendar
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => onConnect("outlook")}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24">
+                <path
+                  d="M7.88 12.04q0 .45-.11.87-.1.41-.33.74-.22.33-.58.52-.37.2-.87.2t-.85-.2q-.35-.21-.57-.55-.22-.33-.33-.75-.1-.42-.1-.86t.1-.87q.1-.43.34-.76.22-.34.59-.54.36-.2.87-.2t.86.2q.35.21.57.55.22.34.31.77.1.43.1.88zM24 12v9.38q0 .46-.33.8-.33.32-.8.32H7.13q-.46 0-.8-.33-.32-.33-.32-.8V18H1q-.41 0-.7-.3-.3-.29-.3-.7V7q0-.41.3-.7Q.58 6 1 6h6.5V2.55q0-.44.3-.75.3-.3.75-.3h12.9q.44 0 .75.3.3.3.3.75V10.85l1.24.72q.26.14.26.43zm-10.24-5.47l-3.76 2.5 3.76 2.5 3.76-2.5zm-6 2.09l3.75 2.5v5.5h.5v-5.5l3.75-2.5V18h-8V8.62zM22.5 11.47l-2.26-1.3v8.33h2.26z"
+                  fill="#0078D4"
+                />
+              </svg>
+              Connect Outlook Calendar
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -191,20 +313,18 @@ function AvailabilityDialog({
   onDelete,
   onClose,
 }: {
-  date: string;
+  date: Date;
   existing?: AvailabilityEntry;
   onSave: (date: string, status: string, note: string) => void;
   onDelete: (date: string) => void;
   onClose: () => void;
 }) {
+  const dateStr = isoDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
+  // If existing note looks like a booking title (not a plain availability note), show it
+  const [eventTitle, setEventTitle] = useState(existing?.note ?? "");
   const [status, setStatus] = useState<string>(existing?.status ?? "unavailable");
-  const [note, setNote] = useState(existing?.note ?? "");
 
-  const [d, m, y] = [
-    new Date(`${date}T12:00:00`).getDate(),
-    MONTH_NAMES[new Date(`${date}T12:00:00`).getMonth()],
-    new Date(`${date}T12:00:00`).getFullYear(),
-  ];
+  const isExternalBooking = status === "unavailable" && eventTitle.trim().length > 0;
 
   return (
     <Dialog
@@ -216,12 +336,30 @@ function AvailabilityDialog({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>
-            {d} {m} {y}
+            {date.toLocaleDateString("en-GB", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="avail-status">Availability</Label>
+            <Label htmlFor="event-title">Event name (optional)</Label>
+            <input
+              id="event-title"
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={eventTitle}
+              onChange={(e) => setEventTitle(e.target.value)}
+              placeholder="e.g. Wedding gig, Commercial shoot…"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Add a name to log an external booking. Leave blank to just mark your availability.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="avail-status">Status</Label>
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger id="avail-status">
                 <SelectValue />
@@ -229,21 +367,15 @@ function AvailabilityDialog({
               <SelectContent>
                 <SelectItem value="available">✅ Available</SelectItem>
                 <SelectItem value="tentative">⚠️ Tentative</SelectItem>
-                <SelectItem value="unavailable">❌ Unavailable</SelectItem>
+                <SelectItem value="unavailable">❌ Unavailable / Booked</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="avail-note">Note (optional)</Label>
-            <Textarea
-              id="avail-note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. Travelling, Holiday…"
-              rows={2}
-              className="resize-none"
-            />
-          </div>
+          {isExternalBooking && (
+            <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+              This will appear as a booking on your calendar and block this day.
+            </p>
+          )}
         </div>
         <DialogFooter className="flex-row gap-2">
           {existing && (
@@ -251,17 +383,98 @@ function AvailabilityDialog({
               variant="ghost"
               size="sm"
               className="mr-auto text-muted-foreground"
-              onClick={() => onDelete(date)}
+              onClick={() => onDelete(dateStr)}
             >
-              <X className="mr-1.5 h-3.5 w-3.5" />
-              Clear
+              Remove
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={onClose}>
             Cancel
           </Button>
-          <Button size="sm" onClick={() => onSave(date, status, note)}>
+          <Button size="sm" onClick={() => onSave(dateStr, status, eventTitle)}>
             Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Booking detail dialog ─────────────────────────────────────────────────────
+
+function BookingDetailDialog({
+  booking,
+  onClose,
+}: {
+  booking: FreelancerBooking;
+  onClose: () => void;
+}) {
+  const statusColour = BOOKING_COLOURS[booking.booking.status] ?? "#6B7280";
+  const employerName =
+    [booking.employer.firstName, booking.employer.lastName].filter(Boolean).join(" ") ||
+    booking.employer.companyName ||
+    "Employer";
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span
+              className="inline-block h-3 w-3 rounded-full"
+              style={{ backgroundColor: statusColour }}
+            />
+            {booking.job.title}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2 text-sm">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <span className="text-muted-foreground">Status</span>
+            <span className="font-medium capitalize" style={{ color: statusColour }}>
+              {BOOKING_LABELS[booking.booking.status] ?? booking.booking.status}
+            </span>
+            <span className="text-muted-foreground">Client</span>
+            <span className="font-medium">{employerName}</span>
+            {booking.employer.companyName && (
+              <>
+                <span className="text-muted-foreground">Company</span>
+                <span>{booking.employer.companyName}</span>
+              </>
+            )}
+            {booking.job.location && (
+              <>
+                <span className="text-muted-foreground">Location</span>
+                <span>{booking.job.location}</span>
+              </>
+            )}
+            {booking.job.eventDate && (
+              <>
+                <span className="text-muted-foreground">Event date</span>
+                <span>
+                  {new Date(booking.job.eventDate).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+              </>
+            )}
+            {booking.booking.agreedRate && (
+              <>
+                <span className="text-muted-foreground">Rate</span>
+                <span>{booking.booking.agreedRate}</span>
+              </>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -275,13 +488,8 @@ export function CalendarTab() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isPro = (user as any)?.subscription_tier === "pro" || (user as any)?.tier === "pro";
-
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [availDialog, setAvailDialog] = useState<string | null>(null);
+  const [availDialog, setAvailDialog] = useState<Date | null>(null);
+  const [bookingDialog, setBookingDialog] = useState<FreelancerBooking | null>(null);
 
   // ── Queries ────────────────────────────────────────────────────────────────
 
@@ -291,15 +499,54 @@ export function CalendarTab() {
     refetchInterval: 30_000,
   });
 
-  const { data: availData } = useQuery<AvailabilityEntry[]>({
-    queryKey: ["/api/calendar/availability", year, month],
-    queryFn: () => {
-      const start = isoDate(year, month, 1);
-      const end = isoDate(year, month, daysInMonth(year, month));
-      return apiRequest(`/api/calendar/availability?from=${start}&to=${end}`).then((r) => r.json());
-    },
+  const { data: bookingsData = [], isLoading } = useQuery<FreelancerBooking[]>({
+    queryKey: ["/api/bookings/freelancer"],
     enabled: !!user,
   });
+
+  // Availability: load a wide range (±3 months)
+  const now = new Date();
+  const rangeStart = isoDate(now.getFullYear(), now.getMonth() - 1, 1);
+  const rangeEnd = isoDate(
+    now.getFullYear(),
+    now.getMonth() + 4,
+    daysInMonth(now.getFullYear(), now.getMonth() + 4)
+  );
+
+  const { data: availData = [] } = useQuery<AvailabilityEntry[]>({
+    queryKey: ["/api/calendar/availability", rangeStart, rangeEnd],
+    queryFn: () =>
+      apiRequest(`/api/calendar/availability?from=${rangeStart}&to=${rangeEnd}`).then((r) =>
+        r.json()
+      ),
+    enabled: !!user,
+  });
+
+  // Handle OAuth callback success/error params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const calSuccess = params.get("calSuccess");
+    const calError = params.get("calError");
+    if (calSuccess) {
+      toast({ title: `${calSuccess === "google" ? "Google" : "Outlook"} Calendar connected!` });
+      queryClient.invalidateQueries({ queryKey: ["/api/calendar/status"] });
+    } else if (calError) {
+      toast({
+        title: "Calendar connection failed",
+        description:
+          calError === "invalid_state"
+            ? "Session expired, please try again."
+            : "Could not connect calendar.",
+        variant: "destructive",
+      });
+    }
+    if (calSuccess || calError) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("calSuccess");
+      url.searchParams.delete("calError");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
@@ -312,15 +559,6 @@ export function CalendarTab() {
     onError: () => toast({ title: "Sync failed", variant: "destructive" }),
   });
 
-  const disconnectMut = useMutation({
-    mutationFn: () => apiRequest("/api/calendar/disconnect", { method: "DELETE" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/calendar/status"] });
-      toast({ title: "Calendar disconnected" });
-    },
-    onError: () => toast({ title: "Disconnect failed", variant: "destructive" }),
-  });
-
   const setAvailMut = useMutation({
     mutationFn: ({ date, status, note }: { date: string; status: string; note: string }) =>
       apiRequest("/api/calendar/availability", {
@@ -328,7 +566,9 @@ export function CalendarTab() {
         body: JSON.stringify({ date, status, note: note || null }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/calendar/availability", year, month] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/calendar/availability", rangeStart, rangeEnd],
+      });
       setAvailDialog(null);
       toast({ title: "Availability saved" });
     },
@@ -339,259 +579,150 @@ export function CalendarTab() {
     mutationFn: (date: string) =>
       apiRequest(`/api/calendar/availability/${date}`, { method: "DELETE" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/calendar/availability", year, month] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/calendar/availability", rangeStart, rangeEnd],
+      });
       setAvailDialog(null);
       toast({ title: "Availability cleared" });
     },
-    onError: () => toast({ title: "Failed to clear availability", variant: "destructive" }),
+    onError: () => toast({ title: "Failed to clear", variant: "destructive" }),
   });
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
-
-  function calendarConnectUrl(provider: "google" | "outlook"): string {
-    const token = localStorage.getItem("auth_token") ?? "";
-    return `/api/calendar/${provider}/connect?token=${encodeURIComponent(token)}`;
-  }
+  // ── Calendar connect handler ───────────────────────────────────────────────
 
   function handleConnect(provider: "google" | "outlook") {
-    window.location.href = calendarConnectUrl(provider);
+    const token = localStorage.getItem("auth_token") ?? "";
+    window.location.href = `/api/calendar/${provider}/connect?token=${encodeURIComponent(token)}`;
   }
 
-  function prevMonth() {
-    if (month === 1) {
-      setYear((y) => y - 1);
-      setMonth(12);
-    } else setMonth((m) => m - 1);
-  }
+  // ── Build events ───────────────────────────────────────────────────────────
 
-  function nextMonth() {
-    if (month === 12) {
-      setYear((y) => y + 1);
-      setMonth(1);
-    } else setMonth((m) => m + 1);
-  }
+  const bookingEvents = bookingsData
+    .filter((b) => b.job.eventDate)
+    .map((b) => ({
+      id: `booking-${b.booking.id}`,
+      title: b.job.title,
+      start: new Date(b.job.eventDate!),
+      end: new Date(b.job.eventDate!),
+      allDay: true,
+      resource: b,
+      colour: BOOKING_COLOURS[b.booking.status] ?? "#6B7280",
+      status: b.booking.status,
+    }));
+
+  const availEvents = availData.map((a) => ({
+    id: `avail-${a.id}`,
+    title: AVAIL_LABELS[a.status] + (a.note ? ` · ${a.note}` : ""),
+    start: new Date(`${a.date}T12:00:00`),
+    end: new Date(`${a.date}T12:00:00`),
+    allDay: true,
+    resource: a,
+    colour: AVAIL_COLOURS[a.status],
+    isAvailability: true,
+    availStatus: a.status,
+  }));
+
+  const events = [...bookingEvents, ...availEvents];
+
+  const eventStyleGetter = (event: any) => ({
+    style: {
+      backgroundColor: event.colour,
+      borderRadius: "4px",
+      border: event.isAvailability ? "1px dashed rgba(255,255,255,0.6)" : "none",
+      color: "#ffffff",
+      fontSize: "11px",
+      padding: "1px 5px",
+      cursor: "pointer",
+      opacity: event.status === "cancelled" ? 0.5 : 1,
+    },
+  });
+
+  const handleSelectEvent = (event: any) => {
+    if (event.isAvailability) {
+      const dateObj = new Date(event.resource.date + "T12:00:00");
+      setAvailDialog(dateObj);
+    } else {
+      setBookingDialog(event.resource as FreelancerBooking);
+    }
+  };
+
+  const handleSelectSlot = ({ start }: { start: Date }) => {
+    setAvailDialog(start);
+  };
 
   const selectedAvail = availDialog
-    ? (availData ?? []).find((a) => a.date === availDialog)
+    ? availData.find(
+        (a) =>
+          a.date ===
+          isoDate(availDialog.getFullYear(), availDialog.getMonth() + 1, availDialog.getDate())
+      )
     : undefined;
-  const isConnected = calStatus?.connected;
-  const needsReconnect = calStatus?.status === "needs_reconnect" || calStatus?.status === "error";
-
-  // ── Calendar nav header (shared) ──────────────────────────────────────────
-
-  const CalendarNav = (
-    <div className="flex items-center gap-1">
-      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={prevMonth}>
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-      <span className="w-32 text-center text-sm font-medium">
-        {MONTH_NAMES[month - 1]} {year}
-      </span>
-      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={nextMonth}>
-        <ChevronRight className="h-4 w-4" />
-      </Button>
-    </div>
-  );
 
   return (
-    <div className="space-y-4">
-      {/* ── Connection card ─────────────────────────────────────── */}
-      {isConnected ? (
-        <Card className={needsReconnect ? "border-amber-500/40" : "border-emerald-500/30"}>
-          <CardContent className="py-4">
-            <div className="flex flex-wrap items-start gap-3">
-              <div
-                className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${needsReconnect ? "bg-amber-500/15" : "bg-emerald-500/15"}`}
-              >
-                {needsReconnect ? (
-                  <AlertCircle className="h-4 w-4 text-amber-500" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                )}
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold">
-                  {calStatus.provider === "google" ? "Google Calendar" : "Outlook Calendar"}{" "}
-                  <span
-                    className={`font-normal ${needsReconnect ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}
-                  >
-                    {needsReconnect ? "needs reconnecting" : "connected"}
-                  </span>
-                </p>
-                {calStatus.last_read_sync_at && (
-                  <p className="text-xs text-muted-foreground">
-                    Last sync: {fmtDateTime(calStatus.last_read_sync_at)}
-                  </p>
-                )}
-                {needsReconnect && calStatus.last_error && (
-                  <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
-                    {calStatus.last_error}
-                  </p>
-                )}
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {needsReconnect && calStatus.provider && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-amber-500/50"
-                    onClick={() => handleConnect(calStatus.provider!)}
-                  >
-                    Reconnect
-                  </Button>
-                )}
-                {!needsReconnect && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={syncMut.isPending}
-                    onClick={() => syncMut.mutate()}
-                  >
-                    <RefreshCw
-                      className={`mr-1.5 h-3.5 w-3.5 ${syncMut.isPending ? "animate-spin" : ""}`}
-                    />
-                    Sync now
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-muted-foreground"
-                  onClick={() => disconnectMut.mutate()}
-                >
-                  <Unlink className="mr-1.5 h-3.5 w-3.5" />
-                  Disconnect
-                </Button>
-              </div>
-            </div>
+    <div>
+      {/* Sync panel */}
+      <CalendarSyncPanel
+        status={calStatus}
+        syncing={syncMut.isPending}
+        onSync={() => syncMut.mutate()}
+        onConnect={handleConnect}
+      />
 
-            {/* Sync settings */}
-            {!needsReconnect && (
-              <div className="mt-4 grid grid-cols-1 gap-3 border-t pt-4 sm:grid-cols-3">
-                {[
-                  {
-                    key: "push_bookings",
-                    label: "Push bookings to calendar",
-                    value: calStatus.push_bookings,
-                  },
-                  {
-                    key: "push_availability",
-                    label: "Block unavailable days",
-                    value: calStatus.push_availability,
-                  },
-                  {
-                    key: "read_external",
-                    label: "Import external events",
-                    value: calStatus.read_external,
-                  },
-                ].map(({ key, label, value }) => (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2"
-                  >
-                    <span className="text-xs text-muted-foreground">{label}</span>
-                    <Switch
-                      checked={!!value}
-                      onCheckedChange={async (checked) => {
-                        try {
-                          await apiRequest("/api/calendar/preferences", {
-                            method: "PATCH",
-                            body: JSON.stringify({ [key]: checked }),
-                          });
-                          queryClient.invalidateQueries({ queryKey: ["/api/calendar/status"] });
-                        } catch {
-                          toast({ title: "Failed to update setting", variant: "destructive" });
-                        }
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Calendar className="h-4 w-4" />
-              Connect a calendar
-              {!isPro && (
-                <Badge variant="secondary" className="ml-auto">
-                  <Lock className="mr-1 h-3 w-3" />
-                  Pro
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {isPro
-                ? "Sync your confirmed bookings to Google Calendar or Outlook, and let the platform know when you're unavailable."
-                : "Connect your calendar to automatically sync bookings and block availability. Upgrade to Pro to unlock this feature."}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" disabled={!isPro} onClick={() => isPro && handleConnect("google")}>
-                <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    fill="#4285F4"
-                  />
-                  <path
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    fill="#34A853"
-                  />
-                  <path
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                    fill="#FBBC05"
-                  />
-                  <path
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    fill="#EA4335"
-                  />
-                </svg>
-                Connect Google Calendar
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!isPro}
-                onClick={() => isPro && handleConnect("outlook")}
-              >
-                <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M24 12.075C24 5.406 18.627 0 12 0S0 5.406 0 12.075c0 6.025 4.388 11.02 10.125 11.919V15.56H7.078v-3.485h3.047V9.41c0-3.025 1.793-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.971H15.83c-1.491 0-1.956.93-1.956 1.886v2.269h3.328l-.532 3.485h-2.796v8.433C19.612 23.095 24 18.1 24 12.075z"
-                    fill="#1877F2"
-                  />
-                </svg>
-                Connect Outlook
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ── Availability calendar ───────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Availability</CardTitle>
-            {CalendarNav}
+      {/* Legend */}
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        {Object.entries(BOOKING_COLOURS).map(([status, colour]) => (
+          <div key={status} className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: colour }} />
+            <span className="text-xs text-muted-foreground">{BOOKING_LABELS[status]}</span>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Tap a day to mark your availability. This is visible to employers searching for
-            freelancers.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <CalendarGrid
-            year={year}
-            month={month}
-            availability={availData ?? []}
-            onDayTap={setAvailDialog}
+        ))}
+        <div className="mx-1 h-3 w-px bg-border" />
+        {Object.entries(AVAIL_COLOURS).map(([status, colour]) => (
+          <div key={status} className="flex items-center gap-1.5">
+            <div
+              className="h-3 w-3 rounded-full border border-dashed border-white/60"
+              style={{ backgroundColor: colour }}
+            />
+            <span className="text-xs text-muted-foreground">{AVAIL_LABELS[status]}</span>
+          </div>
+        ))}
+        <span className="ml-auto hidden text-xs text-muted-foreground sm:block">
+          Click a booking to view details • Click an empty day to set availability
+        </span>
+      </div>
+
+      {/* Calendar */}
+      <div className="h-[680px]">
+        {isLoading ? (
+          <div className="flex h-full items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <Calendar
+            localizer={localizer}
+            events={events}
+            defaultView={Views.MONTH}
+            views={[Views.MONTH, Views.WEEK, Views.AGENDA]}
+            style={{ height: "100%" }}
+            eventPropGetter={eventStyleGetter}
+            onSelectEvent={handleSelectEvent}
+            onSelectSlot={handleSelectSlot}
+            selectable
+            culture="en-GB"
+            formats={{
+              monthHeaderFormat: (date: Date) => format(date, "MMMM yyyy"),
+              dayHeaderFormat: (date: Date) => format(date, "EEE d MMM"),
+              agendaDateFormat: (date: Date) => format(date, "EEE d MMM yyyy"),
+            }}
+            popup
+            tooltipAccessor={(event: any) =>
+              event.isAvailability
+                ? `${AVAIL_LABELS[event.availStatus]}${event.resource?.note ? ` · ${event.resource.note}` : ""}`
+                : `${event.title} — ${BOOKING_LABELS[event.status] ?? event.status}`
+            }
           />
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
       {availDialog && (
         <AvailabilityDialog
@@ -601,6 +732,10 @@ export function CalendarTab() {
           onDelete={(date) => deleteAvailMut.mutate(date)}
           onClose={() => setAvailDialog(null)}
         />
+      )}
+
+      {bookingDialog && (
+        <BookingDetailDialog booking={bookingDialog} onClose={() => setBookingDialog(null)} />
       )}
     </div>
   );

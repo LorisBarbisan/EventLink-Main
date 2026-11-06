@@ -60,17 +60,17 @@ export async function googleCallback(req: Request, res: Response): Promise<void>
   const code = req.query.code as string | undefined;
 
   if (!ok || !code || payload.purpose !== "calendar") {
-    res.redirect(`${BASE_URL}/dashboard?tab=books&calError=invalid_state`);
+    res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calError=invalid_state`);
     return;
   }
 
   try {
     await connectGoogleCalendar(payload.uid as number, code);
     await syncAllBookings(payload.uid as number);
-    res.redirect(`${BASE_URL}/dashboard?tab=books&calSuccess=google`);
+    res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calSuccess=google`);
   } catch (err) {
     console.error("[calendar] Google connect failed:", err);
-    res.redirect(`${BASE_URL}/dashboard?tab=books&calError=google_connect`);
+    res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calError=google_connect`);
   }
 }
 
@@ -92,17 +92,17 @@ export async function outlookCallback(req: Request, res: Response): Promise<void
   const code = req.query.code as string | undefined;
 
   if (!ok || !code || payload.purpose !== "calendar") {
-    res.redirect(`${BASE_URL}/dashboard?tab=books&calError=invalid_state`);
+    res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calError=invalid_state`);
     return;
   }
 
   try {
     await connectOutlookCalendar(payload.uid as number, code);
     await syncAllBookings(payload.uid as number);
-    res.redirect(`${BASE_URL}/dashboard?tab=books&calSuccess=outlook`);
+    res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calSuccess=outlook`);
   } catch (err) {
     console.error("[calendar] Outlook connect failed:", err);
-    res.redirect(`${BASE_URL}/dashboard?tab=books&calError=outlook_connect`);
+    res.redirect(`${BASE_URL}/dashboard?tab=books&section=calendar&calError=outlook_connect`);
   }
 }
 
