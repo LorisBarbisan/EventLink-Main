@@ -150,6 +150,13 @@ function CalendarSyncPanel({
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  const prefMut = useMutation({
+    mutationFn: (patch: { read_external?: boolean }) =>
+      apiRequest("/api/calendar/preferences", { method: "PATCH", body: JSON.stringify(patch) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/calendar/status"] }),
+    onError: () => toast({ title: "Failed to save preference", variant: "destructive" }),
+  });
+
   const disconnectMut = useMutation({
     mutationFn: () => apiRequest("/api/calendar/disconnect", { method: "DELETE" }),
     onSuccess: () => {
@@ -165,83 +172,105 @@ function CalendarSyncPanel({
   return (
     <div className="mb-4 rounded-xl border bg-card p-4">
       {status?.connected ? (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="flex flex-1 items-center gap-3">
-            <div
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${needsReconnect ? "bg-amber-100 dark:bg-amber-900/30" : "bg-emerald-100 dark:bg-emerald-900/30"}`}
-            >
-              {needsReconnect ? (
-                <AlertCircle className="h-4 w-4 text-amber-600" />
-              ) : (
-                <CalendarCheck className="h-4 w-4 text-emerald-600" />
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold">Connected to {providerLabel}</span>
-                <Badge
-                  className={
-                    needsReconnect
-                      ? "border-0 bg-amber-100 text-amber-700"
-                      : "border-0 bg-emerald-100 text-emerald-700"
-                  }
-                >
-                  {needsReconnect ? "Needs reconnect" : "Active"}
-                </Badge>
-              </div>
-              {status.last_read_sync_at && (
-                <p className="text-xs text-muted-foreground">
-                  Last sync: {fmtDateTime(status.last_read_sync_at)}
-                </p>
-              )}
-              {needsReconnect && status.last_error && (
-                <p className="text-xs text-amber-600">{status.last_error}</p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {needsReconnect ? (
-              <Button size="sm" variant="outline" onClick={() => onConnect(status.provider!)}>
-                Reconnect
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                onClick={onSync}
-                disabled={syncing}
-                className="gap-2 bg-orange-500 text-white hover:bg-orange-600"
+        <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-1 items-center gap-3">
+              <div
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${needsReconnect ? "bg-amber-100 dark:bg-amber-900/30" : "bg-emerald-100 dark:bg-emerald-900/30"}`}
               >
-                <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-                {syncing ? "Syncing…" : "Sync now"}
-              </Button>
-            )}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <button className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive">
-                  <Unplug className="h-3 w-3" />
-                  Disconnect
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Disconnect calendar?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This removes the calendar connection. Existing events created by EventLink will
-                    not be deleted.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => disconnectMut.mutate()}
-                    className="bg-destructive hover:bg-destructive/90"
+                {needsReconnect ? (
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                ) : (
+                  <CalendarCheck className="h-4 w-4 text-emerald-600" />
+                )}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold">Connected to {providerLabel}</span>
+                  <Badge
+                    className={
+                      needsReconnect
+                        ? "border-0 bg-amber-100 text-amber-700"
+                        : "border-0 bg-emerald-100 text-emerald-700"
+                    }
                   >
+                    {needsReconnect ? "Needs reconnect" : "Active"}
+                  </Badge>
+                </div>
+                {status.last_read_sync_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Last sync: {fmtDateTime(status.last_read_sync_at)}
+                  </p>
+                )}
+                {needsReconnect && status.last_error && (
+                  <p className="text-xs text-amber-600">{status.last_error}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {needsReconnect ? (
+                <Button size="sm" variant="outline" onClick={() => onConnect(status.provider!)}>
+                  Reconnect
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={onSync}
+                  disabled={syncing}
+                  className="gap-2 bg-orange-500 text-white hover:bg-orange-600"
+                >
+                  <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                  {syncing ? "Syncing…" : "Sync now"}
+                </Button>
+              )}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive">
+                    <Unplug className="h-3 w-3" />
                     Disconnect
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Disconnect calendar?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This removes the calendar connection. Existing events created by EventLink
+                      will not be deleted.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => disconnectMut.mutate()}
+                      className="bg-destructive hover:bg-destructive/90"
+                    >
+                      Disconnect
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
+          {status.provider === "google" && (
+            <div className="mt-3 flex items-center justify-between border-t pt-3">
+              <div>
+                <p className="text-sm font-medium">Show Google Calendar events</p>
+                <p className="text-xs text-muted-foreground">
+                  Display your personal Google Calendar events on this calendar view.
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={!!status.read_external}
+                onClick={() => prefMut.mutate({ read_external: !status.read_external })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${status.read_external ? "bg-primary" : "bg-input"}`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform ${status.read_external ? "translate-x-4" : "translate-x-0"}`}
+                />
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div>
