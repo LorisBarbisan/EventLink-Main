@@ -633,6 +633,10 @@ export function CalendarTab() {
 
   // ── Build events ───────────────────────────────────────────────────────────
 
+  if (bookingsData.length > 0) {
+    console.log("[CalendarTab] bookingsData sample:", JSON.stringify(bookingsData[0], null, 2));
+  }
+
   const bookingEvents = bookingsData.map((b) => {
     // Use eventDate if available; undated bookings pin to current calendar view date
     const startDate = b.job.eventDate ? new Date(b.job.eventDate) : calDate;
