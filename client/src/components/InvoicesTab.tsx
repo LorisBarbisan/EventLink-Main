@@ -1071,7 +1071,7 @@ export function InvoicesTab() {
   const [showBillingEdit, setShowBillingEdit] = useState(false);
   const [sendingInvoice, setSendingInvoice] = useState<Invoice | null>(null);
   const [sendMessage, setSendMessage] = useState("");
-  const [sendRecipientBookingId, setSendRecipientBookingId] = useState<number | null>(null);
+  const [sendRecipientEmployerId, setSendRecipientEmployerId] = useState<number | null>(null);
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
@@ -1081,6 +1081,59 @@ export function InvoicesTab() {
     queryKey: ["/api/bookings/freelancer"],
     enabled: !!user,
   });
+
+  type LegacyBooking = {
+    id: number;
+    job_id?: number;
+    recruiter_id?: number;
+    job_title: string;
+    company_name?: string;
+    event_date?: string;
+  };
+  const { data: legacyBookings = [] } = useQuery<LegacyBooking[]>({
+    queryKey: ["/api/freelancer", user?.id, "bookings"],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(`/api/freelancer/${user!.id}/bookings`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  // Unified list of jobs the user can send an invoice to
+  const sendOptions = (() => {
+    const opts: Array<{
+      key: string;
+      jobTitle: string;
+      companyName: string | null;
+      employerUserId: number;
+    }> = [];
+    for (const b of hiredBookings) {
+      opts.push({
+        key: `new-${b.booking.id}`,
+        jobTitle: b.job.title,
+        companyName: b.employer.companyName,
+        employerUserId: b.booking.employerId,
+      });
+    }
+    // Add legacy bookings whose recruiter isn't already covered
+    const coveredEmployerIds = new Set(hiredBookings.map((b) => b.booking.employerId));
+    for (const b of legacyBookings) {
+      if (b.recruiter_id && !coveredEmployerIds.has(b.recruiter_id)) {
+        opts.push({
+          key: `legacy-${b.id}`,
+          jobTitle: b.job_title,
+          companyName: b.company_name ?? null,
+          employerUserId: b.recruiter_id,
+        });
+        coveredEmployerIds.add(b.recruiter_id);
+      }
+    }
+    return opts;
+  })();
 
   const { data: billingProfile } = useQuery<BillingProfile | null>({
     queryKey: ["/api/billing-profile"],
@@ -1135,7 +1188,7 @@ export function InvoicesTab() {
       toast({ title: "Invoice sent via message" });
       setSendingInvoice(null);
       setSendMessage("");
-      setSendRecipientBookingId(null);
+      setSendRecipientEmployerId(null);
     },
     onError: () => toast({ title: "Failed to send invoice", variant: "destructive" }),
   });
@@ -1358,7 +1411,7 @@ export function InvoicesTab() {
                   onSend={(inv) => {
                     setSendingInvoice(inv);
                     setSendMessage("");
-                    setSendRecipientBookingId(null);
+                    setSendRecipientEmployerId(null);
                   }}
                 />
               ))}
@@ -1462,7 +1515,7 @@ export function InvoicesTab() {
         onOpenChange={(o) => {
           if (!o) {
             setSendingInvoice(null);
-            setSendRecipientBookingId(null);
+            setSendRecipientEmployerId(null);
           }
         }}
       >
@@ -1480,17 +1533,17 @@ export function InvoicesTab() {
               <div className="space-y-1">
                 <Label>Send to</Label>
                 <Select
-                  value={sendRecipientBookingId?.toString() ?? ""}
-                  onValueChange={(val) => setSendRecipientBookingId(parseInt(val))}
+                  value={sendRecipientEmployerId?.toString() ?? ""}
+                  onValueChange={(val) => setSendRecipientEmployerId(parseInt(val))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Choose a job / employer…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {hiredBookings.map((b) => (
-                      <SelectItem key={b.booking.id} value={b.booking.id.toString()}>
-                        {b.job.title}
-                        {b.employer.companyName ? ` · ${b.employer.companyName}` : ""}
+                    {sendOptions.map((opt) => (
+                      <SelectItem key={opt.key} value={opt.employerUserId.toString()}>
+                        {opt.jobTitle}
+                        {opt.companyName ? ` · ${opt.companyName}` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1513,7 +1566,7 @@ export function InvoicesTab() {
               variant="outline"
               onClick={() => {
                 setSendingInvoice(null);
-                setSendRecipientBookingId(null);
+                setSendRecipientEmployerId(null);
               }}
             >
               Cancel
@@ -1522,14 +1575,13 @@ export function InvoicesTab() {
               disabled={
                 !sendMessage.trim() ||
                 sendMutation.isPending ||
-                (!sendingInvoice?.booking_id && !sendRecipientBookingId)
+                (!sendingInvoice?.booking_id && !sendRecipientEmployerId)
               }
               onClick={() => {
                 if (!sendingInvoice) return;
                 const recipientUserId = sendingInvoice.booking_id
                   ? undefined
-                  : hiredBookings.find((b) => b.booking.id === sendRecipientBookingId)?.booking
-                      .employerId;
+                  : (sendRecipientEmployerId ?? undefined);
                 sendMutation.mutate({
                   id: sendingInvoice.id,
                   message: sendMessage,

@@ -490,11 +490,11 @@ export default function SimplifiedFreelancerDashboard() {
   }, [profile?.profile_is_public]);
 
   const toggleProfilePrivacy = async () => {
-    if (!profile?.id) return;
+    if (!user?.id) return;
     setTogglingPrivacy(true);
     const newValue = !profileIsPublic;
     try {
-      await apiRequest(`/api/freelancer/${profile.id}`, {
+      await apiRequest(`/api/freelancer/${user.id}`, {
         method: "PUT",
         body: JSON.stringify({ profile_is_public: newValue }),
       });
@@ -670,7 +670,22 @@ export default function SimplifiedFreelancerDashboard() {
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <Switch
+                id="profile-visibility-bar-pro"
+                checked={profileIsPublic}
+                onCheckedChange={toggleProfilePrivacy}
+                disabled={togglingPrivacy}
+                className="data-[state=checked]:bg-white/90 data-[state=unchecked]:bg-white/30"
+              />
+              <label
+                htmlFor="profile-visibility-bar-pro"
+                className="cursor-pointer select-none text-xs font-medium text-white/90"
+              >
+                {profileIsPublic ? "Public" : "Private"}
+              </label>
+            </div>
             <Button
               size="sm"
               data-help="action.freelancer.postJob"
