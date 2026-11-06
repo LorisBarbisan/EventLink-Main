@@ -15,6 +15,7 @@ import {
   isTokenBlacklisted,
   verifyJWTToken,
 } from "../utils/auth.util";
+import { verifyOAuthState } from "../lib/oauth-state";
 import {
   sendPasswordResetEmail,
   sendVerificationEmail,
@@ -74,6 +75,16 @@ export async function handleGoogleCallback(req: Request, res: Response) {
         "/api/auth/oauth-error?error=server_error&error_description=No authorization code received"
       );
     }
+
+    const { ok } = verifyOAuthState(req, res);
+    if (!ok) {
+      console.error("Google OAuth state verification failed");
+      return res.redirect(
+        "/api/auth/oauth-error?error=invalid_state&error_description=" +
+          encodeURIComponent("Sign-in could not be verified. Please try again.")
+      );
+    }
+    // payload.role is available from verifyOAuthState if role handling moves here later.
 
     const clientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
     const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || "").trim();
@@ -211,6 +222,14 @@ export async function handleGoogleCallback(req: Request, res: Response) {
 
 // Facebook OAuth callback
 export function handleFacebookCallback(req: Request, res: Response, next: any) {
+  const { ok } = verifyOAuthState(req, res);
+  if (!ok) {
+    console.error("Facebook OAuth state verification failed");
+    return res.redirect(
+      "/api/auth/oauth-error?error=invalid_state&error_description=" +
+        encodeURIComponent("Sign-in could not be verified. Please try again.")
+    );
+  }
   passport.authenticate("facebook", async (err: any, user: any, info: any) => {
     try {
       if (err) {
@@ -286,6 +305,14 @@ export function handleFacebookCallback(req: Request, res: Response, next: any) {
 
 // Apple OAuth callback
 export function handleAppleCallback(req: Request, res: Response, next: any) {
+  const { ok } = verifyOAuthState(req, res);
+  if (!ok) {
+    console.error("Apple OAuth state verification failed");
+    return res.redirect(
+      "/api/auth/oauth-error?error=invalid_state&error_description=" +
+        encodeURIComponent("Sign-in could not be verified. Please try again.")
+    );
+  }
   passport.authenticate("apple", async (err: any, user: any, info: any) => {
     try {
       if (err) {
@@ -361,6 +388,14 @@ export function handleAppleCallback(req: Request, res: Response, next: any) {
 
 // LinkedIn OAuth callback
 export function handleLinkedInCallback(req: Request, res: Response, next: any) {
+  const { ok } = verifyOAuthState(req, res);
+  if (!ok) {
+    console.error("LinkedIn OAuth state verification failed");
+    return res.redirect(
+      "/api/auth/oauth-error?error=invalid_state&error_description=" +
+        encodeURIComponent("Sign-in could not be verified. Please try again.")
+    );
+  }
   passport.authenticate("linkedin", async (err: any, user: any, info: any) => {
     try {
       if (err) {
