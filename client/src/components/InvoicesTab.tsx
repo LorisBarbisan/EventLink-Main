@@ -991,8 +991,8 @@ function InvoiceRow({
         {penceToGBP(invoice.total_pence)}
       </td>
       <td className="px-4 py-3 text-sm">{invoice.issue_date}</td>
-      <td className="px-4 py-3 text-sm">{invoice.due_date}</td>
-      <td className="px-4 py-3">
+      <td className="hidden px-4 py-3 text-sm sm:table-cell">{invoice.due_date}</td>
+      <td className="hidden px-4 py-3 sm:table-cell">
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_COLORS[invoice.status]}`}
         >
@@ -1394,8 +1394,12 @@ export function InvoicesTab() {
                 <th className="px-4 py-2 text-left font-medium text-muted-foreground">Client</th>
                 <th className="px-4 py-2 text-right font-medium text-muted-foreground">Amount</th>
                 <th className="px-4 py-2 text-left font-medium text-muted-foreground">Issued</th>
-                <th className="px-4 py-2 text-left font-medium text-muted-foreground">Due</th>
-                <th className="px-4 py-2 text-left font-medium text-muted-foreground">Status</th>
+                <th className="hidden px-4 py-2 text-left font-medium text-muted-foreground sm:table-cell">
+                  Due
+                </th>
+                <th className="hidden px-4 py-2 text-left font-medium text-muted-foreground sm:table-cell">
+                  Status
+                </th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>

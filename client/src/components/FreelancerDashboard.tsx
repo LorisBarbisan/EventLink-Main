@@ -705,16 +705,17 @@ export default function SimplifiedFreelancerDashboard() {
               data-help="action.profile.shareLink"
               onClick={handleShareProfile}
               className="border-0 bg-white/20 text-white hover:bg-white/30"
+              title="Copy profile link"
             >
               {linkCopied ? (
                 <>
-                  <Check className="mr-1.5 h-3.5 w-3.5" />
-                  Copied!
+                  <Check className="mr-1.5 h-3.5 w-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Copied!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="mr-1.5 h-3.5 w-3.5" />
-                  Copy Link
+                  <Copy className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Copy Link</span>
                 </>
               )}
             </Button>
@@ -722,14 +723,18 @@ export default function SimplifiedFreelancerDashboard() {
               size="sm"
               onClick={() => setShowQrModal(true)}
               className="border-0 bg-white/20 text-white hover:bg-white/30"
+              title="Card QR code"
             >
-              <QrCode className="mr-1.5 h-3.5 w-3.5" />
-              Card QR
+              <QrCode className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Card QR</span>
             </Button>
             {user.id_verified ? (
-              <span className="inline-flex items-center gap-1 rounded-md border border-white/30 bg-white/10 px-2 py-1 text-xs font-semibold text-white">
+              <span
+                className="inline-flex items-center gap-1 rounded-md border border-white/30 bg-white/10 px-2 py-1 text-xs font-semibold text-white"
+                title="ID Verified"
+              >
                 <ShieldCheck className="h-3.5 w-3.5" />
-                ID Verified
+                <span className="hidden sm:inline">ID Verified</span>
               </span>
             ) : (
               <Button
@@ -737,9 +742,10 @@ export default function SimplifiedFreelancerDashboard() {
                 onClick={handleVerifyId}
                 disabled={identityLoading}
                 className="border-0 bg-white/20 text-white hover:bg-white/30"
+                title="Verify ID"
               >
-                <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
-                {identityLoading ? "…" : "Verify ID"}
+                <ShieldCheck className="h-3.5 w-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">{identityLoading ? "…" : "Verify ID"}</span>
               </Button>
             )}
           </div>
@@ -786,23 +792,30 @@ export default function SimplifiedFreelancerDashboard() {
               variant="outline"
               data-help="action.profile.shareLink"
               onClick={handleShareProfile}
+              title="Copy profile link"
             >
               {linkCopied ? (
                 <>
-                  <Check className="mr-1.5 h-3.5 w-3.5 text-green-600" />
-                  Copied!
+                  <Check className="h-3.5 w-3.5 text-green-600 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Copied!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="mr-1.5 h-3.5 w-3.5" />
-                  Copy Link
+                  <Copy className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Copy Link</span>
                 </>
               )}
             </Button>
-            <Button size="sm" variant="outline" data-help="action.profile.viewPublic" asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              data-help="action.profile.viewPublic"
+              asChild
+              title="View public profile"
+            >
               <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
-                <Share2 className="mr-1.5 h-3.5 w-3.5" />
-                View Profile
+                <Share2 className="h-3.5 w-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">View Profile</span>
               </a>
             </Button>
           </div>
