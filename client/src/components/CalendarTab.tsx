@@ -496,8 +496,8 @@ export function CalendarTab() {
   const { data: calStatus } = useQuery<CalendarStatus>({
     queryKey: ["/api/calendar/status"],
     queryFn: async () => {
-      const data = await apiRequest("/api/calendar/status").then((r) => r.json());
-      // API returns { connected, connection: {...} } — flatten for convenience
+      const data = await apiRequest("/api/calendar/status");
+      // API returns { connected, connection: { provider, status, ... } } — flatten
       return { connected: data.connected, ...(data.connection ?? {}) } as CalendarStatus;
     },
     enabled: !!user,
@@ -520,10 +520,7 @@ export function CalendarTab() {
 
   const { data: availData = [] } = useQuery<AvailabilityEntry[]>({
     queryKey: ["/api/calendar/availability", rangeStart, rangeEnd],
-    queryFn: () =>
-      apiRequest(`/api/calendar/availability?from=${rangeStart}&to=${rangeEnd}`).then((r) =>
-        r.json()
-      ),
+    queryFn: () => apiRequest(`/api/calendar/availability?from=${rangeStart}&to=${rangeEnd}`),
     enabled: !!user,
   });
 
