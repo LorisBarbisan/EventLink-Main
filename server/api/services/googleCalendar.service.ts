@@ -357,6 +357,33 @@ export async function registerGoogleWebhook(
   };
 }
 
+/** Fetch events from the user's primary Google Calendar for a date range. */
+export async function fetchExternalGoogleEvents(
+  userId: number,
+  from: string,
+  to: string
+): Promise<{ id: string; title: string; start: string; end: string; allDay: boolean }[]> {
+  const token = await getValidGoogleToken(userId);
+  const url =
+    `${GOOGLE_API}/calendars/primary/events` +
+    `?timeMin=${encodeURIComponent(new Date(from).toISOString())}` +
+    `&timeMax=${encodeURIComponent(new Date(to).toISOString())}` +
+    `&singleEvents=true&maxResults=250&orderBy=startTime`;
+
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    throw new Error(`Google Calendar API error: ${res.status}`);
+  }
+  const data = (await res.json()) as { items?: any[] };
+  return (data.items ?? []).map((ev: any) => ({
+    id: ev.id,
+    title: ev.summary ?? "(no title)",
+    start: ev.start?.dateTime ?? ev.start?.date ?? from,
+    end: ev.end?.dateTime ?? ev.end?.date ?? to,
+    allDay: !ev.start?.dateTime,
+  }));
+}
+
 /** Stop a push-notification channel. */
 export async function stopGoogleWebhook(
   userId: number,

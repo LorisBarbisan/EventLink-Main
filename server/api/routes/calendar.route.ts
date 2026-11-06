@@ -14,6 +14,7 @@ import {
   listAvailability,
   setAvailability,
   deleteAvailability,
+  getExternalEvents,
 } from "../controllers/calendar.controller";
 
 const calendarRouter = Router();
@@ -33,6 +34,9 @@ calendarRouter.get("/outlook/callback", outlookCallback);
 // Webhooks (unauthenticated — Google/Microsoft push notifications)
 calendarRouter.post("/webhook/google", googleWebhookHandler);
 calendarRouter.post("/webhook/outlook", outlookWebhookHandler);
+
+// External calendar events (opt-in read)
+calendarRouter.get("/external-events", authenticateJWT, getExternalEvents);
 
 // Availability
 calendarRouter.get("/availability", authenticateJWT, listAvailability);

@@ -3,7 +3,11 @@ import { db } from "../config/db";
 import { calendar_connections, freelancer_date_availability } from "@shared/schema";
 import { and, eq, gte, lte } from "drizzle-orm";
 import { createOAuthState, verifyOAuthState } from "../lib/oauth-state";
-import { getGoogleAuthUrl, connectGoogleCalendar } from "../services/googleCalendar.service";
+import {
+  getGoogleAuthUrl,
+  connectGoogleCalendar,
+  fetchExternalGoogleEvents,
+} from "../services/googleCalendar.service";
 import { getOutlookAuthUrl, connectOutlookCalendar } from "../services/outlookCalendar.service";
 import {
   syncAllBookings,
@@ -288,6 +292,48 @@ export async function setAvailability(req: Request, res: Response): Promise<void
   }
 
   res.json(row);
+}
+
+// ── External Google Calendar events ────────────────────────────────────────
+
+export async function getExternalEvents(req: Request, res: Response): Promise<void> {
+  const userId = (req as any).user?.id;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const [conn] = await db
+    .select({
+      read_external: calendar_connections.read_external,
+      provider: calendar_connections.provider,
+    })
+    .from(calendar_connections)
+    .where(eq(calendar_connections.user_id, userId))
+    .limit(1);
+
+  if (!conn?.read_external) {
+    res.json([]);
+    return;
+  }
+
+  const { from, to } = req.query as { from?: string; to?: string };
+  if (!from || !to) {
+    res.status(400).json({ error: "from and to query params are required" });
+    return;
+  }
+
+  try {
+    if (conn.provider === "google") {
+      const events = await fetchExternalGoogleEvents(userId, from, to);
+      res.json(events);
+    } else {
+      res.json([]);
+    }
+  } catch (err) {
+    console.error("[calendar] fetchExternalGoogleEvents failed:", err);
+    res.status(500).json({ error: "Failed to fetch external events" });
+  }
 }
 
 export async function deleteAvailability(req: Request, res: Response): Promise<void> {

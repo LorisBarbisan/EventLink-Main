@@ -524,6 +524,15 @@ export function CalendarTab() {
     enabled: !!user,
   });
 
+  const { data: externalEvents = [] } = useQuery<
+    { id: string; title: string; start: string; end: string; allDay: boolean }[]
+  >({
+    queryKey: ["/api/calendar/external-events", rangeStart, rangeEnd],
+    queryFn: () => apiRequest(`/api/calendar/external-events?from=${rangeStart}&to=${rangeEnd}`),
+    enabled: !!user && !!calStatus?.read_external,
+    staleTime: 5 * 60_000,
+  });
+
   // Handle OAuth callback success/error params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -624,22 +633,37 @@ export function CalendarTab() {
     availStatus: a.status,
   }));
 
-  const events = [...bookingEvents, ...availEvents];
+  const externalCalEvents = externalEvents.map((e) => ({
+    id: `ext-${e.id}`,
+    title: `📅 ${e.title}`,
+    start: new Date(e.start),
+    end: new Date(e.end),
+    allDay: e.allDay,
+    colour: "#7C3AED",
+    isExternal: true,
+  }));
+
+  const events = [...bookingEvents, ...availEvents, ...externalCalEvents];
 
   const eventStyleGetter = (event: any) => ({
     style: {
       backgroundColor: event.colour,
       borderRadius: "4px",
-      border: event.isAvailability ? "1px dashed rgba(255,255,255,0.6)" : "none",
+      border: event.isAvailability
+        ? "1px dashed rgba(255,255,255,0.6)"
+        : event.isExternal
+          ? "1px solid rgba(124,58,237,0.4)"
+          : "none",
       color: "#ffffff",
       fontSize: "11px",
       padding: "1px 5px",
-      cursor: "pointer",
-      opacity: event.status === "cancelled" ? 0.5 : 1,
+      cursor: event.isExternal ? "default" : "pointer",
+      opacity: event.status === "cancelled" ? 0.5 : event.isExternal ? 0.75 : 1,
     },
   });
 
   const handleSelectEvent = (event: any) => {
+    if (event.isExternal) return;
     if (event.isAvailability) {
       const dateObj = new Date(event.resource.date + "T12:00:00");
       setAvailDialog(dateObj);
@@ -688,6 +712,18 @@ export function CalendarTab() {
             <span className="text-xs text-muted-foreground">{AVAIL_LABELS[status]}</span>
           </div>
         ))}
+        {calStatus?.read_external && (
+          <>
+            <div className="mx-1 h-3 w-px bg-border" />
+            <div className="flex items-center gap-1.5">
+              <div
+                className="h-3 w-3 rounded-full opacity-75"
+                style={{ backgroundColor: "#7C3AED" }}
+              />
+              <span className="text-xs text-muted-foreground">Google Calendar</span>
+            </div>
+          </>
+        )}
         <span className="ml-auto hidden text-xs text-muted-foreground sm:block">
           Click a booking to view details • Click an empty day to set availability
         </span>
