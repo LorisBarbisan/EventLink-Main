@@ -495,6 +495,11 @@ export function CalendarTab() {
 
   const { data: calStatus } = useQuery<CalendarStatus>({
     queryKey: ["/api/calendar/status"],
+    queryFn: async () => {
+      const data = await apiRequest("/api/calendar/status").then((r) => r.json());
+      // API returns { connected, connection: {...} } — flatten for convenience
+      return { connected: data.connected, ...(data.connection ?? {}) } as CalendarStatus;
+    },
     enabled: !!user,
     refetchInterval: 30_000,
   });
