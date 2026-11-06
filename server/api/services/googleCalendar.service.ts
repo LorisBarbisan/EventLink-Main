@@ -375,13 +375,27 @@ export async function fetchExternalGoogleEvents(
     throw new Error(`Google Calendar API error: ${res.status}`);
   }
   const data = (await res.json()) as { items?: any[] };
-  return (data.items ?? []).map((ev: any) => ({
-    id: ev.id,
-    title: ev.summary ?? "(no title)",
-    start: ev.start?.dateTime ?? ev.start?.date ?? from,
-    end: ev.end?.dateTime ?? ev.end?.date ?? to,
-    allDay: !ev.start?.dateTime,
-  }));
+  return (data.items ?? [])
+    .filter((ev: any) => ev.status !== "cancelled")
+    .map((ev: any) => {
+      const allDay = !ev.start?.dateTime;
+      const start = ev.start?.dateTime ?? ev.start?.date ?? from;
+      let end = ev.end?.dateTime ?? ev.end?.date ?? start;
+      // Google all-day events have exclusive end dates (e.g. a 1-day event ends "next day")
+      // Subtract one day so it doesn't bleed into the following day on the calendar
+      if (allDay && end) {
+        const d = new Date(end);
+        d.setDate(d.getDate() - 1);
+        end = d.toISOString().slice(0, 10);
+      }
+      return {
+        id: ev.id,
+        title: ev.summary || ev.description?.slice(0, 60) || "(no title)",
+        start,
+        end,
+        allDay,
+      };
+    });
 }
 
 /** Stop a push-notification channel. */

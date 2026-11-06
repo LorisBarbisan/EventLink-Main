@@ -633,10 +633,8 @@ export function CalendarTab() {
   // ── Build events ───────────────────────────────────────────────────────────
 
   const bookingEvents = bookingsData.map((b) => {
-    // Use eventDate if available; fall back to booking creation date
-    const startDate = b.job.eventDate
-      ? new Date(b.job.eventDate)
-      : new Date((b.booking as any).createdAt ?? Date.now());
+    // Use eventDate if available; undated bookings pin to today so they're visible
+    const startDate = b.job.eventDate ? new Date(b.job.eventDate) : now;
     const endDate = b.job.endDate ? new Date(b.job.endDate) : startDate;
     return {
       id: `booking-${b.booking.id}`,
