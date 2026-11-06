@@ -15,6 +15,7 @@ import jobDocumentRouter from "./job-document.route";
 import earningsRouter from "./earnings.route";
 import kitRouter from "./kit.route";
 import exportsRouter from "./exports.route";
+import calendarRouter from "./calendar.route";
 
 const router = express.Router();
 
@@ -34,5 +35,6 @@ router.use("/job", jobDocumentRouter);
 router.use("/earnings", earningsRouter);
 router.use("/kit", kitRouter);
 router.use("/exports", exportsRouter);
+router.use("/calendar", calendarRouter);
 
 export default router;

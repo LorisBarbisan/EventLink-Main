@@ -12,6 +12,7 @@ import { registerGuestJobNudgeScheduler } from "./api/services/guest-job-nudge.s
 import { registerProfileNudgeScheduler } from "./api/services/profile-nudge-scheduler.service";
 import { registerInvoiceChaserScheduler } from "./api/services/invoice-chaser.service";
 import { registerCredentialReminderScheduler } from "./api/services/credential-reminder-scheduler.service";
+import { registerCalendarScheduler } from "./api/services/calendarScheduler.service";
 import { ensureAdditiveSchema } from "./api/utils/ensure-additive-schema";
 
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
@@ -194,6 +195,7 @@ app.use((req, res, next) => {
   registerProfileNudgeScheduler();
   registerInvoiceChaserScheduler();
   registerCredentialReminderScheduler();
+  registerCalendarScheduler();
 
   // OG tag middleware for social media crawlers (must be before Vite catch-all)
   app.use(ogTagMiddleware);

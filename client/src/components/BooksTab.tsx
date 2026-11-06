@@ -59,6 +59,7 @@ import {
 } from "lucide-react";
 import { KitTab } from "./KitTab";
 import { InvoicesTab } from "./InvoicesTab";
+import { CalendarTab } from "./CalendarTab";
 
 // ── Money helpers ──────────────────────────────────────────────────────────────
 
@@ -2352,7 +2353,7 @@ interface HiredBooking {
 
 export function BooksTab() {
   const [section, setSection] = useState<
-    "overview" | "earnings" | "expenses" | "mileage" | "kit" | "invoices"
+    "overview" | "earnings" | "expenses" | "mileage" | "kit" | "calendar" | "invoices"
   >("overview");
   const [gigDialogOpen, setGigDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
@@ -2580,6 +2581,13 @@ export function BooksTab() {
         Kit register
       </button>
       <button
+        data-help="books.section.calendar"
+        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "calendar" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        onClick={() => setSection("calendar")}
+      >
+        Calendar
+      </button>
+      <button
         data-help="books.section.invoices"
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "invoices" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         onClick={() => setSection("invoices")}
@@ -2622,6 +2630,15 @@ export function BooksTab() {
         {sectionSwitcher}
         <ExportCard />
         <KitTab />
+      </div>
+    );
+  }
+
+  if (section === "calendar") {
+    return (
+      <div className="space-y-4">
+        {sectionSwitcher}
+        <CalendarTab />
       </div>
     );
   }

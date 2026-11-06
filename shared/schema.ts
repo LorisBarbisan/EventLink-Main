@@ -1884,3 +1884,79 @@ export type HelpUserState = typeof help_user_state.$inferSelect;
 export type HelpRouteVisit = typeof help_route_visits.$inferSelect;
 export type HelpContentOverride = typeof help_content_overrides.$inferSelect;
 export type HelpMode = "full" | "hover_only" | "off";
+
+// ============================================================
+// Calendar sync
+// ============================================================
+
+export const calendar_connections = pgTable(
+  "calendar_connections",
+  {
+    id: serial("id").primaryKey(),
+    user_id: integer("user_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull().$type<"google" | "outlook">(),
+
+    // AES-256-GCM encrypted: "iv:tag:ciphertext" base64-delimited
+    access_token_encrypted: text("access_token_encrypted").notNull(),
+    refresh_token_encrypted: text("refresh_token_encrypted"),
+    token_expires_at: timestamp("token_expires_at", { withTimezone: true }),
+    calendar_id: text("calendar_id"),
+
+    // read path: incremental-sync cursors
+    sync_token: text("sync_token"),
+    delta_link: text("delta_link"),
+    // webhook registration
+    webhook_channel_id: text("webhook_channel_id"),
+    webhook_resource_id: text("webhook_resource_id"),
+    webhook_subscription_id: text("webhook_subscription_id"),
+    webhook_expires_at: timestamp("webhook_expires_at", { withTimezone: true }),
+    last_read_sync_at: timestamp("last_read_sync_at", { withTimezone: true }),
+    last_write_sync_at: timestamp("last_write_sync_at", { withTimezone: true }),
+
+    // JSON map of bookingId (string) → provider event id — avoids a join table
+    booking_event_ids: jsonb("booking_event_ids").notNull().default({}),
+
+    push_bookings: boolean("push_bookings").notNull().default(true),
+    push_availability: boolean("push_availability").notNull().default(true),
+    read_external: boolean("read_external").notNull().default(true),
+
+    status: text("status")
+      .notNull()
+      .default("active")
+      .$type<"active" | "needs_reconnect" | "error">(),
+    last_error: text("last_error"),
+
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index("calendar_connections_user_idx").on(t.user_id),
+    webhookIdx: index("calendar_connections_webhook_expiry_idx").on(t.webhook_expires_at),
+  })
+);
+
+export const freelancer_date_availability = pgTable(
+  "freelancer_date_availability",
+  {
+    id: serial("id").primaryKey(),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    status: text("status").notNull().$type<"available" | "tentative" | "unavailable">(),
+    note: text("note"),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    unique: uniqueIndex("fda_freelancer_date_unique").on(t.freelancer_id, t.date),
+    dateIdx: index("fda_freelancer_date_idx").on(t.freelancer_id, t.date),
+  })
+);
+
+export type CalendarConnection = typeof calendar_connections.$inferSelect;
+export type InsertCalendarConnection = typeof calendar_connections.$inferInsert;
+export type FreelancerDateAvailability = typeof freelancer_date_availability.$inferSelect;
+export type InsertFreelancerDateAvailability = typeof freelancer_date_availability.$inferInsert;

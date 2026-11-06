@@ -16,3 +16,6 @@ function requireEnv(name: string): string {
 // silently falling back to a hardcoded (forgeable) secret at request time.
 export const SESSION_SECRET = requireEnv("SESSION_SECRET");
 export const JWT_SECRET = requireEnv("JWT_SECRET");
+// TOKEN_ENCRYPTION_KEY is validated lazily on first use in crypto.service.ts
+// so the server still boots in environments where calendar sync is not wired up yet.
+// Once GOOGLE_CLIENT_ID or MICROSOFT_CLIENT_ID are present, the key is required.
