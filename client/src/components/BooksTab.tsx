@@ -989,6 +989,7 @@ function UnattachedInbox({ expenses }: { expenses: Expense[] }) {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const { data: recs = [], refetch } = useQuery<ReceiptRecord[]>({
     queryKey: ["/api/receipts/unattached"],
@@ -1119,7 +1120,17 @@ function UnattachedInbox({ expenses }: { expenses: Expense[] }) {
               {recs.map((r) => (
                 <div key={r.id} className="flex items-center gap-3 rounded-md border px-3 py-2">
                   {r.mime_type.startsWith("image/") ? (
-                    <img src={r.url} alt={r.file_name} className="h-12 w-12 rounded object-cover" />
+                    <button
+                      className="shrink-0 cursor-zoom-in"
+                      onClick={() => setLightboxUrl(r.url)}
+                      title="View full size"
+                    >
+                      <img
+                        src={r.url}
+                        alt={r.file_name}
+                        className="h-12 w-12 rounded object-cover"
+                      />
+                    </button>
                   ) : (
                     <div className="flex h-12 w-12 items-center justify-center rounded bg-muted">
                       <ImageIcon className="h-5 w-5 text-muted-foreground" />
@@ -1154,6 +1165,27 @@ function UnattachedInbox({ expenses }: { expenses: Expense[] }) {
             </div>
           )}
         </CardContent>
+      )}
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt="Receipt"
+            className="max-h-[90vh] max-w-[90vw] rounded object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            className="absolute right-4 top-4 text-white"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
       )}
     </Card>
   );
