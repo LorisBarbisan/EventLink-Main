@@ -44,6 +44,7 @@ import { registerBooksRoutes } from "./api/routes/books.route.js";
 import earningsRouter from "./api/routes/earnings.route.js";
 import kitRouter from "./api/routes/kit.route.js";
 import exportsRouter from "./api/routes/exports.route.js";
+import calendarRouter from "./api/routes/calendar.route.js";
 import helpRouter from "./api/routes/help.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { JWT_SECRET, SESSION_SECRET } from "./api/config/env.js";
@@ -303,6 +304,7 @@ export async function registerRoutes(
   app.use("/api/earnings", earningsRouter);
   app.use("/api/kit", kitRouter);
   app.use("/api/exports", exportsRouter);
+  app.use("/api/calendar", calendarRouter);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering
   app.get("/api/jobs", async (req, res) => {
