@@ -170,6 +170,7 @@ export async function getFreelancerBookings(req: Request, res: Response) {
           title: jobs.title,
           location: jobs.location,
           eventDate: jobs.event_date,
+          endDate: jobs.end_date,
           payRate: jobs.rate,
         },
         employer: {

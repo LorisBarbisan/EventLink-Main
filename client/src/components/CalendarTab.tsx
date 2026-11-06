@@ -105,6 +105,7 @@ interface FreelancerBooking {
     title: string;
     location?: string | null;
     eventDate?: string | null;
+    endDate?: string | null;
   };
   employer: {
     id: number;
@@ -637,18 +638,23 @@ export function CalendarTab() {
 
   // ── Build events ───────────────────────────────────────────────────────────
 
-  const bookingEvents = bookingsData
-    .filter((b) => b.job.eventDate)
-    .map((b) => ({
+  const bookingEvents = bookingsData.map((b) => {
+    // Use eventDate if available; fall back to booking creation date
+    const startDate = b.job.eventDate
+      ? new Date(b.job.eventDate)
+      : new Date((b.booking as any).createdAt ?? Date.now());
+    const endDate = b.job.endDate ? new Date(b.job.endDate) : startDate;
+    return {
       id: `booking-${b.booking.id}`,
       title: b.job.title,
-      start: new Date(b.job.eventDate!),
-      end: new Date(b.job.eventDate!),
+      start: startDate,
+      end: endDate,
       allDay: true,
       resource: b,
       colour: BOOKING_COLOURS[b.booking.status] ?? "#6B7280",
       status: b.booking.status,
-    }));
+    };
+  });
 
   const availEvents = availData.map((a) => ({
     id: `avail-${a.id}`,
