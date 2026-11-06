@@ -2543,7 +2543,7 @@ export function BooksTab() {
   );
 
   const sectionSwitcher = (
-    <div className="flex w-fit gap-1 rounded-md border p-1">
+    <div className="flex w-full gap-1 overflow-x-auto rounded-md border p-1 [&::-webkit-scrollbar]:hidden">
       <button
         data-help="books.section.overview"
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "overview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
