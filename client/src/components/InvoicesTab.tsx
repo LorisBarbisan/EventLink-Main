@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
@@ -1061,7 +1061,16 @@ function InvoiceRow({
 
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
-export function InvoicesTab() {
+export interface InvoicePrefill {
+  bookingId: number | null;
+  toName: string;
+  toCompany: string;
+  lineDescription: string;
+  ratePence: number | null;
+  issueDate: string;
+}
+
+export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefill }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -1069,6 +1078,7 @@ export function InvoicesTab() {
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [showBillingSetup, setShowBillingSetup] = useState(false);
   const [showBillingEdit, setShowBillingEdit] = useState(false);
+  const prefillHandled = useRef(false);
   const [sendingInvoice, setSendingInvoice] = useState<Invoice | null>(null);
   const [sendMessage, setSendMessage] = useState("");
   const [sendRecipientEmployerId, setSendRecipientEmployerId] = useState<number | null>(null);
@@ -1208,6 +1218,43 @@ export function InvoicesTab() {
       }
     },
   });
+
+  // Auto-create and open a pre-filled invoice when navigated here from a booking
+  useEffect(() => {
+    if (!prefillBooking || prefillHandled.current || !billingProfile) return;
+    prefillHandled.current = true;
+    (async () => {
+      try {
+        const inv: Invoice = await apiRequest("/api/invoices", { method: "POST" });
+        const patch: Record<string, unknown> = {
+          to_details: { name: prefillBooking.toName, company: prefillBooking.toCompany },
+          issue_date: prefillBooking.issueDate || new Date().toISOString().slice(0, 10),
+        };
+        if (prefillBooking.bookingId) patch.booking_id = prefillBooking.bookingId;
+        if (prefillBooking.lineDescription || prefillBooking.ratePence) {
+          patch.line_items = [
+            {
+              description: prefillBooking.lineDescription || "Services",
+              rate_type: "flat",
+              quantity: 1,
+              unit_price_pence: prefillBooking.ratePence ?? 0,
+            },
+          ];
+          patch.subtotal_pence = prefillBooking.ratePence ?? 0;
+          patch.total_pence = prefillBooking.ratePence ?? 0;
+        }
+        const patched: Invoice = await apiRequest(`/api/invoices/${inv.id}`, {
+          method: "PATCH",
+          body: JSON.stringify(patch),
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+        setEditingInvoice(patched);
+      } catch {
+        toast({ title: "Could not create invoice", variant: "destructive" });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillBooking, billingProfile]);
 
   const handleNewInvoice = () => {
     if (!billingProfile) {

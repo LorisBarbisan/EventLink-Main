@@ -58,7 +58,7 @@ import {
   X,
 } from "lucide-react";
 import { KitTab } from "./KitTab";
-import { InvoicesTab } from "./InvoicesTab";
+import { InvoicesTab, type InvoicePrefill } from "./InvoicesTab";
 import { CalendarTab } from "./CalendarTab";
 
 // ── Money helpers ──────────────────────────────────────────────────────────────
@@ -2359,7 +2359,7 @@ export function BooksTab() {
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
   const [fromBooking, setFromBooking] = useState<UnloggedBooking | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<UnloggedBooking | null>(null);
-  const [creatingInvoiceForBooking, setCreatingInvoiceForBooking] = useState(false);
+  const [invoicePrefill, setInvoicePrefill] = useState<InvoicePrefill | undefined>(undefined);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -2393,33 +2393,26 @@ export function BooksTab() {
     enabled: !!user?.id,
   });
 
-  const createInvoiceForBooking = async (b: UnloggedBooking) => {
-    setCreatingInvoiceForBooking(true);
-    try {
-      const inv = await apiRequest("/api/invoices", { method: "POST" });
-      // Find the matching booking in the new bookings table by jobId
-      const match = hiredBookings.find((hb) => hb.booking.jobId === b.job_id);
-      if (match) {
-        const toDetails = {
-          name:
-            `${match.employer.firstName ?? ""} ${match.employer.lastName ?? ""}`.trim() ||
-            (b.company_name ?? ""),
-          company: match.employer.companyName ?? b.company_name ?? "",
-        };
-        await apiRequest(`/api/invoices/${inv.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ booking_id: match.booking.id, to_details: toDetails }),
-        });
-      }
-      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-      setSelectedBooking(null);
-      setSection("invoices");
-      toast({ title: "Draft invoice created", description: "Invoice linked to this job." });
-    } catch {
-      toast({ title: "Could not create invoice", variant: "destructive" });
-    } finally {
-      setCreatingInvoiceForBooking(false);
-    }
+  const createInvoiceForBooking = (b: UnloggedBooking) => {
+    const match = hiredBookings.find((hb) => hb.booking.jobId === b.job_id);
+    // Parse rate string to pence best-effort (e.g. "£400", "400", "400.00")
+    const rateStr = match?.booking.agreedRate ?? b.rate ?? "";
+    const rateNum = parseFloat(rateStr.replace(/[^0-9.]/g, ""));
+    const ratePence = isNaN(rateNum) ? null : Math.round(rateNum * 100);
+    const toName = match
+      ? `${match.employer.firstName ?? ""} ${match.employer.lastName ?? ""}`.trim()
+      : "";
+    const toCompany = match?.employer.companyName ?? b.company_name ?? "";
+    setInvoicePrefill({
+      bookingId: match?.booking.id ?? null,
+      toName,
+      toCompany,
+      lineDescription: b.job_title,
+      ratePence,
+      issueDate: new Date().toISOString().slice(0, 10),
+    });
+    setSelectedBooking(null);
+    setSection("invoices");
   };
 
   const unloggedBookings = allBookings.filter(
@@ -2482,40 +2475,63 @@ export function BooksTab() {
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{selectedBooking.job_title}</DialogTitle>
+          <DialogTitle className="pr-6 leading-snug">{selectedBooking.job_title}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3 py-1 text-sm">
+        <div className="divide-y divide-border rounded-md border text-sm">
           {selectedBooking.company_name && (
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between px-3 py-2.5">
               <span className="text-muted-foreground">Client</span>
               <span className="font-medium">{selectedBooking.company_name}</span>
             </div>
           )}
           {selectedBooking.event_date && (
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between px-3 py-2.5">
               <span className="text-muted-foreground">Date</span>
               <span className="font-medium">{fmtDate(selectedBooking.event_date)}</span>
             </div>
           )}
-          {selectedBooking.rate && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Rate</span>
-              <span className="font-medium">{selectedBooking.rate}</span>
+          {(selectedBooking.rate ||
+            hiredBookings.find((hb) => hb.booking.jobId === selectedBooking.job_id)?.booking
+              .agreedRate) && (
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="text-muted-foreground">Agreed rate</span>
+              <span className="font-medium tabular-nums">
+                {hiredBookings.find((hb) => hb.booking.jobId === selectedBooking.job_id)?.booking
+                  .agreedRate ?? selectedBooking.rate}
+              </span>
             </div>
           )}
           {selectedBooking.location && (
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between px-3 py-2.5">
               <span className="text-muted-foreground">Location</span>
-              <span className="font-medium">{selectedBooking.location}</span>
+              <span className="max-w-[55%] text-right font-medium">{selectedBooking.location}</span>
             </div>
           )}
-          <div className="flex justify-between">
+          <div className="flex items-center justify-between px-3 py-2.5">
             <span className="text-muted-foreground">Status</span>
-            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-              Confirmed
-            </span>
+            {(() => {
+              const s = (selectedBooking.status ?? "confirmed").toLowerCase();
+              const color =
+                s === "confirmed" || s === "briefed"
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                  : s === "completed"
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                    : s === "enquired"
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      : "bg-muted text-muted-foreground";
+              return (
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${color}`}
+                >
+                  {s}
+                </span>
+              );
+            })()}
           </div>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Creating an invoice opens the form with this booking&apos;s details pre-filled.
+        </p>
         <DialogFooter className="flex-col gap-2 sm:flex-row">
           {selectedBooking.event_date && new Date(selectedBooking.event_date) < new Date() && (
             <Button
@@ -2530,13 +2546,9 @@ export function BooksTab() {
               Log payment
             </Button>
           )}
-          <Button
-            size="sm"
-            disabled={creatingInvoiceForBooking}
-            onClick={() => createInvoiceForBooking(selectedBooking)}
-          >
+          <Button size="sm" onClick={() => createInvoiceForBooking(selectedBooking)}>
             <Receipt className="mr-1.5 h-3.5 w-3.5" />
-            {creatingInvoiceForBooking ? "Creating…" : "Create invoice"}
+            Create invoice
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2647,7 +2659,14 @@ export function BooksTab() {
     return (
       <div className="space-y-4">
         {sectionSwitcher}
-        <InvoicesTab />
+        <InvoicesTab
+          prefillBooking={invoicePrefill}
+          key={
+            invoicePrefill
+              ? `prefill-${invoicePrefill.bookingId}-${invoicePrefill.issueDate}`
+              : "invoices"
+          }
+        />
       </div>
     );
   }
