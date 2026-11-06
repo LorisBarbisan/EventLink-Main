@@ -21,6 +21,7 @@ import {
   verifyEmail,
 } from "../controllers/auth.controller";
 import { authenticateJWT, getOAuthConfig, handleOAuthError } from "../middleware/auth.middleware";
+import { createOAuthState } from "../lib/oauth-state";
 import { sanitizeAuthInput } from "../middleware/sanitize-auth.middleware";
 import { storage } from "../../storage";
 import { generateJWTToken } from "../utils/auth.util";
@@ -55,8 +56,8 @@ export function registerAuthRoutes(app: Express) {
 
   // Google OAuth routes — manual implementation bypassing passport-oauth2 token exchange
   app.get("/api/auth/google", (req, res) => {
-    const role = req.query.role as string;
-    const state = role ? Buffer.from(JSON.stringify({ role })).toString("base64") : "";
+    const role = req.query.role as string | undefined;
+    const state = createOAuthState(res, role ? { role } : {});
     const clientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
     const params = new URLSearchParams({
       client_id: clientId,
@@ -65,7 +66,7 @@ export function registerAuthRoutes(app: Express) {
       scope: "openid profile email",
       access_type: "offline",
       prompt: "consent",
-      ...(state ? { state } : {}),
+      state, // always sent now, never conditional
     });
     res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
   });
@@ -73,24 +74,30 @@ export function registerAuthRoutes(app: Express) {
   app.get("/api/auth/google/callback", handleGoogleCallback);
 
   // Facebook OAuth routes
-  app.get(
-    "/api/auth/facebook",
+  app.get("/api/auth/facebook", (req, res, next) => {
+    const role = req.query.role as string | undefined;
+    const state = createOAuthState(res, role ? { role } : {});
     passport.authenticate("facebook", {
       scope: ["email", "public_profile"],
-    })
-  );
+      state,
+    })(req, res, next);
+  });
 
   app.get("/api/auth/facebook/callback", handleFacebookCallback);
 
   // Apple OAuth routes
-  app.get("/api/auth/apple", passport.authenticate("apple"));
+  app.get("/api/auth/apple", (req, res, next) => {
+    const role = req.query.role as string | undefined;
+    const state = createOAuthState(res, role ? { role } : {});
+    passport.authenticate("apple", { state })(req, res, next);
+  });
 
   app.post("/api/auth/apple/callback", handleAppleCallback);
 
   // LinkedIn OAuth routes
   app.get("/api/auth/linkedin", (req, res, next) => {
-    const role = req.query.role as string;
-    const state = role ? Buffer.from(JSON.stringify({ role })).toString("base64") : undefined;
+    const role = req.query.role as string | undefined;
+    const state = createOAuthState(res, role ? { role } : {});
     passport.authenticate("linkedin", {
       scope: ["openid", "profile", "email"],
       state,
