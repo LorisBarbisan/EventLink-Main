@@ -516,6 +516,7 @@ export function CalendarTab() {
   const queryClient = useQueryClient();
   const [availDialog, setAvailDialog] = useState<Date | null>(null);
   const [bookingDialog, setBookingDialog] = useState<FreelancerBooking | null>(null);
+  const [calDate, setCalDate] = useState(new Date());
 
   // ── Queries ────────────────────────────────────────────────────────────────
 
@@ -633,8 +634,8 @@ export function CalendarTab() {
   // ── Build events ───────────────────────────────────────────────────────────
 
   const bookingEvents = bookingsData.map((b) => {
-    // Use eventDate if available; undated bookings pin to today so they're visible
-    const startDate = b.job.eventDate ? new Date(b.job.eventDate) : now;
+    // Use eventDate if available; undated bookings pin to current calendar view date
+    const startDate = b.job.eventDate ? new Date(b.job.eventDate) : calDate;
     const endDate = b.job.endDate ? new Date(b.job.endDate) : startDate;
     return {
       id: `booking-${b.booking.id}`,
@@ -660,7 +661,7 @@ export function CalendarTab() {
     availStatus: a.status,
   }));
 
-  const externalCalEvents = externalEvents.map((e) => ({
+  const externalCalEvents = (calStatus?.read_external ? externalEvents : []).map((e) => ({
     id: `ext-${e.id}`,
     title: `📅 ${e.title}`,
     start: new Date(e.start),
@@ -766,6 +767,8 @@ export function CalendarTab() {
           <Calendar
             localizer={localizer}
             events={events}
+            date={calDate}
+            onNavigate={(date) => setCalDate(date)}
             defaultView={Views.MONTH}
             views={[Views.MONTH, Views.WEEK, Views.AGENDA]}
             style={{ height: "100%" }}
