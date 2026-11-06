@@ -121,10 +121,6 @@ function isoDate(y: number, m: number, d: number): string {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
-}
-
 function fmtDateTime(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -539,14 +535,12 @@ export function CalendarTab() {
     enabled: !!user,
   });
 
-  // Availability: load a wide range (±3 months)
+  // Availability: load a wide range (±3 months) using proper Date arithmetic so month overflow is handled
   const now = new Date();
-  const rangeStart = isoDate(now.getFullYear(), now.getMonth() - 1, 1);
-  const rangeEnd = isoDate(
-    now.getFullYear(),
-    now.getMonth() + 4,
-    daysInMonth(now.getFullYear(), now.getMonth() + 4)
-  );
+  const rangeStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const rangeEndDate = new Date(now.getFullYear(), now.getMonth() + 4, 0); // day 0 = last day of previous month
+  const rangeStart = rangeStartDate.toISOString().slice(0, 10);
+  const rangeEnd = rangeEndDate.toISOString().slice(0, 10);
 
   const { data: availData = [] } = useQuery<AvailabilityEntry[]>({
     queryKey: ["/api/calendar/availability", rangeStart, rangeEnd],
