@@ -571,7 +571,7 @@ export function CalendarTab() {
     .map((b) => ({
       booking: {
         id: b.id,
-        status: b.status ?? "confirmed",
+        status: b.status === "hired" ? "confirmed" : (b.status ?? "confirmed"),
         jobId: b.job_id ?? 0,
         agreedRate: b.rate ?? null,
       },
