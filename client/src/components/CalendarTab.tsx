@@ -533,8 +533,59 @@ export function CalendarTab() {
 
   const { data: bookingsData = [], isLoading } = useQuery<FreelancerBooking[]>({
     queryKey: ["/api/bookings/freelancer"],
+    queryFn: () => apiRequest("/api/bookings/freelancer"),
     enabled: !!user,
   });
+
+  // Also fetch from the application-based bookings endpoint (older jobs system)
+  const { data: rawBookings = [] } = useQuery<
+    {
+      id: number;
+      job_id?: number;
+      job_title: string;
+      company_name?: string;
+      event_date?: string;
+      end_date?: string;
+      rate?: string;
+      location?: string;
+      status?: string;
+    }[]
+  >({
+    queryKey: ["/api/freelancer", user?.id, "bookings"],
+    queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(`/api/freelancer/${user!.id}/bookings`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  // Convert old-system bookings to FreelancerBooking shape, skip any already in bookingsData
+  const fmsJobIds = new Set(bookingsData.map((b) => b.job.id));
+  const legacyBookings: FreelancerBooking[] = rawBookings
+    .filter((b) => !fmsJobIds.has(b.job_id ?? -1))
+    .map((b) => ({
+      booking: {
+        id: b.id,
+        status: b.status ?? "confirmed",
+        jobId: b.job_id ?? 0,
+        agreedRate: b.rate ?? null,
+      },
+      job: {
+        id: b.job_id ?? 0,
+        title: b.job_title,
+        location: b.location ?? null,
+        eventDate: b.event_date ?? null,
+        endDate: b.end_date ?? null,
+      },
+      employer: { id: 0, firstName: null, lastName: null, companyName: b.company_name ?? null },
+    }));
+
+  const allBookingsData = [...bookingsData, ...legacyBookings];
 
   // Availability: load a wide range (±3 months) using proper Date arithmetic so month overflow is handled
   const now = new Date();
@@ -633,7 +684,7 @@ export function CalendarTab() {
 
   // ── Build events ───────────────────────────────────────────────────────────
 
-  const bookingEvents = bookingsData.map((b) => {
+  const bookingEvents = allBookingsData.map((b) => {
     // Use eventDate if available; undated bookings pin to current calendar view date
     const startDate = b.job.eventDate ? new Date(b.job.eventDate) : calDate;
     const endDate = b.job.endDate ? new Date(b.job.endDate) : startDate;
