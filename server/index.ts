@@ -14,6 +14,7 @@ import { registerInvoiceChaserScheduler } from "./api/services/invoice-chaser.se
 import { registerCredentialReminderScheduler } from "./api/services/credential-reminder-scheduler.service";
 import { registerCalendarScheduler } from "./api/services/calendarScheduler.service";
 import { sweepStuckParseJobs } from "./api/services/import-parse-worker.service";
+import { sweepStuckCommits } from "./api/services/import-commit.service";
 import { ensureAdditiveSchema } from "./api/utils/ensure-additive-schema";
 
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
@@ -197,10 +198,15 @@ app.use((req, res, next) => {
   registerInvoiceChaserScheduler();
   registerCredentialReminderScheduler();
   registerCalendarScheduler();
-  // Sweep stuck import parse jobs every 15 minutes
+  // Sweep stuck import parse/commit jobs every 15 minutes
   setInterval(
     () => {
-      sweepStuckParseJobs().catch((err) => console.error("[import-sweeper] sweep failed:", err));
+      sweepStuckParseJobs().catch((err) =>
+        console.error("[import-sweeper] parse sweep failed:", err)
+      );
+      sweepStuckCommits().catch((err) =>
+        console.error("[import-sweeper] commit sweep failed:", err)
+      );
     },
     15 * 60 * 1000
   );

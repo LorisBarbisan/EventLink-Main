@@ -18,6 +18,7 @@ import {
   setRowDecision,
   bulkSetDecision,
 } from "../controllers/import-review.controller";
+import { commitImport, rollbackImport } from "../controllers/import-commit.controller";
 
 const router = Router();
 
@@ -39,5 +40,9 @@ router.post("/:id/mappings", saveImportMapping);
 router.get("/:id/rows", listImportRows);
 router.post("/:id/rows/bulk", bulkSetDecision);
 router.patch("/:id/rows/:rowId", setRowDecision);
+
+// Commit / rollback
+router.post("/:id/commit", commitImport);
+router.post("/:id/rollback", rollbackImport);
 
 export default router;
