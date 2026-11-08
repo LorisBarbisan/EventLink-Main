@@ -8,6 +8,11 @@ import {
   enqueueImportParse,
   deleteImport,
 } from "../controllers/import.controller";
+import {
+  lookupImportMapping,
+  saveImportMapping,
+  patchImportBatch,
+} from "../controllers/import-mapping.controller";
 
 const router = Router();
 
@@ -17,7 +22,12 @@ router.use(requireRole("freelancer"));
 router.post("/", uploadImport);
 router.get("/", listImports);
 router.get("/:id", getImport);
+router.patch("/:id", patchImportBatch);
 router.post("/:id/parse", enqueueImportParse);
 router.delete("/:id", deleteImport);
+
+// Column mapping
+router.post("/:id/mappings/lookup", lookupImportMapping);
+router.post("/:id/mappings", saveImportMapping);
 
 export default router;

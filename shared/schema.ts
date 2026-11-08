@@ -2064,3 +2064,4 @@ export type InsertImportBatch = typeof import_batches.$inferInsert;
 export type ImportRow = typeof import_rows.$inferSelect;
 export type InsertImportRow = typeof import_rows.$inferInsert;
 export type ImportMapping = typeof import_mappings.$inferSelect;
+export type InsertImportMapping = typeof import_mappings.$inferInsert;
