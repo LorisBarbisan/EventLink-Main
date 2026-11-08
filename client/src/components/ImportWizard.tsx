@@ -17,6 +17,7 @@ import {
   Clock,
   RefreshCw,
   Plus,
+  Trash2,
 } from "lucide-react";
 import { ImportMappingStep } from "./ImportMappingStep";
 import { ImportReviewStep } from "./ImportReviewStep";
@@ -116,6 +117,9 @@ function HistoryList({
   onNew: () => void;
   onOpen: (batch: ImportBatch) => void;
 }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const { data: batches = [], isLoading } = useQuery<ImportBatch[]>({
     queryKey: ["/api/imports"],
     queryFn: () => apiRequest("/api/imports"),
@@ -125,6 +129,16 @@ function HistoryList({
       );
       return active ? 5000 : false;
     },
+  });
+
+  const { mutate: deleteImport, isPending: deleting } = useMutation<void, Error, number>({
+    mutationFn: (id) => apiRequest(`/api/imports/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/imports"] });
+      toast({ title: "Import deleted" });
+    },
+    onError: (err) =>
+      toast({ title: "Cannot delete", description: err.message, variant: "destructive" }),
   });
 
   if (isLoading) {
@@ -165,7 +179,7 @@ function HistoryList({
           {batches.map((b) => (
             <Card
               key={b.id}
-              className="cursor-pointer transition-colors hover:bg-muted/40"
+              className="group cursor-pointer transition-colors hover:bg-muted/40"
               onClick={() => onOpen(b)}
             >
               <CardContent className="flex items-center gap-3 p-4">
@@ -188,7 +202,7 @@ function HistoryList({
                     <p className="mt-1 truncate text-xs text-destructive">{b.error}</p>
                   )}
                 </div>
-                <div className="shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
                   {b.status === "review" ? (
                     <div className="flex items-center gap-1 text-xs font-medium text-primary">
                       <Clock className="h-3.5 w-3.5" />
@@ -201,6 +215,17 @@ function HistoryList({
                   ) : b.status === "parsing" || b.status === "queued" ? (
                     <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
                   ) : null}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Delete "${b.file_name}"?`)) deleteImport(b.id);
+                    }}
+                    disabled={deleting}
+                    className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                    title="Delete import"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </CardContent>
             </Card>
