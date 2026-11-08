@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import ExcelJS from "exceljs";
-import * as pdfParseModule from "pdf-parse";
+import { createRequire } from "module";
 import { Readable } from "stream";
 import { and, eq } from "drizzle-orm";
 import { db } from "../config/db";
@@ -8,10 +7,10 @@ import { import_batches, import_rows } from "@shared/schema";
 import { ObjectStorageService } from "../utils/object-storage";
 import { computeSignature, lookupMapping } from "./import-mapping.service";
 
-// pdf-parse ships both CJS and ESM; grab the callable function regardless of
-// which module system resolves it.
-const pdfParse: (buffer: Buffer) => Promise<{ text: string }> =
-  (pdfParseModule as any).default ?? pdfParseModule;
+// pdf-parse is CJS-only; use createRequire so the function is always callable
+// regardless of the project's ESM/CJS module resolution.
+const _require = createRequire(import.meta.url);
+const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = _require("pdf-parse");
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
