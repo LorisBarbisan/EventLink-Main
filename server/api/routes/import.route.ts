@@ -13,6 +13,11 @@ import {
   saveImportMapping,
   patchImportBatch,
 } from "../controllers/import-mapping.controller";
+import {
+  listImportRows,
+  setRowDecision,
+  bulkSetDecision,
+} from "../controllers/import-review.controller";
 
 const router = Router();
 
@@ -29,5 +34,10 @@ router.delete("/:id", deleteImport);
 // Column mapping
 router.post("/:id/mappings/lookup", lookupImportMapping);
 router.post("/:id/mappings", saveImportMapping);
+
+// Row review
+router.get("/:id/rows", listImportRows);
+router.post("/:id/rows/bulk", bulkSetDecision);
+router.patch("/:id/rows/:rowId", setRowDecision);
 
 export default router;
