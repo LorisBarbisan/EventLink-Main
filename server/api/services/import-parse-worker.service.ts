@@ -1,6 +1,7 @@
 import { eq, and, lt, inArray } from "drizzle-orm";
 import { db } from "../config/db";
-import { import_batches, import_rows } from "@shared/schema";
+import { import_batches } from "@shared/schema";
+import { parseImportFile } from "./import-parser.service";
 
 // ── Parse job queue (in-process) ──────────────────────────────────────────────
 // Jobs are picked up by setImmediate so the HTTP response returns before work
@@ -52,34 +53,9 @@ async function runParse(batchId: number, jobId: string): Promise<void> {
     .set({ status: "parsing", parse_started_at: new Date(), updated_at: new Date() })
     .where(eq(import_batches.id, batchId));
 
-  try {
-    // Delete any rows from a previous parse attempt so re-parsing is idempotent
-    await db.delete(import_rows).where(eq(import_rows.batch_id, batchId));
-
-    // ── Stub: real parsing is implemented in PR 5 ─────────────────────────
-    // PR 5 will:
-    //   1. Download the file from R2 via ObjectStorageService.downloadObjectBuffer()
-    //   2. Parse CSV/XLSX/PDF into raw row objects
-    //   3. Apply column_map from import_mappings (or heuristics if no mapping)
-    //   4. Classify each row (income / expense / transfer / unknown)
-    //   5. Insert import_rows with parsed/confidence/issues
-    //   6. Update row_count on the batch
-    // For now we move straight to "review" so the pipeline can be tested end-to-end.
-    // ─────────────────────────────────────────────────────────────────────
-
-    await db
-      .update(import_batches)
-      .set({
-        status: "review",
-        parse_completed_at: new Date(),
-        parse_progress: 100,
-        row_count: 0,
-        updated_at: new Date(),
-      })
-      .where(eq(import_batches.id, batchId));
-  } catch (err) {
-    await markFailed(batchId, String(err));
-  }
+  // parseImportFile handles the rest: file download, row extraction, classification,
+  // insert of import_rows, and final status transition to 'review' (or 'failed').
+  await parseImportFile(batchId, jobId);
 }
 
 async function markFailed(batchId: number, error: string): Promise<void> {
