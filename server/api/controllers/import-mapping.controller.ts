@@ -79,15 +79,15 @@ export async function saveImportMapping(req: Request, res: Response): Promise<vo
     dateFormat?: unknown;
   };
 
-  if (!Array.isArray(headers) || headers.length === 0) {
-    res.status(400).json({ error: "headers must be a non-empty array of strings" });
+  if (!Array.isArray(headers)) {
+    res.status(400).json({ error: "headers must be an array of strings" });
     return;
   }
   if (headers.some((h) => typeof h !== "string")) {
     res.status(400).json({ error: "Every header must be a string" });
     return;
   }
-  if (!columnMap || typeof columnMap !== "object" || Array.isArray(columnMap)) {
+  if (columnMap !== undefined && (typeof columnMap !== "object" || Array.isArray(columnMap))) {
     res.status(400).json({ error: "columnMap must be an object" });
     return;
   }
@@ -112,16 +112,20 @@ export async function saveImportMapping(req: Request, res: Response): Promise<vo
     return;
   }
 
-  const signature = computeSignature(headers as string[]);
-
-  // Persist the mapping for future imports with the same column layout
-  const mapping = await saveMapping({
-    freelancerId: userId,
-    signature,
-    source: batch.source,
-    columnMap: columnMap as Record<string, string | null>,
-    categoryMap: (categoryMap as Record<string, string> | null | undefined) ?? null,
-  });
+  // Only persist a named mapping when the caller provided actual headers —
+  // an empty headers array means the parser will auto-detect columns.
+  let signature: string | null = null;
+  let mapping = null;
+  if ((headers as string[]).length > 0) {
+    signature = computeSignature(headers as string[]);
+    mapping = await saveMapping({
+      freelancerId: userId,
+      signature,
+      source: batch.source,
+      columnMap: (columnMap ?? {}) as Record<string, string | null>,
+      categoryMap: (categoryMap as Record<string, string> | null | undefined) ?? null,
+    });
+  }
 
   // Advance batch status to 'configuring' and store the active config fields
   const configUpdate: Partial<typeof import_batches.$inferInsert> = {
