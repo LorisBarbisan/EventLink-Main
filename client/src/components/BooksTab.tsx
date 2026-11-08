@@ -60,6 +60,7 @@ import {
 import { KitTab } from "./KitTab";
 import { InvoicesTab, type InvoicePrefill } from "./InvoicesTab";
 import { CalendarTab } from "./CalendarTab";
+import { ImportWizard } from "./ImportWizard";
 
 // ── Money helpers ──────────────────────────────────────────────────────────────
 
@@ -2354,7 +2355,18 @@ interface HiredBooking {
 export function BooksTab() {
   const initialSection = (() => {
     const p = new URLSearchParams(window.location.search).get("section");
-    const valid = ["overview", "earnings", "expenses", "mileage", "kit", "calendar", "invoices"];
+    const importEnabled =
+      import.meta.env.VITE_IMPORT_ENABLED !== "false" && import.meta.env.VITE_IMPORT_ENABLED;
+    const valid = [
+      "overview",
+      "earnings",
+      "expenses",
+      "mileage",
+      "kit",
+      "calendar",
+      "invoices",
+      ...(importEnabled ? ["import"] : []),
+    ];
     return (valid.includes(p ?? "") ? p : "overview") as
       | "overview"
       | "earnings"
@@ -2362,11 +2374,12 @@ export function BooksTab() {
       | "mileage"
       | "kit"
       | "calendar"
-      | "invoices";
+      | "invoices"
+      | "import";
   })();
 
   const [section, setSection] = useState<
-    "overview" | "earnings" | "expenses" | "mileage" | "kit" | "calendar" | "invoices"
+    "overview" | "earnings" | "expenses" | "mileage" | "kit" | "calendar" | "invoices" | "import"
   >(initialSection);
   const [gigDialogOpen, setGigDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
@@ -2619,6 +2632,15 @@ export function BooksTab() {
       >
         Invoices
       </button>
+      {import.meta.env.VITE_IMPORT_ENABLED !== "false" && import.meta.env.VITE_IMPORT_ENABLED && (
+        <button
+          data-help="books.section.import"
+          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "import" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setSection("import")}
+        >
+          Import
+        </button>
+      )}
     </div>
   );
 
@@ -2664,6 +2686,15 @@ export function BooksTab() {
       <div className="space-y-4">
         {sectionSwitcher}
         <CalendarTab />
+      </div>
+    );
+  }
+
+  if (section === "import") {
+    return (
+      <div className="space-y-4">
+        {sectionSwitcher}
+        <ImportWizard />
       </div>
     );
   }
