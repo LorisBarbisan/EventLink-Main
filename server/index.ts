@@ -13,6 +13,7 @@ import { registerProfileNudgeScheduler } from "./api/services/profile-nudge-sche
 import { registerInvoiceChaserScheduler } from "./api/services/invoice-chaser.service";
 import { registerCredentialReminderScheduler } from "./api/services/credential-reminder-scheduler.service";
 import { registerCalendarScheduler } from "./api/services/calendarScheduler.service";
+import { sweepStuckParseJobs } from "./api/services/import-parse-worker.service";
 import { ensureAdditiveSchema } from "./api/utils/ensure-additive-schema";
 
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
@@ -196,6 +197,13 @@ app.use((req, res, next) => {
   registerInvoiceChaserScheduler();
   registerCredentialReminderScheduler();
   registerCalendarScheduler();
+  // Sweep stuck import parse jobs every 15 minutes
+  setInterval(
+    () => {
+      sweepStuckParseJobs().catch((err) => console.error("[import-sweeper] sweep failed:", err));
+    },
+    15 * 60 * 1000
+  );
 
   // OG tag middleware for social media crawlers (must be before Vite catch-all)
   app.use(ogTagMiddleware);

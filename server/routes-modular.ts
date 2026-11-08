@@ -46,6 +46,7 @@ import kitRouter from "./api/routes/kit.route.js";
 import exportsRouter from "./api/routes/exports.route.js";
 import calendarRouter from "./api/routes/calendar.route.js";
 import helpRouter from "./api/routes/help.route.js";
+import importsRouter from "./api/routes/import.route.js";
 import { performanceMonitor } from "./api/utils/performance-monitor.js";
 import { JWT_SECRET, SESSION_SECRET } from "./api/config/env.js";
 import { wsService } from "./api/websocket/websocketService";
@@ -305,6 +306,7 @@ export async function registerRoutes(
   app.use("/api/kit", kitRouter);
   app.use("/api/exports", exportsRouter);
   app.use("/api/calendar", calendarRouter);
+  app.use("/api/imports", importsRouter);
 
   // Main jobs endpoint - combines regular and external jobs with search/filtering
   app.get("/api/jobs", async (req, res) => {

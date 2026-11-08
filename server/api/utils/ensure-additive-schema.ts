@@ -39,6 +39,60 @@ const STATEMENTS = [
   // row, so applicants keep their application history (job_applications.job_id
   // cascades on a hard delete).
   `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS deleted_at timestamptz`,
+  // Import pipeline (Historical accounts import epic)
+  `CREATE TABLE IF NOT EXISTS import_batches (
+     id serial PRIMARY KEY,
+     freelancer_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     source text NOT NULL DEFAULT 'unknown',
+     file_key text NOT NULL,
+     file_name text NOT NULL,
+     mime_type text NOT NULL,
+     size_bytes integer NOT NULL,
+     status text NOT NULL DEFAULT 'uploaded',
+     full_fidelity_from date,
+     date_format text,
+     period_start date,
+     period_end date,
+     row_count integer NOT NULL DEFAULT 0,
+     committed_count integer NOT NULL DEFAULT 0,
+     parse_job_id text,
+     parse_started_at timestamptz,
+     parse_completed_at timestamptz,
+     parse_progress integer NOT NULL DEFAULT 0,
+     error text,
+     committed_at timestamptz,
+     rolled_back_at timestamptz,
+     created_at timestamptz NOT NULL DEFAULT now(),
+     updated_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS import_batches_freelancer_idx ON import_batches (freelancer_id, created_at)`,
+  `CREATE INDEX IF NOT EXISTS import_batches_status_idx ON import_batches (status)`,
+  `CREATE TABLE IF NOT EXISTS import_rows (
+     id serial PRIMARY KEY,
+     batch_id integer NOT NULL REFERENCES import_batches(id) ON DELETE CASCADE,
+     row_number integer NOT NULL,
+     raw jsonb NOT NULL,
+     parsed jsonb,
+     target text,
+     confidence integer,
+     issues jsonb,
+     decision text NOT NULL DEFAULT 'pending',
+     created_record_table text,
+     created_record_id integer,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE INDEX IF NOT EXISTS import_rows_batch_idx ON import_rows (batch_id, row_number)`,
+  `CREATE INDEX IF NOT EXISTS import_rows_decision_idx ON import_rows (batch_id, decision)`,
+  `CREATE TABLE IF NOT EXISTS import_mappings (
+     id serial PRIMARY KEY,
+     freelancer_id integer REFERENCES users(id) ON DELETE CASCADE,
+     signature text NOT NULL,
+     source text NOT NULL,
+     column_map jsonb NOT NULL,
+     category_map jsonb,
+     is_system boolean NOT NULL DEFAULT false,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
 ];
 
 export async function ensureAdditiveSchema(): Promise<void> {

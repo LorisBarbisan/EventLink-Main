@@ -1960,3 +1960,107 @@ export type CalendarConnection = typeof calendar_connections.$inferSelect;
 export type InsertCalendarConnection = typeof calendar_connections.$inferInsert;
 export type FreelancerDateAvailability = typeof freelancer_date_availability.$inferSelect;
 export type InsertFreelancerDateAvailability = typeof freelancer_date_availability.$inferInsert;
+
+// ── Historical accounts import (Epic — Import pipeline) ──────────────────────
+
+export const import_batches = pgTable(
+  "import_batches",
+  {
+    id: serial("id").primaryKey(),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    source: text("source")
+      .notNull()
+      .default("unknown")
+      .$type<
+        "quickbooks" | "xero" | "freeagent" | "bank_csv" | "spreadsheet" | "pdf" | "unknown"
+      >(),
+    file_key: text("file_key").notNull(),
+    file_name: text("file_name").notNull(),
+    mime_type: text("mime_type").notNull(),
+    size_bytes: integer("size_bytes").notNull(),
+    status: text("status")
+      .notNull()
+      .default("uploaded")
+      .$type<
+        | "uploaded"
+        | "configuring"
+        | "queued"
+        | "parsing"
+        | "review"
+        | "committing"
+        | "committed"
+        | "rolled_back"
+        | "failed"
+      >(),
+    // Fidelity cut-off: rows on or after this date import in full; earlier rows
+    // are summarised. Defaults to start of previous tax year at configure time.
+    full_fidelity_from: date("full_fidelity_from"),
+    date_format: text("date_format"), // e.g. "DD/MM/YYYY" — confirmed, never inferred
+    period_start: date("period_start"),
+    period_end: date("period_end"),
+    row_count: integer("row_count").notNull().default(0),
+    committed_count: integer("committed_count").notNull().default(0),
+    // Async parse fields
+    parse_job_id: text("parse_job_id"),
+    parse_started_at: timestamp("parse_started_at", { withTimezone: true }),
+    parse_completed_at: timestamp("parse_completed_at", { withTimezone: true }),
+    parse_progress: integer("parse_progress").notNull().default(0), // 0–100
+    error: text("error"),
+    committed_at: timestamp("committed_at", { withTimezone: true }),
+    rolled_back_at: timestamp("rolled_back_at", { withTimezone: true }),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    freelancerIdx: index("import_batches_freelancer_idx").on(t.freelancer_id, t.created_at),
+    statusIdx: index("import_batches_status_idx").on(t.status),
+  })
+);
+
+export const import_rows = pgTable(
+  "import_rows",
+  {
+    id: serial("id").primaryKey(),
+    batch_id: integer("batch_id")
+      .notNull()
+      .references(() => import_batches.id, { onDelete: "cascade" }),
+    row_number: integer("row_number").notNull(),
+    raw: jsonb("raw").notNull(), // exactly as read from the file
+    parsed: jsonb("parsed"), // normalised candidate
+    target: text("target").$type<"expense" | "earnings" | "invoice" | "mileage" | "kit" | "skip">(),
+    confidence: integer("confidence"), // 0–100
+    issues: jsonb("issues"), // array of issue codes
+    decision: text("decision")
+      .notNull()
+      .default("pending")
+      .$type<"pending" | "approved" | "skipped" | "duplicate">(),
+    // Populated after commit — used by rollback to find and delete created records
+    created_record_table: text("created_record_table"),
+    created_record_id: integer("created_record_id"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    batchIdx: index("import_rows_batch_idx").on(t.batch_id, t.row_number),
+    decisionIdx: index("import_rows_decision_idx").on(t.batch_id, t.decision),
+  })
+);
+
+export const import_mappings = pgTable("import_mappings", {
+  id: serial("id").primaryKey(),
+  // null = system mapping (is_system = true)
+  freelancer_id: integer("freelancer_id").references(() => users.id, { onDelete: "cascade" }),
+  signature: text("signature").notNull(), // sha256 of sorted, normalised header row
+  source: text("source").notNull(),
+  column_map: jsonb("column_map").notNull(), // { "Transaction Date": "expense_date", ... }
+  category_map: jsonb("category_map"), // { "Office Supplies": "tools_consumables", ... }
+  is_system: boolean("is_system").notNull().default(false),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type ImportBatch = typeof import_batches.$inferSelect;
+export type InsertImportBatch = typeof import_batches.$inferInsert;
+export type ImportRow = typeof import_rows.$inferSelect;
+export type InsertImportRow = typeof import_rows.$inferInsert;
+export type ImportMapping = typeof import_mappings.$inferSelect;
