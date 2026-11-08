@@ -2355,8 +2355,6 @@ interface HiredBooking {
 export function BooksTab() {
   const initialSection = (() => {
     const p = new URLSearchParams(window.location.search).get("section");
-    const importEnabled =
-      import.meta.env.VITE_IMPORT_ENABLED !== "false" && import.meta.env.VITE_IMPORT_ENABLED;
     const valid = [
       "overview",
       "earnings",
@@ -2365,7 +2363,7 @@ export function BooksTab() {
       "kit",
       "calendar",
       "invoices",
-      ...(importEnabled ? ["import"] : []),
+      "import",
     ];
     return (valid.includes(p ?? "") ? p : "overview") as
       | "overview"
@@ -2632,15 +2630,13 @@ export function BooksTab() {
       >
         Invoices
       </button>
-      {import.meta.env.VITE_IMPORT_ENABLED !== "false" && import.meta.env.VITE_IMPORT_ENABLED && (
-        <button
-          data-help="books.section.import"
-          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "import" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-          onClick={() => setSection("import")}
-        >
-          Import
-        </button>
-      )}
+      <button
+        data-help="books.section.import"
+        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "import" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        onClick={() => setSection("import")}
+      >
+        Import
+      </button>
     </div>
   );
 
