@@ -41,6 +41,7 @@ interface ParsedRow {
   rate_raw?: string;
   notes?: string;
   reference?: string;
+  category_name?: string; // resolved from category_map (for expenses)
 }
 
 interface ClassifiedRow {
@@ -151,7 +152,12 @@ function parseAmountPence(raw: string): number | null {
 
 type ColumnMap = Record<string, string | null>;
 
-function applyMapping(raw: RawRow, columnMap: ColumnMap, dateHint?: string | null): ClassifiedRow {
+function applyMapping(
+  raw: RawRow,
+  columnMap: ColumnMap,
+  dateHint?: string | null,
+  categoryMap?: Record<string, string> | null
+): ClassifiedRow {
   const issues: string[] = [];
   const parsed: ParsedRow = {};
 
@@ -186,6 +192,14 @@ function applyMapping(raw: RawRow, columnMap: ColumnMap, dateHint?: string | nul
     issues.push("Missing description");
   } else {
     parsed.description = desc;
+  }
+
+  // Category — try to map the source category to an EventLink category name
+  const rawCategory = get("category") || get("account") || get("type");
+  if (rawCategory && categoryMap) {
+    const mapped = categoryMap[rawCategory] ?? categoryMap[rawCategory.toLowerCase()];
+    if (mapped) parsed.category_name = mapped;
+    else issues.push(`unmapped_category:${rawCategory}`);
   }
 
   // Amount — try combined amount first, then separate credit/debit
@@ -501,6 +515,9 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
       columnMap = fp ? (fp.columnMap as ColumnMap) : inferColumnMap(headers);
     }
 
+    const categoryMap =
+      (savedMapping?.category_map as Record<string, string> | null | undefined) ?? null;
+
     // Persist detected source on the batch if we found one
     if (readResult.detectedSource) {
       await db
@@ -513,7 +530,7 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
     const toInsert: (typeof import_rows.$inferInsert)[] = [];
 
     for (let i = 0; i < rawRows.length; i++) {
-      const classified = applyMapping(rawRows[i], columnMap, batch.date_format);
+      const classified = applyMapping(rawRows[i], columnMap, batch.date_format, categoryMap);
       toInsert.push({
         batch_id: batchId,
         row_number: i + 1,

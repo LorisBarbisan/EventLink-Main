@@ -1,7 +1,36 @@
-import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, sql, or, isNull } from "drizzle-orm";
 import { db } from "../config/db";
-import { import_batches, import_rows, earnings_entries, expenses } from "@shared/schema";
+import {
+  import_batches,
+  import_rows,
+  earnings_entries,
+  expenses,
+  expense_categories,
+} from "@shared/schema";
 import type { ImportRow } from "@shared/schema";
+
+// ── Category resolver ─────────────────────────────────────────────────────────
+// Looks up an expense_categories.id by name (system or freelancer-owned).
+// Returns null if not found — the expense is committed without a category.
+
+async function resolveCategoryId(name: string, freelancerId: number): Promise<number | null> {
+  const normalised = name.trim().toLowerCase().replace(/\s+/g, " ");
+  const [row] = await db
+    .select({ id: expense_categories.id })
+    .from(expense_categories)
+    .where(
+      and(
+        eq(expense_categories.normalised_name, normalised),
+        eq(expense_categories.archived, false),
+        or(
+          eq(expense_categories.freelancer_id, freelancerId),
+          isNull(expense_categories.freelancer_id)
+        )
+      )
+    )
+    .limit(1);
+  return row?.id ?? null;
+}
 
 // ── Record writer dispatch ─────────────────────────────────────────────────────
 // Called once per approved row during commitBatch(). Returns the table name and
@@ -45,6 +74,10 @@ async function writeRecord(
     const expenseDate = String(parsed.date ?? new Date().toISOString().slice(0, 10));
     const netPence = typeof parsed.amount_pence === "number" ? Math.abs(parsed.amount_pence) : 0;
 
+    // Resolve category from parsed.category_name if present
+    const categoryName = typeof parsed.category_name === "string" ? parsed.category_name : null;
+    const categoryId = categoryName ? await resolveCategoryId(categoryName, freelancerId) : null;
+
     const [expense] = await db
       .insert(expenses)
       .values({
@@ -54,6 +87,7 @@ async function writeRecord(
         expense_date: expenseDate,
         net_amount_pence: netPence,
         vat_amount_pence: 0,
+        category_id: categoryId,
         notes: typeof parsed.notes === "string" ? parsed.notes : null,
       })
       .returning({ id: expenses.id });
