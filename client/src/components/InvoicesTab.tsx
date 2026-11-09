@@ -1315,7 +1315,7 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
     { outstanding_pence: 0, overdue_pence: 0, paid_last_90_pence: 0 }
   );
 
-  const activeInvoices = invoices.filter((i) => !i.archived);
+  const activeInvoices = invoices.filter((i) => !i.archived && i.status !== "cancelled");
   const archivedInvoices = invoices.filter((i) => i.archived);
 
   const filtered =
