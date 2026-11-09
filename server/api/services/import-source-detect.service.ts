@@ -181,6 +181,35 @@ export function detectByHeaders(headers: string[]): HeaderFingerprint | null {
   return null;
 }
 
+// ── P&L / summary report detection ───────────────────────────────────────────
+// A Profit and Loss report has category labels in the first column and period
+// totals in subsequent columns. It has NO per-row dates. We detect it by:
+//   - at least 70% of first-column cells look like text labels (not dates/numbers)
+//   - no cell in the entire first column parses as a date
+//   - at least one cell in columns 2+ parses as a number
+
+export function detectProfitAndLoss(rows: { [col: string]: string }[]): boolean {
+  if (rows.length < 3) return false;
+  const cols = Object.keys(rows[0]);
+  if (cols.length < 2) return false;
+
+  const firstCol = cols[0];
+  const firstColValues = rows.map((r) => (r[firstCol] ?? "").trim()).filter(Boolean);
+
+  // No date values in first column
+  const hasDateInFirstCol = firstColValues.some(looksLikeDate);
+  if (hasDateInFirstCol) return false;
+
+  // Most first-column values are text labels
+  const labelCount = firstColValues.filter((v) => !looksLikeNumber(v) && v.length > 2).length;
+  if (labelCount / firstColValues.length < 0.6) return false;
+
+  // At least one numeric value in columns 2+
+  const restCols = cols.slice(1);
+  const hasNumeric = rows.some((r) => restCols.some((c) => looksLikeNumber(r[c] ?? "")));
+  return hasNumeric;
+}
+
 // ── Column map for headerless files ───────────────────────────────────────────
 // Three-column bank CSV: date, description, amount.
 // Falls back gracefully for more columns.

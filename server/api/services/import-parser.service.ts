@@ -11,6 +11,7 @@ import {
   detectBySheetNames,
   detectByHeaders,
   detectHeaderless,
+  detectProfitAndLoss,
   headerlessColumnMap,
 } from "./import-source-detect.service";
 
@@ -526,31 +527,84 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
         .where(eq(import_batches.id, batchId));
     }
 
-    // 4. Classify rows + build import_rows inserts
+    // 4. Detect P&L report (summary-only path) or classify transaction rows
+    const isPnL = detectProfitAndLoss(rawRows);
+    const fidelityFrom = batch.full_fidelity_from ?? null; // ISO date string or null
     const toInsert: (typeof import_rows.$inferInsert)[] = [];
 
-    for (let i = 0; i < rawRows.length; i++) {
-      const classified = applyMapping(rawRows[i], columnMap, batch.date_format, categoryMap);
-      toInsert.push({
-        batch_id: batchId,
-        row_number: i + 1,
-        raw: rawRows[i],
-        parsed: classified.parsed,
-        target: classified.target,
-        confidence: classified.confidence,
-        issues: classified.issues.length > 0 ? classified.issues : null,
-        decision: "pending",
-      });
+    if (isPnL) {
+      // P&L path: each row becomes one "summary" import_row.
+      // The first column is the category name; remaining columns are period totals.
+      const cols = Object.keys(rawRows[0]);
+      const categoryCol = cols[0];
+      const periodCols = cols.slice(1);
 
-      // Update progress every 100 rows
-      if ((i + 1) % 100 === 0) {
-        const progress = Math.round(((i + 1) / rawRows.length) * 100);
-        await db
-          .update(import_batches)
-          .set({ parse_progress: progress, updated_at: new Date() })
-          .where(eq(import_batches.id, batchId));
+      for (let i = 0; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        const categoryLabel = (row[categoryCol] ?? "").trim();
+        if (!categoryLabel || categoryLabel.match(/^(total|subtotal|grand total)/i)) continue;
+
+        for (const periodCol of periodCols) {
+          const rawAmount = (row[periodCol] ?? "").trim();
+          if (!rawAmount) continue;
+          const amountPence = parseAmountPence(rawAmount);
+          if (amountPence === null || amountPence === 0) continue;
+
+          toInsert.push({
+            batch_id: batchId,
+            row_number: i * 100 + periodCols.indexOf(periodCol) + 1,
+            raw: row,
+            parsed: {
+              description: categoryLabel,
+              period: periodCol,
+              amount_pence: amountPence,
+              category_name: categoryLabel,
+            },
+            target: "summary",
+            confidence: 70,
+            issues: null,
+            decision: "pending",
+          });
+        }
       }
-    }
+    } else {
+      for (let i = 0; i < rawRows.length; i++) {
+        const classified = applyMapping(rawRows[i], columnMap, batch.date_format, categoryMap);
+
+        // Fidelity downgrade: rows before full_fidelity_from become "summary"
+        let target = classified.target;
+        const rowDate = classified.parsed.date ?? null;
+        if (
+          target !== "skip" &&
+          target !== null &&
+          fidelityFrom &&
+          rowDate &&
+          rowDate < fidelityFrom
+        ) {
+          target = "summary";
+        }
+
+        toInsert.push({
+          batch_id: batchId,
+          row_number: i + 1,
+          raw: rawRows[i],
+          parsed: classified.parsed,
+          target,
+          confidence: classified.confidence,
+          issues: classified.issues.length > 0 ? classified.issues : null,
+          decision: "pending",
+        });
+
+        // Update progress every 100 rows
+        if ((i + 1) % 100 === 0) {
+          const progress = Math.round(((i + 1) / rawRows.length) * 100);
+          await db
+            .update(import_batches)
+            .set({ parse_progress: progress, updated_at: new Date() })
+            .where(eq(import_batches.id, batchId));
+        }
+      }
+    } // end else (non-P&L path)
 
     // 5. Delete any rows from a previous parse attempt, then bulk-insert
     await db.delete(import_rows).where(eq(import_rows.batch_id, batchId));
