@@ -72,7 +72,7 @@ export const Footer = ({ dark = false }: FooterProps) => {
                 </li>
                 <li>
                   <Link
-                    to="/how-it-works#business"
+                    to="/manage-business"
                     className={footerLink}
                     data-testid="footer-link-manage-business"
                   >
