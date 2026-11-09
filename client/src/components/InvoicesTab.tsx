@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   Briefcase,
   Download,
+  Pencil,
   Plus,
   Trash2,
   Archive,
@@ -1043,6 +1044,15 @@ function InvoiceRow({
               title="Archive"
             >
               <Archive className="h-4 w-4" />
+            </button>
+          )}
+          {invoice.status === "draft" && (
+            <button
+              className="text-muted-foreground transition-colors hover:text-foreground"
+              title="Edit"
+              onClick={() => onOpen(invoice)}
+            >
+              <Pencil className="h-4 w-4" />
             </button>
           )}
           {invoice.status === "draft" && (
