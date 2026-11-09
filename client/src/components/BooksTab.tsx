@@ -2417,6 +2417,22 @@ export function BooksTab() {
     enabled: !!user?.id,
   });
 
+  // Fetch full job detail when a booking is selected (description, times, etc.)
+  const selectedJobId = selectedBooking?.job_id ?? null;
+  const { data: selectedJobDetail } = useQuery<{
+    id: number;
+    title: string;
+    description?: string;
+    start_time?: string;
+    end_time?: string;
+    end_date?: string;
+    created_at?: string;
+  } | null>({
+    queryKey: ["/api/jobs", selectedJobId],
+    queryFn: () => (selectedJobId ? apiRequest(`/api/jobs/${selectedJobId}`) : null),
+    enabled: !!selectedJobId,
+  });
+
   const createInvoiceForBooking = (b: UnloggedBooking) => {
     const match = hiredBookings.find((hb) => hb.booking.jobId === b.job_id);
     // Parse rate string to pence best-effort (e.g. "£400", "400", "400.00")
@@ -2497,42 +2513,40 @@ export function BooksTab() {
         if (!o) setSelectedBooking(null);
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="pr-6 leading-snug">{selectedBooking.job_title}</DialogTitle>
+          <DialogTitle className="pr-6 text-xl font-bold leading-snug">
+            {selectedBooking.job_title}
+          </DialogTitle>
         </DialogHeader>
-        <div className="divide-y divide-border rounded-md border text-sm">
+
+        {/* 2-col grid matching employer job popup */}
+        <div className="grid grid-cols-2 gap-4 text-sm">
           {selectedBooking.company_name && (
-            <div className="flex items-center justify-between px-3 py-2.5">
-              <span className="text-muted-foreground">Client</span>
-              <span className="font-medium">{selectedBooking.company_name}</span>
-            </div>
-          )}
-          {selectedBooking.event_date && (
-            <div className="flex items-center justify-between px-3 py-2.5">
-              <span className="text-muted-foreground">Date</span>
-              <span className="font-medium">{fmtDate(selectedBooking.event_date)}</span>
-            </div>
-          )}
-          {(selectedBooking.rate ||
-            hiredBookings.find((hb) => hb.booking.jobId === selectedBooking.job_id)?.booking
-              .agreedRate) && (
-            <div className="flex items-center justify-between px-3 py-2.5">
-              <span className="text-muted-foreground">Agreed rate</span>
-              <span className="font-medium tabular-nums">
-                {hiredBookings.find((hb) => hb.booking.jobId === selectedBooking.job_id)?.booking
-                  .agreedRate ?? selectedBooking.rate}
-              </span>
+            <div>
+              <p className="text-muted-foreground">Company</p>
+              <p className="font-medium">{selectedBooking.company_name}</p>
             </div>
           )}
           {selectedBooking.location && (
-            <div className="flex items-center justify-between px-3 py-2.5">
-              <span className="text-muted-foreground">Location</span>
-              <span className="max-w-[55%] text-right font-medium">{selectedBooking.location}</span>
+            <div>
+              <p className="text-muted-foreground">Location</p>
+              <p className="font-medium">{selectedBooking.location}</p>
             </div>
           )}
-          <div className="flex items-center justify-between px-3 py-2.5">
-            <span className="text-muted-foreground">Status</span>
+          {(() => {
+            const rate =
+              hiredBookings.find((hb) => hb.booking.jobId === selectedBooking.job_id)?.booking
+                .agreedRate ?? selectedBooking.rate;
+            return rate ? (
+              <div>
+                <p className="text-muted-foreground">Rate</p>
+                <p className="font-medium tabular-nums">{rate}</p>
+              </div>
+            ) : null;
+          })()}
+          <div>
+            <p className="text-muted-foreground">Status</p>
             {(() => {
               const s = (selectedBooking.status ?? "confirmed").toLowerCase();
               const color =
@@ -2545,17 +2559,51 @@ export function BooksTab() {
                       : "bg-muted text-muted-foreground";
               return (
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${color}`}
+                  className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${color}`}
                 >
                   {s}
                 </span>
               );
             })()}
           </div>
+          {selectedBooking.event_date && (
+            <div>
+              <p className="text-muted-foreground">Event Date</p>
+              <p className="font-medium">
+                {fmtDate(selectedBooking.event_date)}
+                {selectedJobDetail?.end_date ? ` – ${fmtDate(selectedJobDetail.end_date)}` : ""}
+              </p>
+            </div>
+          )}
+          {selectedJobDetail?.start_time && (
+            <div>
+              <p className="text-muted-foreground">Time</p>
+              <p className="font-medium">
+                {selectedJobDetail.start_time}
+                {selectedJobDetail.end_time ? ` – ${selectedJobDetail.end_time}` : ""}
+              </p>
+            </div>
+          )}
+          {selectedJobDetail?.created_at && (
+            <div>
+              <p className="text-muted-foreground">Created</p>
+              <p className="font-medium">
+                {new Date(selectedJobDetail.created_at).toLocaleDateString("en-GB")}
+              </p>
+            </div>
+          )}
         </div>
-        <p className="text-xs text-muted-foreground">
-          Creating an invoice opens the form with this booking&apos;s details pre-filled.
-        </p>
+
+        {/* Description */}
+        {selectedJobDetail?.description && (
+          <div className="text-sm">
+            <p className="mb-1 text-muted-foreground">Description</p>
+            <p className="whitespace-pre-wrap rounded-md bg-muted/50 p-3">
+              {selectedJobDetail.description}
+            </p>
+          </div>
+        )}
+
         <DialogFooter className="flex-col gap-2 sm:flex-row">
           {selectedBooking.event_date && new Date(selectedBooking.event_date) < new Date() && (
             <Button
