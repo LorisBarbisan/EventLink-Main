@@ -9,9 +9,11 @@ export const Footer = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Give every footer nav link/button a 44px minimum tap height so stacked
-  // links on mobile are comfortable to hit (Apple/Android tap-target guidance).
-  const footerLink = "inline-flex min-h-[44px] items-center hover:text-foreground";
+  // Give every footer nav link/button a 44px minimum tap height on mobile so
+  // stacked links are comfortable to hit (Apple/Android tap-target guidance);
+  // collapse it from md up so the desktop footer stays compact.
+  const footerLink =
+    "inline-flex min-h-[44px] items-center hover:text-foreground md:min-h-0 md:py-0.5";
 
   return (
     <footer className="mt-auto border-t">
