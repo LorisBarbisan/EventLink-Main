@@ -29,7 +29,6 @@ import {
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useIsPro } from "@/hooks/useIsPro";
 import { usePersistentState } from "@/hooks/usePersistentState";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest } from "@/lib/queryClient";
@@ -76,7 +75,6 @@ export function ProfileForm({
 }: ProfileFormProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const isPro = useIsPro();
 
   const freelancerProfile = userType === "freelancer" ? (profile as FreelancerProfile) : null;
   const [profileIsPublic, setProfileIsPublic] = useState(
@@ -386,20 +384,18 @@ export function ProfileForm({
       />
       {userType === "freelancer" ? (
         <>
-          <Tabs defaultValue={isPro ? "card" : "profile"}>
+          <Tabs defaultValue="card">
             <CardHeader className="pb-0">
               <div className="flex items-center justify-between">
                 <CardTitle>{profile ? "Edit Profile" : "Create Freelancer Profile"}</CardTitle>
               </div>
               <TabsList className="mt-3 w-full justify-start border border-border bg-muted/60">
-                {isPro && (
-                  <TabsTrigger
-                    value="card"
-                    className="font-semibold data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow"
-                  >
-                    Card &amp; Appearance
-                  </TabsTrigger>
-                )}
+                <TabsTrigger
+                  value="card"
+                  className="font-semibold data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow"
+                >
+                  Card &amp; Appearance
+                </TabsTrigger>
                 <TabsTrigger
                   value="profile"
                   className="font-semibold data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow"
@@ -1338,7 +1334,6 @@ function FreelancerCardAppearanceFields({
   formData: FreelancerFormData;
   onInputChange: (field: string, value: any) => void;
 }) {
-  const isPro = useIsPro();
   const theme = (formData as any).profile_theme ?? {};
 
   return (
@@ -1352,36 +1347,34 @@ function FreelancerCardAppearanceFields({
           </p>
         </div>
 
-        {isPro && (
-          <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
-            <p className="text-sm font-semibold">Business Card Contact Details</p>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone || ""}
-                  onChange={(e) => onInputChange("phone", e.target.value)}
-                  placeholder="+44 7911 123456"
-                />
-              </div>
-              <div>
-                <Label htmlFor="contact_email">Contact Email</Label>
-                <Input
-                  id="contact_email"
-                  type="email"
-                  value={formData.contact_email || ""}
-                  onChange={(e) => onInputChange("contact_email", e.target.value)}
-                  placeholder="hello@yourname.com"
-                />
-              </div>
+        <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4">
+          <p className="text-sm font-semibold">Business Card Contact Details</p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={formData.phone || ""}
+                onChange={(e) => onInputChange("phone", e.target.value)}
+                placeholder="+44 7911 123456"
+              />
             </div>
-            <p className="text-xs text-muted-foreground">
-              These appear on the back of your shared business card.
-            </p>
+            <div>
+              <Label htmlFor="contact_email">Contact Email</Label>
+              <Input
+                id="contact_email"
+                type="email"
+                value={formData.contact_email || ""}
+                onChange={(e) => onInputChange("contact_email", e.target.value)}
+                placeholder="hello@yourname.com"
+              />
+            </div>
           </div>
-        )}
+          <p className="text-xs text-muted-foreground">
+            These appear on the back of your shared business card.
+          </p>
+        </div>
 
         <ProfileThemePicker theme={theme} onChange={(t) => onInputChange("profile_theme", t)} />
       </div>

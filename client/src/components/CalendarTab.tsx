@@ -55,7 +55,7 @@ const BOOKING_COLOURS: Record<string, string> = {
 const BOOKING_LABELS: Record<string, string> = {
   enquired: "Enquired",
   confirmed: "Confirmed",
-  briefed: "Briefed",
+  briefed: "Applied",
   completed: "Completed",
   cancelled: "Cancelled",
 };

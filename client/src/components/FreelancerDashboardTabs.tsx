@@ -48,7 +48,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { useIsPro } from "@/hooks/useIsPro";
 import { VanityUrlEditor } from "@/components/VanityUrlEditor";
 import { BooksTab } from "./BooksTab";
 import { SimplifiedCVUploader } from "./SimplifiedCVUploader";
@@ -89,7 +88,6 @@ interface FreelancerDashboardTabsProps {
 }
 
 export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProps) {
-  const isPro = useIsPro();
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -850,24 +848,12 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
               </CardContent>
             </Card>
 
-            {/* Custom profile URL — Pro only */}
-            {isPro ? (
-              <VanityUrlEditor
-                userId={parseInt(profile.id)}
-                currentCustomSlug={freelancerProfileData?.custom_slug}
-                currentSlug={freelancerProfileData?.slug}
-              />
-            ) : (
-              <Card className="border-dashed opacity-60">
-                <CardContent className="flex items-center gap-3 py-4">
-                  <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">Custom profile URL</span> is a Pro
-                    feature. Upgrade to set a vanity URL for your public profile.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+            {/* Custom profile URL */}
+            <VanityUrlEditor
+              userId={parseInt(profile.id)}
+              currentCustomSlug={freelancerProfileData?.custom_slug}
+              currentSlug={freelancerProfileData?.slug}
+            />
           </TabsContent>
 
           {/* Messages Tab */}
