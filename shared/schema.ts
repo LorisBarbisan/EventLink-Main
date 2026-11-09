@@ -1391,6 +1391,7 @@ export const invoices = pgTable("invoices", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   booking_id: integer("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+  job_id: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
   invoice_number: text("invoice_number").notNull(),
   status: text("status")
     .notNull()

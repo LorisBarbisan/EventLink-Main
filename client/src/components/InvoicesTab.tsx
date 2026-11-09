@@ -1076,6 +1076,7 @@ function InvoiceRow({
 
 export interface InvoicePrefill {
   bookingId: number | null;
+  jobId?: number | null; // direct job link (job board applications)
   toName: string;
   toCompany: string;
   lineDescription: string;
@@ -1262,6 +1263,7 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
           issue_date: prefillBooking.issueDate || new Date().toISOString().slice(0, 10),
         };
         if (prefillBooking.bookingId) patch.booking_id = prefillBooking.bookingId;
+        if (prefillBooking.jobId) patch.job_id = prefillBooking.jobId;
         if (prefillBooking.lineDescription || prefillBooking.ratePence) {
           patch.line_items = [
             {

@@ -2445,6 +2445,7 @@ export function BooksTab() {
     const toCompany = match?.employer.companyName ?? b.company_name ?? "";
     setInvoicePrefill({
       bookingId: match?.booking.id ?? null,
+      jobId: b.job_id ?? match?.booking.jobId ?? null,
       toName,
       toCompany,
       lineDescription: b.job_title,

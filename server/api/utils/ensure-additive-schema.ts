@@ -83,6 +83,9 @@ const STATEMENTS = [
    )`,
   `CREATE INDEX IF NOT EXISTS import_rows_batch_idx ON import_rows (batch_id, row_number)`,
   `CREATE INDEX IF NOT EXISTS import_rows_decision_idx ON import_rows (batch_id, decision)`,
+  // Invoice → job link: job board applications don't create a bookings row,
+  // so store the job_id directly for the briefcase icon in InvoicesTab.
+  `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS job_id integer REFERENCES jobs(id) ON DELETE SET NULL`,
   `CREATE TABLE IF NOT EXISTS import_mappings (
      id serial PRIMARY KEY,
      freelancer_id integer REFERENCES users(id) ON DELETE CASCADE,

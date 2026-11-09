@@ -124,12 +124,17 @@ export async function listInvoices(req: Request, res: Response) {
   const conditions: ReturnType<typeof eq>[] = [eq(invoicesTable.freelancer_id, user.id)];
   if (status) conditions.push(eq(invoicesTable.status as any, status as string));
   const rows = await db
-    .select({ invoice: invoicesTable, jobId: bookings.jobId })
+    .select({ invoice: invoicesTable, bookingJobId: bookings.jobId })
     .from(invoicesTable)
     .leftJoin(bookings, eq(bookings.id, invoicesTable.booking_id))
     .where(and(...conditions))
     .orderBy(desc(invoicesTable.created_at));
-  return res.json(rows.map(({ invoice, jobId }) => ({ ...invoice, job_id: jobId ?? null })));
+  return res.json(
+    rows.map(({ invoice, bookingJobId }) => ({
+      ...invoice,
+      job_id: invoice.job_id ?? bookingJobId ?? null,
+    }))
+  );
 }
 
 export async function getInvoice(req: Request, res: Response) {
@@ -329,6 +334,7 @@ export async function updateInvoice(req: Request, res: Response) {
 
     const {
       booking_id,
+      job_id,
       from_details,
       to_details,
       line_items,
@@ -343,6 +349,7 @@ export async function updateInvoice(req: Request, res: Response) {
     const updates: any = {};
     if (booking_id !== undefined)
       updates.booking_id = booking_id === null ? null : Number(booking_id);
+    if (job_id !== undefined) updates.job_id = job_id === null ? null : Number(job_id);
     if (from_details !== undefined) updates.from_details = from_details;
     if (to_details !== undefined) updates.to_details = to_details;
     if (line_items !== undefined) updates.line_items = line_items;
