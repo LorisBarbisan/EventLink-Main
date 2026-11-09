@@ -620,6 +620,41 @@ export async function markInvoicePaid(req: Request, res: Response) {
 
 // ── Cancel ─────────────────────────────────────────────────────────────────────
 
+// ── Manual status override ────────────────────────────────────────────────────
+// Lets the freelancer manually set any status — needed when invoicing external
+// clients (download PDF, send by email, then mark as Sent here).
+
+export async function setInvoiceStatus(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+    const VALID = ["draft", "sent", "overdue", "paid", "cancelled"] as const;
+    const { status } = req.body as { status?: unknown };
+    if (!VALID.includes(status as (typeof VALID)[number])) {
+      return res.status(400).json({ error: `status must be one of: ${VALID.join(", ")}` });
+    }
+
+    const invoice = await storage.getInvoice(id);
+    if (!invoice) return res.status(404).json({ error: "Not found" });
+    if (invoice.freelancer_id !== user.id) return res.status(403).json({ error: "Forbidden" });
+
+    const updates: Record<string, unknown> = { status };
+    if (status === "paid" && !invoice.paid_at) updates.paid_at = new Date();
+    if (status === "sent" && !invoice.sent_at) {
+      updates.sent_at = new Date();
+      updates.marked_sent_externally = true;
+    }
+
+    const updated = await storage.updateInvoice(id, updates);
+    return res.json(updated);
+  } catch (err) {
+    console.error("setInvoiceStatus error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 export async function cancelInvoice(req: Request, res: Response) {
   try {
     const user = (req as any).user;

@@ -607,6 +607,22 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
     0
   );
 
+  const [currentStatus, setCurrentStatus] = useState(invoice.status);
+
+  const statusMutation = useMutation({
+    mutationFn: (status: Invoice["status"]) =>
+      apiRequest(`/api/invoices/${invoice.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: (updated: Invoice) => {
+      setCurrentStatus(updated.status);
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ title: `Invoice marked as ${updated.status}` });
+    },
+    onError: () => toast({ title: "Failed to update status", variant: "destructive" }),
+  });
+
   const saveMutation = useMutation({
     mutationFn: () =>
       apiRequest(`/api/invoices/${invoice.id}`, {
@@ -669,19 +685,30 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>
-            Invoice {invoice.invoice_number}
-            {invoice.status !== "draft" && (
-              <span className="ml-2 text-sm font-normal capitalize text-muted-foreground">
-                ({invoice.status})
-              </span>
-            )}
-          </DialogTitle>
+          <DialogTitle>Invoice {invoice.invoice_number}</DialogTitle>
         </DialogHeader>
+
+        {/* Status stepper — click any status to set it manually */}
+        <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-1">
+          {(["draft", "sent", "overdue", "paid", "cancelled"] as const).map((s) => (
+            <button
+              key={s}
+              disabled={statusMutation.isPending || currentStatus === s}
+              onClick={() => statusMutation.mutate(s)}
+              className={`flex-1 rounded px-2 py-1 text-xs font-medium capitalize transition-colors ${
+                currentStatus === s
+                  ? STATUS_COLORS[s] + " ring-1 ring-inset ring-current"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              } disabled:cursor-not-allowed`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
 
         <div className="space-y-5 py-1">
           {/* Link to booking */}
-          {invoice.status === "draft" && hiredBookings.length > 0 && (
+          {currentStatus === "draft" && hiredBookings.length > 0 && (
             <div>
               <p data-help="books.invoices.linkJob" className="mb-2 text-sm font-medium">
                 Linked job
@@ -738,7 +765,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   value={toDetails.name}
                   onChange={(e) => setToDetails((d) => ({ ...d, name: e.target.value }))}
                   placeholder="Jane Smith"
-                  disabled={invoice.status !== "draft"}
+                  disabled={currentStatus !== "draft"}
                 />
               </div>
               <div>
@@ -747,7 +774,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   value={toDetails.company}
                   onChange={(e) => setToDetails((d) => ({ ...d, company: e.target.value }))}
                   placeholder="Acme Ltd"
-                  disabled={invoice.status !== "draft"}
+                  disabled={currentStatus !== "draft"}
                 />
               </div>
               <div className="col-span-2">
@@ -757,7 +784,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   value={toDetails.email}
                   onChange={(e) => setToDetails((d) => ({ ...d, email: e.target.value }))}
                   placeholder="client@example.com"
-                  disabled={invoice.status !== "draft"}
+                  disabled={currentStatus !== "draft"}
                 />
               </div>
               <div className="col-span-2">
@@ -766,7 +793,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   value={toDetails.address_line1}
                   onChange={(e) => setToDetails((d) => ({ ...d, address_line1: e.target.value }))}
                   placeholder="123 High Street"
-                  disabled={invoice.status !== "draft"}
+                  disabled={currentStatus !== "draft"}
                 />
               </div>
               <div className="col-span-2">
@@ -775,7 +802,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   value={toDetails.address_line2}
                   onChange={(e) => setToDetails((d) => ({ ...d, address_line2: e.target.value }))}
                   placeholder="Suite 4"
-                  disabled={invoice.status !== "draft"}
+                  disabled={currentStatus !== "draft"}
                 />
               </div>
               <div>
@@ -784,7 +811,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   value={toDetails.city}
                   onChange={(e) => setToDetails((d) => ({ ...d, city: e.target.value }))}
                   placeholder="London"
-                  disabled={invoice.status !== "draft"}
+                  disabled={currentStatus !== "draft"}
                 />
               </div>
               <div>
@@ -793,7 +820,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   value={toDetails.postcode}
                   onChange={(e) => setToDetails((d) => ({ ...d, postcode: e.target.value }))}
                   placeholder="EC1A 1BB"
-                  disabled={invoice.status !== "draft"}
+                  disabled={currentStatus !== "draft"}
                 />
               </div>
               <div className="col-span-2">
@@ -802,7 +829,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   value={toDetails.country}
                   onChange={(e) => setToDetails((d) => ({ ...d, country: e.target.value }))}
                   placeholder="United Kingdom"
-                  disabled={invoice.status !== "draft"}
+                  disabled={currentStatus !== "draft"}
                 />
               </div>
             </div>
@@ -816,7 +843,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                 type="date"
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
-                disabled={invoice.status !== "draft"}
+                disabled={currentStatus !== "draft"}
               />
             </div>
             <div>
@@ -825,7 +852,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                disabled={invoice.status !== "draft"}
+                disabled={currentStatus !== "draft"}
               />
             </div>
           </div>
@@ -846,7 +873,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                       value={li.description}
                       onChange={(e) => updateLine(i, "description", e.target.value)}
                       placeholder="e.g. Photography shoot"
-                      disabled={invoice.status !== "draft"}
+                      disabled={currentStatus !== "draft"}
                     />
                   </div>
                   <div className="col-span-2">
@@ -856,7 +883,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                     <Select
                       value={li.rate_type ?? "day"}
                       onValueChange={(v) => updateLine(i, "rate_type", v)}
-                      disabled={invoice.status !== "draft"}
+                      disabled={currentStatus !== "draft"}
                     >
                       <SelectTrigger className="h-9 text-xs">
                         <SelectValue />
@@ -880,7 +907,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                       step="0.5"
                       value={li.quantity}
                       onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                      disabled={invoice.status !== "draft"}
+                      disabled={currentStatus !== "draft"}
                     />
                   </div>
                   <div className="col-span-2">
@@ -894,12 +921,12 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                       onChange={(e) => updatePriceInput(i, e.target.value)}
                       onBlur={() => commitPrice(i)}
                       placeholder="0.00"
-                      disabled={invoice.status !== "draft"}
+                      disabled={currentStatus !== "draft"}
                     />
                   </div>
                   <div className="col-span-1 flex justify-end">
                     {i === 0 && <div className="mb-1 h-4" />}
-                    {invoice.status === "draft" && (
+                    {currentStatus === "draft" && (
                       <button
                         onClick={() => removeLine(i)}
                         className="text-muted-foreground hover:text-destructive"
@@ -912,7 +939,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                 </div>
               ))}
             </div>
-            {invoice.status === "draft" && (
+            {currentStatus === "draft" && (
               <Button variant="outline" size="sm" className="mt-2 gap-1" onClick={addLine}>
                 <Plus className="h-3 w-3" />
                 Add line
@@ -934,7 +961,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Payment reference, project notes…"
-              disabled={invoice.status !== "draft"}
+              disabled={currentStatus !== "draft"}
             />
           </div>
         </div>
@@ -950,9 +977,9 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
             PDF
           </Button>
           <Button variant="outline" onClick={onClose}>
-            {invoice.status === "draft" ? "Discard changes" : "Close"}
+            {currentStatus === "draft" ? "Discard changes" : "Close"}
           </Button>
-          {invoice.status === "draft" && (
+          {currentStatus === "draft" && (
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
               Save invoice
             </Button>

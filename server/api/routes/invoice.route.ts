@@ -17,6 +17,7 @@ import {
   markInvoicePaid,
   cancelInvoice,
   archiveInvoice,
+  setInvoiceStatus,
   getReminderDraft,
   recordReminderAction,
   exportInvoicesCSV,
@@ -47,6 +48,7 @@ export function registerInvoiceRoutes(app: Express) {
   app.get("/api/invoices/:id/message-draft", ...freelancer, getMessageDraft);
   app.post("/api/invoices/:id/send-message", ...freelancer, sendInvoiceViaMessage);
   app.post("/api/invoices/:id/mark-sent", ...freelancer, markSentExternally);
+  app.patch("/api/invoices/:id/status", ...freelancer, setInvoiceStatus);
   app.post("/api/invoices/:id/mark-paid", ...freelancer, markInvoicePaid);
   app.post("/api/invoices/:id/archive", ...freelancer, archiveInvoice);
 
