@@ -6,6 +6,7 @@ import { db } from "../config/db";
 import { import_batches, import_rows } from "@shared/schema";
 import { ObjectStorageService } from "../utils/object-storage";
 import { computeSignature, lookupMapping } from "./import-mapping.service";
+import { markDuplicates } from "./import-dedup.service";
 
 // pdf-parse is CJS-only; use createRequire so the function is always callable
 // regardless of the project's ESM/CJS module resolution.
@@ -477,7 +478,10 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
       await db.insert(import_rows).values(toInsert.slice(i, i + CHUNK));
     }
 
-    // 6. Mark done
+    // 6. Dedup check against live records and prior committed batches
+    await markDuplicates(batchId, batch.freelancer_id);
+
+    // 7. Mark done
     await db
       .update(import_batches)
       .set({
