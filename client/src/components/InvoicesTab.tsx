@@ -116,6 +116,7 @@ interface Invoice {
   line_items: LineItem[] | null;
   notes: string | null;
   booking_id: number | null;
+  job_id: number | null;
   archived: boolean;
 }
 
@@ -1482,10 +1483,7 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
             </thead>
             <tbody>
               {filtered.map((inv) => {
-                const jobId = inv.booking_id
-                  ? (hiredBookings.find((hb) => hb.booking.id === inv.booking_id)?.booking.jobId ??
-                    null)
-                  : null;
+                const jobId = inv.job_id ?? null;
                 return (
                   <InvoiceRow
                     key={inv.id}

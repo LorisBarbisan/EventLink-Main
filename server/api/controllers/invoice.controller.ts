@@ -13,9 +13,9 @@ import {
   unlinkInvoiceFromEntry,
 } from "../services/earnings.service";
 import { ObjectStorageService } from "../utils/object-storage";
-import { insertMessageSchema, bookings, jobs } from "@shared/schema";
+import { insertMessageSchema, bookings, invoices as invoicesTable, jobs } from "@shared/schema";
 import { db } from "../config/db";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 // ── Billing profile ────────────────────────────────────────────────────────────
 
@@ -121,8 +121,15 @@ export async function getBlankTemplate(req: Request, res: Response) {
 export async function listInvoices(req: Request, res: Response) {
   const user = (req as any).user;
   const { status } = req.query;
-  const list = await storage.getInvoicesByFreelancer(user.id, status as string | undefined);
-  return res.json(list);
+  const conditions: ReturnType<typeof eq>[] = [eq(invoicesTable.freelancer_id, user.id)];
+  if (status) conditions.push(eq(invoicesTable.status as any, status as string));
+  const rows = await db
+    .select({ invoice: invoicesTable, jobId: bookings.jobId })
+    .from(invoicesTable)
+    .leftJoin(bookings, eq(bookings.id, invoicesTable.booking_id))
+    .where(and(...conditions))
+    .orderBy(desc(invoicesTable.created_at));
+  return res.json(rows.map(({ invoice, jobId }) => ({ ...invoice, job_id: jobId ?? null })));
 }
 
 export async function getInvoice(req: Request, res: Response) {
