@@ -222,6 +222,25 @@ export async function bulkSetDecision(req: Request, res: Response): Promise<void
     return;
   }
 
+  // Bulk-approve is blocked when rows have low_confidence_extraction (AI-extracted PDFs).
+  // The user must approve each row individually so they can verify the AI's work.
+  if (decision === "approved" && hasFilter) {
+    const [{ hasLowConfidence }] = await db
+      .select({
+        hasLowConfidence: sql<boolean>`bool_or(issues::jsonb @> '["low_confidence_extraction"]'::jsonb)`,
+      })
+      .from(import_rows)
+      .where(eq(import_rows.batch_id, batchId));
+
+    if (hasLowConfidence) {
+      res.status(422).json({
+        error:
+          "This batch contains AI-extracted PDF rows. Each row must be approved individually — bulk approve is not allowed for PDF imports.",
+      });
+      return;
+    }
+  }
+
   let where;
   if (hasRowIds) {
     if (rowIds.length > 1000) {

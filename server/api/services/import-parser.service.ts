@@ -14,6 +14,7 @@ import {
   detectProfitAndLoss,
   headerlessColumnMap,
 } from "./import-source-detect.service";
+import { extractRowsFromPdf } from "./import-pdf-ai.service";
 
 // pdf-parse is CJS-only; use createRequire so the function is always callable
 // regardless of the project's ESM/CJS module resolution.
@@ -29,6 +30,7 @@ interface ReadResult {
   headerless: boolean;
   detectedSource?: string;
   detectedSheetName?: string;
+  aiExtracted?: boolean; // true when rows came from OpenAI PDF extraction
 }
 
 interface RawRow {
@@ -424,22 +426,42 @@ async function readXlsx(buffer: Buffer): Promise<ReadResult> {
   return { rows, headerless: isHeaderless, detectedSource, detectedSheetName };
 }
 
-async function readPdf(buffer: Buffer): Promise<RawRow[]> {
+// AI-powered PDF extraction — falls back to regex heuristic if OPENAI_API_KEY is absent.
+// All rows are tagged with low_confidence_extraction to prevent bulk-approve.
+async function readPdf(buffer: Buffer): Promise<{ rows: RawRow[]; aiExtracted: boolean }> {
   const data = await pdfParse(buffer);
-  const lines = data.text
+  const text = data.text;
+
+  // Try AI extraction first
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const aiRows = await extractRowsFromPdf(text);
+      if (aiRows.length > 0) {
+        return {
+          rows: aiRows.map((r) => ({
+            Date: r.date ?? "",
+            Description: r.description ?? "",
+            Amount: r.amount ?? "",
+            ...(r.reference ? { Reference: r.reference } : {}),
+          })),
+          aiExtracted: true,
+        };
+      }
+    } catch (err) {
+      console.warn("[import-pdf-ai] AI extraction failed, falling back to regex:", String(err));
+    }
+  }
+
+  // Regex fallback (headerless bank statement layout)
+  const lines = text
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
-
-  // Very basic heuristic: look for lines that have a date at the start.
-  // PDF bank statements vary wildly; this handles the most common tabular layout.
-  // Lines that don't match are skipped.
   const rows: RawRow[] = [];
   const datePrefix = /^(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}-\d{2}-\d{2})/;
 
   for (const line of lines) {
     if (!datePrefix.test(line)) continue;
-    // Split on 2+ spaces (common column separator in PDF text extractions)
     const parts = line
       .split(/\s{2,}/)
       .map((p) => p.trim())
@@ -452,7 +474,7 @@ async function readPdf(buffer: Buffer): Promise<RawRow[]> {
     });
   }
 
-  return rows;
+  return { rows, aiExtracted: false };
 }
 
 // ── Main entry point ──────────────────────────────────────────────────────────
@@ -479,8 +501,8 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
     ) {
       readResult = await readXlsx(buffer);
     } else if (batch.mime_type === "application/pdf") {
-      const pdfRows = await readPdf(buffer);
-      readResult = { rows: pdfRows, headerless: false };
+      const { rows: pdfRows, aiExtracted } = await readPdf(buffer);
+      readResult = { rows: pdfRows, headerless: false, aiExtracted };
     } else {
       readResult = await readCsv(buffer); // text/csv and fallback
     }
@@ -530,6 +552,7 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
     // 4. Detect P&L report (summary-only path) or classify transaction rows
     const isPnL = detectProfitAndLoss(rawRows);
     const fidelityFrom = batch.full_fidelity_from ?? null; // ISO date string or null
+    const aiExtracted = readResult.aiExtracted ?? false;
     const toInsert: (typeof import_rows.$inferInsert)[] = [];
 
     if (isPnL) {
@@ -584,14 +607,17 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
           target = "summary";
         }
 
+        const rowIssues = [...classified.issues];
+        if (aiExtracted) rowIssues.push("low_confidence_extraction");
+
         toInsert.push({
           batch_id: batchId,
           row_number: i + 1,
           raw: rawRows[i],
           parsed: classified.parsed,
           target,
-          confidence: classified.confidence,
-          issues: classified.issues.length > 0 ? classified.issues : null,
+          confidence: aiExtracted ? Math.min(classified.confidence, 50) : classified.confidence,
+          issues: rowIssues.length > 0 ? rowIssues : null,
           decision: "pending",
         });
 
