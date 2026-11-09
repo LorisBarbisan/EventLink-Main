@@ -111,6 +111,52 @@ export const faqData: FaqCategory[] = [
     ],
   },
   {
+    category: "Managing your business",
+    questions: [
+      {
+        id: "business-1",
+        question: "Is it free?",
+        answer:
+          "Yes. Recording income and expenses, mileage, invoicing, the kit register and exports are all free, for everyone, with no trial period.",
+      },
+      {
+        id: "business-2",
+        question: "Do I need to understand accounting to use it?",
+        answer:
+          "No. If you can take a photo of a receipt and type in what you earned, that's the whole thing. The categories are already set up for event work — kit hire, PPE, travel, training and so on.",
+      },
+      {
+        id: "business-3",
+        question: "Can I use this for my Self Assessment?",
+        answer:
+          "It keeps the records your Self Assessment is based on, and gives you an export your accountant can work from. It does not file anything with HMRC and it isn't HMRC-recognised software for Making Tax Digital. The tax figure we show is an estimate to help you plan, not a calculation of what you owe — always check with an accountant.",
+      },
+      {
+        id: "business-4",
+        question: "Who can see my financial records?",
+        answer:
+          "Only you. Employers never see your books, your expenses, your rates with other clients or anything else in there. It isn't part of your public profile and it never will be.",
+      },
+      {
+        id: "business-5",
+        question: "What happens to my records if I leave?",
+        answer:
+          "Export everything first — one file with your income, expenses, mileage and kit. Deleting your account deletes the records with it, and we can't get them back afterwards.",
+      },
+      {
+        id: "business-6",
+        question: "How is this different from QuickBooks or FreeAgent?",
+        answer:
+          "They're full accounting packages and we're not trying to replace them. EventLink keeps the records for the work you get in this industry, with your jobs, your documents and your invoices in the same place — and it's free. If you need VAT returns or filing, you want proper accounting software, or an accountant, or both.",
+      },
+      {
+        id: "business-7",
+        question: "Do I have to use it?",
+        answer: "No. Plenty of people only use EventLink to find work, and that's fine.",
+      },
+    ],
+  },
+  {
     category: "Privacy & Security",
     questions: [
       {

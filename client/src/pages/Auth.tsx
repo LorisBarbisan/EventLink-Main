@@ -254,7 +254,7 @@ export default function Auth() {
             </div>
             <CardTitle className="text-2xl">Almost there!</CardTitle>
             <p className="mt-2 text-muted-foreground">
-              Welcome! Please select how you'd like to use EventLink.
+              Welcome! Please select how you&apos;d like to use EventLink.
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -275,8 +275,8 @@ export default function Auth() {
                 <div>
                   <div className="font-semibold">Freelancer</div>
                   <div className="text-sm text-muted-foreground">
-                    I'm looking for event work opportunities. I want to showcase my skills and apply
-                    for jobs.
+                    I&apos;m looking for event work opportunities. I want to showcase my skills and
+                    apply for jobs.
                   </div>
                 </div>
               </label>
@@ -292,7 +292,7 @@ export default function Auth() {
                 <div>
                   <div className="font-semibold">Employer</div>
                   <div className="text-sm text-muted-foreground">
-                    I want to hire event professionals. I'll be posting jobs and managing crew.
+                    I want to hire event professionals. I&apos;ll be posting jobs and managing crew.
                   </div>
                 </div>
               </label>
@@ -969,7 +969,7 @@ export default function Auth() {
                         I agree to the{" "}
                         <button
                           type="button"
-                          onClick={() => window.open("/terms-of-use.pdf", "_blank")}
+                          onClick={() => window.open("/terms", "_blank")}
                           className="text-primary underline hover:text-primary/80"
                           data-testid="link-terms"
                         >

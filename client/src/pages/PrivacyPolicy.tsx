@@ -6,10 +6,14 @@ export default function PrivacyPolicy() {
     <Layout>
       <div className="container mx-auto max-w-3xl px-4 py-12">
         <h1 className="mb-2 text-3xl font-bold">Privacy Policy &amp; GDPR Notice</h1>
-        <p className="mb-1 text-sm text-muted-foreground">Last updated: June 2026</p>
-        <p className="mb-8 text-sm text-muted-foreground">
-          Version 2.0 — applies to all users worldwide, including the European Economic Area (EEA),
+        <p className="mb-1 text-sm text-muted-foreground">Last updated: November 2026</p>
+        <p className="mb-2 text-sm text-muted-foreground">
+          Version 2.1 — applies to all users worldwide, including the European Economic Area (EEA),
           United Kingdom, and United States.
+        </p>
+        <p className="mb-8 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800/40 dark:bg-blue-900/20 dark:text-blue-300">
+          November 2026 — added section 3.6 covering the financial and business records stored when
+          you use EventLink&apos;s business tools.
         </p>
 
         <div className="space-y-8 text-sm leading-relaxed text-foreground">
@@ -125,7 +129,75 @@ export default function PrivacyPolicy() {
               </li>
             </ul>
 
+            <h3 className="mb-1 mt-3 font-semibold">3.6 Financial and Business Records</h3>
+            <p className="mb-2">
+              If you use EventLink&apos;s business tools, we store the records you create and
+              upload:
+            </p>
+            <ul className="ml-4 list-disc space-y-1">
+              <li>
+                <strong>Income records</strong> — amounts, dates, clients, roles, rates, and payment
+                status for work you record
+              </li>
+              <li>
+                <strong>Expenses</strong> — amounts, dates, suppliers, categories, payment methods,
+                and the proportion of each cost you record as business use
+              </li>
+              <li>
+                <strong>Receipts and supporting documents</strong> — images and files you upload
+                against an expense
+              </li>
+              <li>
+                <strong>Invoices</strong> — including the details of the person or business you
+                invoice, and any reminders sent
+              </li>
+              <li>
+                <strong>Mileage</strong> — journeys you record, including start and end locations,
+                dates and distances
+              </li>
+              <li>
+                <strong>Equipment register</strong> — items, values, purchase and disposal details
+              </li>
+              <li>
+                <strong>Billing profile</strong> — your trading name, business address, company
+                registration number where applicable, Unique Taxpayer Reference, VAT registration
+                number, bank account details, and payment terms, used to produce your invoices
+              </li>
+              <li>
+                <strong>Imported records</strong> — accounts you choose to import from other
+                software, and the original file you uploaded
+              </li>
+            </ul>
             <p className="mt-2">
+              <strong>This information is yours.</strong> We use it only to provide the tools to
+              you. We do not share your financial records with employers, other users, or anyone
+              else, and nobody at EventLink reads them other than where strictly necessary to
+              resolve a support request you have raised.
+            </p>
+
+            <h4 className="mb-1 mt-3 font-semibold">
+              Information about other people in your records
+            </h4>
+            <p>
+              Records you create or upload may contain personal data about other people — a
+              client&apos;s name and address on an invoice, a supplier named on a receipt, or the
+              contacts listed in an accounts file you import. Those people are not EventLink users
+              and have no account with us.
+            </p>
+            <p className="mt-2">
+              We store this information solely so that your records remain complete and usable by
+              you, on the basis of our legitimate interests and yours in maintaining accurate
+              business records. We do not use it for any other purpose, we do not contact those
+              people, and we do not use it for marketing. It is deleted when you delete the record
+              it belongs to, or when your account is deleted.
+            </p>
+            <p className="mt-2">
+              If someone contacts us about personal data of theirs held in another user&apos;s
+              records, we will respond in line with our obligations and, where appropriate, direct
+              them to the user who holds it.
+            </p>
+
+            <p className="mt-3">
               We do <strong>not</strong> collect special category data (e.g. health, ethnicity,
               religion, political opinions, biometric data) and ask that you do not include such
               information on your profile.
@@ -180,6 +252,14 @@ export default function PrivacyPolicy() {
                     [
                       "Marketing communications (if opted in)",
                       "Consent (Art. 6(1)(a)) — you can unsubscribe at any time",
+                    ],
+                    [
+                      "Financial and business records",
+                      "Contract (Art. 6(1)(b)) — you have asked us to provide these tools and we cannot do so without storing the records you create",
+                    ],
+                    [
+                      "Personal data about third parties appearing in your records",
+                      "Legitimate Interests (Art. 6(1)(f)) — maintaining complete and accurate business records; we have considered the interests of the individuals concerned and limited our use to storage and display to you alone",
                     ],
                   ].map(([purpose, basis], i) => (
                     <tr key={i} className="border-b">
@@ -346,8 +426,20 @@ export default function PrivacyPolicy() {
                 required by law.
               </li>
               <li>
-                <strong>Financial and billing records:</strong> Retained for{" "}
+                <strong>Financial and billing records (Stripe/subscription):</strong> Retained for{" "}
                 <strong>7 years</strong> as required by UK tax and accounting law.
+              </li>
+              <li>
+                <strong>Financial and business records (Books):</strong> Retained for six years
+                after the end of the tax year to which they relate, and then deleted. We hold them
+                for this period because HMRC expects self-employed people to keep their business
+                records for several years after the relevant Self Assessment deadline, and we would
+                rather your records were still here when you need them. The obligation to keep
+                records is yours, not ours — we are simply making sure we are not the reason you
+                cannot meet it. You can delete any individual record at any time and export
+                everything at any time. If you delete your account, your financial records are
+                deleted with it, so export anything you need first. We will remind you of this when
+                you ask to close your account.
               </li>
               <li>
                 <strong>Legal hold:</strong> Where data is subject to an active legal dispute,

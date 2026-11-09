@@ -70,6 +70,15 @@ export const Footer = ({ dark = false }: FooterProps) => {
                     How Does It Work
                   </Link>
                 </li>
+                <li>
+                  <Link
+                    to="/how-it-works#business"
+                    className={footerLink}
+                    data-testid="footer-link-manage-business"
+                  >
+                    Manage your business
+                  </Link>
+                </li>
               </ul>
             </div>
 
@@ -107,15 +116,17 @@ export const Footer = ({ dark = false }: FooterProps) => {
                     Post a Job
                   </button>
                 </li>
-                <li>
-                  <Link
-                    to="/auth?tab=signup"
-                    className={footerLink}
-                    data-testid="footer-link-company-signup"
-                  >
-                    Get Started
-                  </Link>
-                </li>
+                {!user && (
+                  <li>
+                    <Link
+                      to="/auth?tab=signup"
+                      className={footerLink}
+                      data-testid="footer-link-company-signup"
+                    >
+                      Get Started
+                    </Link>
+                  </li>
+                )}
               </ul>
             </div>
 
@@ -138,14 +149,9 @@ export const Footer = ({ dark = false }: FooterProps) => {
                   </Link>
                 </li>
                 <li>
-                  <a
-                    href="/terms-of-use.pdf"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={footerLink}
-                  >
+                  <Link to="/terms" className={footerLink} data-testid="footer-link-terms">
                     Terms &amp; Conditions
-                  </a>
+                  </Link>
                 </li>
                 <li>
                   <Link to="/privacy" className={footerLink} data-testid="footer-link-privacy">
