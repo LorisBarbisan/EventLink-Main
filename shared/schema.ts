@@ -2029,7 +2029,9 @@ export const import_rows = pgTable(
     row_number: integer("row_number").notNull(),
     raw: jsonb("raw").notNull(), // exactly as read from the file
     parsed: jsonb("parsed"), // normalised candidate
-    target: text("target").$type<"expense" | "earnings" | "invoice" | "mileage" | "kit" | "skip">(),
+    target: text("target").$type<
+      "expense" | "earnings" | "invoice" | "mileage" | "kit" | "skip" | "summary"
+    >(),
     confidence: integer("confidence"), // 0–100
     issues: jsonb("issues"), // array of issue codes
     decision: text("decision")

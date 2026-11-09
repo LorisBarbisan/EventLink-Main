@@ -7,6 +7,12 @@ import { import_batches, import_rows } from "@shared/schema";
 import { ObjectStorageService } from "../utils/object-storage";
 import { computeSignature, lookupMapping } from "./import-mapping.service";
 import { markDuplicates } from "./import-dedup.service";
+import {
+  detectBySheetNames,
+  detectByHeaders,
+  detectHeaderless,
+  headerlessColumnMap,
+} from "./import-source-detect.service";
 
 // pdf-parse is CJS-only; use createRequire so the function is always callable
 // regardless of the project's ESM/CJS module resolution.
@@ -15,7 +21,14 @@ const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = _require("pdf-pa
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TargetType = "earnings" | "expense" | "invoice" | "mileage" | "kit" | "skip";
+type TargetType = "earnings" | "expense" | "invoice" | "mileage" | "kit" | "skip" | "summary";
+
+interface ReadResult {
+  rows: RawRow[];
+  headerless: boolean;
+  detectedSource?: string;
+  detectedSheetName?: string;
+}
 
 interface RawRow {
   [header: string]: string;
@@ -301,66 +314,99 @@ function inferColumnMap(headers: string[]): ColumnMap {
 
 // ── File readers ──────────────────────────────────────────────────────────────
 
-async function readCsv(buffer: Buffer): Promise<RawRow[]> {
+async function readCsv(buffer: Buffer): Promise<ReadResult> {
   const workbook = new ExcelJS.Workbook();
   const stream = Readable.from(buffer);
   await workbook.csv.read(stream);
   const sheet = workbook.worksheets[0];
-  if (!sheet) return [];
+  if (!sheet) return { rows: [], headerless: false };
 
-  const headers: string[] = [];
+  // Read first row to detect headerless
+  const firstRowValues: string[] = [];
+  sheet.getRow(1).eachCell((cell) => firstRowValues.push(String(cell.value ?? "").trim()));
+
+  const isHeaderless = detectHeaderless(firstRowValues);
+
+  const headers: string[] = isHeaderless
+    ? firstRowValues.map((_, i) => String.fromCharCode(65 + i)) // A, B, C…
+    : firstRowValues;
+
   const rows: RawRow[] = [];
+  const startRow = isHeaderless ? 1 : 2;
 
   sheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) {
-      row.eachCell((cell) => headers.push(String(cell.value ?? "").trim()));
-      return;
-    }
+    if (rowNumber < startRow) return;
     const obj: RawRow = {};
     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       const header = headers[colNumber - 1];
       if (header) obj[header] = String(cell.value ?? "").trim();
     });
-    // Skip completely empty rows
     if (Object.values(obj).some((v) => v !== "")) rows.push(obj);
   });
 
-  return rows;
+  return { rows, headerless: isHeaderless };
 }
 
-async function readXlsx(buffer: Buffer): Promise<RawRow[]> {
+function cellToString(cell: ExcelJS.Cell): string {
+  const v = cell.value;
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === "object" && v !== null && "richText" in v) {
+    return (v as ExcelJS.CellRichTextValue).richText.map((r) => r.text).join("");
+  }
+  return String(v ?? "").trim();
+}
+
+async function readXlsx(buffer: Buffer): Promise<ReadResult> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
-  // Use the first non-empty worksheet
-  const sheet = workbook.worksheets.find((ws) => ws.rowCount > 0);
-  if (!sheet) return [];
 
-  const headers: string[] = [];
+  if (workbook.worksheets.length === 0) return { rows: [], headerless: false };
+
+  // Step 1: sheet-name detection (FreeAgent)
+  const sheetNames = workbook.worksheets.map((ws) => ws.name);
+  const sheetDetect = detectBySheetNames(sheetNames);
+
+  let sheet: ExcelJS.Worksheet | undefined;
+  let detectedSource: string | undefined;
+  let detectedSheetName: string | undefined;
+
+  if (sheetDetect) {
+    sheet = workbook.worksheets.find((ws) => ws.name === sheetDetect.sheetName);
+    detectedSource = sheetDetect.source;
+    detectedSheetName = sheetDetect.sheetName;
+  }
+
+  if (!sheet) {
+    sheet = workbook.worksheets.find((ws) => ws.rowCount > 0);
+  }
+  if (!sheet) return { rows: [], headerless: false };
+
+  // Read first row
+  const firstRowValues: string[] = [];
+  sheet
+    .getRow(1)
+    .eachCell({ includeEmpty: false }, (cell) => firstRowValues.push(cellToString(cell)));
+
+  const isHeaderless = !sheetDetect && detectHeaderless(firstRowValues);
+  const headers: string[] = isHeaderless
+    ? firstRowValues.map((_, i) => String.fromCharCode(65 + i))
+    : firstRowValues;
+
   const rows: RawRow[] = [];
+  const startRow = isHeaderless ? 1 : 2;
 
   sheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) {
-      row.eachCell((cell) => headers.push(String(cell.value ?? "").trim()));
-      return;
-    }
+    if (rowNumber < startRow) return;
     const obj: RawRow = {};
     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       const header = headers[colNumber - 1];
       if (!header) return;
-      // Format dates from ExcelJS as ISO strings
-      const v = cell.value;
-      if (v instanceof Date) {
-        obj[header] = v.toISOString().slice(0, 10);
-      } else if (typeof v === "object" && v !== null && "richText" in v) {
-        obj[header] = (v as ExcelJS.CellRichTextValue).richText.map((r) => r.text).join("");
-      } else {
-        obj[header] = String(v ?? "").trim();
-      }
+      obj[header] = cellToString(cell);
     });
     if (Object.values(obj).some((v) => v !== "")) rows.push(obj);
   });
 
-  return rows;
+  return { rows, headerless: isHeaderless, detectedSource, detectedSheetName };
 }
 
 async function readPdf(buffer: Buffer): Promise<RawRow[]> {
@@ -411,17 +457,20 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
     const buffer = await ObjectStorageService.downloadObjectBuffer(batch.file_key);
 
     // 2. Read raw rows based on MIME type
-    let rawRows: RawRow[];
+    let readResult: ReadResult;
     if (
       batch.mime_type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
       batch.mime_type === "application/vnd.ms-excel"
     ) {
-      rawRows = await readXlsx(buffer);
+      readResult = await readXlsx(buffer);
     } else if (batch.mime_type === "application/pdf") {
-      rawRows = await readPdf(buffer);
+      const pdfRows = await readPdf(buffer);
+      readResult = { rows: pdfRows, headerless: false };
     } else {
-      rawRows = await readCsv(buffer); // text/csv and fallback
+      readResult = await readCsv(buffer); // text/csv and fallback
     }
+
+    const rawRows = readResult.rows;
 
     if (rawRows.length === 0) {
       await db
@@ -437,11 +486,28 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
     }
 
     // 3. Find or infer column mapping
+    // Priority: (a) saved mapping, (b) header fingerprint, (c) heuristic inference
     const headers = Object.keys(rawRows[0]);
-    const signature = computeSignature(headers);
-    const savedMapping = await lookupMapping(batch.freelancer_id, signature);
-    const columnMap: ColumnMap =
-      (savedMapping?.column_map as ColumnMap | null) ?? inferColumnMap(headers);
+    const signature = readResult.headerless ? "" : computeSignature(headers);
+    const savedMapping = signature ? await lookupMapping(batch.freelancer_id, signature) : null;
+
+    let columnMap: ColumnMap;
+    if (savedMapping?.column_map) {
+      columnMap = savedMapping.column_map as ColumnMap;
+    } else if (readResult.headerless) {
+      columnMap = headerlessColumnMap(headers.length);
+    } else {
+      const fp = detectByHeaders(headers);
+      columnMap = fp ? (fp.columnMap as ColumnMap) : inferColumnMap(headers);
+    }
+
+    // Persist detected source on the batch if we found one
+    if (readResult.detectedSource) {
+      await db
+        .update(import_batches)
+        .set({ source: readResult.detectedSource as typeof batch.source, updated_at: new Date() })
+        .where(eq(import_batches.id, batchId));
+    }
 
     // 4. Classify rows + build import_rows inserts
     const toInsert: (typeof import_rows.$inferInsert)[] = [];

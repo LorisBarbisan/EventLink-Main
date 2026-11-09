@@ -15,6 +15,7 @@ import { registerCredentialReminderScheduler } from "./api/services/credential-r
 import { registerCalendarScheduler } from "./api/services/calendarScheduler.service";
 import { sweepStuckParseJobs } from "./api/services/import-parse-worker.service";
 import { sweepStuckCommits } from "./api/services/import-commit.service";
+import { seedSystemMappings } from "./api/services/import-seed.service";
 import { ensureAdditiveSchema } from "./api/utils/ensure-additive-schema";
 
 import { sanitizeLogData } from "./api/utils/sanitize-log-data";
@@ -198,6 +199,11 @@ app.use((req, res, next) => {
   registerInvoiceChaserScheduler();
   registerCredentialReminderScheduler();
   registerCalendarScheduler();
+  // Seed system import mappings for QuickBooks / Xero / FreeAgent
+  seedSystemMappings().catch((err) =>
+    console.error("[import-seed] failed to seed system mappings:", err)
+  );
+
   // Sweep stuck import parse/commit jobs every 15 minutes
   setInterval(
     () => {
