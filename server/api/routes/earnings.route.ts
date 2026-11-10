@@ -9,6 +9,17 @@ import type { Request, Response } from "express";
 const router = Router();
 const auth = [authenticateJWT, requireRole("freelancer")];
 
+// GET /api/earnings/jobs — lightweight job list for the expense/mileage selectors
+router.get("/jobs", auth, async (req: Request, res: Response) => {
+  try {
+    const jobs = await storage.listJobsForSelector(req.user!.id);
+    return res.json(jobs);
+  } catch (err) {
+    console.error("earnings jobs error:", err);
+    return res.status(500).json({ error: "Failed to load jobs" });
+  }
+});
+
 // GET /api/earnings/gigs?from=YYYY-MM-DD&to=YYYY-MM-DD
 // Returns scheduled gig entries (work_status IS NOT NULL) in range, for the calendar and My Jobs.
 router.get("/gigs", auth, async (req: Request, res: Response) => {

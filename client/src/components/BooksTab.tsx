@@ -295,6 +295,7 @@ interface Expense {
   id: number;
   category_id: number | null;
   booking_id: number | null;
+  earnings_entry_id: number | null;
   source: string;
   supplier: string | null;
   description: string;
@@ -315,12 +316,23 @@ interface ExpenseForm {
   expense_date: string;
   net_amount: string;
   category_id: string;
+  job_id: string; // earnings_entry_id as string; "" = not linked
   // more details
   vat_amount: string;
   business_use_percent: string;
   payment_method: string;
   billable_to_client: boolean;
   notes: string;
+}
+
+interface JobOption {
+  id: number;
+  description: string;
+  work_date: string;
+  work_end_date: string | null;
+  client_name: string | null;
+  booking_id: number | null;
+  work_status: string | null;
 }
 
 function todayIso() {
@@ -334,6 +346,7 @@ function emptyExpenseForm(lastCategoryId?: string): ExpenseForm {
     expense_date: todayIso(),
     net_amount: "",
     category_id: lastCategoryId ?? "",
+    job_id: "",
     vat_amount: "",
     business_use_percent: "100",
     payment_method: "",
@@ -366,6 +379,10 @@ function ExpenseDialog({
   const [moreOpen, setMoreOpen] = useState(false);
   const [form, setForm] = useState<ExpenseForm>(emptyExpenseForm());
 
+  const { data: jobOptions = [] } = useQuery<JobOption[]>({
+    queryKey: ["/api/earnings/jobs"],
+  });
+
   // Reset when dialog opens
   useState(() => {
     if (open) {
@@ -376,6 +393,7 @@ function ExpenseDialog({
           expense_date: editing.expense_date.slice(0, 10),
           net_amount: (editing.net_amount_pence / 100).toFixed(2),
           category_id: editing.category_id ? String(editing.category_id) : "",
+          job_id: editing.earnings_entry_id ? String(editing.earnings_entry_id) : "",
           vat_amount:
             editing.vat_amount_pence > 0 ? (editing.vat_amount_pence / 100).toFixed(2) : "",
           business_use_percent: String(editing.business_use_percent),
@@ -428,6 +446,7 @@ function ExpenseDialog({
 
   const handleSave = () => {
     if (!form.description.trim() || !form.expense_date || !form.net_amount) return;
+    const selectedJob = form.job_id ? jobOptions.find((j) => j.id === parseInt(form.job_id)) : null;
     saveMutation.mutate({
       description: form.description.trim(),
       supplier: form.supplier.trim() || null,
@@ -435,6 +454,8 @@ function ExpenseDialog({
       net_amount_pence: Math.round(parseFloat(form.net_amount) * 100),
       vat_amount_pence: form.vat_amount ? Math.round(parseFloat(form.vat_amount) * 100) : 0,
       category_id: form.category_id ? parseInt(form.category_id) : null,
+      earnings_entry_id: form.job_id ? parseInt(form.job_id) : null,
+      booking_id: selectedJob?.booking_id ?? null,
       business_use_percent: parseInt(form.business_use_percent) || 100,
       payment_method: form.payment_method || null,
       billable_to_client: form.billable_to_client,
@@ -492,6 +513,36 @@ function ExpenseDialog({
               </Select>
             </div>
           </div>
+
+          {/* Job link (optional) */}
+          {jobOptions.length > 0 && (
+            <div className="space-y-1">
+              <Label>Link to a job (optional)</Label>
+              <Select
+                value={form.job_id}
+                onValueChange={(v) => set("job_id", v === "none" ? "" : v)}
+              >
+                <SelectTrigger style={{ fontSize: "16px" }}>
+                  <SelectValue placeholder="Not linked to a job" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Not linked —</SelectItem>
+                  {jobOptions.map((j) => (
+                    <SelectItem key={j.id} value={String(j.id)}>
+                      {j.description}
+                      {j.client_name ? ` · ${j.client_name}` : ""}
+                      {" · "}
+                      {j.work_date}
+                      {j.work_status === "confirmed" &&
+                      j.work_date >= new Date().toISOString().slice(0, 10)
+                        ? " ✓"
+                        : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-1">
             <Label htmlFor="exp-supplier">Supplier</Label>

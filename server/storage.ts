@@ -6930,6 +6930,41 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(earnings_entries.work_date));
   }
 
+  async listJobsForSelector(freelancerId: number): Promise<
+    {
+      id: number;
+      description: string;
+      work_date: string;
+      work_end_date: string | null;
+      client_name: string | null;
+      booking_id: number | null;
+      work_status: string | null;
+    }[]
+  > {
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = await db
+      .select({
+        id: earnings_entries.id,
+        description: earnings_entries.description,
+        work_date: earnings_entries.work_date,
+        work_end_date: earnings_entries.work_end_date,
+        client_name: earnings_clients.name,
+        booking_id: earnings_entries.booking_id,
+        work_status: earnings_entries.work_status,
+      })
+      .from(earnings_entries)
+      .leftJoin(earnings_clients, eq(earnings_entries.client_id, earnings_clients.id))
+      .where(
+        and(eq(earnings_entries.freelancer_id, freelancerId), eq(earnings_entries.archived, false))
+      )
+      .orderBy(desc(earnings_entries.work_date));
+
+    // Future confirmed work first, then everything else most-recent first
+    const future = rows.filter((r) => r.work_date >= today && r.work_status === "confirmed");
+    const rest = rows.filter((r) => !(r.work_date >= today && r.work_status === "confirmed"));
+    return [...future, ...rest];
+  }
+
   async listEarningsGigs(freelancerId: number, from: string, to: string): Promise<EarningsEntry[]> {
     return db
       .select()
