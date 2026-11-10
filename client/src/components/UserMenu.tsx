@@ -10,16 +10,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { getEffectiveCompanyId, isManagerTeamMember } from "@/lib/employerContext";
-import {
-  Bell,
-  CreditCard,
-  HelpCircle,
-  LogOut,
-  Settings,
-  Star,
-  User,
-  UserCircle,
-} from "lucide-react";
+import { Bell, HelpCircle, LogOut, Settings, Star, User, UserCircle } from "lucide-react";
 import { useLocation } from "wouter";
 
 export const UserMenu = () => {
@@ -186,11 +177,6 @@ export const UserMenu = () => {
             Admin Dashboard
           </DropdownMenuItem>
         )}
-
-        <DropdownMenuItem onClick={() => setLocation("/billing")} data-testid="menu-billing">
-          <CreditCard className="mr-2 h-4 w-4" />
-          Billing &amp; Plans
-        </DropdownMenuItem>
 
         {user.role === "admin" && (
           <DropdownMenuItem

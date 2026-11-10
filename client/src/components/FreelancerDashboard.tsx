@@ -18,7 +18,6 @@ import {
 import MyPostedJobs from "@/pages/freelancer/MyPostedJobs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { useIsPro } from "@/hooks/useIsPro";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useFreelancerAverageRating } from "@/hooks/useRatings";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
@@ -48,7 +47,6 @@ import {
   ShieldCheck,
   Star,
   X,
-  Zap,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
@@ -375,7 +373,6 @@ const RATING_LABELS: Record<string, { label: string; stars: number }> = {
 
 export default function SimplifiedFreelancerDashboard() {
   const { user } = useAuth();
-  const isPro = useIsPro();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -630,18 +627,6 @@ export default function SimplifiedFreelancerDashboard() {
       <div className="mb-4 px-3 sm:px-0">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold sm:text-3xl">Freelancer Dashboard</h1>
-          {isPro ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-0.5 text-xs font-semibold text-white shadow">
-              <Zap className="h-3 w-3 fill-white" /> Pro
-            </span>
-          ) : (
-            <a
-              href="/billing"
-              className="inline-flex items-center gap-1 rounded-full border border-purple-300 px-3 py-0.5 text-xs font-medium text-purple-600 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-900/20"
-            >
-              <Zap className="h-3 w-3" /> Upgrade to Pro
-            </a>
-          )}
         </div>
         <p className="text-sm text-muted-foreground sm:text-base">
           Manage your profile, applications, and messages
@@ -651,176 +636,115 @@ export default function SimplifiedFreelancerDashboard() {
       {/* Prompts the freelancer to date any certificates still missing an expiry */}
       <CredentialBacklogBanner />
 
-      {/* Persistent share bar — Pro: purple gradient; Free: neutral */}
-      {isPro ? (
-        <div className="mb-4 flex flex-col gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 px-4 py-3 shadow-md sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/80">
-                Your public profile
-              </p>
-              <p className="truncate text-sm text-white/90">{getProfileUrl()}</p>
-            </div>
-            <Button
-              size="sm"
-              onClick={() => setShowUrlEditor(true)}
-              className="h-7 w-7 shrink-0 border-0 bg-white/20 p-0 text-white hover:bg-white/30"
-              title="Customize URL"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <Switch
-                id="profile-visibility-bar-pro"
-                checked={profileIsPublic}
-                onCheckedChange={toggleProfilePrivacy}
-                disabled={togglingPrivacy}
-                className="data-[state=checked]:bg-white/90 data-[state=unchecked]:bg-white/30"
-              />
-              <label
-                htmlFor="profile-visibility-bar-pro"
-                className="cursor-pointer select-none text-xs font-medium text-white/90"
-              >
-                {profileIsPublic ? "Public" : "Private"}
-              </label>
-            </div>
-            <Button
-              size="sm"
-              data-help="action.freelancer.postJob"
-              onClick={() => {
-                handleTabChange("posted-jobs");
-                const url = new URL(window.location.href);
-                url.searchParams.set("openForm", "1");
-                window.history.replaceState({}, "", url.toString());
-              }}
-              className="border-0 bg-white/20 text-white hover:bg-white/30"
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Post a Job
-            </Button>
-            <Button
-              size="sm"
-              data-help="action.profile.shareLink"
-              onClick={handleShareProfile}
-              className="border-0 bg-white/20 text-white hover:bg-white/30"
-              title="Copy profile link"
-            >
-              {linkCopied ? (
-                <>
-                  <Check className="mr-1.5 h-3.5 w-3.5 sm:mr-1.5" />
-                  <span className="hidden sm:inline">Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5 sm:mr-1.5" />
-                  <span className="hidden sm:inline">Copy Link</span>
-                </>
-              )}
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowQrModal(true)}
-              className="border-0 bg-white/20 text-white hover:bg-white/30"
-              title="Card QR code"
-            >
-              <QrCode className="h-3.5 w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">Card QR</span>
-            </Button>
-            {user.id_verified ? (
-              <span
-                className="inline-flex items-center gap-1 rounded-md border border-white/30 bg-white/10 px-2 py-1 text-xs font-semibold text-white"
-                title="ID Verified"
-              >
-                <ShieldCheck className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">ID Verified</span>
-              </span>
-            ) : (
-              <Button
-                size="sm"
-                onClick={handleVerifyId}
-                disabled={identityLoading}
-                className="border-0 bg-white/20 text-white hover:bg-white/30"
-                title="Verify ID"
-              >
-                <ShieldCheck className="h-3.5 w-3.5 sm:mr-1.5" />
-                <span className="hidden sm:inline">{identityLoading ? "…" : "Verify ID"}</span>
-              </Button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="mb-4 flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Share bar */}
+      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-primary">
               Your public profile
             </p>
             <p className="truncate text-sm text-muted-foreground">{getProfileUrl()}</p>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <Switch
-                id="profile-visibility-bar"
-                checked={profileIsPublic}
-                onCheckedChange={toggleProfilePrivacy}
-                disabled={togglingPrivacy}
-              />
-              <label
-                htmlFor="profile-visibility-bar"
-                className="cursor-pointer select-none text-xs font-medium text-muted-foreground"
-              >
-                {profileIsPublic ? "Public" : "Private"}
-              </label>
-            </div>
-            <Button
-              size="sm"
-              data-help="action.freelancer.postJob"
-              onClick={() => {
-                handleTabChange("posted-jobs");
-                const url = new URL(window.location.href);
-                url.searchParams.set("openForm", "1");
-                window.history.replaceState({}, "", url.toString());
-              }}
-              className="bg-gradient-to-r from-[#7B5EA7] to-[#9B7DC7] text-white hover:from-[#6a4f94] hover:to-[#8a6cb6]"
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Post a Job
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              data-help="action.profile.shareLink"
-              onClick={handleShareProfile}
-              title="Copy profile link"
-            >
-              {linkCopied ? (
-                <>
-                  <Check className="h-3.5 w-3.5 text-green-600 sm:mr-1.5" />
-                  <span className="hidden sm:inline">Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5 sm:mr-1.5" />
-                  <span className="hidden sm:inline">Copy Link</span>
-                </>
-              )}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              data-help="action.profile.viewPublic"
-              asChild
-              title="View public profile"
-            >
-              <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
-                <Share2 className="h-3.5 w-3.5 sm:mr-1.5" />
-                <span className="hidden sm:inline">View Profile</span>
-              </a>
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            onClick={() => setShowUrlEditor(true)}
+            className="h-7 w-7 shrink-0 border-0 bg-primary/10 p-0 text-primary hover:bg-primary/20"
+            title="Customize URL"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
         </div>
-      )}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <Switch
+              id="profile-visibility-bar"
+              checked={profileIsPublic}
+              onCheckedChange={toggleProfilePrivacy}
+              disabled={togglingPrivacy}
+            />
+            <label
+              htmlFor="profile-visibility-bar"
+              className="cursor-pointer select-none text-xs font-medium text-muted-foreground"
+            >
+              {profileIsPublic ? "Public" : "Private"}
+            </label>
+          </div>
+          <Button
+            size="sm"
+            data-help="action.freelancer.postJob"
+            onClick={() => {
+              handleTabChange("posted-jobs");
+              const url = new URL(window.location.href);
+              url.searchParams.set("openForm", "1");
+              window.history.replaceState({}, "", url.toString());
+            }}
+            className="bg-gradient-to-r from-[#7B5EA7] to-[#9B7DC7] text-white hover:from-[#6a4f94] hover:to-[#8a6cb6]"
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Post a Job
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            data-help="action.profile.shareLink"
+            onClick={handleShareProfile}
+            title="Copy profile link"
+          >
+            {linkCopied ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-green-600 sm:mr-1.5" />
+                <span className="hidden sm:inline">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">Copy Link</span>
+              </>
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowQrModal(true)}
+            title="Card QR code"
+          >
+            <QrCode className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Card QR</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            data-help="action.profile.viewPublic"
+            asChild
+            title="View public profile"
+          >
+            <a href={getProfileUrl(true)} target="_blank" rel="noopener noreferrer">
+              <Share2 className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">View Profile</span>
+            </a>
+          </Button>
+          {user.id_verified ? (
+            <span
+              className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold text-muted-foreground"
+              title="ID Verified"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">ID Verified</span>
+            </span>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleVerifyId}
+              disabled={identityLoading}
+              title="Verify ID"
+            >
+              <ShieldCheck className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">{identityLoading ? "…" : "Verify ID"}</span>
+            </Button>
+          )}
+        </div>
+      </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         {/* Mobile: prominent dropdown tab selector */}
