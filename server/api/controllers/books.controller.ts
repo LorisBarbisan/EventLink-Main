@@ -253,11 +253,20 @@ export async function booksExportWorkbook(req: Request, res: Response) {
   const clientMap = new Map(clients.map((c) => [c.id, c.name]));
   const roleMap = new Map(roles.map((r) => [r.id, r.label]));
 
-  // Cash-basis filter on earnings
+  // All entries that touch the period — by work date OR paid date.
+  // Cash-basis entries (status=paid, paid_date in range) are the tax figure.
+  // Committed entries (expected/invoiced, work_date in range) are the pipeline.
   const filteredEntries = entries.filter((e) => {
-    const d = e.paid_date;
-    return d && d >= from && d <= to;
+    const workInRange = e.work_date && e.work_date >= from && e.work_date <= to;
+    const paidInRange = e.paid_date && e.paid_date >= from && e.paid_date <= to;
+    return workInRange || paidInRange;
   });
+  const cashEntries = filteredEntries.filter(
+    (e) => e.status === "paid" && e.paid_date && e.paid_date >= from && e.paid_date <= to
+  );
+  const committedEntries = filteredEntries.filter(
+    (e) => e.status !== "paid" && e.status !== "written_off"
+  );
 
   // Filter invoices to period
   const filteredInvoices = invoices.filter(
@@ -271,10 +280,10 @@ export async function booksExportWorkbook(req: Request, res: Response) {
 
   // ── Sheet 1: Summary ─────────────────────────────────────────────────────────
   const summaryWs = wb.addWorksheet("Summary", { properties: { tabColor: { argb: "FFD8690E" } } });
-  const totalEarningsPence = filteredEntries.reduce(
-    (s, e) => s + e.gross_amount_pence - (e.deductions_pence ?? 0),
-    0
-  );
+  const netPence = (arr: typeof filteredEntries) =>
+    arr.reduce((s, e) => s + e.gross_amount_pence - (e.deductions_pence ?? 0), 0);
+  const receivedPence = netPence(cashEntries);
+  const committedPence = netPence(committedEntries);
   const totalExpensesPence = expenses.reduce((s, e) => {
     const total = e.net_amount_pence + e.vat_amount_pence;
     return s + Math.round((total * e.business_use_percent) / 100);
@@ -288,15 +297,16 @@ export async function booksExportWorkbook(req: Request, res: Response) {
   ];
   const summaryRows: SummaryRow[] = [
     ["Period", `${from} to ${to}`, "text"],
-    ["Basis", "Cash (received)", "text"],
     ["Generated", new Date(new Date().toDateString() + " UTC"), "date"],
     ["", "", "spacer"],
-    ["Earnings (net)", totalEarningsPence / 100, "money"],
+    ["Received in period (cash basis)", receivedPence / 100, "money"],
+    ["Confirmed, not yet paid", committedPence / 100, "money"],
+    ["", "", "spacer"],
     ["Expenses (allowable)", totalExpensesPence / 100, "money"],
     ["Mileage", totalMileagePence / 100, "money"],
     [
-      "Net profit (estimate)",
-      (totalEarningsPence - totalExpensesPence - totalMileagePence) / 100,
+      "Net profit — cash basis (estimate)",
+      (receivedPence - totalExpensesPence - totalMileagePence) / 100,
       "money",
     ],
     ["", "", "spacer"],
@@ -322,9 +332,10 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       row.getCell(2).numFmt = "dd/mm/yyyy";
     }
   }
-  summaryWs.getColumn(1).width = 26;
+  summaryWs.getColumn(1).width = 38;
   summaryWs.getColumn(2).width = 24;
-  summaryWs.getRow(16).height = 40;
+  // Disclaimer row is last — set a tall row height for wrapped text
+  summaryWs.getRow(summaryRows.length).height = 40;
 
   // ── Sheet 2: Earnings ─────────────────────────────────────────────────────────
   // currencyFrom index: col 6 (0-based) = Currency column → used for Gross/Deductions/Net formatting
@@ -336,13 +347,16 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     { header: "Unit", type: "text" },
     { header: "Quantity", type: "number" },
     { header: "Currency", type: "text" },
-    { header: "Gross", type: "money", total: true, currencyFrom: 6 },
-    { header: "Deductions", type: "money", total: true, currencyFrom: 6 },
-    { header: "Net", type: "money", total: true, currencyFrom: 6 },
+    // No total:true — we append two labelled totals rows below instead
+    { header: "Gross", type: "money", currencyFrom: 6 },
+    { header: "Deductions", type: "money", currencyFrom: 6 },
+    { header: "Net", type: "money", currencyFrom: 6 },
     { header: "Status", type: "text" },
+    { header: "Cash basis", type: "text" },
     { header: "Paid date", type: "date" },
     { header: "Notes", type: "text" },
   ];
+  // Col indices (0-based): Currency=6, Gross=7, Deductions=8, Net=9
 
   const STATUS_LABEL: Record<string, string> = {
     expected: "Expected",
@@ -353,6 +367,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
 
   const earningsRows = filteredEntries.map((e) => {
     const qty = parseFloat(e.quantity as unknown as string);
+    const isCash = e.status === "paid" && !!e.paid_date && e.paid_date >= from && e.paid_date <= to;
     return [
       e.work_date ? new Date(e.work_date + "T00:00:00Z") : null,
       e.client_id ? (clientMap.get(e.client_id) ?? "") : "",
@@ -365,11 +380,72 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       (e.deductions_pence ?? 0) / 100,
       (e.gross_amount_pence - (e.deductions_pence ?? 0)) / 100,
       STATUS_LABEL[e.status] ?? e.status,
+      isCash ? "Yes" : "No",
       e.paid_date ? new Date(e.paid_date + "T00:00:00Z") : null,
       e.notes ?? "",
     ];
   });
-  addTypedSheet(wb, "Earnings", earningsCols, earningsRows);
+
+  const earningsWs = addTypedSheet(wb, "Earnings", earningsCols, earningsRows);
+
+  // Two labelled totals rows (GBP primary; mixed-currency sheets omit cross-currency sum)
+  const gbpOnly = filteredEntries.every((e) => (e.currency ?? "GBP") === "GBP");
+  const totalsLabel =
+    earningsRows.length > 0 ? (gbpOnly ? undefined : " (GBP only — mixed currencies)") : null;
+  if (earningsRows.length > 0 && totalsLabel !== null) {
+    earningsWs.addRow([]); // separator
+    const addTotalsRow = (
+      label: string,
+      net: number,
+      gross: number,
+      deductions: number,
+      _currency = "GBP"
+    ) => {
+      const fmt = `£#,##0.00`;
+      const r = earningsWs.addRow([
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        gross,
+        deductions,
+        net,
+        label,
+        null,
+        null,
+        null,
+      ]);
+      r.getCell(8).numFmt = fmt;
+      r.getCell(9).numFmt = fmt;
+      r.getCell(10).numFmt = fmt;
+      r.getCell(8).alignment = { horizontal: "right" };
+      r.getCell(9).alignment = { horizontal: "right" };
+      r.getCell(10).alignment = { horizontal: "right" };
+      r.getCell(11).font = { italic: true, color: { argb: "FF6B7280" } };
+      r.font = { bold: true };
+      r.getCell(8).border = { top: { style: "thin", color: { argb: "FFB85C0A" } } };
+      r.getCell(9).border = { top: { style: "thin", color: { argb: "FFB85C0A" } } };
+      r.getCell(10).border = { top: { style: "thin", color: { argb: "FFB85C0A" } } };
+      return r;
+    };
+    const gbpCash = cashEntries.filter((e) => (e.currency ?? "GBP") === "GBP");
+    const gbpCommitted = committedEntries.filter((e) => (e.currency ?? "GBP") === "GBP");
+    addTotalsRow(
+      `Received in period (cash basis)${gbpOnly ? "" : " — GBP"}`,
+      netPence(gbpCash) / 100,
+      gbpCash.reduce((s, e) => s + e.gross_amount_pence, 0) / 100,
+      gbpCash.reduce((s, e) => s + (e.deductions_pence ?? 0), 0) / 100
+    );
+    addTotalsRow(
+      `Confirmed, not yet paid${gbpOnly ? "" : " — GBP"}`,
+      netPence(gbpCommitted) / 100,
+      gbpCommitted.reduce((s, e) => s + e.gross_amount_pence, 0) / 100,
+      gbpCommitted.reduce((s, e) => s + (e.deductions_pence ?? 0), 0) / 100
+    );
+  }
 
   // ── Sheet 3: Expenses ─────────────────────────────────────────────────────────
   const expensesCols: ColSpec[] = [
