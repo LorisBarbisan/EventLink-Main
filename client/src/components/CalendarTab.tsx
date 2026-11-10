@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Calendar, dateFnsLocalizer, Views } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { enGB } from "date-fns/locale";
@@ -757,6 +757,7 @@ export function CalendarTab({
   const [bookingDialog, setBookingDialog] = useState<FreelancerBooking | null>(null);
   const [gigDialog, setGigDialog] = useState<GigEntry | null>(null);
   const [calDate, setCalDate] = useState(new Date());
+  const [currentView, setCurrentView] = useState<string>(Views.MONTH);
 
   const { data: invoiceLinks = [] } = useQuery<
     { id: number; job_id: number | null; booking_id: number | null }[]
@@ -950,6 +951,27 @@ export function CalendarTab({
     window.location.href = `/api/calendar/${provider}/connect?token=${encodeURIComponent(token)}`;
   }
 
+  // ── Availability day-tint (dayPropGetter) ─────────────────────────────────
+
+  const availByDate = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const a of availData) map[a.date] = a.status;
+    return map;
+  }, [availData]);
+
+  const AVAIL_TINTS: Record<string, string> = {
+    available: "rgba(22, 163, 74, 0.18)",
+    tentative: "rgba(217, 119, 6, 0.18)",
+    unavailable: "rgba(220, 38, 38, 0.18)",
+  };
+
+  const dayPropGetter = (date: Date) => {
+    const key = isoDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
+    const status = availByDate[key];
+    if (!status) return {};
+    return { style: { backgroundColor: AVAIL_TINTS[status] } };
+  };
+
   // ── Build events ───────────────────────────────────────────────────────────
 
   const bookingEvents = allBookingsData.map((b) => {
@@ -1008,7 +1030,13 @@ export function CalendarTab({
     };
   });
 
-  const events = [...bookingEvents, ...availEvents, ...externalCalEvents, ...gigEvents];
+  // Availability shown as day-background tint in grid views; show as entries only in agenda
+  const events = [
+    ...bookingEvents,
+    ...(currentView === Views.AGENDA ? availEvents : []),
+    ...externalCalEvents,
+    ...gigEvents,
+  ];
 
   const eventStyleGetter = (event: any) => ({
     style: {
@@ -1076,8 +1104,8 @@ export function CalendarTab({
         {Object.entries(AVAIL_COLOURS).map(([status, colour]) => (
           <div key={status} className="flex items-center gap-1.5">
             <div
-              className="h-3 w-3 rounded-full border border-dashed border-white/60"
-              style={{ backgroundColor: colour }}
+              className="h-3 w-5 rounded-sm"
+              style={{ backgroundColor: AVAIL_TINTS[status], border: `1.5px solid ${colour}` }}
             />
             <span className="text-xs text-muted-foreground">{AVAIL_LABELS[status]}</span>
           </div>
@@ -1117,9 +1145,16 @@ export function CalendarTab({
             date={calDate}
             onNavigate={(date) => setCalDate(date)}
             defaultView={Views.MONTH}
-            views={[Views.MONTH, Views.WEEK, Views.AGENDA]}
+            views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
+            view={currentView as any}
+            onView={(view) => {
+              setCurrentView(view);
+              if (view === Views.AGENDA) setCalDate(new Date());
+            }}
+            length={730}
             style={{ height: "100%" }}
             eventPropGetter={eventStyleGetter}
+            dayPropGetter={dayPropGetter}
             onSelectEvent={handleSelectEvent}
             onSelectSlot={handleSelectSlot}
             selectable
