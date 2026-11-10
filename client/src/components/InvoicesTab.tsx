@@ -40,6 +40,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 
 // ── Downloads (auth-aware) ────────────────────────────────────────────────────
@@ -992,6 +993,8 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
 
 // ── Invoice row ───────────────────────────────────────────────────────────────
 
+const ALL_STATUSES: Invoice["status"][] = ["draft", "sent", "paid", "overdue", "cancelled"];
+
 function InvoiceRow({
   invoice,
   onMarkPaid,
@@ -1000,6 +1003,7 @@ function InvoiceRow({
   onArchive,
   onSend,
   onViewJob,
+  onChangeStatus,
 }: {
   invoice: Invoice;
   onMarkPaid: (id: number) => void;
@@ -1008,7 +1012,9 @@ function InvoiceRow({
   onArchive: (id: number) => void;
   onSend: (inv: Invoice) => void;
   onViewJob?: () => void;
+  onChangeStatus: (id: number, status: Invoice["status"]) => void;
 }) {
+  const [statusOpen, setStatusOpen] = useState(false);
   const clientName = invoice.to_details?.company || invoice.to_details?.name || "—";
 
   return (
@@ -1025,12 +1031,35 @@ function InvoiceRow({
       <td className="px-4 py-3 text-sm">{invoice.issue_date}</td>
       <td className="hidden px-4 py-3 text-sm sm:table-cell">{invoice.due_date}</td>
       <td className="hidden px-4 py-3 sm:table-cell">
-        <span
-          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_COLORS[invoice.status]}`}
-        >
-          {invoice.status === "overdue" && <AlertTriangle className="h-3 w-3" />}
-          {invoice.status}
-        </span>
+        <Popover open={statusOpen} onOpenChange={setStatusOpen}>
+          <PopoverTrigger asChild>
+            <button
+              className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize transition-opacity hover:opacity-80 ${STATUS_COLORS[invoice.status]}`}
+              title="Click to change status"
+            >
+              {invoice.status === "overdue" && <AlertTriangle className="h-3 w-3" />}
+              {invoice.status}
+              <ChevronDown className="ml-0.5 h-2.5 w-2.5 opacity-60" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-36 p-1" align="start">
+            {ALL_STATUSES.map((s) => (
+              <button
+                key={s}
+                className={`flex w-full items-center rounded px-2 py-1.5 text-xs capitalize transition-colors hover:bg-muted ${s === invoice.status ? "font-semibold" : ""}`}
+                onClick={() => {
+                  onChangeStatus(invoice.id, s);
+                  setStatusOpen(false);
+                }}
+              >
+                <span
+                  className={`mr-2 inline-block h-2 w-2 rounded-full ${STATUS_COLORS[s].split(" ")[0]}`}
+                />
+                {s}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
@@ -1112,13 +1141,14 @@ function InvoiceRow({
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
 export interface InvoicePrefill {
-  bookingId: number | null;
+  openInvoiceId?: number; // open an existing invoice directly
+  bookingId?: number | null;
   jobId?: number | null; // direct job link (job board applications)
-  toName: string;
-  toCompany: string;
-  lineDescription: string;
-  ratePence: number | null;
-  issueDate: string;
+  toName?: string;
+  toCompany?: string;
+  lineDescription?: string;
+  ratePence?: number | null;
+  issueDate?: string;
 }
 
 export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefill }) {
@@ -1245,6 +1275,16 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
     onError: () => toast({ title: "Failed to archive invoice", variant: "destructive" }),
   });
 
+  const changeStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: Invoice["status"] }) =>
+      apiRequest(`/api/invoices/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/invoices"] }),
+    onError: () => toast({ title: "Failed to update status", variant: "destructive" }),
+  });
+
   const sendMutation = useMutation({
     mutationFn: ({
       id,
@@ -1288,15 +1328,32 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
     },
   });
 
+  // Open an existing invoice directly when openInvoiceId is set
+  useEffect(() => {
+    if (!prefillBooking?.openInvoiceId || prefillHandled.current || invoices.length === 0) return;
+    prefillHandled.current = true;
+    const target = invoices.find((inv) => inv.id === prefillBooking.openInvoiceId);
+    if (target) setEditingInvoice(target);
+  }, [prefillBooking, invoices]);
+
   // Auto-create and open a pre-filled invoice when navigated here from a booking
   useEffect(() => {
-    if (!prefillBooking || prefillHandled.current || !billingProfile) return;
+    if (
+      !prefillBooking ||
+      prefillBooking.openInvoiceId ||
+      prefillHandled.current ||
+      !billingProfile
+    )
+      return;
     prefillHandled.current = true;
     (async () => {
       try {
         const inv: Invoice = await apiRequest("/api/invoices", { method: "POST" });
         const patch: Record<string, unknown> = {
-          to_details: { name: prefillBooking.toName, company: prefillBooking.toCompany },
+          to_details: {
+            name: prefillBooking.toName ?? "",
+            company: prefillBooking.toCompany ?? "",
+          },
           issue_date: prefillBooking.issueDate || new Date().toISOString().slice(0, 10),
         };
         if (prefillBooking.bookingId) patch.booking_id = prefillBooking.bookingId;
@@ -1537,6 +1594,7 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
                       setSendRecipientEmployerId(null);
                     }}
                     onViewJob={jobId !== null ? () => setViewJobId(jobId) : undefined}
+                    onChangeStatus={(id, status) => changeStatusMutation.mutate({ id, status })}
                   />
                 );
               })}
