@@ -121,7 +121,23 @@ interface Invoice {
   notes: string | null;
   booking_id: number | null;
   job_id: number | null;
+  po_number: string | null;
   archived: boolean;
+}
+
+interface ClientOption {
+  id: number;
+  name: string;
+  contact_name: string | null;
+  contact_email: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  postcode: string | null;
+  country: string | null;
+  payment_terms_days: number | null;
+  requires_po: boolean;
+  last_invoiced?: string | null;
 }
 
 type RateType = "hour" | "day" | "ot" | "special" | "flat";
@@ -659,6 +675,41 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
     queryKey: ["/api/bookings/freelancer"],
   });
 
+  const { data: clientOptions = [] } = useQuery<ClientOption[]>({
+    queryKey: ["/api/earnings/clients", "stats"],
+    queryFn: () => apiRequest("/api/earnings/clients?stats=1"),
+  });
+
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [clientSource, setClientSource] = useState<string | null>(null);
+  const [poNumber, setPoNumber] = useState(invoice.po_number ?? "");
+
+  const applyClient = (clientId: number) => {
+    const c = clientOptions.find((o) => o.id === clientId);
+    if (!c) return;
+    setSelectedClientId(clientId);
+    setClientSource(c.name);
+    setToDetails((d) => ({
+      ...d,
+      // §3 reverse mapping: client.name → company, client.contact_name → name
+      company: c.name,
+      name: c.contact_name ?? d.name,
+      email: c.contact_email ?? d.email,
+      address_line1: c.address_line1 ?? d.address_line1,
+      address_line2: c.address_line2 ?? d.address_line2,
+      city: c.city ?? d.city,
+      postcode: c.postcode ?? d.postcode,
+      country: c.country ?? d.country,
+    }));
+    if (c.payment_terms_days && issueDate) {
+      const d = new Date(issueDate);
+      d.setDate(d.getDate() + c.payment_terms_days);
+      setDueDate(d.toISOString().slice(0, 10));
+    }
+  };
+
+  const selectedClient = clientOptions.find((o) => o.id === selectedClientId) ?? null;
+
   const [toDetails, setToDetails] = useState({
     name: invoice.to_details?.name ?? "",
     company: invoice.to_details?.company ?? "",
@@ -788,6 +839,7 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
           total_pence: subtotalPence,
           issue_date: issueDate || undefined,
           due_date: dueDate || undefined,
+          po_number: poNumber || undefined,
           notes: notes || undefined,
         }),
       }),
@@ -908,6 +960,61 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
             </div>
           )}
 
+          {/* Client picker */}
+          {clientOptions.length > 0 && currentStatus === "draft" && (
+            <div>
+              <p className="mb-2 text-sm font-medium">Client</p>
+              <Select
+                value={selectedClientId?.toString() ?? "none"}
+                onValueChange={(val) => {
+                  if (val === "none") {
+                    setSelectedClientId(null);
+                    setClientSource(null);
+                    return;
+                  }
+                  applyClient(parseInt(val));
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pick a saved client to prefill…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— No client selected —</SelectItem>
+                  {clientOptions
+                    .filter((c) => !(c as any).archived)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id.toString()}>
+                        {c.name}
+                        {c.last_invoiced
+                          ? ` · last invoiced ${new Date(c.last_invoiced).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+                          : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              {clientSource && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Billing details prefilled from{" "}
+                  <span className="font-medium text-foreground">{clientSource}</span>
+                  {selectedClient?.last_invoiced
+                    ? ` · last invoiced ${new Date(selectedClient.last_invoiced).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`
+                    : ""}
+                  {" · "}
+                  <button
+                    type="button"
+                    className="underline hover:text-foreground"
+                    onClick={() => {
+                      setSelectedClientId(null);
+                      setClientSource(null);
+                    }}
+                  >
+                    Change client
+                  </button>
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Client details */}
           <div>
             <div className="mb-2 flex items-center justify-between">
@@ -1020,6 +1127,19 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               />
             </div>
           </div>
+
+          {/* PO number — shown when client requires it or already set */}
+          {(selectedClient?.requires_po || poNumber) && (
+            <div>
+              <Label>PO number{selectedClient?.requires_po ? "" : " (optional)"}</Label>
+              <Input
+                value={poNumber}
+                onChange={(e) => setPoNumber(e.target.value)}
+                placeholder="PO-12345"
+                disabled={currentStatus !== "draft"}
+              />
+            </div>
+          )}
 
           {/* Line items */}
           <div>

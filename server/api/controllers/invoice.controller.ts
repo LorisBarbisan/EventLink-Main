@@ -413,6 +413,7 @@ export async function updateInvoice(req: Request, res: Response) {
       total_pence,
       issue_date,
       due_date,
+      po_number,
       notes,
     } = req.body;
     const updates: any = {};
@@ -428,6 +429,7 @@ export async function updateInvoice(req: Request, res: Response) {
     if (total_pence !== undefined) updates.total_pence = total_pence;
     if (issue_date !== undefined) updates.issue_date = issue_date;
     if (due_date !== undefined) updates.due_date = due_date;
+    if (po_number !== undefined) updates.po_number = po_number || null;
     if (notes !== undefined) updates.notes = notes;
 
     const updated = await storage.updateInvoice(id, updates);
