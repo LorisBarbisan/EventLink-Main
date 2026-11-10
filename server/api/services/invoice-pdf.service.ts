@@ -1,6 +1,7 @@
 import PDFDocument from "pdfkit";
 import https from "https";
 import http from "http";
+import sharp from "sharp";
 import type { Invoice, FreelancerBillingProfile } from "@shared/schema";
 import { ObjectStorageService } from "../utils/object-storage";
 
@@ -516,9 +517,30 @@ export async function renderBlankTemplateDoc(
     UnderlineType,
   } = await import("docx");
 
-  const logoBuffer = billingProfile.logo_url
+  const rawLogoBuffer = billingProfile.logo_url
     ? await fetchImageBuffer(billingProfile.logo_url)
     : null;
+
+  const logoBuffer = rawLogoBuffer;
+  let logoWidth = 160;
+  let logoHeight = 50;
+  let logoType: "png" | "jpg" | "gif" | "bmp" | "svg" = "png";
+  if (rawLogoBuffer) {
+    try {
+      const meta = await sharp(rawLogoBuffer).metadata();
+      const ext = (billingProfile.logo_url ?? "").split(".").pop()?.toLowerCase();
+      logoType = ext === "jpg" || ext === "jpeg" ? "jpg" : ext === "gif" ? "gif" : "png";
+      if (meta.width && meta.height) {
+        const MAX_W = 200;
+        const MAX_H = 60;
+        const scale = Math.min(MAX_W / meta.width, MAX_H / meta.height, 1);
+        logoWidth = Math.round(meta.width * scale);
+        logoHeight = Math.round(meta.height * scale);
+      }
+    } catch {
+      // keep defaults
+    }
+  }
 
   const prefix = billingProfile.invoice_prefix ?? "INV";
   const fromLines = buildFromLines(billingProfile);
@@ -901,8 +923,8 @@ export async function renderBlankTemplateDoc(
                   children: [
                     new ImageRun({
                       data: logoBuffer,
-                      transformation: { width: 120, height: 40 },
-                      type: "png",
+                      transformation: { width: logoWidth, height: logoHeight },
+                      type: logoType,
                     }),
                   ],
                 }),
