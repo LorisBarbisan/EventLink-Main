@@ -6810,6 +6810,73 @@ export class DatabaseStorage implements IStorage {
     return this.createEarningsClient({ freelancer_id: freelancerId, name, normalised_name: norm });
   }
 
+  async backfillClientsFromInvoices(
+    freelancerId: number
+  ): Promise<{ created: number; updated: number; skipped: number }> {
+    const allInvoices = await this.getInvoicesByFreelancer(freelancerId);
+    // Group invoices by normalised name, keeping the most recent per name
+    const byNorm = new Map<
+      string,
+      { name: string; details: (typeof allInvoices)[0]["to_details"] }
+    >();
+    for (const inv of allInvoices) {
+      const raw = (inv.to_details as any)?.company || (inv.to_details as any)?.name || "";
+      if (!raw?.trim()) continue;
+      const norm = normaliseClientName(raw.trim());
+      if (!norm) continue;
+      if (!byNorm.has(norm)) byNorm.set(norm, { name: raw.trim(), details: inv.to_details });
+    }
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    for (const [, { name, details }] of Array.from(byNorm)) {
+      const { exact, near } = await this.findNearMatchClient(freelancerId, name);
+      if (exact) {
+        // Already exists — merge in any fields that are currently null
+        const patch: Record<string, unknown> = {};
+        const d = details as any;
+        if (!exact.contact_name && d?.name) patch.contact_name = d.name;
+        if (!exact.contact_email && d?.email) patch.contact_email = d.email;
+        if (!exact.address_line1 && d?.address_line1) patch.address_line1 = d.address_line1;
+        if (!exact.city && d?.city) patch.city = d.city;
+        if (!exact.postcode && d?.postcode) patch.postcode = d.postcode;
+        if (!exact.country && d?.country) patch.country = d.country;
+        if (Object.keys(patch).length > 0) {
+          await this.updateEarningsClient(exact.id, patch as any);
+          updated++;
+        } else {
+          skipped++;
+        }
+        continue;
+      }
+      if (near) {
+        // Near match — skip to avoid overwriting an existing client name with
+        // a variant; the user can merge manually from the Clients screen
+        skipped++;
+        continue;
+      }
+      // No match — create
+      const d = details as any;
+      await this.createEarningsClient({
+        freelancer_id: freelancerId,
+        name,
+        normalised_name: normaliseClientName(name),
+        contact_name: d?.name || null,
+        contact_email: d?.email || null,
+        address_line1: d?.address_line1 || null,
+        address_line2: d?.address_line2 || null,
+        city: d?.city || null,
+        postcode: d?.postcode || null,
+        country: d?.country || null,
+      });
+      created++;
+    }
+
+    return { created, updated, skipped };
+  }
+
   // ── Earnings roles ────────────────────────────────────────────────────────────
 
   async listEarningsRoles(freelancerId: number): Promise<EarningsRole[]> {

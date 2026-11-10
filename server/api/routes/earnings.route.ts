@@ -89,6 +89,17 @@ router.post("/clients/match", auth, async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/earnings/clients/backfill — seed earnings_clients from existing invoices
+router.post("/clients/backfill", auth, async (req: Request, res: Response) => {
+  try {
+    const result = await storage.backfillClientsFromInvoices(req.user!.id);
+    return res.json(result);
+  } catch (err) {
+    console.error("client backfill error:", err);
+    return res.status(500).json({ error: "Backfill failed" });
+  }
+});
+
 // GET /api/earnings/clients — list clients (with stats when ?stats=1)
 router.get("/clients", auth, async (req: Request, res: Response) => {
   try {

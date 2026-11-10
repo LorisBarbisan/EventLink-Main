@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Archive, Building2, Pencil, Plus } from "lucide-react";
+import { Archive, Building2, Download, Pencil, Plus } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -348,6 +348,26 @@ export function ClientsTab() {
     onError: () => toast({ title: "Failed to archive", variant: "destructive" }),
   });
 
+  const backfillMut = useMutation({
+    mutationFn: () =>
+      apiRequest("/api/earnings/clients/backfill", { method: "POST" }) as Promise<{
+        created: number;
+        updated: number;
+        skipped: number;
+      }>,
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/clients"] });
+      const parts = [];
+      if (r.created) parts.push(`${r.created} created`);
+      if (r.updated) parts.push(`${r.updated} updated`);
+      if (r.skipped) parts.push(`${r.skipped} skipped`);
+      toast({
+        title: parts.length ? `Clients imported: ${parts.join(", ")}` : "No new clients found",
+      });
+    },
+    onError: () => toast({ title: "Import failed", variant: "destructive" }),
+  });
+
   const handleSave = (form: ClientForm) => {
     const payload = formToPayload(form);
     if (editing === "new") {
@@ -369,10 +389,23 @@ export function ClientsTab() {
             Saved billing details — prefilled on future invoices.
           </p>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => setEditing("new")}>
-          <Plus className="h-3.5 w-3.5" />
-          Add client
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            disabled={backfillMut.isPending}
+            onClick={() => backfillMut.mutate()}
+            title="Import clients from your existing invoices"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {backfillMut.isPending ? "Importing…" : "Import from invoices"}
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={() => setEditing("new")}>
+            <Plus className="h-3.5 w-3.5" />
+            Add client
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
