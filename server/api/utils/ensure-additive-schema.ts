@@ -90,6 +90,9 @@ const STATEMENTS = [
   `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS requires_po boolean NOT NULL DEFAULT false`,
   `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS vat_number text`,
   `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS po_number text`,
+  // PR 2 — job selector on mileage
+  `ALTER TABLE mileage_trips ADD COLUMN IF NOT EXISTS earnings_entry_id integer REFERENCES earnings_entries(id) ON DELETE SET NULL`,
+  `CREATE INDEX IF NOT EXISTS mileage_trips_earnings_entry_idx ON mileage_trips (earnings_entry_id)`,
   // Invoice → job link: job board applications don't create a bookings row,
   // so store the job_id directly for the briefcase icon in InvoicesTab.
   `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS job_id integer REFERENCES jobs(id) ON DELETE SET NULL`,

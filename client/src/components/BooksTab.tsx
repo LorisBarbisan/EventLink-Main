@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { JobSelect, type JobOption } from "./JobSelect";
 import {
   BarChart,
   Bar,
@@ -325,16 +326,6 @@ interface ExpenseForm {
   notes: string;
 }
 
-interface JobOption {
-  id: number;
-  description: string;
-  work_date: string;
-  work_end_date: string | null;
-  client_name: string | null;
-  booking_id: number | null;
-  work_status: string | null;
-}
-
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -381,6 +372,7 @@ function ExpenseDialog({
 
   const { data: jobOptions = [] } = useQuery<JobOption[]>({
     queryKey: ["/api/earnings/jobs"],
+    queryFn: () => apiRequest("/api/earnings/jobs"),
   });
 
   // Reset when dialog opens
@@ -446,7 +438,9 @@ function ExpenseDialog({
 
   const handleSave = () => {
     if (!form.description.trim() || !form.expense_date || !form.net_amount) return;
-    const selectedJob = form.job_id ? jobOptions.find((j) => j.id === parseInt(form.job_id)) : null;
+    const bookingId = form.job_id
+      ? (jobOptions.find((j) => j.id === parseInt(form.job_id))?.booking_id ?? null)
+      : null;
     saveMutation.mutate({
       description: form.description.trim(),
       supplier: form.supplier.trim() || null,
@@ -455,7 +449,7 @@ function ExpenseDialog({
       vat_amount_pence: form.vat_amount ? Math.round(parseFloat(form.vat_amount) * 100) : 0,
       category_id: form.category_id ? parseInt(form.category_id) : null,
       earnings_entry_id: form.job_id ? parseInt(form.job_id) : null,
-      booking_id: selectedJob?.booking_id ?? null,
+      booking_id: bookingId,
       business_use_percent: parseInt(form.business_use_percent) || 100,
       payment_method: form.payment_method || null,
       billable_to_client: form.billable_to_client,
@@ -515,34 +509,7 @@ function ExpenseDialog({
           </div>
 
           {/* Job link (optional) */}
-          {jobOptions.length > 0 && (
-            <div className="space-y-1">
-              <Label>Link to a job (optional)</Label>
-              <Select
-                value={form.job_id}
-                onValueChange={(v) => set("job_id", v === "none" ? "" : v)}
-              >
-                <SelectTrigger style={{ fontSize: "16px" }}>
-                  <SelectValue placeholder="Not linked to a job" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Not linked —</SelectItem>
-                  {jobOptions.map((j) => (
-                    <SelectItem key={j.id} value={String(j.id)}>
-                      {j.description}
-                      {j.client_name ? ` · ${j.client_name}` : ""}
-                      {" · "}
-                      {j.work_date}
-                      {j.work_status === "confirmed" &&
-                      j.work_date >= new Date().toISOString().slice(0, 10)
-                        ? " ✓"
-                        : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <JobSelect value={form.job_id} onChange={(v) => set("job_id", v)} />
 
           <div className="space-y-1">
             <Label htmlFor="exp-supplier">Supplier</Label>
@@ -1275,6 +1242,8 @@ interface MileageTrip {
   vehicle_type: string;
   amount_pence: number;
   rate_pence: number;
+  booking_id: number | null;
+  earnings_entry_id: number | null;
   notes: string | null;
 }
 
@@ -1299,6 +1268,7 @@ interface TripForm {
   miles: string;
   purpose: string;
   vehicle_type: string;
+  job_id: string;
   notes: string;
 }
 
@@ -1309,6 +1279,7 @@ const EMPTY_TRIP: TripForm = {
   miles: "",
   purpose: "",
   vehicle_type: "car",
+  job_id: "",
   notes: "",
 };
 
@@ -1327,6 +1298,11 @@ function TripDialog({
   const queryClient = useQueryClient();
   const [form, setForm] = useState<TripForm>(EMPTY_TRIP);
 
+  const { data: jobOptions = [] } = useQuery<JobOption[]>({
+    queryKey: ["/api/earnings/jobs"],
+    queryFn: () => apiRequest("/api/earnings/jobs"),
+  });
+
   // Prime form when opening
   useState(() => {
     if (open) {
@@ -1338,6 +1314,7 @@ function TripDialog({
           miles: String(editing.miles),
           purpose: editing.purpose,
           vehicle_type: editing.vehicle_type,
+          job_id: editing.earnings_entry_id ? String(editing.earnings_entry_id) : "",
           notes: editing.notes ?? "",
         });
       } else {
@@ -1365,6 +1342,10 @@ function TripDialog({
         body: JSON.stringify({
           ...form,
           miles: parseInt(form.miles),
+          earnings_entry_id: form.job_id ? parseInt(form.job_id) : null,
+          booking_id: form.job_id
+            ? (jobOptions.find((j) => j.id === parseInt(form.job_id))?.booking_id ?? null)
+            : null,
         }),
       });
       if (!res.ok) {
@@ -1451,6 +1432,7 @@ function TripDialog({
               onChange={set("purpose")}
             />
           </div>
+          <JobSelect value={form.job_id} onChange={(v) => setForm((f) => ({ ...f, job_id: v }))} />
           <div>
             <Label>Notes (optional)</Label>
             <Textarea rows={2} value={form.notes} onChange={set("notes")} />

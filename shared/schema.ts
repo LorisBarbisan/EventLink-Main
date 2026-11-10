@@ -1806,6 +1806,9 @@ export const mileage_trips = pgTable(
     /** Rate used if trip crossed the threshold (null if not) */
     rate_above_pence: integer("rate_above_pence"),
     booking_id: integer("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    earnings_entry_id: integer("earnings_entry_id").references(() => earnings_entries.id, {
+      onDelete: "set null",
+    }),
     notes: text("notes"),
     archived: boolean("archived").notNull().default(false),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -1814,6 +1817,7 @@ export const mileage_trips = pgTable(
   (t) => ({
     dateIdx: index("mileage_trips_freelancer_date_idx").on(t.freelancer_id, t.trip_date),
     bookingIdx: index("mileage_trips_booking_idx").on(t.booking_id),
+    earningsEntryIdx: index("mileage_trips_earnings_entry_idx").on(t.earnings_entry_id),
   })
 );
 

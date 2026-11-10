@@ -64,6 +64,7 @@ export async function createTrip(req: Request, res: Response) {
     purpose,
     vehicle_type = "car",
     booking_id,
+    earnings_entry_id,
     notes,
   } = req.body;
 
@@ -99,6 +100,7 @@ export async function createTrip(req: Request, res: Response) {
     rate_pence: rate.rate_pence,
     rate_above_pence: rate.rate_above_pence ?? null,
     booking_id: booking_id ? Number(booking_id) : null,
+    earnings_entry_id: earnings_entry_id ? Number(earnings_entry_id) : null,
     notes: notes?.trim() || null,
   });
 
@@ -117,6 +119,7 @@ export async function updateTrip(req: Request, res: Response) {
     "purpose",
     "vehicle_type",
     "booking_id",
+    "earnings_entry_id",
     "notes",
   ] as const;
   const patch: Record<string, unknown> = {};
