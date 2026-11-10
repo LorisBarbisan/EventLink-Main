@@ -44,6 +44,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { type GigForm, EMPTY_GIG_FORM, GigFormBody } from "./GigFormFields";
 
 // ── react-big-calendar setup ──────────────────────────────────────────────────
 
@@ -80,7 +81,34 @@ const AVAIL_LABELS: Record<string, string> = {
   unavailable: "Unavailable",
 };
 
+const GIG_COLOUR = "#0369a1"; // sky-700
+
+const GIG_STATUS_LABELS: Record<string, string> = {
+  pencilled: "Pencilled",
+  confirmed: "Confirmed",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
+
 // ── Types ────────────────────────────────────────────────────────────────────
+
+interface GigEntry {
+  id: number;
+  description: string | null;
+  work_date: string;
+  work_end_date?: string | null;
+  work_status: "pencilled" | "confirmed" | "completed" | "cancelled";
+  call_time?: string | null;
+  venue_address?: string | null;
+  gross_amount_pence: number;
+  currency: string;
+  client_name?: string | null;
+  unit?: string | null;
+  quantity?: string | null;
+  status?: string;
+  paid_date?: string | null;
+  notes?: string | null;
+}
 
 interface CalendarStatus {
   connected: boolean;
@@ -354,11 +382,64 @@ function AvailabilityDialog({
   onClose: () => void;
 }) {
   const dateStr = isoDate(date.getFullYear(), date.getMonth() + 1, date.getDate());
-  // If existing note looks like a booking title (not a plain availability note), show it
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [mode, setMode] = useState<"availability" | "gig">("availability");
   const [eventTitle, setEventTitle] = useState(existing?.note ?? "");
   const [status, setStatus] = useState<string>(existing?.status ?? "unavailable");
+  const [gigForm, setGigForm] = useState<GigForm>({
+    ...EMPTY_GIG_FORM,
+    work_date: dateStr,
+    work_status: "confirmed",
+  });
+
+  const { data: clients = [] } = useQuery<Array<{ id: number; name: string }>>({
+    queryKey: ["/api/earnings/clients"],
+  });
+
+  const gigMut = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest("/api/earnings", { method: "POST", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      toast({ title: "Gig added to your calendar" });
+      onClose();
+    },
+    onError: (e: Error) =>
+      toast({ title: "Failed to save gig", description: e.message, variant: "destructive" }),
+  });
+
+  const setGig = (k: keyof GigForm, v: string) => setGigForm((f) => ({ ...f, [k]: v }));
+
+  const handleSaveGig = () => {
+    if (!gigForm.description.trim() || !gigForm.work_date) return;
+    gigMut.mutate({
+      description: gigForm.description.trim(),
+      client_name: gigForm.client_name.trim() || null,
+      work_date: gigForm.work_date,
+      work_end_date: gigForm.work_end_date || null,
+      unit: gigForm.unit,
+      quantity: parseFloat(gigForm.quantity) || 1,
+      gross_amount: parseFloat(gigForm.gross_amount) || 0,
+      currency: gigForm.currency,
+      status: gigForm.status,
+      paid_date: gigForm.status === "paid" ? gigForm.paid_date || gigForm.work_date : null,
+      notes: gigForm.notes || null,
+      work_status: gigForm.work_status || null,
+      call_time: gigForm.call_time || null,
+      venue_address: gigForm.venue_address || null,
+    });
+  };
 
   const isExternalBooking = status === "unavailable" && eventTitle.trim().length > 0;
+
+  const dateLabel = date.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <Dialog
@@ -367,68 +448,99 @@ function AvailabilityDialog({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {date.toLocaleDateString("en-GB", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </DialogTitle>
+          <DialogTitle>{dateLabel}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="event-title">Event name (optional)</Label>
-            <input
-              id="event-title"
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              value={eventTitle}
-              onChange={(e) => setEventTitle(e.target.value)}
-              placeholder="e.g. Wedding gig, Commercial shoot…"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Add a name to log an external booking. Leave blank to just mark your availability.
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="avail-status">Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger id="avail-status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="available">✅ Available</SelectItem>
-                <SelectItem value="tentative">⚠️ Tentative</SelectItem>
-                <SelectItem value="unavailable">❌ Unavailable / Booked</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {isExternalBooking && (
-            <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-              This will appear as a booking on your calendar and block this day.
-            </p>
-          )}
+
+        {/* Mode toggle */}
+        <div className="flex gap-1 rounded-md border p-1">
+          <button
+            className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ${mode === "availability" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            onClick={() => setMode("availability")}
+          >
+            Set availability
+          </button>
+          <button
+            className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ${mode === "gig" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            onClick={() => setMode("gig")}
+          >
+            Log a gig
+          </button>
         </div>
-        <DialogFooter className="flex-row gap-2">
-          {existing && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mr-auto text-muted-foreground"
-              onClick={() => onDelete(dateStr)}
-            >
-              Remove
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button size="sm" onClick={() => onSave(dateStr, status, eventTitle)}>
-            Save
-          </Button>
-        </DialogFooter>
+
+        {mode === "availability" ? (
+          <>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="event-title">Event name (optional)</Label>
+                <input
+                  id="event-title"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={eventTitle}
+                  onChange={(e) => setEventTitle(e.target.value)}
+                  placeholder="e.g. Wedding gig, Commercial shoot…"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Add a name to log an external booking. Leave blank to just mark your availability.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="avail-status">Status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger id="avail-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="available">✅ Available</SelectItem>
+                    <SelectItem value="tentative">⚠️ Tentative</SelectItem>
+                    <SelectItem value="unavailable">❌ Unavailable / Booked</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {isExternalBooking && (
+                <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  This will appear as a booking on your calendar and block this day.
+                </p>
+              )}
+            </div>
+            <DialogFooter className="flex-row gap-2">
+              {existing && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mr-auto text-muted-foreground"
+                  onClick={() => onDelete(dateStr)}
+                >
+                  Remove
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={() => onSave(dateStr, status, eventTitle)}>
+                Save
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <div className="py-2">
+              <GigFormBody form={gigForm} onChange={setGig} clients={clients} />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveGig}
+                disabled={gigMut.isPending || !gigForm.description.trim() || !gigForm.work_date}
+              >
+                {gigMut.isPending ? "Saving…" : "Add gig"}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -541,6 +653,96 @@ function BookingDetailDialog({
   );
 }
 
+// ── Gig edit dialog (calendar click on a gig event) ──────────────────────────
+
+function GigEditDialog({
+  gig,
+  clients,
+  onClose,
+}: {
+  gig: GigEntry;
+  clients: Array<{ id: number; name: string }>;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<GigForm>({
+    description: gig.description ?? "",
+    client_name: gig.client_name ?? "",
+    work_date: gig.work_date.slice(0, 10),
+    work_end_date: gig.work_end_date?.slice(0, 10) ?? "",
+    unit: (gig.unit as GigForm["unit"]) ?? "day",
+    quantity: String(gig.quantity ?? 1),
+    gross_amount: gig.gross_amount_pence > 0 ? (gig.gross_amount_pence / 100).toFixed(2) : "",
+    currency: gig.currency ?? "GBP",
+    status: (gig.status as GigForm["status"]) ?? "expected",
+    paid_date: gig.paid_date?.slice(0, 10) ?? "",
+    notes: gig.notes ?? "",
+    work_status: (gig.work_status as GigForm["work_status"]) ?? "",
+    call_time: gig.call_time ?? "",
+    venue_address: gig.venue_address ?? "",
+  });
+
+  const set = (k: keyof GigForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const patchMut = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiRequest(`/api/earnings/${gig.id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      toast({ title: "Gig updated" });
+      onClose();
+    },
+    onError: (e: Error) =>
+      toast({ title: "Failed to save", description: e.message, variant: "destructive" }),
+  });
+
+  const handleSave = () => {
+    if (!form.description.trim() || !form.work_date) return;
+    patchMut.mutate({
+      description: form.description.trim(),
+      client_name: form.client_name.trim() || null,
+      work_date: form.work_date,
+      work_end_date: form.work_end_date || null,
+      unit: form.unit,
+      quantity: parseFloat(form.quantity) || 1,
+      gross_amount: parseFloat(form.gross_amount) || 0,
+      currency: form.currency,
+      status: form.status,
+      paid_date: form.status === "paid" ? form.paid_date || form.work_date : null,
+      notes: form.notes || null,
+      work_status: form.work_status || null,
+      call_time: form.call_time || null,
+      venue_address: form.venue_address || null,
+    });
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit gig</DialogTitle>
+        </DialogHeader>
+        <div className="py-2">
+          <GigFormBody form={form} onChange={set} clients={clients} />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={patchMut.isPending || !form.description.trim() || !form.work_date}
+          >
+            Save changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export function CalendarTab({
@@ -553,6 +755,7 @@ export function CalendarTab({
   const queryClient = useQueryClient();
   const [availDialog, setAvailDialog] = useState<Date | null>(null);
   const [bookingDialog, setBookingDialog] = useState<FreelancerBooking | null>(null);
+  const [gigDialog, setGigDialog] = useState<GigEntry | null>(null);
   const [calDate, setCalDate] = useState(new Date());
 
   const { data: invoiceLinks = [] } = useQuery<
@@ -661,6 +864,17 @@ export function CalendarTab({
     queryFn: () => apiRequest(`/api/calendar/external-events?from=${rangeStart}&to=${rangeEnd}`),
     enabled: !!user && !!calStatus?.read_external,
     staleTime: 5 * 60_000,
+  });
+
+  const { data: gigEntries = [] } = useQuery<GigEntry[]>({
+    queryKey: ["/api/earnings/gigs", rangeStart, rangeEnd],
+    queryFn: () => apiRequest(`/api/earnings/gigs?from=${rangeStart}&to=${rangeEnd}`),
+    enabled: !!user,
+  });
+
+  const { data: gigClients = [] } = useQuery<Array<{ id: number; name: string }>>({
+    queryKey: ["/api/earnings/clients"],
+    enabled: !!user,
   });
 
   // Handle OAuth callback success/error params
@@ -776,7 +990,25 @@ export function CalendarTab({
     isExternal: true,
   }));
 
-  const events = [...bookingEvents, ...availEvents, ...externalCalEvents];
+  const gigEvents = gigEntries.map((g) => {
+    const startDate = new Date(`${g.work_date}T12:00:00`);
+    const endDate = g.work_end_date ? new Date(`${g.work_end_date}T12:00:00`) : startDate;
+    const statusLabel = GIG_STATUS_LABELS[g.work_status] ?? g.work_status;
+    const opacity = g.work_status === "cancelled" ? 0.4 : g.work_status === "pencilled" ? 0.7 : 1;
+    return {
+      id: `gig-${g.id}`,
+      title: `🎯 ${g.description ?? "Gig"} · ${statusLabel}`,
+      start: startDate,
+      end: endDate,
+      allDay: true,
+      resource: g,
+      colour: GIG_COLOUR,
+      isGig: true,
+      gigOpacity: opacity,
+    };
+  });
+
+  const events = [...bookingEvents, ...availEvents, ...externalCalEvents, ...gigEvents];
 
   const eventStyleGetter = (event: any) => ({
     style: {
@@ -786,18 +1018,23 @@ export function CalendarTab({
         ? "1px dashed rgba(255,255,255,0.6)"
         : event.isExternal
           ? "1px solid rgba(124,58,237,0.4)"
-          : "none",
+          : event.isGig
+            ? "1px solid rgba(3,105,161,0.4)"
+            : "none",
       color: "#ffffff",
       fontSize: "11px",
       padding: "1px 5px",
       cursor: event.isExternal ? "default" : "pointer",
-      opacity: event.status === "cancelled" ? 0.5 : event.isExternal ? 0.75 : 1,
+      opacity:
+        event.status === "cancelled" ? 0.5 : event.isExternal ? 0.75 : (event.gigOpacity ?? 1),
     },
   });
 
   const handleSelectEvent = (event: any) => {
     if (event.isExternal) return;
-    if (event.isAvailability) {
+    if (event.isGig) {
+      setGigDialog(event.resource as GigEntry);
+    } else if (event.isAvailability) {
       const dateObj = new Date(event.resource.date + "T12:00:00");
       setAvailDialog(dateObj);
     } else {
@@ -857,8 +1094,13 @@ export function CalendarTab({
             </div>
           </>
         )}
+        <div className="mx-1 h-3 w-px bg-border" />
+        <div className="flex items-center gap-1.5">
+          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: GIG_COLOUR }} />
+          <span className="text-xs text-muted-foreground">My gigs</span>
+        </div>
         <span className="ml-auto hidden text-xs text-muted-foreground sm:block">
-          Click a booking to view details • Click an empty day to set availability
+          Click a booking to view details • Click an empty day to log availability or a gig
         </span>
       </div>
 
@@ -914,6 +1156,10 @@ export function CalendarTab({
           onInvoice={onInvoice}
           hasInvoice={hasInvoiceForBooking(bookingDialog)}
         />
+      )}
+
+      {gigDialog && (
+        <GigEditDialog gig={gigDialog} clients={gigClients} onClose={() => setGigDialog(null)} />
       )}
     </div>
   );
