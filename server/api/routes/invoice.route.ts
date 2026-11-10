@@ -19,6 +19,7 @@ import {
   markInvoicePaid,
   cancelInvoice,
   archiveInvoice,
+  unarchiveInvoice,
   setInvoiceStatus,
   getReminderDraft,
   recordReminderAction,
@@ -55,6 +56,7 @@ export function registerInvoiceRoutes(app: Express) {
   app.patch("/api/invoices/:id/status", ...freelancer, setInvoiceStatus);
   app.post("/api/invoices/:id/mark-paid", ...freelancer, markInvoicePaid);
   app.post("/api/invoices/:id/archive", ...freelancer, archiveInvoice);
+  app.post("/api/invoices/:id/unarchive", ...freelancer, unarchiveInvoice);
 
   // Reminders
   app.get("/api/invoices/:id/reminder-draft", ...freelancer, getReminderDraft);

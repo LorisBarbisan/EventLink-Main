@@ -30,6 +30,7 @@ import {
   Plus,
   Trash2,
   Archive,
+  ArchiveRestore,
   Send,
   Settings,
   ChevronDown,
@@ -1343,6 +1344,15 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
     onError: () => toast({ title: "Failed to delete invoice", variant: "destructive" }),
   });
 
+  const unarchiveMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/invoices/${id}/unarchive`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ title: "Invoice unarchived" });
+    },
+    onError: () => toast({ title: "Failed to unarchive invoice", variant: "destructive" }),
+  });
+
   const archiveMutation = useMutation({
     mutationFn: (id: number) => apiRequest(`/api/invoices/${id}/archive`, { method: "POST" }),
     onSuccess: () => {
@@ -1718,13 +1728,22 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
                             </span>
                           </td>
                           <td className="px-4 py-2">
-                            <button
-                              className="text-muted-foreground transition-colors hover:text-foreground"
-                              title="Download PDF"
-                              onClick={() => downloadInvoicePDF(inv.id, inv.invoice_number)}
-                            >
-                              <Download className="h-4 w-4" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                className="text-muted-foreground transition-colors hover:text-foreground"
+                                title="Download PDF"
+                                onClick={() => downloadInvoicePDF(inv.id, inv.invoice_number)}
+                              >
+                                <Download className="h-4 w-4" />
+                              </button>
+                              <button
+                                className="text-muted-foreground transition-colors hover:text-foreground"
+                                title="Unarchive"
+                                onClick={() => unarchiveMutation.mutate(inv.id)}
+                              >
+                                <ArchiveRestore className="h-4 w-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );

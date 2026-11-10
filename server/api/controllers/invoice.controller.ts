@@ -761,6 +761,22 @@ export async function archiveInvoice(req: Request, res: Response) {
   }
 }
 
+export async function unarchiveInvoice(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    const invoice = await storage.getInvoice(id);
+    if (!invoice) return res.status(404).json({ error: "Not found" });
+    if (invoice.freelancer_id !== user.id) return res.status(403).json({ error: "Forbidden" });
+    const updated = await storage.updateInvoice(id, { archived: false } as any);
+    return res.json(updated);
+  } catch (err) {
+    console.error("unarchiveInvoice error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // ── Reminder draft ────────────────────────────────────────────────────────────
 
 const REMINDER_TONES: Record<string, string> = {
