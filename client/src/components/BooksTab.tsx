@@ -57,6 +57,8 @@ import {
   Receipt,
   Trash2,
   X,
+  Timer,
+  Settings2,
 } from "lucide-react";
 import { KitTab } from "./KitTab";
 import { InvoicesTab, type InvoicePrefill } from "./InvoicesTab";
@@ -1460,6 +1462,453 @@ function TripDialog({
   );
 }
 
+// ── Time ──────────────────────────────────────────────────────────────────────
+
+interface TimeEntry {
+  id: number;
+  earnings_entry_id: number;
+  work_date: string;
+  start_time: string;
+  finish_time: string;
+  break_minutes: number;
+  notes: string | null;
+}
+
+interface OvertimeSummary {
+  days: (TimeEntry & { worked_minutes: number; overtime_minutes: number | null })[];
+  total_worked_minutes: number;
+  total_overtime_minutes: number | null;
+  overtime_hours_suggested: number | null;
+  overtime_pence_suggested: number | null;
+  standard_hours_per_day: number | null;
+  overtime_rate_pence: number | null;
+}
+
+function minutesToHHMM(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h}h${m > 0 ? ` ${m}m` : ""}`;
+}
+
+function TimeSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedJobId, setSelectedJobId] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    standard_hours: "",
+    overtime_rate: "",
+  });
+  const [editingDate, setEditingDate] = useState<string | null>(null);
+  const [dayForm, setDayForm] = useState({
+    work_date: new Date().toISOString().slice(0, 10),
+    start_time: "09:00",
+    finish_time: "18:00",
+    break_minutes: "60",
+    notes: "",
+  });
+  const [overtimeOverride, setOvertimeOverride] = useState<string>("");
+  const [overtimeConfirmed, setOvertimeConfirmed] = useState(false);
+
+  const entryId = selectedJobId ? parseInt(selectedJobId) : null;
+
+  const { data: summary, isLoading } = useQuery<OvertimeSummary>({
+    queryKey: ["/api/earnings/entries", entryId, "time/summary"],
+    queryFn: () => apiRequest(`/api/earnings/entries/${entryId}/time/summary`),
+    enabled: !!entryId,
+  });
+
+  // Sync settings form when summary loads
+  const prevEntryId = useRef<number | null>(null);
+  if (entryId !== prevEntryId.current) {
+    prevEntryId.current = entryId;
+    if (summary) {
+      setSettingsForm({
+        standard_hours: summary.standard_hours_per_day?.toString() ?? "",
+        overtime_rate: summary.overtime_rate_pence
+          ? (summary.overtime_rate_pence / 100).toFixed(2)
+          : "",
+      });
+      setOvertimeOverride(summary.overtime_hours_suggested?.toString() ?? "");
+      setOvertimeConfirmed(false);
+    }
+  }
+
+  const upsertMut = useMutation({
+    mutationFn: (data: typeof dayForm) =>
+      apiRequest(`/api/earnings/entries/${entryId}/time`, {
+        method: "POST",
+        body: JSON.stringify({
+          ...data,
+          break_minutes: parseInt(data.break_minutes) || 0,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/earnings/entries", entryId, "time/summary"],
+      });
+      setEditingDate(null);
+    },
+    onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest(`/api/earnings/entries/${entryId}/time/${id}`, { method: "DELETE" }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ["/api/earnings/entries", entryId, "time/summary"],
+      }),
+    onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
+  });
+
+  const settingsMut = useMutation({
+    mutationFn: (data: {
+      standard_hours_per_day: number | null;
+      overtime_rate_pence: number | null;
+    }) =>
+      apiRequest(`/api/earnings/entries/${entryId}/overtime`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/earnings/entries", entryId, "time/summary"],
+      });
+      setShowSettings(false);
+      toast({ title: "Overtime settings saved" });
+    },
+    onError: () => toast({ title: "Failed to save settings", variant: "destructive" }),
+  });
+
+  function openAddDay() {
+    setDayForm({
+      work_date: new Date().toISOString().slice(0, 10),
+      start_time: "09:00",
+      finish_time: "18:00",
+      break_minutes: "60",
+      notes: "",
+    });
+    setEditingDate("new");
+  }
+
+  function openEditDay(entry: TimeEntry) {
+    setDayForm({
+      work_date: entry.work_date.slice(0, 10),
+      start_time: entry.start_time,
+      finish_time: entry.finish_time,
+      break_minutes: String(entry.break_minutes),
+      notes: entry.notes ?? "",
+    });
+    setEditingDate(entry.work_date.slice(0, 10));
+  }
+
+  function saveSettings() {
+    const standardHours = settingsForm.standard_hours
+      ? parseInt(settingsForm.standard_hours)
+      : null;
+    const overtimeRate = settingsForm.overtime_rate
+      ? Math.round(parseFloat(settingsForm.overtime_rate) * 100)
+      : null;
+    settingsMut.mutate({
+      standard_hours_per_day: standardHours,
+      overtime_rate_pence: overtimeRate,
+    });
+  }
+
+  const suggestedHours = summary?.overtime_hours_suggested ?? null;
+  const effectiveOvertimeHours =
+    overtimeOverride !== "" ? parseFloat(overtimeOverride) : suggestedHours;
+  const overtimePence =
+    effectiveOvertimeHours !== null && summary?.overtime_rate_pence
+      ? Math.round(effectiveOvertimeHours * summary.overtime_rate_pence)
+      : null;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="flex items-center gap-2 font-semibold">
+          <Timer className="h-4 w-4" /> Time &amp; overtime
+        </h3>
+      </div>
+
+      <JobSelect
+        value={selectedJobId}
+        onChange={(v) => {
+          setSelectedJobId(v);
+          setEditingDate(null);
+          setOvertimeConfirmed(false);
+        }}
+        label="Select a job to log time against"
+      />
+
+      {!selectedJobId && (
+        <p className="text-sm text-muted-foreground">Choose a job above to log and review hours.</p>
+      )}
+
+      {selectedJobId && isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+
+      {selectedJobId && summary && (
+        <div className="space-y-4">
+          {/* Day rows */}
+          <div className="rounded border">
+            <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-2">
+              <span className="text-sm font-medium">Days logged</span>
+              <Button size="sm" variant="outline" onClick={openAddDay}>
+                <Plus className="mr-1 h-3 w-3" /> Add day
+              </Button>
+            </div>
+            {summary.days.length === 0 && (
+              <p className="px-4 py-3 text-sm text-muted-foreground">No days logged yet.</p>
+            )}
+            {summary.days.map((d) => (
+              <div
+                key={d.id}
+                className="flex items-center justify-between border-b px-4 py-2 text-sm last:border-0"
+              >
+                <div className="space-y-0.5">
+                  <span className="font-medium">{fmtDate(d.work_date)}</span>
+                  <span className="ml-3 text-muted-foreground">
+                    {d.start_time}–{d.finish_time}
+                    {d.break_minutes > 0 ? ` (${d.break_minutes}m break)` : ""}
+                  </span>
+                  <span className="ml-3 text-muted-foreground">
+                    = {minutesToHHMM(d.worked_minutes)} worked
+                    {d.overtime_minutes !== null && d.overtime_minutes > 0
+                      ? ` · ${minutesToHHMM(d.overtime_minutes)} OT`
+                      : ""}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => openEditDay(d)}>
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => deleteMut.mutate(d.id)}>
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Add/edit day form */}
+          {editingDate && (
+            <div className="space-y-3 rounded border bg-muted/20 p-4">
+              <p className="text-sm font-medium">
+                {editingDate === "new" ? "Log a day" : "Edit day"}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Date</Label>
+                  <Input
+                    type="date"
+                    value={dayForm.work_date}
+                    onChange={(e) => setDayForm((f) => ({ ...f, work_date: e.target.value }))}
+                    style={{ fontSize: "16px" }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Break (minutes)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={dayForm.break_minutes}
+                    onChange={(e) => setDayForm((f) => ({ ...f, break_minutes: e.target.value }))}
+                    style={{ fontSize: "16px" }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Start</Label>
+                  <Input
+                    type="time"
+                    value={dayForm.start_time}
+                    onChange={(e) => setDayForm((f) => ({ ...f, start_time: e.target.value }))}
+                    style={{ fontSize: "16px" }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Finish</Label>
+                  <Input
+                    type="time"
+                    value={dayForm.finish_time}
+                    onChange={(e) => setDayForm((f) => ({ ...f, finish_time: e.target.value }))}
+                    style={{ fontSize: "16px" }}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Notes (optional)</Label>
+                <Input
+                  value={dayForm.notes}
+                  onChange={(e) => setDayForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Night shoot, location day…"
+                  style={{ fontSize: "16px" }}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => upsertMut.mutate(dayForm)}
+                  disabled={
+                    upsertMut.isPending ||
+                    !dayForm.work_date ||
+                    !dayForm.start_time ||
+                    !dayForm.finish_time
+                  }
+                >
+                  {upsertMut.isPending ? "Saving…" : "Save"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setEditingDate(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Totals */}
+          {summary.days.length > 0 && (
+            <div className="space-y-1 rounded border px-4 py-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total hours worked</span>
+                <span className="font-medium">{minutesToHHMM(summary.total_worked_minutes)}</span>
+              </div>
+              {summary.total_overtime_minutes !== null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Overtime (suggested)</span>
+                  <span className="font-medium">
+                    {summary.overtime_hours_suggested?.toFixed(2)}h
+                    {summary.overtime_pence_suggested !== null
+                      ? ` · ${formatPence(summary.overtime_pence_suggested)}`
+                      : ""}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Overtime override */}
+          {summary.total_overtime_minutes !== null && summary.total_overtime_minutes > 0 && (
+            <div className="space-y-3 rounded border border-amber-200 bg-amber-50 px-4 py-4 dark:border-amber-800 dark:bg-amber-950/20">
+              <p className="text-sm font-medium">Overtime to invoice</p>
+              <p className="text-xs text-muted-foreground">
+                Based on the hours you logged, {summary.overtime_hours_suggested?.toFixed(2)}h of
+                overtime is suggested. You can adjust this before it reaches the invoice — this is a
+                prefill, not a ruling.
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <Label className="text-xs">Overtime hours to invoice</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.25}
+                    value={
+                      overtimeOverride !== ""
+                        ? overtimeOverride
+                        : (suggestedHours?.toString() ?? "")
+                    }
+                    onChange={(e) => {
+                      setOvertimeOverride(e.target.value);
+                      setOvertimeConfirmed(false);
+                    }}
+                    style={{ fontSize: "16px" }}
+                  />
+                </div>
+                {effectiveOvertimeHours !== null && summary.overtime_rate_pence && (
+                  <div className="pt-5 text-right">
+                    <span className="text-sm font-medium">{formatPence(overtimePence)}</span>
+                  </div>
+                )}
+              </div>
+              {!overtimeConfirmed ? (
+                <Button
+                  size="sm"
+                  onClick={() => setOvertimeConfirmed(true)}
+                  disabled={effectiveOvertimeHours === null || effectiveOvertimeHours <= 0}
+                >
+                  Confirm overtime figure
+                </Button>
+              ) : (
+                <p className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+                  <CheckCircle className="h-3 w-3" />
+                  {effectiveOvertimeHours?.toFixed(2)}h confirmed — this will prefill the invoice
+                  (PR 5)
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Settings */}
+          <div className="rounded border">
+            <button
+              className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium transition-colors hover:bg-muted/30"
+              onClick={() => {
+                if (!showSettings) {
+                  setSettingsForm({
+                    standard_hours: summary.standard_hours_per_day?.toString() ?? "",
+                    overtime_rate: summary.overtime_rate_pence
+                      ? (summary.overtime_rate_pence / 100).toFixed(2)
+                      : "",
+                  });
+                }
+                setShowSettings((v) => !v);
+              }}
+            >
+              <span className="flex items-center gap-2">
+                <Settings2 className="h-4 w-4 text-muted-foreground" /> Overtime settings
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 text-muted-foreground transition-transform ${showSettings ? "rotate-180" : ""}`}
+              />
+            </button>
+            {showSettings && (
+              <div className="space-y-3 border-t px-4 pb-4">
+                <p className="pt-3 text-xs text-muted-foreground">
+                  Used to calculate the overtime suggestion — these are your agreed terms for this
+                  job.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Standard hours per day</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={24}
+                      placeholder="e.g. 10"
+                      value={settingsForm.standard_hours}
+                      onChange={(e) =>
+                        setSettingsForm((f) => ({ ...f, standard_hours: e.target.value }))
+                      }
+                      style={{ fontSize: "16px" }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Overtime rate (£/hr)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="e.g. 18.75"
+                      value={settingsForm.overtime_rate}
+                      onChange={(e) =>
+                        setSettingsForm((f) => ({ ...f, overtime_rate: e.target.value }))
+                      }
+                      style={{ fontSize: "16px" }}
+                    />
+                  </div>
+                </div>
+                <Button size="sm" onClick={saveSettings} disabled={settingsMut.isPending}>
+                  {settingsMut.isPending ? "Saving…" : "Save settings"}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MileageSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -2193,6 +2642,7 @@ export function BooksTab() {
       "earnings",
       "expenses",
       "mileage",
+      "time",
       "kit",
       "calendar",
       "invoices",
@@ -2204,6 +2654,7 @@ export function BooksTab() {
       | "earnings"
       | "expenses"
       | "mileage"
+      | "time"
       | "kit"
       | "calendar"
       | "invoices"
@@ -2216,6 +2667,7 @@ export function BooksTab() {
     | "earnings"
     | "expenses"
     | "mileage"
+    | "time"
     | "kit"
     | "calendar"
     | "invoices"
@@ -2583,6 +3035,13 @@ export function BooksTab() {
         Mileage
       </button>
       <button
+        data-help="books.section.time"
+        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "time" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        onClick={() => setSection("time")}
+      >
+        Time
+      </button>
+      <button
         data-help="books.section.kit"
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "kit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         onClick={() => setSection("kit")}
@@ -2643,6 +3102,15 @@ export function BooksTab() {
       <div className="space-y-4">
         {sectionSwitcher}
         <MileageSection />
+      </div>
+    );
+  }
+
+  if (section === "time") {
+    return (
+      <div className="space-y-4">
+        {sectionSwitcher}
+        <TimeSection />
       </div>
     );
   }

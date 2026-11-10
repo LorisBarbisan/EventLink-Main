@@ -86,6 +86,7 @@ import {
   mileage_rates,
   saved_places,
   mileage_trips,
+  job_time_entries,
   type FreelancerBillingProfile,
   type InsertFreelancerBillingProfile,
   type Invoice,
@@ -113,6 +114,8 @@ import {
   type MileageTrip,
   type InsertMileageTrip,
 } from "@shared/schema";
+import type { InferSelectModel } from "drizzle-orm";
+type JobTimeEntry = InferSelectModel<typeof job_time_entries>;
 import {
   and,
   asc,
@@ -7481,6 +7484,77 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return Number(row?.total ?? 0);
+  }
+
+  // ── Job time entries ─────────────────────────────────────────────────────────
+
+  async listTimeEntries(freelancerId: number, earningsEntryId: number): Promise<JobTimeEntry[]> {
+    return db
+      .select()
+      .from(job_time_entries)
+      .where(
+        and(
+          eq(job_time_entries.freelancer_id, freelancerId),
+          eq(job_time_entries.earnings_entry_id, earningsEntryId)
+        )
+      )
+      .orderBy(asc(job_time_entries.work_date));
+  }
+
+  async upsertTimeEntry(
+    freelancerId: number,
+    earningsEntryId: number,
+    workDate: string,
+    data: { start_time: string; finish_time: string; break_minutes: number; notes?: string | null }
+  ): Promise<JobTimeEntry> {
+    const existing = await db
+      .select()
+      .from(job_time_entries)
+      .where(
+        and(
+          eq(job_time_entries.freelancer_id, freelancerId),
+          eq(job_time_entries.earnings_entry_id, earningsEntryId),
+          sql`${job_time_entries.work_date} = ${workDate}::date`
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [row] = await db
+        .update(job_time_entries)
+        .set({ ...data, updated_at: new Date() })
+        .where(eq(job_time_entries.id, existing[0].id))
+        .returning();
+      return row;
+    }
+
+    const [row] = await db
+      .insert(job_time_entries)
+      .values({
+        freelancer_id: freelancerId,
+        earnings_entry_id: earningsEntryId,
+        work_date: workDate,
+        ...data,
+      })
+      .returning();
+    return row;
+  }
+
+  async deleteTimeEntry(id: number, freelancerId: number): Promise<void> {
+    await db
+      .delete(job_time_entries)
+      .where(and(eq(job_time_entries.id, id), eq(job_time_entries.freelancer_id, freelancerId)));
+  }
+
+  async updateEarningsEntryOvertimeSettings(
+    id: number,
+    freelancerId: number,
+    data: { standard_hours_per_day?: number | null; overtime_rate_pence?: number | null }
+  ): Promise<void> {
+    await db
+      .update(earnings_entries)
+      .set({ ...data, updated_at: new Date() })
+      .where(and(eq(earnings_entries.id, id), eq(earnings_entries.freelancer_id, freelancerId)));
   }
 }
 

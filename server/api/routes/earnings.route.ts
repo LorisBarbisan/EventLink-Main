@@ -5,6 +5,13 @@ import { backfillEarningsForFreelancer } from "../services/earnings.service";
 import { storage, normaliseClientName } from "../../storage";
 import { currentTaxYear } from "@shared/tax-periods";
 import type { Request, Response } from "express";
+import {
+  listTimeEntries,
+  upsertTimeEntry,
+  deleteTimeEntry,
+  getOvertimeSummary,
+  updateOvertimeSettings,
+} from "../controllers/time-entries.controller";
 
 const router = Router();
 const auth = [authenticateJWT, requireRole("freelancer")];
@@ -407,6 +414,58 @@ router.delete("/:id/archive", auth, async (req: Request, res: Response) => {
   } catch (err) {
     console.error("archive earnings entry error:", err);
     return res.status(500).json({ error: "Failed to archive entry" });
+  }
+});
+
+// ── Time entries & overtime ───────────────────────────────────────────────────
+// GET  /api/earnings/entries/:entryId/time          — list all days logged
+// POST /api/earnings/entries/:entryId/time          — upsert a day (by date)
+// DELETE /api/earnings/entries/:entryId/time/:id    — remove a day
+// GET  /api/earnings/entries/:entryId/time/summary  — overtime calculation
+// PATCH /api/earnings/entries/:entryId/overtime     — update settings
+
+router.get("/entries/:entryId/time", auth, async (req: Request, res: Response) => {
+  try {
+    return await listTimeEntries(req, res);
+  } catch (err) {
+    console.error("list time entries error:", err);
+    return res.status(500).json({ error: "Failed to load time entries" });
+  }
+});
+
+router.post("/entries/:entryId/time", auth, async (req: Request, res: Response) => {
+  try {
+    return await upsertTimeEntry(req, res);
+  } catch (err) {
+    console.error("upsert time entry error:", err);
+    return res.status(500).json({ error: "Failed to save time entry" });
+  }
+});
+
+router.delete("/entries/:entryId/time/:id", auth, async (req: Request, res: Response) => {
+  try {
+    return await deleteTimeEntry(req, res);
+  } catch (err) {
+    console.error("delete time entry error:", err);
+    return res.status(500).json({ error: "Failed to delete time entry" });
+  }
+});
+
+router.get("/entries/:entryId/time/summary", auth, async (req: Request, res: Response) => {
+  try {
+    return await getOvertimeSummary(req, res);
+  } catch (err) {
+    console.error("overtime summary error:", err);
+    return res.status(500).json({ error: "Failed to compute summary" });
+  }
+});
+
+router.patch("/entries/:entryId/overtime", auth, async (req: Request, res: Response) => {
+  try {
+    return await updateOvertimeSettings(req, res);
+  } catch (err) {
+    console.error("overtime settings error:", err);
+    return res.status(500).json({ error: "Failed to update overtime settings" });
   }
 });
 

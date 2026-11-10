@@ -1529,6 +1529,9 @@ export const earnings_entries = pgTable(
     work_status: text("work_status").$type<"pencilled" | "confirmed" | "completed" | "cancelled">(),
     call_time: text("call_time"),
     venue_address: text("venue_address"),
+    // Overtime calculation fields (PR 3)
+    standard_hours_per_day: integer("standard_hours_per_day"),
+    overtime_rate_pence: integer("overtime_rate_pence"),
     archived: boolean("archived").notNull().default(false),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -1553,6 +1556,32 @@ export const earnings_entries = pgTable(
     workStatusDateIdx: index("earnings_work_status_date_idx")
       .on(t.freelancer_id, t.work_status, t.work_date)
       .where(sql`${t.work_status} IS NOT NULL`),
+  })
+);
+
+// ── Job time entries ──────────────────────────────────────────────────────────
+
+export const job_time_entries = pgTable(
+  "job_time_entries",
+  {
+    id: serial("id").primaryKey(),
+    freelancer_id: integer("freelancer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    earnings_entry_id: integer("earnings_entry_id")
+      .notNull()
+      .references(() => earnings_entries.id, { onDelete: "cascade" }),
+    work_date: date("work_date").notNull(),
+    start_time: text("start_time").notNull(), // "08:00"
+    finish_time: text("finish_time").notNull(), // "21:30"
+    break_minutes: integer("break_minutes").notNull().default(0),
+    notes: text("notes"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    freelancerDateIdx: index("job_time_freelancer_date_idx").on(t.freelancer_id, t.work_date),
+    entryIdx: index("job_time_entry_idx").on(t.earnings_entry_id),
   })
 );
 
