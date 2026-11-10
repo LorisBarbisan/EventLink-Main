@@ -279,10 +279,69 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     const clientMap = new Map(clients.map((c) => [c.id, c.name]));
     const roleMap = new Map(roles.map((r) => [r.id, r.label]));
 
+    // Paid invoices with no linked earnings entry — synthesize a cash-basis entry
+    // so they always appear in the Earnings sheet (handles invoices paid before the
+    // auto-create logic was added, or blank invoices never tied to a booking).
+    const linkedInvoiceIds = new Set(entries.map((e) => e.invoice_id).filter(Boolean));
+    const syntheticEntries = invoices
+      .filter((inv) => {
+        if (inv.status !== "paid" || inv.archived) return false;
+        if (linkedInvoiceIds.has(inv.id)) return false;
+        const paidDate =
+          inv.paid_at instanceof Date
+            ? inv.paid_at.toISOString().slice(0, 10)
+            : typeof inv.paid_at === "string"
+              ? (inv.paid_at as string).slice(0, 10)
+              : null;
+        return paidDate && paidDate >= from && paidDate <= to;
+      })
+      .map((inv) => {
+        const toDetails = inv.to_details as Record<string, unknown> | null;
+        const clientName =
+          (toDetails?.company as string | undefined) ||
+          (toDetails?.name as string | undefined) ||
+          "Unknown";
+        const paidDate =
+          inv.paid_at instanceof Date
+            ? inv.paid_at.toISOString().slice(0, 10)
+            : (inv.paid_at as unknown as string).slice(0, 10);
+        const workDate = inv.issue_date ?? paidDate;
+        return {
+          id: -inv.id,
+          freelancer_id: freelancerId,
+          invoice_id: inv.id,
+          booking_id: inv.booking_id ?? null,
+          client_id: null,
+          _syntheticClientName: clientName,
+          role_id: null,
+          description: inv.invoice_number,
+          work_date: workDate,
+          work_end_date: null,
+          quantity: "1",
+          unit: "job" as const,
+          unit_amount_pence: inv.total_pence,
+          gross_amount_pence: inv.total_pence,
+          deductions_pence: 0,
+          currency: inv.currency ?? "GBP",
+          status: "paid" as const,
+          paid_date: paidDate,
+          paid_amount_pence: inv.paid_amount_pence ?? inv.total_pence,
+          invoiced_date: inv.issue_date ?? null,
+          notes: null,
+          needs_review: false,
+          archived: false,
+          work_status: null,
+          call_time: null,
+          venue_address: null,
+          created_at: inv.created_at,
+          updated_at: inv.updated_at,
+        };
+      });
+
     // All entries that touch the period — by work date OR paid date.
     // Cash-basis entries (status=paid, paid_date in range) are the tax figure.
     // Committed entries (expected/invoiced, work_date in range) are the pipeline.
-    const filteredEntries = entries.filter((e) => {
+    const filteredEntries = [...entries, ...syntheticEntries].filter((e) => {
       const workInRange = e.work_date && e.work_date >= from && e.work_date <= to;
       const paidInRange = e.paid_date && e.paid_date >= from && e.paid_date <= to;
       return workInRange || paidInRange;
@@ -407,7 +466,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
         e.status === "paid" && !!e.paid_date && e.paid_date >= from && e.paid_date <= to;
       return [
         e.work_date ? new Date(e.work_date + "T00:00:00Z") : null,
-        e.client_id ? (clientMap.get(e.client_id) ?? "") : "",
+        e.client_id ? (clientMap.get(e.client_id) ?? "") : ((e as any)._syntheticClientName ?? ""),
         e.role_id ? (roleMap.get(e.role_id) ?? "") : "",
         e.description,
         e.unit,
