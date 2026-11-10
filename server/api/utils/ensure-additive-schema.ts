@@ -86,6 +86,10 @@ const STATEMENTS = [
   // Invoice → job link: job board applications don't create a bookings row,
   // so store the job_id directly for the briefcase icon in InvoicesTab.
   `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS job_id integer REFERENCES jobs(id) ON DELETE SET NULL`,
+  // Gigs epic (migration 0029): scheduled-gig fields on earnings_entries
+  `ALTER TABLE earnings_entries ADD COLUMN IF NOT EXISTS work_status text`,
+  `ALTER TABLE earnings_entries ADD COLUMN IF NOT EXISTS call_time text`,
+  `ALTER TABLE earnings_entries ADD COLUMN IF NOT EXISTS venue_address text`,
   `CREATE TABLE IF NOT EXISTS import_mappings (
      id serial PRIMARY KEY,
      freelancer_id integer REFERENCES users(id) ON DELETE CASCADE,
