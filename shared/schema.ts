@@ -1519,6 +1519,10 @@ export const earnings_entries = pgTable(
     needs_review: boolean("needs_review").notNull().default(false),
     rate_raw: text("rate_raw"),
     notes: text("notes"),
+    // NULL = ordinary earnings line; NOT NULL = scheduled gig (calendar + My Jobs)
+    work_status: text("work_status").$type<"pencilled" | "confirmed" | "completed" | "cancelled">(),
+    call_time: text("call_time"),
+    venue_address: text("venue_address"),
     archived: boolean("archived").notNull().default(false),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -1540,6 +1544,9 @@ export const earnings_entries = pgTable(
     invoiceUnique: uniqueIndex("earnings_entries_invoice_unique")
       .on(t.invoice_id)
       .where(sql`${t.invoice_id} IS NOT NULL`),
+    workStatusDateIdx: index("earnings_work_status_date_idx")
+      .on(t.freelancer_id, t.work_status, t.work_date)
+      .where(sql`${t.work_status} IS NOT NULL`),
   })
 );
 

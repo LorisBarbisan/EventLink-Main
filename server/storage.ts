@@ -849,6 +849,7 @@ export interface IStorage {
     freelancerId: number,
     opts?: { status?: string; clientId?: number; roleId?: number; archived?: boolean }
   ): Promise<EarningsEntry[]>;
+  listEarningsGigs(freelancerId: number, from: string, to: string): Promise<EarningsEntry[]>;
   getEarningsEntry(id: number): Promise<EarningsEntry | undefined>;
   getEarningsEntryByBooking(bookingId: number): Promise<EarningsEntry | undefined>;
   getEarningsEntryByInvoice(invoiceId: number): Promise<EarningsEntry | undefined>;
@@ -6774,6 +6775,21 @@ export class DatabaseStorage implements IStorage {
       .from(earnings_entries)
       .where(and(...conditions))
       .orderBy(desc(earnings_entries.work_date));
+  }
+
+  async listEarningsGigs(freelancerId: number, from: string, to: string): Promise<EarningsEntry[]> {
+    return db
+      .select()
+      .from(earnings_entries)
+      .where(
+        and(
+          eq(earnings_entries.freelancer_id, freelancerId),
+          isNotNull(earnings_entries.work_status),
+          gte(earnings_entries.work_date, from),
+          lte(earnings_entries.work_date, to)
+        )
+      )
+      .orderBy(asc(earnings_entries.work_date));
   }
 
   async getEarningsEntry(id: number): Promise<EarningsEntry | undefined> {

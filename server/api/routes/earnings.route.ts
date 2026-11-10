@@ -9,6 +9,21 @@ import type { Request, Response } from "express";
 const router = Router();
 const auth = [authenticateJWT, requireRole("freelancer")];
 
+// GET /api/earnings/gigs?from=YYYY-MM-DD&to=YYYY-MM-DD
+// Returns scheduled gig entries (work_status IS NOT NULL) in range, for the calendar and My Jobs.
+router.get("/gigs", auth, async (req: Request, res: Response) => {
+  try {
+    const freelancerId = req.user!.id;
+    const { from, to } = req.query as { from?: string; to?: string };
+    if (!from || !to) return res.status(400).json({ error: "from and to are required" });
+    const gigs = await storage.listEarningsGigs(freelancerId, from, to);
+    return res.json(gigs);
+  } catch (err) {
+    console.error("earnings gigs error:", err);
+    return res.status(500).json({ error: "Failed to load gigs" });
+  }
+});
+
 // GET /api/earnings/summary
 // Returns: this-tax-year totals, owed-to-me list, and paginated full log
 router.get("/summary", auth, async (req: Request, res: Response) => {
@@ -88,6 +103,11 @@ router.post("/", auth, async (req: Request, res: Response) => {
       paid_date,
       notes,
       job_application_id,
+      work_status,
+      call_time,
+      venue_address,
+      role_id,
+      venue,
     } = req.body;
 
     if (!description || !work_date || gross_amount == null) {
@@ -122,6 +142,11 @@ router.post("/", auth, async (req: Request, res: Response) => {
       notes: notes ?? null,
       needs_review: false,
       archived: false,
+      work_status: work_status ?? null,
+      call_time: call_time ?? null,
+      venue_address: venue_address ?? null,
+      role_id: role_id ?? null,
+      venue: venue ?? null,
     });
 
     // Link back to the job application if provided
@@ -161,6 +186,11 @@ router.patch("/:id", auth, async (req: Request, res: Response) => {
       status,
       paid_date,
       notes,
+      work_status,
+      call_time,
+      venue_address,
+      role_id,
+      venue,
     } = req.body;
 
     const updates: Record<string, unknown> = {};
@@ -175,6 +205,11 @@ router.patch("/:id", auth, async (req: Request, res: Response) => {
     if (status !== undefined) updates.status = status;
     if (paid_date !== undefined) updates.paid_date = paid_date;
     if (notes !== undefined) updates.notes = notes;
+    if (work_status !== undefined) updates.work_status = work_status;
+    if (call_time !== undefined) updates.call_time = call_time;
+    if (venue_address !== undefined) updates.venue_address = venue_address;
+    if (role_id !== undefined) updates.role_id = role_id;
+    if (venue !== undefined) updates.venue = venue;
 
     if (client_name !== undefined) {
       if (client_name?.trim()) {
