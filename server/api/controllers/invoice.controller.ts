@@ -83,7 +83,76 @@ export async function upsertBillingProfile(req: Request, res: Response) {
   if (logo_url !== undefined) data.logo_url = logo_url ?? null;
 
   const saved = await storage.upsertBillingProfile(user.id, data);
-  return res.json(maskBankDetails(saved));
+  return res.json(saved);
+}
+
+export async function uploadBillingLogo(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const { fileData, contentType } = req.body;
+
+    if (!fileData || !contentType) {
+      return res.status(400).json({ error: "fileData and contentType are required" });
+    }
+
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(contentType)) {
+      return res.status(400).json({ error: "Only image files are allowed" });
+    }
+
+    const buffer = Buffer.from(fileData, "base64");
+    if (buffer.length > 2 * 1024 * 1024) {
+      return res.status(400).json({ error: "Logo must be under 2 MB" });
+    }
+
+    const { randomUUID } = await import("crypto");
+    const ext = contentType.split("/")[1].replace("jpeg", "jpg");
+    const objectKey = `logos/${user.id}/${randomUUID()}.${ext}`;
+
+    try {
+      await ObjectStorageService.uploadBuffer(objectKey, contentType, buffer);
+    } catch (uploadError: any) {
+      console.error("Logo upload to object storage failed:", uploadError?.message);
+      return res.status(500).json({ error: "Failed to upload logo" });
+    }
+
+    // Delete old logo from storage if one existed
+    const existing = await storage.getBillingProfile(user.id);
+    if (existing?.logo_url && !existing.logo_url.startsWith("http")) {
+      ObjectStorageService.deleteObject(existing.logo_url).catch(() => {});
+    }
+
+    await storage.upsertBillingProfile(user.id, { logo_url: objectKey });
+    return res.json({ logo_url: objectKey, url: `/api/billing-profile/logo` });
+  } catch (error) {
+    console.error("Upload billing logo error:", error);
+    return res.status(500).json({ error: "Failed to upload logo" });
+  }
+}
+
+export async function getBillingLogo(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const profile = await storage.getBillingProfile(user.id);
+    if (!profile?.logo_url) {
+      return res.status(404).json({ error: "No logo" });
+    }
+    // If stored as a full URL (legacy), redirect
+    if (profile.logo_url.startsWith("http")) {
+      return res.redirect(profile.logo_url);
+    }
+    const buffer = await ObjectStorageService.downloadObjectBuffer(profile.logo_url);
+    const ext = profile.logo_url.split(".").pop() ?? "jpg";
+    const mime = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : "image/jpeg";
+    res.set({ "Content-Type": mime, "Cache-Control": "private, max-age=3600" });
+    return res.send(buffer);
+  } catch (error: any) {
+    if (error?.name === "NoSuchKey" || error?.Code === "NoSuchKey") {
+      return res.status(404).json({ error: "Logo not found" });
+    }
+    console.error("Get billing logo error:", error);
+    return res.status(500).json({ error: "Failed to retrieve logo" });
+  }
 }
 
 export async function getBlankTemplate(req: Request, res: Response) {
@@ -858,19 +927,6 @@ export async function exportInvoicesCSV(req: Request, res: Response) {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-function maskBankDetails(profile: any): any {
-  const masked = { ...profile };
-  if (masked.bank_sort_code)
-    masked.bank_sort_code = `****${String(masked.bank_sort_code).slice(-2)}`;
-  if (masked.bank_account_number)
-    masked.bank_account_number = `****${String(masked.bank_account_number).slice(-4)}`;
-  if (masked.bank_iban) {
-    const iban = String(masked.bank_iban);
-    masked.bank_iban = `${iban.slice(0, 4)}****${iban.slice(-4)}`;
-  }
-  return masked;
-}
 
 function formatMoney(pence: number, currency: string): string {
   const amount = pence / 100;

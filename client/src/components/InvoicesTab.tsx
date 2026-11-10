@@ -256,6 +256,8 @@ function BillingProfileModal({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState(EMPTY_BILLING_FORM);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Pre-populate from existing profile when modal opens
   useState(() => {
@@ -308,6 +310,46 @@ function BillingProfileModal({
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const isVat = form.vat_registered === "true";
+
+  const handleLogoUpload = async (file: File) => {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Logo must be under 2 MB", variant: "destructive" });
+      return;
+    }
+    setLogoUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch("/api/billing-profile/logo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ fileData: base64, contentType: file.type }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      set("logo_url", data.logo_url);
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-profile"] });
+      toast({ title: "Logo uploaded" });
+    } catch {
+      toast({ title: "Logo upload failed", variant: "destructive" });
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    set("logo_url", "");
+    // Will be cleared when the form is saved (logo_url: null sent to PUT)
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -520,27 +562,62 @@ function BillingProfileModal({
             </div>
           </div>
           <div>
-            <Label>Logo URL</Label>
-            <Input
-              value={form.logo_url}
-              onChange={(e) => set("logo_url", e.target.value)}
-              placeholder="https://example.com/logo.png"
-              type="url"
+            <Label>Logo</Label>
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleLogoUpload(file);
+                e.target.value = "";
+              }}
             />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Optional. Paste a direct link to your logo image — it will appear at the top of your
-              invoices and templates.
-            </p>
-            {form.logo_url && (
-              <img
-                src={form.logo_url}
-                alt="Logo preview"
-                className="mt-2 max-h-12 rounded border border-border object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
+            {form.logo_url ? (
+              <div className="mt-1 flex items-center gap-3">
+                <img
+                  src={
+                    form.logo_url.startsWith("http")
+                      ? form.logo_url
+                      : `/api/billing-profile/logo?t=${Date.now()}`
+                  }
+                  alt="Logo preview"
+                  className="max-h-12 rounded border border-border object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={logoUploading}
+                    onClick={() => logoInputRef.current?.click()}
+                  >
+                    Replace
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={handleLogoRemove}>
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-1"
+                disabled={logoUploading}
+                onClick={() => logoInputRef.current?.click()}
+              >
+                {logoUploading ? "Uploading…" : "Upload logo"}
+              </Button>
             )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Optional. JPEG, PNG or WebP, max 2 MB. Appears at the top of your invoices.
+            </p>
           </div>
           <div>
             <Label>Footer note</Label>

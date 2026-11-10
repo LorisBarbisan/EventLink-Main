@@ -6,6 +6,10 @@ import { ObjectStorageService } from "../utils/object-storage";
 
 async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   try {
+    // R2 object key (not a full URL) — fetch directly via SDK
+    if (!url.startsWith("http")) {
+      return await ObjectStorageService.downloadObjectBuffer(url);
+    }
     const parsed = new URL(url);
     const lib = parsed.protocol === "https:" ? https : http;
     return await new Promise<Buffer>((resolve, reject) => {
