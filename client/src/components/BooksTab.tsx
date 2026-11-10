@@ -2001,6 +2001,7 @@ function PenceTick({ pence }: { pence: number }) {
 }
 
 function OverviewSection() {
+  const { toast } = useToast();
   const authHeaders = (): HeadersInit => {
     const token = localStorage.getItem("auth_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -2028,16 +2029,29 @@ function OverviewSection() {
       fetch("/api/books/tax-estimate", { headers: authHeaders() }).then((r) => r.json()),
   });
 
-  function downloadWithAuth(url: string, filename: string) {
+  function downloadWithAuth(url: string) {
     fetch(url, { headers: authHeaders() })
-      .then((r) => r.blob())
-      .then((blob) => {
+      .then((r) => {
+        if (!r.ok) throw new Error(`Export failed (${r.status})`);
+        const disposition = r.headers.get("Content-Disposition") ?? "";
+        const match = disposition.match(/filename="?([^";\n]+)"?/i);
+        const filename = match?.[1] ?? "export";
+        return r.blob().then((blob) => ({ blob, filename }));
+      })
+      .then(({ blob, filename }) => {
         const objUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = objUrl;
         a.download = filename;
         a.click();
         URL.revokeObjectURL(objUrl);
+      })
+      .catch((err: unknown) => {
+        toast({
+          title: "Export failed",
+          description: err instanceof Error ? err.message : "Could not download the file.",
+          variant: "destructive",
+        });
       });
   }
 
@@ -2092,11 +2106,7 @@ function OverviewSection() {
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {fmtDate(data.from)} – {fmtDate(data.to)} · cash basis
         </p>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => downloadWithAuth("/api/books/export", "books-export.xlsx")}
-        >
+        <Button size="sm" variant="outline" onClick={() => downloadWithAuth("/api/books/export")}>
           <Download className="mr-1 h-3.5 w-3.5" />
           Export
         </Button>
@@ -2299,18 +2309,14 @@ function OverviewSection() {
           </p>
         </div>
         <CardContent className="flex flex-wrap gap-2 py-3">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => downloadWithAuth("/api/books/export", "books-export.xlsx")}
-          >
+          <Button size="sm" variant="outline" onClick={() => downloadWithAuth("/api/books/export")}>
             <Download className="mr-1 h-3.5 w-3.5" />
             Expenses &amp; mileage
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => downloadWithAuth("/api/expenses/export", "expenses.xlsx")}
+            onClick={() => downloadWithAuth("/api/expenses/export")}
           >
             <Download className="mr-1 h-3.5 w-3.5" />
             Expenses only
