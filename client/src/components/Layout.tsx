@@ -2,7 +2,6 @@ import { FeedbackForm } from "@/components/FeedbackForm";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/hooks/useAuth";
-import { useIsPro } from "@/hooks/useIsPro";
 import { useState } from "react";
 
 interface LayoutProps {
@@ -13,9 +12,8 @@ interface LayoutProps {
 export const Layout = ({ children, dark = false }: LayoutProps) => {
   const [showFeedback, setShowFeedback] = useState(false);
   const { user } = useAuth();
-  const isPro = useIsPro();
-  // Pro freelancers get the dark navy header/footer across all pages
-  const effectiveDark = dark || (user?.role === "freelancer" && isPro);
+  // All logged-in freelancers get the dark navy header/footer
+  const effectiveDark = dark || user?.role === "freelancer";
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
