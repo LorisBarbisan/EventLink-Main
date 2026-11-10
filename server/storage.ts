@@ -833,6 +833,10 @@ export interface IStorage {
     data: Partial<InsertEarningsClient>
   ): Promise<EarningsClient | undefined>;
   archiveEarningsClient(id: number): Promise<EarningsClient | undefined>;
+  findNearMatchClient(
+    freelancerId: number,
+    name: string
+  ): Promise<{ exact: EarningsClient | null; near: EarningsClient | null }>;
   findOrCreateClientByEmployer(
     freelancerId: number,
     employerUserId: number,
@@ -6720,6 +6724,41 @@ export class DatabaseStorage implements IStorage {
       .where(eq(earnings_clients.id, id))
       .returning();
     return row;
+  }
+
+  async findNearMatchClient(
+    freelancerId: number,
+    name: string
+  ): Promise<{ exact: EarningsClient | null; near: EarningsClient | null }> {
+    const norm = normaliseClientName(name);
+    const clients = await db
+      .select()
+      .from(earnings_clients)
+      .where(
+        and(eq(earnings_clients.freelancer_id, freelancerId), eq(earnings_clients.archived, false))
+      );
+
+    // Exact normalised match
+    const exact = clients.find((c) => c.normalised_name === norm) ?? null;
+    if (exact) return { exact, near: null };
+
+    // Near match: shared token overlap (Jaccard-like on word tokens)
+    const tokens = new Set(norm.split(" ").filter(Boolean));
+    let bestScore = 0;
+    let near: EarningsClient | null = null;
+    for (const c of clients) {
+      const cTokens = new Set(c.normalised_name.split(" ").filter(Boolean));
+      const tokenArr = Array.from(tokens);
+      const cTokenArr = Array.from(cTokens);
+      const intersection = tokenArr.filter((t) => cTokens.has(t)).length;
+      const union = new Set([...tokenArr, ...cTokenArr]).size;
+      const score = union > 0 ? intersection / union : 0;
+      if (score > 0.5 && score > bestScore) {
+        bestScore = score;
+        near = c;
+      }
+    }
+    return { exact: null, near };
   }
 
   async archiveEarningsClient(id: number): Promise<EarningsClient | undefined> {

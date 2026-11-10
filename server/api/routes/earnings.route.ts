@@ -75,6 +75,20 @@ router.post("/backfill", auth, async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/earnings/clients/match — check for near-match before saving
+// Body: { name: string }  Returns: { exact, near } — both nullable client objects
+router.post("/clients/match", auth, async (req: Request, res: Response) => {
+  try {
+    const { name } = req.body as { name?: string };
+    if (!name?.trim()) return res.status(400).json({ error: "name required" });
+    const result = await storage.findNearMatchClient(req.user!.id, name.trim());
+    return res.json(result);
+  } catch (err) {
+    console.error("client match error:", err);
+    return res.status(500).json({ error: "Failed to check" });
+  }
+});
+
 // GET /api/earnings/clients — list clients (with stats when ?stats=1)
 router.get("/clients", auth, async (req: Request, res: Response) => {
   try {

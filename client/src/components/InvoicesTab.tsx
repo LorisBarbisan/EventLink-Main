@@ -25,6 +25,7 @@ import {
   FileText,
   AlertTriangle,
   Briefcase,
+  BookmarkPlus,
   Download,
   Pencil,
   Plus,
@@ -681,6 +682,79 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
   const [dueDate, setDueDate] = useState(invoice.due_date ?? "");
   const [notes, setNotes] = useState(invoice.notes ?? "");
 
+  // ── Save as client ────────────────────────────────────────────────────────
+  type MatchState =
+    | { kind: "idle" }
+    | { kind: "checking" }
+    | {
+        kind: "confirm";
+        mode: "exact" | "near" | "new";
+        existingClient?: { id: number; name: string };
+      };
+  const [matchState, setMatchState] = useState<MatchState>({ kind: "idle" });
+
+  const saveAsClientMut = useMutation({
+    mutationFn: (body: { id?: number; payload: Record<string, unknown> }) =>
+      body.id
+        ? apiRequest(`/api/earnings/clients/${body.id}`, {
+            method: "PATCH",
+            body: JSON.stringify(body.payload),
+          })
+        : apiRequest("/api/earnings/clients", {
+            method: "POST",
+            body: JSON.stringify(body.payload),
+          }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/clients"] });
+      toast({ title: "Client saved" });
+      setMatchState({ kind: "idle" });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Failed to save client", description: e.message, variant: "destructive" }),
+  });
+
+  const clientPayloadFromDetails = () => ({
+    // §3 mapping: to_details.company → client.name
+    //             to_details.name   → client.contact_name
+    //             to_details.email  → client.contact_email
+    name: toDetails.company || toDetails.name || "",
+    contact_name: toDetails.company ? toDetails.name || null : null,
+    contact_email: toDetails.email || null,
+    address_line1: toDetails.address_line1 || null,
+    address_line2: toDetails.address_line2 || null,
+    city: toDetails.city || null,
+    postcode: toDetails.postcode || null,
+    country: toDetails.country || null,
+  });
+
+  const handleSaveAsClient = async () => {
+    const clientName = toDetails.company || toDetails.name || "";
+    if (!clientName.trim()) {
+      toast({ title: "Add a company or contact name first", variant: "destructive" });
+      return;
+    }
+    setMatchState({ kind: "checking" });
+    try {
+      const result: {
+        exact: { id: number; name: string } | null;
+        near: { id: number; name: string } | null;
+      } = await apiRequest("/api/earnings/clients/match", {
+        method: "POST",
+        body: JSON.stringify({ name: clientName }),
+      });
+      if (result.exact) {
+        setMatchState({ kind: "confirm", mode: "exact", existingClient: result.exact });
+      } else if (result.near) {
+        setMatchState({ kind: "confirm", mode: "near", existingClient: result.near });
+      } else {
+        setMatchState({ kind: "confirm", mode: "new" });
+      }
+    } catch {
+      toast({ title: "Failed to check for existing clients", variant: "destructive" });
+      setMatchState({ kind: "idle" });
+    }
+  };
+
   const subtotalPence = lineItems.reduce(
     (s, li) => s + Math.round(li.quantity * li.unit_price_pence),
     0
@@ -836,7 +910,18 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
 
           {/* Client details */}
           <div>
-            <p className="mb-2 text-sm font-medium">Bill to</p>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-medium">Bill to</p>
+              <button
+                type="button"
+                onClick={handleSaveAsClient}
+                disabled={matchState.kind === "checking"}
+                className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+              >
+                <BookmarkPlus className="h-3.5 w-3.5" />
+                {matchState.kind === "checking" ? "Checking…" : "Save as client"}
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Name</Label>
@@ -1065,6 +1150,72 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Save-as-client match dialog */}
+      {matchState.kind === "confirm" && (
+        <Dialog open onOpenChange={(o) => !o && setMatchState({ kind: "idle" })}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>
+                {matchState.mode === "exact"
+                  ? "Client already saved"
+                  : matchState.mode === "near"
+                    ? `Looks like ${matchState.existingClient?.name}`
+                    : "Save as new client"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-2 text-sm text-muted-foreground">
+              {matchState.mode === "exact" && (
+                <p>
+                  <strong>{matchState.existingClient?.name}</strong> is already in your clients.
+                  Update their details with what&apos;s on this invoice?
+                </p>
+              )}
+              {matchState.mode === "near" && (
+                <p>
+                  You&apos;ve invoiced <strong>{matchState.existingClient?.name}</strong> before.
+                  Update their details, or save this as a separate client?
+                </p>
+              )}
+              {matchState.mode === "new" && (
+                <p>
+                  Save <strong>{toDetails.company || toDetails.name}</strong> to your clients so
+                  their details are prefilled next time?
+                </p>
+              )}
+            </div>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
+              <Button variant="outline" onClick={() => setMatchState({ kind: "idle" })}>
+                Cancel
+              </Button>
+              {matchState.mode === "near" && (
+                <Button
+                  variant="outline"
+                  disabled={saveAsClientMut.isPending}
+                  onClick={() => saveAsClientMut.mutate({ payload: clientPayloadFromDetails() })}
+                >
+                  Save as new
+                </Button>
+              )}
+              <Button
+                disabled={saveAsClientMut.isPending}
+                onClick={() =>
+                  saveAsClientMut.mutate({
+                    id: matchState.existingClient?.id,
+                    payload: clientPayloadFromDetails(),
+                  })
+                }
+              >
+                {saveAsClientMut.isPending
+                  ? "Saving…"
+                  : matchState.existingClient
+                    ? "Update existing"
+                    : "Save client"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Dialog>
   );
 }
