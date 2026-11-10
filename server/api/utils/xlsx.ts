@@ -23,7 +23,19 @@ export interface ColSpec {
   type: ColType;
   /** If true, include this column in the totals row */
   total?: boolean;
+  /**
+   * Index (0-based) of the column in the same row that holds the ISO currency
+   * code (GBP/EUR/USD). When set on a money column the per-cell numFmt is
+   * derived from that row's currency rather than a fixed format.
+   */
+  currencyFrom?: number;
 }
+
+const CURRENCY_FMT: Record<string, string> = {
+  GBP: "£#,##0.00",
+  EUR: "€#,##0.00",
+  USD: "$#,##0.00",
+};
 
 type CellValue = string | number | Date | null | undefined;
 
@@ -74,7 +86,11 @@ export function addTypedSheet(
 
   for (const row of rows) {
     const wsRow = ws.addRow(row.map((v, i) => typedValue(v, cols[i]?.type ?? "text")));
-    wsRow.eachCell((cell, colNum) => applyColFormat(cell, cols[colNum - 1]));
+    wsRow.eachCell((cell, colNum) => {
+      const col = cols[colNum - 1];
+      const currency = col?.currencyFrom != null ? String(row[col.currencyFrom] ?? "") : undefined;
+      applyColFormat(cell, col, currency);
+    });
   }
 
   // ── Totals row ────────────────────────────────────────────────────────────────
@@ -148,12 +164,12 @@ function typedValue(v: CellValue, type: ColType): CellValue {
   return String(v);
 }
 
-function applyColFormat(cell: ExcelJS.Cell, col: ColSpec | undefined) {
+function applyColFormat(cell: ExcelJS.Cell, col: ColSpec | undefined, currency?: string) {
   if (!col) return;
   if (col.type === "date") {
     cell.numFmt = "dd/mm/yyyy";
   } else if (col.type === "money") {
-    cell.numFmt = "#,##0.00";
+    cell.numFmt = (currency && CURRENCY_FMT[currency]) ?? "#,##0.00";
     cell.alignment = { horizontal: "right" };
   } else if (col.type === "number") {
     cell.alignment = { horizontal: "right" };

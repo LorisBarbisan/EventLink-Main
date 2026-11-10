@@ -280,45 +280,54 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     return s + Math.round((total * e.business_use_percent) / 100);
   }, 0);
   const totalMileagePence = trips.reduce((s, t) => s + t.amount_pence, 0);
-  const summaryData: [string, string][] = [
-    ["Period", `${from} to ${to}`],
-    ["Basis", "Cash"],
-    ["Generated", new Date().toISOString().slice(0, 10)],
-    ["", ""],
-    ["Earnings (net)", `£${(totalEarningsPence / 100).toFixed(2)}`],
-    ["Expenses (allowable)", `£${(totalExpensesPence / 100).toFixed(2)}`],
-    ["Mileage", `£${(totalMileagePence / 100).toFixed(2)}`],
+  // Summary rows: [label, value, valueType]
+  type SummaryRow = [
+    string,
+    string | number | Date,
+    "text" | "money" | "date" | "count" | "spacer",
+  ];
+  const summaryRows: SummaryRow[] = [
+    ["Period", `${from} to ${to}`, "text"],
+    ["Basis", "Cash (received)", "text"],
+    ["Generated", new Date(new Date().toDateString() + " UTC"), "date"],
+    ["", "", "spacer"],
+    ["Earnings (net)", totalEarningsPence / 100, "money"],
+    ["Expenses (allowable)", totalExpensesPence / 100, "money"],
+    ["Mileage", totalMileagePence / 100, "money"],
     [
       "Net profit (estimate)",
-      `£${((totalEarningsPence - totalExpensesPence - totalMileagePence) / 100).toFixed(2)}`,
+      (totalEarningsPence - totalExpensesPence - totalMileagePence) / 100,
+      "money",
     ],
-    ["", ""],
-    ["Earnings entries", String(filteredEntries.length)],
-    ["Expense records", String(expenses.length)],
-    ["Mileage trips", String(trips.length)],
-    ["Invoices", String(filteredInvoices.length)],
-    ["Kit items", String(kit.length)],
-    ["", ""],
-    ["Disclaimer", DISCLAIMER],
+    ["", "", "spacer"],
+    ["Earnings entries", filteredEntries.length, "count"],
+    ["Expense records", expenses.length, "count"],
+    ["Mileage trips", trips.length, "count"],
+    ["Invoices", filteredInvoices.length, "count"],
+    ["Kit items", kit.length, "count"],
+    ["", "", "spacer"],
+    ["Disclaimer", DISCLAIMER, "text"],
   ];
-  for (const [label, value] of summaryData) {
+  for (const [label, value, vtype] of summaryRows) {
     const row = summaryWs.addRow([label, value]);
+    if (vtype === "spacer") continue;
     if (label === "Disclaimer") {
       row.getCell(1).font = { bold: true };
       row.getCell(2).alignment = { wrapText: true };
-    } else if (label === "" && value === "") {
-      // spacer
-    } else if (
-      ["Earnings (net)", "Expenses (allowable)", "Mileage", "Net profit (estimate)"].includes(label)
-    ) {
+    } else if (vtype === "money") {
       row.getCell(1).font = { bold: true };
+      row.getCell(2).numFmt = "£#,##0.00";
+      row.getCell(2).alignment = { horizontal: "right" };
+    } else if (vtype === "date") {
+      row.getCell(2).numFmt = "dd/mm/yyyy";
     }
   }
   summaryWs.getColumn(1).width = 26;
-  summaryWs.getColumn(2).width = 72;
+  summaryWs.getColumn(2).width = 24;
   summaryWs.getRow(16).height = 40;
 
   // ── Sheet 2: Earnings ─────────────────────────────────────────────────────────
+  // currencyFrom index: col 6 (0-based) = Currency column → used for Gross/Deductions/Net formatting
   const earningsCols: ColSpec[] = [
     { header: "Date", type: "date" },
     { header: "Client", type: "text" },
@@ -326,27 +335,40 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     { header: "Description", type: "text" },
     { header: "Unit", type: "text" },
     { header: "Quantity", type: "number" },
-    { header: "Gross", type: "money", total: true },
-    { header: "Deductions", type: "money", total: true },
-    { header: "Net", type: "money", total: true },
+    { header: "Currency", type: "text" },
+    { header: "Gross", type: "money", total: true, currencyFrom: 6 },
+    { header: "Deductions", type: "money", total: true, currencyFrom: 6 },
+    { header: "Net", type: "money", total: true, currencyFrom: 6 },
     { header: "Status", type: "text" },
     { header: "Paid date", type: "date" },
     { header: "Notes", type: "text" },
   ];
-  const earningsRows = filteredEntries.map((e) => [
-    e.work_date ? new Date(e.work_date + "T00:00:00Z") : null,
-    e.client_id ? (clientMap.get(e.client_id) ?? "") : "",
-    e.role_id ? (roleMap.get(e.role_id) ?? "") : "",
-    e.description,
-    e.unit,
-    parseFloat(e.quantity as unknown as string) || 1,
-    e.gross_amount_pence / 100,
-    (e.deductions_pence ?? 0) / 100,
-    (e.gross_amount_pence - (e.deductions_pence ?? 0)) / 100,
-    e.status,
-    e.paid_date ? new Date(e.paid_date + "T00:00:00Z") : null,
-    e.notes ?? "",
-  ]);
+
+  const STATUS_LABEL: Record<string, string> = {
+    expected: "Expected",
+    invoiced: "Invoiced",
+    paid: "Paid",
+    written_off: "Written off",
+  };
+
+  const earningsRows = filteredEntries.map((e) => {
+    const qty = parseFloat(e.quantity as unknown as string);
+    return [
+      e.work_date ? new Date(e.work_date + "T00:00:00Z") : null,
+      e.client_id ? (clientMap.get(e.client_id) ?? "") : "",
+      e.role_id ? (roleMap.get(e.role_id) ?? "") : "",
+      e.description,
+      e.unit,
+      Number.isFinite(qty) ? qty : null,
+      e.currency ?? "GBP",
+      e.gross_amount_pence / 100,
+      (e.deductions_pence ?? 0) / 100,
+      (e.gross_amount_pence - (e.deductions_pence ?? 0)) / 100,
+      STATUS_LABEL[e.status] ?? e.status,
+      e.paid_date ? new Date(e.paid_date + "T00:00:00Z") : null,
+      e.notes ?? "",
+    ];
+  });
   addTypedSheet(wb, "Earnings", earningsCols, earningsRows);
 
   // ── Sheet 3: Expenses ─────────────────────────────────────────────────────────
@@ -358,7 +380,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     { header: "Net", type: "money", total: true },
     { header: "VAT", type: "money", total: true },
     { header: "Total", type: "money", total: true },
-    { header: "Business use %", type: "number" },
+    { header: "Business use (0–100)", type: "number" },
     { header: "Allowable", type: "money", total: true },
     { header: "Billable", type: "text" },
     { header: "Rebilled", type: "text" },
