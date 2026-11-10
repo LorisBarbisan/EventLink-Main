@@ -131,18 +131,48 @@ export async function linkInvoiceToEntry(invoice: Invoice): Promise<void> {
 export async function recordInvoicePaid(invoice: Invoice): Promise<void> {
   if (!invoice.id) return;
   try {
-    const entry = await storage.getEarningsEntryByInvoice(invoice.id);
-    if (!entry) return;
     const paidDate =
       invoice.paid_at instanceof Date
         ? invoice.paid_at.toISOString().slice(0, 10)
         : typeof invoice.paid_at === "string"
           ? (invoice.paid_at as string).slice(0, 10)
           : new Date().toISOString().slice(0, 10);
-    await storage.updateEarningsEntry(entry.id, {
+
+    const entry = await storage.getEarningsEntryByInvoice(invoice.id);
+    if (entry) {
+      await storage.updateEarningsEntry(entry.id, {
+        status: "paid",
+        paid_date: paidDate,
+        paid_amount_pence: invoice.paid_amount_pence ?? invoice.total_pence,
+      });
+      return;
+    }
+
+    // No linked earnings entry (e.g. blank invoice not from a booking) —
+    // create one so the payment shows up in the Earnings sheet.
+    const toDetails = invoice.to_details as Record<string, unknown> | null;
+    const clientName =
+      (toDetails?.company as string | undefined) ||
+      (toDetails?.name as string | undefined) ||
+      "Unknown";
+    const workDate = invoice.issue_date ?? paidDate;
+
+    const client = await storage.findOrCreateClientByName(invoice.freelancer_id, clientName);
+
+    await storage.createEarningsEntry({
+      freelancer_id: invoice.freelancer_id,
+      invoice_id: invoice.id,
+      client_id: client.id,
+      description: invoice.invoice_number,
+      work_date: workDate,
+      quantity: "1",
+      unit: "job",
+      gross_amount_pence: invoice.total_pence,
+      currency: invoice.currency ?? "GBP",
       status: "paid",
       paid_date: paidDate,
       paid_amount_pence: invoice.paid_amount_pence ?? invoice.total_pence,
+      archived: false,
     });
   } catch (err) {
     console.error(`recordInvoicePaid failed for invoice ${invoice.id} (non-fatal):`, err);
