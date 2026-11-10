@@ -60,6 +60,7 @@ import {
 import { KitTab } from "./KitTab";
 import { InvoicesTab, type InvoicePrefill } from "./InvoicesTab";
 import { CalendarTab } from "./CalendarTab";
+import { ClientsTab } from "./ClientsTab";
 import { ImportWizard } from "./ImportWizard";
 import { type GigForm, EMPTY_GIG_FORM, GigFormBody } from "./GigFormFields";
 
@@ -2162,6 +2163,7 @@ export function BooksTab() {
       "kit",
       "calendar",
       "invoices",
+      "clients",
       "import",
     ];
     return (valid.includes(p ?? "") ? p : "overview") as
@@ -2172,11 +2174,20 @@ export function BooksTab() {
       | "kit"
       | "calendar"
       | "invoices"
+      | "clients"
       | "import";
   })();
 
   const [section, setSection] = useState<
-    "overview" | "earnings" | "expenses" | "mileage" | "kit" | "calendar" | "invoices" | "import"
+    | "overview"
+    | "earnings"
+    | "expenses"
+    | "mileage"
+    | "kit"
+    | "calendar"
+    | "invoices"
+    | "clients"
+    | "import"
   >(initialSection);
   const [gigDialogOpen, setGigDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
@@ -2560,6 +2571,13 @@ export function BooksTab() {
         Invoices
       </button>
       <button
+        data-help="books.section.clients"
+        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "clients" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        onClick={() => setSection("clients")}
+      >
+        Clients
+      </button>
+      <button
         data-help="books.section.import"
         className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "import" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
         onClick={() => setSection("import")}
@@ -2610,6 +2628,15 @@ export function BooksTab() {
       <div className="space-y-4">
         {sectionSwitcher}
         <CalendarTab onInvoice={(b) => createInvoiceForHiredBooking(b)} />
+      </div>
+    );
+  }
+
+  if (section === "clients") {
+    return (
+      <div className="space-y-4">
+        {sectionSwitcher}
+        <ClientsTab />
       </div>
     );
   }

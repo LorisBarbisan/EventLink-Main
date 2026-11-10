@@ -83,6 +83,13 @@ const STATEMENTS = [
    )`,
   `CREATE INDEX IF NOT EXISTS import_rows_batch_idx ON import_rows (batch_id, row_number)`,
   `CREATE INDEX IF NOT EXISTS import_rows_decision_idx ON import_rows (batch_id, decision)`,
+  // PR 1 — Saved clients for invoicing
+  `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS address_line2 text`,
+  `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS accounts_email text`,
+  `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS payment_terms_days integer`,
+  `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS requires_po boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE earnings_clients ADD COLUMN IF NOT EXISTS vat_number text`,
+  `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS po_number text`,
   // Invoice → job link: job board applications don't create a bookings row,
   // so store the job_id directly for the briefcase icon in InvoicesTab.
   `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS job_id integer REFERENCES jobs(id) ON DELETE SET NULL`,

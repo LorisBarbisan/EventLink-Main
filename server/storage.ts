@@ -823,12 +823,16 @@ export interface IStorage {
 
   // Earnings clients
   listEarningsClients(freelancerId: number): Promise<EarningsClient[]>;
+  listClientsWithStats(
+    freelancerId: number
+  ): Promise<(EarningsClient & { invoice_count: number; last_invoiced: string | null })[]>;
   getEarningsClient(id: number): Promise<EarningsClient | undefined>;
   createEarningsClient(data: InsertEarningsClient): Promise<EarningsClient>;
   updateEarningsClient(
     id: number,
     data: Partial<InsertEarningsClient>
   ): Promise<EarningsClient | undefined>;
+  archiveEarningsClient(id: number): Promise<EarningsClient | undefined>;
   findOrCreateClientByEmployer(
     freelancerId: number,
     employerUserId: number,
@@ -6658,6 +6662,40 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(earnings_clients.name));
   }
 
+  async listClientsWithStats(
+    freelancerId: number
+  ): Promise<(EarningsClient & { invoice_count: number; last_invoiced: string | null })[]> {
+    const clients = await db
+      .select()
+      .from(earnings_clients)
+      .where(eq(earnings_clients.freelancer_id, freelancerId))
+      .orderBy(asc(earnings_clients.name));
+
+    if (clients.length === 0) return [];
+
+    const clientIds = clients.map((c) => c.id);
+    const stats = await db
+      .select({
+        client_id: earnings_entries.client_id,
+        invoice_count: count(earnings_entries.invoice_id),
+        last_invoiced: sql<
+          string | null
+        >`max(coalesce(${earnings_entries.invoiced_date}, ${earnings_entries.paid_date}))`,
+      })
+      .from(earnings_entries)
+      .where(
+        and(inArray(earnings_entries.client_id, clientIds), isNotNull(earnings_entries.invoice_id))
+      )
+      .groupBy(earnings_entries.client_id);
+
+    const statsMap = new Map(stats.map((s) => [s.client_id, s]));
+    return clients.map((c) => ({
+      ...c,
+      invoice_count: statsMap.get(c.id)?.invoice_count ?? 0,
+      last_invoiced: statsMap.get(c.id)?.last_invoiced ?? null,
+    }));
+  }
+
   async getEarningsClient(id: number): Promise<EarningsClient | undefined> {
     const [row] = await db
       .select()
@@ -6679,6 +6717,15 @@ export class DatabaseStorage implements IStorage {
     const [row] = await db
       .update(earnings_clients)
       .set({ ...data, updated_at: new Date() })
+      .where(eq(earnings_clients.id, id))
+      .returning();
+    return row;
+  }
+
+  async archiveEarningsClient(id: number): Promise<EarningsClient | undefined> {
+    const [row] = await db
+      .update(earnings_clients)
+      .set({ archived: true, updated_at: new Date() })
       .where(eq(earnings_clients.id, id))
       .returning();
     return row;

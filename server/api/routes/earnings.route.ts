@@ -2,7 +2,7 @@ import { Router } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
 import { backfillEarningsForFreelancer } from "../services/earnings.service";
-import { storage } from "../../storage";
+import { storage, normaliseClientName } from "../../storage";
 import { currentTaxYear } from "@shared/tax-periods";
 import type { Request, Response } from "express";
 
@@ -75,14 +75,134 @@ router.post("/backfill", auth, async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/earnings/clients — list client names for autocomplete
+// GET /api/earnings/clients — list clients (with stats when ?stats=1)
 router.get("/clients", auth, async (req: Request, res: Response) => {
   try {
+    if (req.query.stats === "1") {
+      const clients = await storage.listClientsWithStats(req.user!.id);
+      return res.json(clients);
+    }
     const clients = await storage.listEarningsClients(req.user!.id);
     return res.json(clients);
   } catch (err) {
     console.error("earnings clients error:", err);
     return res.status(500).json({ error: "Failed to load clients" });
+  }
+});
+
+// POST /api/earnings/clients — create a client
+router.post("/clients", auth, async (req: Request, res: Response) => {
+  try {
+    const {
+      name,
+      contact_name,
+      contact_email,
+      accounts_email,
+      address_line1,
+      address_line2,
+      city,
+      postcode,
+      country,
+      payment_terms_days,
+      requires_po,
+      vat_number,
+      notes,
+    } = req.body as Record<string, unknown>;
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ error: "name required" });
+    }
+    const client = await storage.createEarningsClient({
+      freelancer_id: req.user!.id,
+      name: (name as string).trim(),
+      normalised_name: normaliseClientName((name as string).trim()),
+      contact_name: (contact_name as string | undefined) ?? null,
+      contact_email: (contact_email as string | undefined) ?? null,
+      accounts_email: (accounts_email as string | undefined) ?? null,
+      address_line1: (address_line1 as string | undefined) ?? null,
+      address_line2: (address_line2 as string | undefined) ?? null,
+      city: (city as string | undefined) ?? null,
+      postcode: (postcode as string | undefined) ?? null,
+      country: (country as string | undefined) ?? null,
+      payment_terms_days: typeof payment_terms_days === "number" ? payment_terms_days : null,
+      requires_po: requires_po === true,
+      vat_number: (vat_number as string | undefined) ?? null,
+      notes: (notes as string | undefined) ?? null,
+    });
+    return res.status(201).json(client);
+  } catch (err: any) {
+    if (err?.code === "23505") return res.status(409).json({ error: "Client already exists" });
+    console.error("create client error:", err);
+    return res.status(500).json({ error: "Failed to create client" });
+  }
+});
+
+// PATCH /api/earnings/clients/:id — update a client
+router.patch("/clients/:id", auth, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    const existing = await storage.getEarningsClient(id);
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (existing.freelancer_id !== req.user!.id)
+      return res.status(403).json({ error: "Forbidden" });
+
+    const {
+      name,
+      contact_name,
+      contact_email,
+      accounts_email,
+      address_line1,
+      address_line2,
+      city,
+      postcode,
+      country,
+      payment_terms_days,
+      requires_po,
+      vat_number,
+      notes,
+    } = req.body as Record<string, unknown>;
+
+    const patch: Record<string, unknown> = {};
+    if (name !== undefined) {
+      patch.name = (name as string).trim();
+      patch.normalised_name = normaliseClientName((name as string).trim());
+    }
+    if (contact_name !== undefined) patch.contact_name = contact_name ?? null;
+    if (contact_email !== undefined) patch.contact_email = contact_email ?? null;
+    if (accounts_email !== undefined) patch.accounts_email = accounts_email ?? null;
+    if (address_line1 !== undefined) patch.address_line1 = address_line1 ?? null;
+    if (address_line2 !== undefined) patch.address_line2 = address_line2 ?? null;
+    if (city !== undefined) patch.city = city ?? null;
+    if (postcode !== undefined) patch.postcode = postcode ?? null;
+    if (country !== undefined) patch.country = country ?? null;
+    if (payment_terms_days !== undefined) patch.payment_terms_days = payment_terms_days ?? null;
+    if (requires_po !== undefined) patch.requires_po = requires_po === true;
+    if (vat_number !== undefined) patch.vat_number = vat_number ?? null;
+    if (notes !== undefined) patch.notes = notes ?? null;
+
+    const updated = await storage.updateEarningsClient(id, patch as any);
+    return res.json(updated);
+  } catch (err: any) {
+    if (err?.code === "23505") return res.status(409).json({ error: "Client name already exists" });
+    console.error("update client error:", err);
+    return res.status(500).json({ error: "Failed to update client" });
+  }
+});
+
+// DELETE /api/earnings/clients/:id — archive a client
+router.delete("/clients/:id", auth, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    const existing = await storage.getEarningsClient(id);
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (existing.freelancer_id !== req.user!.id)
+      return res.status(403).json({ error: "Forbidden" });
+    const archived = await storage.archiveEarningsClient(id);
+    return res.json(archived);
+  } catch (err) {
+    console.error("archive client error:", err);
+    return res.status(500).json({ error: "Failed to archive client" });
   }
 });
 
