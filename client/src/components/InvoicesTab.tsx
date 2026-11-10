@@ -1597,43 +1597,6 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
             </DropdownMenu>
           )}
           <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => {
-              const token = localStorage.getItem("auth_token");
-              fetch("/api/invoices/export", {
-                headers: token ? { Authorization: `Bearer ${token}` } : {},
-              })
-                .then((r) => {
-                  if (!r.ok) throw new Error(`Export failed (${r.status})`);
-                  const disposition = r.headers.get("Content-Disposition") ?? "";
-                  const match = disposition.match(/filename="?([^";\n]+)"?/i);
-                  const filename = match?.[1] ?? "invoices.csv";
-                  return r.blob().then((blob) => ({ blob, filename }));
-                })
-                .then(({ blob, filename }) => {
-                  const objUrl = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = objUrl;
-                  a.download = filename;
-                  a.click();
-                  URL.revokeObjectURL(objUrl);
-                })
-                .catch((err: unknown) => {
-                  toast({
-                    title: "Export failed",
-                    description:
-                      err instanceof Error ? err.message : "Could not download the file.",
-                    variant: "destructive",
-                  });
-                });
-            }}
-          >
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
-          <Button
             data-help="books.invoices.new"
             size="sm"
             className="gap-2"

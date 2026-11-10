@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -162,52 +162,6 @@ function StatusBadge({ entry }: { entry: EarningsEntry }) {
     <Badge variant="outline" className="text-xs capitalize">
       {entry.status}
     </Badge>
-  );
-}
-
-// ── Export card ───────────────────────────────────────────────────────────────
-
-function ExportCard() {
-  const ty = (() => {
-    const now = new Date();
-    const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-    return { from: `${y}-04-06`, to: `${y + 1}-04-05` };
-  })();
-
-  const dl = (path: string) => {
-    const token = localStorage.getItem("auth_token");
-    const sep = path.includes("?") ? "&" : "?";
-    window.location.href = token ? `${path}${sep}token=${encodeURIComponent(token)}` : path;
-  };
-
-  return (
-    <Card>
-      <CardHeader className="pb-2 pt-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium">
-          <Download className="h-4 w-4" />
-          Export
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-wrap gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => dl(`/api/exports/earnings.csv?from=${ty.from}&to=${ty.to}&basis=cash`)}
-        >
-          Earnings CSV
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => dl(`/api/exports/invoices.csv?from=${ty.from}&to=${ty.to}`)}
-        >
-          Invoices CSV
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => dl("/api/exports/kit.csv")}>
-          Kit register CSV
-        </Button>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -2002,6 +1956,7 @@ function PenceTick({ pence }: { pence: number }) {
 
 function OverviewSection() {
   const { toast } = useToast();
+  const [downloading, setDownloading] = useState(false);
   const authHeaders = (): HeadersInit => {
     const token = localStorage.getItem("auth_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -2029,7 +1984,8 @@ function OverviewSection() {
       fetch("/api/books/tax-estimate", { headers: authHeaders() }).then((r) => r.json()),
   });
 
-  function downloadWithAuth(url: string) {
+  function downloadWithAuth(url: string, setPending?: (v: boolean) => void) {
+    setPending?.(true);
     fetch(url, { headers: authHeaders() })
       .then((r) => {
         if (!r.ok) throw new Error(`Export failed (${r.status})`);
@@ -2052,7 +2008,8 @@ function OverviewSection() {
           description: err instanceof Error ? err.message : "Could not download the file.",
           variant: "destructive",
         });
-      });
+      })
+      .finally(() => setPending?.(false));
   }
 
   if (isLoading) {
@@ -2101,16 +2058,10 @@ function OverviewSection() {
 
   return (
     <div className="space-y-4">
-      {/* ── Period label + export ── */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {fmtDate(data.from)} – {fmtDate(data.to)} · cash basis
-        </p>
-        <Button size="sm" variant="outline" onClick={() => downloadWithAuth("/api/books/export")}>
-          <Download className="mr-1 h-3.5 w-3.5" />
-          Export
-        </Button>
-      </div>
+      {/* ── Period label ── */}
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {fmtDate(data.from)} – {fmtDate(data.to)} · cash basis
+      </p>
 
       {/* ── Stat tiles ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -2300,26 +2251,22 @@ function OverviewSection() {
         </Card>
       </div>
 
-      {/* ── Year-end downloads ── */}
+      {/* ── Year-end pack ── */}
       <Card className="overflow-hidden">
         <div className="border-l-4 border-orange-400 bg-orange-50/50 px-5 py-3 dark:bg-orange-950/20">
-          <p className="font-semibold">Year-end pack</p>
+          <p className="font-semibold">Your records</p>
           <p className="text-xs text-muted-foreground">
-            Download all records for your accountant or self-assessment.
+            Download everything for your accountant or Self Assessment.
           </p>
         </div>
-        <CardContent className="flex flex-wrap gap-2 py-3">
-          <Button size="sm" variant="outline" onClick={() => downloadWithAuth("/api/books/export")}>
-            <Download className="mr-1 h-3.5 w-3.5" />
-            Expenses &amp; mileage
-          </Button>
+        <CardContent className="py-3">
           <Button
             size="sm"
-            variant="outline"
-            onClick={() => downloadWithAuth("/api/expenses/export")}
+            disabled={downloading}
+            onClick={() => downloadWithAuth("/api/books/export.xlsx", setDownloading)}
           >
             <Download className="mr-1 h-3.5 w-3.5" />
-            Expenses only
+            {downloading ? "Building…" : "Download Excel workbook"}
           </Button>
         </CardContent>
       </Card>
@@ -2799,7 +2746,6 @@ export function BooksTab() {
     return (
       <div className="space-y-4">
         {sectionSwitcher}
-        <ExportCard />
         <KitTab />
       </div>
     );
@@ -2873,7 +2819,6 @@ export function BooksTab() {
   return (
     <div className="space-y-6">
       {sectionSwitcher}
-      <ExportCard />
 
       {/* ── Section 1: This tax year ── */}
       <Card className="overflow-hidden">
