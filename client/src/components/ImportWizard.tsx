@@ -238,7 +238,7 @@ function HistoryList({
 
 // ── Upload step ───────────────────────────────────────────────────────────────
 
-const ACCEPTED = ".csv,.xlsx,.xls,.pdf";
+const ACCEPTED = ".csv,.xlsx,.pdf";
 const ACCEPTED_TYPES = [
   "text/csv",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

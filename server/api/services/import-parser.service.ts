@@ -493,18 +493,30 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
     // 1. Download file
     const buffer = await ObjectStorageService.downloadObjectBuffer(batch.file_key);
 
-    // 2. Read raw rows based on MIME type
+    // 2. Read raw rows — sniff magic bytes rather than trusting MIME type.
+    //    Windows with Excel installed reports .csv files as application/vnd.ms-excel,
+    //    so MIME type alone is not reliable.
     let readResult: ReadResult;
-    if (
-      batch.mime_type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-      batch.mime_type === "application/vnd.ms-excel"
-    ) {
-      readResult = await readXlsx(buffer);
-    } else if (batch.mime_type === "application/pdf") {
+    if (batch.mime_type === "application/pdf") {
       const { rows: pdfRows, aiExtracted } = await readPdf(buffer);
       readResult = { rows: pdfRows, headerless: false, aiExtracted };
     } else {
-      readResult = await readCsv(buffer); // text/csv and fallback
+      const magic4 = buffer.slice(0, 4);
+      const isZip =
+        magic4[0] === 0x50 && magic4[1] === 0x4b && magic4[2] === 0x03 && magic4[3] === 0x04;
+      const isOle2 =
+        magic4[0] === 0xd0 && magic4[1] === 0xcf && magic4[2] === 0x11 && magic4[3] === 0xe0;
+
+      if (isOle2) {
+        // Legacy .xls (BIFF) — ExcelJS cannot read it; ask the user to convert
+        throw new Error(
+          "This is an older Excel file (.xls). Open it in Excel and use Save As → Excel Workbook (.xlsx), then upload again."
+        );
+      } else if (isZip) {
+        readResult = await readXlsx(buffer);
+      } else {
+        readResult = await readCsv(buffer); // CSV or any text-based fallback
+      }
     }
 
     const rawRows = readResult.rows;
