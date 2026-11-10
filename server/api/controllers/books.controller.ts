@@ -347,7 +347,6 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     e.paid_date ? new Date(e.paid_date + "T00:00:00Z") : null,
     e.notes ?? "",
   ]);
-  if (earningsRows.length === 0) earningsRows.push(["No records for this period."]);
   addTypedSheet(wb, "Earnings", earningsCols, earningsRows);
 
   // ── Sheet 3: Expenses ─────────────────────────────────────────────────────────
@@ -385,7 +384,6 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       e.notes ?? "",
     ];
   });
-  if (expensesRows.length === 0) expensesRows.push(["No records for this period."]);
   addTypedSheet(wb, "Expenses", expensesCols, expensesRows);
 
   // ── Sheet 4: Mileage ──────────────────────────────────────────────────────────
@@ -409,7 +407,6 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     t.amount_pence / 100,
     t.notes ?? "",
   ]);
-  if (mileageRows.length === 0) mileageRows.push(["No records for this period."]);
   addTypedSheet(wb, "Mileage", mileageCols, mileageRows);
 
   // ── Sheet 5: Invoices ─────────────────────────────────────────────────────────
@@ -439,7 +436,6 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       inv.status,
     ];
   });
-  if (invoicesRows.length === 0) invoicesRows.push(["No records for this period."]);
   addTypedSheet(wb, "Invoices", invoicesCols, invoicesRows);
 
   // ── Sheet 6: Kit ──────────────────────────────────────────────────────────────
@@ -461,7 +457,6 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     item.status,
     item.condition_notes ?? "",
   ]);
-  if (kitRows.length === 0) kitRows.push(["No records for this period."]);
   addTypedSheet(wb, "Kit", kitCols, kitRows);
 
   // ── Stream response ───────────────────────────────────────────────────────────

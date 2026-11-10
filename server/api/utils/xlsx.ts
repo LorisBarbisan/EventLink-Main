@@ -63,7 +63,15 @@ export function addTypedSheet(
   });
   ws.views = [{ state: "frozen", ySplit: 1 }];
 
-  // ── Data rows ─────────────────────────────────────────────────────────────────
+  // ── Data rows or empty-state message ─────────────────────────────────────────
+  if (rows.length === 0) {
+    const emptyRow = ws.addRow(["No records for this period."]);
+    ws.mergeCells(2, 1, 2, cols.length);
+    emptyRow.getCell(1).font = { italic: true, color: { argb: "FF9CA3AF" } };
+    emptyRow.getCell(1).alignment = { horizontal: "left" };
+    return ws;
+  }
+
   for (const row of rows) {
     const wsRow = ws.addRow(row.map((v, i) => typedValue(v, cols[i]?.type ?? "text")));
     wsRow.eachCell((cell, colNum) => applyColFormat(cell, cols[colNum - 1]));
@@ -93,10 +101,8 @@ export function addTypedSheet(
     });
   }
 
-  // Auto-filter on header row
-  if (rows.length > 0) {
-    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
-  }
+  // Auto-filter on header row (only when there are data rows)
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
 
   // ── Column widths (fit to data, not header) ───────────────────────────────────
   cols.forEach((col, i) => {
