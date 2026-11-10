@@ -505,6 +505,7 @@ export async function renderBlankTemplateDoc(
     Packer,
     Paragraph,
     TextRun,
+    ImageRun,
     Table,
     TableRow,
     TableCell,
@@ -514,6 +515,10 @@ export async function renderBlankTemplateDoc(
     ShadingType,
     UnderlineType,
   } = await import("docx");
+
+  const logoBuffer = billingProfile.logo_url
+    ? await fetchImageBuffer(billingProfile.logo_url)
+    : null;
 
   const prefix = billingProfile.invoice_prefix ?? "INV";
   const fromLines = buildFromLines(billingProfile);
@@ -831,27 +836,19 @@ export async function renderBlankTemplateDoc(
     if (billingProfile.bank_sort_code)
       bankLines.push(
         new Paragraph({
-          children: [
-            bodyRun(
-              `Sort code: XX-XX-${billingProfile.bank_sort_code.replace(/\D/g, "").slice(-2)}`
-            ),
-          ],
+          children: [bodyRun(`Sort code: ${billingProfile.bank_sort_code}`)],
         })
       );
     if (billingProfile.bank_account_number)
       bankLines.push(
         new Paragraph({
-          children: [bodyRun(`Account: XXXX${billingProfile.bank_account_number.slice(-4)}`)],
+          children: [bodyRun(`Account: ${billingProfile.bank_account_number}`)],
         })
       );
     if (billingProfile.bank_iban)
       bankLines.push(
         new Paragraph({
-          children: [
-            bodyRun(
-              `IBAN: ${billingProfile.bank_iban.slice(0, 4)}****${billingProfile.bank_iban.slice(-4)}`
-            ),
-          ],
+          children: [bodyRun(`IBAN: ${billingProfile.bank_iban}`)],
         })
       );
   }
@@ -897,6 +894,20 @@ export async function renderBlankTemplateDoc(
           },
         },
         children: [
+          ...(logoBuffer
+            ? [
+                new Paragraph({
+                  spacing: { after: 120 },
+                  children: [
+                    new ImageRun({
+                      data: logoBuffer,
+                      transformation: { width: 120, height: 40 },
+                      type: "png",
+                    }),
+                  ],
+                }),
+              ]
+            : []),
           headerTable,
           rulePara,
           fromBillTable,
