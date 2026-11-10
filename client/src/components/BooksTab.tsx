@@ -61,6 +61,7 @@ import { KitTab } from "./KitTab";
 import { InvoicesTab, type InvoicePrefill } from "./InvoicesTab";
 import { CalendarTab } from "./CalendarTab";
 import { ImportWizard } from "./ImportWizard";
+import { type GigForm, EMPTY_GIG_FORM, GigFormBody } from "./GigFormFields";
 
 // ── Money helpers ──────────────────────────────────────────────────────────────
 
@@ -112,6 +113,9 @@ interface EarningsEntry {
   unit?: string | null;
   quantity?: string | null;
   notes?: string | null;
+  work_status?: string | null;
+  call_time?: string | null;
+  venue_address?: string | null;
 }
 
 interface SummaryGroup {
@@ -167,34 +171,6 @@ function StatusBadge({ entry }: { entry: EarningsEntry }) {
 
 // ── Gig dialog (add / edit manual entries) ───────────────────────────────────
 
-interface GigForm {
-  description: string;
-  client_name: string;
-  work_date: string;
-  work_end_date: string;
-  unit: "day" | "hour" | "job";
-  quantity: string;
-  gross_amount: string;
-  currency: string;
-  status: "expected" | "paid";
-  paid_date: string;
-  notes: string;
-}
-
-const EMPTY_FORM: GigForm = {
-  description: "",
-  client_name: "",
-  work_date: "",
-  work_end_date: "",
-  unit: "day",
-  quantity: "1",
-  gross_amount: "",
-  currency: "GBP",
-  status: "expected",
-  paid_date: "",
-  notes: "",
-};
-
 function GigDialog({
   open,
   onClose,
@@ -212,9 +188,8 @@ function GigDialog({
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<GigForm>(EMPTY_FORM);
+  const [form, setForm] = useState<GigForm>(EMPTY_GIG_FORM);
 
-  // Reset form when dialog opens
   useEffect(() => {
     if (open) {
       if (editing) {
@@ -231,9 +206,12 @@ function GigDialog({
           status: (editing.status as GigForm["status"]) ?? "expected",
           paid_date: editing.paid_date?.slice(0, 10) ?? "",
           notes: editing.notes ?? "",
+          work_status: (editing.work_status as GigForm["work_status"]) ?? "",
+          call_time: editing.call_time ?? "",
+          venue_address: editing.venue_address ?? "",
         });
       } else {
-        setForm({ ...EMPTY_FORM, ...prefill });
+        setForm({ ...EMPTY_GIG_FORM, ...prefill });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -248,6 +226,7 @@ function GigDialog({
         : apiRequest("/api/earnings", { method: "POST", body: JSON.stringify(body) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
       toast({ title: editing ? "Gig updated" : "Gig added" });
       onClose();
@@ -257,7 +236,7 @@ function GigDialog({
   });
 
   const handleSave = () => {
-    if (!form.description.trim() || !form.work_date || !form.gross_amount) return;
+    if (!form.description.trim() || !form.work_date) return;
     saveMutation.mutate({
       description: form.description.trim(),
       client_name: form.client_name.trim() || null,
@@ -265,16 +244,17 @@ function GigDialog({
       work_end_date: form.work_end_date || null,
       unit: form.unit,
       quantity: parseFloat(form.quantity) || 1,
-      gross_amount: parseFloat(form.gross_amount),
+      gross_amount: parseFloat(form.gross_amount) || 0,
       currency: form.currency,
       status: form.status,
       paid_date: form.status === "paid" ? form.paid_date || form.work_date : null,
       notes: form.notes || null,
+      work_status: form.work_status || null,
+      call_time: form.call_time || null,
+      venue_address: form.venue_address || null,
       ...(jobApplicationId ? { job_application_id: jobApplicationId } : {}),
     });
   };
-
-  const clientNames = clients.map((c) => c.name);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -282,146 +262,8 @@ function GigDialog({
         <DialogHeader>
           <DialogTitle>{editing ? "Edit gig" : "Add gig"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-1">
-            <Label htmlFor="gig-desc">Job / gig description *</Label>
-            <Input
-              id="gig-desc"
-              placeholder="e.g. Wedding photography, Corporate AV"
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="gig-client">Client name</Label>
-            <Input
-              id="gig-client"
-              list="gig-clients-list"
-              placeholder="Type or pick an existing client"
-              value={form.client_name}
-              onChange={(e) => set("client_name", e.target.value)}
-            />
-            <datalist id="gig-clients-list">
-              {clientNames.map((n) => (
-                <option key={n} value={n} />
-              ))}
-            </datalist>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="gig-date">Work date *</Label>
-              <Input
-                id="gig-date"
-                type="date"
-                value={form.work_date}
-                onChange={(e) => set("work_date", e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="gig-end">End date (optional)</Label>
-              <Input
-                id="gig-end"
-                type="date"
-                value={form.work_end_date}
-                onChange={(e) => set("work_end_date", e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <Label>Unit</Label>
-              <Select value={form.unit} onValueChange={(v) => set("unit", v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="day">Per day</SelectItem>
-                  <SelectItem value="hour">Per hour</SelectItem>
-                  <SelectItem value="job">Per job</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="gig-qty">Qty</Label>
-              <Input
-                id="gig-qty"
-                type="number"
-                min="0.5"
-                step="0.5"
-                value={form.quantity}
-                onChange={(e) => set("quantity", e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Currency</Label>
-              <Select value={form.currency} onValueChange={(v) => set("currency", v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="GBP">GBP £</SelectItem>
-                  <SelectItem value="EUR">EUR €</SelectItem>
-                  <SelectItem value="USD">USD $</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="gig-amount">Total amount *</Label>
-            <Input
-              id="gig-amount"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={form.gross_amount}
-              onChange={(e) => set("gross_amount", e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Enter the full amount you&apos;re owed or were paid (not the day rate).
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => set("status", v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="expected">Expected / owed</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {form.status === "paid" && (
-              <div className="space-y-1">
-                <Label htmlFor="gig-paid-date">Date paid</Label>
-                <Input
-                  id="gig-paid-date"
-                  type="date"
-                  value={form.paid_date}
-                  onChange={(e) => set("paid_date", e.target.value)}
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="gig-notes">Notes (optional)</Label>
-            <Textarea
-              id="gig-notes"
-              rows={2}
-              placeholder="Any extra details…"
-              value={form.notes}
-              onChange={(e) => set("notes", e.target.value)}
-            />
-          </div>
+        <div className="py-2">
+          <GigFormBody form={form} onChange={set} clients={clients} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
@@ -429,12 +271,7 @@ function GigDialog({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={
-              saveMutation.isPending ||
-              !form.description.trim() ||
-              !form.work_date ||
-              !form.gross_amount
-            }
+            disabled={saveMutation.isPending || !form.description.trim() || !form.work_date}
           >
             {editing ? "Save changes" : "Add gig"}
           </Button>
@@ -2496,6 +2333,23 @@ export function BooksTab() {
     (b: any) => !b.earnings_entry_id && b.event_date && new Date(b.event_date) < today
   );
 
+  // Scheduled gigs (earnings_entries with work_status IS NOT NULL) — 3 months back, 12 ahead
+  const gigsFrom = (() => {
+    const d = new Date(today);
+    d.setMonth(d.getMonth() - 3);
+    return d.toISOString().slice(0, 10);
+  })();
+  const gigsTo = (() => {
+    const d = new Date(today);
+    d.setFullYear(d.getFullYear() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
+  const { data: scheduledGigs = [] } = useQuery<EarningsEntry[]>({
+    queryKey: ["/api/earnings/gigs", gigsFrom, gigsTo],
+    queryFn: () => apiRequest(`/api/earnings/gigs?from=${gigsFrom}&to=${gigsTo}`),
+    enabled: !!user?.id,
+  });
+
   const archiveMutation = useMutation({
     mutationFn: (id: number) => apiRequest(`/api/earnings/${id}/archive`, { method: "DELETE" }),
     onSuccess: () => {
@@ -2905,18 +2759,20 @@ export function BooksTab() {
       </Card>
 
       {/* ── Section 2: Booked jobs ── */}
-      {(upcomingHired.length > 0 || awaitingPaymentHired.length > 0) && (
+      {(upcomingHired.length > 0 ||
+        awaitingPaymentHired.length > 0 ||
+        scheduledGigs.length > 0) && (
         <Card className="overflow-hidden">
           <div className="border-l-4 border-indigo-500 bg-indigo-50/40 px-5 py-3 dark:bg-indigo-950/20">
             <div className="flex items-center gap-2">
               <Briefcase className="h-4 w-4 text-indigo-600" />
-              <p className="font-semibold">Booked jobs</p>
+              <p className="font-semibold">My jobs</p>
               <span className="rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-bold text-white">
-                {upcomingHired.length + awaitingPaymentHired.length}
+                {upcomingHired.length + awaitingPaymentHired.length + scheduledGigs.length}
               </span>
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Jobs you&apos;re hired for — log payment when money arrives
+              Jobs from the board and your own booked gigs
             </p>
           </div>
           <CardContent className="p-0">
@@ -2980,6 +2836,54 @@ export function BooksTab() {
                     </span>
                   </div>
                 ))}
+              </div>
+            )}
+            {scheduledGigs.length > 0 && (
+              <div>
+                <div className="bg-sky-50/60 px-5 py-1.5 text-xs font-semibold uppercase tracking-wide text-sky-700 dark:bg-sky-950/20 dark:text-sky-400">
+                  My booked gigs
+                </div>
+                {scheduledGigs.map((g, i) => {
+                  const statusColor =
+                    g.work_status === "confirmed"
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                      : g.work_status === "pencilled"
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                        : g.work_status === "completed"
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          : "bg-muted text-muted-foreground";
+                  return (
+                    <div
+                      key={g.id}
+                      className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-sky-50/40 dark:hover:bg-sky-950/20 ${i % 2 === 0 ? "bg-sky-50/20 dark:bg-sky-950/10" : ""}`}
+                      onClick={() => openEdit(g)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {g.description ?? "Booked gig"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {fmtDate(g.work_date)}
+                          {g.client_name ? ` · ${g.client_name}` : ""}
+                          {g.call_time ? ` · ${g.call_time}` : ""}
+                          {g.venue_address ? ` · ${g.venue_address}` : ""}
+                        </p>
+                      </div>
+                      <div className="ml-3 flex items-center gap-2">
+                        {g.gross_amount_pence > 0 && (
+                          <span className="text-sm font-semibold tabular-nums text-sky-700 dark:text-sky-300">
+                            {formatPence(g.gross_amount_pence, g.currency)}
+                          </span>
+                        )}
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor}`}
+                        >
+                          {g.work_status}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>
