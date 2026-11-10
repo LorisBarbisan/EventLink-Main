@@ -17,6 +17,7 @@ import {
 } from "../../../shared/schema";
 import { eq, and, desc, or } from "drizzle-orm";
 import { seedEntryFromBooking } from "../services/earnings.service";
+import { storage } from "../../storage";
 
 // The platform stores no phone numbers; the client renders phone conditionally,
 // so booking endpoints return null to keep the response shape stable.
@@ -333,7 +334,7 @@ export async function updateBookingStatus(req: Request, res: Response) {
       note: note ?? null,
     });
 
-    if (toStatus === "completed") {
+    if (["confirmed", "briefed", "completed"].includes(toStatus)) {
       const [job] = await db
         .select({
           id: jobs.id,
@@ -342,12 +343,25 @@ export async function updateBookingStatus(req: Request, res: Response) {
           recruiter_id: jobs.recruiter_id,
           currency: jobs.currency,
           event_date: jobs.event_date,
+          end_date: jobs.end_date,
         })
         .from(jobs)
         .where(eq(jobs.id, updated.jobId));
       if (job) {
         seedEntryFromBooking(updated, job).catch(() => {});
       }
+    }
+
+    if (toStatus === "cancelled") {
+      // Archive the earnings entry if it exists and hasn't been invoiced
+      storage
+        .getEarningsEntryByBooking(bookingId)
+        .then((entry) => {
+          if (entry && !entry.invoice_id) {
+            storage.updateEarningsEntry(entry.id, { archived: true }).catch(() => {});
+          }
+        })
+        .catch(() => {});
     }
 
     return res.json(updated);

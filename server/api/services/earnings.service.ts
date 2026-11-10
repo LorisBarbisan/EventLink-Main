@@ -11,19 +11,32 @@ interface JobRow {
   recruiter_id: number | null;
   currency: string | null;
   event_date: string | null;
+  end_date: string | null;
 }
 
 /**
  * Parse agreed_rate text to integer pence.
- * Accepts formats like "£250", "250.00", "250", "$1,200.50".
- * Returns null if unparseable.
+ * Returns { pence, needsReview } — needsReview is true when the string contains
+ * more than one number (e.g. "£250-300") or when parsing fails.
  */
-function parseRatePence(agreedRate: string | null | undefined): number | null {
-  if (!agreedRate) return null;
-  const cleaned = agreedRate.replace(/[^0-9.]/g, "");
-  const n = parseFloat(cleaned);
-  if (isNaN(n)) return null;
-  return Math.round(n * 100);
+function parseRatePence(agreedRate: string | null | undefined): {
+  pence: number | null;
+  needsReview: boolean;
+} {
+  if (!agreedRate) return { pence: null, needsReview: false };
+  // Ambiguous: two or more digit groups (e.g. "250-300", "£250 - £300")
+  const digitGroups = agreedRate.match(/\d+(?:\.\d+)?/g) ?? [];
+  if (digitGroups.length > 1) return { pence: null, needsReview: true };
+  const n = parseFloat(digitGroups[0] ?? "");
+  if (isNaN(n)) return { pence: null, needsReview: true };
+  return { pence: Math.round(n * 100), needsReview: false };
+}
+
+/** Number of calendar days in a date range (inclusive), minimum 1. */
+function daySpan(start: string, end: string | null | undefined): number {
+  if (!end || end <= start) return 1;
+  const ms = new Date(end + "T00:00:00Z").getTime() - new Date(start + "T00:00:00Z").getTime();
+  return Math.max(1, Math.round(ms / 86_400_000) + 1);
 }
 
 /**
@@ -35,9 +48,12 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
   try {
     const existing = await storage.getEarningsEntryByBooking(booking.id);
 
-    const grossPence = parseRatePence(booking.agreedRate);
+    const { pence: ratePence, needsReview } = parseRatePence(booking.agreedRate);
     const workDate = job.event_date ?? booking.createdAt.toISOString().slice(0, 10);
     const currency = booking.currency ?? job.currency ?? "GBP";
+    const days = daySpan(workDate, job.end_date);
+    const unitAmountPence = ratePence;
+    const grossPence = ratePence !== null ? ratePence * days : 0;
 
     // Resolve or create the client record for this employer
     const client = booking.employerId
@@ -48,9 +64,6 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
         )
       : await storage.findOrCreateClientByName(booking.freelancerId, job.company);
 
-    const needsReview = grossPence === null;
-    const safePence = grossPence ?? 0;
-
     if (existing) {
       // Only update if still in expected/draft state — don't overwrite manual edits
       if (existing.status === "expected") {
@@ -58,9 +71,13 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
           client_id: client.id,
           description: job.title,
           work_date: workDate,
-          gross_amount_pence: safePence,
+          work_end_date: job.end_date ?? null,
+          quantity: String(days),
+          unit: "day",
+          unit_amount_pence: unitAmountPence ?? undefined,
+          gross_amount_pence: grossPence,
           currency,
-          needs_review: needsReview,
+          needs_review: needsReview || ratePence === null,
         });
       }
       return;
@@ -72,10 +89,14 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
       client_id: client.id,
       description: job.title,
       work_date: workDate,
-      gross_amount_pence: safePence,
+      work_end_date: job.end_date ?? null,
+      quantity: String(days),
+      unit: "day",
+      unit_amount_pence: unitAmountPence ?? undefined,
+      gross_amount_pence: grossPence,
       currency,
       status: "expected",
-      needs_review: needsReview,
+      needs_review: needsReview || ratePence === null,
       archived: false,
     });
   } catch (err) {
@@ -170,6 +191,7 @@ export async function backfillEarningsForFreelancer(
         recruiter_id: jobs.recruiter_id,
         currency: jobs.currency,
         event_date: jobs.event_date,
+        end_date: jobs.end_date,
       },
     })
     .from(bookings)
@@ -177,7 +199,7 @@ export async function backfillEarningsForFreelancer(
     .where(
       and(
         eq(bookings.freelancerId, freelancerId),
-        inArray(bookings.status, ["completed", "confirmed"])
+        inArray(bookings.status, ["confirmed", "briefed", "completed"])
       )
     );
 
