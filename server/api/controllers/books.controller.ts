@@ -15,18 +15,47 @@ function taxYearParams(req: Request): { from: string; to: string } {
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 
+// Pence from paid invoices that have no linked earnings_entries row.
+// These arise when a blank invoice was marked paid before the auto-create
+// logic was added, or when the invoice was never tied to a booking.
+async function syntheticInvoicePence(
+  freelancerId: number,
+  from: string,
+  to: string
+): Promise<number> {
+  const [allInvoices, allEntries] = await Promise.all([
+    storage.getInvoicesByFreelancer(freelancerId),
+    storage.listEarningsEntries(freelancerId, { archived: false }),
+  ]);
+  const linkedInvoiceIds = new Set(allEntries.map((e) => e.invoice_id).filter(Boolean));
+  return allInvoices
+    .filter((inv) => {
+      if (inv.status !== "paid" || inv.archived) return false;
+      if (linkedInvoiceIds.has(inv.id)) return false;
+      const paidDate =
+        inv.paid_at instanceof Date
+          ? inv.paid_at.toISOString().slice(0, 10)
+          : typeof inv.paid_at === "string"
+            ? (inv.paid_at as string).slice(0, 10)
+            : null;
+      return paidDate && paidDate >= from && paidDate <= to;
+    })
+    .reduce((sum, inv) => sum + (inv.paid_amount_pence ?? inv.total_pence), 0);
+}
+
 export async function booksSummary(req: Request, res: Response) {
   try {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const [earnings, expensesData, mileagePence] = await Promise.all([
+    const [earnings, expensesData, mileagePence, extraPence] = await Promise.all([
       storage.earningsSummary(freelancerId, { basis: "cash", from, to }),
       storage.listExpensesForExport(freelancerId, from, to),
       storage.sumMileagePence(freelancerId, from, to),
+      syntheticInvoicePence(freelancerId, from, to),
     ]);
 
-    const earningsPence = earnings.total_pence - earnings.deductions_pence;
+    const earningsPence = earnings.total_pence - earnings.deductions_pence + extraPence;
 
     const expenseAllowablePence = expensesData.reduce((sum, e) => {
       const total = e.net_amount_pence + e.vat_amount_pence;
@@ -140,10 +169,12 @@ export async function booksMonthly(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const [earningsGroups, expensesRaw, mileageTrips] = await Promise.all([
+    const [earningsGroups, expensesRaw, mileageTrips, allInvoices, allEntries] = await Promise.all([
       storage.earningsSummary(freelancerId, { basis: "cash", from, to, groupBy: "month" }),
       storage.listExpensesForExport(freelancerId, from, to),
       storage.listMileageTrips(freelancerId, from, to),
+      storage.getInvoicesByFreelancer(freelancerId),
+      storage.listEarningsEntries(freelancerId, { archived: false }),
     ]);
 
     // Build month buckets from from/to range
@@ -159,6 +190,22 @@ export async function booksMonthly(req: Request, res: Response) {
     const earningsMap: Record<string, number> = {};
     for (const g of earningsGroups.groups ?? []) {
       earningsMap[g.label] = g.total_pence;
+    }
+
+    // Add synthetic pence from paid invoices with no linked entry, by paid month
+    const linkedInvoiceIds = new Set(allEntries.map((e) => e.invoice_id).filter(Boolean));
+    for (const inv of allInvoices) {
+      if (inv.status !== "paid" || inv.archived) continue;
+      if (linkedInvoiceIds.has(inv.id)) continue;
+      const paidDate =
+        inv.paid_at instanceof Date
+          ? inv.paid_at.toISOString().slice(0, 10)
+          : typeof inv.paid_at === "string"
+            ? (inv.paid_at as string).slice(0, 10)
+            : null;
+      if (!paidDate || paidDate < from || paidDate > to) continue;
+      const m = paidDate.slice(0, 7);
+      earningsMap[m] = (earningsMap[m] ?? 0) + (inv.paid_amount_pence ?? inv.total_pence);
     }
 
     // Expenses per month
