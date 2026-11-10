@@ -349,10 +349,6 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     const cashEntries = filteredEntries.filter(
       (e) => e.status === "paid" && e.paid_date && e.paid_date >= from && e.paid_date <= to
     );
-    const committedEntries = filteredEntries.filter(
-      (e) => e.status !== "paid" && e.status !== "written_off"
-    );
-
     // Filter invoices to period
     const filteredInvoices = invoices.filter(
       (inv) => inv.issue_date && inv.issue_date >= from && inv.issue_date <= to
@@ -378,7 +374,6 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     const netPence = (arr: typeof filteredEntries) =>
       arr.reduce((s, e) => s + e.gross_amount_pence - (e.deductions_pence ?? 0), 0);
     const receivedPence = netPence(cashEntries);
-    const committedPence = netPence(committedEntries);
     const totalExpensesPence = expenses.reduce((s, e) => {
       const total = e.net_amount_pence + e.vat_amount_pence;
       return s + Math.round((total * e.business_use_percent) / 100);
@@ -395,7 +390,6 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       ["Generated", new Date(new Date().toDateString() + " UTC"), "date"],
       ["", "", "spacer"],
       ["Received in period (cash basis)", receivedPence / 100, "money"],
-      ["Confirmed, not yet paid", committedPence / 100, "money"],
       ["", "", "spacer"],
       ["Expenses (allowable)", totalExpensesPence / 100, "money"],
       ["Mileage", totalMileagePence / 100, "money"],
@@ -466,7 +460,9 @@ export async function booksExportWorkbook(req: Request, res: Response) {
         e.status === "paid" && !!e.paid_date && e.paid_date >= from && e.paid_date <= to;
       return [
         e.work_date ? new Date(e.work_date + "T00:00:00Z") : null,
-        e.client_id ? (clientMap.get(e.client_id) ?? "") : ((e as any)._syntheticClientName ?? ""),
+        e.client_id
+          ? (clientMap.get(e.client_id) ?? "")
+          : (((e as Record<string, unknown>)._syntheticClientName as string) ?? ""),
         e.role_id ? (roleMap.get(e.role_id) ?? "") : "",
         e.description,
         e.unit,
@@ -528,18 +524,11 @@ export async function booksExportWorkbook(req: Request, res: Response) {
         return r;
       };
       const gbpCash = cashEntries.filter((e) => (e.currency ?? "GBP") === "GBP");
-      const gbpCommitted = committedEntries.filter((e) => (e.currency ?? "GBP") === "GBP");
       addTotalsRow(
         `Received in period (cash basis)${gbpOnly ? "" : " — GBP"}`,
         netPence(gbpCash) / 100,
         gbpCash.reduce((s, e) => s + e.gross_amount_pence, 0) / 100,
         gbpCash.reduce((s, e) => s + (e.deductions_pence ?? 0), 0) / 100
-      );
-      addTotalsRow(
-        `Confirmed, not yet paid${gbpOnly ? "" : " — GBP"}`,
-        netPence(gbpCommitted) / 100,
-        gbpCommitted.reduce((s, e) => s + e.gross_amount_pence, 0) / 100,
-        gbpCommitted.reduce((s, e) => s + (e.deductions_pence ?? 0), 0) / 100
       );
     }
 
