@@ -26,7 +26,8 @@ async function fetchImageBuffer(url: string): Promise<Buffer | null> {
         })
         .on("error", reject);
     });
-  } catch {
+  } catch (err) {
+    console.error("fetchImageBuffer failed for", url, err);
     return null;
   }
 }
@@ -472,17 +473,15 @@ export async function renderBlankTemplatePDF(
         fy += 11;
       }
       if (billingProfile.bank_sort_code) {
-        const masked = `XX-XX-${billingProfile.bank_sort_code.replace(/\D/g, "").slice(-2)}`;
-        doc.text(`Sort code: ${masked}`, L, fy);
+        doc.text(`Sort code: ${billingProfile.bank_sort_code}`, L, fy);
         fy += 11;
       }
       if (billingProfile.bank_account_number) {
-        doc.text(`Account: XXXX${billingProfile.bank_account_number.slice(-4)}`, L, fy);
+        doc.text(`Account: ${billingProfile.bank_account_number}`, L, fy);
         fy += 11;
       }
       if (billingProfile.bank_iban) {
-        const iban = billingProfile.bank_iban;
-        doc.text(`IBAN: ${iban.slice(0, 4)}****${iban.slice(-4)}`, L, fy);
+        doc.text(`IBAN: ${billingProfile.bank_iban}`, L, fy);
       }
     }
 
