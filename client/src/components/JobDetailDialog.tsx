@@ -218,7 +218,7 @@ export function JobDetailDialog({
           <div className="flex items-start justify-between gap-2 pr-6">
             <div>
               <DialogTitle className="text-lg font-bold leading-snug">
-                {entry.description ?? "Booked gig"}
+                {entry.description ?? "Booked job"}
               </DialogTitle>
               <p className="mt-0.5 text-sm text-muted-foreground">
                 {entry.client_name ? `${entry.client_name} · ` : ""}
@@ -371,11 +371,10 @@ export function JobDetailDialog({
           )}
         </div>
 
-        {/* No data hint for external gigs */}
         {!entry.booking_id && (
           <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
             <AlertCircle className="h-3 w-3" />
-            External gig — platform documents not available
+            Manually logged job — platform documents not available
           </p>
         )}
       </DialogContent>

@@ -177,7 +177,7 @@ function StatusBadge({ entry }: { entry: EarningsEntry }) {
 
 // ── Gig dialog (add / edit manual entries) ───────────────────────────────────
 
-function GigDialog({
+function JobDialog({
   open,
   onClose,
   editing,
@@ -234,7 +234,7 @@ function GigDialog({
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
-      toast({ title: editing ? "Gig updated" : "Gig added" });
+      toast({ title: editing ? "Job updated" : "Job added" });
       onClose();
     },
     onError: (e: Error) =>
@@ -266,7 +266,7 @@ function GigDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{editing ? "Edit gig" : "Add gig"}</DialogTitle>
+          <DialogTitle>{editing ? "Edit job" : "Add job"}</DialogTitle>
         </DialogHeader>
         <div className="py-2">
           <GigFormBody form={form} onChange={set} clients={clients} />
@@ -279,7 +279,7 @@ function GigDialog({
             onClick={handleSave}
             disabled={saveMutation.isPending || !form.description.trim() || !form.work_date}
           >
-            {editing ? "Save changes" : "Add gig"}
+            {editing ? "Save changes" : "Add job"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2674,7 +2674,7 @@ export function BooksTab() {
     | "clients"
     | "import"
   >(initialSection);
-  const [gigDialogOpen, setGigDialogOpen] = useState(false);
+  const [jobDialogOpen, setJobDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
   const [jobDetailEntryId, setJobDetailEntryId] = useState<number | null>(null);
   const [fromBooking, setFromBooking] = useState<UnloggedBooking | null>(null);
@@ -2816,7 +2816,7 @@ export function BooksTab() {
     setSection("invoices");
   };
 
-  const createInvoiceForGig = async (earningsEntryId: number) => {
+  const createInvoiceForJob = async (earningsEntryId: number) => {
     try {
       const [entry, otSummary, expensesData] = await Promise.all([
         apiRequest(`/api/earnings/${earningsEntryId}`),
@@ -2898,7 +2898,7 @@ export function BooksTab() {
     d.setFullYear(d.getFullYear() + 1);
     return d.toISOString().slice(0, 10);
   })();
-  const { data: scheduledGigs = [] } = useQuery<EarningsEntry[]>({
+  const { data: scheduledJobs = [] } = useQuery<EarningsEntry[]>({
     queryKey: ["/api/earnings/gigs", gigsFrom, gigsTo],
     queryFn: () => apiRequest(`/api/earnings/gigs?from=${gigsFrom}&to=${gigsTo}`),
     enabled: !!user?.id,
@@ -2928,17 +2928,17 @@ export function BooksTab() {
   const openAdd = () => {
     setEditingEntry(null);
     setFromBooking(null);
-    setGigDialogOpen(true);
+    setJobDialogOpen(true);
   };
   const openEdit = (e: EarningsEntry) => {
     setEditingEntry(e);
     setFromBooking(null);
-    setGigDialogOpen(true);
+    setJobDialogOpen(true);
   };
   const openFromBooking = (b: UnloggedBooking) => {
     setEditingEntry(null);
     setFromBooking(b);
-    setGigDialogOpen(true);
+    setJobDialogOpen(true);
   };
 
   const bookingDetailDialog = selectedBooking && (
@@ -3306,7 +3306,7 @@ export function BooksTab() {
                   </div>
                 )}
                 <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-800">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Gigs</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Jobs</p>
                   <p className="mt-1 text-xl font-bold tabular-nums">{summary.entry_count}</p>
                 </div>
               </div>
@@ -3325,7 +3325,7 @@ export function BooksTab() {
                         <span className="font-medium">{g.label}</span>
                         <div className="flex items-center gap-4">
                           <span className="text-xs text-muted-foreground">
-                            {g.entry_count} gig{g.entry_count !== 1 ? "s" : ""}
+                            {g.entry_count} job{g.entry_count !== 1 ? "s" : ""}
                           </span>
                           <span className="min-w-[80px] text-right font-semibold tabular-nums text-blue-700 dark:text-blue-300">
                             {formatPence(g.total_pence)}
@@ -3350,18 +3350,18 @@ export function BooksTab() {
       {/* ── Section 2: Booked jobs ── */}
       {(upcomingHired.length > 0 ||
         awaitingPaymentHired.length > 0 ||
-        scheduledGigs.length > 0) && (
+        scheduledJobs.length > 0) && (
         <Card className="overflow-hidden">
           <div className="border-l-4 border-indigo-500 bg-indigo-50/40 px-5 py-3 dark:bg-indigo-950/20">
             <div className="flex items-center gap-2">
               <Briefcase className="h-4 w-4 text-indigo-600" />
               <p className="font-semibold">My jobs</p>
               <span className="rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-bold text-white">
-                {upcomingHired.length + awaitingPaymentHired.length + scheduledGigs.length}
+                {upcomingHired.length + awaitingPaymentHired.length + scheduledJobs.length}
               </span>
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Jobs from the board and your own booked gigs
+              Jobs from the board and your own logged jobs
             </p>
           </div>
           <CardContent className="p-0">
@@ -3427,12 +3427,12 @@ export function BooksTab() {
                 ))}
               </div>
             )}
-            {scheduledGigs.length > 0 && (
+            {scheduledJobs.length > 0 && (
               <div>
                 <div className="bg-sky-50/60 px-5 py-1.5 text-xs font-semibold uppercase tracking-wide text-sky-700 dark:bg-sky-950/20 dark:text-sky-400">
-                  My booked gigs
+                  My booked jobs
                 </div>
-                {scheduledGigs.map((g, i) => {
+                {scheduledJobs.map((g, i) => {
                   const statusColor =
                     g.work_status === "confirmed"
                       ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
@@ -3449,7 +3449,7 @@ export function BooksTab() {
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
-                          {g.description ?? "Booked gig"}
+                          {g.description ?? "Booked job"}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {fmtDate(g.work_date)}
@@ -3537,7 +3537,7 @@ export function BooksTab() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-blue-600" />
-              <p className="font-semibold">Full gig log</p>
+              <p className="font-semibold">Job log</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {unloggedBookings.length > 0 && (
@@ -3557,13 +3557,13 @@ export function BooksTab() {
                 </div>
               )}
               <Button
-                data-help="books.earnings.addGig"
+                data-help="books.earnings.addJob"
                 size="sm"
                 className="h-7 text-xs"
                 onClick={openAdd}
               >
                 <Plus className="mr-1 h-3 w-3" />
-                Add gig
+                Add job
               </Button>
               <Button
                 data-help="books.earnings.sync"
@@ -3587,12 +3587,12 @@ export function BooksTab() {
               <BookOpen className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
               <p className="mb-1 font-medium text-muted-foreground">No entries yet</p>
               <p className="text-sm text-muted-foreground">
-                Add a gig manually, or use &ldquo;Sync&rdquo; to import completed EventLink
+                Add a job manually, or use &ldquo;Sync&rdquo; to import completed EventLink
                 bookings.
               </p>
               <Button className="mt-4" size="sm" onClick={openAdd}>
                 <Plus className="mr-1 h-3 w-3" />
-                Add your first gig
+                Add your first job
               </Button>
             </div>
           ) : (
@@ -3603,13 +3603,14 @@ export function BooksTab() {
                 .map((entry, i) => (
                   <div
                     key={entry.id}
-                    className={`flex items-center justify-between px-5 py-3 ${
+                    className={`flex cursor-pointer items-center justify-between px-5 py-3 hover:bg-muted/50 ${
                       entry.needs_review
                         ? "border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-950/20"
                         : i % 2 === 0
                           ? "bg-muted/30"
                           : ""
                     }`}
+                    onClick={() => setJobDetailEntryId(entry.id)}
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
@@ -3630,7 +3631,10 @@ export function BooksTab() {
                       <button
                         className="text-muted-foreground transition-colors hover:text-foreground"
                         title="Edit"
-                        onClick={() => openEdit(entry)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit(entry);
+                        }}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
@@ -3638,7 +3642,10 @@ export function BooksTab() {
                         <button
                           className="text-muted-foreground transition-colors hover:text-destructive"
                           title="Remove"
-                          onClick={() => archiveMutation.mutate(entry.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            archiveMutation.mutate(entry.id);
+                          }}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -3651,10 +3658,10 @@ export function BooksTab() {
         </CardContent>
       </Card>
 
-      <GigDialog
-        open={gigDialogOpen}
+      <JobDialog
+        open={jobDialogOpen}
         onClose={() => {
-          setGigDialogOpen(false);
+          setJobDialogOpen(false);
           setFromBooking(null);
         }}
         editing={editingEntry}
@@ -3680,7 +3687,7 @@ export function BooksTab() {
           onClose={() => setJobDetailEntryId(null)}
           onInvoice={() => {
             setJobDetailEntryId(null);
-            createInvoiceForGig(jobDetailEntryId!);
+            createInvoiceForJob(jobDetailEntryId!);
           }}
         />
       )}
