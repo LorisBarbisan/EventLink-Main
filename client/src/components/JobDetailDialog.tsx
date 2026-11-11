@@ -440,27 +440,49 @@ export function JobDetailDialog({
 
 // ── Documents sub-section ─────────────────────────────────────────────────────
 
+interface JobDoc {
+  id: number;
+  documentType: string;
+  fileName: string;
+  downloadUrl: string | null;
+}
+
 function DocumentsSection({ bookingId }: { bookingId: number }) {
-  const { data: docs = [] } = useQuery<
-    { id: number; document_type: string; file_name: string; file_url: string }[]
-  >({
-    queryKey: ["/api/bookings", bookingId, "documents"],
-    queryFn: () => apiRequest(`/api/bookings/${bookingId}/documents`),
+  const { data: booking } = useQuery<{ job: { id: number } }>({
+    queryKey: ["/api/bookings", bookingId],
+    queryFn: () => apiRequest(`/api/bookings/${bookingId}`),
   });
 
+  const jobId = booking?.job?.id;
+
+  const { data: docs = [] } = useQuery<JobDoc[]>({
+    queryKey: ["/api/job", jobId, "documents"],
+    queryFn: () => apiRequest(`/api/job/${jobId}/documents`),
+    enabled: !!jobId,
+  });
+
+  if (!jobId) return <span className="text-muted-foreground">Loading…</span>;
   if (docs.length === 0)
     return <span className="text-muted-foreground">No documents uploaded</span>;
 
   return (
-    <div className="space-y-1">
+    <div className="divide-y rounded-md border">
       {docs.map((d) => (
-        <div key={d.id} className="flex items-center gap-2 text-xs">
-          <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
-          <span className="capitalize text-muted-foreground">
-            {d.document_type.replace(/_/g, " ")}
+        <a
+          key={d.id}
+          href={d.downloadUrl ?? "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-muted/60"
+        >
+          <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="text-xs capitalize text-muted-foreground">
+            {d.documentType.replace(/_/g, " ")}
           </span>
-          <span className="max-w-40 truncate">{d.file_name}</span>
-        </div>
+          <span className="ml-auto max-w-40 truncate text-xs text-primary underline">
+            {d.fileName}
+          </span>
+        </a>
       ))}
     </div>
   );

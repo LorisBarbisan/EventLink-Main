@@ -2699,11 +2699,11 @@ export function BooksTab() {
   const topLevelVatRegistered = Boolean(topLevelBillingProfile?.vat_registered);
 
   const { data: selectedBookingDocs = [] } = useQuery<
-    { id: number; document_type: string; file_name: string; file_url: string }[]
+    { id: number; documentType: string; fileName: string; downloadUrl: string | null }[]
   >({
-    queryKey: ["/api/bookings", selectedBooking?.id, "documents"],
-    queryFn: () => apiRequest(`/api/bookings/${selectedBooking!.id}/documents`),
-    enabled: !!selectedBooking,
+    queryKey: ["/api/job", selectedBooking?.job_id, "documents"],
+    queryFn: () => apiRequest(`/api/job/${selectedBooking!.job_id}/documents`),
+    enabled: !!selectedBooking?.job_id,
   });
 
   const initialPrefill = (() => {
@@ -3074,17 +3074,17 @@ export function BooksTab() {
               {selectedBookingDocs.map((d) => (
                 <a
                   key={d.id}
-                  href={d.file_url}
+                  href={d.downloadUrl ?? "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-muted/60"
                 >
                   <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="text-xs capitalize text-muted-foreground">
-                    {d.document_type.replace(/_/g, " ")}
+                    {d.documentType.replace(/_/g, " ")}
                   </span>
                   <span className="ml-auto max-w-40 truncate text-xs text-primary underline">
-                    {d.file_name}
+                    {d.fileName}
                   </span>
                 </a>
               ))}
