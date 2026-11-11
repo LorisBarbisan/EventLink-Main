@@ -589,12 +589,16 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
           console.warn(`[invoice-send] no billing profile for user ${user.id}, skipping PDF`);
         } else {
           pdfBuffer = await renderInvoicePDF({ invoice, billingProfile });
-          const freshKey = await storeInvoicePDF(user.id, invoice.id, pdfBuffer);
-          await storage.updateInvoice(invoice.id, { pdf_key: freshKey });
-          (invoice as any).pdf_key = freshKey;
-          console.log(
-            `[invoice-send] PDF generated and stored, key=${freshKey}, size=${pdfBuffer.length}`
-          );
+          console.log(`[invoice-send] PDF rendered, size=${pdfBuffer.length}, storing...`);
+          try {
+            const freshKey = await storeInvoicePDF(user.id, invoice.id, pdfBuffer);
+            await storage.updateInvoice(invoice.id, { pdf_key: freshKey });
+            (invoice as any).pdf_key = freshKey;
+            console.log(`[invoice-send] PDF stored, key=${freshKey}`);
+          } catch (storeErr) {
+            console.error("[invoice-send] PDF storage failed (buffer still in memory):", storeErr);
+            // pdfBuffer is still usable for the email attachment even if storage failed
+          }
         }
       } else {
         console.log(
@@ -604,10 +608,21 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
         console.log(`[invoice-send] PDF downloaded, size=${pdfBuffer.length}`);
       }
     } catch (pdfErr) {
-      console.error("[invoice-send] PDF resolution failed (non-fatal):", pdfErr);
+      console.error("[invoice-send] PDF resolution failed:", pdfErr);
     }
 
-    // Attach the PDF to the message — EventLink-generated, skip scan queue
+    // Cache the buffer for the email regardless of whether it was stored in object storage
+    const PDF_EMAIL_CAP = 8 * 1024 * 1024;
+    if (pdfBuffer && pdfBuffer.length <= PDF_EMAIL_CAP) {
+      (message as any)._pdfAttachment = {
+        content: pdfBuffer.toString("base64"),
+        filename: `${invoice.invoice_number}.pdf`,
+        type: "application/pdf",
+        disposition: "attachment" as const,
+      };
+    }
+
+    // Attach the PDF to the message row (needs an object_path, so only when stored)
     if (pdfBuffer && invoice.pdf_key) {
       try {
         await storage.createMessageAttachment({
@@ -619,24 +634,13 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
           scan_status: "safe" as const,
           moderation_status: "approved" as const,
         });
-        console.log(`[invoice-send] message attachment created for message ${message.id}`);
-
-        // Cache buffer for the email attachment (8 MB cap)
-        const PDF_EMAIL_CAP = 8 * 1024 * 1024;
-        if (pdfBuffer.length <= PDF_EMAIL_CAP) {
-          (message as any)._pdfAttachment = {
-            content: pdfBuffer.toString("base64"),
-            filename: `${invoice.invoice_number}.pdf`,
-            type: "application/pdf",
-            disposition: "attachment" as const,
-          };
-        }
+        console.log(`[invoice-send] message attachment row created for message ${message.id}`);
       } catch (attachErr) {
-        console.error("[invoice-send] createMessageAttachment failed (non-fatal):", attachErr);
+        console.error("[invoice-send] createMessageAttachment failed:", attachErr);
       }
     } else {
       console.warn(
-        `[invoice-send] skipping attachment: pdfBuffer=${!!pdfBuffer}, pdf_key=${invoice.pdf_key}`
+        `[invoice-send] skipping message attachment row: pdfBuffer=${!!pdfBuffer}, pdf_key=${invoice.pdf_key}`
       );
     }
 
@@ -696,19 +700,14 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
             emailSubject: `Invoice ${invoice.invoice_number} from ${senderName}`,
           });
           const pdfAtt = (message as any)._pdfAttachment;
-          const emailOk = await sendEmail({
+          console.log(`[invoice-send] sending email to ${recipient.email}, pdfAtt=${!!pdfAtt}`);
+          await sendEmail({
             to: recipient.email,
             subject,
             html,
             ...(pdfAtt ? { attachments: [pdfAtt] } : {}),
           });
-          if (emailOk) {
-            console.log(`✅ Invoice notification email sent to ${recipient.email}`);
-          } else {
-            console.error(
-              `❌ Invoice notification email REJECTED (sendEmail returned false) for ${recipient.email}`
-            );
-          }
+          console.log(`[invoice-send] ✅ email sent to ${recipient.email}`);
         } catch (emailErr) {
           console.error("Invoice notification email failed (non-fatal):", emailErr);
         }

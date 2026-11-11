@@ -15,11 +15,11 @@ async function getUncachableSendGridClient() {
 }
 
 interface EmailAttachment {
-  content: string;           // base64-encoded file content
+  content: string; // base64-encoded file content
   filename: string;
-  type: string;              // MIME type
+  type: string; // MIME type
   disposition?: "attachment" | "inline";
-  contentId?: string;        // only for inline attachments
+  contentId?: string; // only for inline attachments
 }
 
 interface EmailParams {
@@ -37,6 +37,7 @@ const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB of base64-encoded conten
 
 function sanitizeFilename(name: string): string {
   // Strip path separators and control characters
+  // eslint-disable-next-line no-control-regex
   return name.replace(/[/\\]/g, "_").replace(/[\x00-\x1f\x7f]/g, "");
 }
 
@@ -57,8 +58,11 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
   try {
     const { client, fromEmail } = await getUncachableSendGridClient();
 
-    // Use connector's verified email as sender
-    const senderEmail = params.from || fromEmail;
+    // Use connector's verified email as sender (trim to guard against env var whitespace)
+    const senderEmail = (params.from || fromEmail).trim();
+    console.log(
+      `[sendEmail] from="${senderEmail}" to="${params.to}" subject="${params.subject?.substring(0, 60)}"`
+    );
 
     const emailData: any = {
       to: params.to,
