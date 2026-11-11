@@ -21,6 +21,7 @@ import type { Job, JobApplication } from "@shared/types";
 import {
   Banknote,
   Calendar,
+  CheckCircle,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -58,6 +59,7 @@ interface JobCardProps {
   onInvite?: (jobId: number) => void;
   onViewInvited?: (jobId: number) => void;
   onClose?: (jobId: number) => void;
+  onComplete?: (jobId: number) => void;
   onReopen?: (jobId: number) => void;
   onDuplicate?: (job: Job) => void;
   onViewDetail?: (jobId: number) => void;
@@ -79,6 +81,7 @@ export function JobCard({
   onInvite,
   onViewInvited,
   onClose,
+  onComplete,
   onReopen,
   onDuplicate,
   onViewDetail,
@@ -235,6 +238,7 @@ export function JobCard({
   };
 
   const isClosed = job.status === "closed";
+  const isCompleted = (job.status as string) === "completed";
   const isPosted = job.status === "active";
   const isUnposted = job.status === "private";
 
@@ -517,8 +521,48 @@ export function JobCard({
               </Button>
             )}
 
-            {/* 7. Close / Reopen */}
-            {!isClosed && onClose && (
+            {/* 7. Mark as complete */}
+            {!isClosed && !isCompleted && onComplete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Mark complete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Mark job as completed</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This marks &quot;{job.title}&quot; as completed. The job will no longer accept
+                      new applications. Are you sure?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-emerald-600 text-white hover:bg-emerald-700"
+                      onClick={() => onComplete(job.id)}
+                    >
+                      Mark complete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            {isCompleted && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-1 text-xs font-medium text-emerald-700">
+                <CheckCircle className="h-3.5 w-3.5" />
+                Completed
+              </span>
+            )}
+
+            {/* 8. Close / Reopen */}
+            {!isClosed && !isCompleted && onClose && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button

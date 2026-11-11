@@ -3093,19 +3093,17 @@ export function BooksTab() {
         )}
 
         <DialogFooter className="flex-col gap-2 sm:flex-row">
-          {selectedBooking.event_date && new Date(selectedBooking.event_date) < new Date() && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                openFromBooking(selectedBooking);
-                setSelectedBooking(null);
-              }}
-            >
-              <PoundSterling className="mr-1.5 h-3.5 w-3.5" />
-              Log payment
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              openFromBooking(selectedBooking);
+              setSelectedBooking(null);
+            }}
+          >
+            <PoundSterling className="mr-1.5 h-3.5 w-3.5" />
+            Log payment
+          </Button>
           <Button size="sm" onClick={() => createInvoiceForBooking(selectedBooking)}>
             <Receipt className="mr-1.5 h-3.5 w-3.5" />
             {findInvoiceForBooking(selectedBooking) ? "View / Edit invoice" : "Create invoice"}

@@ -436,6 +436,38 @@ export async function closeJob(req: Request, res: Response) {
   }
 }
 
+// Mark a job as completed (event happened successfully)
+export async function completeJob(req: Request, res: Response) {
+  try {
+    const jobId = parseInt(req.params.jobId);
+    if (Number.isNaN(jobId)) return res.status(400).json({ error: "Invalid job ID" });
+    if (!(req as any).user) return res.status(401).json({ error: "Not authenticated" });
+
+    const job = await storage.getJobById(jobId);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+
+    const effectiveId = (req as any).companyId ?? (req as any).user.id;
+    const isFreelancerOwner =
+      job.is_freelancer_posted && job.posted_by_user_id === (req as any).user.id;
+    if (
+      (req as any).user.role !== "admin" &&
+      job.recruiter_id !== effectiveId &&
+      !isFreelancerOwner
+    ) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    if ((job.status as string) === "completed")
+      return res.status(400).json({ error: "Job is already completed" });
+
+    const updatedJob = await storage.updateJob(jobId, { status: "completed" as any });
+    return res.json(updatedJob);
+  } catch (err) {
+    console.error("completeJob error:", err);
+    return res.status(500).json({ error: "Failed to complete job" });
+  }
+}
+
 // Reopen a closed job (sets status back to 'private' — not posted until recruiter manually publishes)
 export async function reopenJob(req: Request, res: Response) {
   try {

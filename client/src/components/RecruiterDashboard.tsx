@@ -597,6 +597,25 @@ export default function SimplifiedRecruiterDashboard() {
     },
   });
 
+  // Complete job mutation
+  const completeJobMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      return await apiRequest(`/api/jobs/${jobId}/complete`, { method: "PUT" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs/recruiter", effectiveCompanyId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      toast({ title: "Job completed", description: "The job has been marked as completed." });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to mark job as completed.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Helper functions
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -694,6 +713,10 @@ export default function SimplifiedRecruiterDashboard() {
 
   const handleJobClose = (jobId: number) => {
     closeJobMutation.mutate(jobId);
+  };
+
+  const handleJobComplete = (jobId: number) => {
+    completeJobMutation.mutate(jobId);
   };
 
   const handleJobReopen = (jobId: number) => {
@@ -1140,6 +1163,7 @@ export default function SimplifiedRecruiterDashboard() {
                       onUnpublish={handleJobUnpublish}
                       onInvite={handleJobInvite}
                       onClose={handleJobClose}
+                      onComplete={handleJobComplete}
                       onReopen={handleJobReopen}
                       onDuplicate={handleJobDuplicate}
                       onViewDetail={setSelectedJobDetailId}

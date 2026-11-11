@@ -2,6 +2,7 @@ import type { Express, Request } from "express";
 import rateLimit from "express-rate-limit";
 import {
   closeJob,
+  completeJob,
   createJob,
   createFreelancerJob,
   deleteJob,
@@ -90,6 +91,9 @@ export function registerJobRoutes(app: Express) {
 
   // Close job manually
   app.put("/api/jobs/:jobId/close", authenticateJWT, resolveCompanyId, closeJob);
+
+  // Mark job as completed (event happened successfully)
+  app.put("/api/jobs/:jobId/complete", authenticateJWT, resolveCompanyId, completeJob);
 
   // Reopen a closed job (resets to private/unposted)
   app.put("/api/jobs/:jobId/reopen", authenticateJWT, resolveCompanyId, reopenJob);
