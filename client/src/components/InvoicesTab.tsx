@@ -682,6 +682,19 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
 
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [clientSource, setClientSource] = useState<string | null>(null);
+
+  // Reverse-match the invoice's existing to_details.company against saved clients
+  // so the picker shows the right selection when reopening a draft.
+  useEffect(() => {
+    if (!clientOptions.length || selectedClientId !== null) return;
+    const company = invoice.to_details?.company?.trim();
+    if (!company) return;
+    const match = clientOptions.find((c) => c.name.trim().toLowerCase() === company.toLowerCase());
+    if (match) {
+      setSelectedClientId(match.id);
+      setClientSource(match.name);
+    }
+  }, [clientOptions, invoice.to_details?.company]);
   const [poNumber, setPoNumber] = useState(invoice.po_number ?? "");
 
   const applyClient = (clientId: number) => {
