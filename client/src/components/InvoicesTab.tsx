@@ -1489,6 +1489,13 @@ function InvoiceRow({
 
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
+export interface InvoicePrefillLineItem {
+  description: string;
+  rate_type: string;
+  quantity: number;
+  unit_price_pence: number;
+}
+
 export interface InvoicePrefill {
   openInvoiceId?: number; // open an existing invoice directly
   bookingId?: number | null;
@@ -1497,6 +1504,7 @@ export interface InvoicePrefill {
   toCompany?: string;
   lineDescription?: string;
   ratePence?: number | null;
+  lineItems?: InvoicePrefillLineItem[];
   issueDate?: string;
 }
 
@@ -1716,7 +1724,15 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
         };
         if (prefillBooking.bookingId) patch.booking_id = prefillBooking.bookingId;
         if (prefillBooking.jobId) patch.job_id = prefillBooking.jobId;
-        if (prefillBooking.lineDescription || prefillBooking.ratePence) {
+        if (prefillBooking.lineItems && prefillBooking.lineItems.length > 0) {
+          patch.line_items = prefillBooking.lineItems;
+          const total = prefillBooking.lineItems.reduce(
+            (s, l) => s + l.unit_price_pence * l.quantity,
+            0
+          );
+          patch.subtotal_pence = total;
+          patch.total_pence = total;
+        } else if (prefillBooking.lineDescription || prefillBooking.ratePence) {
           patch.line_items = [
             {
               description: prefillBooking.lineDescription || "Services",

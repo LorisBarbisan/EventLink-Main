@@ -61,7 +61,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { KitTab } from "./KitTab";
-import { InvoicesTab, type InvoicePrefill } from "./InvoicesTab";
+import { InvoicesTab, type InvoicePrefill, type InvoicePrefillLineItem } from "./InvoicesTab";
 import { CalendarTab } from "./CalendarTab";
 import { JobDetailDialog } from "./JobDetailDialog";
 import { ClientsTab } from "./ClientsTab";
@@ -2818,6 +2818,63 @@ export function BooksTab() {
     setSection("invoices");
   };
 
+  const createInvoiceForGig = async (earningsEntryId: number) => {
+    try {
+      const [entry, otSummary, expensesData] = await Promise.all([
+        apiRequest(`/api/earnings/${earningsEntryId}`),
+        apiRequest(`/api/earnings/entries/${earningsEntryId}/time/summary`).catch(() => null),
+        apiRequest(
+          `/api/expenses?earnings_entry_id=${earningsEntryId}&billable_to_client=true&page=1`
+        ).catch(() => null),
+      ]);
+
+      const lineItems: InvoicePrefillLineItem[] = [];
+
+      // Base fee line
+      lineItems.push({
+        description: entry.description ?? "Services",
+        rate_type: "flat",
+        quantity: 1,
+        unit_price_pence: entry.gross_amount_pence ?? 0,
+      });
+
+      // Overtime line (if any suggested)
+      if (otSummary?.overtime_pence_suggested && otSummary.overtime_pence_suggested > 0) {
+        const otHours = otSummary.overtime_hours_suggested ?? 0;
+        lineItems.push({
+          description: `Overtime (${otHours.toFixed(2)}h)`,
+          rate_type: "flat",
+          quantity: 1,
+          unit_price_pence: otSummary.overtime_pence_suggested,
+        });
+      }
+
+      // Billable expense lines
+      const expenses: Array<{
+        description: string;
+        net_amount_pence: number;
+        vat_amount_pence: number;
+      }> = expensesData?.expenses ?? [];
+      for (const exp of expenses) {
+        lineItems.push({
+          description: exp.description,
+          rate_type: "flat",
+          quantity: 1,
+          unit_price_pence: exp.net_amount_pence + (exp.vat_amount_pence ?? 0),
+        });
+      }
+
+      setInvoicePrefill({
+        toName: entry.client_name ?? "",
+        lineItems,
+        issueDate: new Date().toISOString().slice(0, 10),
+      });
+      setSection("invoices");
+    } catch {
+      toast({ title: "Could not build invoice", variant: "destructive" });
+    }
+  };
+
   const unloggedBookings = allBookings.filter(
     (b: any) => !b.earnings_entry_id && b.event_date && new Date(b.event_date) < new Date()
   );
@@ -3625,7 +3682,7 @@ export function BooksTab() {
           onClose={() => setJobDetailEntryId(null)}
           onInvoice={() => {
             setJobDetailEntryId(null);
-            setSection("invoices");
+            createInvoiceForGig(jobDetailEntryId!);
           }}
         />
       )}
