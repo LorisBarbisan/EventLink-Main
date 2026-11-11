@@ -446,13 +446,24 @@ export async function completeJob(req: Request, res: Response) {
     const job = await storage.getJobById(jobId);
     if (!job) return res.status(404).json({ error: "Job not found" });
 
-    const effectiveId = (req as any).companyId ?? (req as any).user.id;
-    const isFreelancerOwner =
-      job.is_freelancer_posted && job.posted_by_user_id === (req as any).user.id;
+    const userId = (req as any).user.id;
+    const effectiveId = (req as any).companyId ?? userId;
+    const isFreelancerOwner = job.is_freelancer_posted && job.posted_by_user_id === userId;
+
+    // Also allow a freelancer who has a hired booking on this job
+    let isHiredFreelancer = false;
+    if ((req as any).user.role === "freelancer") {
+      const applications = await storage.getJobApplications(jobId);
+      isHiredFreelancer = applications.some(
+        (a) => a.freelancer_id === userId && a.status === "hired"
+      );
+    }
+
     if (
       (req as any).user.role !== "admin" &&
       job.recruiter_id !== effectiveId &&
-      !isFreelancerOwner
+      !isFreelancerOwner &&
+      !isHiredFreelancer
     ) {
       return res.status(403).json({ error: "Not authorized" });
     }

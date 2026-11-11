@@ -22,6 +22,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -2650,20 +2661,27 @@ export function BooksTab() {
       "clients",
       "import",
     ];
-    return (valid.includes(p ?? "") ? p : "overview") as
-      | "overview"
-      | "earnings"
-      | "expenses"
-      | "mileage"
-      | "time"
-      | "kit"
-      | "calendar"
-      | "invoices"
-      | "clients"
-      | "import";
-  })();
+    if (valid.includes(p ?? "")) return p as (typeof valid)[number];
+    try {
+      const saved = sessionStorage.getItem("booksTab.section");
+      if (saved && valid.includes(saved)) return saved as (typeof valid)[number];
+    } catch {
+      /* sessionStorage unavailable */
+    }
+    return "overview" as (typeof valid)[number];
+  })() as
+    | "overview"
+    | "earnings"
+    | "expenses"
+    | "mileage"
+    | "time"
+    | "kit"
+    | "calendar"
+    | "invoices"
+    | "clients"
+    | "import";
 
-  const [section, setSection] = useState<
+  const [section, setSectionRaw] = useState<
     | "overview"
     | "earnings"
     | "expenses"
@@ -2675,6 +2693,14 @@ export function BooksTab() {
     | "clients"
     | "import"
   >(initialSection);
+  const setSection = (s: typeof section) => {
+    try {
+      sessionStorage.setItem("booksTab.section", s);
+    } catch {
+      /* sessionStorage unavailable */
+    }
+    setSectionRaw(s);
+  };
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
   const [jobDetailEntryId, setJobDetailEntryId] = useState<number | null>(null);
@@ -2785,6 +2811,23 @@ export function BooksTab() {
     queryKey: ["/api/jobs", selectedJobId],
     queryFn: () => (selectedJobId ? apiRequest(`/api/jobs/${selectedJobId}`) : null),
     enabled: !!selectedJobId,
+  });
+
+  const completeJobMutation = useMutation({
+    mutationFn: (jobId: number) => apiRequest(`/api/jobs/${jobId}/complete`, { method: "PUT" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/freelancer", user?.id, "bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
+      toast({ title: "Job marked as completed" });
+      setSelectedBooking(null);
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Error",
+        description: err?.message || "Failed to mark job as completed.",
+        variant: "destructive",
+      });
+    },
   });
 
   const createInvoiceForBooking = (b: UnloggedBooking) => {
@@ -3093,6 +3136,38 @@ export function BooksTab() {
         )}
 
         <DialogFooter className="flex-col gap-2 sm:flex-row">
+          {selectedBooking.job_id && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                >
+                  <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                  Mark as complete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Mark job as completed</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This marks &quot;{selectedBooking.job_title}&quot; as completed. The employer
+                    will be notified. Are you sure?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-emerald-600 text-white hover:bg-emerald-700"
+                    onClick={() => completeJobMutation.mutate(selectedBooking.job_id!)}
+                  >
+                    Mark complete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           <Button
             variant="outline"
             size="sm"
