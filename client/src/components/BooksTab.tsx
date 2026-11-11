@@ -63,6 +63,7 @@ import {
 import { KitTab } from "./KitTab";
 import { InvoicesTab, type InvoicePrefill } from "./InvoicesTab";
 import { CalendarTab } from "./CalendarTab";
+import { JobDetailDialog } from "./JobDetailDialog";
 import { ClientsTab } from "./ClientsTab";
 import { ImportWizard } from "./ImportWizard";
 import { type GigForm, EMPTY_GIG_FORM, GigFormBody } from "./GigFormFields";
@@ -120,6 +121,7 @@ interface EarningsEntry {
   work_status?: string | null;
   call_time?: string | null;
   venue_address?: string | null;
+  booking_id?: number | null;
 }
 
 interface SummaryGroup {
@@ -2676,6 +2678,7 @@ export function BooksTab() {
   >(initialSection);
   const [gigDialogOpen, setGigDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
+  const [jobDetailEntryId, setJobDetailEntryId] = useState<number | null>(null);
   const [fromBooking, setFromBooking] = useState<UnloggedBooking | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<UnloggedBooking | null>(null);
 
@@ -3128,7 +3131,10 @@ export function BooksTab() {
     return (
       <div className="space-y-4">
         {sectionSwitcher}
-        <CalendarTab onInvoice={(b) => createInvoiceForHiredBooking(b)} />
+        <CalendarTab
+          onInvoice={(b) => createInvoiceForHiredBooking(b)}
+          onJobDetail={(entryId) => setJobDetailEntryId(entryId)}
+        />
       </div>
     );
   }
@@ -3408,6 +3414,15 @@ export function BooksTab() {
                         >
                           {g.work_status}
                         </span>
+                        <button
+                          className="rounded px-2 py-0.5 text-xs font-medium text-sky-600 hover:bg-sky-100 dark:text-sky-400 dark:hover:bg-sky-900/30"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setJobDetailEntryId(g.id);
+                          }}
+                        >
+                          Details
+                        </button>
                       </div>
                     </div>
                   );
@@ -3603,6 +3618,17 @@ export function BooksTab() {
         jobApplicationId={fromBooking?.id}
       />
       {bookingDetailDialog}
+
+      {jobDetailEntryId !== null && (
+        <JobDetailDialog
+          earningsEntryId={jobDetailEntryId}
+          onClose={() => setJobDetailEntryId(null)}
+          onInvoice={() => {
+            setJobDetailEntryId(null);
+            setSection("invoices");
+          }}
+        />
+      )}
     </div>
   );
 }

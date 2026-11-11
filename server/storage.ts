@@ -907,7 +907,15 @@ export interface IStorage {
   // ── Expenses ────────────────────────────────────────────────────────────────
   listExpenses(
     freelancerId: number,
-    opts: { from?: string; to?: string; category_id?: number; booking_id?: number; page?: number }
+    opts: {
+      from?: string;
+      to?: string;
+      category_id?: number;
+      booking_id?: number;
+      earnings_entry_id?: number;
+      billable_to_client?: boolean;
+      page?: number;
+    }
   ): Promise<{ expenses: Expense[]; total: number }>;
   getExpense(id: number): Promise<Expense | undefined>;
   createExpense(data: InsertExpense): Promise<Expense>;
@@ -940,7 +948,12 @@ export interface IStorage {
   listSavedPlaces(freelancerId: number): Promise<SavedPlace[]>;
   createSavedPlace(data: InsertSavedPlace): Promise<SavedPlace>;
   deleteSavedPlace(id: number, freelancerId: number): Promise<void>;
-  listMileageTrips(freelancerId: number, from: string, to: string): Promise<MileageTrip[]>;
+  listMileageTrips(
+    freelancerId: number,
+    from: string,
+    to: string,
+    opts?: { earnings_entry_id?: number }
+  ): Promise<MileageTrip[]>;
   createMileageTrip(data: InsertMileageTrip): Promise<MileageTrip>;
   updateMileageTrip(
     id: number,
@@ -7243,7 +7256,15 @@ export class DatabaseStorage implements IStorage {
 
   async listExpenses(
     freelancerId: number,
-    opts: { from?: string; to?: string; category_id?: number; booking_id?: number; page?: number }
+    opts: {
+      from?: string;
+      to?: string;
+      category_id?: number;
+      booking_id?: number;
+      earnings_entry_id?: number;
+      billable_to_client?: boolean;
+      page?: number;
+    }
   ): Promise<{ expenses: Expense[]; total: number }> {
     const PAGE_SIZE = 50;
     const offset = ((opts.page ?? 1) - 1) * PAGE_SIZE;
@@ -7253,6 +7274,10 @@ export class DatabaseStorage implements IStorage {
     if (opts.to) conditions.push(lte(expenses.expense_date, opts.to));
     if (opts.category_id) conditions.push(eq(expenses.category_id, opts.category_id));
     if (opts.booking_id) conditions.push(eq(expenses.booking_id, opts.booking_id));
+    if (opts.earnings_entry_id)
+      conditions.push(eq(expenses.earnings_entry_id, opts.earnings_entry_id));
+    if (opts.billable_to_client !== undefined)
+      conditions.push(eq(expenses.billable_to_client, opts.billable_to_client));
 
     const where = and(...conditions);
 
@@ -7431,18 +7456,24 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(saved_places.id, id), eq(saved_places.freelancer_id, freelancerId)));
   }
 
-  async listMileageTrips(freelancerId: number, from: string, to: string): Promise<MileageTrip[]> {
+  async listMileageTrips(
+    freelancerId: number,
+    from: string,
+    to: string,
+    opts?: { earnings_entry_id?: number }
+  ): Promise<MileageTrip[]> {
+    const conditions = [
+      eq(mileage_trips.freelancer_id, freelancerId),
+      eq(mileage_trips.archived, false),
+      sql`${mileage_trips.trip_date} >= ${from}::date`,
+      sql`${mileage_trips.trip_date} <= ${to}::date`,
+    ];
+    if (opts?.earnings_entry_id)
+      conditions.push(eq(mileage_trips.earnings_entry_id, opts.earnings_entry_id));
     return db
       .select()
       .from(mileage_trips)
-      .where(
-        and(
-          eq(mileage_trips.freelancer_id, freelancerId),
-          eq(mileage_trips.archived, false),
-          sql`${mileage_trips.trip_date} >= ${from}::date`,
-          sql`${mileage_trips.trip_date} <= ${to}::date`
-        )
-      )
+      .where(and(...conditions))
       .orderBy(desc(mileage_trips.trip_date));
   }
 

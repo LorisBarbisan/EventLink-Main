@@ -659,10 +659,12 @@ function GigEditDialog({
   gig,
   clients,
   onClose,
+  onJobDetail,
 }: {
   gig: GigEntry;
   clients: Array<{ id: number; name: string }>;
   onClose: () => void;
+  onJobDetail?: (entryId: number) => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -728,6 +730,18 @@ function GigEditDialog({
           <GigFormBody form={form} onChange={set} clients={clients} />
         </div>
         <DialogFooter>
+          {onJobDetail && (
+            <Button
+              variant="ghost"
+              className="mr-auto"
+              onClick={() => {
+                onJobDetail(gig.id);
+                onClose();
+              }}
+            >
+              View details
+            </Button>
+          )}
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
@@ -747,8 +761,10 @@ function GigEditDialog({
 
 export function CalendarTab({
   onInvoice,
+  onJobDetail,
 }: {
   onInvoice?: (b: HiredBookingForCalendar) => void;
+  onJobDetail?: (entryId: number) => void;
 } = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1194,7 +1210,12 @@ export function CalendarTab({
       )}
 
       {gigDialog && (
-        <GigEditDialog gig={gigDialog} clients={gigClients} onClose={() => setGigDialog(null)} />
+        <GigEditDialog
+          gig={gigDialog}
+          clients={gigClients}
+          onClose={() => setGigDialog(null)}
+          onJobDetail={onJobDetail}
+        />
       )}
     </div>
   );

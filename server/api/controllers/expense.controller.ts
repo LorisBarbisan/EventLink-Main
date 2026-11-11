@@ -53,13 +53,17 @@ export async function updateCategory(req: Request, res: Response) {
 
 export async function listExpenses(req: Request, res: Response) {
   const freelancerId = req.user!.id;
-  const { from, to, category_id, booking_id, page } = req.query;
+  const { from, to, category_id, booking_id, earnings_entry_id, billable_to_client, page } =
+    req.query;
 
   const result = await storage.listExpenses(freelancerId, {
     from: from as string | undefined,
     to: to as string | undefined,
     category_id: category_id ? parseInt(category_id as string) : undefined,
     booking_id: booking_id ? parseInt(booking_id as string) : undefined,
+    earnings_entry_id: earnings_entry_id ? parseInt(earnings_entry_id as string) : undefined,
+    billable_to_client:
+      billable_to_client !== undefined ? billable_to_client === "true" : undefined,
     page: page ? parseInt(page as string) : 1,
   });
 

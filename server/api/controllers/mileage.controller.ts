@@ -49,7 +49,19 @@ export async function deleteSavedPlace(req: Request, res: Response) {
 
 export async function listTrips(req: Request, res: Response) {
   const { from, to } = taxYearParams(req);
-  const rows = await storage.listMileageTrips(req.user!.id, from, to);
+  const earnings_entry_id = req.query.earnings_entry_id
+    ? parseInt(req.query.earnings_entry_id as string)
+    : undefined;
+  const opts = earnings_entry_id ? { earnings_entry_id } : undefined;
+  if (earnings_entry_id) {
+    // When filtering by job, return all matching trips regardless of date range
+    const rows = await storage.listMileageTrips(req.user!.id, "2000-01-01", "2100-01-01", {
+      earnings_entry_id,
+    });
+    const total_pence = rows.reduce((s, r) => s + (r.amount_pence ?? 0), 0);
+    return res.json({ trips: rows, total_pence });
+  }
+  const rows = await storage.listMileageTrips(req.user!.id, from, to, opts);
   const total_pence = await storage.sumMileagePence(req.user!.id, from, to);
   return res.json({ trips: rows, total_pence });
 }
