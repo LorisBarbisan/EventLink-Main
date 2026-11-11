@@ -395,6 +395,7 @@ router.patch("/:id", auth, async (req: Request, res: Response) => {
       venue_address,
       role_id,
       venue,
+      invoice_id,
     } = req.body;
 
     const updates: Record<string, unknown> = {};
@@ -414,6 +415,8 @@ router.patch("/:id", auth, async (req: Request, res: Response) => {
     if (venue_address !== undefined) updates.venue_address = venue_address;
     if (role_id !== undefined) updates.role_id = role_id;
     if (venue !== undefined) updates.venue = venue;
+    if (invoice_id !== undefined)
+      updates.invoice_id = invoice_id === null ? null : Number(invoice_id);
 
     if (client_name !== undefined) {
       if (client_name?.trim()) {

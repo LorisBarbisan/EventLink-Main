@@ -2877,6 +2877,7 @@ export function BooksTab() {
         toName: entry.client_name ?? "",
         lineItems,
         issueDate: new Date().toISOString().slice(0, 10),
+        earningsEntryId: earningsEntryId,
       });
       setSection("invoices");
     } catch {

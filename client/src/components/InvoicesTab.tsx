@@ -1517,6 +1517,7 @@ export interface InvoicePrefill {
   openInvoiceId?: number; // open an existing invoice directly
   bookingId?: number | null;
   jobId?: number | null; // direct job link (job board applications)
+  earningsEntryId?: number | null; // manual job → link invoice_id back onto the entry
   toName?: string;
   toCompany?: string;
   lineDescription?: string;
@@ -1765,6 +1766,13 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
           method: "PATCH",
           body: JSON.stringify(patch),
         });
+        // For manual jobs, write invoice_id back onto the earnings entry immediately
+        if (prefillBooking.earningsEntryId) {
+          apiRequest(`/api/earnings/${prefillBooking.earningsEntryId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ invoice_id: patched.id }),
+          }).catch(() => {});
+        }
         queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
         setEditingInvoice(patched);
       } catch {
