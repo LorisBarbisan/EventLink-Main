@@ -579,6 +579,21 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
     if (!parsed.success) return res.status(400).json({ error: "Invalid message data" });
     const message = await storage.sendMessage(parsed.data);
 
+    // Ensure the invoice has a PDF — blank invoices skip PDF generation at create time
+    if (!invoice.pdf_key) {
+      try {
+        const billingProfile = await storage.getBillingProfile(user.id);
+        if (billingProfile) {
+          const freshPdf = await renderInvoicePDF({ invoice, billingProfile });
+          const freshKey = await storeInvoicePDF(user.id, invoice.id, freshPdf);
+          await storage.updateInvoice(invoice.id, { pdf_key: freshKey });
+          (invoice as any).pdf_key = freshKey;
+        }
+      } catch (pdfGenErr) {
+        console.error("Invoice PDF generation on send failed (non-fatal):", pdfGenErr);
+      }
+    }
+
     // Attach the PDF — this is EventLink-generated, not user-uploaded; skip scan queue
     if (invoice.pdf_key) {
       try {
@@ -628,12 +643,7 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
           conversation.id
         );
         wsService.broadcastConversationUpdated(recipientUserId, conversation.id);
-        wsService.broadcastNewMessage(
-          user.id,
-          message,
-          { first_name: null, last_name: null, company_name: null },
-          conversation.id
-        );
+        // Sender only needs a conversation-list refresh, not a "new message" notification
         wsService.broadcastConversationUpdated(user.id, conversation.id);
       } catch (wsErr) {
         console.error("Invoice WS broadcast failed (non-fatal):", wsErr);
@@ -670,13 +680,19 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
             emailSubject: `Invoice ${invoice.invoice_number} from ${senderName}`,
           });
           const pdfAtt = (message as any)._pdfAttachment;
-          await sendEmail({
+          const emailOk = await sendEmail({
             to: recipient.email,
             subject,
             html,
             ...(pdfAtt ? { attachments: [pdfAtt] } : {}),
           });
-          console.log(`✅ Invoice notification email sent to ${recipient.email}`);
+          if (emailOk) {
+            console.log(`✅ Invoice notification email sent to ${recipient.email}`);
+          } else {
+            console.error(
+              `❌ Invoice notification email REJECTED (sendEmail returned false) for ${recipient.email}`
+            );
+          }
         } catch (emailErr) {
           console.error("Invoice notification email failed (non-fatal):", emailErr);
         }
