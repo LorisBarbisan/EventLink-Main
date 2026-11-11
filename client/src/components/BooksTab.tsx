@@ -3477,7 +3477,7 @@ export function BooksTab() {
                     <div className="ml-3 flex shrink-0 items-center gap-2">
                       {b.rate && (
                         <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
-                          {b.rate}
+                          {/^\d/.test(b.rate.trim()) ? `£${b.rate.trim()}` : b.rate.trim()}
                         </span>
                       )}
                       {isPast ? (
