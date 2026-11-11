@@ -379,39 +379,37 @@ function ExpenseDialog({
     queryFn: () => apiRequest("/api/earnings/jobs"),
   });
 
-  // Reset when dialog opens
-  useState(() => {
-    if (open) {
-      if (editing) {
-        setForm({
-          description: editing.description,
-          supplier: editing.supplier ?? "",
-          expense_date: editing.expense_date.slice(0, 10),
-          net_amount: (editing.net_amount_pence / 100).toFixed(2),
-          category_id: editing.category_id ? String(editing.category_id) : "",
-          job_id: editing.earnings_entry_id ? String(editing.earnings_entry_id) : "",
-          vat_amount:
-            editing.vat_amount_pence > 0 ? (editing.vat_amount_pence / 100).toFixed(2) : "",
-          business_use_percent: String(editing.business_use_percent),
-          payment_method: editing.payment_method ?? "",
-          billable_to_client: editing.billable_to_client,
-          notes: editing.notes ?? "",
-        });
-        setMoreOpen(
-          editing.vat_amount_pence > 0 ||
-            editing.business_use_percent < 100 ||
-            !!editing.payment_method ||
-            editing.billable_to_client
-        );
-      } else {
-        const base = emptyExpenseForm(lastCategoryRef.current || undefined);
-        setForm({ ...base, ...prefill });
-        setMoreOpen(false);
-        // Focus amount field after render
-        setTimeout(() => amountRef.current?.focus(), 50);
-      }
+  // Seed / reset form whenever the dialog opens or the expense being edited changes
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setForm({
+        description: editing.description,
+        supplier: editing.supplier ?? "",
+        expense_date: editing.expense_date.slice(0, 10),
+        net_amount: (editing.net_amount_pence / 100).toFixed(2),
+        category_id: editing.category_id ? String(editing.category_id) : "",
+        job_id: editing.earnings_entry_id ? String(editing.earnings_entry_id) : "",
+        vat_amount: editing.vat_amount_pence > 0 ? (editing.vat_amount_pence / 100).toFixed(2) : "",
+        business_use_percent: String(editing.business_use_percent),
+        payment_method: editing.payment_method ?? "",
+        billable_to_client: editing.billable_to_client,
+        notes: editing.notes ?? "",
+      });
+      setMoreOpen(
+        editing.vat_amount_pence > 0 ||
+          editing.business_use_percent < 100 ||
+          !!editing.payment_method ||
+          editing.billable_to_client
+      );
+    } else {
+      const base = emptyExpenseForm(lastCategoryRef.current || undefined);
+      setForm({ ...base, ...prefill });
+      setMoreOpen(false);
+      setTimeout(() => amountRef.current?.focus(), 50);
     }
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editing?.id]);
 
   const set = <K extends keyof ExpenseForm>(k: K, v: ExpenseForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
