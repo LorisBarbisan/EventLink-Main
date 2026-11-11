@@ -33,7 +33,19 @@ export function JobSelect({ value, onChange, label = "Link to a job (optional)" 
     queryFn: () => apiRequest("/api/earnings/jobs"),
   });
 
-  if (jobOptions.length === 0) return null;
+  if (jobOptions.length === 0) {
+    return (
+      <div className="space-y-1">
+        <Label>{label}</Label>
+        <Select disabled>
+          <SelectTrigger style={{ fontSize: "16px" }} className="text-muted-foreground">
+            <SelectValue placeholder="No jobs added yet" />
+          </SelectTrigger>
+          <SelectContent />
+        </Select>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1">
