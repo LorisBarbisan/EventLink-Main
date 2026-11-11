@@ -16,9 +16,10 @@ import NotificationItem from "./NotificationItem";
 
 interface NotificationSystemProps {
   userId: number;
+  dark?: boolean;
 }
 
-export function NotificationSystem({ userId }: NotificationSystemProps) {
+export function NotificationSystem({ userId, dark }: NotificationSystemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -203,7 +204,7 @@ export function NotificationSystem({ userId }: NotificationSystemProps) {
         variant="ghost"
         size="sm"
         onClick={() => setIsOpen(!isOpen)}
-        className="relative"
+        className={`relative ${dark ? "text-white hover:bg-white/10" : ""}`}
         data-testid="button-notifications"
       >
         <Bell className="h-5 w-5" />

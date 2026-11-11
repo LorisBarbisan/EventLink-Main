@@ -14,6 +14,7 @@ import {
   AlertCircle,
   CalendarCheck,
   CalendarX,
+  FileText,
   Loader2,
   Receipt,
   RefreshCw,
@@ -562,6 +563,12 @@ function BookingDetailDialog({
   hasInvoice?: boolean;
 }) {
   const statusColour = BOOKING_COLOURS[booking.booking.status] ?? "#6B7280";
+  const { data: docs = [] } = useQuery<
+    { id: number; document_type: string; file_name: string; file_url: string }[]
+  >({
+    queryKey: ["/api/bookings", booking.booking.id, "documents"],
+    queryFn: () => apiRequest(`/api/bookings/${booking.booking.id}/documents`),
+  });
   const employerName =
     [booking.employer.firstName, booking.employer.lastName].filter(Boolean).join(" ") ||
     booking.employer.companyName ||
@@ -624,6 +631,31 @@ function BookingDetailDialog({
             )}
           </div>
         </div>
+        {docs.length > 0 && (
+          <div className="text-sm">
+            <p className="mb-1.5 font-medium text-muted-foreground">Documents</p>
+            <div className="divide-y rounded-md border">
+              {docs.map((d) => (
+                <a
+                  key={d.id}
+                  href={d.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-muted/60"
+                >
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="text-xs capitalize text-muted-foreground">
+                    {d.document_type.replace(/_/g, " ")}
+                  </span>
+                  <span className="ml-auto max-w-40 truncate text-xs text-primary underline">
+                    {d.file_name}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
         <DialogFooter className="flex-col gap-2 sm:flex-row">
           {onInvoice && (
             <Button

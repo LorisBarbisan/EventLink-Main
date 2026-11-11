@@ -18,9 +18,8 @@ interface HeaderProps {
 }
 
 export const Header = ({ onFeedbackClick, dark = false }: HeaderProps) => {
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const isHomePage = location === "/";
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showInsuranceDialog, setShowInsuranceDialog] = useState(false);
   const insuranceAccess = useInsuranceAccess();
@@ -47,11 +46,7 @@ export const Header = ({ onFeedbackClick, dark = false }: HeaderProps) => {
 
   const navLinks = (
     <nav className="hidden items-center space-x-3 sm:flex lg:space-x-4 xl:space-x-6">
-      <Link
-        to="/jobs"
-        className={`whitespace-nowrap ${navLinkClass}`}
-        data-testid="link-jobs"
-      >
+      <Link to="/jobs" className={`whitespace-nowrap ${navLinkClass}`} data-testid="link-jobs">
         Find Jobs
       </Link>
       <Link
@@ -123,7 +118,7 @@ export const Header = ({ onFeedbackClick, dark = false }: HeaderProps) => {
 
       {user ? (
         <div className="flex items-center space-x-1 sm:space-x-2">
-          <NotificationSystem userId={user.id} />
+          <NotificationSystem userId={user.id} dark={dark} />
           <UserMenu />
         </div>
       ) : (
