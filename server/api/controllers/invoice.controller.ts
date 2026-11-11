@@ -579,26 +579,37 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
     if (!parsed.success) return res.status(400).json({ error: "Invalid message data" });
     const message = await storage.sendMessage(parsed.data);
 
-    // Ensure the invoice has a PDF — blank invoices skip PDF generation at create time
-    if (!invoice.pdf_key) {
-      try {
+    // Resolve PDF buffer — generate on the fly for blank invoices that have no stored PDF
+    let pdfBuffer: Buffer | null = null;
+    try {
+      if (!invoice.pdf_key) {
+        console.log(`[invoice-send] no pdf_key for invoice ${invoice.id}, generating now`);
         const billingProfile = await storage.getBillingProfile(user.id);
-        if (billingProfile) {
-          const freshPdf = await renderInvoicePDF({ invoice, billingProfile });
-          const freshKey = await storeInvoicePDF(user.id, invoice.id, freshPdf);
+        if (!billingProfile) {
+          console.warn(`[invoice-send] no billing profile for user ${user.id}, skipping PDF`);
+        } else {
+          pdfBuffer = await renderInvoicePDF({ invoice, billingProfile });
+          const freshKey = await storeInvoicePDF(user.id, invoice.id, pdfBuffer);
           await storage.updateInvoice(invoice.id, { pdf_key: freshKey });
           (invoice as any).pdf_key = freshKey;
+          console.log(
+            `[invoice-send] PDF generated and stored, key=${freshKey}, size=${pdfBuffer.length}`
+          );
         }
-      } catch (pdfGenErr) {
-        console.error("Invoice PDF generation on send failed (non-fatal):", pdfGenErr);
+      } else {
+        console.log(
+          `[invoice-send] downloading existing PDF for invoice ${invoice.id}, key=${invoice.pdf_key}`
+        );
+        pdfBuffer = await ObjectStorageService.downloadObjectBuffer(invoice.pdf_key);
+        console.log(`[invoice-send] PDF downloaded, size=${pdfBuffer.length}`);
       }
+    } catch (pdfErr) {
+      console.error("[invoice-send] PDF resolution failed (non-fatal):", pdfErr);
     }
 
-    // Attach the PDF — this is EventLink-generated, not user-uploaded; skip scan queue
-    if (invoice.pdf_key) {
+    // Attach the PDF to the message — EventLink-generated, skip scan queue
+    if (pdfBuffer && invoice.pdf_key) {
       try {
-        // Get size for the attachment record
-        const pdfBuffer = await ObjectStorageService.downloadObjectBuffer(invoice.pdf_key);
         await storage.createMessageAttachment({
           message_id: message.id,
           object_path: invoice.pdf_key,
@@ -608,9 +619,10 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
           scan_status: "safe" as const,
           moderation_status: "approved" as const,
         });
+        console.log(`[invoice-send] message attachment created for message ${message.id}`);
 
-        // Try to attach PDF to the notification email (fail soft)
-        const PDF_EMAIL_CAP = 8 * 1024 * 1024; // 8 MB
+        // Cache buffer for the email attachment (8 MB cap)
+        const PDF_EMAIL_CAP = 8 * 1024 * 1024;
         if (pdfBuffer.length <= PDF_EMAIL_CAP) {
           (message as any)._pdfAttachment = {
             content: pdfBuffer.toString("base64"),
@@ -620,8 +632,12 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
           };
         }
       } catch (attachErr) {
-        console.error("Invoice PDF attachment failed (non-fatal):", attachErr);
+        console.error("[invoice-send] createMessageAttachment failed (non-fatal):", attachErr);
       }
+    } else {
+      console.warn(
+        `[invoice-send] skipping attachment: pdfBuffer=${!!pdfBuffer}, pdf_key=${invoice.pdf_key}`
+      );
     }
 
     // Websocket push + in-app notification + email — mirrors the message controller path
