@@ -27,8 +27,10 @@ export async function getFreelancerBookings(req: Request, res: Response) {
     }
 
     const applications = await storage.getFreelancerApplications(freelancerId);
-    // Filter only hired applications for bookings
-    const bookings = applications.filter((app) => app.status === "hired");
+    // Include hired + completed applications so completed jobs remain visible
+    const bookings = applications.filter(
+      (app) => app.status === "hired" || (app.status as string) === "completed"
+    );
 
     res.json(bookings);
   } catch (error) {
