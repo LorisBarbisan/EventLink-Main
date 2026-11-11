@@ -3365,11 +3365,16 @@ export function BooksTab() {
             <div className="flex items-center gap-2">
               <Briefcase className="h-4 w-4 text-indigo-600" />
               <p className="font-semibold">My jobs</p>
-              {upcomingHired.length + awaitingPaymentHired.length + scheduledJobs.length > 0 && (
-                <span className="rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-bold text-white">
-                  {upcomingHired.length + awaitingPaymentHired.length + scheduledJobs.length}
-                </span>
-              )}
+              {(() => {
+                const todayStr = new Date().toISOString().slice(0, 10);
+                const count =
+                  upcomingHired.length + scheduledJobs.filter((g) => g.work_date > todayStr).length;
+                return count > 0 ? (
+                  <span className="rounded-full bg-indigo-500 px-2 py-0.5 text-xs font-bold text-white">
+                    {count}
+                  </span>
+                ) : null;
+              })()}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {unloggedBookings.length > 0 && (
@@ -3417,7 +3422,7 @@ export function BooksTab() {
           {(() => {
             // Normalise all job sources into a single list sorted by date
             type JobItem =
-              | { kind: "booking"; date: string; data: (typeof awaitingPaymentHired)[0] }
+              | { kind: "booking"; date: string; data: (typeof upcomingHired)[0] }
               | { kind: "entry"; date: string; data: (typeof scheduledJobs)[0] };
 
             const todayStr = new Date().toISOString().slice(0, 10);
