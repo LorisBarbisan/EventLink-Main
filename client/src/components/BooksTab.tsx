@@ -3457,10 +3457,14 @@ export function BooksTab() {
                       <p className="text-xs text-muted-foreground">
                         {b.company_name ? `${b.company_name} · ` : ""}
                         {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
-                        {b.rate ? ` · ${b.rate}` : ""}
                       </p>
                     </div>
-                    <div className="ml-3 flex items-center gap-2">
+                    <div className="ml-3 flex shrink-0 items-center gap-2">
+                      {b.rate && (
+                        <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                          {b.rate}
+                        </span>
+                      )}
                       {isPast ? (
                         <Button
                           size="sm"
