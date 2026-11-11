@@ -221,7 +221,7 @@ function JobDialog({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, editing?.id]);
 
   const set = (k: keyof GigForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -1306,24 +1306,24 @@ function TripDialog({
   });
 
   // Prime form when opening
-  useState(() => {
-    if (open) {
-      if (editing) {
-        setForm({
-          trip_date: editing.trip_date,
-          from_place: editing.from_place,
-          to_place: editing.to_place,
-          miles: String(editing.miles),
-          purpose: editing.purpose,
-          vehicle_type: editing.vehicle_type,
-          job_id: editing.earnings_entry_id ? String(editing.earnings_entry_id) : "",
-          notes: editing.notes ?? "",
-        });
-      } else {
-        setForm({ ...EMPTY_TRIP, trip_date: new Date().toISOString().slice(0, 10) });
-      }
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setForm({
+        trip_date: editing.trip_date,
+        from_place: editing.from_place,
+        to_place: editing.to_place,
+        miles: String(editing.miles),
+        purpose: editing.purpose,
+        vehicle_type: editing.vehicle_type,
+        job_id: editing.earnings_entry_id ? String(editing.earnings_entry_id) : "",
+        notes: editing.notes ?? "",
+      });
+    } else {
+      setForm({ ...EMPTY_TRIP, trip_date: new Date().toISOString().slice(0, 10) });
     }
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editing?.id]);
 
   const set =
     (k: keyof TripForm) =>

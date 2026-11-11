@@ -278,7 +278,8 @@ function BillingProfileModal({
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Pre-populate from existing profile when modal opens
-  useState(() => {
+  useEffect(() => {
+    if (!open) return;
     if (existing) {
       setForm({
         trading_name: existing.trading_name ?? "",
@@ -302,8 +303,11 @@ function BillingProfileModal({
         invoice_prefix: existing.invoice_prefix ?? "INV",
         invoice_footer_note: existing.invoice_footer_note ?? "",
       });
+    } else {
+      setForm(EMPTY_BILLING_FORM);
     }
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, existing?.id]);
 
   const saveMutation = useMutation({
     mutationFn: () =>
