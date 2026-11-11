@@ -63,14 +63,10 @@ router.get("/summary", auth, async (req: Request, res: Response) => {
         to: ty.to,
         groupBy: "month",
       }),
-      // Owed = invoiced but not yet paid (invoice sent, entry status expected/invoiced)
+      // Owed = has an invoice that hasn't been paid yet
       storage
         .listEarningsEntries(freelancerId, { archived: false })
-        .then((entries) =>
-          entries.filter(
-            (e) => e.invoice_id !== null && e.status !== "paid" && e.status !== "expected"
-          )
-        ),
+        .then((entries) => entries.filter((e) => e.invoice_id !== null && e.status !== "paid")),
       storage.listEarningsEntries(freelancerId, { archived: false }),
     ]);
 
