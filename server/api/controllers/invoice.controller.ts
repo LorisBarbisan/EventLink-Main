@@ -609,31 +609,80 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
       }
     }
 
-    // Fire notification email via existing message path
+    // Websocket push + in-app notification + email — mirrors the message controller path
     try {
-      const { emailService } = await import("../utils/emailNotificationService");
       const recipient = await storage.getUser(recipientUserId);
-      if (recipient) {
-        const freelancerProfile = await storage.getFreelancerProfile(user.id);
-        const senderName = freelancerProfile
-          ? `${freelancerProfile.first_name ?? ""} ${freelancerProfile.last_name ?? ""}`.trim() ||
-            user.email
-          : user.email;
+      const freelancerProfile = await storage.getFreelancerProfile(user.id);
+      const senderName = freelancerProfile
+        ? `${freelancerProfile.first_name ?? ""} ${freelancerProfile.last_name ?? ""}`.trim() ||
+          user.email
+        : user.email;
 
-        const pdfAtt = (message as any)._pdfAttachment;
-        await emailService.sendMessageNotification({
-          recipientId: recipientUserId,
-          recipientEmail: recipient.email,
-          recipientName: recipient.email,
-          senderName,
-          messagePreview: bodyText.substring(0, 100),
-          conversationId: conversation.id,
-          emailSubject: `Invoice ${invoice.invoice_number} from ${senderName}`,
-          ...(pdfAtt ? { attachments: [pdfAtt] } : {}),
-        } as any);
+      // 1. WebSocket — instant delivery to recipient and sender
+      try {
+        const { wsService } = await import("../websocket/websocketService.js");
+        wsService.broadcastNewMessage(
+          recipientUserId,
+          message,
+          { first_name: null, last_name: null, company_name: null },
+          conversation.id
+        );
+        wsService.broadcastConversationUpdated(recipientUserId, conversation.id);
+        wsService.broadcastNewMessage(
+          user.id,
+          message,
+          { first_name: null, last_name: null, company_name: null },
+          conversation.id
+        );
+        wsService.broadcastConversationUpdated(user.id, conversation.id);
+      } catch (wsErr) {
+        console.error("Invoice WS broadcast failed (non-fatal):", wsErr);
       }
-    } catch (emailErr) {
-      console.error("Invoice notification email failed (non-fatal):", emailErr);
+
+      // 2. In-app notification
+      try {
+        await storage.createNotification({
+          user_id: recipientUserId,
+          type: "new_message",
+          title: "Invoice received",
+          message: `${senderName} sent you invoice ${invoice.invoice_number}`,
+          related_entity_type: "message",
+          related_entity_id: message.id,
+          action_url: `/dashboard?tab=messages&conversation=${conversation.id}`,
+          metadata: JSON.stringify({ sender_id: user.id, conversation_id: conversation.id }),
+        });
+      } catch (notifErr) {
+        console.error("Invoice notification creation failed (non-fatal):", notifErr);
+      }
+
+      // 3. Email — bypass the email_messages preference gate for invoice sends
+      //    (financial document, not a chat message — recipient must receive it)
+      if (recipient) {
+        try {
+          const { sendEmail } = await import("../utils/emailService");
+          const tmpl = await import("../utils/emailTemplates");
+          const conversationUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=messages&conversationId=${conversation.id}`;
+          const { subject, html } = tmpl.messageNotificationEmail({
+            recipientName: recipient.email,
+            senderName,
+            messagePreview: bodyText.substring(0, 100),
+            conversationUrl,
+            emailSubject: `Invoice ${invoice.invoice_number} from ${senderName}`,
+          });
+          const pdfAtt = (message as any)._pdfAttachment;
+          await sendEmail({
+            to: recipient.email,
+            subject,
+            html,
+            ...(pdfAtt ? { attachments: [pdfAtt] } : {}),
+          });
+          console.log(`✅ Invoice notification email sent to ${recipient.email}`);
+        } catch (emailErr) {
+          console.error("Invoice notification email failed (non-fatal):", emailErr);
+        }
+      }
+    } catch (outerErr) {
+      console.error("Invoice post-send notifications failed (non-fatal):", outerErr);
     }
 
     // Mark invoice sent
