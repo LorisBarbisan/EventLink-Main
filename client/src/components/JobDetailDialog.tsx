@@ -35,9 +35,11 @@ interface JobEntry {
 
 interface Expense {
   id: number;
-  name: string;
-  amount_pence: number;
+  description: string;
+  net_amount_pence: number;
+  vat_amount_pence: number;
   expense_date: string;
+  supplier?: string | null;
   billable_to_client: boolean;
   receipts?: { id: number }[];
 }
@@ -196,7 +198,10 @@ export function JobDetailDialog({
 
   const expenseList = expensesData?.expenses ?? [];
   const tripList = mileageData?.trips ?? [];
-  const totalExpensePence = expenseList.reduce((s, e) => s + e.amount_pence, 0);
+  const totalExpensePence = expenseList.reduce(
+    (s, e) => s + e.net_amount_pence + e.vat_amount_pence,
+    0
+  );
   const totalMiles = tripList.reduce((s, t) => s + t.miles, 0);
   const totalMileagePence = mileageData?.total_pence ?? 0;
 
@@ -351,8 +356,10 @@ export function JobDetailDialog({
                         key={e.id}
                         className="flex justify-between text-xs text-muted-foreground"
                       >
-                        <span className="max-w-48 truncate">{e.name}</span>
-                        <span className="tabular-nums">{fmtPence(e.amount_pence)}</span>
+                        <span className="max-w-48 truncate">{e.description}</span>
+                        <span className="tabular-nums">
+                          {fmtPence(e.net_amount_pence + e.vat_amount_pence)}
+                        </span>
                       </div>
                     ))}
                     {expenseList.length > 5 && (
