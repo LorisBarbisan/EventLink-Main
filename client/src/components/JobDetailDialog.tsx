@@ -159,6 +159,7 @@ export function JobDetailDialog({
   onOpenInvoice,
   onEdit,
   onAddExpense,
+  onEditExpense,
 }: {
   earningsEntryId: number;
   onClose: () => void;
@@ -166,6 +167,7 @@ export function JobDetailDialog({
   onOpenInvoice?: (invoiceId: number) => void;
   onEdit?: (entryId: number) => void;
   onAddExpense?: (entryId: number) => void;
+  onEditExpense?: (expenseId: number) => void;
 }) {
   const { data: entry, isLoading: entryLoading } = useQuery<JobEntry>({
     queryKey: ["/api/earnings", earningsEntryId],
@@ -343,27 +345,35 @@ export function JobDetailDialog({
 
           {/* Expenses */}
           <SectionRow icon={<Receipt className="h-4 w-4" />} label="Expenses">
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {expenseList.length > 0 ? (
                 <>
-                  <div className="font-medium">
+                  <div className="text-xs font-medium text-muted-foreground">
                     {expenseList.length} expense{expenseList.length !== 1 ? "s" : ""} ·{" "}
-                    {fmtPence(totalExpensePence)}
+                    <span className="font-semibold text-foreground">
+                      {fmtPence(totalExpensePence)}
+                    </span>
                   </div>
-                  <div className="space-y-0.5">
+                  <div className="divide-y rounded-md border">
                     {expenseList.slice(0, 5).map((e) => (
-                      <div
+                      <button
                         key={e.id}
-                        className="flex justify-between text-xs text-muted-foreground"
+                        className={`flex w-full items-center justify-between px-3 py-2 text-xs transition-colors ${onEditExpense ? "cursor-pointer hover:bg-muted/60" : "cursor-default"}`}
+                        onClick={() => {
+                          if (onEditExpense) {
+                            onEditExpense(e.id);
+                            onClose();
+                          }
+                        }}
                       >
-                        <span className="max-w-48 truncate">{e.description}</span>
-                        <span className="tabular-nums">
+                        <span className="max-w-48 truncate text-left">{e.description}</span>
+                        <span className="ml-4 shrink-0 font-medium tabular-nums">
                           {fmtPence(e.net_amount_pence + e.vat_amount_pence)}
                         </span>
-                      </div>
+                      </button>
                     ))}
                     {expenseList.length > 5 && (
-                      <div className="text-xs text-muted-foreground">
+                      <div className="px-3 py-1.5 text-xs text-muted-foreground">
                         +{expenseList.length - 5} more
                       </div>
                     )}
@@ -374,7 +384,7 @@ export function JobDetailDialog({
               )}
               {onAddExpense && (
                 <button
-                  className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"
+                  className="mt-0.5 flex items-center gap-1 text-xs text-primary hover:underline"
                   onClick={() => {
                     onAddExpense(earningsEntryId);
                     onClose();

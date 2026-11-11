@@ -2680,6 +2680,12 @@ export function BooksTab() {
   const [fromBooking, setFromBooking] = useState<UnloggedBooking | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<UnloggedBooking | null>(null);
   const [expenseFromJobId, setExpenseFromJobId] = useState<number | null>(null);
+  const [editExpenseId, setEditExpenseId] = useState<number | null>(null);
+  const { data: editExpenseData } = useQuery<Expense>({
+    queryKey: ["/api/expenses", editExpenseId],
+    queryFn: () => apiRequest(`/api/expenses/${editExpenseId}`),
+    enabled: editExpenseId !== null,
+  });
 
   const { data: topLevelCategories = [] } = useQuery<ExpenseCategory[]>({
     queryKey: ["/api/expense-categories"],
@@ -3732,6 +3738,7 @@ export function BooksTab() {
             if (entry) openEdit(entry);
           }}
           onAddExpense={(entryId) => setExpenseFromJobId(entryId)}
+          onEditExpense={(expenseId) => setEditExpenseId(expenseId)}
         />
       )}
 
@@ -3743,6 +3750,16 @@ export function BooksTab() {
           categories={topLevelCategories}
           vatRegistered={topLevelVatRegistered}
           prefill={{ job_id: String(expenseFromJobId) }}
+        />
+      )}
+
+      {editExpenseId !== null && editExpenseData && (
+        <ExpenseDialog
+          open={true}
+          onClose={() => setEditExpenseId(null)}
+          editing={editExpenseData}
+          categories={topLevelCategories}
+          vatRegistered={topLevelVatRegistered}
         />
       )}
     </div>
