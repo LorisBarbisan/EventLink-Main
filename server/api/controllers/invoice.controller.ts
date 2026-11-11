@@ -719,7 +719,8 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
     }
 
     // Mark invoice sent
-    await storage.markInvoiceSent(id, message.id, false);
+    const sentInvoice = await storage.markInvoiceSent(id, message.id, false);
+    if (sentInvoice) linkInvoiceToEntry(sentInvoice).catch(() => {});
 
     return res.json({ messageId: message.id, conversationId: conversation.id });
   } catch (err) {
@@ -740,6 +741,7 @@ export async function markSentExternally(req: Request, res: Response) {
     if (invoice.freelancer_id !== user.id) return res.status(403).json({ error: "Forbidden" });
     if (invoice.status !== "draft") return res.status(409).json({ error: "Invoice already sent" });
     const updated = await storage.markInvoiceSent(id, 0, true);
+    if (updated) linkInvoiceToEntry(updated).catch(() => {});
     return res.json(updated);
   } catch (err) {
     console.error("markSentExternally error:", err);
@@ -801,6 +803,7 @@ export async function setInvoiceStatus(req: Request, res: Response) {
     }
 
     const updated = await storage.updateInvoice(id, updates);
+    if (updated && status === "sent") linkInvoiceToEntry(updated).catch(() => {});
     return res.json(updated);
   } catch (err) {
     console.error("setInvoiceStatus error:", err);

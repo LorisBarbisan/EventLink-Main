@@ -63,10 +63,34 @@ router.get("/summary", auth, async (req: Request, res: Response) => {
         to: ty.to,
         groupBy: "month",
       }),
-      // Owed = has an invoice that hasn't been paid yet
-      storage
-        .listEarningsEntries(freelancerId, { archived: false })
-        .then((entries) => entries.filter((e) => e.invoice_id !== null && e.status !== "paid")),
+      // Owed = any sent/overdue invoice not yet paid, joined back to earnings entries
+      storage.listEarningsEntries(freelancerId, { archived: false }).then(async (entries) => {
+        // Entries already linked to an unpaid invoice
+        const linked = entries.filter((e) => e.invoice_id !== null && e.status !== "paid");
+        const linkedInvoiceIds = new Set(linked.map((e) => e.invoice_id));
+
+        // Also fetch sent/overdue invoices that aren't linked to any entry yet
+        const sentInvoices = await storage.getInvoicesByFreelancer(freelancerId, "sent");
+        const overdueInvoices = await storage.getInvoicesByFreelancer(freelancerId, "overdue");
+        const unlinkedInvoices = [...sentInvoices, ...overdueInvoices].filter(
+          (inv) => !linkedInvoiceIds.has(inv.id)
+        );
+
+        // For each unlinked invoice, write invoice_id onto the matching entry (best-effort)
+        const extra: (typeof entries)[number][] = [];
+        for (const inv of unlinkedInvoices) {
+          if (inv.booking_id) {
+            const entry = await storage.getEarningsEntryByBooking(inv.booking_id);
+            if (entry && entry.freelancer_id === freelancerId && entry.status !== "paid") {
+              // Repair the missing link
+              storage.updateEarningsEntry(entry.id, { invoice_id: inv.id }).catch(() => {});
+              extra.push({ ...entry, invoice_id: inv.id });
+            }
+          }
+        }
+
+        return [...linked, ...extra];
+      }),
       storage.listEarningsEntries(freelancerId, { archived: false }),
     ]);
 
