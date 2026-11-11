@@ -3420,17 +3420,20 @@ export function BooksTab() {
               | { kind: "booking"; date: string; data: (typeof awaitingPaymentHired)[0] }
               | { kind: "entry"; date: string; data: (typeof scheduledJobs)[0] };
 
+            const todayStr = new Date().toISOString().slice(0, 10);
             const items: JobItem[] = [
-              ...[...awaitingPaymentHired, ...upcomingHired].map((b: any) => ({
+              ...upcomingHired.map((b: any) => ({
                 kind: "booking" as const,
                 date: b.event_date ?? "9999-12-31",
                 data: b,
               })),
-              ...scheduledJobs.map((g) => ({
-                kind: "entry" as const,
-                date: g.work_date,
-                data: g,
-              })),
+              ...scheduledJobs
+                .filter((g) => g.work_date > todayStr)
+                .map((g) => ({
+                  kind: "entry" as const,
+                  date: g.work_date,
+                  data: g,
+                })),
             ].sort((a, b) => a.date.localeCompare(b.date));
 
             if (items.length === 0) {
@@ -3597,13 +3600,36 @@ export function BooksTab() {
               </div>
             </div>
             <CardContent className="p-0">
-              {completedEntries.length === 0 ? (
+              {completedEntries.length === 0 && awaitingPaymentHired.length === 0 ? (
                 <div className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
                   <BookOpen className="h-4 w-4" />
                   Completed jobs will appear here.
                 </div>
               ) : (
                 <div>
+                  {awaitingPaymentHired.map((b: any) => (
+                    <div
+                      key={`unlogged-${b.id}`}
+                      className="flex items-center justify-between border-l-4 border-amber-400 bg-amber-50/60 px-5 py-3 dark:bg-amber-950/20"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{b.job_title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {b.company_name ? `${b.company_name} · ` : ""}
+                          {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="ml-3 shrink-0 border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
+                        onClick={() => openFromBooking(b)}
+                      >
+                        <PoundSterling className="mr-1 h-3 w-3" />
+                        Log payment
+                      </Button>
+                    </div>
+                  ))}
                   {completedEntries.map((entry, i) => (
                     <div
                       key={entry.id}
