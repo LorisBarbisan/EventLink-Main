@@ -6395,7 +6395,7 @@ export class DatabaseStorage implements IStorage {
           isNull(job_drafts.consumed_at),
           isNull(job_drafts.nudge_sent_at),
           gt(job_drafts.expires_at, new Date()), // not yet expired
-          sql`${job_drafts.created_at} <= ${cutoff}`
+          sql`${job_drafts.created_at} <= ${cutoff.toISOString()}`
         )
       );
   }
