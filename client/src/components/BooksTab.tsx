@@ -2818,8 +2818,11 @@ export function BooksTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/freelancer", user?.id, "bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
       toast({ title: "Job marked as completed" });
       setSelectedBooking(null);
+      setSection("earnings");
     },
     onError: (err: any) => {
       toast({
@@ -3040,15 +3043,17 @@ export function BooksTab() {
             </div>
           )}
           {(() => {
-            const rate =
+            const raw =
               hiredBookings.find((hb) => hb.booking.jobId === selectedBooking.job_id)?.booking
                 .agreedRate ?? selectedBooking.rate;
-            return rate ? (
+            if (!raw) return null;
+            const rate = /^\d/.test(raw.trim()) ? `£${raw.trim()}` : raw.trim();
+            return (
               <div>
                 <p className="text-muted-foreground">Rate</p>
                 <p className="font-medium tabular-nums">{rate}</p>
               </div>
-            ) : null;
+            );
           })()}
           <div>
             <p className="text-muted-foreground">Status</p>

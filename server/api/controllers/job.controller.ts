@@ -472,6 +472,15 @@ export async function completeJob(req: Request, res: Response) {
       return res.status(400).json({ error: "Job is already completed" });
 
     const updatedJob = await storage.updateJob(jobId, { status: "completed" as any });
+
+    // Mark all hired applications on this job as completed so the booking
+    // moves out of the freelancer's "upcoming" list
+    const allApps = await storage.getJobApplications(jobId);
+    const hiredApps = allApps.filter((a) => a.status === "hired");
+    await Promise.all(
+      hiredApps.map((a) => storage.updateApplicationStatus(a.id, "completed" as any))
+    );
+
     return res.json(updatedJob);
   } catch (err) {
     console.error("completeJob error:", err);
