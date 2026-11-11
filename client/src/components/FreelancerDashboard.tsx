@@ -510,34 +510,6 @@ export default function SimplifiedFreelancerDashboard() {
   };
 
   const [cardShareUrl, setCardShareUrl] = useState("");
-  const [identityLoading, setIdentityLoading] = useState(false);
-
-  const handleVerifyId = async () => {
-    setIdentityLoading(true);
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/stripe/identity", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else
-        toast({
-          title: "Error",
-          description: data.error || "Could not start verification",
-          variant: "destructive",
-        });
-    } catch {
-      toast({
-        title: "Error",
-        description: "Could not start verification",
-        variant: "destructive",
-      });
-    } finally {
-      setIdentityLoading(false);
-    }
-  };
 
   useEffect(() => {
     if (!showQrModal || !user) return;
@@ -723,26 +695,6 @@ export default function SimplifiedFreelancerDashboard() {
               <span className="hidden sm:inline">View Profile</span>
             </a>
           </Button>
-          {user.id_verified ? (
-            <span
-              className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold text-muted-foreground"
-              title="ID Verified"
-            >
-              <ShieldCheck className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">ID Verified</span>
-            </span>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleVerifyId}
-              disabled={identityLoading}
-              title="Verify ID"
-            >
-              <ShieldCheck className="h-3.5 w-3.5 sm:mr-1.5" />
-              <span className="hidden sm:inline">{identityLoading ? "…" : "Verify ID"}</span>
-            </Button>
-          )}
         </div>
       </div>
 
