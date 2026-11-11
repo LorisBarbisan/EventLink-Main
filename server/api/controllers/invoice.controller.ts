@@ -11,6 +11,7 @@ import {
   linkInvoiceToEntry,
   recordInvoicePaid,
   unlinkInvoiceFromEntry,
+  seedEntryFromBooking,
 } from "../services/earnings.service";
 import { ObjectStorageService } from "../utils/object-storage";
 import { insertMessageSchema, bookings, invoices as invoicesTable, jobs } from "@shared/schema";
@@ -320,7 +321,8 @@ export async function createInvoiceFromBooking(req: Request, res: Response) {
       due_date: dueDate,
     });
 
-    // Link earnings entry to invoice (non-blocking)
+    // Ensure earnings entry exists for this booking, then link it to the invoice (non-blocking)
+    if (job) seedEntryFromBooking(booking, job).catch(() => {});
     linkInvoiceToEntry(invoice).catch(() => {});
 
     // Generate initial PDF

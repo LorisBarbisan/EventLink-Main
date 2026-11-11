@@ -19,7 +19,13 @@ const auth = [authenticateJWT, requireRole("freelancer")];
 // GET /api/earnings/jobs — lightweight job list for the expense/mileage selectors
 router.get("/jobs", auth, async (req: Request, res: Response) => {
   try {
-    const jobs = await storage.listJobsForSelector(req.user!.id);
+    const userId = req.user!.id;
+    let jobs = await storage.listJobsForSelector(userId);
+    // First visit (or after bookings were confirmed before entries were seeded): backfill
+    if (jobs.length === 0) {
+      await backfillEarningsForFreelancer(userId);
+      jobs = await storage.listJobsForSelector(userId);
+    }
     return res.json(jobs);
   } catch (err) {
     console.error("earnings jobs error:", err);
