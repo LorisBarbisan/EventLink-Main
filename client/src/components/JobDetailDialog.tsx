@@ -10,6 +10,8 @@ import {
   FileText,
   CheckCircle,
   AlertCircle,
+  Pencil,
+  Plus,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -153,11 +155,15 @@ export function JobDetailDialog({
   onClose,
   onInvoice,
   onOpenInvoice,
+  onEdit,
+  onAddExpense,
 }: {
   earningsEntryId: number;
   onClose: () => void;
   onInvoice?: (entryId: number) => void;
   onOpenInvoice?: (invoiceId: number) => void;
+  onEdit?: (entryId: number) => void;
+  onAddExpense?: (entryId: number) => void;
 }) {
   const { data: entry, isLoading: entryLoading } = useQuery<JobEntry>({
     queryKey: ["/api/earnings", earningsEntryId],
@@ -225,13 +231,29 @@ export function JobDetailDialog({
                 {dateRange}
               </p>
             </div>
-            {entry.work_status && (
-              <span
-                className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${statusColor(entry.work_status)}`}
-              >
-                {entry.work_status}
-              </span>
-            )}
+            <div className="flex shrink-0 items-center gap-2">
+              {entry.work_status && (
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${statusColor(entry.work_status)}`}
+                >
+                  {entry.work_status}
+                </span>
+              )}
+              {onEdit && !entry.booking_id && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1 px-2 text-xs"
+                  onClick={() => {
+                    onEdit(earningsEntryId);
+                    onClose();
+                  }}
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit
+                </Button>
+              )}
+            </div>
           </div>
         </DialogHeader>
 
@@ -316,29 +338,46 @@ export function JobDetailDialog({
 
           {/* Expenses */}
           <SectionRow icon={<Receipt className="h-4 w-4" />} label="Expenses">
-            {expenseList.length > 0 ? (
-              <div className="space-y-1">
-                <div className="font-medium">
-                  {expenseList.length} expense{expenseList.length !== 1 ? "s" : ""} ·{" "}
-                  {fmtPence(totalExpensePence)}
-                </div>
-                <div className="space-y-0.5">
-                  {expenseList.slice(0, 5).map((e) => (
-                    <div key={e.id} className="flex justify-between text-xs text-muted-foreground">
-                      <span className="max-w-48 truncate">{e.name}</span>
-                      <span className="tabular-nums">{fmtPence(e.amount_pence)}</span>
-                    </div>
-                  ))}
-                  {expenseList.length > 5 && (
-                    <div className="text-xs text-muted-foreground">
-                      +{expenseList.length - 5} more
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <span className="text-muted-foreground">No expenses</span>
-            )}
+            <div className="space-y-1">
+              {expenseList.length > 0 ? (
+                <>
+                  <div className="font-medium">
+                    {expenseList.length} expense{expenseList.length !== 1 ? "s" : ""} ·{" "}
+                    {fmtPence(totalExpensePence)}
+                  </div>
+                  <div className="space-y-0.5">
+                    {expenseList.slice(0, 5).map((e) => (
+                      <div
+                        key={e.id}
+                        className="flex justify-between text-xs text-muted-foreground"
+                      >
+                        <span className="max-w-48 truncate">{e.name}</span>
+                        <span className="tabular-nums">{fmtPence(e.amount_pence)}</span>
+                      </div>
+                    ))}
+                    {expenseList.length > 5 && (
+                      <div className="text-xs text-muted-foreground">
+                        +{expenseList.length - 5} more
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <span className="text-muted-foreground">No expenses linked</span>
+              )}
+              {onAddExpense && (
+                <button
+                  className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"
+                  onClick={() => {
+                    onAddExpense(earningsEntryId);
+                    onClose();
+                  }}
+                >
+                  <Plus className="h-3 w-3" />
+                  Add expense
+                </button>
+              )}
+            </div>
           </SectionRow>
 
           {/* Mileage */}
