@@ -3403,133 +3403,119 @@ export function BooksTab() {
           </div>
         </div>
         <CardContent className="p-0">
-          {awaitingPaymentHired.length > 0 && (
-            <div>
-              <div className="bg-amber-50/60 px-5 py-1.5 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-950/20 dark:text-amber-400">
-                Awaiting payment
-              </div>
-              {awaitingPaymentHired.map((b: any, i: number) => (
-                <div
-                  key={b.id}
-                  className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-amber-50/40 dark:hover:bg-amber-950/20 ${i % 2 === 0 ? "bg-amber-50/20 dark:bg-amber-950/10" : ""}`}
-                  onClick={() => setSelectedBooking(b)}
-                >
-                  <div>
-                    <p className="text-sm font-medium">{b.job_title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {b.company_name ? `${b.company_name} · ` : ""}
-                      {b.event_date ? fmtDate(b.event_date) : ""}
-                      {b.rate ? ` · ${b.rate}` : ""}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
-                    data-help="books.earnings.logPayment"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openFromBooking(b);
-                    }}
-                  >
-                    <PoundSterling className="mr-1 h-3 w-3" />
-                    Log payment
-                  </Button>
+          {(() => {
+            // Normalise all job sources into a single list sorted by date
+            type JobItem =
+              | { kind: "booking"; date: string; data: (typeof awaitingPaymentHired)[0] }
+              | { kind: "entry"; date: string; data: (typeof scheduledJobs)[0] };
+
+            const items: JobItem[] = [
+              ...[...awaitingPaymentHired, ...upcomingHired].map((b: any) => ({
+                kind: "booking" as const,
+                date: b.event_date ?? "9999-12-31",
+                data: b,
+              })),
+              ...scheduledJobs.map((g) => ({
+                kind: "entry" as const,
+                date: g.work_date,
+                data: g,
+              })),
+            ].sort((a, b) => a.date.localeCompare(b.date));
+
+            if (items.length === 0) {
+              return (
+                <div className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
+                  <Briefcase className="h-4 w-4" />
+                  No active jobs yet — add one above or browse the job board.
                 </div>
-              ))}
-            </div>
-          )}
-          {upcomingHired.length > 0 && (
-            <div>
-              <div className="bg-green-50/60 px-5 py-1.5 text-xs font-semibold uppercase tracking-wide text-green-700 dark:bg-green-950/20 dark:text-green-400">
-                Upcoming
-              </div>
-              {upcomingHired.map((b: any, i: number) => (
-                <div
-                  key={b.id}
-                  className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-green-50/40 dark:hover:bg-green-950/20 ${i % 2 === 0 ? "bg-green-50/20 dark:bg-green-950/10" : ""}`}
-                  onClick={() => setSelectedBooking(b)}
-                >
-                  <div>
-                    <p className="text-sm font-medium">{b.job_title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {b.company_name ? `${b.company_name} · ` : ""}
-                      {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
-                      {b.rate ? ` · ${b.rate}` : ""}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                    Confirmed
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-          {awaitingPaymentHired.length === 0 &&
-            upcomingHired.length === 0 &&
-            scheduledJobs.length === 0 && (
-              <div className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
-                <Briefcase className="h-4 w-4" />
-                No active jobs yet — add one above or browse the job board.
-              </div>
-            )}
-          {scheduledJobs.length > 0 && (
-            <div>
-              <div className="bg-sky-50/60 px-5 py-1.5 text-xs font-semibold uppercase tracking-wide text-sky-700 dark:bg-sky-950/20 dark:text-sky-400">
-                My booked jobs
-              </div>
-              {scheduledJobs.map((g, i) => {
-                const statusColor =
-                  g.work_status === "confirmed"
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                    : g.work_status === "pencilled"
-                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                      : g.work_status === "completed"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                        : "bg-muted text-muted-foreground";
+              );
+            }
+
+            return items.map((item) => {
+              if (item.kind === "booking") {
+                const b = item.data as any;
+                const isPast = b.event_date && new Date(b.event_date) < today;
                 return (
                   <div
-                    key={g.id}
-                    className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-sky-50/40 dark:hover:bg-sky-950/20 ${i % 2 === 0 ? "bg-sky-50/20 dark:bg-sky-950/10" : ""}`}
-                    onClick={() => openEdit(g)}
+                    key={`booking-${b.id}`}
+                    className="flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40"
+                    onClick={() => setSelectedBooking(b)}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {g.description ?? "Booked job"}
-                      </p>
+                      <p className="truncate text-sm font-medium">{b.job_title}</p>
                       <p className="text-xs text-muted-foreground">
-                        {fmtDate(g.work_date)}
-                        {g.client_name ? ` · ${g.client_name}` : ""}
-                        {g.call_time ? ` · ${g.call_time}` : ""}
-                        {g.venue_address ? ` · ${g.venue_address}` : ""}
+                        {b.company_name ? `${b.company_name} · ` : ""}
+                        {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
+                        {b.rate ? ` · ${b.rate}` : ""}
                       </p>
                     </div>
                     <div className="ml-3 flex items-center gap-2">
-                      {g.gross_amount_pence > 0 && (
-                        <span className="text-sm font-semibold tabular-nums text-sky-700 dark:text-sky-300">
-                          {formatPence(g.gross_amount_pence, g.currency)}
+                      {isPast ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
+                          data-help="books.earnings.logPayment"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openFromBooking(b);
+                          }}
+                        >
+                          <PoundSterling className="mr-1 h-3 w-3" />
+                          Log payment
+                        </Button>
+                      ) : (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          Confirmed
                         </span>
                       )}
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor}`}
-                      >
-                        {g.work_status}
-                      </span>
-                      <button
-                        className="rounded px-2 py-0.5 text-xs font-medium text-sky-600 hover:bg-sky-100 dark:text-sky-400 dark:hover:bg-sky-900/30"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setJobDetailEntryId(g.id);
-                        }}
-                      >
-                        Details
-                      </button>
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          )}
+              }
+
+              // entry (manual / external job) — slight blue tint
+              const g = item.data;
+              const isExternal = !g.booking_id;
+              const statusColor =
+                g.work_status === "confirmed"
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                  : g.work_status === "pencilled"
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    : g.work_status === "completed"
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                      : "bg-muted text-muted-foreground";
+              return (
+                <div
+                  key={`entry-${g.id}`}
+                  className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40 ${isExternal ? "bg-sky-50/40 dark:bg-sky-950/10" : ""}`}
+                  onClick={() => setJobDetailEntryId(g.id)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{g.description ?? "Booked job"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fmtDate(g.work_date)}
+                      {g.client_name ? ` · ${g.client_name}` : ""}
+                      {g.call_time ? ` · ${g.call_time}` : ""}
+                      {g.venue_address ? ` · ${g.venue_address}` : ""}
+                    </p>
+                  </div>
+                  <div className="ml-3 flex items-center gap-2">
+                    {g.gross_amount_pence > 0 && (
+                      <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                        {formatPence(g.gross_amount_pence, g.currency)}
+                      </span>
+                    )}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor}`}
+                    >
+                      {g.work_status}
+                    </span>
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </CardContent>
       </Card>
 
