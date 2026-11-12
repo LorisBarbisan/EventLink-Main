@@ -448,20 +448,40 @@ export function MessagingInterface({ initialConversationId }: Props) {
                               {renderWithLinks(msg.content, isMyMessage)}
                             </p>
                             {msg.attachments?.map((att) => (
-                              <a
+                              <button
                                 key={att.id}
-                                href={`/api/attachments/${att.id}/download`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                type="button"
                                 className={`mt-2 flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium underline-offset-2 hover:underline ${
                                   isMyMessage
                                     ? "bg-primary-foreground/10 text-primary-foreground"
                                     : "bg-black/5 text-amber-900"
                                 }`}
+                                onClick={async () => {
+                                  try {
+                                    const res = await fetch(`/api/attachments/${att.id}/download`, {
+                                      headers: {
+                                        Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+                                      },
+                                    });
+                                    if (!res.ok) throw new Error(await res.text());
+                                    const blob = await res.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = url;
+                                    a.download = att.original_filename;
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                  } catch {
+                                    toast({
+                                      title: "Could not download attachment",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
                               >
                                 <Paperclip className="h-3 w-3 shrink-0" />
                                 {att.original_filename}
-                              </a>
+                              </button>
                             ))}
                             <p
                               className={`mt-1 text-[10px] ${
