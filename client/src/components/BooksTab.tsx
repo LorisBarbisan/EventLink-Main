@@ -2619,6 +2619,7 @@ type UnloggedBooking = {
   rate?: string;
   location?: string;
   status?: string;
+  earnings_entry_id?: number | null;
 };
 
 interface HiredBooking {
@@ -2628,13 +2629,15 @@ interface HiredBooking {
     employerId: number;
     status: string;
     agreedRate: string | null;
+    earnings_entry_id: number | null;
   };
-  job: { id: number; title: string; eventDate: string | null };
+  job: { id: number; title: string; eventDate: string | null; endDate?: string | null };
   employer: {
     id: number;
     firstName: string | null;
     lastName: string | null;
     companyName: string | null;
+    profilePicture?: string | null;
   };
 }
 
@@ -2760,25 +2763,24 @@ export function BooksTab() {
     queryKey: ["/api/earnings/clients"],
   });
 
-  // Bookings that have passed their event date but haven't been logged as earnings yet
-  const { data: allBookings = [] } = useQuery<UnloggedBooking[]>({
-    queryKey: ["/api/freelancer", user?.id, "bookings"],
-    enabled: !!user?.id,
-    queryFn: async () => {
-      const token = localStorage.getItem("auth_token");
-      const res = await fetch(`/api/freelancer/${user!.id}/bookings`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) return [];
-      return res.json();
-    },
-  });
-
   const { data: hiredBookings = [] } = useQuery<HiredBooking[]>({
     queryKey: ["/api/bookings/freelancer"],
     queryFn: () => apiRequest("/api/bookings/freelancer"),
     enabled: !!user?.id,
   });
+
+  // Derive allBookings from hiredBookings — /api/bookings/freelancer now includes earnings_entry_id
+  const allBookings: UnloggedBooking[] = hiredBookings
+    .filter((hb) => ["confirmed", "briefed", "completed"].includes(hb.booking.status))
+    .map((hb) => ({
+      id: hb.booking.id,
+      job_id: hb.booking.jobId,
+      job_title: hb.job.title,
+      company_name: hb.employer.companyName ?? undefined,
+      event_date: hb.job.eventDate ?? undefined,
+      rate: hb.booking.agreedRate ?? undefined,
+      earnings_entry_id: hb.booking.earnings_entry_id ?? undefined,
+    }));
 
   // Lightweight invoice lookup by job/booking id
   const { data: allInvoices = [] } = useQuery<
@@ -2817,7 +2819,6 @@ export function BooksTab() {
   const completeJobMutation = useMutation({
     mutationFn: (jobId: number) => apiRequest(`/api/jobs/${jobId}/complete`, { method: "PUT" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/freelancer", user?.id, "bookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });

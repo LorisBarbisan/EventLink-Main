@@ -12,6 +12,7 @@ import {
   users,
   freelancer_profiles,
   recruiter_profiles,
+  earnings_entries,
   type BookingStatus,
   bookingStatusValues,
 } from "../../../shared/schema";
@@ -182,16 +183,18 @@ export async function getFreelancerBookings(req: Request, res: Response) {
           accountPhotoUrl: users.profile_photo_url,
           companyLogoUrl: recruiter_profiles.company_logo_url,
         },
+        earningsEntryId: earnings_entries.id,
       })
       .from(bookings)
       .innerJoin(jobs, eq(bookings.jobId, jobs.id))
       .innerJoin(users, eq(bookings.employerId, users.id))
       .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
+      .leftJoin(earnings_entries, eq(earnings_entries.booking_id, bookings.id))
       .where(eq(bookings.freelancerId, freelancerId))
       .orderBy(desc(bookings.updatedAt));
 
-    const results = rows.map(({ booking, job, employer }) => ({
-      booking,
+    const results = rows.map(({ booking, job, employer, earningsEntryId }) => ({
+      booking: { ...booking, earnings_entry_id: earningsEntryId ?? null },
       job,
       employer: {
         id: employer.id,
