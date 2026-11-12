@@ -52,12 +52,15 @@ export function InsuranceReminder({ route }: { route: string }) {
       if (el) {
         window.clearInterval(poll);
         shownRef.current = true;
-        // Wait one rAF so the button has fully painted before measuring
+        // Double rAF: first frame lets any CSS transitions / sticky-header
+        // layout settle; second frame measures after everything has painted.
         requestAnimationFrame(() => {
-          const freshEl = visibleAnchor();
-          setRect(freshEl ? freshEl.getBoundingClientRect() : null);
+          requestAnimationFrame(() => {
+            const freshEl = visibleAnchor();
+            setRect(freshEl ? freshEl.getBoundingClientRect() : null);
+            hideTimer = window.setTimeout(() => setRect(null), VISIBLE_MS);
+          });
         });
-        hideTimer = window.setTimeout(() => setRect(null), VISIBLE_MS);
       } else if (tries >= 20) {
         window.clearInterval(poll); // ~6s of trying — button isn't here
       }
