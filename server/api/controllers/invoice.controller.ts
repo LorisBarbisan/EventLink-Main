@@ -804,6 +804,7 @@ export async function setInvoiceStatus(req: Request, res: Response) {
 
     const updated = await storage.updateInvoice(id, updates);
     if (updated && status === "sent") linkInvoiceToEntry(updated).catch(() => {});
+    if (updated && status === "paid") recordInvoicePaid(updated).catch(() => {});
     return res.json(updated);
   } catch (err) {
     console.error("setInvoiceStatus error:", err);

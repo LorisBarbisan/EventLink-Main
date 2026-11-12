@@ -404,6 +404,7 @@ function AvailabilityDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/jobs"] });
       toast({ title: "Gig added to your calendar" });
       onClose();
     },
@@ -725,6 +726,7 @@ function GigEditDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/jobs"] });
       toast({ title: "Gig updated" });
       onClose();
     },

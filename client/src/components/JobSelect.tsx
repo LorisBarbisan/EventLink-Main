@@ -33,9 +33,7 @@ export function JobSelect({ value, onChange, label = "Link to a job (optional)" 
     queryFn: () => apiRequest("/api/earnings/jobs"),
   });
 
-  const pastJobs = jobOptions.filter((j) => j.work_date <= today);
-
-  if (pastJobs.length === 0) {
+  if (jobOptions.length === 0) {
     return (
       <div className="space-y-1">
         <Label>{label}</Label>
@@ -58,7 +56,7 @@ export function JobSelect({ value, onChange, label = "Link to a job (optional)" 
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="none">— Not linked —</SelectItem>
-          {pastJobs.map((j) => (
+          {jobOptions.map((j) => (
             <SelectItem key={j.id} value={String(j.id)}>
               {j.description}
               {j.client_name ? ` · ${j.client_name}` : ""}

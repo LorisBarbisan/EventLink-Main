@@ -245,6 +245,7 @@ function JobDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/jobs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
       toast({ title: editing ? "Job updated" : "Job added" });
       onClose();
@@ -2820,6 +2821,7 @@ export function BooksTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/gigs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/jobs"] });
       toast({ title: "Job marked as completed" });
       setSelectedBooking(null);
       setSection("earnings");
