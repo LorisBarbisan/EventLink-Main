@@ -67,6 +67,20 @@ router.get("/summary", auth, async (req: Request, res: Response) => {
     const basis = (req.query.basis as "cash" | "accruals") ?? "cash";
     const ty = currentTaxYear();
 
+    // Lazy-backfill: seed entries for any past bookings that don't have one yet
+    const [missingCheck] = await db
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(bookings)
+      .leftJoin(earnings_entries, eq(earnings_entries.booking_id, bookings.id))
+      .where(
+        and(
+          eq(bookings.freelancerId, freelancerId),
+          inArray(bookings.status, ["confirmed", "briefed", "completed"]),
+          isNull(earnings_entries.id)
+        )
+      );
+    if (missingCheck.count > 0) await backfillEarningsForFreelancer(freelancerId);
+
     const [summary, owedEntries, allEntries] = await Promise.all([
       storage.earningsSummary(freelancerId, {
         basis,
