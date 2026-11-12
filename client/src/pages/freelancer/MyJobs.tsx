@@ -56,7 +56,9 @@ export default function MyJobs() {
   const { toast } = useToast();
   const isPro = useIsPro();
   const [, setLocation] = useLocation();
-  const [activeFilter, setActiveFilter] = useState<BookingStatus | "all">("all");
+  const [activeFilter, setActiveFilter] = useState<BookingStatus | "all" | "active" | "past">(
+    "active"
+  );
 
   // Docs modal state
   const [docsJobId, setDocsJobId] = useState<number | null>(null);
@@ -191,7 +193,13 @@ export default function MyJobs() {
   };
 
   const filtered =
-    bookings?.filter((r) => activeFilter === "all" || r.booking.status === activeFilter) ?? [];
+    bookings?.filter((r) => {
+      if (activeFilter === "all") return true;
+      if (activeFilter === "active")
+        return ["enquired", "confirmed", "briefed"].includes(r.booking.status);
+      if (activeFilter === "past") return ["completed", "cancelled"].includes(r.booking.status);
+      return r.booking.status === activeFilter;
+    }) ?? [];
 
   const upcoming = filtered.filter(
     (r) =>
@@ -210,21 +218,19 @@ export default function MyJobs() {
 
       {/* Filter tabs */}
       <div className="mb-6 flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1">
-        {(["all", "enquired", "confirmed", "briefed", "completed", "cancelled"] as const).map(
-          (f) => (
-            <button
-              key={f}
-              onClick={() => setActiveFilter(f)}
-              className={`flex-shrink-0 rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
-                activeFilter === f
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {f}
-            </button>
-          )
-        )}
+        {(["active", "all", "enquired", "confirmed", "briefed", "past"] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setActiveFilter(f)}
+            className={`flex-shrink-0 rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
+              activeFilter === f
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {f}
+          </button>
+        ))}
       </div>
 
       {isLoading ? (
