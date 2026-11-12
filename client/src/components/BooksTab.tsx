@@ -2952,9 +2952,11 @@ export function BooksTab() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Future work (or no date): always in My Jobs regardless of booking/job status
+  // Future work (or no date) that hasn't been marked completed — belongs in My Jobs.
+  // A booking with status "completed" goes to Earnings even if its event_date is in the future
+  // (e.g. the repair loop advanced the status before the event date arrived).
   const upcomingHired = allBookings.filter(
-    (b: any) => !b.event_date || new Date(b.event_date) >= today
+    (b: any) => b.status !== "completed" && (!b.event_date || new Date(b.event_date) >= today)
   );
   // Past work with no entry — edge case after backfill, but kept as a safety net
   const unloggedBookings = allBookings.filter(
@@ -3792,43 +3794,33 @@ export function BooksTab() {
                 </div>
               ) : (
                 <div>
-                  {awaitingPaymentHired.map((b: any) => {
-                    const isCompleted = (b.status as string) === "completed";
-                    return (
-                      <div
-                        key={`unlogged-${b.id}`}
-                        className={`flex cursor-pointer items-center justify-between border-l-4 px-5 py-3 ${isCompleted ? "border-blue-400 bg-blue-50/60 dark:bg-blue-950/20" : "border-amber-400 bg-amber-50/60 dark:bg-amber-950/20"}`}
-                        onClick={() => setSelectedBooking(b)}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{b.job_title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {b.company_name ? `${b.company_name} · ` : ""}
-                            {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
-                          </p>
-                        </div>
-                        {isCompleted ? (
-                          <span className="ml-3 inline-flex shrink-0 items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                            <CheckCircle className="h-3 w-3" />
-                            Completed
-                          </span>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="ml-3 shrink-0 border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openLogPayment(b);
-                            }}
-                          >
-                            <PoundSterling className="mr-1 h-3 w-3" />
-                            Log payment
-                          </Button>
-                        )}
+                  {awaitingPaymentHired.map((b: any) => (
+                    <div
+                      key={`unlogged-${b.id}`}
+                      className="flex cursor-pointer items-center justify-between border-l-4 border-amber-400 bg-amber-50/60 px-5 py-3 dark:bg-amber-950/20"
+                      onClick={() => setSelectedBooking(b)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{b.job_title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {b.company_name ? `${b.company_name} · ` : ""}
+                          {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
+                        </p>
                       </div>
-                    );
-                  })}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="ml-3 shrink-0 border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openLogPayment(b);
+                        }}
+                      >
+                        <PoundSterling className="mr-1 h-3 w-3" />
+                        Log payment
+                      </Button>
+                    </div>
+                  ))}
                   {completedEntries.map((entry, i) => (
                     <div
                       key={entry.id}
