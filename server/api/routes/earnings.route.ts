@@ -165,8 +165,9 @@ router.post("/repair-completed-jobs", auth, async (req: Request, res: Response) 
       }
 
       const entry = await storage.getEarningsEntryByBooking(booking.id);
+      // Always run seed — it's idempotent and writes the application link on both paths
+      await seedEntryFromBooking({ ...booking, status: "completed" } as typeof booking, job);
       if (!entry) {
-        await seedEntryFromBooking({ ...booking, status: "completed" } as typeof booking, job);
         seeded++;
       } else if (entry.work_status !== "completed") {
         await storage.updateEarningsEntry(entry.id, { work_status: "completed" });

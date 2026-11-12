@@ -64,6 +64,8 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
         )
       : await storage.findOrCreateClientByName(booking.freelancerId, job.company);
 
+    let entryId: number;
+
     if (existing) {
       // Only update if still in expected/draft state — don't overwrite manual edits
       if (existing.status === "expected") {
@@ -80,29 +82,30 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
           needs_review: needsReview || ratePence === null,
         });
       }
-      return;
+      entryId = existing.id;
+    } else {
+      const created = await storage.createEarningsEntry({
+        freelancer_id: booking.freelancerId,
+        booking_id: booking.id,
+        client_id: client.id,
+        description: job.title,
+        work_date: workDate,
+        work_end_date: job.end_date ?? null,
+        quantity: String(days),
+        unit: "day",
+        unit_amount_pence: unitAmountPence ?? undefined,
+        gross_amount_pence: grossPence,
+        currency,
+        status: "expected",
+        work_status: "confirmed",
+        needs_review: needsReview || ratePence === null,
+        archived: false,
+      });
+      entryId = created.id;
     }
 
-    const created = await storage.createEarningsEntry({
-      freelancer_id: booking.freelancerId,
-      booking_id: booking.id,
-      client_id: client.id,
-      description: job.title,
-      work_date: workDate,
-      work_end_date: job.end_date ?? null,
-      quantity: String(days),
-      unit: "day",
-      unit_amount_pence: unitAmountPence ?? undefined,
-      gross_amount_pence: grossPence,
-      currency,
-      status: "expected",
-      work_status: "confirmed",
-      needs_review: needsReview || ratePence === null,
-      archived: false,
-    });
-
     // Mirror the link onto job_applications so the UI's earnings_entry_id filter
-    // sees this booking as already logged (prevents duplicate-create attempts).
+    // sees this booking as logged — runs for both create and update paths.
     try {
       const [app] = await db
         .select({ id: job_applications.id })
@@ -116,10 +119,10 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
         )
         .limit(1);
       if (app) {
-        await storage.linkJobApplicationEarning(app.id, created.id);
+        await storage.linkJobApplicationEarning(app.id, entryId);
       }
     } catch {
-      /* non-fatal — entry is already created */
+      /* non-fatal */
     }
   } catch (err) {
     console.error(`seedEntryFromBooking failed for booking ${booking.id} (non-fatal):`, err);
