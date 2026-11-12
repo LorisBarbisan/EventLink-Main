@@ -2989,15 +2989,20 @@ export function BooksTab() {
   });
 
   const backfillMutation = useMutation({
-    mutationFn: () => apiRequest("/api/earnings/backfill", { method: "POST" }),
+    mutationFn: () => apiRequest("/api/earnings/repair-completed-jobs", { method: "POST" }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      const parts: string[] = [];
+      if (result.seeded > 0) parts.push(`${result.seeded} added`);
+      if (result.advanced > 0) parts.push(`${result.advanced} advanced`);
+      if (result.linked > 0) parts.push(`${result.linked} linked`);
+      if (result.already_ok > 0) parts.push(`${result.already_ok} already up to date`);
       toast({
-        title: "Backfill complete",
-        description: `${result.seeded} entries added, ${result.skipped} already existed.`,
+        title: "Repair complete",
+        description: parts.length > 0 ? parts.join(", ") : "Nothing to repair.",
       });
     },
-    onError: () => toast({ title: "Backfill failed", variant: "destructive" }),
+    onError: () => toast({ title: "Repair failed", variant: "destructive" }),
   });
 
   const openAdd = () => {

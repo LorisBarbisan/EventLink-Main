@@ -257,17 +257,27 @@ export async function unlinkInvoiceFromEntry(invoiceId: number): Promise<void> {
 }
 
 /**
- * Backfill earnings entries for all historic completed bookings for a freelancer.
- * Skips bookings that already have an entry. Returns counts of seeded / skipped.
+ * Backfill and reconcile earnings entries for all bookings for a freelancer.
+ * Idempotent — safe to call multiple times. For each booking:
+ *   - Seeds a missing entry via seedEntryFromBooking (also writes the app link).
+ *   - If the job is completed and the booking is not, advances the booking status.
+ *   - If the job is completed and the entry work_status is not "completed", advances it.
  */
-export async function backfillEarningsForFreelancer(
-  freelancerId: number
-): Promise<{ seeded: number; skipped: number; errors: number }> {
+export async function backfillEarningsForFreelancer(freelancerId: number): Promise<{
+  seeded: number;
+  advanced: number;
+  linked: number;
+  already_ok: number;
+  errors: number;
+  total: number;
+}> {
   let seeded = 0;
-  let skipped = 0;
+  let advanced = 0;
+  let linked = 0;
+  let already_ok = 0;
   let errors = 0;
 
-  const completedBookings = await db
+  const allBookings = await db
     .select({
       booking: bookings,
       job: {
@@ -278,6 +288,7 @@ export async function backfillEarningsForFreelancer(
         currency: jobs.currency,
         event_date: jobs.event_date,
         end_date: jobs.end_date,
+        status: jobs.status,
       },
     })
     .from(bookings)
@@ -289,19 +300,44 @@ export async function backfillEarningsForFreelancer(
       )
     );
 
-  for (const { booking, job } of completedBookings) {
-    const existing = await storage.getEarningsEntryByBooking(booking.id);
-    if (existing) {
-      skipped++;
-      continue;
-    }
+  for (const { booking, job } of allBookings) {
     try {
-      await seedEntryFromBooking(booking, job);
-      seeded++;
-    } catch {
+      const jobCompleted = (job.status as string) === "completed";
+
+      // Advance booking status if the job is done but booking isn't
+      if (jobCompleted && booking.status !== "completed") {
+        await db
+          .update(bookings)
+          .set({ status: "completed", updatedAt: new Date() })
+          .where(eq(bookings.id, booking.id));
+        advanced++;
+      }
+
+      const existingBefore = await storage.getEarningsEntryByBooking(booking.id);
+
+      // Always seed — idempotent, also writes job_applications.earnings_entry_id
+      const effectiveBooking =
+        jobCompleted && booking.status !== "completed"
+          ? ({ ...booking, status: "completed" } as typeof booking)
+          : booking;
+      await seedEntryFromBooking(effectiveBooking, job);
+
+      if (!existingBefore) {
+        seeded++;
+      } else {
+        // Entry existed — check if work_status needs advancing
+        if (jobCompleted && existingBefore.work_status !== "completed") {
+          await storage.updateEarningsEntry(existingBefore.id, { work_status: "completed" });
+          linked++;
+        } else {
+          already_ok++;
+        }
+      }
+    } catch (err) {
+      console.error(`backfillEarningsForFreelancer error for booking ${booking.id}:`, err);
       errors++;
     }
   }
 
-  return { seeded, skipped, errors };
+  return { seeded, advanced, linked, already_ok, errors, total: allBookings.length };
 }
