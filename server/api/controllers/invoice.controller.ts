@@ -699,12 +699,39 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
           const { sendEmail } = await import("../utils/emailService");
           const tmpl = await import("../utils/emailTemplates");
           const conversationUrl = `${process.env.FRONTEND_URL || "https://eventlink.one"}/dashboard?tab=messages&conversationId=${conversation.id}`;
-          const { subject, html } = tmpl.messageNotificationEmail({
+
+          // Resolve job title for the email body
+          let jobTitle: string | undefined;
+          try {
+            const jobId =
+              invoice.job_id ??
+              (invoice.booking_id
+                ? (
+                    await db
+                      .select({ jobId: bookings.jobId })
+                      .from(bookings)
+                      .where(eq(bookings.id, invoice.booking_id))
+                      .limit(1)
+                  )[0]?.jobId
+                : null);
+            if (jobId) {
+              const [jobRow] = await db
+                .select({ title: jobs.title })
+                .from(jobs)
+                .where(eq(jobs.id, jobId))
+                .limit(1);
+              jobTitle = jobRow?.title;
+            }
+          } catch {
+            /* non-fatal */
+          }
+
+          const { subject, html } = tmpl.invoiceNotificationEmail({
             recipientName: recipient.email,
             senderName,
-            messagePreview: bodyText.substring(0, 100),
+            invoiceNumber: invoice.invoice_number,
+            jobTitle,
             conversationUrl,
-            emailSubject: `Invoice ${invoice.invoice_number} from ${senderName}`,
           });
           const pdfAtt = (message as any)._pdfAttachment;
           console.log(

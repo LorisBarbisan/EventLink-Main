@@ -137,6 +137,35 @@ export function messageNotificationEmail(data: {
 }
 
 /**
+ * Invoice notification email — sent to the employer when a freelancer sends an invoice.
+ */
+export function invoiceNotificationEmail(data: {
+  recipientName: string;
+  senderName: string;
+  invoiceNumber: string;
+  jobTitle?: string;
+  conversationUrl: string;
+}): { subject: string; html: string } {
+  const jobLine = data.jobTitle ? `<p>It relates to: <strong>${data.jobTitle}</strong></p>` : "";
+  const content = `
+    <h2>🧾 Invoice received from ${data.senderName}</h2>
+    <p>Hi ${data.recipientName},</p>
+    <p>You have received invoice <strong>${data.invoiceNumber}</strong> from <strong>${data.senderName}</strong>.</p>
+    ${jobLine}
+    <p>
+      <a href="${data.conversationUrl}" class="button">View Invoice</a>
+    </p>
+    <p style="color: #666; font-size: 14px;">
+      Click the button above to open the message thread and download the attached PDF.
+    </p>
+  `;
+  return {
+    subject: `Invoice ${data.invoiceNumber} from ${data.senderName}`,
+    html: masterTemplate(content),
+  };
+}
+
+/**
  * Application Update Notification Template (for freelancers)
  */
 export function applicationUpdateEmail(data: {
