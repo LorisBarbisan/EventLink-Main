@@ -412,6 +412,7 @@ router.patch("/:id", auth, async (req: Request, res: Response) => {
       currency,
       status,
       paid_date,
+      paid_amount_pence,
       notes,
       work_status,
       call_time,
@@ -427,11 +428,15 @@ router.patch("/:id", auth, async (req: Request, res: Response) => {
     if (work_end_date !== undefined) updates.work_end_date = work_end_date;
     if (unit !== undefined) updates.unit = unit;
     if (quantity !== undefined) updates.quantity = String(quantity);
-    if (gross_amount !== undefined)
+    if (gross_amount !== undefined) {
       updates.gross_amount_pence = Math.round(Number(gross_amount) * 100);
+      // Explicitly setting an amount means the user has reviewed it
+      updates.needs_review = false;
+    }
     if (currency !== undefined) updates.currency = currency;
     if (status !== undefined) updates.status = status;
     if (paid_date !== undefined) updates.paid_date = paid_date;
+    if (paid_amount_pence !== undefined) updates.paid_amount_pence = Number(paid_amount_pence);
     if (notes !== undefined) updates.notes = notes;
     if (work_status !== undefined) updates.work_status = work_status;
     if (call_time !== undefined) updates.call_time = call_time;

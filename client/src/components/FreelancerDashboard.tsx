@@ -238,12 +238,6 @@ function HiredJobsSection() {
             <p className="mt-1 text-sm font-medium text-foreground">{hb.employer.companyName}</p>
           )}
         </div>
-        {hb.phase === "awaiting_payment" && (
-          <Button size="sm" onClick={() => setLogPaymentFor(hb)}>
-            <Plus className="mr-1 h-3 w-3" />
-            Log payment
-          </Button>
-        )}
         {hb.phase === "paid" && (
           <span className="text-xs text-muted-foreground">Logged in Books</span>
         )}

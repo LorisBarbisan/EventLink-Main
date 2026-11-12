@@ -61,7 +61,6 @@ import {
   ImageIcon,
   MapPin,
   Navigation,
-  PoundSterling,
   TrendingUp,
   RefreshCw,
   Download,
@@ -2712,8 +2711,12 @@ export function BooksTab() {
   const [jobDetailEntryId, setJobDetailEntryId] = useState<number | null>(null);
   const [fromBooking, setFromBooking] = useState<UnloggedBooking | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<UnloggedBooking | null>(null);
-  const [logPaymentBooking, setLogPaymentBooking] = useState<UnloggedBooking | null>(null);
-  const [logPaymentForm, setLogPaymentForm] = useState({ amount: "", datePaid: "", note: "" });
+  const [statusEditEntry, setStatusEditEntry] = useState<EarningsEntry | null>(null);
+  const [statusEditForm, setStatusEditForm] = useState({
+    status: "paid",
+    datePaid: "",
+    amount: "",
+  });
   const [expenseFromJobId, setExpenseFromJobId] = useState<number | null>(null);
   const [editExpenseId, setEditExpenseId] = useState<number | null>(null);
   const { data: editExpenseData } = useQuery<Expense>({
@@ -3028,50 +3031,44 @@ export function BooksTab() {
     setFromBooking(b);
     setJobDialogOpen(true);
   };
-  const openLogPayment = (b: UnloggedBooking) => {
-    if (!b.earnings_entry_id) {
-      toast({ title: "No earnings entry found — press Backfill first", variant: "destructive" });
-      return;
-    }
-    const digits = (b.rate ?? "").match(/\d+(?:\.\d+)?/);
-    setLogPaymentForm({
-      amount: digits ? digits[0] : "",
-      datePaid: new Date().toISOString().slice(0, 10),
-      note: "",
-    });
-    setLogPaymentBooking(b);
-  };
-  const logPaymentMutation = useMutation({
-    mutationFn: ({
-      entryId,
-      amount,
-      datePaid,
-      note,
-    }: {
-      entryId: number;
-      amount: string;
-      datePaid: string;
-      note: string;
-    }) =>
+  const statusEditMutation = useMutation({
+    mutationFn: (entryId: number) =>
       apiRequest(`/api/earnings/${entryId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          status: "paid",
-          paid_date: datePaid,
-          paid_amount_pence: Math.round(parseFloat(amount) * 100),
-          ...(note.trim() ? { notes: note.trim() } : {}),
+          status: statusEditForm.status,
+          ...(statusEditForm.status === "paid"
+            ? {
+                paid_date: statusEditForm.datePaid,
+                paid_amount_pence: Math.round(parseFloat(statusEditForm.amount) * 100),
+              }
+            : { paid_date: null, paid_amount_pence: null }),
         }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
-      toast({ title: "Payment logged" });
-      setLogPaymentBooking(null);
+      toast({ title: "Status updated" });
+      setStatusEditEntry(null);
     },
-    onError: () => toast({ title: "Failed to log payment", variant: "destructive" }),
+    onError: () => toast({ title: "Failed to update status", variant: "destructive" }),
   });
+
+  const openStatusEdit = (entry: EarningsEntry) => {
+    setStatusEditForm({
+      status: entry.status === "paid" ? "paid" : "expected",
+      datePaid: entry.paid_date ?? new Date().toISOString().slice(0, 10),
+      amount:
+        entry.paid_amount_pence != null
+          ? (entry.paid_amount_pence / 100).toFixed(2)
+          : entry.gross_amount_pence != null
+            ? (entry.gross_amount_pence / 100).toFixed(2)
+            : "",
+    });
+    setStatusEditEntry(entry);
+  };
 
   const bookingDetailDialog = selectedBooking && (
     <Dialog
@@ -3232,20 +3229,78 @@ export function BooksTab() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              openLogPayment(selectedBooking);
-              setSelectedBooking(null);
-            }}
-          >
-            <PoundSterling className="mr-1.5 h-3.5 w-3.5" />
-            Log payment
-          </Button>
           <Button size="sm" onClick={() => createInvoiceForBooking(selectedBooking)}>
             <Receipt className="mr-1.5 h-3.5 w-3.5" />
             {findInvoiceForBooking(selectedBooking) ? "View / Edit invoice" : "Create invoice"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const statusEditDialog = statusEditEntry && (
+    <Dialog open onOpenChange={() => setStatusEditEntry(null)}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Payment status</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {statusEditEntry.description}
+            {statusEditEntry.work_date ? ` · ${fmtDate(statusEditEntry.work_date)}` : ""}
+          </p>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1">
+            <Label>Status</Label>
+            <Select
+              value={statusEditForm.status}
+              onValueChange={(v) => setStatusEditForm((f) => ({ ...f, status: v }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="expected">Expected</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {statusEditForm.status === "paid" && (
+            <>
+              <div className="space-y-1">
+                <Label>Amount received (£) *</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={statusEditForm.amount}
+                  onChange={(e) => setStatusEditForm((f) => ({ ...f, amount: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Date paid *</Label>
+                <Input
+                  type="date"
+                  value={statusEditForm.datePaid}
+                  onChange={(e) => setStatusEditForm((f) => ({ ...f, datePaid: e.target.value }))}
+                />
+              </div>
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setStatusEditEntry(null)}>
+            Cancel
+          </Button>
+          <Button
+            disabled={
+              statusEditMutation.isPending ||
+              (statusEditForm.status === "paid" &&
+                (!statusEditForm.datePaid || !(parseFloat(statusEditForm.amount) > 0)))
+            }
+            onClick={() => statusEditMutation.mutate(statusEditEntry.id)}
+          >
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -3656,25 +3711,11 @@ export function BooksTab() {
                           {/^\d/.test(b.rate.trim()) ? `£${b.rate.trim()}` : b.rate.trim()}
                         </span>
                       ) : null}
-                      {(b.status as string) === "completed" ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                          <CheckCircle className="h-3 w-3" />
-                          Completed
+                      {isPast ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                          <Clock className="h-3 w-3" />
+                          Awaiting payment
                         </span>
-                      ) : isPast ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
-                          data-help="books.earnings.logPayment"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openLogPayment(b);
-                          }}
-                        >
-                          <PoundSterling className="mr-1 h-3 w-3" />
-                          Log payment
-                        </Button>
                       ) : (
                         <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
                           Confirmed
@@ -3813,18 +3854,10 @@ export function BooksTab() {
                           {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
                         </p>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="ml-3 shrink-0 border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openLogPayment(b);
-                        }}
-                      >
-                        <PoundSterling className="mr-1 h-3 w-3" />
-                        Log payment
-                      </Button>
+                      <span className="ml-3 inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        <Clock className="h-3 w-3" />
+                        Awaiting payment
+                      </span>
                     </div>
                   ))}
                   {completedEntries.map((entry, i) => (
@@ -3839,6 +3872,9 @@ export function BooksTab() {
                       }`}
                       onClick={() => setJobDetailEntryId(entry.id)}
                     >
+                      <span className="mr-3 shrink-0 text-xs font-medium tabular-nums text-muted-foreground/60">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
                           {entry.description ?? "Freelance work"}
@@ -3849,7 +3885,16 @@ export function BooksTab() {
                         </p>
                       </div>
                       <div className="ml-4 flex items-center gap-3">
-                        <StatusBadge entry={entry} />
+                        <button
+                          className="cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          title="Change payment status"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openStatusEdit(entry);
+                          }}
+                        >
+                          <StatusBadge entry={entry} />
+                        </button>
                         <span className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-blue-700 dark:text-blue-300">
                           {entry.needs_review
                             ? "—"
@@ -3909,90 +3954,7 @@ export function BooksTab() {
         jobApplicationId={fromBooking?.id}
       />
       {bookingDetailDialog}
-
-      {logPaymentBooking && (
-        <Dialog
-          open={!!logPaymentBooking}
-          onOpenChange={(o) => {
-            if (!o) setLogPaymentBooking(null);
-          }}
-        >
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Log payment</DialogTitle>
-              <p className="text-sm text-muted-foreground">
-                {logPaymentBooking.job_title}
-                {logPaymentBooking.company_name ? ` · ${logPaymentBooking.company_name}` : ""}
-                {logPaymentBooking.event_date
-                  ? ` · ${new Date(logPaymentBooking.event_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
-                  : ""}
-              </p>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div>
-                <Label htmlFor="log-amount">Amount received *</Label>
-                <div className="relative mt-1">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                    £
-                  </span>
-                  <Input
-                    id="log-amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="pl-7"
-                    value={logPaymentForm.amount}
-                    onChange={(e) => setLogPaymentForm((f) => ({ ...f, amount: e.target.value }))}
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="log-date">Date paid *</Label>
-                <Input
-                  id="log-date"
-                  type="date"
-                  className="mt-1"
-                  value={logPaymentForm.datePaid}
-                  onChange={(e) => setLogPaymentForm((f) => ({ ...f, datePaid: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="log-note">Note (optional)</Label>
-                <Textarea
-                  id="log-note"
-                  className="mt-1"
-                  rows={2}
-                  value={logPaymentForm.note}
-                  onChange={(e) => setLogPaymentForm((f) => ({ ...f, note: e.target.value }))}
-                  placeholder="e.g. partial payment, invoice ref…"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setLogPaymentBooking(null)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={
-                  !logPaymentForm.amount || !logPaymentForm.datePaid || logPaymentMutation.isPending
-                }
-                onClick={() => {
-                  if (!logPaymentBooking.earnings_entry_id) return;
-                  logPaymentMutation.mutate({
-                    entryId: logPaymentBooking.earnings_entry_id,
-                    amount: logPaymentForm.amount,
-                    datePaid: logPaymentForm.datePaid,
-                    note: logPaymentForm.note,
-                  });
-                }}
-              >
-                {logPaymentMutation.isPending ? "Saving…" : "Log payment"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      {statusEditDialog}
 
       {jobDetailEntryId !== null && (
         <JobDetailDialog
