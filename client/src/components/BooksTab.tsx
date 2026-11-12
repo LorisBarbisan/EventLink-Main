@@ -2955,28 +2955,17 @@ export function BooksTab() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Past confirmed/briefed bookings with no earnings entry — genuinely unlogged
-  const unloggedBookings = allBookings.filter(
-    (b: any) =>
-      ["confirmed", "briefed"].includes(b.status) &&
-      !b.earnings_entry_id &&
-      b.event_date &&
-      new Date(b.event_date) < today
-  );
-
-  // Active bookings for future work — status-based, not entry-based
+  // Future work (or no date): always in My Jobs regardless of booking/job status
   const upcomingHired = allBookings.filter(
-    (b: any) =>
-      ["confirmed", "briefed"].includes(b.status) &&
-      (!b.event_date || new Date(b.event_date) >= today)
+    (b: any) => !b.event_date || new Date(b.event_date) >= today
   );
-  // Completed jobs + past active bookings (have done the work, payment pending)
+  // Past work with no entry — edge case after backfill, but kept as a safety net
+  const unloggedBookings = allBookings.filter(
+    (b: any) => !b.earnings_entry_id && b.event_date && new Date(b.event_date) < today
+  );
+  // Past-dated bookings go to Earnings as awaiting payment
   const awaitingPaymentHired = allBookings.filter(
-    (b: any) =>
-      (b.status as string) === "completed" ||
-      (["confirmed", "briefed"].includes(b.status) &&
-        b.event_date &&
-        new Date(b.event_date) < today)
+    (b: any) => b.event_date && new Date(b.event_date) < today
   );
 
   // Scheduled gigs (earnings_entries with work_status IS NOT NULL) — 3 months back, 12 ahead
