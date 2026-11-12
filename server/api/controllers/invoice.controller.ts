@@ -707,7 +707,9 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
             emailSubject: `Invoice ${invoice.invoice_number} from ${senderName}`,
           });
           const pdfAtt = (message as any)._pdfAttachment;
-          console.log(`[invoice-send] sending email to ${recipient.email}, pdfAtt=${!!pdfAtt}`);
+          console.log(
+            `[invoice-send] sending email to ${recipient.email}, pdfAtt=${!!pdfAtt}, subject="${subject}"`
+          );
           await sendEmail({
             to: recipient.email,
             subject,
@@ -715,8 +717,12 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
             ...(pdfAtt ? { attachments: [pdfAtt] } : {}),
           });
           console.log(`[invoice-send] ✅ email sent to ${recipient.email}`);
-        } catch (emailErr) {
-          console.error("Invoice notification email failed (non-fatal):", emailErr);
+        } catch (emailErr: any) {
+          console.error(
+            `[invoice-send] ❌ email to ${recipient?.email} FAILED:`,
+            emailErr?.message ?? emailErr,
+            emailErr?.response?.body ?? ""
+          );
         }
       }
     } catch (outerErr) {

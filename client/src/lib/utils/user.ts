@@ -11,6 +11,15 @@ export interface User {
   title?: string | null; // freelancer professional headline
 }
 
+export interface MessageAttachment {
+  id: number;
+  message_id: number;
+  object_path: string;
+  original_filename: string;
+  file_type: string;
+  file_size: number;
+}
+
 export interface Message {
   id: number;
   conversation_id: number;
@@ -20,6 +29,7 @@ export interface Message {
   is_system_message: boolean;
   created_at: string;
   sender: User;
+  attachments?: MessageAttachment[];
   __optimistic?: boolean;
 }
 

@@ -16,7 +16,7 @@ import {
   Message,
 } from "@/lib/utils/user";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, MessageCircle, Send } from "lucide-react";
+import { ArrowLeft, MessageCircle, Paperclip, Send } from "lucide-react";
 
 const URL_REGEX = /https?:\/\/[^\s<>"']+/g;
 
@@ -447,6 +447,22 @@ export function MessagingInterface({ initialConversationId }: Props) {
                             <p className="whitespace-pre-wrap break-words leading-relaxed">
                               {renderWithLinks(msg.content, isMyMessage)}
                             </p>
+                            {msg.attachments?.map((att) => (
+                              <a
+                                key={att.id}
+                                href={`/api/attachments/${att.id}/download`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`mt-2 flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium underline-offset-2 hover:underline ${
+                                  isMyMessage
+                                    ? "bg-primary-foreground/10 text-primary-foreground"
+                                    : "bg-black/5 text-amber-900"
+                                }`}
+                              >
+                                <Paperclip className="h-3 w-3 shrink-0" />
+                                {att.original_filename}
+                              </a>
+                            ))}
                             <p
                               className={`mt-1 text-[10px] ${
                                 isSystemMessage
