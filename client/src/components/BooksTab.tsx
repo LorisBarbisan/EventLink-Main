@@ -2710,6 +2710,8 @@ export function BooksTab() {
   const [jobDetailEntryId, setJobDetailEntryId] = useState<number | null>(null);
   const [fromBooking, setFromBooking] = useState<UnloggedBooking | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<UnloggedBooking | null>(null);
+  const [logPaymentBooking, setLogPaymentBooking] = useState<UnloggedBooking | null>(null);
+  const [logPaymentForm, setLogPaymentForm] = useState({ amount: "", datePaid: "", note: "" });
   const [expenseFromJobId, setExpenseFromJobId] = useState<number | null>(null);
   const [editExpenseId, setEditExpenseId] = useState<number | null>(null);
   const { data: editExpenseData } = useQuery<Expense>({
@@ -3034,6 +3036,50 @@ export function BooksTab() {
     setFromBooking(b);
     setJobDialogOpen(true);
   };
+  const openLogPayment = (b: UnloggedBooking) => {
+    if (!b.earnings_entry_id) {
+      toast({ title: "No earnings entry found — press Backfill first", variant: "destructive" });
+      return;
+    }
+    const digits = (b.rate ?? "").match(/\d+(?:\.\d+)?/);
+    setLogPaymentForm({
+      amount: digits ? digits[0] : "",
+      datePaid: new Date().toISOString().slice(0, 10),
+      note: "",
+    });
+    setLogPaymentBooking(b);
+  };
+  const logPaymentMutation = useMutation({
+    mutationFn: ({
+      entryId,
+      amount,
+      datePaid,
+      note,
+    }: {
+      entryId: number;
+      amount: string;
+      datePaid: string;
+      note: string;
+    }) =>
+      apiRequest(`/api/earnings/${entryId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "paid",
+          paid_date: datePaid,
+          paid_amount_pence: Math.round(parseFloat(amount) * 100),
+          ...(note.trim() ? { notes: note.trim() } : {}),
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      toast({ title: "Payment logged" });
+      setLogPaymentBooking(null);
+    },
+    onError: () => toast({ title: "Failed to log payment", variant: "destructive" }),
+  });
 
   const bookingDetailDialog = selectedBooking && (
     <Dialog
@@ -3198,7 +3244,7 @@ export function BooksTab() {
             variant="outline"
             size="sm"
             onClick={() => {
-              openFromBooking(selectedBooking);
+              openLogPayment(selectedBooking);
               setSelectedBooking(null);
             }}
           >
@@ -3627,7 +3673,7 @@ export function BooksTab() {
                           data-help="books.earnings.logPayment"
                           onClick={(e) => {
                             e.stopPropagation();
-                            openFromBooking(b);
+                            openLogPayment(b);
                           }}
                         >
                           <PoundSterling className="mr-1 h-3 w-3" />
@@ -3785,7 +3831,7 @@ export function BooksTab() {
                             className="ml-3 shrink-0 border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
                             onClick={(e) => {
                               e.stopPropagation();
-                              openFromBooking(b);
+                              openLogPayment(b);
                             }}
                           >
                             <PoundSterling className="mr-1 h-3 w-3" />
@@ -3877,6 +3923,90 @@ export function BooksTab() {
         jobApplicationId={fromBooking?.id}
       />
       {bookingDetailDialog}
+
+      {logPaymentBooking && (
+        <Dialog
+          open={!!logPaymentBooking}
+          onOpenChange={(o) => {
+            if (!o) setLogPaymentBooking(null);
+          }}
+        >
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Log payment</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                {logPaymentBooking.job_title}
+                {logPaymentBooking.company_name ? ` · ${logPaymentBooking.company_name}` : ""}
+                {logPaymentBooking.event_date
+                  ? ` · ${new Date(logPaymentBooking.event_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+                  : ""}
+              </p>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div>
+                <Label htmlFor="log-amount">Amount received *</Label>
+                <div className="relative mt-1">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    £
+                  </span>
+                  <Input
+                    id="log-amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="pl-7"
+                    value={logPaymentForm.amount}
+                    onChange={(e) => setLogPaymentForm((f) => ({ ...f, amount: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="log-date">Date paid *</Label>
+                <Input
+                  id="log-date"
+                  type="date"
+                  className="mt-1"
+                  value={logPaymentForm.datePaid}
+                  onChange={(e) => setLogPaymentForm((f) => ({ ...f, datePaid: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="log-note">Note (optional)</Label>
+                <Textarea
+                  id="log-note"
+                  className="mt-1"
+                  rows={2}
+                  value={logPaymentForm.note}
+                  onChange={(e) => setLogPaymentForm((f) => ({ ...f, note: e.target.value }))}
+                  placeholder="e.g. partial payment, invoice ref…"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setLogPaymentBooking(null)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={
+                  !logPaymentForm.amount || !logPaymentForm.datePaid || logPaymentMutation.isPending
+                }
+                onClick={() => {
+                  if (!logPaymentBooking.earnings_entry_id) return;
+                  logPaymentMutation.mutate({
+                    entryId: logPaymentBooking.earnings_entry_id,
+                    amount: logPaymentForm.amount,
+                    datePaid: logPaymentForm.datePaid,
+                    note: logPaymentForm.note,
+                  });
+                }}
+              >
+                {logPaymentMutation.isPending ? "Saving…" : "Log payment"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {jobDetailEntryId !== null && (
         <JobDetailDialog
