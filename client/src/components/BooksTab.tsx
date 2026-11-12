@@ -2973,6 +2973,15 @@ export function BooksTab() {
     (b: any) => !b.earnings_entry_id && b.event_date && new Date(b.event_date) < today
   );
 
+  // Auto-backfill: when past bookings have no entry, run repair once so they appear as entries
+  const hasUnlogged = awaitingPaymentHired.length > 0;
+  useEffect(() => {
+    if (hasUnlogged && !backfillMutation.isPending) {
+      backfillMutation.mutate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasUnlogged]);
+
   // Scheduled gigs (earnings_entries with work_status IS NOT NULL) — 3 months back, 12 ahead
   const gigsFrom = (() => {
     const d = new Date(today);
@@ -3003,6 +3012,7 @@ export function BooksTab() {
     mutationFn: () => apiRequest("/api/earnings/repair-completed-jobs", { method: "POST" }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
       const parts: string[] = [];
       if (result.seeded > 0) parts.push(`${result.seeded} added`);
       if (result.advanced > 0) parts.push(`${result.advanced} advanced`);
