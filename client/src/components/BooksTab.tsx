@@ -2621,6 +2621,7 @@ type UnloggedBooking = {
   location?: string;
   status?: string;
   earnings_entry_id?: number | null;
+  entry_gross_pence?: number | null;
 };
 
 interface HiredBooking {
@@ -2780,6 +2781,7 @@ export function BooksTab() {
       rate: hb.booking.agreedRate ?? undefined,
       status: hb.booking.status,
       earnings_entry_id: hb.booking.earnings_entry_id ?? undefined,
+      entry_gross_pence: (hb.booking as any).entry_gross_pence ?? null,
     }));
 
   // Lightweight invoice lookup by job/booking id
@@ -3645,11 +3647,15 @@ export function BooksTab() {
                       </p>
                     </div>
                     <div className="ml-3 flex shrink-0 items-center gap-2">
-                      {b.rate && (
+                      {b.entry_gross_pence != null ? (
+                        <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                          {formatPence(b.entry_gross_pence, "GBP")}
+                        </span>
+                      ) : b.rate ? (
                         <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
                           {/^\d/.test(b.rate.trim()) ? `£${b.rate.trim()}` : b.rate.trim()}
                         </span>
-                      )}
+                      ) : null}
                       {(b.status as string) === "completed" ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                           <CheckCircle className="h-3 w-3" />
