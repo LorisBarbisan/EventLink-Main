@@ -3198,7 +3198,7 @@ export function BooksTab() {
         )}
 
         <DialogFooter className="flex-col gap-2 sm:flex-row">
-          {selectedBooking.job_id && (
+          {selectedBooking.job_id && selectedBooking.status !== "completed" && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
