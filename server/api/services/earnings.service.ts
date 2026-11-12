@@ -96,6 +96,7 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
       gross_amount_pence: grossPence,
       currency,
       status: "expected",
+      work_status: "confirmed",
       needs_review: needsReview || ratePence === null,
       archived: false,
     });
@@ -110,14 +111,45 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
  * Non-fatal.
  */
 export async function linkInvoiceToEntry(invoice: Invoice): Promise<void> {
-  if (!invoice.booking_id) return;
   try {
-    const entry = await storage.getEarningsEntryByBooking(invoice.booking_id);
-    if (!entry) return;
-    await storage.updateEarningsEntry(entry.id, {
-      invoice_id: invoice.id,
-      invoiced_date: invoice.issue_date ?? new Date().toISOString().slice(0, 10),
-    });
+    const invoicedDate = invoice.issue_date ?? new Date().toISOString().slice(0, 10);
+
+    // Try to find the entry by booking first, then by invoice id
+    const entry = invoice.booking_id
+      ? await storage.getEarningsEntryByBooking(invoice.booking_id)
+      : await storage.getEarningsEntryByInvoice(invoice.id);
+
+    if (entry) {
+      await storage.updateEarningsEntry(entry.id, {
+        invoice_id: invoice.id,
+        invoiced_date: invoicedDate,
+      });
+      return;
+    }
+
+    // No entry exists for this invoice — create a placeholder so it shows in "Owed to me"
+    if (!invoice.booking_id) {
+      const toDetails = invoice.to_details as Record<string, unknown> | null;
+      const clientName =
+        (toDetails?.company as string | undefined) ||
+        (toDetails?.name as string | undefined) ||
+        "Unknown";
+      const client = await storage.findOrCreateClientByName(invoice.freelancer_id, clientName);
+      await storage.createEarningsEntry({
+        freelancer_id: invoice.freelancer_id,
+        invoice_id: invoice.id,
+        client_id: client.id,
+        description: invoice.invoice_number,
+        work_date: invoicedDate,
+        quantity: "1",
+        unit: "job",
+        gross_amount_pence: invoice.total_pence,
+        currency: invoice.currency ?? "GBP",
+        status: "expected",
+        invoiced_date: invoicedDate,
+        archived: false,
+      });
+    }
   } catch (err) {
     console.error(`linkInvoiceToEntry failed for invoice ${invoice.id} (non-fatal):`, err);
   }

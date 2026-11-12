@@ -20,12 +20,9 @@ const auth = [authenticateJWT, requireRole("freelancer")];
 router.get("/jobs", auth, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    let jobs = await storage.listJobsForSelector(userId);
-    // First visit (or after bookings were confirmed before entries were seeded): backfill
-    if (jobs.length === 0) {
-      await backfillEarningsForFreelancer(userId);
-      jobs = await storage.listJobsForSelector(userId);
-    }
+    // Always backfill in case a booking was confirmed before an entry was seeded
+    await backfillEarningsForFreelancer(userId);
+    const jobs = await storage.listJobsForSelector(userId);
     return res.json(jobs);
   } catch (err) {
     console.error("earnings jobs error:", err);
@@ -76,16 +73,17 @@ router.get("/summary", auth, async (req: Request, res: Response) => {
           (inv) => !linkedInvoiceIds.has(inv.id)
         );
 
-        // For each unlinked invoice, write invoice_id onto the matching entry (best-effort)
+        // For each unlinked invoice, find its entry (via booking or invoice id) — read-only
         const extra: (typeof entries)[number][] = [];
         for (const inv of unlinkedInvoices) {
+          let entry;
           if (inv.booking_id) {
-            const entry = await storage.getEarningsEntryByBooking(inv.booking_id);
-            if (entry && entry.freelancer_id === freelancerId && entry.status !== "paid") {
-              // Repair the missing link
-              storage.updateEarningsEntry(entry.id, { invoice_id: inv.id }).catch(() => {});
-              extra.push({ ...entry, invoice_id: inv.id });
-            }
+            entry = await storage.getEarningsEntryByBooking(inv.booking_id);
+          } else {
+            entry = await storage.getEarningsEntryByInvoice(inv.id);
+          }
+          if (entry && entry.freelancer_id === freelancerId && entry.status !== "paid") {
+            extra.push({ ...entry, invoice_id: inv.id });
           }
         }
 

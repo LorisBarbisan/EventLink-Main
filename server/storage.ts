@@ -6989,6 +6989,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(earnings_entries.freelancer_id, freelancerId),
           isNotNull(earnings_entries.work_status),
+          eq(earnings_entries.archived, false),
           gte(earnings_entries.work_date, from),
           lte(earnings_entries.work_date, to)
         )

@@ -2965,7 +2965,7 @@ export function BooksTab() {
   // Scheduled gigs (earnings_entries with work_status IS NOT NULL) — 3 months back, 12 ahead
   const gigsFrom = (() => {
     const d = new Date(today);
-    d.setMonth(d.getMonth() - 3);
+    d.setFullYear(d.getFullYear() - 2);
     return d.toISOString().slice(0, 10);
   })();
   const gigsTo = (() => {

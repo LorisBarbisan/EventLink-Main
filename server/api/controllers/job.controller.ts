@@ -1,8 +1,12 @@
 import { insertJobSchema, insertFreelancerJobSchema } from "@shared/schema";
+import { bookings, jobs as jobsTable } from "@shared/schema";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
+import { db } from "../config/db";
+import { and, eq, inArray } from "drizzle-orm";
 import { sendUrgentJobNotification } from "../services/job-notification-scheduler.service";
 import { sendJobClosureEmails } from "../services/job-closure-email.service";
+import { seedEntryFromBooking } from "../services/earnings.service";
 import { ownsEmployerCompany } from "../utils/team.util";
 import { assignBatchWindow } from "../utils/batch-window.util";
 
@@ -480,6 +484,43 @@ export async function completeJob(req: Request, res: Response) {
     await Promise.all(
       hiredApps.map((a) => storage.updateApplicationStatus(a.id, "completed" as any))
     );
+
+    // Advance any active bookings (bookings table) for this job, then seed or
+    // advance their earnings entries so work_status reaches "completed".
+    const jobBookings = await db
+      .select()
+      .from(bookings)
+      .where(and(eq(bookings.jobId, jobId), inArray(bookings.status, ["confirmed", "briefed"])));
+
+    if (jobBookings.length > 0) {
+      const [jobRow] = await db
+        .select({
+          id: jobsTable.id,
+          title: jobsTable.title,
+          company: jobsTable.company,
+          recruiter_id: jobsTable.recruiter_id,
+          currency: jobsTable.currency,
+          event_date: jobsTable.event_date,
+          end_date: jobsTable.end_date,
+        })
+        .from(jobsTable)
+        .where(eq(jobsTable.id, jobId));
+
+      await Promise.all(
+        jobBookings.map(async (b) => {
+          await db
+            .update(bookings)
+            .set({ status: "completed", updatedAt: new Date() })
+            .where(eq(bookings.id, b.id));
+          const entry = await storage.getEarningsEntryByBooking(b.id);
+          if (entry) {
+            await storage.updateEarningsEntry(entry.id, { work_status: "completed" });
+          } else if (jobRow) {
+            await seedEntryFromBooking(b, jobRow);
+          }
+        })
+      );
+    }
 
     return res.json(updatedJob);
   } catch (err) {
