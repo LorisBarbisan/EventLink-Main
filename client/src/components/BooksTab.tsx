@@ -13,6 +13,7 @@ import {
   Legend,
 } from "recharts";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useFreelancerJobs } from "@/hooks/useFreelancerJobs";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -2765,14 +2766,10 @@ export function BooksTab() {
     queryKey: ["/api/earnings/clients"],
   });
 
-  const { data: hiredBookings = [] } = useQuery<HiredBooking[]>({
-    queryKey: ["/api/bookings/freelancer"],
-    queryFn: () => apiRequest("/api/bookings/freelancer"),
-    enabled: !!user?.id,
-  });
+  const { data: hiredBookings = [] } = useFreelancerJobs();
 
   // Derive allBookings from hiredBookings — /api/bookings/freelancer now includes earnings_entry_id
-  const allBookings: UnloggedBooking[] = hiredBookings
+  const allBookings: UnloggedBooking[] = (hiredBookings as unknown as HiredBooking[])
     .filter((hb) => ["confirmed", "briefed", "completed"].includes(hb.booking.status))
     .map((hb) => ({
       id: hb.booking.id,

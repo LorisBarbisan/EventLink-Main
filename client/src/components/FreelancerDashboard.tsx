@@ -25,6 +25,7 @@ import { useHelpComplete } from "@/help/useHelp";
 import { CredentialBacklogBanner } from "@/pages/CredentialBackfill";
 import type { FreelancerFormData, JobApplication } from "@shared/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useFreelancerJobs, type FreelancerJob } from "@/hooks/useFreelancerJobs";
 import {
   AlertCircle,
   Banknote,
@@ -59,90 +60,59 @@ import { ProfileForm } from "./ProfileForm";
 import { BADGE_CONFIG, VerificationBadge } from "./ReferenceBadges";
 import { VanityUrlEditor } from "./VanityUrlEditor";
 
-type BookingApp = {
-  id: number;
-  job_title: string;
-  company_name?: string;
-  location?: string;
-  event_date?: string;
-  rate?: string;
-  earnings_entry_id?: number | null;
+type DashLogPaymentForm = {
+  amount: string;
+  datePaid: string;
+  note: string;
 };
 
-type LogPaymentForm = {
-  description: string;
-  client_name: string;
-  work_date: string;
-  gross_amount: string;
-  paid_date: string;
-  notes: string;
-};
-
-function bookingStatus(app: BookingApp): "upcoming" | "awaiting_payment" | "paid" {
-  if (app.earnings_entry_id) return "paid";
-  if (app.event_date && new Date(app.event_date) < new Date()) return "awaiting_payment";
-  return "upcoming";
-}
-
-function LogPaymentDialog({
-  app,
+function DashLogPaymentDialog({
+  job,
   open,
   onClose,
 }: {
-  app: BookingApp;
+  job: FreelancerJob;
   open: boolean;
   onClose: () => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const today = new Date().toISOString().slice(0, 10);
-  const eventDate = app.event_date?.slice(0, 10) ?? today;
+  const digits = (job.booking.agreedRate ?? "").match(/\d+(?:\.\d+)?/);
 
-  const [form, setForm] = useState<LogPaymentForm>({
-    description: app.job_title ?? "",
-    client_name: app.company_name ?? "",
-    work_date: eventDate,
-    gross_amount: "",
-    paid_date: today,
-    notes: "",
+  const [form, setForm] = useState<DashLogPaymentForm>({
+    amount: digits ? digits[0] : "",
+    datePaid: today,
+    note: "",
   });
 
-  // Reset when dialog opens for a new booking
   useEffect(() => {
     if (open) {
-      setForm({
-        description: app.job_title ?? "",
-        client_name: app.company_name ?? "",
-        work_date: eventDate,
-        gross_amount: "",
-        paid_date: today,
-        notes: "",
-      });
+      const d = (job.booking.agreedRate ?? "").match(/\d+(?:\.\d+)?/);
+      setForm({ amount: d ? d[0] : "", datePaid: today, note: "" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, app.id]);
+  }, [open, job.booking.id]);
 
-  const set = (k: keyof LogPaymentForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: keyof DashLogPaymentForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      apiRequest("/api/earnings", {
-        method: "POST",
+    mutationFn: () => {
+      const entryId = job.booking.earnings_entry_id;
+      if (!entryId) throw new Error("No earnings entry");
+      return apiRequest(`/api/earnings/${entryId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          description: form.description.trim(),
-          client_name: form.client_name.trim() || null,
-          work_date: form.work_date,
-          gross_amount: parseFloat(form.gross_amount),
-          currency: "GBP",
           status: "paid",
-          paid_date: form.paid_date || form.work_date,
-          notes: form.notes || null,
-          job_application_id: app.id,
+          paid_date: form.datePaid,
+          paid_amount_pence: Math.round(parseFloat(form.amount) * 100),
+          ...(form.note.trim() ? { notes: form.note.trim() } : {}),
         }),
-      }),
+      });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/freelancer"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings/freelancer"] });
       queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
       toast({ title: "Payment logged", description: "Added to your earnings." });
       onClose();
@@ -150,58 +120,47 @@ function LogPaymentDialog({
     onError: () => toast({ title: "Failed to log payment", variant: "destructive" }),
   });
 
-  const valid = form.description.trim() && form.work_date && parseFloat(form.gross_amount) > 0;
+  const valid = form.datePaid && parseFloat(form.amount) > 0;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Log payment received</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {job.job.title}
+            {job.employer.companyName ? ` · ${job.employer.companyName}` : ""}
+            {job.job.eventDate
+              ? ` · ${new Date(job.job.eventDate).toLocaleDateString("en-GB")}`
+              : ""}
+          </p>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-1">
-            <Label>Job description *</Label>
-            <Input value={form.description} onChange={(e) => set("description", e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label>Client / company</Label>
-            <Input value={form.client_name} onChange={(e) => set("client_name", e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Event date *</Label>
-              <Input
-                type="date"
-                value={form.work_date}
-                onChange={(e) => set("work_date", e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Amount received (£) *</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={form.gross_amount}
-                onChange={(e) => set("gross_amount", e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label>Date money arrived</Label>
+            <Label>Amount received (£) *</Label>
             <Input
-              type="date"
-              value={form.paid_date}
-              onChange={(e) => set("paid_date", e.target.value)}
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={form.amount}
+              onChange={(e) => set("amount", e.target.value)}
             />
           </div>
           <div className="space-y-1">
-            <Label>Notes (optional)</Label>
+            <Label>Date paid *</Label>
+            <Input
+              type="date"
+              value={form.datePaid}
+              onChange={(e) => set("datePaid", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Note (optional)</Label>
             <Input
               placeholder="e.g. invoice ref, bank transfer"
-              value={form.notes}
-              onChange={(e) => set("notes", e.target.value)}
+              value={form.note}
+              onChange={(e) => set("note", e.target.value)}
             />
           </div>
         </div>
@@ -219,98 +178,84 @@ function LogPaymentDialog({
   );
 }
 
-function HiredJobsSection({ userId }: { userId: number }) {
-  const { data: applications = [], isLoading } = useQuery<BookingApp[]>({
-    queryKey: ["/api/freelancer", userId, "bookings"],
-    queryFn: async () => {
-      const token = localStorage.getItem("auth_token");
-      const res = await fetch(`/api/freelancer/${userId}/bookings`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Failed to fetch bookings");
-      return res.json();
-    },
-  });
-
-  const [logPaymentFor, setLogPaymentFor] = useState<BookingApp | null>(null);
+function HiredJobsSection() {
+  const { data: jobs = [], isLoading } = useFreelancerJobs();
+  const [logPaymentFor, setLogPaymentFor] = useState<FreelancerJob | null>(null);
 
   if (isLoading)
     return <div className="py-8 text-center text-muted-foreground">Loading bookings…</div>;
 
-  const upcoming = applications.filter((a) => bookingStatus(a) === "upcoming");
-  const awaitingPayment = applications.filter((a) => bookingStatus(a) === "awaiting_payment");
-  const paid = applications.filter((a) => bookingStatus(a) === "paid");
+  const upcoming = jobs.filter((j) => j.phase === "upcoming");
+  const awaitingPayment = jobs.filter((j) => j.phase === "awaiting_payment");
+  const paid = jobs.filter((j) => j.phase === "paid");
 
-  const renderApp = (app: BookingApp) => {
-    const status = bookingStatus(app);
-    return (
-      <div key={app.id} className="rounded-lg border p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <h4 className="font-semibold">{app.job_title}</h4>
-              {status === "upcoming" && (
-                <Badge className="bg-green-600 text-xs text-white">
-                  <CheckCircle className="mr-1 h-3 w-3" />
-                  Confirmed
-                </Badge>
-              )}
-              {status === "awaiting_payment" && (
-                <Badge className="bg-amber-500 text-xs text-white">
-                  <Clock className="mr-1 h-3 w-3" />
-                  Awaiting payment
-                </Badge>
-              )}
-              {status === "paid" && (
-                <Badge className="bg-blue-600 text-xs text-white">
-                  <CheckCircle className="mr-1 h-3 w-3" />
-                  Paid
-                </Badge>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-              {app.location && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  {app.location}
-                </span>
-              )}
-              {app.event_date && (
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {new Date(app.event_date).toLocaleDateString("en-GB")}
-                </span>
-              )}
-              {app.rate && (
-                <span className="flex items-center gap-1">
-                  <Banknote className="h-3 w-3" />
-                  {app.rate}
-                </span>
-              )}
-            </div>
-            {app.company_name && (
-              <p className="mt-1 text-sm font-medium text-foreground">{app.company_name}</p>
+  const renderJob = (hb: FreelancerJob) => (
+    <div key={hb.booking.id} className="rounded-lg border p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <h4 className="font-semibold">{hb.job.title}</h4>
+            {hb.phase === "upcoming" && (
+              <Badge className="bg-green-600 text-xs text-white">
+                <CheckCircle className="mr-1 h-3 w-3" />
+                Confirmed
+              </Badge>
+            )}
+            {hb.phase === "awaiting_payment" && (
+              <Badge className="bg-amber-500 text-xs text-white">
+                <Clock className="mr-1 h-3 w-3" />
+                Awaiting payment
+              </Badge>
+            )}
+            {hb.phase === "paid" && (
+              <Badge className="bg-blue-600 text-xs text-white">
+                <CheckCircle className="mr-1 h-3 w-3" />
+                Paid
+              </Badge>
             )}
           </div>
-          {status === "awaiting_payment" && (
-            <Button size="sm" onClick={() => setLogPaymentFor(app)}>
-              <Plus className="mr-1 h-3 w-3" />
-              Log payment
-            </Button>
-          )}
-          {status === "paid" && (
-            <span className="text-xs text-muted-foreground">Logged in Books</span>
+          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            {hb.job.location && (
+              <span className="flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                {hb.job.location}
+              </span>
+            )}
+            {hb.job.eventDate && (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {new Date(hb.job.eventDate).toLocaleDateString("en-GB")}
+              </span>
+            )}
+            {hb.booking.agreedRate && (
+              <span className="flex items-center gap-1">
+                <Banknote className="h-3 w-3" />
+                {hb.booking.agreedRate}
+              </span>
+            )}
+          </div>
+          {hb.employer.companyName && (
+            <p className="mt-1 text-sm font-medium text-foreground">{hb.employer.companyName}</p>
           )}
         </div>
+        {hb.phase === "awaiting_payment" && (
+          <Button size="sm" onClick={() => setLogPaymentFor(hb)}>
+            <Plus className="mr-1 h-3 w-3" />
+            Log payment
+          </Button>
+        )}
+        {hb.phase === "paid" && (
+          <span className="text-xs text-muted-foreground">Logged in Books</span>
+        )}
       </div>
-    );
-  };
+    </div>
+  );
 
   return (
     <>
       {logPaymentFor && (
-        <LogPaymentDialog
-          app={logPaymentFor}
+        <DashLogPaymentDialog
+          job={logPaymentFor}
           open={!!logPaymentFor}
           onClose={() => setLogPaymentFor(null)}
         />
@@ -323,7 +268,7 @@ function HiredJobsSection({ userId }: { userId: number }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {applications.length === 0 ? (
+          {jobs.length === 0 ? (
             <div className="py-8 text-center">
               <Briefcase className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="font-medium">No Bookings Yet</p>
@@ -338,7 +283,7 @@ function HiredJobsSection({ userId }: { userId: number }) {
                   <p className="mb-3 text-sm font-medium text-amber-600">
                     Completed · Awaiting payment ({awaitingPayment.length})
                   </p>
-                  <div className="space-y-3">{awaitingPayment.map(renderApp)}</div>
+                  <div className="space-y-3">{awaitingPayment.map(renderJob)}</div>
                 </div>
               )}
               {upcoming.length > 0 && (
@@ -346,7 +291,7 @@ function HiredJobsSection({ userId }: { userId: number }) {
                   {awaitingPayment.length > 0 && (
                     <p className="mb-3 text-sm font-medium text-muted-foreground">Upcoming</p>
                   )}
-                  <div className="space-y-3">{upcoming.map(renderApp)}</div>
+                  <div className="space-y-3">{upcoming.map(renderJob)}</div>
                 </div>
               )}
               {paid.length > 0 && (
@@ -354,7 +299,7 @@ function HiredJobsSection({ userId }: { userId: number }) {
                   <p className="mb-3 text-sm font-medium text-muted-foreground">
                     Paid ({paid.length})
                   </p>
-                  <div className="space-y-3">{paid.map(renderApp)}</div>
+                  <div className="space-y-3">{paid.map(renderJob)}</div>
                 </div>
               )}
             </>
@@ -945,7 +890,7 @@ export default function SimplifiedFreelancerDashboard() {
 
         {/* Bookings Tab */}
         <TabsContent value="bookings" className="space-y-6">
-          <HiredJobsSection userId={user.id} />
+          <HiredJobsSection />
         </TabsContent>
 
         {/* References Tab */}

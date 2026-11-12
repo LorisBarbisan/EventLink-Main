@@ -184,6 +184,10 @@ export async function getFreelancerBookings(req: Request, res: Response) {
           companyLogoUrl: recruiter_profiles.company_logo_url,
         },
         earningsEntryId: earnings_entries.id,
+        entryStatus: earnings_entries.status,
+        entryGrossPence: earnings_entries.gross_amount_pence,
+        entryPaidPence: earnings_entries.paid_amount_pence,
+        entryPaidDate: earnings_entries.paid_date,
       })
       .from(bookings)
       .innerJoin(jobs, eq(bookings.jobId, jobs.id))
@@ -193,17 +197,35 @@ export async function getFreelancerBookings(req: Request, res: Response) {
       .where(eq(bookings.freelancerId, freelancerId))
       .orderBy(desc(bookings.updatedAt));
 
-    const results = rows.map(({ booking, job, employer, earningsEntryId }) => ({
-      booking: { ...booking, earnings_entry_id: earningsEntryId ?? null },
-      job,
-      employer: {
-        id: employer.id,
-        firstName: employer.firstName,
-        lastName: employer.lastName,
-        companyName: employer.companyName,
-        profilePicture: employer.companyLogoUrl ?? employer.accountPhotoUrl,
-      },
-    }));
+    const results = rows.map(
+      ({
+        booking,
+        job,
+        employer,
+        earningsEntryId,
+        entryStatus,
+        entryGrossPence,
+        entryPaidPence,
+        entryPaidDate,
+      }) => ({
+        booking: {
+          ...booking,
+          earnings_entry_id: earningsEntryId ?? null,
+          entry_status: entryStatus ?? null,
+          entry_gross_pence: entryGrossPence ?? null,
+          entry_paid_pence: entryPaidPence ?? null,
+          entry_paid_date: entryPaidDate ?? null,
+        },
+        job,
+        employer: {
+          id: employer.id,
+          firstName: employer.firstName,
+          lastName: employer.lastName,
+          companyName: employer.companyName,
+          profilePicture: employer.companyLogoUrl ?? employer.accountPhotoUrl,
+        },
+      })
+    );
 
     return res.json(results);
   } catch (error) {
