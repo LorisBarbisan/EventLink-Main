@@ -1,8 +1,11 @@
 import { Router } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
-import { backfillEarningsForFreelancer } from "../services/earnings.service";
+import { backfillEarningsForFreelancer, seedEntryFromBooking } from "../services/earnings.service";
 import { storage, normaliseClientName } from "../../storage";
+import { db } from "../config/db";
+import { bookings, jobs } from "@shared/schema";
+import { and, eq, inArray } from "drizzle-orm";
 import { currentTaxYear } from "@shared/tax-periods";
 import type { Request, Response } from "express";
 import {
@@ -114,6 +117,69 @@ router.post("/backfill", auth, async (req: Request, res: Response) => {
   } catch (err) {
     console.error("earnings backfill error:", err);
     return res.status(500).json({ error: "Backfill failed" });
+  }
+});
+
+// POST /api/earnings/repair-completed-jobs
+// Idempotent repair for bookings stranded at confirmed/briefed/completed with no earnings entry,
+// or entries that were seeded before work_status was introduced.
+router.post("/repair-completed-jobs", auth, async (req: Request, res: Response) => {
+  try {
+    const freelancerId = req.user!.id;
+
+    // Find all non-cancelled bookings for this freelancer whose job is completed
+    const stranded = await db
+      .select({
+        booking: bookings,
+        job: {
+          id: jobs.id,
+          title: jobs.title,
+          company: jobs.company,
+          recruiter_id: jobs.recruiter_id,
+          currency: jobs.currency,
+          event_date: jobs.event_date,
+          end_date: jobs.end_date,
+        },
+      })
+      .from(bookings)
+      .innerJoin(jobs, eq(bookings.jobId, jobs.id))
+      .where(
+        and(
+          eq(bookings.freelancerId, freelancerId),
+          inArray(bookings.status, ["confirmed", "briefed", "completed"]),
+          eq(jobs.status as any, "completed")
+        )
+      );
+
+    let seeded = 0;
+    let advanced = 0;
+    let already_ok = 0;
+
+    for (const { booking, job } of stranded) {
+      // Advance booking to completed if not already
+      if (booking.status !== "completed") {
+        await db
+          .update(bookings)
+          .set({ status: "completed", updatedAt: new Date() })
+          .where(eq(bookings.id, booking.id));
+      }
+
+      const entry = await storage.getEarningsEntryByBooking(booking.id);
+      if (!entry) {
+        await seedEntryFromBooking({ ...booking, status: "completed" } as typeof booking, job);
+        seeded++;
+      } else if (entry.work_status !== "completed") {
+        await storage.updateEarningsEntry(entry.id, { work_status: "completed" });
+        advanced++;
+      } else {
+        already_ok++;
+      }
+    }
+
+    return res.json({ seeded, advanced, already_ok, total: stranded.length });
+  } catch (err) {
+    console.error("repair-completed-jobs error:", err);
+    return res.status(500).json({ error: "Repair failed" });
   }
 });
 

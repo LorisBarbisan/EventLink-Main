@@ -472,25 +472,30 @@ export async function completeJob(req: Request, res: Response) {
       return res.status(403).json({ error: "Not authorized" });
     }
 
-    if ((job.status as string) === "completed")
-      return res.status(400).json({ error: "Job is already completed" });
+    // Idempotent: advance job status only if not already completed
+    if ((job.status as string) !== "completed") {
+      await storage.updateJob(jobId, { status: "completed" as any });
+    }
+    const updatedJob = await storage.getJobById(jobId);
 
-    const updatedJob = await storage.updateJob(jobId, { status: "completed" as any });
-
-    // Mark all hired applications on this job as completed so the booking
-    // moves out of the freelancer's "upcoming" list
+    // Mark all hired applications on this job as completed
     const allApps = await storage.getJobApplications(jobId);
     const hiredApps = allApps.filter((a) => a.status === "hired");
     await Promise.all(
       hiredApps.map((a) => storage.updateApplicationStatus(a.id, "completed" as any))
     );
 
-    // Advance any active bookings (bookings table) for this job, then seed or
-    // advance their earnings entries so work_status reaches "completed".
+    // Reconcile ALL non-cancelled bookings for this job — including ones already
+    // at "completed" that may have been stranded without an earnings entry.
     const jobBookings = await db
       .select()
       .from(bookings)
-      .where(and(eq(bookings.jobId, jobId), inArray(bookings.status, ["confirmed", "briefed"])));
+      .where(
+        and(
+          eq(bookings.jobId, jobId),
+          inArray(bookings.status, ["confirmed", "briefed", "completed"])
+        )
+      );
 
     if (jobBookings.length > 0) {
       const [jobRow] = await db
@@ -508,15 +513,19 @@ export async function completeJob(req: Request, res: Response) {
 
       await Promise.all(
         jobBookings.map(async (b) => {
-          await db
-            .update(bookings)
-            .set({ status: "completed", updatedAt: new Date() })
-            .where(eq(bookings.id, b.id));
+          if (b.status !== "completed") {
+            await db
+              .update(bookings)
+              .set({ status: "completed", updatedAt: new Date() })
+              .where(eq(bookings.id, b.id));
+          }
           const entry = await storage.getEarningsEntryByBooking(b.id);
           if (entry) {
-            await storage.updateEarningsEntry(entry.id, { work_status: "completed" });
+            if (entry.work_status !== "completed") {
+              await storage.updateEarningsEntry(entry.id, { work_status: "completed" });
+            }
           } else if (jobRow) {
-            await seedEntryFromBooking(b, jobRow);
+            await seedEntryFromBooking({ ...b, status: "completed" } as typeof b, jobRow);
           }
         })
       );

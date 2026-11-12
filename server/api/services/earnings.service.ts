@@ -1,5 +1,5 @@
 import { db } from "../config/db";
-import { bookings, jobs } from "@shared/schema";
+import { bookings, jobs, job_applications } from "@shared/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { storage } from "../../storage";
 import type { Booking, Invoice } from "@shared/schema";
@@ -83,7 +83,7 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
       return;
     }
 
-    await storage.createEarningsEntry({
+    const created = await storage.createEarningsEntry({
       freelancer_id: booking.freelancerId,
       booking_id: booking.id,
       client_id: client.id,
@@ -100,6 +100,27 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
       needs_review: needsReview || ratePence === null,
       archived: false,
     });
+
+    // Mirror the link onto job_applications so the UI's earnings_entry_id filter
+    // sees this booking as already logged (prevents duplicate-create attempts).
+    try {
+      const [app] = await db
+        .select({ id: job_applications.id })
+        .from(job_applications)
+        .where(
+          and(
+            eq(job_applications.job_id, booking.jobId),
+            eq(job_applications.freelancer_id, booking.freelancerId),
+            inArray(job_applications.status as any, ["hired", "completed"])
+          )
+        )
+        .limit(1);
+      if (app) {
+        await storage.linkJobApplicationEarning(app.id, created.id);
+      }
+    } catch {
+      /* non-fatal — entry is already created */
+    }
   } catch (err) {
     console.error(`seedEntryFromBooking failed for booking ${booking.id} (non-fatal):`, err);
   }
