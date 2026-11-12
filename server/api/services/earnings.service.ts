@@ -24,8 +24,10 @@ function parseRatePence(agreedRate: string | null | undefined): {
   needsReview: boolean;
 } {
   if (!agreedRate) return { pence: null, needsReview: false };
+  // Normalise thousand-separator commas (e.g. "£1,450") before splitting on digits
+  const normalised = agreedRate.replace(/(\d),(\d{3})/g, "$1$2");
   // Ambiguous: two or more digit groups (e.g. "250-300", "£250 - £300")
-  const digitGroups = agreedRate.match(/\d+(?:\.\d+)?/g) ?? [];
+  const digitGroups = normalised.match(/\d+(?:\.\d+)?/g) ?? [];
   if (digitGroups.length > 1) return { pence: null, needsReview: true };
   const n = parseFloat(digitGroups[0] ?? "");
   if (isNaN(n)) return { pence: null, needsReview: true };
