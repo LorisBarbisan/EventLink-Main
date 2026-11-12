@@ -2963,9 +2963,10 @@ export function BooksTab() {
   const unloggedBookings = allBookings.filter(
     (b: any) => !b.earnings_entry_id && b.event_date && new Date(b.event_date) < today
   );
-  // Past-dated bookings go to Earnings as awaiting payment
+  // Past bookings with no entry yet — show "Log payment" in Earnings
+  // Once an entry exists, the booking falls through to completedEntries (full display with amount)
   const awaitingPaymentHired = allBookings.filter(
-    (b: any) => b.event_date && new Date(b.event_date) < today
+    (b: any) => !b.earnings_entry_id && b.event_date && new Date(b.event_date) < today
   );
 
   // Scheduled gigs (earnings_entries with work_status IS NOT NULL) — 3 months back, 12 ahead
@@ -3610,7 +3611,7 @@ export function BooksTab() {
                 data: b,
               })),
               ...scheduledJobs
-                .filter((g) => g.work_date > todayStr)
+                .filter((g) => g.work_date > todayStr && !g.booking_id)
                 .map((g) => ({
                   kind: "entry" as const,
                   date: g.work_date,
