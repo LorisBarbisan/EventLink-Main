@@ -477,7 +477,14 @@ export async function getInvoicePDF(req: Request, res: Response) {
     // Always regenerate and stream directly — avoids R2 CORS issues on redirect
     const billingProfile = await storage.getBillingProfile(user.id);
     if (!billingProfile) return res.status(422).json({ error: "Billing profile not set up" });
-    const pdfBuffer = await renderInvoicePDF({ invoice, billingProfile });
+    const earningsEntry = invoice.booking_id
+      ? await storage.getEarningsEntryByBooking(invoice.booking_id)
+      : await storage.getEarningsEntryByInvoice(invoice.id);
+    const pdfBuffer = await renderInvoicePDF({
+      invoice,
+      billingProfile,
+      jobRef: (earningsEntry as any)?.job_ref ?? null,
+    });
     // Store in background (non-blocking)
     storeInvoicePDF(user.id, id, pdfBuffer)
       .then((key) => storage.updateInvoice(id, { pdf_key: key }))

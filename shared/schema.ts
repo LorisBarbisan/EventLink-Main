@@ -1533,6 +1533,7 @@ export const earnings_entries = pgTable(
     standard_hours_per_day: integer("standard_hours_per_day"),
     overtime_rate_pence: integer("overtime_rate_pence"),
     archived: boolean("archived").notNull().default(false),
+    job_ref: text("job_ref"),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

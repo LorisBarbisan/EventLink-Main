@@ -36,6 +36,7 @@ async function fetchImageBuffer(url: string): Promise<Buffer | null> {
 export interface InvoiceRenderData {
   invoice: Invoice;
   billingProfile: FreelancerBillingProfile;
+  jobRef?: string | null;
 }
 
 const DARK = "#111827";
@@ -83,6 +84,7 @@ export async function renderInvoicePDF(data: InvoiceRenderData): Promise<Buffer>
     const numBlock = [`#${invoice.invoice_number}`];
     if (invoice.issue_date) numBlock.push(`Date: ${fmtDate(invoice.issue_date)}`);
     if (invoice.due_date) numBlock.push(`Due: ${fmtDate(invoice.due_date)}`);
+    if (data.jobRef) numBlock.push(`Ref: ${data.jobRef}`);
 
     doc
       .font("Helvetica")

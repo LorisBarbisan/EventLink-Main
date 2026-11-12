@@ -6955,6 +6955,7 @@ export class DatabaseStorage implements IStorage {
       client_name: string | null;
       booking_id: number | null;
       work_status: string | null;
+      job_ref: string | null;
     }[]
   > {
     const today = new Date().toISOString().slice(0, 10);
@@ -6967,6 +6968,7 @@ export class DatabaseStorage implements IStorage {
         client_name: earnings_clients.name,
         booking_id: earnings_entries.booking_id,
         work_status: earnings_entries.work_status,
+        job_ref: earnings_entries.job_ref,
       })
       .from(earnings_entries)
       .leftJoin(earnings_clients, eq(earnings_entries.client_id, earnings_clients.id))
@@ -7025,6 +7027,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createEarningsEntry(data: InsertEarningsEntry): Promise<EarningsEntry> {
+    // Auto-assign job_ref = JOB-NNN (per freelancer) if not supplied
+    if (!data.job_ref && data.freelancer_id) {
+      const [maxRow] = await db
+        .select({ maxRef: sql<string>`MAX(job_ref)` })
+        .from(earnings_entries)
+        .where(
+          and(
+            eq(earnings_entries.freelancer_id, data.freelancer_id),
+            isNotNull(earnings_entries.job_ref)
+          )
+        );
+      const lastNum = maxRow?.maxRef
+        ? parseInt(maxRow.maxRef.replace(/^JOB-0*/, "") || "0", 10)
+        : 0;
+      data = { ...data, job_ref: `JOB-${String(lastNum + 1).padStart(3, "0")}` };
+    }
     const [row] = await db.insert(earnings_entries).values(data).returning();
     return row;
   }

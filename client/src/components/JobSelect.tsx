@@ -17,6 +17,7 @@ export interface JobOption {
   client_name: string | null;
   booking_id: number | null;
   work_status: string | null;
+  job_ref: string | null;
 }
 
 interface JobSelectProps {
@@ -58,6 +59,7 @@ export function JobSelect({ value, onChange, label = "Link to a job (optional)" 
           <SelectItem value="none">— Not linked —</SelectItem>
           {jobOptions.map((j) => (
             <SelectItem key={j.id} value={String(j.id)}>
+              {j.job_ref ? `[${j.job_ref}] ` : ""}
               {j.description}
               {j.client_name ? ` · ${j.client_name}` : ""}
               {" · "}

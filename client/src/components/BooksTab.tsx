@@ -3880,6 +3880,11 @@ export function BooksTab() {
                           {entry.description ?? "Freelance work"}
                         </p>
                         <p className="text-xs text-muted-foreground">
+                          {(entry as any).job_ref ? (
+                            <span className="mr-1 font-medium text-blue-600 dark:text-blue-400">
+                              {(entry as any).job_ref}
+                            </span>
+                          ) : null}
                           {fmtDate(entry.work_date)}
                           {entry.client_name ? ` · ${entry.client_name}` : ""}
                         </p>
