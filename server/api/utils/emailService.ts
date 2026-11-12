@@ -1,6 +1,15 @@
 import sgMail from "@sendgrid/mail";
 
-const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || "noreply@eventlink.one";
+const SENDGRID_FROM_EMAIL = (() => {
+  const raw = process.env.SENDGRID_FROM_EMAIL?.trim();
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (raw && EMAIL_RE.test(raw)) return raw;
+  if (raw)
+    console.warn(
+      `⚠️ SENDGRID_FROM_EMAIL "${raw}" is not a valid address — falling back to noreply@eventlink.one`
+    );
+  return "noreply@eventlink.one";
+})();
 
 async function getUncachableSendGridClient() {
   const apiKey = process.env.SENDGRID_API_KEY;
