@@ -244,12 +244,14 @@ export async function unlinkInvoiceFromEntry(invoiceId: number): Promise<void> {
   try {
     const entry = await storage.getEarningsEntryByInvoice(invoiceId);
     if (!entry) return;
+    // Only revert payment fields if the entry was not already paid.
+    // An invoice is paperwork; cancelling it must not erase the fact that money arrived.
     await storage.updateEarningsEntry(entry.id, {
       invoice_id: null,
       invoiced_date: null,
-      status: "expected",
-      paid_date: null,
-      paid_amount_pence: null,
+      ...(entry.status !== "paid"
+        ? { status: "expected", paid_date: null, paid_amount_pence: null }
+        : {}),
     });
   } catch (err) {
     console.error(`unlinkInvoiceFromEntry failed for invoice ${invoiceId} (non-fatal):`, err);
