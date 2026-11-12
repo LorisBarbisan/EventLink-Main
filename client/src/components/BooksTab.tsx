@@ -2781,6 +2781,7 @@ export function BooksTab() {
       company_name: hb.employer.companyName ?? undefined,
       event_date: hb.job.eventDate ?? undefined,
       rate: hb.booking.agreedRate ?? undefined,
+      status: hb.booking.status,
       earnings_entry_id: hb.booking.earnings_entry_id ?? undefined,
     }));
 
