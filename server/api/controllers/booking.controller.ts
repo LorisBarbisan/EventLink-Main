@@ -351,20 +351,27 @@ export async function updateBookingStatus(req: Request, res: Response) {
         .from(jobs)
         .where(eq(jobs.id, updated.jobId));
       if (job) {
-        seedEntryFromBooking(updated, job).catch(() => {});
+        seedEntryFromBooking(updated, job).catch((err) =>
+          console.error(`seedEntryFromBooking failed for booking ${bookingId}:`, err)
+        );
       }
     }
 
     if (toStatus === "cancelled") {
-      // Archive the earnings entry if it exists and hasn't been invoiced
       storage
         .getEarningsEntryByBooking(bookingId)
         .then((entry) => {
           if (entry && !entry.invoice_id) {
-            storage.updateEarningsEntry(entry.id, { archived: true }).catch(() => {});
+            storage
+              .updateEarningsEntry(entry.id, { archived: true })
+              .catch((err) =>
+                console.error(`archive earnings entry failed for booking ${bookingId}:`, err)
+              );
           }
         })
-        .catch(() => {});
+        .catch((err) =>
+          console.error(`getEarningsEntryByBooking failed for booking ${bookingId}:`, err)
+        );
     }
 
     return res.json(updated);

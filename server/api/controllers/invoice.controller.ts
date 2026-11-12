@@ -322,8 +322,13 @@ export async function createInvoiceFromBooking(req: Request, res: Response) {
     });
 
     // Ensure earnings entry exists for this booking, then link it to the invoice (non-blocking)
-    if (job) seedEntryFromBooking(booking, job).catch(() => {});
-    linkInvoiceToEntry(invoice).catch(() => {});
+    if (job)
+      seedEntryFromBooking(booking, job).catch((err) =>
+        console.error(`seedEntryFromBooking failed for booking ${booking.id}:`, err)
+      );
+    linkInvoiceToEntry(invoice).catch((err) =>
+      console.error(`linkInvoiceToEntry failed for invoice ${invoice.id}:`, err)
+    );
 
     // Generate initial PDF
     try {
@@ -720,7 +725,10 @@ export async function sendInvoiceViaMessage(req: Request, res: Response) {
 
     // Mark invoice sent
     const sentInvoice = await storage.markInvoiceSent(id, message.id, false);
-    if (sentInvoice) linkInvoiceToEntry(sentInvoice).catch(() => {});
+    if (sentInvoice)
+      linkInvoiceToEntry(sentInvoice).catch((err) =>
+        console.error(`linkInvoiceToEntry failed for invoice ${id}:`, err)
+      );
 
     return res.json({ messageId: message.id, conversationId: conversation.id });
   } catch (err) {
@@ -741,7 +749,10 @@ export async function markSentExternally(req: Request, res: Response) {
     if (invoice.freelancer_id !== user.id) return res.status(403).json({ error: "Forbidden" });
     if (invoice.status !== "draft") return res.status(409).json({ error: "Invoice already sent" });
     const updated = await storage.markInvoiceSent(id, 0, true);
-    if (updated) linkInvoiceToEntry(updated).catch(() => {});
+    if (updated)
+      linkInvoiceToEntry(updated).catch((err) =>
+        console.error(`linkInvoiceToEntry failed for invoice ${id}:`, err)
+      );
     return res.json(updated);
   } catch (err) {
     console.error("markSentExternally error:", err);
@@ -765,7 +776,10 @@ export async function markInvoicePaid(req: Request, res: Response) {
     const { amount_pence, paid_date } = req.body;
     const paidAt = paid_date ? new Date(paid_date) : undefined;
     const updated = await storage.markInvoicePaid(id, amount_pence, paidAt);
-    if (updated) recordInvoicePaid(updated).catch(() => {});
+    if (updated)
+      recordInvoicePaid(updated).catch((err) =>
+        console.error(`recordInvoicePaid failed for invoice ${id}:`, err)
+      );
     return res.json(updated);
   } catch (err) {
     console.error("markInvoicePaid error:", err);
@@ -803,8 +817,14 @@ export async function setInvoiceStatus(req: Request, res: Response) {
     }
 
     const updated = await storage.updateInvoice(id, updates);
-    if (updated && status === "sent") linkInvoiceToEntry(updated).catch(() => {});
-    if (updated && status === "paid") recordInvoicePaid(updated).catch(() => {});
+    if (updated && status === "sent")
+      linkInvoiceToEntry(updated).catch((err) =>
+        console.error(`linkInvoiceToEntry failed for invoice ${id}:`, err)
+      );
+    if (updated && status === "paid")
+      recordInvoicePaid(updated).catch((err) =>
+        console.error(`recordInvoicePaid failed for invoice ${id}:`, err)
+      );
     return res.json(updated);
   } catch (err) {
     console.error("setInvoiceStatus error:", err);
@@ -823,7 +843,9 @@ export async function cancelInvoice(req: Request, res: Response) {
     if (invoice.status === "paid")
       return res.status(409).json({ error: "Cannot cancel a paid invoice" });
     const updated = await storage.updateInvoice(id, { status: "cancelled" });
-    unlinkInvoiceFromEntry(id).catch(() => {});
+    unlinkInvoiceFromEntry(id).catch((err) =>
+      console.error(`unlinkInvoiceFromEntry failed for invoice ${id}:`, err)
+    );
     return res.json(updated);
   } catch (err) {
     console.error("cancelInvoice error:", err);
