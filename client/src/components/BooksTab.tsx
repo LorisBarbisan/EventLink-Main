@@ -3712,13 +3712,16 @@ export function BooksTab() {
                       </p>
                     </div>
                     <div className="ml-3 flex shrink-0 items-center gap-2">
-                      {b.entry_gross_pence != null ? (
+                      {b.entry_gross_pence > 0 ? (
                         <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
                           {formatPence(b.entry_gross_pence, "GBP")}
                         </span>
                       ) : b.rate ? (
                         <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
-                          {/^\d/.test(b.rate.trim()) ? `£${b.rate.trim()}` : b.rate.trim()}
+                          {formatPence(
+                            Math.round(parseFloat(b.rate.replace(/[^0-9.]/g, "")) * 100) || 0,
+                            "GBP"
+                          )}
                         </span>
                       ) : null}
                       {isPast ? (
