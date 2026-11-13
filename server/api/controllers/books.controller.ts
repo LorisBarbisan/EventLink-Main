@@ -58,6 +58,7 @@ export async function booksSummary(req: Request, res: Response) {
     const earningsPence = earnings.total_pence - earnings.deductions_pence + extraPence;
 
     const expenseAllowablePence = expensesData.reduce((sum, e) => {
+      if (!e.allowable) return sum;
       const total = e.net_amount_pence + e.vat_amount_pence;
       return sum + Math.round((total * e.business_use_percent) / 100);
     }, 0);
@@ -291,6 +292,7 @@ export async function taxEstimate(req: Request, res: Response) {
 
     const earningsPence = earnings.total_pence - earnings.deductions_pence;
     const expenseAllowablePence = expensesData.reduce((sum, e) => {
+      if (!e.allowable) return sum;
       const total = e.net_amount_pence + e.vat_amount_pence;
       return sum + Math.round((total * e.business_use_percent) / 100);
     }, 0);

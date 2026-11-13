@@ -118,6 +118,7 @@ export async function createExpense(req: Request, res: Response) {
     payment_method: payment_method ?? null,
     business_use_percent: Number(business_use_percent ?? 100),
     billable_to_client: Boolean(billable_to_client),
+    allowable: req.body.allowable === false || req.body.allowable === "false" ? false : true,
     notes: notes?.trim() || null,
   });
 
@@ -160,6 +161,8 @@ export async function updateExpense(req: Request, res: Response) {
   if (business_use_percent !== undefined) data.business_use_percent = Number(business_use_percent);
   if (billable_to_client !== undefined) data.billable_to_client = Boolean(billable_to_client);
   if (rebilled !== undefined) data.rebilled = Boolean(rebilled);
+  if (req.body.allowable !== undefined)
+    data.allowable = req.body.allowable !== false && req.body.allowable !== "false";
   if (notes !== undefined) data.notes = notes?.trim() || null;
 
   const expense = await storage.updateExpense(id, freelancerId, data);

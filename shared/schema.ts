@@ -1715,6 +1715,7 @@ export const expenses = pgTable(
     business_use_percent: integer("business_use_percent").notNull().default(100),
     billable_to_client: boolean("billable_to_client").notNull().default(false),
     rebilled: boolean("rebilled").notNull().default(false),
+    allowable: boolean("allowable").notNull().default(true),
     notes: text("notes"),
     archived: boolean("archived").notNull().default(false),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

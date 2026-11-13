@@ -328,6 +328,7 @@ interface Expense {
   business_use_percent: number;
   billable_to_client: boolean;
   rebilled: boolean;
+  allowable: boolean;
   notes: string | null;
 }
 
@@ -343,6 +344,7 @@ interface ExpenseForm {
   business_use_percent: string;
   payment_method: string;
   billable_to_client: boolean;
+  allowable: boolean;
   notes: string;
 }
 
@@ -362,6 +364,7 @@ function emptyExpenseForm(lastCategoryId?: string): ExpenseForm {
     business_use_percent: "100",
     payment_method: "",
     billable_to_client: false,
+    allowable: true,
     notes: "",
   };
 }
@@ -410,13 +413,15 @@ function ExpenseDialog({
         business_use_percent: String(editing.business_use_percent),
         payment_method: editing.payment_method ?? "",
         billable_to_client: editing.billable_to_client,
+        allowable: editing.allowable,
         notes: editing.notes ?? "",
       });
       setMoreOpen(
         editing.vat_amount_pence > 0 ||
           editing.business_use_percent < 100 ||
           !!editing.payment_method ||
-          editing.billable_to_client
+          editing.billable_to_client ||
+          !editing.allowable
       );
     } else {
       const base = emptyExpenseForm(lastCategoryRef.current || undefined);
@@ -471,6 +476,7 @@ function ExpenseDialog({
       business_use_percent: parseInt(form.business_use_percent) || 100,
       payment_method: form.payment_method || null,
       billable_to_client: form.billable_to_client,
+      allowable: form.allowable,
       notes: form.notes.trim() || null,
     });
   };
@@ -621,6 +627,25 @@ function ExpenseDialog({
                   Billable to client
                 </Label>
               </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="exp-allowable"
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={form.allowable}
+                  onChange={(e) => set("allowable", e.target.checked)}
+                />
+                <Label htmlFor="exp-allowable" className="cursor-pointer font-normal">
+                  Allowable for tax
+                </Label>
+              </div>
+              {!form.allowable && (
+                <p className="text-xs text-muted-foreground">
+                  Disallowable expenses are excluded from your tax estimate (client entertainment,
+                  fines, non-business costs, etc.).
+                </p>
+              )}
 
               <div className="space-y-1">
                 <Label htmlFor="exp-notes">Notes</Label>
@@ -1151,10 +1176,12 @@ function ExpensesSection() {
                 const monthExpenses = byMonth[key];
                 const monthTotal = monthExpenses.reduce(
                   (sum, e) =>
-                    sum +
-                    Math.round(
-                      ((e.net_amount_pence + e.vat_amount_pence) * e.business_use_percent) / 100
-                    ),
+                    e.allowable
+                      ? sum +
+                        Math.round(
+                          ((e.net_amount_pence + e.vat_amount_pence) * e.business_use_percent) / 100
+                        )
+                      : sum,
                   0
                 );
                 return (
@@ -1170,7 +1197,9 @@ function ExpensesSection() {
                     </div>
                     {monthExpenses.map((expense, i) => {
                       const total = expense.net_amount_pence + expense.vat_amount_pence;
-                      const allowable = Math.round((total * expense.business_use_percent) / 100);
+                      const allowableAmount = Math.round(
+                        (total * expense.business_use_percent) / 100
+                      );
                       const catName = expense.category_id ? categoryMap[expense.category_id] : null;
                       return (
                         <div
@@ -1192,6 +1221,11 @@ function ExpensesSection() {
                                   Billable
                                 </Badge>
                               )}
+                              {!expense.allowable && (
+                                <Badge className="bg-red-100 text-xs text-red-700 hover:bg-red-100">
+                                  Disallowable
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground">
                               {fmtDate(expense.expense_date)}
@@ -1203,7 +1237,7 @@ function ExpensesSection() {
                           </div>
                           <div className="ml-3 flex items-center gap-2">
                             <span className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-300">
-                              {formatPence(allowable)}
+                              {formatPence(allowableAmount)}
                             </span>
                             <button
                               className="text-muted-foreground transition-colors hover:text-foreground"
