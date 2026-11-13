@@ -2351,6 +2351,107 @@ function PenceTick({ pence }: { pence: number }) {
   return `£${v.toFixed(0)}`;
 }
 
+// ── Set-aside calculator ──────────────────────────────────────────────────────
+
+function SetAsideCard({ taxData }: { taxData: TaxEstimateData }) {
+  const { januaryPence, januaryDate, julyPence, julyDate } = taxData.paymentSchedule;
+
+  // Parse "31 Jan YYYY" → Date (noon UTC to avoid DST edge)
+  const parseDeadline = (label: string): Date => {
+    const [, mon, yr] = label.split(" ");
+    const months: Record<string, number> = {
+      Jan: 0,
+      Feb: 1,
+      Mar: 2,
+      Apr: 3,
+      May: 4,
+      Jun: 5,
+      Jul: 6,
+      Aug: 7,
+      Sep: 8,
+      Oct: 9,
+      Nov: 10,
+      Dec: 11,
+    };
+    return new Date(Date.UTC(parseInt(yr, 10), months[mon] ?? 0, 31, 12));
+  };
+
+  const now = new Date();
+  const janDeadline = parseDeadline(januaryDate);
+  const julDeadline = julyPence > 0 ? parseDeadline(julyDate) : null;
+
+  // Months remaining = whole months between today and deadline (min 1)
+  const monthsTo = (deadline: Date): number =>
+    Math.max(
+      1,
+      (deadline.getFullYear() - now.getFullYear()) * 12 + (deadline.getMonth() - now.getMonth())
+    );
+
+  const janMonths = monthsTo(janDeadline);
+  const janMonthly = Math.ceil(januaryPence / janMonths);
+
+  const isPast = janDeadline < now;
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="border-l-4 border-sky-500 bg-sky-50/40 px-5 py-3 dark:bg-sky-950/20">
+        <p className="font-semibold">Set aside each month</p>
+        <p className="text-xs text-muted-foreground">
+          How much to save now so the January bill doesn&apos;t sting
+        </p>
+      </div>
+      <CardContent className="space-y-4 py-4">
+        {isPast ? (
+          <p className="text-sm text-muted-foreground">
+            January deadline has passed. Update your figures for next year.
+          </p>
+        ) : (
+          <>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">{januaryDate} payment</p>
+                <p className="text-xs text-muted-foreground">
+                  {janMonths} month{janMonths !== 1 ? "s" : ""} away
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold tabular-nums text-sky-700 dark:text-sky-300">
+                  {formatPence(janMonthly)}
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">/mo</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  covers {formatPence(januaryPence)} bill
+                </p>
+              </div>
+            </div>
+            {julDeadline && julyPence > 0 && monthsTo(julDeadline) > 0 && (
+              <div className="flex items-start justify-between gap-4 border-t pt-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">{julyDate} payment on account</p>
+                  <p className="text-xs text-muted-foreground">
+                    {monthsTo(julDeadline)} month{monthsTo(julDeadline) !== 1 ? "s" : ""} away
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold tabular-nums text-sky-600 dark:text-sky-400">
+                    {formatPence(Math.ceil(julyPence / monthsTo(julDeadline)))}
+                    <span className="ml-1 text-sm font-normal text-muted-foreground">/mo</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">covers {formatPence(julyPence)}</p>
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              These are monthly savings targets, not HMRC payment amounts. Figures are estimates —
+              confirm the actual bill with your accountant before paying.
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function OverviewSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -2818,6 +2919,9 @@ function OverviewSection() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Set-aside calculator ── */}
+      {taxData && taxData.paymentSchedule.januaryPence > 0 && <SetAsideCard taxData={taxData} />}
 
       {/* ── Tax settings ── */}
       <Card className="overflow-hidden">
