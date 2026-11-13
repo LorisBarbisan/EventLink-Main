@@ -90,6 +90,22 @@ export interface TaxOptions {
   scotland?: boolean;
 }
 
+export interface PaymentSchedule {
+  /**
+   * Payments on account apply when the tax bill is ≥ £1,000.
+   * Each POA = 50 % of the previous year's bill.
+   */
+  poaApplies: boolean;
+  /** First payment on account (31 Jan, year+2) + balancing payment in pence */
+  januaryPence: number;
+  /** Second payment on account (31 Jul, year+2) in pence */
+  julyPence: number;
+  /** e.g. "31 Jan 2028" */
+  januaryDate: string;
+  /** e.g. "31 Jul 2028" */
+  julyDate: string;
+}
+
 export interface TaxEstimate {
   taxYearLabel: string;
   netProfitPence: number;
@@ -105,6 +121,7 @@ export interface TaxEstimate {
   /** Combined */
   totalTaxPence: number;
   effectiveRatePct: number; // rounded to 1 dp
+  paymentSchedule: PaymentSchedule;
 }
 
 function bandTax(profit: number, lower: number, upper: number, ratePct: number): TaxBand | null {
@@ -209,6 +226,28 @@ export function estimateTax(
   const totalTaxPence = incomeTaxTotalPence + niTotalPence;
   const effectiveRatePct = profit > 0 ? Math.round((totalTaxPence / profit) * 1000) / 10 : 0;
 
+  // ── Payments on account ──────────────────────────────────────────────────────
+  // POAs apply when the bill is ≥ £1,000.  Each is 50 % of this year's bill.
+  // Both fall in the year AFTER the tax year ends:
+  //   - 1st POA + balancing payment: 31 January (startYear + 2)
+  //   - 2nd POA:                     31 July    (startYear + 2)
+  const POA_THRESHOLD = 100_000; // £1,000 in pence
+  const poaApplies = totalTaxPence >= POA_THRESHOLD;
+  const startYear = parseInt(bands.taxYear.slice(0, 4), 10);
+  const payYear = startYear + 2;
+  const firstPoaPence = Math.round(totalTaxPence / 2);
+  const secondPoaPence = totalTaxPence - firstPoaPence;
+  // januaryPence = balancing payment (this year's tax) + 1st POA for next year
+  const januaryPence = poaApplies ? totalTaxPence + firstPoaPence : totalTaxPence;
+  const julyPence = poaApplies ? secondPoaPence : 0;
+  const paymentSchedule: PaymentSchedule = {
+    poaApplies,
+    januaryPence,
+    julyPence,
+    januaryDate: `31 Jan ${payYear}`,
+    julyDate: `31 Jul ${payYear}`,
+  };
+
   return {
     taxYearLabel: bands.taxYear,
     netProfitPence: profit,
@@ -221,5 +260,6 @@ export function estimateTax(
     niTotalPence,
     totalTaxPence,
     effectiveRatePct,
+    paymentSchedule,
   };
 }

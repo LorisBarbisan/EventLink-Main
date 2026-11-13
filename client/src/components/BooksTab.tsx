@@ -2277,6 +2277,14 @@ interface TaxBand {
   taxPence: number;
 }
 
+interface PaymentSchedule {
+  poaApplies: boolean;
+  januaryPence: number;
+  julyPence: number;
+  januaryDate: string;
+  julyDate: string;
+}
+
 interface TaxEstimateData {
   taxYearLabel: string;
   netProfitPence: number;
@@ -2289,6 +2297,7 @@ interface TaxEstimateData {
   niTotalPence: number;
   totalTaxPence: number;
   effectiveRatePct: number;
+  paymentSchedule: PaymentSchedule;
   vatRegistered: boolean;
   grossEarningsPence: number;
 }
@@ -2650,6 +2659,39 @@ function OverviewSection() {
                     {formatPence(taxData.netProfitPence - taxData.totalTaxPence)}
                   </span>
                 </div>
+                {taxData.totalTaxPence > 0 && (
+                  <>
+                    <div className="border-t px-5 py-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        When you pay
+                      </p>
+                    </div>
+                    <div className="flex items-baseline justify-between px-5 py-2.5">
+                      <div>
+                        <p className="text-sm">{taxData.paymentSchedule.januaryDate}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {taxData.paymentSchedule.poaApplies
+                            ? "Balancing payment + 1st payment on account"
+                            : "Full year"}
+                        </p>
+                      </div>
+                      <span className="font-semibold tabular-nums text-red-600 dark:text-red-400">
+                        {formatPence(taxData.paymentSchedule.januaryPence)}
+                      </span>
+                    </div>
+                    {taxData.paymentSchedule.poaApplies && (
+                      <div className="flex items-baseline justify-between px-5 py-2.5">
+                        <div>
+                          <p className="text-sm">{taxData.paymentSchedule.julyDate}</p>
+                          <p className="text-xs text-muted-foreground">2nd payment on account</p>
+                        </div>
+                        <span className="font-semibold tabular-nums text-red-600 dark:text-red-400">
+                          {formatPence(taxData.paymentSchedule.julyPence)}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
               </>
             )}
           </CardContent>
