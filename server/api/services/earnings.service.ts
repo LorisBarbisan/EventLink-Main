@@ -52,9 +52,10 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
     const existing = await storage.getEarningsEntryByBooking(booking.id);
 
     const { pence: ratePence, needsReview } = parseRatePence(booking.agreedRate);
-    const workDate = job.event_date ?? booking.createdAt.toISOString().slice(0, 10);
+    const workDate = job.event_date || booking.createdAt.toISOString().slice(0, 10);
+    const jobEndDate = job.end_date || null;
     const currency = booking.currency ?? job.currency ?? "GBP";
-    const days = daySpan(workDate, job.end_date);
+    const days = daySpan(workDate, jobEndDate);
     const unitAmountPence = ratePence;
     const grossPence = ratePence !== null ? ratePence * days : 0;
 
@@ -76,7 +77,7 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
           client_id: client.id,
           description: job.title,
           work_date: workDate,
-          work_end_date: job.end_date ?? null,
+          work_end_date: jobEndDate,
           quantity: String(days),
           unit: "day",
           unit_amount_pence: unitAmountPence ?? undefined,
@@ -93,7 +94,7 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
         client_id: client.id,
         description: job.title,
         work_date: workDate,
-        work_end_date: job.end_date ?? null,
+        work_end_date: jobEndDate,
         quantity: String(days),
         unit: "day",
         unit_amount_pence: unitAmountPence ?? undefined,

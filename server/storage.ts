@@ -6791,7 +6791,9 @@ export class DatabaseStorage implements IStorage {
     employerUserId: number,
     name: string
   ): Promise<EarningsClient> {
-    const [existing] = await db
+    const norm = normaliseClientName(name);
+    // Check by employer_user_id first, then fall back to normalised name
+    const [byEmployer] = await db
       .select()
       .from(earnings_clients)
       .where(
@@ -6801,11 +6803,22 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .limit(1);
-    if (existing) return existing;
+    if (byEmployer) return byEmployer;
+    const [byName] = await db
+      .select()
+      .from(earnings_clients)
+      .where(
+        and(
+          eq(earnings_clients.freelancer_id, freelancerId),
+          eq(earnings_clients.normalised_name, norm)
+        )
+      )
+      .limit(1);
+    if (byName) return byName;
     return this.createEarningsClient({
       freelancer_id: freelancerId,
       name,
-      normalised_name: normaliseClientName(name),
+      normalised_name: norm,
       employer_user_id: employerUserId,
     });
   }
