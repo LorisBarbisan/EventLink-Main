@@ -243,21 +243,25 @@ export async function recordInvoicePaid(invoice: Invoice): Promise<void> {
 
 /**
  * Called after an invoice is cancelled.
- * Clears invoice_id, invoiced_date, paid fields and reverts status to "expected".
+ * Clears invoice_id and invoiced_date.  When `replacedBy` is true (correction
+ * flow) all payment fields are also cleared so the replacement invoice can
+ * re-establish the link cleanly.  When false (plain cancel) payment fields are
+ * preserved for paid entries — cancelling paperwork must not erase the fact
+ * that money arrived.
  * Non-fatal.
  */
-export async function unlinkInvoiceFromEntry(invoiceId: number): Promise<void> {
+export async function unlinkInvoiceFromEntry(
+  invoiceId: number,
+  opts: { replacedBy?: boolean } = {}
+): Promise<void> {
   try {
     const entry = await storage.getEarningsEntryByInvoice(invoiceId);
     if (!entry) return;
-    // Only revert payment fields if the entry was not already paid.
-    // An invoice is paperwork; cancelling it must not erase the fact that money arrived.
+    const clearPayment = opts.replacedBy || entry.status !== "paid";
     await storage.updateEarningsEntry(entry.id, {
       invoice_id: null,
       invoiced_date: null,
-      ...(entry.status !== "paid"
-        ? { status: "expected", paid_date: null, paid_amount_pence: null }
-        : {}),
+      ...(clearPayment ? { status: "expected", paid_date: null, paid_amount_pence: null } : {}),
     });
   } catch (err) {
     console.error(`unlinkInvoiceFromEntry failed for invoice ${invoiceId} (non-fatal):`, err);

@@ -18,6 +18,7 @@ import {
   markSentExternally,
   markInvoicePaid,
   cancelInvoice,
+  correctInvoice,
   archiveInvoice,
   unarchiveInvoice,
   setInvoiceStatus,
@@ -45,6 +46,7 @@ export function registerInvoiceRoutes(app: Express) {
   app.post("/api/invoices/from-booking/:bookingId", ...freelancer, createInvoiceFromBooking);
   app.patch("/api/invoices/:id", ...freelancer, updateInvoice);
   app.delete("/api/invoices/:id", ...freelancer, cancelInvoice);
+  app.post("/api/invoices/:id/correct", ...freelancer, correctInvoice);
 
   // PDF
   app.get("/api/invoices/:id/pdf", ...freelancer, getInvoicePDF);

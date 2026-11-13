@@ -1416,6 +1416,7 @@ export const invoices = pgTable("invoices", {
   notes: text("notes"),
   po_number: text("po_number"),
   pdf_key: text("pdf_key"),
+  replaces_invoice_id: integer("replaces_invoice_id"),
   archived: boolean("archived").default(false).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

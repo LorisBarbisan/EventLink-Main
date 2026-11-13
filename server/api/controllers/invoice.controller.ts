@@ -232,8 +232,6 @@ export async function createInvoiceFromBooking(req: Request, res: Response) {
       .limit(1);
     if (!bookingRow) return res.status(404).json({ error: "Booking not found" });
     if (bookingRow.freelancerId !== user.id) return res.status(403).json({ error: "Forbidden" });
-    if (bookingRow.status !== "completed")
-      return res.status(400).json({ error: "Booking must be completed" });
 
     const existing = await storage.getInvoiceByBooking(bookingId);
     if (existing)
@@ -889,6 +887,70 @@ export async function cancelInvoice(req: Request, res: Response) {
     return res.json(updated);
   } catch (err) {
     console.error("cancelInvoice error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+/**
+ * POST /api/invoices/:id/correct
+ *
+ * Creates a correction draft:
+ * - Cancels the original invoice (unless already cancelled)
+ * - Clears payment fields from the linked earnings entry so the correction can re-link
+ * - Creates a new draft with the same details and a new invoice number
+ * - Sets replaces_invoice_id on the new draft
+ */
+export async function correctInvoice(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+    const original = await storage.getInvoice(id);
+    if (!original) return res.status(404).json({ error: "Not found" });
+    if (original.freelancer_id !== user.id) return res.status(403).json({ error: "Forbidden" });
+    if (original.status === "draft")
+      return res
+        .status(409)
+        .json({ error: "Draft invoices do not need a correction — edit them directly" });
+
+    // Cancel the original and clear the earnings entry link
+    if (original.status !== "cancelled") {
+      await storage.updateInvoice(id, { status: "cancelled" });
+      unlinkInvoiceFromEntry(id, { replacedBy: true }).catch((err) =>
+        console.error(`unlinkInvoiceFromEntry (correction) failed for invoice ${id}:`, err)
+      );
+    }
+
+    const billingProfile = await storage.getBillingProfile(user.id);
+    if (!billingProfile)
+      return res
+        .status(422)
+        .json({ error: "Billing profile not found", code: "NO_BILLING_PROFILE" });
+
+    const invoiceNumber = await storage.allocateInvoiceNumber(billingProfile.id);
+
+    const correction = await storage.createInvoice({
+      freelancer_id: user.id,
+      booking_id: original.booking_id ?? undefined,
+      invoice_number: invoiceNumber,
+      status: "draft",
+      from_details: original.from_details as any,
+      to_details: original.to_details as any,
+      line_items: original.line_items as any,
+      currency: original.currency,
+      subtotal_pence: original.subtotal_pence,
+      vat_pence: original.vat_pence,
+      total_pence: original.total_pence,
+      issue_date: new Date().toISOString().slice(0, 10),
+      due_date: original.due_date ?? undefined,
+      notes: original.notes ?? undefined,
+      po_number: original.po_number ?? undefined,
+      replaces_invoice_id: id,
+    });
+
+    return res.status(201).json(correction);
+  } catch (err) {
+    console.error("correctInvoice error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 }

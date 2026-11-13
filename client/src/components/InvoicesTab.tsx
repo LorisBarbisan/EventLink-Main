@@ -35,6 +35,7 @@ import {
   Send,
   Settings,
   ChevronDown,
+  FilePen,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -122,6 +123,7 @@ interface Invoice {
   booking_id: number | null;
   job_id: number | null;
   po_number: string | null;
+  replaces_invoice_id: number | null;
   archived: boolean;
 }
 
@@ -1368,6 +1370,7 @@ function InvoiceRow({
   onDelete,
   onArchive,
   onSend,
+  onCorrect,
   onViewJob,
   onChangeStatus,
 }: {
@@ -1377,6 +1380,7 @@ function InvoiceRow({
   onDelete: (id: number) => void;
   onArchive: (id: number) => void;
   onSend: (inv: Invoice) => void;
+  onCorrect: (id: number) => void;
   onViewJob?: () => void;
   onChangeStatus: (id: number, status: Invoice["status"]) => void;
 }) {
@@ -1466,6 +1470,17 @@ function InvoiceRow({
               title="Archive"
             >
               <Archive className="h-4 w-4" />
+            </button>
+          )}
+          {(invoice.status === "sent" ||
+            invoice.status === "overdue" ||
+            invoice.status === "paid") && (
+            <button
+              onClick={() => onCorrect(invoice.id)}
+              className="text-muted-foreground transition-colors hover:text-foreground"
+              title="Correct this invoice"
+            >
+              <FilePen className="h-4 w-4" />
             </button>
           )}
           {invoice.status === "draft" && (
@@ -1657,6 +1672,20 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
       toast({ title: "Invoice archived" });
     },
     onError: () => toast({ title: "Failed to archive invoice", variant: "destructive" }),
+  });
+
+  const correctMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/invoices/${id}/correct`, { method: "POST" }),
+    onSuccess: (correction: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ title: "Correction draft created" });
+      setEditingInvoice(correction);
+    },
+    onError: (err: any) =>
+      toast({
+        title: err?.message ?? "Failed to create correction",
+        variant: "destructive",
+      }),
   });
 
   const changeStatusMutation = useMutation({
@@ -1975,6 +2004,7 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
                     onOpen={setEditingInvoice}
                     onDelete={(id) => deleteMutation.mutate(id)}
                     onArchive={(id) => archiveMutation.mutate(id)}
+                    onCorrect={(id) => correctMutation.mutate(id)}
                     onSend={(inv) => {
                       setSendingInvoice(inv);
                       setSendMessage("");
