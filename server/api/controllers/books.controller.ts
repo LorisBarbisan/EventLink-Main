@@ -299,9 +299,15 @@ export async function taxEstimate(req: Request, res: Response) {
 
     const netProfitPence = earningsPence - expenseAllowablePence - mileagePence;
 
-    // Determine which tax year bands to use from the `from` date
+    // Determine which tax year bands to use — prefer DB row, fall back to hardcoded
     const ty = taxYearForDate(from);
-    const bands = bandsForTaxYear(ty.label);
+    const dbRate = await storage.getTaxRate(ty.label);
+    const bands = dbRate
+      ? ({
+          ...(dbRate.bands as object),
+          taxYear: ty.label,
+        } as import("@shared/tax-estimate").TaxBands)
+      : bandsForTaxYear(ty.label);
     const options: TaxOptions = { otherIncomePence, scotland };
     const estimate = estimateTax(netProfitPence, bands, options);
 

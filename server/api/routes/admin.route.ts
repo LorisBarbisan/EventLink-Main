@@ -3,6 +3,9 @@ import {
   addFeedbackResponse,
   adminDeleteUser,
   adminLinkTeamMember,
+  adminListTaxRates,
+  adminUpdateTaxRate,
+  adminCheckGovuk,
   adminUpdateDocumentDates,
   getAdminDocuments,
   bootstrapCreateFirstAdmin,
@@ -119,6 +122,11 @@ export function registerAdminRoutes(app: Express) {
   app.post("/api/admin/grant-admin-access", bootstrapGrantAdminAccess);
 
   app.post("/api/admin/create-first-admin", bootstrapCreateFirstAdmin);
+
+  // Tax rates management (admin only)
+  app.get("/api/admin/tax-rates", requireAdminAuth, adminListTaxRates);
+  app.patch("/api/admin/tax-rates/:taxYear", requireAdminAuth, adminUpdateTaxRate);
+  app.post("/api/admin/tax-rates/check-govuk", requireAdminAuth, adminCheckGovuk);
 
   // Admin Dashboard Route (will be handled by frontend routing)
   app.get("/api/admin/*", (req, res, next) => {

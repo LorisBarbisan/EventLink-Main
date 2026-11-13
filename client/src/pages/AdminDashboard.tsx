@@ -76,6 +76,7 @@ import {
   FileText,
   Mail,
   MessageSquare,
+  Percent,
   Search,
   Shield,
   Trash2,
@@ -169,6 +170,183 @@ interface AnalyticsData {
     time: string;
   }>;
 }
+
+// ── Tax Rates Panel ─────────────────────────────────────────────────────────
+
+interface TaxBandRow {
+  ratePercent: number;
+  fromPence: number;
+  toPence: number | null;
+  label: string;
+}
+
+interface TaxRateRow {
+  tax_year: string;
+  effective_from: string;
+  bands: {
+    personalAllowancePence: number;
+    basicRatePercent: number;
+    higherRatePercent: number;
+    additionalRatePercent: number;
+    basicRateLimitPence: number;
+    higherRateLimitPence: number;
+    bands: TaxBandRow[];
+  };
+  govuk_etag: string | null;
+  govuk_checked_at: string | null;
+  stale_flag: boolean;
+}
+
+function TaxRatesPanel() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: rates = [], isLoading } = useQuery<TaxRateRow[]>({
+    queryKey: ["/api/admin/tax-rates"],
+    queryFn: () => apiRequest("/api/admin/tax-rates").then((r) => r.json()),
+  });
+
+  const checkMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("/api/admin/tax-rates/check-govuk", { method: "POST" }).then((r) => r.json()),
+    onSuccess: (data: { staleCount: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tax-rates"] });
+      toast({
+        title: data.staleCount > 0 ? "Stale rates detected" : "Rates up to date",
+        description:
+          data.staleCount > 0
+            ? `${data.staleCount} tax year(s) may need updating — gov.uk page has changed.`
+            : "No changes detected on gov.uk since last check.",
+        variant: data.staleCount > 0 ? "destructive" : "default",
+      });
+    },
+    onError: () => toast({ title: "Check failed", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ taxYear, bands }: { taxYear: string; bands: TaxRateRow["bands"] }) =>
+      apiRequest(`/api/admin/tax-rates/${encodeURIComponent(taxYear)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ bands, stale_flag: false }),
+      }).then((r) => r.json()),
+    onSuccess: (_data, { taxYear }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tax-rates"] });
+      toast({ title: `${taxYear} rates saved` });
+    },
+    onError: () => toast({ title: "Save failed", variant: "destructive" }),
+  });
+
+  if (isLoading) {
+    return <div className="py-12 text-center text-muted-foreground">Loading tax rates…</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">Tax rates</h2>
+          <p className="text-sm text-muted-foreground">
+            Effective-dated UK income-tax bands stored in the database.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => checkMutation.mutate()}
+          disabled={checkMutation.isPending}
+        >
+          <Percent className="mr-2 h-4 w-4" />
+          {checkMutation.isPending ? "Checking…" : "Check gov.uk"}
+        </Button>
+      </div>
+
+      {rates.map((rate) => (
+        <TaxRateCard key={rate.tax_year} rate={rate} onSave={updateMutation.mutate} />
+      ))}
+    </div>
+  );
+}
+
+function TaxRateCard({
+  rate,
+  onSave,
+}: {
+  rate: TaxRateRow;
+  onSave: (args: { taxYear: string; bands: TaxRateRow["bands"] }) => void;
+}) {
+  const [bands, setBands] = useState<TaxRateRow["bands"]>({ ...rate.bands });
+  const dirty =
+    bands.personalAllowancePence !== rate.bands.personalAllowancePence ||
+    bands.basicRatePercent !== rate.bands.basicRatePercent ||
+    bands.higherRatePercent !== rate.bands.higherRatePercent ||
+    bands.additionalRatePercent !== rate.bands.additionalRatePercent ||
+    bands.basicRateLimitPence !== rate.bands.basicRateLimitPence ||
+    bands.higherRateLimitPence !== rate.bands.higherRateLimitPence;
+
+  const field = (label: string, key: keyof Omit<TaxRateRow["bands"], "bands">, isPence = false) => (
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <Input
+        type="number"
+        value={isPence ? bands[key] / 100 : bands[key]}
+        onChange={(e) => {
+          const raw = Number(e.target.value);
+          setBands((prev) => ({ ...prev, [key]: isPence ? Math.round(raw * 100) : raw }));
+        }}
+        className="h-8 text-sm"
+      />
+      {isPence && (
+        <p className="text-xs text-muted-foreground">£{(bands[key] / 100).toLocaleString()}</p>
+      )}
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">{rate.tax_year}</CardTitle>
+          <div className="flex items-center gap-2">
+            {rate.stale_flag && (
+              <Badge variant="destructive" className="text-xs">
+                <AlertCircle className="mr-1 h-3 w-3" />
+                Stale — verify against gov.uk
+              </Badge>
+            )}
+            <Badge variant="outline" className="text-xs">
+              From {rate.effective_from}
+            </Badge>
+          </div>
+        </div>
+        {rate.govuk_checked_at && (
+          <p className="text-xs text-muted-foreground">
+            gov.uk checked {formatDistanceToNow(new Date(rate.govuk_checked_at))} ago
+          </p>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {field("Personal allowance (£)", "personalAllowancePence", true)}
+          {field("Basic rate (%)", "basicRatePercent")}
+          {field("Higher rate (%)", "higherRatePercent")}
+          {field("Additional rate (%)", "additionalRatePercent")}
+          {field("Basic rate limit (£)", "basicRateLimitPence", true)}
+          {field("Higher rate limit (£)", "higherRateLimitPence", true)}
+        </div>
+        {dirty && (
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => onSave({ taxYear: rate.tax_year, bands })}>
+              <Check className="mr-2 h-4 w-4" />
+              Save changes
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── End Tax Rates Panel ──────────────────────────────────────────────────────
 
 function AdminDashboardContent() {
   const { toast } = useToast();
@@ -389,6 +567,7 @@ function AdminDashboardContent() {
         "contact",
         "teams",
         "admin-management",
+        "tax-rates",
       ];
       if (hash && validTabs.includes(hash)) {
         setActiveTab((prev) => (prev !== hash ? hash : prev));
@@ -1161,12 +1340,13 @@ function AdminDashboardContent() {
               <SelectItem value="teams">Teams</SelectItem>
               <SelectItem value="documents">Documents</SelectItem>
               <SelectItem value="admin-management">Admin</SelectItem>
+              <SelectItem value="tax-rates">Tax rates</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* Desktop: tab bar */}
-        <TabsList className="hidden w-full grid-cols-9 gap-1 p-1 sm:grid">
+        <TabsList className="hidden w-full grid-cols-10 gap-1 p-1 sm:grid">
           <TabsTrigger value="overview" className="flex items-center justify-center gap-2 text-sm">
             <TrendingUp className="h-4 w-4" />
             Overview
@@ -1211,6 +1391,10 @@ function AdminDashboardContent() {
           >
             <UserCheck className="h-4 w-4" />
             Admin
+          </TabsTrigger>
+          <TabsTrigger value="tax-rates" className="flex items-center justify-center gap-2 text-sm">
+            <Percent className="h-4 w-4" />
+            Tax rates
           </TabsTrigger>
         </TabsList>
 
@@ -3948,6 +4132,11 @@ function AdminDashboardContent() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tax Rates Tab */}
+        <TabsContent value="tax-rates" className="space-y-6">
+          <TaxRatesPanel />
         </TabsContent>
       </Tabs>
 

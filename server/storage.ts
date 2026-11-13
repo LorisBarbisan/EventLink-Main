@@ -90,6 +90,9 @@ import {
   books_audit_log,
   type BooksAuditLog,
   type InsertBooksAuditLog,
+  tax_rates,
+  type TaxRate,
+  type InsertTaxRate,
   type FreelancerBillingProfile,
   type InsertFreelancerBillingProfile,
   type Invoice,
@@ -973,6 +976,11 @@ export interface IStorage {
     entityType: string,
     entityId: number
   ): Promise<BooksAuditLog[]>;
+
+  // ── Tax rates ────────────────────────────────────────────────────────────────
+  listTaxRates(): Promise<TaxRate[]>;
+  getTaxRate(taxYear: string): Promise<TaxRate | undefined>;
+  upsertTaxRate(data: InsertTaxRate): Promise<TaxRate>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7697,6 +7705,36 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(books_audit_log.changed_at));
+  }
+
+  // ── Tax rates ────────────────────────────────────────────────────────────────
+
+  async listTaxRates(): Promise<TaxRate[]> {
+    return db.select().from(tax_rates).orderBy(asc(tax_rates.effective_from));
+  }
+
+  async getTaxRate(taxYear: string): Promise<TaxRate | undefined> {
+    const [row] = await db.select().from(tax_rates).where(eq(tax_rates.tax_year, taxYear)).limit(1);
+    return row;
+  }
+
+  async upsertTaxRate(data: InsertTaxRate): Promise<TaxRate> {
+    const [row] = await db
+      .insert(tax_rates)
+      .values({ ...data, updated_at: new Date() })
+      .onConflictDoUpdate({
+        target: tax_rates.tax_year,
+        set: {
+          effective_from: data.effective_from,
+          bands: data.bands,
+          govuk_etag: data.govuk_etag,
+          govuk_checked_at: data.govuk_checked_at,
+          stale_flag: data.stale_flag ?? false,
+          updated_at: new Date(),
+        },
+      })
+      .returning();
+    return row;
   }
 }
 

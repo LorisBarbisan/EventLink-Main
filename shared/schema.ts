@@ -2118,6 +2118,22 @@ export type InsertImportRow = typeof import_rows.$inferInsert;
 export type ImportMapping = typeof import_mappings.$inferSelect;
 export type InsertImportMapping = typeof import_mappings.$inferInsert;
 
+// ── Tax rates ─────────────────────────────────────────────────────────────────
+
+export const tax_rates = pgTable("tax_rates", {
+  tax_year: text("tax_year").primaryKey(),
+  effective_from: date("effective_from").notNull(),
+  bands: jsonb("bands").notNull(),
+  govuk_etag: text("govuk_etag"),
+  govuk_checked_at: timestamp("govuk_checked_at", { withTimezone: true }),
+  stale_flag: boolean("stale_flag").notNull().default(false),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type TaxRate = typeof tax_rates.$inferSelect;
+export type InsertTaxRate = typeof tax_rates.$inferInsert;
+
 // ── Books audit log ───────────────────────────────────────────────────────────
 
 export const books_audit_log = pgTable("books_audit_log", {

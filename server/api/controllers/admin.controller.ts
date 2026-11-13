@@ -1369,3 +1369,85 @@ export async function bootstrapCreateFirstAdmin(req: Request, res: Response) {
     res.status(500).json({ error: "Failed to create first admin" });
   }
 }
+
+// ── Tax rates management ──────────────────────────────────────────────────────
+
+export async function adminListTaxRates(req: Request, res: Response) {
+  try {
+    const rates = await storage.listTaxRates();
+    return res.json(rates);
+  } catch (err) {
+    console.error("adminListTaxRates error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+export async function adminUpdateTaxRate(req: Request, res: Response) {
+  try {
+    const taxYear = req.params.taxYear;
+    const { bands, stale_flag } = req.body;
+    if (!bands) return res.status(400).json({ error: "bands is required" });
+
+    const existing = await storage.getTaxRate(taxYear);
+    if (!existing) return res.status(404).json({ error: "Tax year not found" });
+
+    const updated = await storage.upsertTaxRate({
+      tax_year: taxYear,
+      effective_from: existing.effective_from,
+      bands,
+      govuk_etag: existing.govuk_etag,
+      govuk_checked_at: existing.govuk_checked_at,
+      stale_flag: stale_flag ?? false,
+    });
+    return res.json(updated);
+  } catch (err) {
+    console.error("adminUpdateTaxRate error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// GOVUK_INCOME_TAX_PATH is the gov.uk Content API path for the income tax rates page.
+const GOVUK_IT_PATH = "/government/publications/rates-and-allowances-income-tax";
+
+export async function adminCheckGovuk(req: Request, res: Response) {
+  try {
+    const url = `https://www.gov.uk/api/content${GOVUK_IT_PATH}`;
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) {
+      return res.status(502).json({ error: `gov.uk returned ${response.status}` });
+    }
+    const json = (await response.json()) as Record<string, unknown>;
+    const govukUpdatedAt: string | null =
+      (json.public_updated_at as string | null) ?? (json.updated_at as string | null) ?? null;
+
+    // Update all rows with the new checked timestamp and stale flag
+    const rates = await storage.listTaxRates();
+    const checkedAt = new Date();
+    let anyStale = false;
+
+    for (const rate of rates) {
+      // Mark stale if gov.uk page updated after our last check (or no prior check)
+      const wasStale = govukUpdatedAt
+        ? !rate.govuk_checked_at || new Date(govukUpdatedAt) > new Date(rate.govuk_checked_at)
+        : false;
+      if (wasStale) anyStale = true;
+      await storage.upsertTaxRate({
+        ...rate,
+        govuk_checked_at: checkedAt,
+        stale_flag: wasStale || rate.stale_flag,
+      });
+    }
+
+    return res.json({
+      govuk_updated_at: govukUpdatedAt,
+      checked_at: checkedAt.toISOString(),
+      stale: anyStale,
+    });
+  } catch (err) {
+    console.error("adminCheckGovuk error:", err);
+    return res.status(500).json({ error: "Failed to contact gov.uk" });
+  }
+}
