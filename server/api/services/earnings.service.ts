@@ -13,6 +13,7 @@ interface JobRow {
   event_date: string | null;
   end_date: string | null;
   status?: string | null;
+  rate?: string | null;
 }
 
 /**
@@ -51,7 +52,7 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
   try {
     const existing = await storage.getEarningsEntryByBooking(booking.id);
 
-    const { pence: ratePence, needsReview } = parseRatePence(booking.agreedRate);
+    const { pence: ratePence, needsReview } = parseRatePence(booking.agreedRate || job.rate);
     const workDate = job.event_date || booking.createdAt.toISOString().slice(0, 10);
     const jobEndDate = job.end_date || null;
     const currency = booking.currency ?? job.currency ?? "GBP";
@@ -298,6 +299,7 @@ export async function backfillEarningsForFreelancer(freelancerId: number): Promi
         event_date: jobs.event_date,
         end_date: jobs.end_date,
         status: jobs.status,
+        rate: jobs.rate,
       },
     })
     .from(bookings)
