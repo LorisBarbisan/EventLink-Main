@@ -6944,7 +6944,7 @@ export class DatabaseStorage implements IStorage {
   async listEarningsEntries(
     freelancerId: number,
     opts: { status?: string; clientId?: number; roleId?: number; archived?: boolean } = {}
-  ): Promise<EarningsEntry[]> {
+  ): Promise<(EarningsEntry & { client_name: string | null })[]> {
     const conditions = [
       eq(earnings_entries.freelancer_id, freelancerId),
       eq(earnings_entries.archived, opts.archived ?? false),
@@ -6952,11 +6952,16 @@ export class DatabaseStorage implements IStorage {
     if (opts.status) conditions.push(eq(earnings_entries.status, opts.status as any));
     if (opts.clientId != null) conditions.push(eq(earnings_entries.client_id, opts.clientId));
     if (opts.roleId != null) conditions.push(eq(earnings_entries.role_id, opts.roleId));
-    return db
-      .select()
+    const rows = await db
+      .select({
+        entry: earnings_entries,
+        client_name: earnings_clients.name,
+      })
       .from(earnings_entries)
+      .leftJoin(earnings_clients, eq(earnings_entries.client_id, earnings_clients.id))
       .where(and(...conditions))
       .orderBy(desc(earnings_entries.work_date));
+    return rows.map((r) => ({ ...r.entry, client_name: r.client_name ?? null }));
   }
 
   async listJobsForSelector(freelancerId: number): Promise<

@@ -111,7 +111,7 @@ router.get("/summary", auth, async (req: Request, res: Response) => {
             entry = await storage.getEarningsEntryByInvoice(inv.id);
           }
           if (entry && entry.freelancer_id === freelancerId && entry.status !== "paid") {
-            extra.push({ ...entry, invoice_id: inv.id });
+            extra.push({ ...entry, invoice_id: inv.id, client_name: null });
           }
         }
 
