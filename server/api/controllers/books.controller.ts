@@ -333,6 +333,17 @@ export async function taxEstimate(req: Request, res: Response) {
       rawWfhTier === "low" || rawWfhTier === "mid" || rawWfhTier === "high"
         ? rawWfhTier
         : undefined;
+    const giftAidNetPence = req.query.gift_aid_net_pence
+      ? Math.max(0, parseInt(req.query.gift_aid_net_pence as string, 10) || 0)
+      : 0;
+    const lossesCarriedForwardPence = req.query.losses_carried_forward_pence
+      ? Math.max(0, parseInt(req.query.losses_carried_forward_pence as string, 10) || 0)
+      : 0;
+    const childBenefitAnnualPence = req.query.child_benefit_annual_pence
+      ? Math.max(0, parseInt(req.query.child_benefit_annual_pence as string, 10) || 0)
+      : 0;
+    const rawMA = req.query.marriage_allowance as string | undefined;
+    const marriageAllowance = rawMA === "giving" || rawMA === "receiving" ? rawMA : undefined;
 
     const options: TaxOptions = {
       otherIncomePence,
@@ -340,6 +351,10 @@ export async function taxEstimate(req: Request, res: Response) {
       studentLoanPlans,
       pensionGrossPence,
       wfhTier,
+      giftAidNetPence,
+      lossesCarriedForwardPence,
+      childBenefitAnnualPence,
+      marriageAllowance,
     };
     const estimate = estimateTax(netProfitPence, bands, options);
 

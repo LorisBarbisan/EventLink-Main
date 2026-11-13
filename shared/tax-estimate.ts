@@ -127,6 +127,29 @@ export interface TaxOptions {
    *   high = 101+ h/month   → £26/month (£312/year)
    */
   wfhTier?: "low" | "mid" | "high";
+  /**
+   * Net Gift Aid donations for the tax year in pence. Grossed up internally
+   * by 100/80 (basic rate relief at source). The gross amount extends the
+   * basic rate band and reduces adjusted net income.
+   */
+  giftAidNetPence?: number;
+  /**
+   * Unused trading losses brought forward from earlier tax years in pence.
+   * Offset against this year's profit for Income Tax only (not Class 4 NI).
+   */
+  lossesCarriedForwardPence?: number;
+  /**
+   * Annual Child Benefit received (in pence). Required to compute HICBC.
+   * Set to 0 or omit if the user does not receive Child Benefit.
+   */
+  childBenefitAnnualPence?: number;
+  /**
+   * Whether the user is transferring (giving) or receiving the Marriage
+   * Allowance (£1,260 personal allowance transfer).
+   * "giving"    — your PA is reduced by £1,260 (you are the lower earner)
+   * "receiving" — you receive a £252 tax reducer (you are the higher earner)
+   */
+  marriageAllowance?: "giving" | "receiving";
 }
 
 export interface PaymentSchedule {
@@ -179,7 +202,21 @@ export interface TaxEstimate {
   pensionTaxSavingPence: number;
   /** WFH flat-rate deduction applied (pence/year) — reduces both IT and NI */
   wfhAllowancePence: number;
-  /** totalTaxPence + studentLoanTotalPence */
+  /** Gross Gift Aid amount used (net donations × 100/80); extends basic rate band */
+  giftAidGrossPence: number;
+  /** Losses brought forward offset against IT profit */
+  lossReliefPence: number;
+  /** Adjusted net income (profit + other income − pension − gift aid) */
+  adjustedNetIncomePence: number;
+  /** High Income Child Benefit Charge (0 if ANI ≤ £60,000 or no child benefit) */
+  hicbcPence: number;
+  /**
+   * Marriage Allowance effect in pence.
+   * Positive = tax saving (receiving the allowance, −£252).
+   * Negative = additional tax cost (giving the allowance, +£252).
+   */
+  marriageAllowancePenceDelta: number;
+  /** totalTaxPence + studentLoanTotalPence + hicbcPence */
   totalDeductionsPence: number;
 }
 
@@ -224,19 +261,42 @@ export function estimateTax(
   const wfhAllowancePence = options?.wfhTier ? WFH_TIERS[options.wfhTier] : 0;
   const profit = Math.max(0, rawProfit - wfhAllowancePence);
 
+  // ── Losses carried forward ───────────────────────────────────────────────────
+  // Offset against IT profit only (not NI). Capped at available profit.
+  const lossReliefPence = Math.min(Math.max(0, options?.lossesCarriedForwardPence ?? 0), profit);
+  const profitForIT = profit - lossReliefPence;
+
   // ── Pension relief ───────────────────────────────────────────────────────────
   // Pension contributions reduce taxable income for IT only, not Class 4 NI.
-  // Cap at the actual profit so the IT base cannot go negative.
-  const pensionGross = Math.min(Math.max(0, options?.pensionGrossPence ?? 0), profit);
-  const itProfit = profit - pensionGross;
+  // Cap at the IT profit so the base cannot go negative.
+  const pensionGross = Math.min(Math.max(0, options?.pensionGrossPence ?? 0), profitForIT);
+  const itProfit = profitForIT - pensionGross;
+
+  // ── Gift Aid ─────────────────────────────────────────────────────────────────
+  // Gross up net donations by 100/80 (basic rate relief at source = 25%).
+  // The gross amount extends the basic rate band and reduces adjusted net income.
+  const giftAidGrossPence = Math.round((options?.giftAidNetPence ?? 0) * (100 / 80));
+
+  // ── Adjusted net income ──────────────────────────────────────────────────────
+  // Used for: PA taper, HICBC, Marriage Allowance eligibility.
+  const adjustedNetIncomePence = Math.max(0, itProfit + otherIncome - giftAidGrossPence);
 
   // ── Personal allowance taper ────────────────────────────────────────────────
-  // For every £2 of total income above £100,000, the PA reduces by £1.
-  // It reaches zero at £125,140 (matches higherRatePence).
-  // Taper uses IT-taxable income (after pension), not gross profit.
-  const totalIncome = itProfit + otherIncome;
-  const paReduction = Math.max(0, Math.floor((totalIncome - bands.taperThresholdPence) / 2));
-  const adjustedPA = Math.max(0, bands.personalAllowancePence - paReduction);
+  // For every £2 of adjusted net income above £100,000, the PA reduces by £1.
+  const paReduction = Math.max(
+    0,
+    Math.floor((adjustedNetIncomePence - bands.taperThresholdPence) / 2)
+  );
+  const MA_ALLOWANCE_TRANSFER = 126_000; // £1,260 in pence
+  const maGiving = options?.marriageAllowance === "giving";
+  const maReceiving = options?.marriageAllowance === "receiving";
+  // Marriage Allowance (giver): reduce PA by £1,260 before applying it
+  const adjustedPA = Math.max(
+    0,
+    bands.personalAllowancePence - paReduction - (maGiving ? MA_ALLOWANCE_TRANSFER : 0)
+  );
+  // Gift Aid extends the basic rate band
+  const extendedBasicRateLimit = bands.basicRatePence + giftAidGrossPence;
 
   // ── Income Tax ──────────────────────────────────────────────────────────────
   const itBands: TaxBand[] = [];
@@ -257,13 +317,13 @@ export function estimateTax(
         });
     }
   } else {
-    // England / Wales / NI
-    const basic = bandTax(itProfit, adjustedPA, bands.basicRatePence, bands.basicRatePct);
+    // England / Wales / NI — Gift Aid extends the basic rate limit
+    const basic = bandTax(itProfit, adjustedPA, extendedBasicRateLimit, bands.basicRatePct);
     if (basic) itBands.push(basic);
 
     const higher = bandTax(
       itProfit,
-      bands.basicRatePence,
+      extendedBasicRateLimit,
       bands.higherRatePence,
       bands.higherRatePct
     );
@@ -273,7 +333,19 @@ export function estimateTax(
     if (additional) itBands.push(additional);
   }
 
-  const incomeTaxTotalPence = itBands.reduce((s, b) => s + b.taxPence, 0);
+  let incomeTaxTotalPence = itBands.reduce((s, b) => s + b.taxPence, 0);
+
+  // ── Marriage Allowance (receiver) ────────────────────────────────────────────
+  // Tax reducer of 20% × £1,260 = £252. Applied after band calculation.
+  const MA_TAX_REDUCER = Math.round((MA_ALLOWANCE_TRANSFER * 20) / 100); // 25_200 pence
+  const marriageAllowancePenceDelta = maReceiving
+    ? -MA_TAX_REDUCER // saving (reduces bill)
+    : maGiving
+      ? MA_TAX_REDUCER // cost (the giver loses their own PA slice)
+      : 0;
+  if (maReceiving) {
+    incomeTaxTotalPence = Math.max(0, incomeTaxTotalPence - MA_TAX_REDUCER);
+  }
 
   // ── Class 4 NI ──────────────────────────────────────────────────────────────
   const niBands: TaxBand[] = [];
@@ -299,30 +371,36 @@ export function estimateTax(
   // Computed as the difference between IT at full profit vs IT at itProfit.
   let pensionTaxSavingPence = 0;
   if (pensionGross > 0) {
-    // Run IT on the gross profit (without pension deduction) to get the baseline
+    // Baseline IT without the pension deduction (profitForIT, not itProfit)
     const baselineIT = (() => {
-      const baseTotalIncome = profit + otherIncome;
-      const basePaReduction = Math.max(
+      const baseANI = Math.max(0, profitForIT + otherIncome - giftAidGrossPence);
+      const basePaReduction = Math.max(0, Math.floor((baseANI - bands.taperThresholdPence) / 2));
+      const baseAdjPA = Math.max(
         0,
-        Math.floor((baseTotalIncome - bands.taperThresholdPence) / 2)
+        bands.personalAllowancePence - basePaReduction - (maGiving ? MA_ALLOWANCE_TRANSFER : 0)
       );
-      const baseAdjPA = Math.max(0, bands.personalAllowancePence - basePaReduction);
       let baseTax = 0;
       if (scotland) {
         for (let i = 0; i < SCOTLAND_IT_THRESHOLDS.length; i++) {
           const [lo, hi, rate] = SCOTLAND_IT_THRESHOLDS[i];
           const eLo = i === 0 ? baseAdjPA : Math.max(baseAdjPA, lo);
-          const b = bandTax(profit, eLo, hi, rate);
+          const b = bandTax(profitForIT, eLo, hi, rate);
           if (b) baseTax += b.taxPence;
         }
       } else {
-        const b = bandTax(profit, baseAdjPA, bands.basicRatePence, bands.basicRatePct);
+        const b = bandTax(profitForIT, baseAdjPA, extendedBasicRateLimit, bands.basicRatePct);
         if (b) baseTax += b.taxPence;
-        const h = bandTax(profit, bands.basicRatePence, bands.higherRatePence, bands.higherRatePct);
+        const h = bandTax(
+          profitForIT,
+          extendedBasicRateLimit,
+          bands.higherRatePence,
+          bands.higherRatePct
+        );
         if (h) baseTax += h.taxPence;
-        const a = bandTax(profit, bands.higherRatePence, Infinity, bands.additionalRatePct);
+        const a = bandTax(profitForIT, bands.higherRatePence, Infinity, bands.additionalRatePct);
         if (a) baseTax += a.taxPence;
       }
+      if (maReceiving) baseTax = Math.max(0, baseTax - MA_TAX_REDUCER);
       return baseTax;
     })();
     pensionTaxSavingPence = Math.max(0, baselineIT - incomeTaxTotalPence);
@@ -375,6 +453,20 @@ export function estimateTax(
   );
   const studentLoanTotalPence = studentLoanRepayments.reduce((s, r) => s + r.repaymentPence, 0);
 
+  // ── High Income Child Benefit Charge ─────────────────────────────────────────
+  // 1% of Child Benefit for each £200 of ANI above £60,000, capped at 100%
+  // at £80,000. Only applies if the user provided a child benefit amount.
+  const HICBC_LOWER = 6_000_000; // £60,000
+  const HICBC_STEP = 20_000; // £200 per 1%
+  const childBenefitPence = options?.childBenefitAnnualPence ?? 0;
+  const hicbcPence =
+    childBenefitPence > 0 && adjustedNetIncomePence > HICBC_LOWER
+      ? Math.round(
+          childBenefitPence *
+            (Math.min(100, Math.floor((adjustedNetIncomePence - HICBC_LOWER) / HICBC_STEP)) / 100)
+        )
+      : 0;
+
   return {
     taxYearLabel: bands.taxYear,
     netProfitPence: rawProfit,
@@ -393,6 +485,11 @@ export function estimateTax(
     pensionGrossPence: pensionGross,
     pensionTaxSavingPence,
     wfhAllowancePence,
-    totalDeductionsPence: totalTaxPence + studentLoanTotalPence,
+    giftAidGrossPence,
+    lossReliefPence,
+    adjustedNetIncomePence,
+    hicbcPence,
+    marriageAllowancePenceDelta,
+    totalDeductionsPence: totalTaxPence + studentLoanTotalPence + hicbcPence,
   };
 }

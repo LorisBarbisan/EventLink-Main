@@ -2311,6 +2311,11 @@ interface TaxEstimateData {
   pensionGrossPence: number;
   pensionTaxSavingPence: number;
   wfhAllowancePence: number;
+  giftAidGrossPence: number;
+  lossReliefPence: number;
+  adjustedNetIncomePence: number;
+  hicbcPence: number;
+  marriageAllowancePenceDelta: number;
   totalDeductionsPence: number;
   vatRegistered: boolean;
   grossEarningsPence: number;
@@ -2495,6 +2500,36 @@ function OverviewSection() {
       return "";
     }
   });
+  const [giftAidInput, setGiftAidInput] = useState(() => {
+    try {
+      return localStorage.getItem("books_gift_aid") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [lossesInput, setLossesInput] = useState(() => {
+    try {
+      return localStorage.getItem("books_losses") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [childBenefitInput, setChildBenefitInput] = useState(() => {
+    try {
+      return localStorage.getItem("books_child_benefit") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [marriageAllowance, setMarriageAllowance] = useState<"giving" | "receiving" | null>(() => {
+    try {
+      const s = localStorage.getItem("books_marriage_allowance");
+      if (s === "giving" || s === "receiving") return s;
+    } catch {
+      /* ignore */
+    }
+    return null;
+  });
 
   const otherIncomePence = Math.max(0, Math.round(parseFloat(otherIncomeInput || "0") * 100));
 
@@ -2563,6 +2598,18 @@ function OverviewSection() {
   for (const plan of studentLoanPlans) taxQueryParams.append("student_loan_plans", plan);
   if (pensionGrossPence > 0) taxQueryParams.set("pension_gross_pence", String(pensionGrossPence));
   if (wfhTier) taxQueryParams.set("wfh_tier", wfhTier);
+  const giftAidNetPence = Math.max(0, Math.round(parseFloat(giftAidInput || "0") * 100));
+  if (giftAidNetPence > 0) taxQueryParams.set("gift_aid_net_pence", String(giftAidNetPence));
+  const lossesCarriedForwardPence = Math.max(0, Math.round(parseFloat(lossesInput || "0") * 100));
+  if (lossesCarriedForwardPence > 0)
+    taxQueryParams.set("losses_carried_forward_pence", String(lossesCarriedForwardPence));
+  const childBenefitAnnualPence = Math.max(
+    0,
+    Math.round(parseFloat(childBenefitInput || "0") * 100)
+  );
+  if (childBenefitAnnualPence > 0)
+    taxQueryParams.set("child_benefit_annual_pence", String(childBenefitAnnualPence));
+  if (marriageAllowance) taxQueryParams.set("marriage_allowance", marriageAllowance);
   const taxQueryString = taxQueryParams.toString();
 
   const { data: taxData } = useQuery<TaxEstimateData>({
@@ -2904,6 +2951,67 @@ function OverviewSection() {
                     </span>
                   </div>
                 )}
+                {taxData.giftAidGrossPence > 0 && (
+                  <div className="flex items-baseline justify-between bg-emerald-50 px-5 py-2.5 dark:bg-emerald-950/30">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Gift Aid (gross {formatPence(taxData.giftAidGrossPence)})
+                      </p>
+                      <p className="text-xs text-muted-foreground">Extends basic rate band</p>
+                    </div>
+                    <span className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                      band extended
+                    </span>
+                  </div>
+                )}
+                {taxData.lossReliefPence > 0 && (
+                  <div className="flex items-baseline justify-between bg-amber-50 px-5 py-2.5 dark:bg-amber-950/30">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Losses carried forward</p>
+                      <p className="text-xs text-muted-foreground">IT only — NI unchanged</p>
+                    </div>
+                    <span className="font-semibold tabular-nums text-amber-700 dark:text-amber-400">
+                      −{formatPence(taxData.lossReliefPence)}
+                    </span>
+                  </div>
+                )}
+                {taxData.marriageAllowancePenceDelta !== 0 && (
+                  <div className="flex items-baseline justify-between bg-rose-50 px-5 py-2.5 dark:bg-rose-950/30">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Marriage Allowance (
+                        {marriageAllowance === "receiving" ? "receiving" : "giving"})
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {marriageAllowance === "receiving"
+                          ? "£252 tax reducer applied"
+                          : "PA reduced by £1,260"}
+                      </p>
+                    </div>
+                    <span
+                      className={`font-semibold tabular-nums ${taxData.marriageAllowancePenceDelta < 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
+                    >
+                      {taxData.marriageAllowancePenceDelta < 0 ? "saves " : "+"}
+                      {formatPence(Math.abs(taxData.marriageAllowancePenceDelta))}
+                    </span>
+                  </div>
+                )}
+                {taxData.hicbcPence > 0 && (
+                  <div className="flex items-baseline justify-between bg-red-50 px-5 py-2.5 dark:bg-red-950/30">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        High Income Child Benefit Charge
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Adjusted net income {formatPence(taxData.adjustedNetIncomePence)} · 1% per
+                        £200 above £60,000
+                      </p>
+                    </div>
+                    <span className="font-semibold tabular-nums text-red-600 dark:text-red-400">
+                      +{formatPence(taxData.hicbcPence)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-baseline justify-between bg-green-50 px-5 py-3 dark:bg-green-950/30">
                   <p className="font-semibold">Est. take-home</p>
                   <span className="text-lg font-bold tabular-nums text-green-700 dark:text-green-300">
@@ -3112,6 +3220,129 @@ function OverviewSection() {
             </div>
             <p className="text-xs text-muted-foreground">
               Reduces profit for both IT and NI · simplified expenses (SA103F)
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm text-muted-foreground">Gift Aid donations (£/year net)</label>
+            <div className="relative w-40">
+              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                £
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="0"
+                value={giftAidInput}
+                onChange={(e) => {
+                  setGiftAidInput(e.target.value);
+                  try {
+                    localStorage.setItem("books_gift_aid", e.target.value);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Extends basic rate band and reduces adjusted net income · grossed up at 20%
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm text-muted-foreground">Losses carried forward (£)</label>
+            <div className="relative w-40">
+              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                £
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="0"
+                value={lossesInput}
+                onChange={(e) => {
+                  setLossesInput(e.target.value);
+                  try {
+                    localStorage.setItem("books_losses", e.target.value);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Unused trading losses from earlier years — offsets IT only, not NI
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm text-muted-foreground">Child Benefit received (£/year)</label>
+            <div className="relative w-40">
+              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                £
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="0"
+                value={childBenefitInput}
+                onChange={(e) => {
+                  setChildBenefitInput(e.target.value);
+                  try {
+                    localStorage.setItem("books_child_benefit", e.target.value);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              High Income Child Benefit Charge applies if adjusted net income exceeds £60,000
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm text-muted-foreground">Marriage Allowance</label>
+            <div className="flex gap-2">
+              {(
+                [
+                  {
+                    value: "giving" as const,
+                    label: "I'm the lower earner",
+                    detail: "giving £1,260",
+                  },
+                  {
+                    value: "receiving" as const,
+                    label: "I'm the higher earner",
+                    detail: "receiving £252",
+                  },
+                ] as const
+              ).map(({ value, label, detail }) => {
+                const active = marriageAllowance === value;
+                return (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      const next = active ? null : value;
+                      setMarriageAllowance(next);
+                      try {
+                        if (next) localStorage.setItem("books_marriage_allowance", next);
+                        else localStorage.removeItem("books_marriage_allowance");
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active ? "border-rose-400 bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" : "border-border text-muted-foreground hover:border-rose-300"}`}
+                  >
+                    {label} <span className="font-normal opacity-70">{detail}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Transfer £1,260 of personal allowance between spouses/civil partners
             </p>
           </div>
           {taxData?.vatRegistered && (
