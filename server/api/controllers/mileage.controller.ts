@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-import { currentTaxYear } from "@shared/tax-periods";
+import { currentTaxYear, taxYearForDate } from "@shared/tax-periods";
 
 function taxYearParams(req: Request): { from: string; to: string } {
   const ty = currentTaxYear();
@@ -8,6 +8,37 @@ function taxYearParams(req: Request): { from: string; to: string } {
     from: (req.query.from as string) ?? ty.from,
     to: (req.query.to as string) ?? ty.to,
   };
+}
+
+/**
+ * Calculate the reimbursement amount for a trip, respecting the annual
+ * threshold (e.g. 10,000 miles at 55p, remainder at 25p for 2026/27 cars).
+ * Returns amount_pence rounded to the nearest whole pence.
+ */
+async function calculateTripAmount(
+  freelancerId: number,
+  vehicleType: string,
+  tripDate: string,
+  miles: number,
+  rate: { rate_pence: number; threshold_miles: number | null; rate_above_pence: number | null },
+  excludeTripId: number | null = null
+): Promise<number> {
+  if (!rate.threshold_miles || !rate.rate_above_pence) {
+    // No threshold (motorcycles, bicycles) — flat rate
+    return Math.round(miles * rate.rate_pence);
+  }
+  const ty = taxYearForDate(tripDate);
+  const ytd = await storage.ytdMilesBefore(
+    freelancerId,
+    vehicleType,
+    ty.from,
+    ty.to,
+    tripDate,
+    excludeTripId
+  );
+  const belowThreshold = Math.max(0, Math.min(miles, rate.threshold_miles - ytd));
+  const aboveThreshold = miles - belowThreshold;
+  return Math.round(belowThreshold * rate.rate_pence + aboveThreshold * rate.rate_above_pence);
 }
 
 // ── Rate lookup ───────────────────────────────────────────────────────────────
@@ -96,9 +127,15 @@ export async function createTrip(req: Request, res: Response) {
   if (!rate)
     return res.status(422).json({ error: "No mileage rate found for this vehicle and date" });
 
-  // Calculate pence (UK: 45p for first 10 000 miles in tax year for cars)
-  // We calculate purely per-trip here; a future enhancement can track YTD miles
-  const amount_pence = Math.round(milesInt * rate.rate_pence);
+  // Calculate pence, applying the annual threshold (e.g. 10,000 miles at 55p then 25p)
+  const amount_pence = await calculateTripAmount(
+    freelancerId,
+    vehicle_type,
+    trip_date,
+    milesInt,
+    rate,
+    null
+  );
 
   const trip = await storage.createMileageTrip({
     freelancer_id: freelancerId,
@@ -154,7 +191,14 @@ export async function updateTrip(req: Request, res: Response) {
       const milesInt = patch.miles !== undefined ? parseInt(patch.miles as string) : existing.miles;
       const rate = await storage.getActiveRates(vehicleType, tripDate);
       if (rate) {
-        patch.amount_pence = Math.round(milesInt * rate.rate_pence);
+        patch.amount_pence = await calculateTripAmount(
+          req.user!.id,
+          vehicleType,
+          tripDate,
+          milesInt,
+          rate,
+          id
+        );
         patch.rate_pence = rate.rate_pence;
         patch.rate_above_pence = rate.rate_above_pence ?? null;
       }

@@ -7559,6 +7559,36 @@ export class DatabaseStorage implements IStorage {
     return Number(row?.total ?? 0);
   }
 
+  /**
+   * Sum miles already logged for a freelancer + vehicle type within a tax year,
+   * *before* a given trip (by date, then id) — used to place a new/edited trip
+   * correctly relative to the annual threshold.
+   * Pass excludeId to omit a trip being edited so it doesn't count itself.
+   */
+  async ytdMilesBefore(
+    freelancerId: number,
+    vehicleType: string,
+    taxYearFrom: string,
+    taxYearTo: string,
+    tripDate: string,
+    tripId: number | null
+  ): Promise<number> {
+    const conditions = [
+      eq(mileage_trips.freelancer_id, freelancerId),
+      eq(mileage_trips.vehicle_type, vehicleType as "car" | "motorcycle" | "bicycle"),
+      eq(mileage_trips.archived, false),
+      sql`${mileage_trips.trip_date} >= ${taxYearFrom}::date`,
+      sql`${mileage_trips.trip_date} <= ${taxYearTo}::date`,
+      // Trips strictly before this trip's date, or same date with lower id
+      sql`(${mileage_trips.trip_date} < ${tripDate}::date OR (${mileage_trips.trip_date} = ${tripDate}::date AND ${mileage_trips.id} < ${tripId ?? 0}))`,
+    ];
+    const [row] = await db
+      .select({ total: sum(mileage_trips.miles) })
+      .from(mileage_trips)
+      .where(and(...conditions));
+    return Number(row?.total ?? 0);
+  }
+
   // ── Job time entries ─────────────────────────────────────────────────────────
 
   async listTimeEntries(freelancerId: number, earningsEntryId: number): Promise<JobTimeEntry[]> {
