@@ -298,10 +298,16 @@ export default function TermsOfUse() {
 
             <h3 className="mb-2 mt-4 font-semibold">15.3</h3>
             <p>
-              Estimates do not take account of matters we do not hold, including income from other
-              sources, allowances other than the personal allowance, capital allowances on
-              equipment, payments on account, student loan repayments, and anything else specific to
-              your circumstances.
+              Estimates are based on data you have entered. They cover Income Tax, Class 4 National
+              Insurance, student loan repayments, payments on account, pension relief, Gift Aid band
+              extension, working-from-home flat rate, losses carried forward, the High Income Child
+              Benefit Charge, and Marriage Allowance. They do not cover capital allowances on
+              vehicles or equipment (the estimate will warn you if you try to record a car as an
+              ordinary expense), rental income, foreign income, capital gains, the pension annual
+              allowance charge, savings and dividend income at their specific rates, or anything
+              else specific to your circumstances that you have not entered. All figures are
+              estimates. The estimate is not a calculation of what you owe and does not constitute
+              tax advice.
             </p>
 
             <h3 className="mb-2 mt-4 font-semibold">15.4</h3>

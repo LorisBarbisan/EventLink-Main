@@ -532,6 +532,32 @@ function ExpenseDialog({
             </div>
           </div>
 
+          {/* Car purchase guard */}
+          {(() => {
+            const selectedCat = categories.find((c) => String(c.id) === form.category_id);
+            const isVehicleCategory = selectedCat?.name.toLowerCase().includes("vehicle");
+            if (!isVehicleCategory) return null;
+            return (
+              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                <p className="font-semibold">Recording a car? Capital allowances apply.</p>
+                <p className="mt-0.5">
+                  Under HMRC&apos;s cash basis, cars are not deductible as an ordinary expense —
+                  they go through capital allowances at a writing-down rate based on CO₂ emissions.
+                  Recording the purchase here will <span className="font-medium">overstate</span>{" "}
+                  your allowable expenses and produce a wrong profit figure.
+                </p>
+                <p className="mt-0.5">
+                  <span className="font-medium">Vans are fine here</span> — a commercial van is
+                  deductible under cash basis. If this is a van, carry on.
+                </p>
+                <p className="mt-0.5 text-amber-700 dark:text-amber-300">
+                  Also note: if you claim simplified mileage on a vehicle, you cannot also claim
+                  running costs or capital allowances for the same vehicle.
+                </p>
+              </div>
+            );
+          })()}
+
           {/* Job link (optional) */}
           <JobSelect value={form.job_id} onChange={(v) => set("job_id", v)} />
 
