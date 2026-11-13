@@ -3877,11 +3877,7 @@ export function BooksTab() {
                     <div
                       key={entry.id}
                       className={`flex cursor-pointer items-center justify-between px-5 py-3 hover:bg-muted/50 ${
-                        entry.needs_review
-                          ? "border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-950/20"
-                          : i % 2 === 0
-                            ? "bg-muted/30"
-                            : ""
+                        i % 2 === 0 ? "bg-muted/30" : ""
                       }`}
                       onClick={() => setJobDetailEntryId(entry.id)}
                     >
@@ -3914,9 +3910,9 @@ export function BooksTab() {
                           <StatusBadge entry={entry} />
                         </button>
                         <span className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-blue-700 dark:text-blue-300">
-                          {entry.needs_review
-                            ? "—"
-                            : formatPence(entry.gross_amount_pence, entry.currency)}
+                          {entry.gross_amount_pence > 0
+                            ? formatPence(entry.gross_amount_pence, entry.currency)
+                            : "—"}
                         </span>
                         <button
                           className="text-muted-foreground transition-colors hover:text-foreground"
