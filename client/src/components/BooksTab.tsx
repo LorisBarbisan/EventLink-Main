@@ -2298,6 +2298,15 @@ interface TaxEstimateData {
   totalTaxPence: number;
   effectiveRatePct: number;
   paymentSchedule: PaymentSchedule;
+  studentLoanRepayments: Array<{
+    plan: string;
+    planLabel: string;
+    thresholdPence: number;
+    ratePct: number;
+    repaymentPence: number;
+  }>;
+  studentLoanTotalPence: number;
+  totalDeductionsPence: number;
   vatRegistered: boolean;
   grossEarningsPence: number;
 }
@@ -2355,6 +2364,14 @@ function OverviewSection() {
       return false;
     }
   });
+  const [studentLoanPlans, setStudentLoanPlans] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("books_student_loan_plans");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const otherIncomePence = Math.max(0, Math.round(parseFloat(otherIncomeInput || "0") * 100));
 
@@ -2403,6 +2420,7 @@ function OverviewSection() {
   const taxQueryParams = new URLSearchParams();
   if (otherIncomePence > 0) taxQueryParams.set("other_income_pence", String(otherIncomePence));
   if (scotland) taxQueryParams.set("scotland", "1");
+  for (const plan of studentLoanPlans) taxQueryParams.append("student_loan_plans", plan);
   const taxQueryString = taxQueryParams.toString();
 
   const { data: taxData } = useQuery<TaxEstimateData>({
@@ -2537,13 +2555,13 @@ function OverviewSection() {
         {taxData && (
           <div className="rounded-xl bg-slate-800 p-4 dark:bg-slate-900">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-orange-400">
-              Est. tax &amp; NI
+              {taxData.studentLoanTotalPence > 0 ? "Est. tax, NI & loan" : "Est. tax & NI"}
             </p>
             <p className="text-xl font-bold tabular-nums text-red-300">
-              {formatPence(taxData.totalTaxPence)}
+              {formatPence(taxData.totalDeductionsPence)}
             </p>
             <p className="mt-0.5 text-xs text-slate-400">
-              Take-home ~{formatPence(taxData.netProfitPence - taxData.totalTaxPence)}
+              Take-home ~{formatPence(taxData.netProfitPence - taxData.totalDeductionsPence)}
             </p>
             {taxData.scotland && <p className="mt-0.5 text-xs text-blue-400">Scottish IT</p>}
             {taxData.adjustedPersonalAllowancePence < 1_257_000 && (
@@ -2551,6 +2569,11 @@ function OverviewSection() {
                 PA tapered to {formatPence(taxData.adjustedPersonalAllowancePence)}
               </p>
             )}
+            {taxData.studentLoanRepayments.map((r) => (
+              <p key={r.plan} className="mt-0.5 text-xs text-purple-400">
+                {r.planLabel}: {formatPence(r.repaymentPence)}
+              </p>
+            ))}
           </div>
         )}
       </div>
@@ -2674,10 +2697,23 @@ function OverviewSection() {
                     −{formatPence(taxData.totalTaxPence)}
                   </span>
                 </div>
+                {taxData.studentLoanRepayments.map((r) => (
+                  <div
+                    key={r.plan}
+                    className="flex items-baseline justify-between bg-purple-50 px-5 py-2.5 dark:bg-purple-950/30"
+                  >
+                    <p className="text-sm text-muted-foreground">
+                      {r.planLabel} ({r.ratePct}% above {formatPence(r.thresholdPence)})
+                    </p>
+                    <span className="font-semibold tabular-nums text-purple-700 dark:text-purple-400">
+                      −{formatPence(r.repaymentPence)}
+                    </span>
+                  </div>
+                ))}
                 <div className="flex items-baseline justify-between bg-green-50 px-5 py-3 dark:bg-green-950/30">
                   <p className="font-semibold">Est. take-home</p>
                   <span className="text-lg font-bold tabular-nums text-green-700 dark:text-green-300">
-                    {formatPence(taxData.netProfitPence - taxData.totalTaxPence)}
+                    {formatPence(taxData.netProfitPence - taxData.totalDeductionsPence)}
                   </span>
                 </div>
                 {taxData.totalTaxPence > 0 && (
@@ -2771,6 +2807,49 @@ function OverviewSection() {
               }}
             />
             <p className="text-xs text-muted-foreground">uses Scottish Income Tax rates</p>
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-sm text-muted-foreground">Student loan plan(s)</p>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { value: "plan1", label: "Plan 1" },
+                  { value: "plan2", label: "Plan 2" },
+                  { value: "plan4", label: "Plan 4 (Scotland)" },
+                  { value: "plan5", label: "Plan 5" },
+                  { value: "postgrad", label: "Postgraduate" },
+                ] as const
+              ).map(({ value, label }) => {
+                const active = studentLoanPlans.includes(value);
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      const next = active
+                        ? studentLoanPlans.filter((p) => p !== value)
+                        : [...studentLoanPlans, value];
+                      setStudentLoanPlans(next);
+                      try {
+                        localStorage.setItem("books_student_loan_plans", JSON.stringify(next));
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      active
+                        ? "border-purple-600 bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300"
+                        : "border-muted-foreground/30 text-muted-foreground hover:border-purple-400"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Select any plans you repay — deducted from take-home
+            </p>
           </div>
           {taxData?.vatRegistered && (
             <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">

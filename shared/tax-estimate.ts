@@ -83,11 +83,28 @@ export interface TaxBand {
   taxPence: number;
 }
 
+/** UK student loan repayment plans available to self-employed earners */
+export type StudentLoanPlan = "plan1" | "plan2" | "plan4" | "plan5" | "postgrad";
+
+/** Thresholds and rates per plan (2024/25 onwards) — pence per year */
+export const STUDENT_LOAN_PLANS: Record<
+  StudentLoanPlan,
+  { label: string; thresholdPence: number; ratePct: number }
+> = {
+  plan1: { label: "Plan 1", thresholdPence: 2_499_000, ratePct: 9 }, // £24,990
+  plan2: { label: "Plan 2", thresholdPence: 2_729_500, ratePct: 9 }, // £27,295
+  plan4: { label: "Plan 4 (Scotland)", thresholdPence: 3_139_500, ratePct: 9 }, // £31,395
+  plan5: { label: "Plan 5", thresholdPence: 2_500_000, ratePct: 9 }, // £25,000
+  postgrad: { label: "Postgraduate", thresholdPence: 2_100_000, ratePct: 6 }, // £21,000
+};
+
 export interface TaxOptions {
   /** Other non-self-employment income (salary, pension, etc.) in pence */
   otherIncomePence?: number;
   /** Use Scottish Income Tax rates instead of England/Wales/NI */
   scotland?: boolean;
+  /** Student loan plan(s) to include in the estimate */
+  studentLoanPlans?: StudentLoanPlan[];
 }
 
 export interface PaymentSchedule {
@@ -106,6 +123,14 @@ export interface PaymentSchedule {
   julyDate: string;
 }
 
+export interface StudentLoanRepayment {
+  plan: StudentLoanPlan;
+  planLabel: string;
+  thresholdPence: number;
+  ratePct: number;
+  repaymentPence: number;
+}
+
 export interface TaxEstimate {
   taxYearLabel: string;
   netProfitPence: number;
@@ -118,10 +143,16 @@ export interface TaxEstimate {
   /** Class 4 NI */
   niBands: TaxBand[];
   niTotalPence: number;
-  /** Combined */
+  /** Combined Income Tax + NI (excludes student loan) */
   totalTaxPence: number;
   effectiveRatePct: number; // rounded to 1 dp
   paymentSchedule: PaymentSchedule;
+  /** Student loan repayments (one entry per active plan) */
+  studentLoanRepayments: StudentLoanRepayment[];
+  /** Sum of all student loan repayments */
+  studentLoanTotalPence: number;
+  /** totalTaxPence + studentLoanTotalPence */
+  totalDeductionsPence: number;
 }
 
 function bandTax(profit: number, lower: number, upper: number, ratePct: number): TaxBand | null {
@@ -248,6 +279,28 @@ export function estimateTax(
     julyDate: `31 Jul ${payYear}`,
   };
 
+  // ── Student loan repayments ─────────────────────────────────────────────────
+  // Self-employed earners repay via Self Assessment on total gross income
+  // (profit + other income) above the plan threshold.
+  const totalGross = profit + otherIncome;
+  const studentLoanRepayments: StudentLoanRepayment[] = (options?.studentLoanPlans ?? []).map(
+    (plan) => {
+      const cfg = STUDENT_LOAN_PLANS[plan];
+      const repaymentPence = Math.max(
+        0,
+        Math.round(((totalGross - cfg.thresholdPence) * cfg.ratePct) / 100)
+      );
+      return {
+        plan,
+        planLabel: cfg.label,
+        thresholdPence: cfg.thresholdPence,
+        ratePct: cfg.ratePct,
+        repaymentPence,
+      };
+    }
+  );
+  const studentLoanTotalPence = studentLoanRepayments.reduce((s, r) => s + r.repaymentPence, 0);
+
   return {
     taxYearLabel: bands.taxYear,
     netProfitPence: profit,
@@ -261,5 +314,8 @@ export function estimateTax(
     totalTaxPence,
     effectiveRatePct,
     paymentSchedule,
+    studentLoanRepayments,
+    studentLoanTotalPence,
+    totalDeductionsPence: totalTaxPence + studentLoanTotalPence,
   };
 }

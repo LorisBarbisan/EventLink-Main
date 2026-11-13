@@ -2,7 +2,13 @@ import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { currentTaxYear, taxYearForDate, taxQuarters } from "@shared/tax-periods";
 import { buildCsv, penceToCsvDecimal, dateToCsvDate, exportFilename } from "../utils/csv";
-import { bandsForTaxYear, estimateTax, type TaxOptions } from "@shared/tax-estimate";
+import {
+  bandsForTaxYear,
+  estimateTax,
+  type TaxOptions,
+  type StudentLoanPlan,
+  STUDENT_LOAN_PLANS,
+} from "@shared/tax-estimate";
 import { createWorkbook, addTypedSheet, streamWorkbook, type ColSpec } from "../utils/xlsx";
 
 function taxYearParams(req: Request): { from: string; to: string } {
@@ -308,7 +314,15 @@ export async function taxEstimate(req: Request, res: Response) {
           taxYear: ty.label,
         } as import("@shared/tax-estimate").TaxBands)
       : bandsForTaxYear(ty.label);
-    const options: TaxOptions = { otherIncomePence, scotland };
+    const rawPlans = req.query.student_loan_plans;
+    const studentLoanPlans: StudentLoanPlan[] = (
+      Array.isArray(rawPlans) ? rawPlans : rawPlans ? [rawPlans] : []
+    )
+      .filter((p): p is string => typeof p === "string")
+      .filter((p): p is StudentLoanPlan =>
+        Object.prototype.hasOwnProperty.call(STUDENT_LOAN_PLANS, p)
+      );
+    const options: TaxOptions = { otherIncomePence, scotland, studentLoanPlans };
     const estimate = estimateTax(netProfitPence, bands, options);
 
     return res.json({
