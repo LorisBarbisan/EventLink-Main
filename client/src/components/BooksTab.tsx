@@ -2308,6 +2308,8 @@ interface TaxEstimateData {
     repaymentPence: number;
   }>;
   studentLoanTotalPence: number;
+  pensionGrossPence: number;
+  pensionTaxSavingPence: number;
   totalDeductionsPence: number;
   vatRegistered: boolean;
   grossEarningsPence: number;
@@ -2375,6 +2377,13 @@ function OverviewSection() {
       return [];
     }
   });
+  const [pensionInput, setPensionInput] = useState(() => {
+    try {
+      return localStorage.getItem("books_pension") ?? "";
+    } catch {
+      return "";
+    }
+  });
 
   const otherIncomePence = Math.max(0, Math.round(parseFloat(otherIncomeInput || "0") * 100));
 
@@ -2436,10 +2445,12 @@ function OverviewSection() {
     return q?.quarter ?? null;
   })();
 
+  const pensionGrossPence = Math.max(0, Math.round(parseFloat(pensionInput || "0") * 100));
   const taxQueryParams = new URLSearchParams();
   if (otherIncomePence > 0) taxQueryParams.set("other_income_pence", String(otherIncomePence));
   if (scotland) taxQueryParams.set("scotland", "1");
   for (const plan of studentLoanPlans) taxQueryParams.append("student_loan_plans", plan);
+  if (pensionGrossPence > 0) taxQueryParams.set("pension_gross_pence", String(pensionGrossPence));
   const taxQueryString = taxQueryParams.toString();
 
   const { data: taxData } = useQuery<TaxEstimateData>({
@@ -2593,6 +2604,11 @@ function OverviewSection() {
                 {r.planLabel}: {formatPence(r.repaymentPence)}
               </p>
             ))}
+            {taxData.pensionGrossPence > 0 && (
+              <p className="mt-0.5 text-xs text-emerald-400">
+                Pension saves {formatPence(taxData.pensionTaxSavingPence)} IT
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -2745,6 +2761,19 @@ function OverviewSection() {
                     </span>
                   </div>
                 ))}
+                {taxData.pensionGrossPence > 0 && (
+                  <div className="flex items-baseline justify-between bg-emerald-50 px-5 py-2.5 dark:bg-emerald-950/30">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Pension contribution (gross {formatPence(taxData.pensionGrossPence)})
+                      </p>
+                      <p className="text-xs text-muted-foreground">IT saving — NI unchanged</p>
+                    </div>
+                    <span className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                      saves {formatPence(taxData.pensionTaxSavingPence)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-baseline justify-between bg-green-50 px-5 py-3 dark:bg-green-950/30">
                   <p className="font-semibold">Est. take-home</p>
                   <span className="text-lg font-bold tabular-nums text-green-700 dark:text-green-300">
@@ -2884,6 +2913,35 @@ function OverviewSection() {
             </div>
             <p className="text-xs text-muted-foreground">
               Select any plans you repay — deducted from take-home
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm text-muted-foreground">
+              Pension contributions (£/year gross)
+            </label>
+            <div className="relative w-40">
+              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                £
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="0"
+                value={pensionInput}
+                onChange={(e) => {
+                  setPensionInput(e.target.value);
+                  try {
+                    localStorage.setItem("books_pension", e.target.value);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Reduces taxable income for IT (not NI) — SIPP, workplace pension, etc.
             </p>
           </div>
           {taxData?.vatRegistered && (

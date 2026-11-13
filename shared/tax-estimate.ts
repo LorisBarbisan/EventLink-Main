@@ -105,6 +105,13 @@ export interface TaxOptions {
   scotland?: boolean;
   /** Student loan plan(s) to include in the estimate */
   studentLoanPlans?: StudentLoanPlan[];
+  /**
+   * Gross pension contributions (personal + employer/relief-at-source top-up)
+   * in pence for the tax year. Reduces taxable profit for Income Tax purposes
+   * but does NOT reduce Class 4 NI (NI is on trading profits before pension).
+   * Capped internally at net profit so it cannot create a negative IT base.
+   */
+  pensionGrossPence?: number;
 }
 
 export interface PaymentSchedule {
@@ -151,6 +158,10 @@ export interface TaxEstimate {
   studentLoanRepayments: StudentLoanRepayment[];
   /** Sum of all student loan repayments */
   studentLoanTotalPence: number;
+  /** Gross pension contribution used in this estimate */
+  pensionGrossPence: number;
+  /** Income Tax saved because of the pension contribution */
+  pensionTaxSavingPence: number;
   /** totalTaxPence + studentLoanTotalPence */
   totalDeductionsPence: number;
 }
@@ -191,10 +202,17 @@ export function estimateTax(
   const otherIncome = options?.otherIncomePence ?? 0;
   const scotland = options?.scotland ?? false;
 
+  // ── Pension relief ───────────────────────────────────────────────────────────
+  // Pension contributions reduce taxable income for IT only, not Class 4 NI.
+  // Cap at the actual profit so the IT base cannot go negative.
+  const pensionGross = Math.min(Math.max(0, options?.pensionGrossPence ?? 0), profit);
+  const itProfit = profit - pensionGross;
+
   // ── Personal allowance taper ────────────────────────────────────────────────
   // For every £2 of total income above £100,000, the PA reduces by £1.
   // It reaches zero at £125,140 (matches higherRatePence).
-  const totalIncome = profit + otherIncome;
+  // Taper uses IT-taxable income (after pension), not gross profit.
+  const totalIncome = itProfit + otherIncome;
   const paReduction = Math.max(0, Math.floor((totalIncome - bands.taperThresholdPence) / 2));
   const adjustedPA = Math.max(0, bands.personalAllowancePence - paReduction);
 
@@ -209,7 +227,7 @@ export function estimateTax(
     for (let i = 0; i < SCOTLAND_IT_THRESHOLDS.length; i++) {
       const [lo, hi, rate] = SCOTLAND_IT_THRESHOLDS[i];
       const effectiveLo = i === 0 ? adjustedPA : Math.max(adjustedPA, lo);
-      const b = bandTax(profit, effectiveLo, hi, rate);
+      const b = bandTax(itProfit, effectiveLo, hi, rate);
       if (b)
         itBands.push({
           ...b,
@@ -218,18 +236,18 @@ export function estimateTax(
     }
   } else {
     // England / Wales / NI
-    const basic = bandTax(profit, adjustedPA, bands.basicRatePence, bands.basicRatePct);
+    const basic = bandTax(itProfit, adjustedPA, bands.basicRatePence, bands.basicRatePct);
     if (basic) itBands.push(basic);
 
     const higher = bandTax(
-      profit,
+      itProfit,
       bands.basicRatePence,
       bands.higherRatePence,
       bands.higherRatePct
     );
     if (higher) itBands.push(higher);
 
-    const additional = bandTax(profit, bands.higherRatePence, Infinity, bands.additionalRatePct);
+    const additional = bandTax(itProfit, bands.higherRatePence, Infinity, bands.additionalRatePct);
     if (additional) itBands.push(additional);
   }
 
@@ -253,6 +271,40 @@ export function estimateTax(
     });
 
   const niTotalPence = niBands.reduce((s, b) => s + b.taxPence, 0);
+
+  // ── Pension tax saving ───────────────────────────────────────────────────────
+  // Saving = IT that would have been due on the pension contribution amount.
+  // Computed as the difference between IT at full profit vs IT at itProfit.
+  let pensionTaxSavingPence = 0;
+  if (pensionGross > 0) {
+    // Run IT on the gross profit (without pension deduction) to get the baseline
+    const baselineIT = (() => {
+      const baseTotalIncome = profit + otherIncome;
+      const basePaReduction = Math.max(
+        0,
+        Math.floor((baseTotalIncome - bands.taperThresholdPence) / 2)
+      );
+      const baseAdjPA = Math.max(0, bands.personalAllowancePence - basePaReduction);
+      let baseTax = 0;
+      if (scotland) {
+        for (let i = 0; i < SCOTLAND_IT_THRESHOLDS.length; i++) {
+          const [lo, hi, rate] = SCOTLAND_IT_THRESHOLDS[i];
+          const eLo = i === 0 ? baseAdjPA : Math.max(baseAdjPA, lo);
+          const b = bandTax(profit, eLo, hi, rate);
+          if (b) baseTax += b.taxPence;
+        }
+      } else {
+        const b = bandTax(profit, baseAdjPA, bands.basicRatePence, bands.basicRatePct);
+        if (b) baseTax += b.taxPence;
+        const h = bandTax(profit, bands.basicRatePence, bands.higherRatePence, bands.higherRatePct);
+        if (h) baseTax += h.taxPence;
+        const a = bandTax(profit, bands.higherRatePence, Infinity, bands.additionalRatePct);
+        if (a) baseTax += a.taxPence;
+      }
+      return baseTax;
+    })();
+    pensionTaxSavingPence = Math.max(0, baselineIT - incomeTaxTotalPence);
+  }
 
   const totalTaxPence = incomeTaxTotalPence + niTotalPence;
   const effectiveRatePct = profit > 0 ? Math.round((totalTaxPence / profit) * 1000) / 10 : 0;
@@ -316,6 +368,8 @@ export function estimateTax(
     paymentSchedule,
     studentLoanRepayments,
     studentLoanTotalPence,
+    pensionGrossPence: pensionGross,
+    pensionTaxSavingPence,
     totalDeductionsPence: totalTaxPence + studentLoanTotalPence,
   };
 }

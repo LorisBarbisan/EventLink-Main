@@ -317,6 +317,9 @@ export async function taxEstimate(req: Request, res: Response) {
           taxYear: ty.label,
         } as import("@shared/tax-estimate").TaxBands)
       : bandsForTaxYear(ty.label);
+    const pensionGrossPence = req.query.pension_gross_pence
+      ? Math.max(0, parseInt(req.query.pension_gross_pence as string, 10) || 0)
+      : 0;
     const rawPlans = req.query.student_loan_plans;
     const studentLoanPlans: StudentLoanPlan[] = (
       Array.isArray(rawPlans) ? rawPlans : rawPlans ? [rawPlans] : []
@@ -325,7 +328,7 @@ export async function taxEstimate(req: Request, res: Response) {
       .filter((p): p is StudentLoanPlan =>
         Object.prototype.hasOwnProperty.call(STUDENT_LOAN_PLANS, p)
       );
-    const options: TaxOptions = { otherIncomePence, scotland, studentLoanPlans };
+    const options: TaxOptions = { otherIncomePence, scotland, studentLoanPlans, pensionGrossPence };
     const estimate = estimateTax(netProfitPence, bands, options);
 
     return res.json({
