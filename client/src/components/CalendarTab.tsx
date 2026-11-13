@@ -16,7 +16,6 @@ import {
   CalendarX,
   FileText,
   Loader2,
-  Receipt,
   RefreshCw,
   Unplug,
 } from "lucide-react";
@@ -550,18 +549,12 @@ function AvailabilityDialog({
 
 // ── Booking detail dialog ─────────────────────────────────────────────────────
 
-import { type HiredBookingForCalendar } from "./BooksTab";
-
 function BookingDetailDialog({
   booking,
   onClose,
-  onInvoice,
-  hasInvoice,
 }: {
   booking: FreelancerBooking;
   onClose: () => void;
-  onInvoice?: (b: HiredBookingForCalendar) => void;
-  hasInvoice?: boolean;
 }) {
   const statusColour = BOOKING_COLOURS[booking.booking.status] ?? "#6B7280";
   const { data: docs = [] } = useQuery<
@@ -657,26 +650,7 @@ function BookingDetailDialog({
           </div>
         )}
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row">
-          {onInvoice && (
-            <Button
-              size="sm"
-              onClick={() => {
-                onInvoice({
-                  bookingId: booking.booking.id,
-                  jobId: booking.booking.jobId,
-                  jobTitle: booking.job.title,
-                  agreedRate: booking.booking.agreedRate ?? null,
-                  employerName,
-                  companyName: booking.employer.companyName ?? null,
-                });
-                onClose();
-              }}
-            >
-              <Receipt className="mr-1.5 h-3.5 w-3.5" />
-              {hasInvoice ? "View / Edit invoice" : "Create invoice"}
-            </Button>
-          )}
+        <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>
             Close
           </Button>
@@ -794,10 +768,8 @@ function GigEditDialog({
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export function CalendarTab({
-  onInvoice,
   onJobDetail,
 }: {
-  onInvoice?: (b: HiredBookingForCalendar) => void;
   onJobDetail?: (entryId: number) => void;
 } = {}) {
   const { user } = useAuth();
@@ -808,23 +780,6 @@ export function CalendarTab({
   const [gigDialog, setGigDialog] = useState<GigEntry | null>(null);
   const [calDate, setCalDate] = useState(new Date());
   const [currentView, setCurrentView] = useState<string>(Views.MONTH);
-
-  const { data: invoiceLinks = [] } = useQuery<
-    { id: number; job_id: number | null; booking_id: number | null }[]
-  >({
-    queryKey: ["/api/invoices", "ids"],
-    queryFn: () => apiRequest("/api/invoices"),
-    enabled: !!user,
-    select: (data: any[]) =>
-      data.map((inv) => ({ id: inv.id, job_id: inv.job_id, booking_id: inv.booking_id })),
-  });
-
-  const hasInvoiceForBooking = (b: FreelancerBooking) =>
-    invoiceLinks.some(
-      (inv) =>
-        (b.booking.jobId && inv.job_id === b.booking.jobId) ||
-        (b.booking.id && inv.booking_id === b.booking.id)
-    );
 
   // ── Queries ────────────────────────────────────────────────────────────────
 
@@ -1235,12 +1190,7 @@ export function CalendarTab({
       )}
 
       {bookingDialog && (
-        <BookingDetailDialog
-          booking={bookingDialog}
-          onClose={() => setBookingDialog(null)}
-          onInvoice={onInvoice}
-          hasInvoice={hasInvoiceForBooking(bookingDialog)}
-        />
+        <BookingDetailDialog booking={bookingDialog} onClose={() => setBookingDialog(null)} />
       )}
 
       {gigDialog && (

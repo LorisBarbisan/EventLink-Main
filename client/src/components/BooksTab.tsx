@@ -2874,31 +2874,6 @@ export function BooksTab() {
     setSection("invoices");
   };
 
-  const createInvoiceForHiredBooking = (b: HiredBookingForCalendar) => {
-    const existing = allInvoices.find(
-      (inv) =>
-        (b.jobId && inv.job_id === b.jobId) || (b.bookingId && inv.booking_id === b.bookingId)
-    );
-    if (existing) {
-      setInvoicePrefill({ openInvoiceId: existing.id });
-      setSection("invoices");
-      return;
-    }
-    const rateStr = b.agreedRate ?? "";
-    const rateNum = parseFloat(rateStr.replace(/[^0-9.]/g, ""));
-    const ratePence = isNaN(rateNum) ? null : Math.round(rateNum * 100);
-    setInvoicePrefill({
-      bookingId: b.bookingId ?? null,
-      jobId: b.jobId ?? null,
-      toName: b.employerName ?? "",
-      toCompany: b.companyName ?? "",
-      lineDescription: b.jobTitle,
-      ratePence,
-      issueDate: new Date().toISOString().slice(0, 10),
-    });
-    setSection("invoices");
-  };
-
   const createInvoiceForJob = async (earningsEntryId: number) => {
     try {
       const [entry, otSummary, expensesData] = await Promise.all([
@@ -3456,10 +3431,7 @@ export function BooksTab() {
     return (
       <div className="space-y-4">
         {sectionSwitcher}
-        <CalendarTab
-          onInvoice={(b) => createInvoiceForHiredBooking(b)}
-          onJobDetail={(entryId) => setJobDetailEntryId(entryId)}
-        />
+        <CalendarTab onJobDetail={(entryId) => setJobDetailEntryId(entryId)} />
       </div>
     );
   }
