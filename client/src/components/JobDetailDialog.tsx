@@ -310,7 +310,7 @@ export function JobDetailDialog({
                 <div className="mt-2">
                   <Button
                     size="sm"
-                    variant="outline"
+                    className="bg-orange-500 text-white hover:bg-orange-600"
                     onClick={() => {
                       onInvoice(earningsEntryId);
                       onClose();
