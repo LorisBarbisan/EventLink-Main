@@ -1,9 +1,14 @@
 import type { Request, Response } from "express";
 import { db } from "../config/db";
 import { jobDocuments, jobs, job_applications } from "../../../shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { ObjectStorageService } from "../utils/object-storage";
-import { isLocalPath, saveLocally, deleteLocally, readLocally } from "../utils/local-storage-fallback";
+import {
+  isLocalPath,
+  saveLocally,
+  deleteLocally,
+  readLocally,
+} from "../utils/local-storage-fallback";
 import { randomUUID } from "crypto";
 
 const ALLOWED_TYPES = [
@@ -65,7 +70,9 @@ export async function uploadJobDocument(req: Request, res: Response) {
       }
       console.log(`✅ Job document uploaded to object storage: ${fileKey}`);
     } catch (uploadError: any) {
-      console.warn(`⚠️  Object storage unavailable (${uploadError?.message}), falling back to local disk`);
+      console.warn(
+        `⚠️  Object storage unavailable (${uploadError?.message}), falling back to local disk`
+      );
       storedKey = await saveLocally(fileKey, buffer);
       console.log(`✅ Job document saved locally: ${storedKey}`);
     }
@@ -114,7 +121,7 @@ export async function getJobDocuments(req: Request, res: Response) {
           and(
             eq(job_applications.job_id, jobId),
             eq(job_applications.freelancer_id, userId),
-            eq(job_applications.status, "hired")
+            inArray(job_applications.status as any, ["hired", "completed"])
           )
         );
       if (!hired) {
@@ -124,14 +131,11 @@ export async function getJobDocuments(req: Request, res: Response) {
       }
     }
 
-    const docs = await db
-      .select()
-      .from(jobDocuments)
-      .where(eq(jobDocuments.jobId, jobId));
+    const docs = await db.select().from(jobDocuments).where(eq(jobDocuments.jobId, jobId));
 
     // Attach download URLs — use signed GCS URL or fall back to local-serve endpoint
     const docsWithUrls = await Promise.all(
-      docs.map(async doc => {
+      docs.map(async (doc) => {
         if (isLocalPath(doc.fileKey)) {
           return { ...doc, downloadUrl: `/api/job/${jobId}/documents/${doc.id}/download` };
         }
@@ -234,14 +238,22 @@ export async function uploadFreelancerJobDocument(req: Request, res: Response) {
     }
 
     const buffer = Buffer.from(fileData, "base64");
-    if (buffer.length > MAX_SIZE) return res.status(400).json({ error: "File too large. Max 10MB." });
+    if (buffer.length > MAX_SIZE)
+      return res.status(400).json({ error: "File too large. Max 10MB." });
 
     // Must be hired for this job
     const [hired] = await db
       .select()
       .from(job_applications)
-      .where(and(eq(job_applications.job_id, jobId), eq(job_applications.freelancer_id, userId), eq(job_applications.status, "hired")));
-    if (!hired) return res.status(403).json({ error: "Only hired freelancers can upload documents" });
+      .where(
+        and(
+          eq(job_applications.job_id, jobId),
+          eq(job_applications.freelancer_id, userId),
+          eq(job_applications.status, "hired")
+        )
+      );
+    if (!hired)
+      return res.status(403).json({ error: "Only hired freelancers can upload documents" });
 
     const fileExtension = filename.split(".").pop() || "pdf";
     const fileKey = `job-docs/${jobId}/freelancer-${randomUUID()}.${fileExtension}`;
@@ -249,16 +261,28 @@ export async function uploadFreelancerJobDocument(req: Request, res: Response) {
     let storedKey = fileKey;
     try {
       const putUrl = await ObjectStorageService.getUploadUrl(fileKey, contentType);
-      const uploadRes = await fetch(putUrl, { method: "PUT", headers: { "Content-Type": contentType }, body: buffer });
+      const uploadRes = await fetch(putUrl, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: buffer,
+      });
       if (!uploadRes.ok) throw new Error(`Storage upload failed (${uploadRes.status})`);
-    } catch (uploadError: any) {
+    } catch {
       console.warn(`⚠️  Object storage unavailable, falling back to local disk`);
       storedKey = await saveLocally(fileKey, buffer);
     }
 
     const [doc] = await db
       .insert(jobDocuments)
-      .values({ jobId, uploadedByUserId: userId, fileName: filename, fileKey: storedKey, fileSize: buffer.length, fileType: contentType, documentType })
+      .values({
+        jobId,
+        uploadedByUserId: userId,
+        fileName: filename,
+        fileKey: storedKey,
+        fileSize: buffer.length,
+        fileType: contentType,
+        documentType,
+      })
       .returning();
 
     return res.status(201).json(doc);
@@ -270,13 +294,10 @@ export async function uploadFreelancerJobDocument(req: Request, res: Response) {
 
 // ── Helper: fetch docs with download URLs (for email sending) ─────────────
 export async function getJobDocumentsWithUrls(jobId: number, baseUrl?: string) {
-  const docs = await db
-    .select()
-    .from(jobDocuments)
-    .where(eq(jobDocuments.jobId, jobId));
+  const docs = await db.select().from(jobDocuments).where(eq(jobDocuments.jobId, jobId));
 
   return Promise.all(
-    docs.map(async doc => {
+    docs.map(async (doc) => {
       if (isLocalPath(doc.fileKey)) {
         const localPath = `/api/job/${jobId}/documents/${doc.id}/download`;
         return { ...doc, downloadUrl: baseUrl ? `${baseUrl}${localPath}` : localPath };
