@@ -159,30 +159,33 @@ interface EarningsData {
   entries: EarningsEntry[];
 }
 
-// ── Status badge ───────────────────────────────────────────────────────────────
+// ── Invoice status badge ───────────────────────────────────────────────────────
 
 function StatusBadge({ entry }: { entry: EarningsEntry }) {
-  if (entry.needs_review)
-    return (
-      <Badge variant="outline" className="border-amber-400 text-xs text-amber-600">
-        Review needed
-      </Badge>
-    );
   if (entry.status === "paid")
     return (
-      <Badge variant="secondary" className="bg-green-100 text-xs text-green-700">
+      <Badge
+        variant="secondary"
+        className="bg-green-100 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400"
+      >
         Paid
       </Badge>
     );
-  if (entry.status === "expected")
+  if (entry.status === "overdue")
     return (
-      <Badge variant="outline" className="text-xs">
-        Expected
+      <Badge variant="outline" className="border-red-400 text-xs text-red-600 dark:text-red-400">
+        Overdue
+      </Badge>
+    );
+  if (entry.invoice_id || entry.status === "invoiced")
+    return (
+      <Badge variant="outline" className="border-blue-400 text-xs text-blue-600 dark:text-blue-400">
+        Invoice sent
       </Badge>
     );
   return (
-    <Badge variant="outline" className="text-xs capitalize">
-      {entry.status}
+    <Badge variant="outline" className="text-xs text-muted-foreground">
+      Not invoiced
     </Badge>
   );
 }
@@ -3053,7 +3056,9 @@ export function BooksTab() {
                 paid_date: statusEditForm.datePaid,
                 paid_amount_pence: Math.round(parseFloat(statusEditForm.amount) * 100),
               }
-            : { paid_date: null, paid_amount_pence: null }),
+            : statusEditForm.status === "expected"
+              ? { paid_date: null, paid_amount_pence: null }
+              : {}),
         }),
       }),
     onSuccess: () => {
@@ -3067,8 +3072,16 @@ export function BooksTab() {
   });
 
   const openStatusEdit = (entry: EarningsEntry) => {
+    const derivedStatus =
+      entry.status === "paid"
+        ? "paid"
+        : entry.status === "overdue"
+          ? "overdue"
+          : entry.invoice_id || entry.status === "invoiced"
+            ? "invoiced"
+            : "expected";
     setStatusEditForm({
-      status: entry.status === "paid" ? "paid" : "expected",
+      status: derivedStatus,
       datePaid: entry.paid_date ?? new Date().toISOString().slice(0, 10),
       amount:
         entry.paid_amount_pence != null
@@ -3252,7 +3265,7 @@ export function BooksTab() {
     <Dialog open onOpenChange={() => setStatusEditEntry(null)}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Payment status</DialogTitle>
+          <DialogTitle>Invoice status</DialogTitle>
           <p className="text-sm text-muted-foreground">
             {statusEditEntry.description}
             {statusEditEntry.work_date ? ` · ${fmtDate(statusEditEntry.work_date)}` : ""}
@@ -3269,7 +3282,9 @@ export function BooksTab() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="expected">Expected</SelectItem>
+                <SelectItem value="expected">Not invoiced</SelectItem>
+                <SelectItem value="invoiced">Invoice sent</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
                 <SelectItem value="paid">Paid</SelectItem>
               </SelectContent>
             </Select>
@@ -3511,7 +3526,7 @@ export function BooksTab() {
     );
   }
 
-  const { tax_year, summary, owed, entries } = data;
+  const { tax_year, summary, entries } = data;
   const netPence = summary.total_pence - summary.deductions_pence;
 
   return (
@@ -3784,50 +3799,7 @@ export function BooksTab() {
         </CardContent>
       </Card>
 
-      {/* ── Section 3: Owed to me ── */}
-      <Card className="overflow-hidden">
-        <div className="border-l-4 border-orange-400 bg-orange-50/60 px-5 py-3 dark:bg-orange-950/20">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-orange-500" />
-            <p className="font-semibold">Owed to me</p>
-            {owed.length > 0 && (
-              <span className="rounded-full bg-orange-500 px-2 py-0.5 text-xs font-bold text-white">
-                {owed.length}
-              </span>
-            )}
-          </div>
-        </div>
-        <CardContent className="p-0">
-          {owed.length === 0 ? (
-            <div className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              All invoices settled.
-            </div>
-          ) : (
-            <div>
-              {owed.map((entry, i) => (
-                <div
-                  key={entry.id}
-                  className={`flex items-center justify-between px-5 py-3 ${i % 2 === 0 ? "bg-orange-50/30 dark:bg-orange-950/10" : ""}`}
-                >
-                  <div>
-                    <p className="text-sm font-medium">{entry.description ?? "Freelance work"}</p>
-                    <p className="text-xs text-muted-foreground">{fmtDate(entry.work_date)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold tabular-nums text-orange-700 dark:text-orange-300">
-                      {formatPence(entry.gross_amount_pence, entry.currency)}
-                    </p>
-                    <StatusBadge entry={entry} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── Section 4: Earnings ── */}
+      {/* ── Section 3: Earnings ── */}
       {(() => {
         const today = new Date().toISOString().slice(0, 10);
         const completedEntries = entries
