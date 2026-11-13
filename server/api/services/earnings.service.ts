@@ -12,6 +12,7 @@ interface JobRow {
   currency: string | null;
   event_date: string | null;
   end_date: string | null;
+  status?: string | null;
 }
 
 /**
@@ -127,7 +128,8 @@ export async function seedEntryFromBooking(booking: Booking, job: JobRow): Promi
       /* non-fatal */
     }
   } catch (err) {
-    console.error(`seedEntryFromBooking failed for booking ${booking.id} (non-fatal):`, err);
+    console.error(`seedEntryFromBooking failed for booking ${booking.id}:`, err);
+    throw err;
   }
 }
 
@@ -274,12 +276,14 @@ export async function backfillEarningsForFreelancer(freelancerId: number): Promi
   already_ok: number;
   errors: number;
   total: number;
+  error_bookings: number[];
 }> {
   let seeded = 0;
   let advanced = 0;
   let linked = 0;
   let already_ok = 0;
   let errors = 0;
+  const error_bookings: number[] = [];
 
   const allBookings = await db
     .select({
@@ -296,7 +300,7 @@ export async function backfillEarningsForFreelancer(freelancerId: number): Promi
       },
     })
     .from(bookings)
-    .innerJoin(jobs, eq(bookings.jobId, jobs.id))
+    .leftJoin(jobs, eq(bookings.jobId, jobs.id))
     .where(
       and(
         eq(bookings.freelancerId, freelancerId),
@@ -304,7 +308,18 @@ export async function backfillEarningsForFreelancer(freelancerId: number): Promi
       )
     );
 
-  for (const { booking, job } of allBookings) {
+  for (const { booking, job: jobOrNull } of allBookings) {
+    // Bookings with no linked job (null jobId or orphaned) get a fallback stub
+    const job: JobRow = jobOrNull ?? {
+      id: 0,
+      title: "Job",
+      company: "Unknown",
+      recruiter_id: null,
+      currency: booking.currency ?? "GBP",
+      event_date: null,
+      end_date: null,
+      status: null,
+    };
     try {
       const jobCompleted = (job.status as string) === "completed";
 
@@ -340,8 +355,17 @@ export async function backfillEarningsForFreelancer(freelancerId: number): Promi
     } catch (err) {
       console.error(`backfillEarningsForFreelancer error for booking ${booking.id}:`, err);
       errors++;
+      error_bookings.push(booking.id);
     }
   }
 
-  return { seeded, advanced, linked, already_ok, errors, total: allBookings.length };
+  return {
+    seeded,
+    advanced,
+    linked,
+    already_ok,
+    errors,
+    total: allBookings.length,
+    error_bookings,
+  };
 }
