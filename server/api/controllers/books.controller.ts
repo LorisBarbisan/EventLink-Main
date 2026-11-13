@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { currentTaxYear, taxYearForDate } from "@shared/tax-periods";
 import { buildCsv, penceToCsvDecimal, dateToCsvDate, exportFilename } from "../utils/csv";
-import { bandsForTaxYear, estimateTax } from "@shared/tax-estimate";
+import { bandsForTaxYear, estimateTax, type TaxOptions } from "@shared/tax-estimate";
 import { createWorkbook, addTypedSheet, streamWorkbook, type ColSpec } from "../utils/xlsx";
 
 function taxYearParams(req: Request): { from: string; to: string } {
@@ -277,10 +277,16 @@ export async function taxEstimate(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const [earnings, expensesData, mileagePence] = await Promise.all([
+    const otherIncomePence = req.query.other_income_pence
+      ? Math.max(0, parseInt(req.query.other_income_pence as string, 10) || 0)
+      : 0;
+    const scotland = req.query.scotland === "1";
+
+    const [earnings, expensesData, mileagePence, billing] = await Promise.all([
       storage.earningsSummary(freelancerId, { basis: "cash", from, to }),
       storage.listExpensesForExport(freelancerId, from, to),
       storage.sumMileagePence(freelancerId, from, to),
+      storage.getBillingProfile(freelancerId),
     ]);
 
     const earningsPence = earnings.total_pence - earnings.deductions_pence;
@@ -294,9 +300,14 @@ export async function taxEstimate(req: Request, res: Response) {
     // Determine which tax year bands to use from the `from` date
     const ty = taxYearForDate(from);
     const bands = bandsForTaxYear(ty.label);
-    const estimate = estimateTax(netProfitPence, bands);
+    const options: TaxOptions = { otherIncomePence, scotland };
+    const estimate = estimateTax(netProfitPence, bands, options);
 
-    return res.json(estimate);
+    return res.json({
+      ...estimate,
+      vatRegistered: billing?.vat_registered ?? false,
+      grossEarningsPence: earningsPence,
+    });
   } catch (err) {
     console.error("taxEstimate error:", err);
     return res.status(500).json({ error: "Failed to compute tax estimate" });

@@ -3,7 +3,7 @@
  *
  * Covers Income Tax and Class 4 National Insurance only.
  * Class 2 NI was abolished for 2024/25 onwards.
- * Figures are for the 2024/25 tax year; update `BANDS` for future years.
+ * Figures are for 2024/25 and later years; update `BANDS` for future years.
  *
  * All monetary values are integer pence.
  */
@@ -11,7 +11,9 @@
 export interface TaxBands {
   taxYear: string; // e.g. "2024/25"
   personalAllowancePence: number;
-  basicRatePence: number; // upper limit of basic rate band
+  /** Income above which the personal allowance tapers at £1 for every £2 */
+  taperThresholdPence: number;
+  basicRatePence: number; // upper limit of basic rate band (England/Wales/NI)
   higherRatePence: number; // upper limit of higher rate band
   basicRatePct: number; // e.g. 20
   higherRatePct: number; // e.g. 40
@@ -28,6 +30,7 @@ export interface TaxBands {
 export const BANDS_2024_25: TaxBands = {
   taxYear: "2024/25",
   personalAllowancePence: 1_257_000, // £12,570
+  taperThresholdPence: 10_000_000, // £100,000
   basicRatePence: 5_027_000, // £50,270
   higherRatePence: 12_514_000, // £125,140
   basicRatePct: 20,
@@ -58,6 +61,21 @@ export function bandsForTaxYear(label: string): TaxBands {
   return ALL_BANDS.find((b) => b.taxYear === label) ?? BANDS_2026_27;
 }
 
+/**
+ * Scottish Income Tax thresholds for 2024/25 (same for 2025/26 and 2026/27
+ * pending Scottish Budget — update each December).
+ * Format: [bandLowerPence, bandUpperPence, ratePct]
+ * The first entry's lower is replaced with adjustedPA inside estimateTax.
+ */
+const SCOTLAND_IT_THRESHOLDS: [number, number, number][] = [
+  [1_257_000, 1_487_600, 19], // Starter  (£12,570 – £14,876)
+  [1_487_600, 2_656_100, 20], // Basic    (£14,876 – £26,561)
+  [2_656_100, 4_366_200, 21], // Intermediate (£26,561 – £43,662)
+  [4_366_200, 7_500_000, 42], // Higher   (£43,662 – £75,000)
+  [7_500_000, 12_514_000, 45], // Advanced (£75,000 – £125,140)
+  [12_514_000, Infinity, 48], // Top      (above £125,140)
+];
+
 export interface TaxBand {
   label: string;
   ratePct: number;
@@ -65,9 +83,19 @@ export interface TaxBand {
   taxPence: number;
 }
 
+export interface TaxOptions {
+  /** Other non-self-employment income (salary, pension, etc.) in pence */
+  otherIncomePence?: number;
+  /** Use Scottish Income Tax rates instead of England/Wales/NI */
+  scotland?: boolean;
+}
+
 export interface TaxEstimate {
   taxYearLabel: string;
   netProfitPence: number;
+  adjustedPersonalAllowancePence: number;
+  otherIncomePence: number;
+  scotland: boolean;
   /** Income Tax */
   incomeTaxBands: TaxBand[];
   incomeTaxTotalPence: number;
@@ -80,7 +108,7 @@ export interface TaxEstimate {
 }
 
 function bandTax(profit: number, lower: number, upper: number, ratePct: number): TaxBand | null {
-  if (profit <= lower) return null;
+  if (profit <= lower || lower >= upper) return null;
   const on = Math.min(profit, upper) - lower;
   if (on <= 0) return null;
   return {
@@ -106,25 +134,56 @@ function formatBandLabel(lower: number, upper: number): string {
   return `${lo}–${hi}`;
 }
 
-export function estimateTax(netProfitPence: number, bands: TaxBands): TaxEstimate {
+export function estimateTax(
+  netProfitPence: number,
+  bands: TaxBands,
+  options?: TaxOptions
+): TaxEstimate {
   const profit = Math.max(0, netProfitPence);
+  const otherIncome = options?.otherIncomePence ?? 0;
+  const scotland = options?.scotland ?? false;
+
+  // ── Personal allowance taper ────────────────────────────────────────────────
+  // For every £2 of total income above £100,000, the PA reduces by £1.
+  // It reaches zero at £125,140 (matches higherRatePence).
+  const totalIncome = profit + otherIncome;
+  const paReduction = Math.max(0, Math.floor((totalIncome - bands.taperThresholdPence) / 2));
+  const adjustedPA = Math.max(0, bands.personalAllowancePence - paReduction);
 
   // ── Income Tax ──────────────────────────────────────────────────────────────
   const itBands: TaxBand[] = [];
 
-  const basic = bandTax(
-    profit,
-    bands.personalAllowancePence,
-    bands.basicRatePence,
-    bands.basicRatePct
-  );
-  if (basic) itBands.push(basic);
+  if (scotland) {
+    // Scottish Income Tax — absolute gross income thresholds.
+    // The first band's lower is replaced with adjustedPA so the starter rate
+    // covers income from [adjustedPA] up to the starter ceiling (£14,876).
+    // Subsequent bands use max(adjustedPA, bandLo) to avoid taxing below PA.
+    for (let i = 0; i < SCOTLAND_IT_THRESHOLDS.length; i++) {
+      const [lo, hi, rate] = SCOTLAND_IT_THRESHOLDS[i];
+      const effectiveLo = i === 0 ? adjustedPA : Math.max(adjustedPA, lo);
+      const b = bandTax(profit, effectiveLo, hi, rate);
+      if (b)
+        itBands.push({
+          ...b,
+          label: `${rate}% Scottish IT on ${formatBandLabel(effectiveLo, hi)}`,
+        });
+    }
+  } else {
+    // England / Wales / NI
+    const basic = bandTax(profit, adjustedPA, bands.basicRatePence, bands.basicRatePct);
+    if (basic) itBands.push(basic);
 
-  const higher = bandTax(profit, bands.basicRatePence, bands.higherRatePence, bands.higherRatePct);
-  if (higher) itBands.push(higher);
+    const higher = bandTax(
+      profit,
+      bands.basicRatePence,
+      bands.higherRatePence,
+      bands.higherRatePct
+    );
+    if (higher) itBands.push(higher);
 
-  const additional = bandTax(profit, bands.higherRatePence, Infinity, bands.additionalRatePct);
-  if (additional) itBands.push(additional);
+    const additional = bandTax(profit, bands.higherRatePence, Infinity, bands.additionalRatePct);
+    if (additional) itBands.push(additional);
+  }
 
   const incomeTaxTotalPence = itBands.reduce((s, b) => s + b.taxPence, 0);
 
@@ -153,6 +212,9 @@ export function estimateTax(netProfitPence: number, bands: TaxBands): TaxEstimat
   return {
     taxYearLabel: bands.taxYear,
     netProfitPence: profit,
+    adjustedPersonalAllowancePence: adjustedPA,
+    otherIncomePence: otherIncome,
+    scotland,
     incomeTaxBands: itBands,
     incomeTaxTotalPence,
     niBands,

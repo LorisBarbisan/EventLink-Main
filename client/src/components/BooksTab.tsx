@@ -2246,12 +2246,17 @@ interface TaxBand {
 interface TaxEstimateData {
   taxYearLabel: string;
   netProfitPence: number;
+  adjustedPersonalAllowancePence: number;
+  otherIncomePence: number;
+  scotland: boolean;
   incomeTaxBands: TaxBand[];
   incomeTaxTotalPence: number;
   niBands: TaxBand[];
   niTotalPence: number;
   totalTaxPence: number;
   effectiveRatePct: number;
+  vatRegistered: boolean;
+  grossEarningsPence: number;
 }
 
 const DONUT_COLORS = [
@@ -2293,6 +2298,23 @@ function PenceTick({ pence }: { pence: number }) {
 function OverviewSection() {
   const { toast } = useToast();
   const [downloading, setDownloading] = useState(false);
+  const [otherIncomeInput, setOtherIncomeInput] = useState(() => {
+    try {
+      return localStorage.getItem("books_other_income") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [scotland, setScotland] = useState(() => {
+    try {
+      return localStorage.getItem("books_scotland") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const otherIncomePence = Math.max(0, Math.round(parseFloat(otherIncomeInput || "0") * 100));
+
   const authHeaders = (): HeadersInit => {
     const token = localStorage.getItem("auth_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
@@ -2314,10 +2336,17 @@ function OverviewSection() {
       fetch("/api/books/expense-categories", { headers: authHeaders() }).then((r) => r.json()),
   });
 
+  const taxQueryParams = new URLSearchParams();
+  if (otherIncomePence > 0) taxQueryParams.set("other_income_pence", String(otherIncomePence));
+  if (scotland) taxQueryParams.set("scotland", "1");
+  const taxQueryString = taxQueryParams.toString();
+
   const { data: taxData } = useQuery<TaxEstimateData>({
-    queryKey: ["/api/books/tax-estimate"],
+    queryKey: ["/api/books/tax-estimate", taxQueryString],
     queryFn: () =>
-      fetch("/api/books/tax-estimate", { headers: authHeaders() }).then((r) => r.json()),
+      fetch(`/api/books/tax-estimate${taxQueryString ? `?${taxQueryString}` : ""}`, {
+        headers: authHeaders(),
+      }).then((r) => r.json()),
   });
 
   function downloadWithAuth(url: string, setPending?: (v: boolean) => void) {
@@ -2452,6 +2481,12 @@ function OverviewSection() {
             <p className="mt-0.5 text-xs text-slate-400">
               Take-home ~{formatPence(taxData.netProfitPence - taxData.totalTaxPence)}
             </p>
+            {taxData.scotland && <p className="mt-0.5 text-xs text-blue-400">Scottish IT</p>}
+            {taxData.adjustedPersonalAllowancePence < 1_257_000 && (
+              <p className="mt-0.5 text-xs text-amber-400">
+                PA tapered to {formatPence(taxData.adjustedPersonalAllowancePence)}
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -2586,6 +2621,75 @@ function OverviewSection() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Tax settings ── */}
+      <Card className="overflow-hidden">
+        <div className="border-l-4 border-slate-500 bg-slate-50/50 px-5 py-3 dark:bg-slate-900/40">
+          <p className="font-semibold">Tax estimate settings</p>
+          <p className="text-xs text-muted-foreground">
+            Figures are estimates — always check with your accountant.
+          </p>
+        </div>
+        <CardContent className="space-y-3 py-4">
+          <div className="flex items-center gap-3">
+            <label className="w-48 shrink-0 text-sm text-muted-foreground">
+              Other income this year
+            </label>
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                £
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="0"
+                value={otherIncomeInput}
+                onChange={(e) => {
+                  setOtherIncomeInput(e.target.value);
+                  try {
+                    localStorage.setItem("books_other_income", e.target.value);
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                className="w-32 rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">salary, pension, rental, etc.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="w-48 shrink-0 text-sm text-muted-foreground">Scottish taxpayer</label>
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded"
+              checked={scotland}
+              onChange={(e) => {
+                setScotland(e.target.checked);
+                try {
+                  localStorage.setItem("books_scotland", e.target.checked ? "1" : "0");
+                } catch {
+                  /* ignore */
+                }
+              }}
+            />
+            <p className="text-xs text-muted-foreground">uses Scottish Income Tax rates</p>
+          </div>
+          {taxData?.vatRegistered && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+              You are VAT registered. Ensure your earnings are entered ex-VAT so the estimate is not
+              inflated by VAT you collect on HMRC&apos;s behalf.
+            </p>
+          )}
+          {taxData && taxData.grossEarningsPence <= 100_000 && taxData.grossEarningsPence > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Trading income is under £1,000 — you may be able to use the{" "}
+              <span className="font-medium">Trading Allowance</span> instead of claiming actual
+              expenses, making the profit from this source £0.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ── Year-end pack ── */}
       <Card className="overflow-hidden">
