@@ -328,7 +328,19 @@ export async function taxEstimate(req: Request, res: Response) {
       .filter((p): p is StudentLoanPlan =>
         Object.prototype.hasOwnProperty.call(STUDENT_LOAN_PLANS, p)
       );
-    const options: TaxOptions = { otherIncomePence, scotland, studentLoanPlans, pensionGrossPence };
+    const rawWfhTier = req.query.wfh_tier as string | undefined;
+    const wfhTier =
+      rawWfhTier === "low" || rawWfhTier === "mid" || rawWfhTier === "high"
+        ? rawWfhTier
+        : undefined;
+
+    const options: TaxOptions = {
+      otherIncomePence,
+      scotland,
+      studentLoanPlans,
+      pensionGrossPence,
+      wfhTier,
+    };
     const estimate = estimateTax(netProfitPence, bands, options);
 
     return res.json({

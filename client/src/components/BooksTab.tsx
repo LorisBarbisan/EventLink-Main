@@ -2310,6 +2310,7 @@ interface TaxEstimateData {
   studentLoanTotalPence: number;
   pensionGrossPence: number;
   pensionTaxSavingPence: number;
+  wfhAllowancePence: number;
   totalDeductionsPence: number;
   vatRegistered: boolean;
   grossEarningsPence: number;
@@ -2478,6 +2479,15 @@ function OverviewSection() {
       return [];
     }
   });
+  const [wfhTier, setWfhTier] = useState<"low" | "mid" | "high" | null>(() => {
+    try {
+      const stored = localStorage.getItem("books_wfh_tier");
+      if (stored === "low" || stored === "mid" || stored === "high") return stored;
+    } catch {
+      /* ignore */
+    }
+    return null;
+  });
   const [pensionInput, setPensionInput] = useState(() => {
     try {
       return localStorage.getItem("books_pension") ?? "";
@@ -2552,6 +2562,7 @@ function OverviewSection() {
   if (scotland) taxQueryParams.set("scotland", "1");
   for (const plan of studentLoanPlans) taxQueryParams.append("student_loan_plans", plan);
   if (pensionGrossPence > 0) taxQueryParams.set("pension_gross_pence", String(pensionGrossPence));
+  if (wfhTier) taxQueryParams.set("wfh_tier", wfhTier);
   const taxQueryString = taxQueryParams.toString();
 
   const { data: taxData } = useQuery<TaxEstimateData>({
@@ -2705,6 +2716,11 @@ function OverviewSection() {
                 {r.planLabel}: {formatPence(r.repaymentPence)}
               </p>
             ))}
+            {taxData.wfhAllowancePence > 0 && (
+              <p className="mt-0.5 text-xs text-sky-400">
+                WFH −{formatPence(taxData.wfhAllowancePence)} profit
+              </p>
+            )}
             {taxData.pensionGrossPence > 0 && (
               <p className="mt-0.5 text-xs text-emerald-400">
                 Pension saves {formatPence(taxData.pensionTaxSavingPence)} IT
@@ -2862,6 +2878,19 @@ function OverviewSection() {
                     </span>
                   </div>
                 ))}
+                {taxData.wfhAllowancePence > 0 && (
+                  <div className="flex items-baseline justify-between bg-sky-50 px-5 py-2.5 dark:bg-sky-950/30">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        WFH flat rate ({wfhTier} tier)
+                      </p>
+                      <p className="text-xs text-muted-foreground">Reduces IT and NI</p>
+                    </div>
+                    <span className="font-semibold tabular-nums text-sky-700 dark:text-sky-400">
+                      −{formatPence(taxData.wfhAllowancePence)}
+                    </span>
+                  </div>
+                )}
                 {taxData.pensionGrossPence > 0 && (
                   <div className="flex items-baseline justify-between bg-emerald-50 px-5 py-2.5 dark:bg-emerald-950/30">
                     <div>
@@ -3046,6 +3075,43 @@ function OverviewSection() {
             </div>
             <p className="text-xs text-muted-foreground">
               Reduces taxable income for IT (not NI) — SIPP, workplace pension, etc.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm text-muted-foreground">
+              Working from home (HMRC flat rate)
+            </label>
+            <div className="flex gap-2">
+              {(
+                [
+                  { value: "low", label: "25–50 h/mo", detail: "£10/mo" },
+                  { value: "mid", label: "51–100 h/mo", detail: "£18/mo" },
+                  { value: "high", label: "101+ h/mo", detail: "£26/mo" },
+                ] as const
+              ).map(({ value, label, detail }) => {
+                const active = wfhTier === value;
+                return (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      const next = active ? null : value;
+                      setWfhTier(next);
+                      try {
+                        if (next) localStorage.setItem("books_wfh_tier", next);
+                        else localStorage.removeItem("books_wfh_tier");
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active ? "border-sky-500 bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" : "border-border text-muted-foreground hover:border-sky-400"}`}
+                  >
+                    {label} <span className="font-normal opacity-70">{detail}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Reduces profit for both IT and NI · simplified expenses (SA103F)
             </p>
           </div>
           {taxData?.vatRegistered && (

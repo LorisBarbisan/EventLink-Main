@@ -83,6 +83,13 @@ export interface TaxBand {
   taxPence: number;
 }
 
+/** HMRC simplified WFH allowance per year (pence) by tier */
+export const WFH_TIERS = {
+  low: 12_000, // £120/yr  (25–50 h/month)
+  mid: 21_600, // £216/yr  (51–100 h/month)
+  high: 31_200, // £312/yr  (101+ h/month)
+} as const;
+
 /** UK student loan repayment plans available to self-employed earners */
 export type StudentLoanPlan = "plan1" | "plan2" | "plan4" | "plan5" | "postgrad";
 
@@ -112,6 +119,14 @@ export interface TaxOptions {
    * Capped internally at net profit so it cannot create a negative IT base.
    */
   pensionGrossPence?: number;
+  /**
+   * HMRC simplified-expenses working-from-home tier for sole traders.
+   * Reduces trading profit (affects both IT and NI).
+   *   low  = 25–50 h/month  → £10/month (£120/year)
+   *   mid  = 51–100 h/month → £18/month (£216/year)
+   *   high = 101+ h/month   → £26/month (£312/year)
+   */
+  wfhTier?: "low" | "mid" | "high";
 }
 
 export interface PaymentSchedule {
@@ -162,6 +177,8 @@ export interface TaxEstimate {
   pensionGrossPence: number;
   /** Income Tax saved because of the pension contribution */
   pensionTaxSavingPence: number;
+  /** WFH flat-rate deduction applied (pence/year) — reduces both IT and NI */
+  wfhAllowancePence: number;
   /** totalTaxPence + studentLoanTotalPence */
   totalDeductionsPence: number;
 }
@@ -198,9 +215,14 @@ export function estimateTax(
   bands: TaxBands,
   options?: TaxOptions
 ): TaxEstimate {
-  const profit = Math.max(0, netProfitPence);
+  const rawProfit = Math.max(0, netProfitPence);
   const otherIncome = options?.otherIncomePence ?? 0;
   const scotland = options?.scotland ?? false;
+
+  // ── Working-from-home flat rate ──────────────────────────────────────────────
+  // WFH reduces trading profit before both IT and NI.
+  const wfhAllowancePence = options?.wfhTier ? WFH_TIERS[options.wfhTier] : 0;
+  const profit = Math.max(0, rawProfit - wfhAllowancePence);
 
   // ── Pension relief ───────────────────────────────────────────────────────────
   // Pension contributions reduce taxable income for IT only, not Class 4 NI.
@@ -355,7 +377,7 @@ export function estimateTax(
 
   return {
     taxYearLabel: bands.taxYear,
-    netProfitPence: profit,
+    netProfitPence: rawProfit,
     adjustedPersonalAllowancePence: adjustedPA,
     otherIncomePence: otherIncome,
     scotland,
@@ -370,6 +392,7 @@ export function estimateTax(
     studentLoanTotalPence,
     pensionGrossPence: pensionGross,
     pensionTaxSavingPence,
+    wfhAllowancePence,
     totalDeductionsPence: totalTaxPence + studentLoanTotalPence,
   };
 }
