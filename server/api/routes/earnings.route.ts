@@ -473,6 +473,25 @@ router.patch("/:id", auth, async (req: Request, res: Response) => {
       id,
       updates as Parameters<typeof storage.updateEarningsEntry>[1]
     );
+
+    const changedKeys = Object.keys(updates);
+    const summary =
+      changedKeys.length === 1 && changedKeys[0] === "status"
+        ? `Status changed to ${updates.status}`
+        : `Updated: ${changedKeys.join(", ")}`;
+    storage
+      .appendAuditLog({
+        freelancer_id: freelancerId,
+        entity_type: "earnings_entry",
+        entity_id: id,
+        action: "updated",
+        summary,
+        snapshot: updated as Record<string, unknown>,
+      })
+      .catch(() => {
+        /* non-critical */
+      });
+
     return res.json(updated);
   } catch (err) {
     console.error("update earnings entry error:", err);
@@ -496,10 +515,42 @@ router.delete("/:id/archive", auth, async (req: Request, res: Response) => {
     }
 
     await storage.updateEarningsEntry(id, { archived: true });
+    storage
+      .appendAuditLog({
+        freelancer_id: freelancerId,
+        entity_type: "earnings_entry",
+        entity_id: id,
+        action: "archived",
+        summary: "Entry archived",
+        snapshot: existing as Record<string, unknown>,
+      })
+      .catch(() => {
+        /* non-critical */
+      });
     return res.json({ ok: true });
   } catch (err) {
     console.error("archive earnings entry error:", err);
     return res.status(500).json({ error: "Failed to archive entry" });
+  }
+});
+
+// GET /api/earnings/:id/history — audit log for a single entry
+router.get("/:id/history", auth, async (req: Request, res: Response) => {
+  try {
+    const freelancerId = req.user!.id;
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+    const existing = await storage.getEarningsEntry(id);
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (existing.freelancer_id !== freelancerId)
+      return res.status(403).json({ error: "Forbidden" });
+
+    const log = await storage.listAuditLog(freelancerId, "earnings_entry", id);
+    return res.json(log);
+  } catch (err) {
+    console.error("earnings history error:", err);
+    return res.status(500).json({ error: "Failed to load history" });
   }
 });
 

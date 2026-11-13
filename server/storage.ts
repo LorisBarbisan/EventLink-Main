@@ -87,6 +87,9 @@ import {
   saved_places,
   mileage_trips,
   job_time_entries,
+  books_audit_log,
+  type BooksAuditLog,
+  type InsertBooksAuditLog,
   type FreelancerBillingProfile,
   type InsertFreelancerBillingProfile,
   type Invoice,
@@ -962,6 +965,14 @@ export interface IStorage {
   ): Promise<MileageTrip | undefined>;
   archiveMileageTrip(id: number, freelancerId: number): Promise<void>;
   sumMileagePence(freelancerId: number, from: string, to: string): Promise<number>;
+
+  // ── Books audit log ──────────────────────────────────────────────────────────
+  appendAuditLog(data: InsertBooksAuditLog): Promise<BooksAuditLog>;
+  listAuditLog(
+    freelancerId: number,
+    entityType: string,
+    entityId: number
+  ): Promise<BooksAuditLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7658,6 +7669,34 @@ export class DatabaseStorage implements IStorage {
       .update(earnings_entries)
       .set({ ...data, updated_at: new Date() })
       .where(and(eq(earnings_entries.id, id), eq(earnings_entries.freelancer_id, freelancerId)));
+  }
+
+  // ── Books audit log ──────────────────────────────────────────────────────────
+
+  async appendAuditLog(data: InsertBooksAuditLog): Promise<BooksAuditLog> {
+    const [row] = await db.insert(books_audit_log).values(data).returning();
+    return row;
+  }
+
+  async listAuditLog(
+    freelancerId: number,
+    entityType: string,
+    entityId: number
+  ): Promise<BooksAuditLog[]> {
+    return db
+      .select()
+      .from(books_audit_log)
+      .where(
+        and(
+          eq(books_audit_log.freelancer_id, freelancerId),
+          eq(
+            books_audit_log.entity_type,
+            entityType as "earnings_entry" | "expense" | "mileage_trip"
+          ),
+          eq(books_audit_log.entity_id, entityId)
+        )
+      )
+      .orderBy(desc(books_audit_log.changed_at));
   }
 }
 

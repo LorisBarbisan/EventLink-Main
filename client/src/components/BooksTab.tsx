@@ -2892,6 +2892,7 @@ export function BooksTab() {
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
   const [jobDetailEntryId, setJobDetailEntryId] = useState<number | null>(null);
+  const [historyEntryId, setHistoryEntryId] = useState<number | null>(null);
   const [fromBooking, setFromBooking] = useState<UnloggedBooking | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<UnloggedBooking | null>(null);
   const [statusEditEntry, setStatusEditEntry] = useState<EarningsEntry | null>(null);
@@ -3117,6 +3118,14 @@ export function BooksTab() {
       toast({ title: "Entry removed" });
     },
     onError: () => toast({ title: "Failed to remove entry", variant: "destructive" }),
+  });
+
+  const { data: entryHistory = [] } = useQuery<
+    { id: number; action: string; summary: string; changed_at: string }[]
+  >({
+    queryKey: ["/api/earnings", historyEntryId, "history"],
+    queryFn: () => apiRequest(`/api/earnings/${historyEntryId}/history`),
+    enabled: historyEntryId !== null,
   });
 
   const backfillMutation = useMutation({
@@ -3997,6 +4006,16 @@ export function BooksTab() {
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
+                        <button
+                          className="text-muted-foreground transition-colors hover:text-foreground"
+                          title="History"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setHistoryEntryId(entry.id);
+                          }}
+                        >
+                          <Clock className="h-3.5 w-3.5" />
+                        </button>
                         {entry.source === "manual" && (
                           <button
                             className="text-muted-foreground transition-colors hover:text-destructive"
@@ -4042,6 +4061,39 @@ export function BooksTab() {
       />
       {bookingDetailDialog}
       {statusEditDialog}
+
+      <Dialog open={historyEntryId !== null} onOpenChange={(o) => !o && setHistoryEntryId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Entry history</DialogTitle>
+          </DialogHeader>
+          {entryHistory.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">No history yet.</p>
+          ) : (
+            <ol className="space-y-3 py-2">
+              {entryHistory.map((row) => (
+                <li key={row.id} className="flex gap-3 text-sm">
+                  <div className="mt-0.5 shrink-0">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium leading-snug">{row.summary}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(row.changed_at).toLocaleString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {jobDetailEntryId !== null && (
         <JobDetailDialog

@@ -2116,3 +2116,21 @@ export type ImportRow = typeof import_rows.$inferSelect;
 export type InsertImportRow = typeof import_rows.$inferInsert;
 export type ImportMapping = typeof import_mappings.$inferSelect;
 export type InsertImportMapping = typeof import_mappings.$inferInsert;
+
+// ── Books audit log ───────────────────────────────────────────────────────────
+
+export const books_audit_log = pgTable("books_audit_log", {
+  id: serial("id").primaryKey(),
+  freelancer_id: integer("freelancer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  entity_type: text("entity_type").notNull().$type<"earnings_entry" | "expense" | "mileage_trip">(),
+  entity_id: integer("entity_id").notNull(),
+  action: text("action").notNull().$type<"created" | "updated" | "archived">(),
+  summary: text("summary").notNull(),
+  snapshot: jsonb("snapshot"),
+  changed_at: timestamp("changed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type BooksAuditLog = typeof books_audit_log.$inferSelect;
+export type InsertBooksAuditLog = typeof books_audit_log.$inferInsert;
