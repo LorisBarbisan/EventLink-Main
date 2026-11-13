@@ -40,7 +40,6 @@ import {
   MapPin,
   MessageCircle,
   Plus,
-  Receipt,
   Search,
   Upload,
   User,
@@ -413,47 +412,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
       return res.json();
     },
   });
-
-  const { data: invoiceLinks = [] } = useQuery<
-    { id: number; job_id: number | null; booking_id: number | null }[]
-  >({
-    queryKey: ["/api/invoices", "ids"],
-    queryFn: () => apiRequest("/api/invoices"),
-    enabled: !!freelancerProfile?.user_id,
-    select: (data: any[]) =>
-      data.map((inv: any) => ({ id: inv.id, job_id: inv.job_id, booking_id: inv.booking_id })),
-  });
-
-  const goToInvoiceForBooking = (booking: any) => {
-    const existing = invoiceLinks.find(
-      (inv) =>
-        (booking.job_id && inv.job_id === booking.job_id) ||
-        (booking.id && inv.booking_id === booking.id)
-    );
-    if (existing) {
-      sessionStorage.setItem("invoicePrefill", JSON.stringify({ openInvoiceId: existing.id }));
-    } else {
-      const rateNum = parseFloat((booking.rate ?? "").replace(/[^0-9.]/g, ""));
-      sessionStorage.setItem(
-        "invoicePrefill",
-        JSON.stringify({
-          bookingId: booking.id ?? null,
-          jobId: booking.job_id ?? null,
-          toName: "",
-          toCompany: booking.company_name ?? "",
-          lineDescription: booking.job_title ?? "",
-          ratePence: isNaN(rateNum) ? null : Math.round(rateNum * 100),
-          issueDate: new Date().toISOString().slice(0, 10),
-        })
-      );
-    }
-    setActiveTab("books");
-    // BooksTab reads the "section" URL param and sessionStorage prefill on mount
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", "books");
-    url.searchParams.set("section", "invoices");
-    window.history.replaceState({}, "", url.toString());
-  };
 
   if (loading) {
     return (
@@ -1170,20 +1128,6 @@ export function FreelancerDashboardTabs({ profile }: FreelancerDashboardTabsProp
                             </Button>
                             <Button size="sm" variant="outline">
                               View Details
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => goToInvoiceForBooking(booking)}
-                            >
-                              <Receipt className="mr-1 h-4 w-4" />
-                              {invoiceLinks.some(
-                                (inv) =>
-                                  (booking.job_id && inv.job_id === booking.job_id) ||
-                                  (booking.id && inv.booking_id === booking.id)
-                              )
-                                ? "View / Edit invoice"
-                                : "Create invoice"}
                             </Button>
                           </div>
                         </div>

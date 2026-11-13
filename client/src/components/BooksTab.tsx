@@ -3950,6 +3950,11 @@ export function BooksTab() {
             setJobDetailEntryId(null);
             createInvoiceForJob(jobDetailEntryId!);
           }}
+          onOpenInvoice={(invoiceId) => {
+            setJobDetailEntryId(null);
+            setInvoicePrefill({ openInvoiceId: invoiceId });
+            setSection("invoices");
+          }}
           onEdit={(entryId) => {
             const entry = entries.find((e) => e.id === entryId);
             if (entry) openEdit(entry);
