@@ -54,11 +54,12 @@ export async function booksSummary(req: Request, res: Response) {
     const freelancerId = req.user!.id;
     const { from, to } = taxYearParams(req);
 
-    const [earnings, expensesData, mileagePence, extraPence] = await Promise.all([
+    const [earnings, expensesData, mileagePence, extraPence, overdueData] = await Promise.all([
       storage.earningsSummary(freelancerId, { basis: "cash", from, to }),
       storage.listExpensesForExport(freelancerId, from, to),
       storage.sumMileagePence(freelancerId, from, to),
       syntheticInvoicePence(freelancerId, from, to),
+      storage.countOverdueEntries(freelancerId, from, to),
     ]);
 
     const earningsPence = earnings.total_pence - earnings.deductions_pence + extraPence;
@@ -84,6 +85,8 @@ export async function booksSummary(req: Request, res: Response) {
       entry_count: earnings.entry_count,
       expense_count: expenseCount,
       mileage_trip_count: mileageTripCount,
+      overdue_count: overdueData.count,
+      overdue_pence: overdueData.total_pence,
     });
   } catch (err) {
     console.error("booksSummary error:", err);
@@ -381,6 +384,17 @@ export async function booksQuarterly(req: Request, res: Response) {
 
 const DISCLAIMER =
   "Figures are estimates produced from the records you entered, for your own use and your accountant's. EventLink does not provide accountancy or tax advice and does not submit anything to HMRC.";
+
+export async function syncOverdue(req: Request, res: Response) {
+  try {
+    const freelancerId = req.user!.id;
+    const count = await storage.syncOverdueEntries(freelancerId);
+    return res.json({ updated: count });
+  } catch (err) {
+    console.error("syncOverdue error", err);
+    return res.status(500).json({ error: "Failed to sync overdue entries" });
+  }
+}
 
 export async function booksExportWorkbook(req: Request, res: Response) {
   try {

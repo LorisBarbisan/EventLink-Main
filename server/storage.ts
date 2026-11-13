@@ -135,6 +135,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  lt,
   lte,
   ne,
   or,
@@ -981,6 +982,20 @@ export interface IStorage {
   listTaxRates(): Promise<TaxRate[]>;
   getTaxRate(taxYear: string): Promise<TaxRate | undefined>;
   upsertTaxRate(data: InsertTaxRate): Promise<TaxRate>;
+
+  // ── Overdue sync ─────────────────────────────────────────────────────────────
+  /**
+   * Promote invoiced earnings entries to "overdue" when their invoice due date
+   * (or invoiced_date + payment_terms_days) has passed. Returns the count
+   * of entries updated.
+   */
+  syncOverdueEntries(freelancerId: number): Promise<number>;
+  /** Count of overdue earnings entries for a freelancer in a date range. */
+  countOverdueEntries(
+    freelancerId: number,
+    from: string,
+    to: string
+  ): Promise<{ count: number; total_pence: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -7735,6 +7750,93 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return row;
+  }
+
+  // ── Overdue sync ─────────────────────────────────────────────────────────────
+
+  async countOverdueEntries(
+    freelancerId: number,
+    from: string,
+    to: string
+  ): Promise<{ count: number; total_pence: number }> {
+    const rows = await db
+      .select({
+        gross: earnings_entries.gross_amount_pence,
+      })
+      .from(earnings_entries)
+      .where(
+        and(
+          eq(earnings_entries.freelancer_id, freelancerId),
+          eq(earnings_entries.status, "overdue" as const),
+          eq(earnings_entries.archived, false),
+          sql`${earnings_entries.invoiced_date} >= ${from}`,
+          sql`${earnings_entries.invoiced_date} <= ${to}`
+        )
+      );
+    return {
+      count: rows.length,
+      total_pence: rows.reduce((s, r) => s + (r.gross ?? 0), 0),
+    };
+  }
+
+  async syncOverdueEntries(freelancerId: number): Promise<number> {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    // Find invoiced entries where the invoice due_date has passed,
+    // OR where invoiced_date + billing profile payment_terms_days < today.
+    // We use a raw SQL expression so we can do the date arithmetic in one pass.
+    const overdueIds = await db
+      .select({ id: earnings_entries.id })
+      .from(earnings_entries)
+      .leftJoin(invoices, eq(earnings_entries.invoice_id, invoices.id))
+      .leftJoin(
+        freelancer_billing_profiles,
+        eq(freelancer_billing_profiles.user_id, earnings_entries.freelancer_id)
+      )
+      .where(
+        and(
+          eq(earnings_entries.freelancer_id, freelancerId),
+          eq(earnings_entries.status, "invoiced" as const),
+          or(
+            // Invoice has an explicit due_date that has passed
+            and(isNotNull(invoices.due_date), lt(invoices.due_date, today)),
+            // No explicit due_date: fall back to invoiced_date + payment_terms_days
+            and(
+              isNull(invoices.due_date),
+              isNotNull(earnings_entries.invoiced_date),
+              sql`${earnings_entries.invoiced_date}::date + COALESCE(${freelancer_billing_profiles.payment_terms_days}, 30) < ${today}::date`
+            )
+          )
+        )
+      );
+
+    if (overdueIds.length === 0) return 0;
+
+    const ids = overdueIds.map((r) => r.id);
+
+    await db
+      .update(earnings_entries)
+      .set({ status: "overdue" as const, updated_at: new Date() })
+      .where(inArray(earnings_entries.id, ids));
+
+    // Mirror overdue status onto the linked invoices (sent invoices only)
+    await db
+      .update(invoices)
+      .set({ status: "overdue" as const, updated_at: new Date() })
+      .where(
+        and(
+          inArray(
+            invoices.id,
+            db
+              .select({ id: earnings_entries.invoice_id })
+              .from(earnings_entries)
+              .where(and(inArray(earnings_entries.id, ids), isNotNull(earnings_entries.invoice_id)))
+          ),
+          eq(invoices.status, "sent" as const)
+        )
+      );
+
+    return ids.length;
   }
 }
 

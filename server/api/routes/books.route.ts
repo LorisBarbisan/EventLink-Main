@@ -9,6 +9,7 @@ import {
   booksMonthly,
   booksExpenseCategories,
   booksQuarterly,
+  syncOverdue,
 } from "../controllers/books.controller";
 
 export function registerBooksRoutes(app: Express) {
@@ -23,4 +24,5 @@ export function registerBooksRoutes(app: Express) {
   app.get("/api/books/monthly", ...auth, booksMonthly);
   app.get("/api/books/expense-categories", ...auth, booksExpenseCategories);
   app.get("/api/books/quarterly", ...auth, booksQuarterly);
+  app.post("/api/books/sync-overdue", ...auth, syncOverdue);
 }

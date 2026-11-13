@@ -2261,6 +2261,8 @@ interface BooksSummary {
   entry_count: number;
   expense_count: number;
   mileage_trip_count: number;
+  overdue_count: number;
+  overdue_pence: number;
 }
 
 interface MonthlyRow {
@@ -2349,6 +2351,7 @@ function PenceTick({ pence }: { pence: number }) {
 
 function OverviewSection() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [downloading, setDownloading] = useState(false);
   const [otherIncomeInput, setOtherIncomeInput] = useState(() => {
     try {
@@ -2379,6 +2382,22 @@ function OverviewSection() {
     const token = localStorage.getItem("auth_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
+
+  // Fire-and-forget on mount: promote stale invoiced entries to overdue
+  useEffect(() => {
+    fetch("/api/books/sync-overdue", { method: "POST", headers: authHeaders() })
+      .then((r) => r.json())
+      .then((d: { updated: number }) => {
+        if (d.updated > 0) {
+          queryClient.invalidateQueries({ queryKey: ["/api/books/summary"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/earnings"] });
+        }
+      })
+      .catch(() => {
+        /* non-critical */
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data, isLoading } = useQuery<BooksSummary>({
     queryKey: ["/api/books/summary"],
@@ -2577,6 +2596,22 @@ function OverviewSection() {
           </div>
         )}
       </div>
+
+      {/* ── Overdue alert ── */}
+      {data && data.overdue_count > 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-950/30">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+          <div>
+            <p className="text-sm font-medium text-red-800 dark:text-red-300">
+              {data.overdue_count} overdue {data.overdue_count === 1 ? "entry" : "entries"} —{" "}
+              {formatPence(data.overdue_pence)} outstanding
+            </p>
+            <p className="text-xs text-red-600 dark:text-red-400">
+              Payment deadline passed. Chase the client or mark as written off.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── P&L bar chart ── */}
       {chartMonths.length > 0 && (

@@ -1519,7 +1519,7 @@ export const earnings_entries = pgTable(
     status: text("status")
       .notNull()
       .default("expected")
-      .$type<"expected" | "invoiced" | "paid" | "written_off">(),
+      .$type<"expected" | "invoiced" | "overdue" | "paid" | "written_off">(),
     invoiced_date: date("invoiced_date"),
     paid_date: date("paid_date"),
     paid_amount_pence: bigint("paid_amount_pence", { mode: "number" }),
