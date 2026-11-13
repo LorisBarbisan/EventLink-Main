@@ -2791,23 +2791,6 @@ export function BooksTab() {
     }));
 
   // Lightweight invoice lookup by job/booking id
-  const { data: allInvoices = [] } = useQuery<
-    { id: number; job_id: number | null; booking_id: number | null }[]
-  >({
-    queryKey: ["/api/invoices", "ids"],
-    queryFn: () => apiRequest("/api/invoices"),
-    enabled: !!user?.id,
-    select: (data: any[]) =>
-      data.map((inv) => ({ id: inv.id, job_id: inv.job_id, booking_id: inv.booking_id })),
-  });
-
-  const findInvoiceForBooking = (b: { job_id?: number | null; id?: number | null }) => {
-    if (!b) return undefined;
-    return allInvoices.find(
-      (inv) => (b.job_id && inv.job_id === b.job_id) || (b.id && inv.booking_id === b.id)
-    );
-  };
-
   // Fetch full job detail when a booking is selected (description, times, etc.)
   const selectedJobId = selectedBooking?.job_id ?? null;
   const { data: selectedJobDetail } = useQuery<{
@@ -2843,36 +2826,6 @@ export function BooksTab() {
       });
     },
   });
-
-  const createInvoiceForBooking = (b: UnloggedBooking) => {
-    const existing = findInvoiceForBooking(b);
-    if (existing) {
-      setSelectedBooking(null);
-      setInvoicePrefill({ openInvoiceId: existing.id });
-      setSection("invoices");
-      return;
-    }
-    const match = hiredBookings.find((hb) => hb.booking.jobId === b.job_id);
-    // Parse rate string to pence best-effort (e.g. "£400", "400", "400.00")
-    const rateStr = match?.booking.agreedRate ?? b.rate ?? "";
-    const rateNum = parseFloat(rateStr.replace(/[^0-9.]/g, ""));
-    const ratePence = isNaN(rateNum) ? null : Math.round(rateNum * 100);
-    const toName = match
-      ? `${match.employer.firstName ?? ""} ${match.employer.lastName ?? ""}`.trim()
-      : "";
-    const toCompany = match?.employer.companyName ?? b.company_name ?? "";
-    setInvoicePrefill({
-      bookingId: match?.booking.id ?? null,
-      jobId: b.job_id ?? match?.booking.jobId ?? null,
-      toName,
-      toCompany,
-      lineDescription: b.job_title,
-      ratePence,
-      issueDate: new Date().toISOString().slice(0, 10),
-    });
-    setSelectedBooking(null);
-    setSection("invoices");
-  };
 
   const createInvoiceForJob = async (earningsEntryId: number) => {
     try {
@@ -3227,10 +3180,6 @@ export function BooksTab() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          <Button size="sm" onClick={() => createInvoiceForBooking(selectedBooking)}>
-            <Receipt className="mr-1.5 h-3.5 w-3.5" />
-            {findInvoiceForBooking(selectedBooking) ? "View / Edit invoice" : "Create invoice"}
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
