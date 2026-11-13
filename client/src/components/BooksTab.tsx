@@ -2379,6 +2379,27 @@ function OverviewSection() {
       fetch("/api/books/expense-categories", { headers: authHeaders() }).then((r) => r.json()),
   });
 
+  type QuarterRow = {
+    quarter: 1 | 2 | 3 | 4;
+    label: string;
+    from: string;
+    to: string;
+    earnings_pence: number;
+    expenses_pence: number;
+    profit_pence: number;
+  };
+  const { data: quarterlyData } = useQuery<{ tax_year: string; quarters: QuarterRow[] }>({
+    queryKey: ["/api/books/quarterly"],
+    queryFn: () => fetch("/api/books/quarterly", { headers: authHeaders() }).then((r) => r.json()),
+  });
+
+  // Which MTD quarter is today in? (inline — no shared import needed)
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const currentQuarter = (() => {
+    const q = quarterlyData?.quarters.find((q) => todayIso >= q.from && todayIso <= q.to);
+    return q?.quarter ?? null;
+  })();
+
   const taxQueryParams = new URLSearchParams();
   if (otherIncomePence > 0) taxQueryParams.set("other_income_pence", String(otherIncomePence));
   if (scotland) taxQueryParams.set("scotland", "1");
@@ -2766,6 +2787,65 @@ function OverviewSection() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Quarterly breakdown ── */}
+      {quarterlyData && (
+        <Card className="overflow-hidden">
+          <div className="border-l-4 border-indigo-500 bg-indigo-50/50 px-5 py-3 dark:bg-indigo-950/20">
+            <p className="font-semibold">MTD quarters — {quarterlyData.tax_year}</p>
+            <p className="text-xs text-muted-foreground">
+              Making Tax Digital quarters · cash basis
+            </p>
+          </div>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <th className="px-4 py-2 text-left">Quarter</th>
+                  <th className="px-4 py-2 text-right">Earnings</th>
+                  <th className="px-4 py-2 text-right">Expenses</th>
+                  <th className="px-4 py-2 text-right">Profit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {quarterlyData.quarters.map((q) => {
+                  const isCurrent = q.quarter === currentQuarter;
+                  const profitPos = q.profit_pence >= 0;
+                  return (
+                    <tr
+                      key={q.quarter}
+                      className={`border-b last:border-0 ${isCurrent ? "bg-indigo-50/60 dark:bg-indigo-950/30" : ""}`}
+                    >
+                      <td className="px-4 py-2.5">
+                        <span className="font-medium">{q.label}</span>
+                        {isCurrent && (
+                          <span className="ml-2 rounded-full bg-indigo-100 px-1.5 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
+                            current
+                          </span>
+                        )}
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {fmtDate(q.from)} – {fmtDate(q.to)}
+                        </p>
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-blue-700 dark:text-blue-300">
+                        {formatPence(q.earnings_pence)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-amber-700 dark:text-amber-300">
+                        {formatPence(q.expenses_pence)}
+                      </td>
+                      <td
+                        className={`px-4 py-2.5 text-right font-semibold tabular-nums ${profitPos ? "text-green-700 dark:text-green-300" : "text-red-600 dark:text-red-400"}`}
+                      >
+                        {formatPence(q.profit_pence)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Year-end pack ── */}
       <Card className="overflow-hidden">

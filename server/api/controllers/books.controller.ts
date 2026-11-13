@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
-import { currentTaxYear, taxYearForDate } from "@shared/tax-periods";
+import { currentTaxYear, taxYearForDate, taxQuarters } from "@shared/tax-periods";
 import { buildCsv, penceToCsvDecimal, dateToCsvDate, exportFilename } from "../utils/csv";
 import { bandsForTaxYear, estimateTax, type TaxOptions } from "@shared/tax-estimate";
 import { createWorkbook, addTypedSheet, streamWorkbook, type ColSpec } from "../utils/xlsx";
@@ -313,6 +313,47 @@ export async function taxEstimate(req: Request, res: Response) {
   } catch (err) {
     console.error("taxEstimate error:", err);
     return res.status(500).json({ error: "Failed to compute tax estimate" });
+  }
+}
+
+// ── Quarterly breakdown ───────────────────────────────────────────────────────
+
+export async function booksQuarterly(req: Request, res: Response) {
+  try {
+    const freelancerId = req.user!.id;
+    const { from } = taxYearParams(req);
+    const ty = taxYearForDate(from);
+    const quarters = taxQuarters(ty.year);
+
+    const rows = await Promise.all(
+      quarters.map(async (q) => {
+        const [earnings, expensesData, mileagePence] = await Promise.all([
+          storage.earningsSummary(freelancerId, { basis: "cash", from: q.from, to: q.to }),
+          storage.listExpensesForExport(freelancerId, q.from, q.to),
+          storage.sumMileagePence(freelancerId, q.from, q.to),
+        ]);
+        const earningsPence = earnings.total_pence - earnings.deductions_pence;
+        const expenseAllowablePence = expensesData.reduce((sum, e) => {
+          if (!e.allowable) return sum;
+          const total = e.net_amount_pence + e.vat_amount_pence;
+          return sum + Math.round((total * e.business_use_percent) / 100);
+        }, 0);
+        return {
+          quarter: q.quarter,
+          label: q.label,
+          from: q.from,
+          to: q.to,
+          earnings_pence: earningsPence,
+          expenses_pence: expenseAllowablePence + mileagePence,
+          profit_pence: earningsPence - expenseAllowablePence - mileagePence,
+        };
+      })
+    );
+
+    return res.json({ tax_year: ty.label, quarters: rows });
+  } catch (err) {
+    console.error("booksQuarterly error:", err);
+    return res.status(500).json({ error: "Failed to load quarterly breakdown" });
   }
 }
 
