@@ -48,8 +48,28 @@ async function writeRecord(
 
   if (row.target === "earnings") {
     const description = String(parsed.description ?? "Imported earnings entry");
+    const dateAssumed = !parsed.date;
     const workDate = String(parsed.date ?? new Date().toISOString().slice(0, 10));
+    const rateRaw = typeof parsed.rate_raw === "string" ? parsed.rate_raw : null;
     const grossPence = typeof parsed.amount_pence === "number" ? parsed.amount_pence : 0;
+
+    // Determine whether this entry genuinely needs review:
+    //   unparsed_amount  — amount_pence absent (parser could not read it)
+    //   ambiguous_amount — rate_raw contains a range like "£250-300"
+    //   assumed_date     — no date column was present; we used today as a fallback
+    //   zero_amount      — parsed to £0 from a non-empty source field
+    // A clean row with a readable amount and a real date needs no review.
+    type ReviewReason = "unparsed_amount" | "ambiguous_amount" | "assumed_date" | "zero_amount";
+    let reviewReason: ReviewReason | null = null;
+    if (typeof parsed.amount_pence !== "number") {
+      reviewReason = "unparsed_amount";
+    } else if (grossPence === 0 && rateRaw) {
+      reviewReason = "zero_amount";
+    } else if (rateRaw && /\d+\s*[-–]\s*\d+/.test(rateRaw)) {
+      reviewReason = "ambiguous_amount";
+    } else if (dateAssumed) {
+      reviewReason = "assumed_date";
+    }
 
     const [entry] = await db
       .insert(earnings_entries)
@@ -60,8 +80,9 @@ async function writeRecord(
         work_date: workDate,
         gross_amount_pence: grossPence,
         status: "expected",
-        needs_review: true, // imported rows start as needing manual review
-        rate_raw: typeof parsed.rate_raw === "string" ? parsed.rate_raw : null,
+        needs_review: reviewReason !== null,
+        review_reason: reviewReason,
+        rate_raw: rateRaw,
         notes: typeof parsed.notes === "string" ? parsed.notes : null,
       })
       .returning({ id: earnings_entries.id });

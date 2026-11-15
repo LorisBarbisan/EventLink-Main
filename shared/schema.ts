@@ -1524,6 +1524,9 @@ export const earnings_entries = pgTable(
     paid_date: date("paid_date"),
     paid_amount_pence: bigint("paid_amount_pence", { mode: "number" }),
     needs_review: boolean("needs_review").notNull().default(false),
+    review_reason: text("review_reason").$type<
+      "unparsed_amount" | "ambiguous_amount" | "assumed_date" | "zero_amount"
+    >(),
     rate_raw: text("rate_raw"),
     notes: text("notes"),
     // NULL = ordinary earnings line; NOT NULL = scheduled gig (calendar + My Jobs)

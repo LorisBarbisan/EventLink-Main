@@ -211,6 +211,7 @@ interface EarningsEntry {
   status: string;
   source?: string;
   needs_review: boolean;
+  review_reason?: "unparsed_amount" | "ambiguous_amount" | "assumed_date" | "zero_amount" | null;
   client_id: number | null;
   client_name?: string | null;
   invoice_id: number | null;
