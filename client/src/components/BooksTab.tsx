@@ -78,6 +78,8 @@ import { CalendarTab } from "./CalendarTab";
 import { JobDetailDialog } from "./JobDetailDialog";
 import { ClientsTab } from "./ClientsTab";
 import { ImportWizard } from "./ImportWizard";
+import { ManualToggle } from "@/help/ManualPane";
+import { manualStore } from "@/help/manualStore";
 import { type GigForm, EMPTY_GIG_FORM, GigFormBody } from "./GigFormFields";
 
 // ── Money helpers ──────────────────────────────────────────────────────────────
@@ -3683,6 +3685,10 @@ export function BooksTab() {
     }
     setSectionRaw(s);
   };
+  useEffect(() => {
+    manualStore.setSection(section);
+  }, [section]);
+  useEffect(() => () => manualStore.setSection(null), []);
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EarningsEntry | null>(null);
   const [jobDetailEntryId, setJobDetailEntryId] = useState<number | null>(null);
@@ -4365,77 +4371,80 @@ export function BooksTab() {
   );
 
   const sectionSwitcher = (
-    <div className="flex w-full gap-1 overflow-x-auto rounded-md border p-1 [&::-webkit-scrollbar]:hidden">
-      <button
-        data-help="books.section.overview"
-        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "overview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        onClick={() => setSection("overview")}
-      >
-        Overview
-      </button>
-      <button
-        data-help="books.section.earnings"
-        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "earnings" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        onClick={() => setSection("earnings")}
-      >
-        Earnings
-      </button>
-      <button
-        data-help="books.section.expenses"
-        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "expenses" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        onClick={() => setSection("expenses")}
-      >
-        Expenses
-      </button>
-      <button
-        data-help="books.section.mileage"
-        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "mileage" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        onClick={() => setSection("mileage")}
-      >
-        Mileage
-      </button>
-      <button
-        data-help="books.section.time"
-        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "time" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        onClick={() => setSection("time")}
-      >
-        Time
-      </button>
-      <button
-        data-help="books.section.kit"
-        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "kit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        onClick={() => setSection("kit")}
-      >
-        Kit register
-      </button>
-      <button
-        data-help="books.section.calendar"
-        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "calendar" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        onClick={() => setSection("calendar")}
-      >
-        Calendar
-      </button>
-      <button
-        data-help="books.section.invoices"
-        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "invoices" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        onClick={() => setSection("invoices")}
-      >
-        Invoices
-      </button>
-      <button
-        data-help="books.section.clients"
-        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "clients" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        onClick={() => setSection("clients")}
-      >
-        Clients
-      </button>
-      <button
-        data-help="books.section.import"
-        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "import" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-        onClick={() => setSection("import")}
-      >
-        Import
-      </button>
+    <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-md border p-1 [&::-webkit-scrollbar]:hidden">
+        <button
+          data-help="books.section.overview"
+          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "overview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setSection("overview")}
+        >
+          Overview
+        </button>
+        <button
+          data-help="books.section.earnings"
+          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "earnings" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setSection("earnings")}
+        >
+          Earnings
+        </button>
+        <button
+          data-help="books.section.expenses"
+          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "expenses" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setSection("expenses")}
+        >
+          Expenses
+        </button>
+        <button
+          data-help="books.section.mileage"
+          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "mileage" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setSection("mileage")}
+        >
+          Mileage
+        </button>
+        <button
+          data-help="books.section.time"
+          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "time" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setSection("time")}
+        >
+          Time
+        </button>
+        <button
+          data-help="books.section.kit"
+          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "kit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setSection("kit")}
+        >
+          Kit register
+        </button>
+        <button
+          data-help="books.section.calendar"
+          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "calendar" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setSection("calendar")}
+        >
+          Calendar
+        </button>
+        <button
+          data-help="books.section.invoices"
+          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "invoices" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setSection("invoices")}
+        >
+          Invoices
+        </button>
+        <button
+          data-help="books.section.clients"
+          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "clients" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setSection("clients")}
+        >
+          Clients
+        </button>
+        <button
+          data-help="books.section.import"
+          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${section === "import" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          onClick={() => setSection("import")}
+        >
+          Import
+        </button>
+      </div>
+      <ManualToggle />
     </div>
   );
 

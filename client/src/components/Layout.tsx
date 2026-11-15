@@ -1,6 +1,7 @@
 import { FeedbackForm } from "@/components/FeedbackForm";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { ManualPane } from "@/help/ManualPane";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 
@@ -19,7 +20,10 @@ export const Layout = ({ children, dark = false }: LayoutProps) => {
     <div className="flex min-h-screen flex-col bg-background">
       <Header onFeedbackClick={() => setShowFeedback(true)} dark={effectiveDark} />
 
-      <main className="flex-1">{children}</main>
+      <div className="flex flex-1">
+        <main className="min-w-0 flex-1">{children}</main>
+        <ManualPane />
+      </div>
 
       <Footer dark={effectiveDark} />
 

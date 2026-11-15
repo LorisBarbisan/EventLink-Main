@@ -5,6 +5,7 @@ import { HelpAuditOverlay } from "./HelpAuditOverlay";
 import { HelpContent } from "./HelpContent";
 import { HelpDiscovery } from "./HelpDiscovery";
 import { InsuranceReminder } from "./InsuranceReminder";
+import { manualStore } from "./manualStore";
 import { getCachedRegistry, loadRegistry } from "./registry";
 import type {
   HelpContext as HelpCtxData,
@@ -19,6 +20,8 @@ interface HelpContextValue {
   mode: HelpMode;
   setMode: (m: HelpMode) => void;
   getEntry: (key: string) => HelpEntry | null;
+  /** The raw registry, for views that list entries (the manual pane). */
+  registry: Map<string, HelpEntry> | null;
   delayMs: number;
   markSeen: (key: string) => void;
   markDismissed: (key: string) => void;
@@ -352,6 +355,7 @@ export function HelpProvider({ children }: { children: React.ReactNode }) {
     mode,
     setMode,
     getEntry,
+    registry,
     delayMs,
     markSeen,
     markDismissed,
@@ -361,7 +365,16 @@ export function HelpProvider({ children }: { children: React.ReactNode }) {
   return (
     <HelpCtx.Provider value={value}>
       {children}
-      {enabled && <DataHelpBubble getEntry={getEntry} onSeen={markSeen} delayMs={delayMs} />}
+      {/* Always listening: the manual pane follows the hovered key even when the
+          bubbles themselves are switched off. */}
+      {!!user && (
+        <DataHelpBubble
+          getEntry={getEntry}
+          onSeen={markSeen}
+          delayMs={delayMs}
+          showBubble={enabled}
+        />
+      )}
       {enabled && mode === "full" && (
         <HelpDiscovery
           registry={registry}
@@ -391,10 +404,12 @@ function DataHelpBubble({
   getEntry,
   onSeen,
   delayMs,
+  showBubble,
 }: {
   getEntry: (key: string) => HelpEntry | null;
   onSeen: (key: string) => void;
   delayMs: number;
+  showBubble: boolean;
 }) {
   const [active, setActive] = useState<{ entry: HelpEntry; rect: DOMRect; key: string } | null>(
     null
@@ -416,6 +431,7 @@ function DataHelpBubble({
       closeTimer.current = window.setTimeout(() => {
         anchorRef.current = null;
         setActive(null);
+        manualStore.setHoverKey(null);
       }, 220);
     };
 
@@ -433,6 +449,8 @@ function DataHelpBubble({
       clearOpen();
       openTimer.current = window.setTimeout(
         () => {
+          manualStore.setHoverKey(key);
+          if (!showBubble) return;
           setActive({ entry, rect: el.getBoundingClientRect(), key });
           onSeen(key); // count once, when it actually appears
         },
@@ -477,7 +495,9 @@ function DataHelpBubble({
       anchorRef.current = null;
       setActive(null);
     };
-    const onScroll = () => {
+    const onScroll = (e: Event) => {
+      // The manual pane scrolls itself to follow the hover; that is not the page moving.
+      if ((e.target as Element | null)?.closest?.("[data-manual-pane]")) return;
       clearOpen();
       anchorRef.current = null;
       setActive(null);
@@ -507,7 +527,7 @@ function DataHelpBubble({
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("scroll", onScroll, true);
     };
-  }, [getEntry, onSeen, delayMs]);
+  }, [getEntry, onSeen, delayMs, showBubble]);
 
   if (!active) return null;
 
