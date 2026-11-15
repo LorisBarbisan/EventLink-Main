@@ -1208,6 +1208,24 @@ function ExpensesSection() {
 
   const expenseMonths = groupByMonth(expenses, "expense_date").reverse();
 
+  const uid = user?.id ?? "anon";
+  const [sectionOpen, setSectionOpen] = useState(() => {
+    try {
+      return localStorage.getItem(`books-section-expenses-${uid}`) !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const toggleSection = () => {
+    const next = !sectionOpen;
+    setSectionOpen(next);
+    try {
+      localStorage.setItem(`books-section-expenses-${uid}`, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  };
+
   const openAdd = () => {
     setEditingExpense(null);
     setDialogOpen(true);
@@ -1216,9 +1234,15 @@ function ExpensesSection() {
   return (
     <div className="space-y-4">
       <Card className="overflow-hidden">
-        <div className="bg-amber-500 px-5 py-3 dark:bg-amber-700">
+        <div
+          className="cursor-pointer bg-amber-500 px-5 py-3 dark:bg-amber-700"
+          onClick={toggleSection}
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              <ChevronDown
+                className={`h-4 w-4 text-amber-100 transition-transform ${sectionOpen ? "" : "-rotate-90"}`}
+              />
               <Receipt className="h-4 w-4 text-amber-100" />
               <p className="font-semibold text-white">Expenses</p>
               {expenses.length > 0 && (
@@ -1230,129 +1254,137 @@ function ExpensesSection() {
             <Button
               size="sm"
               className="h-7 bg-white text-xs text-amber-700 hover:bg-amber-50"
-              onClick={openAdd}
+              onClick={(e) => {
+                e.stopPropagation();
+                openAdd();
+              }}
             >
               <Plus className="mr-1 h-3 w-3" />
               Add expense
             </Button>
           </div>
         </div>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="space-y-2 p-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="animate-pulse rounded-lg border p-3">
-                  <div className="mb-1 h-3 w-1/3 rounded bg-muted" />
-                  <div className="h-3 w-1/2 rounded bg-muted" />
-                </div>
-              ))}
-            </div>
-          ) : expenses.length === 0 ? (
-            <div className="py-10 text-center">
-              <Receipt className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
-              <p className="mb-1 font-medium text-muted-foreground">No expenses yet</p>
-              <p className="text-sm text-muted-foreground">
-                Add your first expense — travel and parking, tools, PPE, kit hire
-              </p>
-              <Button className="mt-4" size="sm" onClick={openAdd}>
-                <Plus className="mr-1 h-3 w-3" />
-                Add your first expense
-              </Button>
-            </div>
-          ) : (
-            <div>
-              {expenseMonths.map(({ key, items: monthExpenses }, mi) => {
-                const monthTotal = monthExpenses.reduce(
-                  (sum, e) =>
-                    e.allowable
-                      ? sum +
-                        Math.round(
-                          ((e.net_amount_pence + e.vat_amount_pence) * e.business_use_percent) / 100
-                        )
-                      : sum,
-                  0
-                );
-                return (
-                  <MonthSection
-                    key={key}
-                    monthKey={key}
-                    total={monthTotal}
-                    accentClass="text-amber-700 dark:text-amber-400"
-                    headerClass="bg-amber-50/60 dark:bg-amber-950/20"
-                    storageKey={`books-exp-month-${key}-${user?.id}`}
-                    divider={mi < expenseMonths.length - 1}
-                  >
-                    {monthExpenses.map((expense, i) => {
-                      const total = expense.net_amount_pence + expense.vat_amount_pence;
-                      const allowableAmount = Math.round(
-                        (total * expense.business_use_percent) / 100
-                      );
-                      const catName = expense.category_id ? categoryMap[expense.category_id] : null;
-                      return (
-                        <div
-                          key={expense.id}
-                          className={`flex items-start justify-between px-5 py-3 ${i % 2 === 0 ? "bg-muted/20" : ""}`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <p className="truncate text-sm font-medium">
-                                {expense.supplier || expense.description}
+        {sectionOpen && (
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="space-y-2 p-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="animate-pulse rounded-lg border p-3">
+                    <div className="mb-1 h-3 w-1/3 rounded bg-muted" />
+                    <div className="h-3 w-1/2 rounded bg-muted" />
+                  </div>
+                ))}
+              </div>
+            ) : expenses.length === 0 ? (
+              <div className="py-10 text-center">
+                <Receipt className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
+                <p className="mb-1 font-medium text-muted-foreground">No expenses yet</p>
+                <p className="text-sm text-muted-foreground">
+                  Add your first expense — travel and parking, tools, PPE, kit hire
+                </p>
+                <Button className="mt-4" size="sm" onClick={openAdd}>
+                  <Plus className="mr-1 h-3 w-3" />
+                  Add your first expense
+                </Button>
+              </div>
+            ) : (
+              <div>
+                {expenseMonths.map(({ key, items: monthExpenses }, mi) => {
+                  const monthTotal = monthExpenses.reduce(
+                    (sum, e) =>
+                      e.allowable
+                        ? sum +
+                          Math.round(
+                            ((e.net_amount_pence + e.vat_amount_pence) * e.business_use_percent) /
+                              100
+                          )
+                        : sum,
+                    0
+                  );
+                  return (
+                    <MonthSection
+                      key={key}
+                      monthKey={key}
+                      total={monthTotal}
+                      accentClass="text-amber-700 dark:text-amber-400"
+                      headerClass="bg-amber-50/60 dark:bg-amber-950/20"
+                      storageKey={`books-exp-month-${key}-${user?.id}`}
+                      divider={mi < expenseMonths.length - 1}
+                    >
+                      {monthExpenses.map((expense, i) => {
+                        const total = expense.net_amount_pence + expense.vat_amount_pence;
+                        const allowableAmount = Math.round(
+                          (total * expense.business_use_percent) / 100
+                        );
+                        const catName = expense.category_id
+                          ? categoryMap[expense.category_id]
+                          : null;
+                        return (
+                          <div
+                            key={expense.id}
+                            className={`flex items-start justify-between px-5 py-3 ${i % 2 === 0 ? "bg-muted/20" : ""}`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <p className="truncate text-sm font-medium">
+                                  {expense.supplier || expense.description}
+                                </p>
+                                {catName && (
+                                  <Badge className="bg-amber-100 text-xs text-amber-800 hover:bg-amber-100">
+                                    {catName}
+                                  </Badge>
+                                )}
+                                {expense.billable_to_client && !expense.rebilled && (
+                                  <Badge className="bg-blue-100 text-xs text-blue-700 hover:bg-blue-100">
+                                    Billable
+                                  </Badge>
+                                )}
+                                {!expense.allowable && (
+                                  <Badge className="bg-red-100 text-xs text-red-700 hover:bg-red-100">
+                                    Disallowable
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {fmtDate(expense.expense_date)}
+                                {expense.supplier && expense.description !== expense.supplier
+                                  ? ` · ${expense.description}`
+                                  : ""}
                               </p>
-                              {catName && (
-                                <Badge className="bg-amber-100 text-xs text-amber-800 hover:bg-amber-100">
-                                  {catName}
-                                </Badge>
-                              )}
-                              {expense.billable_to_client && !expense.rebilled && (
-                                <Badge className="bg-blue-100 text-xs text-blue-700 hover:bg-blue-100">
-                                  Billable
-                                </Badge>
-                              )}
-                              {!expense.allowable && (
-                                <Badge className="bg-red-100 text-xs text-red-700 hover:bg-red-100">
-                                  Disallowable
-                                </Badge>
-                              )}
+                              <ReceiptRow expenseId={expense.id} />
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              {fmtDate(expense.expense_date)}
-                              {expense.supplier && expense.description !== expense.supplier
-                                ? ` · ${expense.description}`
-                                : ""}
-                            </p>
-                            <ReceiptRow expenseId={expense.id} />
+                            <div className="ml-3 flex items-center gap-2">
+                              <span className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                                {formatPence(allowableAmount)}
+                              </span>
+                              <button
+                                className="text-muted-foreground transition-colors hover:text-foreground"
+                                title="Edit"
+                                onClick={() => {
+                                  setEditingExpense(expense);
+                                  setDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                className="text-muted-foreground transition-colors hover:text-destructive"
+                                title="Remove"
+                                onClick={() => archiveMutation.mutate(expense.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
-                          <div className="ml-3 flex items-center gap-2">
-                            <span className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-300">
-                              {formatPence(allowableAmount)}
-                            </span>
-                            <button
-                              className="text-muted-foreground transition-colors hover:text-foreground"
-                              title="Edit"
-                              onClick={() => {
-                                setEditingExpense(expense);
-                                setDialogOpen(true);
-                              }}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              className="text-muted-foreground transition-colors hover:text-destructive"
-                              title="Remove"
-                              onClick={() => archiveMutation.mutate(expense.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </MonthSection>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
+                        );
+                      })}
+                    </MonthSection>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       <UnattachedInbox expenses={expenses} />
@@ -2133,6 +2165,24 @@ function MileageSection() {
 
   const tripMonths = groupByMonth(trips, "trip_date").reverse();
 
+  const uid = user?.id ?? "anon";
+  const [tripsOpen, setTripsOpen] = useState(() => {
+    try {
+      return localStorage.getItem(`books-section-mileage-${uid}`) !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const toggleTrips = () => {
+    const next = !tripsOpen;
+    setTripsOpen(next);
+    try {
+      localStorage.setItem(`books-section-mileage-${uid}`, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Summary + action header */}
@@ -2185,78 +2235,88 @@ function MileageSection() {
 
       {/* Trip list */}
       <Card className="overflow-hidden">
-        <div className="border-l-4 border-purple-400 bg-purple-50/40 px-5 py-3 dark:bg-purple-950/20">
-          <p className="font-semibold">Trips</p>
+        <div
+          className="cursor-pointer border-l-4 border-purple-400 bg-purple-50/40 px-5 py-3 dark:bg-purple-950/20"
+          onClick={toggleTrips}
+        >
+          <div className="flex items-center gap-2">
+            <ChevronDown
+              className={`h-3.5 w-3.5 text-purple-600 transition-transform ${tripsOpen ? "" : "-rotate-90"}`}
+            />
+            <p className="font-semibold">Trips</p>
+          </div>
         </div>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="animate-pulse space-y-2 p-4">
-              {[1, 2].map((i) => (
-                <div key={i} className="h-10 rounded bg-muted" />
-              ))}
-            </div>
-          ) : trips.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
-              <Navigation className="h-8 w-8 opacity-30" />
-              <p className="text-sm">No trips logged yet.</p>
-            </div>
-          ) : (
-            <div>
-              {tripMonths.map(({ key: month, items: monthTrips }, mi) => {
-                const monthTotal = monthTrips.reduce((s, t) => s + t.amount_pence, 0);
-                return (
-                  <MonthSection
-                    key={month}
-                    monthKey={month}
-                    total={monthTotal}
-                    accentClass="text-purple-700 dark:text-purple-400"
-                    headerClass="bg-purple-50/60 dark:bg-purple-950/20"
-                    storageKey={`books-mil-month-${month}-${user?.id}`}
-                    divider={mi < tripMonths.length - 1}
-                  >
-                    {monthTrips.map((trip, i) => (
-                      <div
-                        key={trip.id}
-                        className={`flex items-start justify-between px-5 py-3 ${i % 2 === 0 ? "bg-muted/20" : ""}`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {trip.from_place} → {trip.to_place}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {fmtDate(trip.trip_date)} · {trip.miles} mi · {trip.purpose}
-                          </p>
+        {tripsOpen && (
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="animate-pulse space-y-2 p-4">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-10 rounded bg-muted" />
+                ))}
+              </div>
+            ) : trips.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
+                <Navigation className="h-8 w-8 opacity-30" />
+                <p className="text-sm">No trips logged yet.</p>
+              </div>
+            ) : (
+              <div>
+                {tripMonths.map(({ key: month, items: monthTrips }, mi) => {
+                  const monthTotal = monthTrips.reduce((s, t) => s + t.amount_pence, 0);
+                  return (
+                    <MonthSection
+                      key={month}
+                      monthKey={month}
+                      total={monthTotal}
+                      accentClass="text-purple-700 dark:text-purple-400"
+                      headerClass="bg-purple-50/60 dark:bg-purple-950/20"
+                      storageKey={`books-mil-month-${month}-${user?.id}`}
+                      divider={mi < tripMonths.length - 1}
+                    >
+                      {monthTrips.map((trip, i) => (
+                        <div
+                          key={trip.id}
+                          className={`flex items-start justify-between px-5 py-3 ${i % 2 === 0 ? "bg-muted/20" : ""}`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">
+                              {trip.from_place} → {trip.to_place}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {fmtDate(trip.trip_date)} · {trip.miles} mi · {trip.purpose}
+                            </p>
+                          </div>
+                          <div className="ml-3 flex items-center gap-2">
+                            <span className="min-w-[72px] text-right text-sm font-semibold tabular-nums text-purple-700 dark:text-purple-300">
+                              {formatPence(trip.amount_pence)}
+                            </span>
+                            <button
+                              className="text-muted-foreground transition-colors hover:text-foreground"
+                              title="Edit"
+                              onClick={() => {
+                                setEditingTrip(trip);
+                                setDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              className="text-muted-foreground transition-colors hover:text-destructive"
+                              title="Remove"
+                              onClick={() => archiveMutation.mutate(trip.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="ml-3 flex items-center gap-2">
-                          <span className="min-w-[72px] text-right text-sm font-semibold tabular-nums text-purple-700 dark:text-purple-300">
-                            {formatPence(trip.amount_pence)}
-                          </span>
-                          <button
-                            className="text-muted-foreground transition-colors hover:text-foreground"
-                            title="Edit"
-                            onClick={() => {
-                              setEditingTrip(trip);
-                              setDialogOpen(true);
-                            }}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            className="text-muted-foreground transition-colors hover:text-destructive"
-                            title="Remove"
-                            onClick={() => archiveMutation.mutate(trip.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </MonthSection>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
+                      ))}
+                    </MonthSection>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       {/* Saved places */}
@@ -3672,6 +3732,35 @@ export function BooksTab() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
+  // ── Section collapse state (persisted per user in localStorage) ───────────────
+  const uid = user?.id ?? "anon";
+  const [jobsOpen, setJobsOpen] = useState(() => {
+    try {
+      return localStorage.getItem(`books-section-jobs-${uid}`) !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const [earningsOpen, setEarningsOpen] = useState(() => {
+    try {
+      return localStorage.getItem(`books-section-earnings-${uid}`) !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const toggleSection = (name: string, setter: (v: boolean) => void, cur: boolean) => {
+    const next = !cur;
+    setter(next);
+    try {
+      localStorage.setItem(`books-section-${name}-${uid}`, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  };
+
+  // ── Status filter for Earnings (bulk-select state added in PR5) ─────────────
+  const [earningsFilter, setEarningsFilter] = useState<string>("all");
+
   const { data, isLoading, isError } = useQuery<EarningsData>({
     queryKey: ["/api/earnings/summary"],
     queryFn: () => apiRequest("/api/earnings/summary"),
@@ -4456,9 +4545,15 @@ export function BooksTab() {
 
       {/* ── Section 2: My Jobs ── */}
       <Card className="overflow-hidden">
-        <div className="border-l-4 border-indigo-500 bg-indigo-50/40 px-5 py-3 dark:bg-indigo-950/20">
+        <div
+          className="cursor-pointer border-l-4 border-indigo-500 bg-indigo-50/40 px-5 py-3 dark:bg-indigo-950/20"
+          onClick={() => toggleSection("jobs", setJobsOpen, jobsOpen)}
+        >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
+              <ChevronDown
+                className={`h-4 w-4 text-indigo-500 transition-transform ${jobsOpen ? "" : "-rotate-90"}`}
+              />
               <Briefcase className="h-4 w-4 text-indigo-600" />
               <p className="font-semibold">My jobs</p>
               {(() => {
@@ -4472,7 +4567,7 @@ export function BooksTab() {
                 ) : null;
               })()}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
               {unloggedBookings.length > 0 && (
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-muted-foreground">From booking:</span>
@@ -4514,159 +4609,47 @@ export function BooksTab() {
             </div>
           </div>
         </div>
-        <CardContent className="p-0">
-          {(() => {
-            // Normalise all job sources into a single list sorted by date
-            type JobItem =
-              | { kind: "booking"; date: string; data: (typeof upcomingHired)[0] }
-              | { kind: "entry"; date: string; data: (typeof scheduledJobs)[0] };
+        {jobsOpen && (
+          <CardContent className="p-0">
+            {(() => {
+              // Normalise all job sources into a single list sorted by date
+              type JobItem =
+                | { kind: "booking"; date: string; data: (typeof upcomingHired)[0] }
+                | { kind: "entry"; date: string; data: (typeof scheduledJobs)[0] };
 
-            const todayStr = new Date().toISOString().slice(0, 10);
-            const items: JobItem[] = [
-              ...upcomingHired.map((b: any) => ({
-                kind: "booking" as const,
-                date: b.event_date ?? "9999-12-31",
-                data: b,
-              })),
-              ...scheduledJobs
-                .filter((g) => g.work_date > todayStr && !g.booking_id)
-                .map((g) => ({
-                  kind: "entry" as const,
-                  date: g.work_date,
-                  data: g,
+              const todayStr = new Date().toISOString().slice(0, 10);
+              const items: JobItem[] = [
+                ...upcomingHired.map((b: any) => ({
+                  kind: "booking" as const,
+                  date: b.event_date ?? "9999-12-31",
+                  data: b,
                 })),
-            ].sort((a, b) => a.date.localeCompare(b.date));
+                ...scheduledJobs
+                  .filter((g) => g.work_date > todayStr && !g.booking_id)
+                  .map((g) => ({
+                    kind: "entry" as const,
+                    date: g.work_date,
+                    data: g,
+                  })),
+              ].sort((a, b) => a.date.localeCompare(b.date));
 
-            if (items.length === 0) {
-              return (
-                <div className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
-                  <Briefcase className="h-4 w-4" />
-                  No active jobs yet — add one above or browse the job board.
-                </div>
-              );
-            }
-
-            return items.map((item) => {
-              if (item.kind === "booking") {
-                const b = item.data as any;
-                const isPast = b.event_date && new Date(b.event_date) < today;
+              if (items.length === 0) {
                 return (
-                  <div
-                    key={`booking-${b.id}`}
-                    className="flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40"
-                    onClick={() => setSelectedBooking(b)}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{b.job_title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {b.company_name ? `${b.company_name} · ` : ""}
-                        {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
-                      </p>
-                    </div>
-                    <div className="ml-3 flex shrink-0 items-center gap-2">
-                      {b.entry_gross_pence > 0 ? (
-                        <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
-                          {formatPence(b.entry_gross_pence, "GBP")}
-                        </span>
-                      ) : b.rate ? (
-                        <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
-                          {formatPence(
-                            Math.round(parseFloat(b.rate.replace(/[^0-9.]/g, "")) * 100) || 0,
-                            "GBP"
-                          )}
-                        </span>
-                      ) : null}
-                      {isPast ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                          <Clock className="h-3 w-3" />
-                          Awaiting payment
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                          Confirmed
-                        </span>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
+                    <Briefcase className="h-4 w-4" />
+                    No active jobs yet — add one above or browse the job board.
                   </div>
                 );
               }
 
-              // entry (manual / external job) — slight blue tint
-              const g = item.data;
-              const isExternal = !g.booking_id;
-              const statusColor =
-                g.work_status === "confirmed"
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                  : g.work_status === "pencilled"
-                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                    : g.work_status === "completed"
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                      : "bg-muted text-muted-foreground";
-              return (
-                <div
-                  key={`entry-${g.id}`}
-                  className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40 ${isExternal ? "bg-sky-50/40 dark:bg-sky-950/10" : ""}`}
-                  onClick={() => setJobDetailEntryId(g.id)}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{g.description ?? "Booked job"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {fmtDate(g.work_date)}
-                      {g.client_name ? ` · ${g.client_name}` : ""}
-                      {g.call_time ? ` · ${g.call_time}` : ""}
-                      {g.venue_address ? ` · ${g.venue_address}` : ""}
-                    </p>
-                  </div>
-                  <div className="ml-3 flex items-center gap-2">
-                    {g.gross_amount_pence > 0 && (
-                      <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
-                        {formatPence(g.gross_amount_pence, g.currency)}
-                      </span>
-                    )}
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor}`}
-                    >
-                      {g.work_status}
-                    </span>
-                  </div>
-                </div>
-              );
-            });
-          })()}
-        </CardContent>
-      </Card>
-
-      {/* ── Section 3: Earnings ── */}
-      {(() => {
-        const today = new Date().toISOString().slice(0, 10);
-        const completedEntries = entries
-          .filter((e) => e.work_date <= today)
-          .sort((a, b) => b.work_date.localeCompare(a.work_date));
-        return (
-          <Card className="overflow-hidden">
-            <div className="border-l-4 border-blue-500 bg-blue-50/40 px-5 py-3 dark:bg-blue-950/20">
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-blue-600" />
-                <p className="font-semibold">Earnings</p>
-                {completedEntries.length > 0 && (
-                  <span className="rounded-full bg-blue-500 px-2 py-0.5 text-xs font-bold text-white">
-                    {completedEntries.length}
-                  </span>
-                )}
-              </div>
-            </div>
-            <CardContent className="p-0">
-              {completedEntries.length === 0 && awaitingPaymentHired.length === 0 ? (
-                <div className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
-                  <BookOpen className="h-4 w-4" />
-                  Completed jobs will appear here.
-                </div>
-              ) : (
-                <div>
-                  {awaitingPaymentHired.map((b: any) => (
+              return items.map((item) => {
+                if (item.kind === "booking") {
+                  const b = item.data as any;
+                  const isPast = b.event_date && new Date(b.event_date) < today;
+                  return (
                     <div
-                      key={`unlogged-${b.id}`}
-                      className="flex cursor-pointer items-center justify-between border-l-4 border-amber-400 bg-amber-50/60 px-5 py-3 dark:bg-amber-950/20"
+                      key={`booking-${b.id}`}
+                      className="flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40"
                       onClick={() => setSelectedBooking(b)}
                     >
                       <div className="min-w-0 flex-1">
@@ -4676,91 +4659,244 @@ export function BooksTab() {
                           {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
                         </p>
                       </div>
-                      <span className="ml-3 inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                        <Clock className="h-3 w-3" />
-                        Awaiting payment
-                      </span>
-                    </div>
-                  ))}
-                  {completedEntries.map((entry, i) => (
-                    <div
-                      key={entry.id}
-                      className={`flex cursor-pointer items-center justify-between px-5 py-3 hover:bg-muted/50 ${
-                        i % 2 === 0 ? "bg-muted/30" : ""
-                      }`}
-                      onClick={() => setJobDetailEntryId(entry.id)}
-                    >
-                      <span className="mr-3 shrink-0 text-xs font-medium tabular-nums text-muted-foreground/60">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {entry.description ?? "Freelance work"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {(entry as any).job_ref ? (
-                            <span className="mr-1 font-medium text-blue-600 dark:text-blue-400">
-                              {(entry as any).job_ref}
-                            </span>
-                          ) : null}
-                          {fmtDate(entry.work_date)}
-                          {entry.client_name ? ` · ${entry.client_name}` : ""}
-                        </p>
-                      </div>
-                      <div className="ml-4 flex items-center gap-3">
-                        <button
-                          className="cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          title="Change payment status"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openStatusEdit(entry);
-                          }}
-                        >
-                          <StatusBadge entry={entry} />
-                        </button>
-                        <span className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-blue-700 dark:text-blue-300">
-                          {entry.gross_amount_pence > 0
-                            ? formatPence(entry.gross_amount_pence, entry.currency)
-                            : "—"}
-                        </span>
-                        <button
-                          className="text-muted-foreground transition-colors hover:text-foreground"
-                          title="Edit"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEdit(entry);
-                          }}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          className="text-muted-foreground transition-colors hover:text-foreground"
-                          title="History"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setHistoryEntryId(entry.id);
-                          }}
-                        >
-                          <Clock className="h-3.5 w-3.5" />
-                        </button>
-                        {entry.source === "manual" && (
-                          <button
-                            className="text-muted-foreground transition-colors hover:text-destructive"
-                            title="Remove"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              archiveMutation.mutate(entry.id);
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                      <div className="ml-3 flex shrink-0 items-center gap-2">
+                        {b.entry_gross_pence > 0 ? (
+                          <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                            {formatPence(b.entry_gross_pence, "GBP")}
+                          </span>
+                        ) : b.rate ? (
+                          <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                            {formatPence(
+                              Math.round(parseFloat(b.rate.replace(/[^0-9.]/g, "")) * 100) || 0,
+                              "GBP"
+                            )}
+                          </span>
+                        ) : null}
+                        {isPast ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                            <Clock className="h-3 w-3" />
+                            Awaiting payment
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            Confirmed
+                          </span>
                         )}
                       </div>
                     </div>
-                  ))}
+                  );
+                }
+
+                // entry (manual / external job) — slight blue tint
+                const g = item.data;
+                const isExternal = !g.booking_id;
+                const statusColor =
+                  g.work_status === "confirmed"
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                    : g.work_status === "pencilled"
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      : g.work_status === "completed"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                        : "bg-muted text-muted-foreground";
+                return (
+                  <div
+                    key={`entry-${g.id}`}
+                    className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40 ${isExternal ? "bg-sky-50/40 dark:bg-sky-950/10" : ""}`}
+                    onClick={() => setJobDetailEntryId(g.id)}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {g.description ?? "Booked job"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {fmtDate(g.work_date)}
+                        {g.client_name ? ` · ${g.client_name}` : ""}
+                        {g.call_time ? ` · ${g.call_time}` : ""}
+                        {g.venue_address ? ` · ${g.venue_address}` : ""}
+                      </p>
+                    </div>
+                    <div className="ml-3 flex items-center gap-2">
+                      {g.gross_amount_pence > 0 && (
+                        <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                          {formatPence(g.gross_amount_pence, g.currency)}
+                        </span>
+                      )}
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor}`}
+                      >
+                        {g.work_status}
+                      </span>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* ── Section 3: Earnings ── */}
+      {(() => {
+        const today = new Date().toISOString().slice(0, 10);
+        const completedEntries = entries
+          .filter((e) => e.work_date <= today)
+          .sort((a, b) => b.work_date.localeCompare(a.work_date));
+        const filteredEntries =
+          earningsFilter === "all"
+            ? completedEntries
+            : completedEntries.filter((e) => e.status === earningsFilter);
+        const earningsTotal = filteredEntries.reduce((s, e) => s + (e.gross_amount_pence ?? 0), 0);
+        return (
+          <Card className="overflow-hidden">
+            <div
+              className="cursor-pointer border-l-4 border-blue-500 bg-blue-50/40 px-5 py-3 dark:bg-blue-950/20"
+              onClick={() => toggleSection("earnings", setEarningsOpen, earningsOpen)}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <ChevronDown
+                    className={`h-4 w-4 text-blue-500 transition-transform ${earningsOpen ? "" : "-rotate-90"}`}
+                  />
+                  <BookOpen className="h-4 w-4 text-blue-600" />
+                  <p className="font-semibold">Earnings</p>
+                  {completedEntries.length > 0 && (
+                    <span className="rounded-full bg-blue-500 px-2 py-0.5 text-xs font-bold text-white">
+                      {completedEntries.length}
+                    </span>
+                  )}
                 </div>
-              )}
-            </CardContent>
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  {!earningsOpen && earningsTotal > 0 && (
+                    <span className="text-xs font-semibold tabular-nums text-blue-700 dark:text-blue-300">
+                      {formatPence(earningsTotal)}
+                    </span>
+                  )}
+                  <Select value={earningsFilter} onValueChange={setEarningsFilter}>
+                    <SelectTrigger
+                      className="h-6 w-28 text-xs"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="expected">Expected</SelectItem>
+                      <SelectItem value="invoiced">Invoiced</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="overdue">Overdue</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            {earningsOpen && (
+              <CardContent className="p-0">
+                {filteredEntries.length === 0 && awaitingPaymentHired.length === 0 ? (
+                  <div className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
+                    <BookOpen className="h-4 w-4" />
+                    Completed jobs will appear here.
+                  </div>
+                ) : (
+                  <div>
+                    {awaitingPaymentHired.map((b: any) => (
+                      <div
+                        key={`unlogged-${b.id}`}
+                        className="flex cursor-pointer items-center justify-between border-l-4 border-amber-400 bg-amber-50/60 px-5 py-3 dark:bg-amber-950/20"
+                        onClick={() => setSelectedBooking(b)}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{b.job_title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {b.company_name ? `${b.company_name} · ` : ""}
+                            {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
+                          </p>
+                        </div>
+                        <span className="ml-3 inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                          <Clock className="h-3 w-3" />
+                          Awaiting payment
+                        </span>
+                      </div>
+                    ))}
+                    {filteredEntries.map((entry, i) => (
+                      <div
+                        key={entry.id}
+                        className={`flex cursor-pointer items-center justify-between px-5 py-3 hover:bg-muted/50 ${
+                          i % 2 === 0 ? "bg-muted/30" : ""
+                        }`}
+                        onClick={() => setJobDetailEntryId(entry.id)}
+                      >
+                        <span className="mr-3 shrink-0 text-xs font-medium tabular-nums text-muted-foreground/60">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">
+                            {entry.description ?? "Freelance work"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {(entry as any).job_ref ? (
+                              <span className="mr-1 font-medium text-blue-600 dark:text-blue-400">
+                                {(entry as any).job_ref}
+                              </span>
+                            ) : null}
+                            {fmtDate(entry.work_date)}
+                            {entry.client_name ? ` · ${entry.client_name}` : ""}
+                          </p>
+                        </div>
+                        <div className="ml-4 flex items-center gap-3">
+                          <button
+                            className="cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            title="Change payment status"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openStatusEdit(entry);
+                            }}
+                          >
+                            <StatusBadge entry={entry} />
+                          </button>
+                          <span className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-blue-700 dark:text-blue-300">
+                            {entry.gross_amount_pence > 0
+                              ? formatPence(entry.gross_amount_pence, entry.currency)
+                              : "—"}
+                          </span>
+                          <button
+                            className="text-muted-foreground transition-colors hover:text-foreground"
+                            title="Edit"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEdit(entry);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            className="text-muted-foreground transition-colors hover:text-foreground"
+                            title="History"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setHistoryEntryId(entry.id);
+                            }}
+                          >
+                            <Clock className="h-3.5 w-3.5" />
+                          </button>
+                          {entry.source === "manual" && (
+                            <button
+                              className="text-muted-foreground transition-colors hover:text-destructive"
+                              title="Remove"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                archiveMutation.mutate(entry.id);
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            )}
           </Card>
         );
       })()}
