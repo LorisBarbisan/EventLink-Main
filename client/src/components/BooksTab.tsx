@@ -4043,6 +4043,16 @@ export function BooksTab() {
     onError: () => toast({ title: "Repair failed", variant: "destructive" }),
   });
 
+  const repairFlagsMutation = useMutation({
+    mutationFn: () => apiRequest("/api/earnings/repair-import-flags", { method: "POST" }),
+    onSuccess: (result: { cleared: number; remaining: number; message: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      toast({ title: "Repair complete", description: result.message });
+    },
+    onError: () => toast({ title: "Repair failed", variant: "destructive" }),
+  });
+
   const openAdd = () => {
     setEditingEntry(null);
     setFromBooking(null);
@@ -4637,14 +4647,28 @@ export function BooksTab() {
           )}
 
           {summary.excluded.needs_review > 0 && (
-            <button
-              className="mt-3 w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs text-amber-700 transition-colors hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50"
-              onClick={() => setEarningsFilter("needs_review")}
-            >
-              {summary.excluded.needs_review} entr
-              {summary.excluded.needs_review === 1 ? "y" : "ies"} excluded from totals — amount
-              needs review. Click to view.
-            </button>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                className="flex-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs text-amber-700 transition-colors hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50"
+                onClick={() => setEarningsFilter("needs_review")}
+              >
+                {summary.excluded.needs_review} entr
+                {summary.excluded.needs_review === 1 ? "y" : "ies"} excluded from totals — amount
+                needs review. Click to view.
+              </button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 shrink-0 border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
+                disabled={repairFlagsMutation.isPending}
+                onClick={() => repairFlagsMutation.mutate()}
+              >
+                <RefreshCw
+                  className={`mr-1 h-3 w-3 ${repairFlagsMutation.isPending ? "animate-spin" : ""}`}
+                />
+                Backfill
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

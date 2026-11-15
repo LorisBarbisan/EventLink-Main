@@ -145,6 +145,59 @@ router.post("/backfill", auth, async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/earnings/repair-import-flags
+// One-off repair: unflags rows that were marked needs_review=true by the old
+// unconditional importer but have a non-zero gross_amount_pence and no rate_raw
+// that looks like a range — i.e. rows flagged by policy, not by doubt.
+router.post("/repair-import-flags", auth, async (req: Request, res: Response) => {
+  try {
+    const freelancerId = req.user!.id;
+    const { db } = await import("../config/db");
+    const { earnings_entries } = await import("@shared/schema");
+    const { and, eq, gt } = await import("drizzle-orm");
+
+    // Find all flagged rows owned by this freelancer that look like false positives:
+    //   - needs_review = true
+    //   - gross_amount_pence > 0  (not a zero-amount case)
+    //   - rate_raw is null OR does not contain a range pattern like "250-300"
+    const candidates = await db
+      .select({ id: earnings_entries.id, rate_raw: earnings_entries.rate_raw })
+      .from(earnings_entries)
+      .where(
+        and(
+          eq(earnings_entries.freelancer_id, freelancerId),
+          eq(earnings_entries.needs_review, true),
+          eq(earnings_entries.archived, false),
+          gt(earnings_entries.gross_amount_pence, 0)
+        )
+      );
+
+    const toUnflag = candidates
+      .filter((r) => !r.rate_raw || !/\d+\s*[-–]\s*\d+/.test(r.rate_raw))
+      .map((r) => r.id);
+
+    if (toUnflag.length === 0) {
+      return res.json({ cleared: 0, remaining: candidates.length, message: "Nothing to clear." });
+    }
+
+    const { inArray } = await import("drizzle-orm");
+    await db
+      .update(earnings_entries)
+      .set({ needs_review: false, review_reason: null, updated_at: new Date() })
+      .where(inArray(earnings_entries.id, toUnflag));
+
+    const remaining = candidates.length - toUnflag.length;
+    return res.json({
+      cleared: toUnflag.length,
+      remaining,
+      message: `Cleared ${toUnflag.length} entr${toUnflag.length === 1 ? "y" : "ies"}${remaining > 0 ? `; ${remaining} remain genuinely uncertain` : ""}.`,
+    });
+  } catch (err) {
+    console.error("repair-import-flags error:", err);
+    return res.status(500).json({ error: "Repair failed" });
+  }
+});
+
 // POST /api/earnings/repair-completed-jobs — thin wrapper over backfill
 router.post("/repair-completed-jobs", auth, async (req: Request, res: Response) => {
   try {
