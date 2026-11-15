@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -123,17 +123,21 @@ function ParseProgress({
   onBatchChange: (b: ImportBatch) => void;
 }) {
   // Poll until batch moves out of queued/parsing
-  useQuery<ImportBatch>({
+  const { data: polledBatch } = useQuery<ImportBatch>({
     queryKey: [`/api/imports/${batch.id}`],
     queryFn: () => apiRequest(`/api/imports/${batch.id}`),
-    refetchInterval: 2000,
-    select: (data) => {
-      if (data.status !== "queued" && data.status !== "parsing") {
-        onBatchChange(data);
-      }
-      return data;
+    refetchInterval: (query) => {
+      const d = query.state.data;
+      if (d && d.status !== "queued" && d.status !== "parsing") return false;
+      return 2000;
     },
   });
+
+  useEffect(() => {
+    if (polledBatch && polledBatch.status !== "queued" && polledBatch.status !== "parsing") {
+      onBatchChange(polledBatch);
+    }
+  }, [polledBatch?.status]);
 
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
