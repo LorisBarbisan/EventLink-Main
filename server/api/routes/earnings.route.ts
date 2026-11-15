@@ -402,6 +402,116 @@ router.get("/:id", auth, async (req: Request, res: Response) => {
   }
 });
 
+// PATCH /api/earnings/bulk — bulk-update status/paid_date on multiple entries
+router.patch("/bulk", auth, async (req: Request, res: Response) => {
+  try {
+    const freelancerId = req.user!.id;
+    const { ids, status, date_mode, paid_date } = req.body as {
+      ids: unknown;
+      status: unknown;
+      date_mode: unknown;
+      paid_date?: unknown;
+    };
+
+    // Validate inputs
+    if (!Array.isArray(ids) || ids.length === 0)
+      return res.status(400).json({ error: "ids must be a non-empty array" });
+    if (ids.length > 500)
+      return res.status(400).json({ error: "Maximum 500 entries per bulk update" });
+    if (typeof status !== "string") return res.status(400).json({ error: "status required" });
+    const validStatuses = ["expected", "invoiced", "paid", "overdue"];
+    if (!validStatuses.includes(status)) return res.status(400).json({ error: "Invalid status" });
+
+    const numIds = ids.map((id) => Number(id));
+    if (numIds.some((id) => !Number.isInteger(id) || id <= 0))
+      return res.status(400).json({ error: "ids must be positive integers" });
+
+    // Ownership check: all IDs must belong to this freelancer
+    const existing = await db
+      .select()
+      .from(earnings_entries)
+      .where(and(inArray(earnings_entries.id, numIds), eq(earnings_entries.archived, false)));
+
+    const ownedIds = existing.filter((e) => e.freelancer_id === freelancerId).map((e) => e.id);
+
+    if (ownedIds.length !== numIds.length)
+      return res.status(403).json({ error: "One or more entries not found or not owned by you" });
+
+    // Skip invoice-linked entries (they own their own status transitions)
+    const updatableEntries = existing.filter((e) => !e.invoice_id);
+    const skippedCount = existing.length - updatableEntries.length;
+    const updatableIds = updatableEntries.map((e) => e.id);
+
+    if (updatableIds.length === 0)
+      return res.json({
+        updated: 0,
+        skipped: skippedCount,
+        message: "All entries are invoice-linked and were skipped",
+        before_snapshot: [],
+      });
+
+    // Compute paid_date per row
+    const resolvePaidDate = (entry: (typeof existing)[0]): string | null => {
+      if (status !== "paid") return null;
+      if (date_mode === "work_date") return entry.work_date;
+      if (date_mode === "end_of_following_month") {
+        const d = new Date(entry.work_date);
+        const eom = new Date(d.getFullYear(), d.getMonth() + 2, 0);
+        return eom.toISOString().slice(0, 10);
+      }
+      if (date_mode === "explicit" && typeof paid_date === "string" && paid_date) return paid_date;
+      return new Date().toISOString().slice(0, 10);
+    };
+
+    // Snapshot before state for undo
+    const before_snapshot = updatableEntries.map((e) => ({
+      id: e.id,
+      status: e.status,
+      paid_date: e.paid_date ?? null,
+    }));
+
+    // Perform updates in a transaction; fire audit logs after
+    await db.transaction(async (tx) => {
+      for (const entry of updatableEntries) {
+        const newPaidDate = resolvePaidDate(entry);
+        await tx
+          .update(earnings_entries)
+          .set({
+            status: status as "expected" | "invoiced" | "paid" | "overdue",
+            paid_date: newPaidDate,
+          })
+          .where(eq(earnings_entries.id, entry.id));
+      }
+    });
+
+    // Audit rows — fire-and-forget, non-critical
+    for (const entry of updatableEntries) {
+      storage
+        .appendAuditLog({
+          freelancer_id: freelancerId,
+          entity_type: "earnings_entry",
+          entity_id: entry.id,
+          action: "updated",
+          summary: `Bulk: status set to ${status}`,
+          snapshot: { status, paid_date: resolvePaidDate(entry) },
+        })
+        .catch(() => {
+          /* non-critical */
+        });
+    }
+
+    return res.json({
+      updated: updatableIds.length,
+      skipped: skippedCount,
+      message: `${updatableIds.length} entr${updatableIds.length === 1 ? "y" : "ies"} updated`,
+      before_snapshot,
+    });
+  } catch (err) {
+    console.error("bulk earnings update error:", err);
+    return res.status(500).json({ error: "Bulk update failed" });
+  }
+});
+
 // PATCH /api/earnings/:id — update a manual entry
 router.patch("/:id", auth, async (req: Request, res: Response) => {
   try {
