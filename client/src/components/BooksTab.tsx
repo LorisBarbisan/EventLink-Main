@@ -4460,6 +4460,27 @@ export function BooksTab() {
       <div className="space-y-4">
         {sectionSwitcher}
         <CalendarTab onJobDetail={(entryId) => setJobDetailEntryId(entryId)} />
+        {jobDetailEntryId !== null && (
+          <JobDetailDialog
+            earningsEntryId={jobDetailEntryId}
+            onClose={() => setJobDetailEntryId(null)}
+            onInvoice={() => {
+              setJobDetailEntryId(null);
+              createInvoiceForJob(jobDetailEntryId!);
+            }}
+            onOpenInvoice={(invoiceId) => {
+              setJobDetailEntryId(null);
+              setInvoicePrefill({ openInvoiceId: invoiceId });
+              setSection("invoices");
+            }}
+            onEdit={(entryId) => {
+              const entry = entries.find((e) => e.id === entryId);
+              if (entry) openEdit(entry);
+            }}
+            onAddExpense={(entryId) => setExpenseFromJobId(entryId)}
+            onEditExpense={(expenseId) => setEditExpenseId(expenseId)}
+          />
+        )}
       </div>
     );
   }
