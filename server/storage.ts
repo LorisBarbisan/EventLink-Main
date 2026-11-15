@@ -890,7 +890,13 @@ export interface IStorage {
     deductions_pence: number;
     entry_count: number;
     groups: Array<{ key: string; label: string; total_pence: number; entry_count: number }>;
-    excluded: { needs_review: number; other_currency: number };
+    excluded: {
+      needs_review: number;
+      needs_review_pence: number;
+      unpaid: number;
+      unpaid_pence: number;
+      other_currency: number;
+    };
   }>;
 
   // Kit items
@@ -7130,7 +7136,13 @@ export class DatabaseStorage implements IStorage {
     deductions_pence: number;
     entry_count: number;
     groups: Array<{ key: string; label: string; total_pence: number; entry_count: number }>;
-    excluded: { needs_review: number; other_currency: number };
+    excluded: {
+      needs_review: number;
+      needs_review_pence: number;
+      unpaid: number;
+      unpaid_pence: number;
+      other_currency: number;
+    };
   }> {
     const currency = opts.currency ?? "GBP";
     const dateCol =
@@ -7153,11 +7165,18 @@ export class DatabaseStorage implements IStorage {
     let deductions_pence = 0;
     let entry_count = 0;
     const groupMap = new Map<string, { label: string; total_pence: number; entry_count: number }>();
-    const excluded = { needs_review: 0, other_currency: 0 };
+    const excluded = {
+      needs_review: 0,
+      needs_review_pence: 0,
+      unpaid: 0,
+      unpaid_pence: 0,
+      other_currency: 0,
+    };
 
     for (const row of rows) {
       if (row.needs_review) {
         excluded.needs_review++;
+        excluded.needs_review_pence += row.gross_amount_pence ?? 0;
         continue;
       }
       if (row.currency !== currency) {
@@ -7171,7 +7190,9 @@ export class DatabaseStorage implements IStorage {
           ? (row.paid_amount_pence ?? (row.status === "paid" ? row.gross_amount_pence : null))
           : row.gross_amount_pence;
       if (amount == null) {
-        excluded.needs_review++;
+        // Not yet paid — this is correct cash-basis behaviour, not an error
+        excluded.unpaid++;
+        excluded.unpaid_pence += row.gross_amount_pence ?? 0;
         continue;
       }
 

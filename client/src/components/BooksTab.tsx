@@ -238,7 +238,13 @@ interface EarningsSummary {
   deductions_pence: number;
   entry_count: number;
   groups: SummaryGroup[];
-  excluded: { needs_review: number; other_currency: number };
+  excluded: {
+    needs_review: number;
+    needs_review_pence: number;
+    unpaid: number;
+    unpaid_pence: number;
+    other_currency: number;
+  };
 }
 
 interface EarningsData {
