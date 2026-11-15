@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
+import { requireUkFreelancer } from "../middleware/uk-freelancer.middleware";
 import {
   booksSummary,
   booksExport,
@@ -13,7 +14,7 @@ import {
 } from "../controllers/books.controller";
 
 export function registerBooksRoutes(app: Express) {
-  const auth = [authenticateJWT, requireRole("freelancer")];
+  const auth = [authenticateJWT, requireRole("freelancer"), requireUkFreelancer];
 
   // workbook export registered before the CSV path so the more specific path wins
   app.get("/api/books/export.xlsx", ...auth, booksExportWorkbook);

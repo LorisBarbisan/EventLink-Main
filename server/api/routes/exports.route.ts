@@ -15,6 +15,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
+import { requireUkFreelancer } from "../middleware/uk-freelancer.middleware";
 import { storage } from "../../storage";
 import { buildCsv, penceToCsvDecimal, dateToCsvDate, exportFilename } from "../utils/csv";
 import { currentTaxYear } from "@shared/tax-periods";
@@ -43,7 +44,7 @@ function sendCsv(res: Response, filename: string, csv: string) {
 //
 // We emit ALL columns so accountants can filter as needed.
 
-router.get("/earnings.csv", auth, async (req: Request, res: Response) => {
+router.get("/earnings.csv", [...auth, requireUkFreelancer], async (req: Request, res: Response) => {
   try {
     const freelancerId = req.user!.id;
     const basis = (req.query.basis as "cash" | "accruals") ?? "cash";

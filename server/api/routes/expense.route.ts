@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
+import { requireUkFreelancer } from "../middleware/uk-freelancer.middleware";
 import {
   listCategories,
   createCategory,
@@ -14,7 +15,7 @@ import {
 } from "../controllers/expense.controller";
 
 export function registerExpenseRoutes(app: Express) {
-  const auth = [authenticateJWT, requireRole("freelancer")];
+  const auth = [authenticateJWT, requireRole("freelancer"), requireUkFreelancer];
 
   // Categories
   app.get("/api/expense-categories", ...auth, listCategories);

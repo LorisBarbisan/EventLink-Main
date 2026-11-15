@@ -54,6 +54,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
 import { BooksTab } from "./BooksTab";
+import { useBooksAccess } from "@/hooks/useBooksAccess";
 
 import { MessagingInterface } from "./MessagingInterface";
 import { ProfileForm } from "./ProfileForm";
@@ -331,7 +332,7 @@ export default function SimplifiedFreelancerDashboard() {
       : window.location.search.replace(/^\?/, "");
     const urlParams = new URLSearchParams(search);
     const tabParam = urlParams.get("tab");
-    return tabParam || "books";
+    return tabParam || "profile";
   });
 
   const completeHelpMain = useHelpComplete();
@@ -414,6 +415,7 @@ export default function SimplifiedFreelancerDashboard() {
     enabled: !!user?.id,
   });
   if (!profileQueryLoading) profileHasEverLoaded.current = true;
+  const booksAccess = useBooksAccess();
   const profileLoading = profileQueryLoading && !profileHasEverLoaded.current;
 
   const [profileIsPublic, setProfileIsPublic] = useState<boolean>(true);
@@ -645,7 +647,7 @@ export default function SimplifiedFreelancerDashboard() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="books">Books</SelectItem>
+              {booksAccess !== "unavailable" && <SelectItem value="books">Books</SelectItem>}
               <SelectItem value="profile">Edit Profile</SelectItem>
               <SelectItem value="jobs">
                 My Applications
@@ -667,9 +669,11 @@ export default function SimplifiedFreelancerDashboard() {
           </Select>
         </div>
         <TabsList className="hidden w-full grid-cols-4 sm:grid md:grid-cols-6">
-          <TabsTrigger value="books" data-help="dashboard.tab.books">
-            Books
-          </TabsTrigger>
+          {booksAccess !== "unavailable" && (
+            <TabsTrigger value="books" data-help="dashboard.tab.books">
+              Books
+            </TabsTrigger>
+          )}
           <TabsTrigger value="profile">Edit Profile</TabsTrigger>
           <TabsTrigger
             value="jobs"
@@ -893,9 +897,31 @@ export default function SimplifiedFreelancerDashboard() {
         </TabsContent>
 
         {/* Books Tab */}
-        <TabsContent value="books">
-          <BooksTab />
-        </TabsContent>
+        {booksAccess !== "unavailable" && (
+          <TabsContent value="books">
+            {booksAccess === "needs-country" ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-950/30">
+                <h3 className="mb-2 font-semibold text-amber-900 dark:text-amber-200">
+                  Where are you based?
+                </h3>
+                <p className="mb-4 text-sm text-amber-800 dark:text-amber-300">
+                  The Books tab is available to UK freelancers. Add your country in your profile to
+                  unlock it.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-400 text-amber-900 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-200"
+                  onClick={() => setActiveTab("profile")}
+                >
+                  Go to Edit Profile
+                </Button>
+              </div>
+            ) : (
+              <BooksTab />
+            )}
+          </TabsContent>
+        )}
 
         {/* Post a Job Tab */}
         <TabsContent value="posted-jobs">
