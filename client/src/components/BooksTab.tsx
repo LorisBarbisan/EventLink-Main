@@ -4642,94 +4642,115 @@ export function BooksTab() {
                 );
               }
 
-              return items.map((item) => {
-                if (item.kind === "booking") {
-                  const b = item.data as any;
-                  const isPast = b.event_date && new Date(b.event_date) < today;
-                  return (
-                    <div
-                      key={`booking-${b.id}`}
-                      className="flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40"
-                      onClick={() => setSelectedBooking(b)}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{b.job_title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {b.company_name ? `${b.company_name} · ` : ""}
-                          {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
-                        </p>
-                      </div>
-                      <div className="ml-3 flex shrink-0 items-center gap-2">
-                        {b.entry_gross_pence > 0 ? (
-                          <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
-                            {formatPence(b.entry_gross_pence, "GBP")}
-                          </span>
-                        ) : b.rate ? (
-                          <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
-                            {formatPence(
-                              Math.round(parseFloat(b.rate.replace(/[^0-9.]/g, "")) * 100) || 0,
-                              "GBP"
-                            )}
-                          </span>
-                        ) : null}
-                        {isPast ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                            <Clock className="h-3 w-3" />
-                            Awaiting payment
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                            Confirmed
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
+              // Group by month (ascending — soonest first within each month)
+              const jobMonthMap: Record<string, typeof items> = {};
+              for (const item of items) {
+                const mk = item.date.slice(0, 7);
+                (jobMonthMap[mk] ??= []).push(item);
+              }
+              const jobMonths = Object.keys(jobMonthMap)
+                .sort()
+                .map((k) => ({ key: k, items: jobMonthMap[k] }));
 
-                // entry (manual / external job) — slight blue tint
-                const g = item.data;
-                const isExternal = !g.booking_id;
-                const statusColor =
-                  g.work_status === "confirmed"
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                    : g.work_status === "pencilled"
-                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                      : g.work_status === "completed"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                        : "bg-muted text-muted-foreground";
-                return (
-                  <div
-                    key={`entry-${g.id}`}
-                    className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40 ${isExternal ? "bg-sky-50/40 dark:bg-sky-950/10" : ""}`}
-                    onClick={() => setJobDetailEntryId(g.id)}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {g.description ?? "Booked job"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {fmtDate(g.work_date)}
-                        {g.client_name ? ` · ${g.client_name}` : ""}
-                        {g.call_time ? ` · ${g.call_time}` : ""}
-                        {g.venue_address ? ` · ${g.venue_address}` : ""}
-                      </p>
-                    </div>
-                    <div className="ml-3 flex items-center gap-2">
-                      {g.gross_amount_pence > 0 && (
-                        <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
-                          {formatPence(g.gross_amount_pence, g.currency)}
-                        </span>
-                      )}
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor}`}
+              return jobMonths.map(({ key: mk, items: monthItems }, mi) => (
+                <MonthSection
+                  key={mk}
+                  monthKey={mk}
+                  total={null}
+                  accentClass="text-indigo-700 dark:text-indigo-400"
+                  headerClass="bg-indigo-50/60 dark:bg-indigo-950/20"
+                  storageKey={`books-jobs-month-${mk}-${user?.id}`}
+                  divider={mi < jobMonths.length - 1}
+                >
+                  {monthItems.map((item) => {
+                    if (item.kind === "booking") {
+                      const b = item.data as any;
+                      const isPast = b.event_date && new Date(b.event_date) < today;
+                      return (
+                        <div
+                          key={`booking-${b.id}`}
+                          className="flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40"
+                          onClick={() => setSelectedBooking(b)}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{b.job_title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {b.company_name ? `${b.company_name} · ` : ""}
+                              {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
+                            </p>
+                          </div>
+                          <div className="ml-3 flex shrink-0 items-center gap-2">
+                            {b.entry_gross_pence > 0 ? (
+                              <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                                {formatPence(b.entry_gross_pence, "GBP")}
+                              </span>
+                            ) : b.rate ? (
+                              <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                                {formatPence(
+                                  Math.round(parseFloat(b.rate.replace(/[^0-9.]/g, "")) * 100) || 0,
+                                  "GBP"
+                                )}
+                              </span>
+                            ) : null}
+                            {isPast ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                <Clock className="h-3 w-3" />
+                                Awaiting payment
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                Confirmed
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const g = item.data;
+                    const isExternal = !g.booking_id;
+                    const statusColor =
+                      g.work_status === "confirmed"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : g.work_status === "pencilled"
+                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                          : g.work_status === "completed"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            : "bg-muted text-muted-foreground";
+                    return (
+                      <div
+                        key={`entry-${g.id}`}
+                        className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40 ${isExternal ? "bg-sky-50/40 dark:bg-sky-950/10" : ""}`}
+                        onClick={() => setJobDetailEntryId(g.id)}
                       >
-                        {g.work_status}
-                      </span>
-                    </div>
-                  </div>
-                );
-              });
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">
+                            {g.description ?? "Booked job"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {fmtDate(g.work_date)}
+                            {g.client_name ? ` · ${g.client_name}` : ""}
+                            {g.call_time ? ` · ${g.call_time}` : ""}
+                            {g.venue_address ? ` · ${g.venue_address}` : ""}
+                          </p>
+                        </div>
+                        <div className="ml-3 flex items-center gap-2">
+                          {g.gross_amount_pence > 0 && (
+                            <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                              {formatPence(g.gross_amount_pence, g.currency)}
+                            </span>
+                          )}
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor}`}
+                          >
+                            {g.work_status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </MonthSection>
+              ));
             })()}
           </CardContent>
         )}
@@ -4738,14 +4759,13 @@ export function BooksTab() {
       {/* ── Section 3: Earnings ── */}
       {(() => {
         const today = new Date().toISOString().slice(0, 10);
-        const completedEntries = entries
-          .filter((e) => e.work_date <= today)
-          .sort((a, b) => b.work_date.localeCompare(a.work_date));
+        const completedEntries = entries.filter((e) => e.work_date <= today);
         const filteredEntries =
           earningsFilter === "all"
             ? completedEntries
             : completedEntries.filter((e) => e.status === earningsFilter);
         const earningsTotal = filteredEntries.reduce((s, e) => s + (e.gross_amount_pence ?? 0), 0);
+        const earningsMonths = groupByMonth(filteredEntries, "work_date").reverse();
         return (
           <Card className="overflow-hidden">
             <div
@@ -4817,82 +4837,97 @@ export function BooksTab() {
                         </span>
                       </div>
                     ))}
-                    {filteredEntries.map((entry, i) => (
-                      <div
-                        key={entry.id}
-                        className={`flex cursor-pointer items-center justify-between px-5 py-3 hover:bg-muted/50 ${
-                          i % 2 === 0 ? "bg-muted/30" : ""
-                        }`}
-                        onClick={() => setJobDetailEntryId(entry.id)}
-                      >
-                        <span className="mr-3 shrink-0 text-xs font-medium tabular-nums text-muted-foreground/60">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {entry.description ?? "Freelance work"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {(entry as any).job_ref ? (
-                              <span className="mr-1 font-medium text-blue-600 dark:text-blue-400">
-                                {(entry as any).job_ref}
-                              </span>
-                            ) : null}
-                            {fmtDate(entry.work_date)}
-                            {entry.client_name ? ` · ${entry.client_name}` : ""}
-                          </p>
-                        </div>
-                        <div className="ml-4 flex items-center gap-3">
-                          <button
-                            className="cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            title="Change payment status"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openStatusEdit(entry);
-                            }}
-                          >
-                            <StatusBadge entry={entry} />
-                          </button>
-                          <span className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-blue-700 dark:text-blue-300">
-                            {entry.gross_amount_pence > 0
-                              ? formatPence(entry.gross_amount_pence, entry.currency)
-                              : "—"}
-                          </span>
-                          <button
-                            className="text-muted-foreground transition-colors hover:text-foreground"
-                            title="Edit"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEdit(entry);
-                            }}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            className="text-muted-foreground transition-colors hover:text-foreground"
-                            title="History"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setHistoryEntryId(entry.id);
-                            }}
-                          >
-                            <Clock className="h-3.5 w-3.5" />
-                          </button>
-                          {entry.source === "manual" && (
-                            <button
-                              className="text-muted-foreground transition-colors hover:text-destructive"
-                              title="Remove"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                archiveMutation.mutate(entry.id);
-                              }}
+                    {earningsMonths.map(({ key, items: monthEntries }, mi) => {
+                      const monthTotal = monthEntries.reduce(
+                        (s, e) => s + (e.gross_amount_pence ?? 0),
+                        0
+                      );
+                      return (
+                        <MonthSection
+                          key={key}
+                          monthKey={key}
+                          total={monthTotal}
+                          accentClass="text-blue-700 dark:text-blue-400"
+                          headerClass="bg-blue-50/60 dark:bg-blue-950/20"
+                          storageKey={`books-earn-month-${key}-${user?.id}`}
+                          divider={mi < earningsMonths.length - 1}
+                        >
+                          {monthEntries.map((entry, i) => (
+                            <div
+                              key={entry.id}
+                              className={`flex cursor-pointer items-center justify-between px-5 py-3 hover:bg-muted/50 ${
+                                i % 2 === 0 ? "bg-muted/30" : ""
+                              }`}
+                              onClick={() => setJobDetailEntryId(entry.id)}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium">
+                                  {entry.description ?? "Freelance work"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {(entry as any).job_ref ? (
+                                    <span className="mr-1 font-medium text-blue-600 dark:text-blue-400">
+                                      {(entry as any).job_ref}
+                                    </span>
+                                  ) : null}
+                                  {fmtDate(entry.work_date)}
+                                  {entry.client_name ? ` · ${entry.client_name}` : ""}
+                                </p>
+                              </div>
+                              <div className="ml-4 flex items-center gap-3">
+                                <button
+                                  className="cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  title="Change payment status"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openStatusEdit(entry);
+                                  }}
+                                >
+                                  <StatusBadge entry={entry} />
+                                </button>
+                                <span className="min-w-[80px] text-right text-sm font-semibold tabular-nums text-blue-700 dark:text-blue-300">
+                                  {entry.gross_amount_pence > 0
+                                    ? formatPence(entry.gross_amount_pence, entry.currency)
+                                    : "—"}
+                                </span>
+                                <button
+                                  className="text-muted-foreground transition-colors hover:text-foreground"
+                                  title="Edit"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEdit(entry);
+                                  }}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  className="text-muted-foreground transition-colors hover:text-foreground"
+                                  title="History"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setHistoryEntryId(entry.id);
+                                  }}
+                                >
+                                  <Clock className="h-3.5 w-3.5" />
+                                </button>
+                                {entry.source === "manual" && (
+                                  <button
+                                    className="text-muted-foreground transition-colors hover:text-destructive"
+                                    title="Remove"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      archiveMutation.mutate(entry.id);
+                                    }}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </MonthSection>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
