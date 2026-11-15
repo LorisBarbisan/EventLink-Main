@@ -236,7 +236,10 @@ export function HelpProvider({ children }: { children: React.ReactNode }) {
       const reg = registry;
       if (!reg) return null;
       const base = reg.get(key);
-      if (!base) return null;
+      if (!base) {
+        if (import.meta.env.DEV) console.warn(`[help] unknown registry key: ${key}`);
+        return null;
+      }
 
       const role = user?.role as HelpCtxData["role"] | undefined;
       if (base.audience && role && !base.audience.includes(role)) return null;

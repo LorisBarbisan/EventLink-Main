@@ -14,6 +14,7 @@ async function build(): Promise<Map<string, HelpEntry>> {
     import("./dashboard"),
     import("./bookings"),
     import("./books"),
+    import("./tax"),
   ]);
   const map = new Map<string, HelpEntry>();
   for (const mod of areas) {
