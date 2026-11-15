@@ -135,6 +135,10 @@ interface FreelancerBooking {
     status: string;
     jobId: number;
     agreedRate?: string | null;
+    call_time?: string | null;
+    venue_address?: string | null;
+    notes?: string | null;
+    earnings_entry_id?: number | null;
   };
   job: {
     id: number;
@@ -552,9 +556,11 @@ function AvailabilityDialog({
 function BookingDetailDialog({
   booking,
   onClose,
+  onJobDetail,
 }: {
   booking: FreelancerBooking;
   onClose: () => void;
+  onJobDetail?: (entryId: number) => void;
 }) {
   const statusColour = BOOKING_COLOURS[booking.booking.status] ?? "#6B7280";
   const { data: docs = [] } = useQuery<
@@ -575,7 +581,7 @@ function BookingDetailDialog({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span
@@ -586,7 +592,7 @@ function BookingDetailDialog({
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2 text-sm">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
             <span className="text-muted-foreground">Status</span>
             <span className="font-medium capitalize" style={{ color: statusColour }}>
               {BOOKING_LABELS[booking.booking.status] ?? booking.booking.status}
@@ -605,16 +611,38 @@ function BookingDetailDialog({
                 <span>{booking.job.location}</span>
               </>
             )}
+            {booking.booking.venue_address && (
+              <>
+                <span className="text-muted-foreground">Venue</span>
+                <span>{booking.booking.venue_address}</span>
+              </>
+            )}
             {booking.job.eventDate && (
               <>
-                <span className="text-muted-foreground">Event date</span>
+                <span className="text-muted-foreground">Date</span>
                 <span>
                   {new Date(booking.job.eventDate).toLocaleDateString("en-GB", {
                     day: "numeric",
                     month: "short",
                     year: "numeric",
                   })}
+                  {booking.job.endDate && booking.job.endDate !== booking.job.eventDate && (
+                    <span className="text-muted-foreground">
+                      {" – "}
+                      {new Date(booking.job.endDate).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  )}
                 </span>
+              </>
+            )}
+            {booking.booking.call_time && (
+              <>
+                <span className="text-muted-foreground">Call time</span>
+                <span>{booking.booking.call_time}</span>
               </>
             )}
             {booking.booking.agreedRate && (
@@ -624,6 +652,11 @@ function BookingDetailDialog({
               </>
             )}
           </div>
+          {booking.booking.notes && (
+            <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              {booking.booking.notes}
+            </div>
+          )}
         </div>
         {docs.length > 0 && (
           <div className="text-sm">
@@ -651,6 +684,19 @@ function BookingDetailDialog({
         )}
 
         <DialogFooter>
+          {onJobDetail && booking.booking.earnings_entry_id && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mr-auto"
+              onClick={() => {
+                onJobDetail(booking.booking.earnings_entry_id!);
+                onClose();
+              }}
+            >
+              View full details
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={onClose}>
             Close
           </Button>
@@ -1190,7 +1236,11 @@ export function CalendarTab({
       )}
 
       {bookingDialog && (
-        <BookingDetailDialog booking={bookingDialog} onClose={() => setBookingDialog(null)} />
+        <BookingDetailDialog
+          booking={bookingDialog}
+          onClose={() => setBookingDialog(null)}
+          onJobDetail={onJobDetail}
+        />
       )}
 
       {gigDialog && (
