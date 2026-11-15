@@ -4716,9 +4716,13 @@ export function BooksTab() {
                 );
               }
 
+              // Separate TBC (no real date) from datable items
+              const tbcItems = items.filter((i) => i.date === "9999-12-31");
+              const datableItems = items.filter((i) => i.date !== "9999-12-31");
+
               // Group by month (ascending — soonest first within each month)
-              const jobMonthMap: Record<string, typeof items> = {};
-              for (const item of items) {
+              const jobMonthMap: Record<string, typeof datableItems> = {};
+              for (const item of datableItems) {
                 const mk = item.date.slice(0, 7);
                 (jobMonthMap[mk] ??= []).push(item);
               }
@@ -4726,105 +4730,142 @@ export function BooksTab() {
                 .sort()
                 .map((k) => ({ key: k, items: jobMonthMap[k] }));
 
-              return jobMonths.map(({ key: mk, items: monthItems }, mi) => (
-                <MonthSection
-                  key={mk}
-                  monthKey={mk}
-                  total={null}
-                  accentClass="text-indigo-700 dark:text-indigo-400"
-                  headerClass="bg-indigo-50/60 dark:bg-indigo-950/20"
-                  storageKey={`books-jobs-month-${mk}-${user?.id}`}
-                  divider={mi < jobMonths.length - 1}
-                >
-                  {monthItems.map((item) => {
-                    if (item.kind === "booking") {
-                      const b = item.data as any;
-                      const isPast = b.event_date && new Date(b.event_date) < today;
-                      return (
-                        <div
-                          key={`booking-${b.id}`}
-                          className="flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40"
-                          onClick={() => setSelectedBooking(b)}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{b.job_title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {b.company_name ? `${b.company_name} · ` : ""}
-                              {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
-                            </p>
-                          </div>
-                          <div className="ml-3 flex shrink-0 items-center gap-2">
-                            {b.entry_gross_pence > 0 ? (
-                              <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
-                                {formatPence(b.entry_gross_pence, "GBP")}
-                              </span>
-                            ) : b.rate ? (
-                              <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
-                                {formatPence(
-                                  Math.round(parseFloat(b.rate.replace(/[^0-9.]/g, "")) * 100) || 0,
-                                  "GBP"
+              return (
+                <>
+                  {jobMonths.map(({ key: mk, items: monthItems }, mi) => (
+                    <MonthSection
+                      key={mk}
+                      monthKey={mk}
+                      total={null}
+                      accentClass="text-indigo-700 dark:text-indigo-400"
+                      headerClass="bg-indigo-50/60 dark:bg-indigo-950/20"
+                      storageKey={`books-jobs-month-${mk}-${user?.id}`}
+                      divider={mi < jobMonths.length - 1}
+                    >
+                      {monthItems.map((item) => {
+                        if (item.kind === "booking") {
+                          const b = item.data as any;
+                          const isPast = b.event_date && new Date(b.event_date) < today;
+                          return (
+                            <div
+                              key={`booking-${b.id}`}
+                              className="flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40"
+                              onClick={() => setSelectedBooking(b)}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium">{b.job_title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {b.company_name ? `${b.company_name} · ` : ""}
+                                  {b.event_date ? fmtDate(b.event_date) : "Date TBC"}
+                                </p>
+                              </div>
+                              <div className="ml-3 flex shrink-0 items-center gap-2">
+                                {b.entry_gross_pence > 0 ? (
+                                  <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                                    {formatPence(b.entry_gross_pence, "GBP")}
+                                  </span>
+                                ) : b.rate ? (
+                                  <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                                    {formatPence(
+                                      Math.round(
+                                        parseFloat(b.rate.replace(/[^0-9.]/g, "")) * 100
+                                      ) || 0,
+                                      "GBP"
+                                    )}
+                                  </span>
+                                ) : null}
+                                {isPast ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                    <Clock className="h-3 w-3" />
+                                    Awaiting payment
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                    Confirmed
+                                  </span>
                                 )}
-                              </span>
-                            ) : null}
-                            {isPast ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                                <Clock className="h-3 w-3" />
-                                Awaiting payment
-                              </span>
-                            ) : (
-                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                Confirmed
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    }
+                              </div>
+                            </div>
+                          );
+                        }
 
-                    const g = item.data;
-                    const isExternal = !g.booking_id;
-                    const statusColor =
-                      g.work_status === "confirmed"
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                        : g.work_status === "pencilled"
-                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                          : g.work_status === "completed"
-                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                            : "bg-muted text-muted-foreground";
-                    return (
-                      <div
-                        key={`entry-${g.id}`}
-                        className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40 ${isExternal ? "bg-sky-50/40 dark:bg-sky-950/10" : ""}`}
-                        onClick={() => setJobDetailEntryId(g.id)}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {g.description ?? "Booked job"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {fmtDate(g.work_date)}
-                            {g.client_name ? ` · ${g.client_name}` : ""}
-                            {g.call_time ? ` · ${g.call_time}` : ""}
-                            {g.venue_address ? ` · ${g.venue_address}` : ""}
-                          </p>
-                        </div>
-                        <div className="ml-3 flex items-center gap-2">
-                          {g.gross_amount_pence > 0 && (
-                            <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
-                              {formatPence(g.gross_amount_pence, g.currency)}
-                            </span>
-                          )}
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor}`}
+                        const g = item.data;
+                        const isExternal = !g.booking_id;
+                        const statusColor =
+                          g.work_status === "confirmed"
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : g.work_status === "pencilled"
+                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                              : g.work_status === "completed"
+                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                : "bg-muted text-muted-foreground";
+                        return (
+                          <div
+                            key={`entry-${g.id}`}
+                            className={`flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40 ${isExternal ? "bg-sky-50/40 dark:bg-sky-950/10" : ""}`}
+                            onClick={() => setJobDetailEntryId(g.id)}
                           >
-                            {g.work_status}
-                          </span>
-                        </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">
+                                {g.description ?? "Booked job"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {fmtDate(g.work_date)}
+                                {g.client_name ? ` · ${g.client_name}` : ""}
+                                {g.call_time ? ` · ${g.call_time}` : ""}
+                                {g.venue_address ? ` · ${g.venue_address}` : ""}
+                              </p>
+                            </div>
+                            <div className="ml-3 flex items-center gap-2">
+                              {g.gross_amount_pence > 0 && (
+                                <span className="text-sm font-semibold tabular-nums text-indigo-700 dark:text-indigo-300">
+                                  {formatPence(g.gross_amount_pence, g.currency)}
+                                </span>
+                              )}
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${statusColor}`}
+                              >
+                                {g.work_status}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </MonthSection>
+                  ))}
+                  {tbcItems.length > 0 && (
+                    <div>
+                      {datableItems.length > 0 && <div className="border-b" />}
+                      <div className="flex items-center justify-between border-b bg-indigo-50/60 px-5 py-2 dark:bg-indigo-950/20">
+                        <span className="text-xs font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-400">
+                          Date TBC
+                        </span>
                       </div>
-                    );
-                  })}
-                </MonthSection>
-              ));
+                      {tbcItems.map((item) => {
+                        if (item.kind !== "booking") return null;
+                        const b = item.data as any;
+                        return (
+                          <div
+                            key={`booking-tbc-${b.id}`}
+                            className="flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40"
+                            onClick={() => setSelectedBooking(b)}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">{b.job_title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {b.company_name ? `${b.company_name} · ` : ""}Date TBC
+                              </p>
+                            </div>
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                              Confirmed
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
             })()}
           </CardContent>
         )}
