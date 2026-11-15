@@ -3758,8 +3758,14 @@ export function BooksTab() {
     }
   };
 
-  // ── Status filter for Earnings (bulk-select state added in PR5) ─────────────
+  // ── Earnings status filter + bulk-select state ───────────────────────────────
   const [earningsFilter, setEarningsFilter] = useState<string>("all");
+  const [selectedEntryIds, setSelectedEntryIds] = useState<Set<number>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<string>("paid");
+  const [bulkDateMode, setBulkDateMode] = useState<
+    "work_date" | "end_of_following_month" | "explicit"
+  >("work_date");
+  const [bulkExplicitDate, setBulkExplicitDate] = useState("");
 
   const { data, isLoading, isError } = useQuery<EarningsData>({
     queryKey: ["/api/earnings/summary"],
@@ -3935,6 +3941,74 @@ export function BooksTab() {
     },
     onError: () => toast({ title: "Failed to remove entry", variant: "destructive" }),
   });
+
+  const bulkMutation = useMutation({
+    mutationFn: (payload: {
+      ids: number[];
+      status: string;
+      date_mode: string;
+      paid_date?: string;
+    }) =>
+      apiRequest("/api/earnings/bulk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: (result: {
+      updated: number;
+      skipped: number;
+      message: string;
+      before_snapshot: Array<{ id: number; status: string; paid_date: string | null }>;
+    }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      setSelectedEntryIds(new Set());
+      const { before_snapshot } = result;
+      toast({
+        title: result.message,
+        description:
+          result.skipped > 0
+            ? `${result.skipped} invoice-linked skipped`
+            : "Undo available for 30s",
+        action: (
+          <button
+            className="rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-200"
+            onClick={() => {
+              Promise.all(
+                before_snapshot.map((snap) =>
+                  apiRequest(`/api/earnings/${snap.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: snap.status, paid_date: snap.paid_date }),
+                  })
+                )
+              )
+                .then(() => {
+                  queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+                  toast({ title: "Undone" });
+                })
+                .catch(() => toast({ title: "Undo failed", variant: "destructive" }));
+            }}
+          >
+            Undo
+          </button>
+        ),
+        duration: 30000,
+      });
+    },
+    onError: () => toast({ title: "Bulk update failed", variant: "destructive" }),
+  });
+
+  const handleBulkApply = () => {
+    const payload: { ids: number[]; status: string; date_mode: string; paid_date?: string } = {
+      ids: Array.from(selectedEntryIds),
+      status: bulkStatus,
+      date_mode: bulkDateMode,
+    };
+    if (bulkStatus === "paid" && bulkDateMode === "explicit" && bulkExplicitDate) {
+      payload.paid_date = bulkExplicitDate;
+    }
+    bulkMutation.mutate(payload);
+  };
 
   const { data: entryHistory = [] } = useQuery<
     { id: number; action: string; summary: string; changed_at: string }[]
@@ -4837,10 +4911,96 @@ export function BooksTab() {
                         </span>
                       </div>
                     ))}
+                    {selectedEntryIds.size > 0 && (
+                      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b bg-blue-50 px-5 py-2 dark:bg-blue-950/30">
+                        <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                          {selectedEntryIds.size} selected
+                        </span>
+                        <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                          <SelectTrigger className="h-6 w-28 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="expected">Expected</SelectItem>
+                            <SelectItem value="invoiced">Invoiced</SelectItem>
+                            <SelectItem value="paid">Paid</SelectItem>
+                            <SelectItem value="overdue">Overdue</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {bulkStatus === "paid" && (
+                          <Select
+                            value={bulkDateMode}
+                            onValueChange={(v) =>
+                              setBulkDateMode(
+                                v as "work_date" | "end_of_following_month" | "explicit"
+                              )
+                            }
+                          >
+                            <SelectTrigger className="h-6 w-44 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="work_date">Work date</SelectItem>
+                              <SelectItem value="end_of_following_month">
+                                End of following month
+                              </SelectItem>
+                              <SelectItem value="explicit">Specific date</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                        {bulkStatus === "paid" && bulkDateMode === "explicit" && (
+                          <input
+                            type="date"
+                            className="h-6 rounded border px-1 text-xs"
+                            value={bulkExplicitDate}
+                            onChange={(e) => setBulkExplicitDate(e.target.value)}
+                          />
+                        )}
+                        <Button
+                          size="sm"
+                          className="h-6 text-xs"
+                          disabled={bulkMutation.isPending}
+                          onClick={handleBulkApply}
+                        >
+                          Apply
+                        </Button>
+                        <button
+                          className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => setSelectedEntryIds(new Set())}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    )}
                     {earningsMonths.map(({ key, items: monthEntries }, mi) => {
                       const monthTotal = monthEntries.reduce(
                         (s, e) => s + (e.gross_amount_pence ?? 0),
                         0
+                      );
+                      const monthIds = monthEntries.map((e) => e.id);
+                      const allSelected = monthIds.every((id) => selectedEntryIds.has(id));
+                      const someSelected =
+                        !allSelected && monthIds.some((id) => selectedEntryIds.has(id));
+                      const selectAll = (
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = someSelected;
+                          }}
+                          className="h-3.5 w-3.5 cursor-pointer accent-blue-600"
+                          onChange={(e) => {
+                            setSelectedEntryIds((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) {
+                                monthIds.forEach((id) => next.add(id));
+                              } else {
+                                monthIds.forEach((id) => next.delete(id));
+                              }
+                              return next;
+                            });
+                          }}
+                        />
                       );
                       return (
                         <MonthSection
@@ -4851,15 +5011,34 @@ export function BooksTab() {
                           headerClass="bg-blue-50/60 dark:bg-blue-950/20"
                           storageKey={`books-earn-month-${key}-${user?.id}`}
                           divider={mi < earningsMonths.length - 1}
+                          selectAll={selectAll}
                         >
                           {monthEntries.map((entry, i) => (
                             <div
                               key={entry.id}
                               className={`flex cursor-pointer items-center justify-between px-5 py-3 hover:bg-muted/50 ${
-                                i % 2 === 0 ? "bg-muted/30" : ""
+                                selectedEntryIds.has(entry.id)
+                                  ? "bg-blue-50/60 dark:bg-blue-950/20"
+                                  : i % 2 === 0
+                                    ? "bg-muted/30"
+                                    : ""
                               }`}
                               onClick={() => setJobDetailEntryId(entry.id)}
                             >
+                              <input
+                                type="checkbox"
+                                checked={selectedEntryIds.has(entry.id)}
+                                className="mr-3 h-3.5 w-3.5 shrink-0 cursor-pointer accent-blue-600"
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => {
+                                  setSelectedEntryIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (e.target.checked) next.add(entry.id);
+                                    else next.delete(entry.id);
+                                    return next;
+                                  });
+                                }}
+                              />
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-medium">
                                   {entry.description ?? "Freelance work"}
