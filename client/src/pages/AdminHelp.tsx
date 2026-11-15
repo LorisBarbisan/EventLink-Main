@@ -25,6 +25,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { loadRegistry } from "@/help/registry";
+import type { HelpDetail, HelpEntry } from "@/help/types";
 
 interface Metric {
   key: string;
@@ -39,7 +41,117 @@ interface Override {
   title?: string | null;
   body?: string | null;
   learn_more_href?: string | null;
+  detail?: HelpDetail | null;
   version: number;
+  updated_at?: string;
+}
+
+const lines = (s: string) =>
+  s
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+function DetailText({ detail }: { detail?: HelpDetail | null }) {
+  if (!detail) return null;
+  return (
+    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+      {detail.paragraphs.map((p, i) => (
+        <p key={i}>{p}</p>
+      ))}
+      {!!detail.canDo?.length && <p>You can: {detail.canDo.join(" · ")}</p>}
+      {!!detail.cannotDo?.length && <p>You can&apos;t: {detail.cannotDo.join(" · ")}</p>}
+    </div>
+  );
+}
+
+function ActiveOverrides({
+  overrides,
+  onEdit,
+  onRevert,
+}: {
+  overrides: Override[];
+  onEdit: (o: Override) => void;
+  onRevert: (key: string) => void;
+}) {
+  const [registry, setRegistry] = useState<Map<string, HelpEntry> | null>(null);
+  useEffect(() => {
+    loadRegistry()
+      .then(setRegistry)
+      .catch(() => setRegistry(new Map()));
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h2 className="text-lg font-semibold">Active overrides</h2>
+        <p className="text-sm text-muted-foreground">
+          These keys are showing database copy instead of the code registry. Fold the fix into the
+          registry file and revert here, or the two will drift.
+        </p>
+      </div>
+      {overrides.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nothing is overridden.</p>
+      ) : (
+        overrides.map((o) => {
+          const base = registry?.get(o.key);
+          return (
+            <Card key={o.key}>
+              <CardContent className="space-y-3 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-mono text-xs">
+                    {o.key}
+                    {registry && !base && (
+                      <Badge variant="destructive" className="ml-2 text-[10px]">
+                        not in registry
+                      </Badge>
+                    )}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => onEdit(o)}>
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => onRevert(o.key)}>
+                      Revert to registry
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-md border p-3">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Registry
+                    </p>
+                    {base ? (
+                      <>
+                        {base.title && <p className="text-sm font-medium">{base.title}</p>}
+                        <p className="text-sm">{base.body}</p>
+                        <DetailText detail={base.detail} />
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {registry ? "No registry entry." : "Loading…"}
+                      </p>
+                    )}
+                  </div>
+                  <div className="rounded-md border border-amber-300 p-3 dark:border-amber-700">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                      Override · v{o.version}
+                      {o.updated_at
+                        ? ` · ${new Date(o.updated_at).toLocaleDateString("en-GB")}`
+                        : ""}
+                    </p>
+                    {o.title && <p className="text-sm font-medium">{o.title}</p>}
+                    <p className="text-sm">{o.body ?? <em>(registry body)</em>}</p>
+                    <DetailText detail={o.detail} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })
+      )}
+    </div>
+  );
 }
 
 function HelpMetricsContent() {
@@ -174,6 +286,12 @@ function HelpMetricsContent() {
         </CardContent>
       </Card>
 
+      <ActiveOverrides
+        overrides={data?.overrides ?? []}
+        onEdit={(o) => setEditing({ key: o.key, override: o })}
+        onRevert={(key) => revert.mutate(key)}
+      />
+
       <OverrideDialog
         editing={editing}
         onClose={() => setEditing(null)}
@@ -201,20 +319,42 @@ function OverrideDialog({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [href, setHref] = useState("");
+  const [paragraphs, setParagraphs] = useState("");
+  const [canDo, setCanDo] = useState("");
+  const [cannotDo, setCannotDo] = useState("");
 
   // Re-seed the form whenever a different row is opened.
   const seedKey = editing?.key;
   useEffect(() => {
+    const d = editing?.override?.detail;
     setTitle(editing?.override?.title ?? "");
     setBody(editing?.override?.body ?? "");
     setHref(editing?.override?.learn_more_href ?? "");
+    setParagraphs((d?.paragraphs ?? []).join("\n"));
+    setCanDo((d?.canDo ?? []).join("\n"));
+    setCannotDo((d?.cannotDo ?? []).join("\n"));
   }, [seedKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const buildDetail = (): HelpDetail | null => {
+    const prev = editing?.override?.detail;
+    const p = lines(paragraphs);
+    const c = lines(canDo);
+    const n = lines(cannotDo);
+    if (!p.length && !c.length && !n.length) return null;
+    return {
+      paragraphs: p,
+      ...(c.length ? { canDo: c } : {}),
+      ...(n.length ? { cannotDo: n } : {}),
+      ...(prev?.seeAlso ? { seeAlso: prev.seeAlso } : {}),
+      ...(prev?.manualOrder != null ? { manualOrder: prev.manualOrder } : {}),
+    };
+  };
 
   if (!editing) return null;
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-mono text-sm">{editing.key}</DialogTitle>
         </DialogHeader>
@@ -240,6 +380,35 @@ function OverrideDialog({
             <Label htmlFor="ov-href">Learn more link (optional)</Label>
             <Input id="ov-href" value={href} onChange={(e) => setHref(e.target.value)} />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ov-paras">Manual paragraphs (one per line, optional)</Label>
+            <Textarea
+              id="ov-paras"
+              rows={4}
+              value={paragraphs}
+              onChange={(e) => setParagraphs(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="ov-can">You can (one per line)</Label>
+              <Textarea
+                id="ov-can"
+                rows={3}
+                value={canDo}
+                onChange={(e) => setCanDo(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ov-cannot">You can&apos;t (one per line)</Label>
+              <Textarea
+                id="ov-cannot"
+                rows={3}
+                value={cannotDo}
+                onChange={(e) => setCannotDo(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
         <DialogFooter className="justify-between sm:justify-between">
           {editing.override ? (
@@ -261,6 +430,7 @@ function OverrideDialog({
                   title: title.trim() || null,
                   body: body.trim() || null,
                   learn_more_href: href.trim() || null,
+                  detail: buildDetail(),
                   version: (editing.override?.version ?? 0) + 1,
                 })
               }
