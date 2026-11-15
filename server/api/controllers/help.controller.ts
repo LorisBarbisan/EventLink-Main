@@ -243,6 +243,39 @@ export async function getHelpAdminMetrics(req: Request, res: Response) {
   }
 }
 
+type HelpDetailRow = NonNullable<typeof help_content_overrides.$inferInsert.detail>;
+
+// The manual pane renders this as plain text; keep only the known shape, as strings.
+function sanitiseDetail(raw: unknown): HelpDetailRow | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const list = (v: unknown, max: number, maxLen: number): string[] =>
+    Array.isArray(v)
+      ? v
+          .filter((s): s is string => typeof s === "string")
+          .map((s) => s.trim().slice(0, maxLen))
+          .filter(Boolean)
+          .slice(0, max)
+      : [];
+
+  const paragraphs = list(r.paragraphs, 20, 2000);
+  const canDo = list(r.canDo, 20, 300);
+  const cannotDo = list(r.cannotDo, 20, 300);
+  const seeAlso = list(r.seeAlso, 20, 120);
+  const order = Number(r.manualOrder);
+  const hasOrder = r.manualOrder != null && Number.isFinite(order);
+  if (!paragraphs.length && !canDo.length && !cannotDo.length && !seeAlso.length && !hasOrder)
+    return null;
+
+  return {
+    paragraphs,
+    ...(canDo.length ? { canDo } : {}),
+    ...(cannotDo.length ? { cannotDo } : {}),
+    ...(seeAlso.length ? { seeAlso } : {}),
+    ...(hasOrder ? { manualOrder: order } : {}),
+  };
+}
+
 // PUT /api/help/admin/content/:key → upsert a copy override (admin only)
 export async function upsertHelpOverride(req: Request, res: Response) {
   try {
@@ -251,6 +284,7 @@ export async function upsertHelpOverride(req: Request, res: Response) {
     if (!key) return res.status(400).json({ error: "Missing key" });
 
     const { title, body, learn_more_href, version } = req.body ?? {};
+    const detail = sanitiseDetail(req.body?.detail);
     const updatedBy = (req as any).user?.id ?? null;
     const now = new Date();
 
@@ -261,6 +295,7 @@ export async function upsertHelpOverride(req: Request, res: Response) {
         title: title ?? null,
         body: body ?? null,
         learn_more_href: learn_more_href ?? null,
+        detail,
         version: Number(version) || 1,
         updated_by: updatedBy,
       })
@@ -270,6 +305,7 @@ export async function upsertHelpOverride(req: Request, res: Response) {
           title: title ?? null,
           body: body ?? null,
           learn_more_href: learn_more_href ?? null,
+          detail,
           version: Number(version) || 1,
           updated_at: now,
           updated_by: updatedBy,

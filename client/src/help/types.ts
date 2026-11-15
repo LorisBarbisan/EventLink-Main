@@ -15,6 +15,17 @@ export interface HelpContext {
   route?: string;
 }
 
+/** Long-form guidance for the manual pane. Plain text only — never rendered as HTML. */
+export interface HelpDetail {
+  paragraphs: string[];
+  canDo?: string[];
+  cannotDo?: string[];
+  /** Other help keys. */
+  seeAlso?: string[];
+  /** Position within its section's manual; unordered entries follow in registry order. */
+  manualOrder?: number;
+}
+
 export interface HelpEntry {
   /** Stable dotted key. Never reused, never renamed — a rename is a new key. */
   key: string;
@@ -24,6 +35,8 @@ export interface HelpEntry {
   /** One sentence. See the copy rules in the epic (section 8). */
   body: string;
   learnMoreHref?: string;
+  /** Long-form guidance for the manual pane. The bubble ignores it. */
+  detail?: HelpDetail;
   /** Restrict by role; omit for everyone. */
   audience?: HelpAudience[];
   /** Restrict by tier — e.g. Pro-only features. */
@@ -59,5 +72,6 @@ export interface HelpOverride {
   title?: string | null;
   body?: string | null;
   learn_more_href?: string | null;
+  detail?: HelpDetail | null;
   version: number;
 }

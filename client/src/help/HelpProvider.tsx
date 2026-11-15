@@ -261,6 +261,7 @@ export function HelpProvider({ children }: { children: React.ReactNode }) {
           title: ov.title ?? base.title,
           body: ov.body ?? base.body,
           learnMoreHref: ov.learn_more_href ?? base.learnMoreHref,
+          detail: ov.detail ?? base.detail,
           version: ov.version ?? base.version,
         };
       }

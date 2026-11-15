@@ -51,6 +51,8 @@ const statements = [
      CONSTRAINT help_content_overrides_key_unique UNIQUE (key)
    )`,
 
+  `ALTER TABLE help_content_overrides ADD COLUMN IF NOT EXISTS detail jsonb`,
+
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS help_mode text DEFAULT 'full'`,
 ];
 

@@ -1916,6 +1916,13 @@ export const help_content_overrides = pgTable("help_content_overrides", {
   title: text("title"),
   body: text("body"),
   learn_more_href: text("learn_more_href"),
+  detail: jsonb("detail").$type<{
+    paragraphs: string[];
+    canDo?: string[];
+    cannotDo?: string[];
+    seeAlso?: string[];
+    manualOrder?: number;
+  }>(),
   version: integer("version").notNull().default(1),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   updated_by: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
