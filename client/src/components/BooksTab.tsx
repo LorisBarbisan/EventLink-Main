@@ -4637,10 +4637,14 @@ export function BooksTab() {
           )}
 
           {summary.excluded.needs_review > 0 && (
-            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+            <button
+              className="mt-3 w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-left text-xs text-amber-700 transition-colors hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50"
+              onClick={() => setEarningsFilter("needs_review")}
+            >
               {summary.excluded.needs_review} entr
-              {summary.excluded.needs_review === 1 ? "y" : "ies"} excluded — amount needs review.
-            </div>
+              {summary.excluded.needs_review === 1 ? "y" : "ies"} excluded from totals — amount
+              needs review. Click to view.
+            </button>
           )}
         </CardContent>
       </Card>
@@ -4906,7 +4910,9 @@ export function BooksTab() {
         const filteredEntries =
           earningsFilter === "all"
             ? completedEntries
-            : completedEntries.filter((e) => e.status === earningsFilter);
+            : earningsFilter === "needs_review"
+              ? entries.filter((e) => e.needs_review)
+              : completedEntries.filter((e) => e.status === earningsFilter);
         const earningsTotal = filteredEntries.reduce((s, e) => s + (e.gross_amount_pence ?? 0), 0);
         const earningsMonths = groupByMonth(filteredEntries, "work_date").reverse();
         return (
@@ -4947,6 +4953,7 @@ export function BooksTab() {
                       <SelectItem value="invoiced">Invoiced</SelectItem>
                       <SelectItem value="paid">Paid</SelectItem>
                       <SelectItem value="overdue">Overdue</SelectItem>
+                      <SelectItem value="needs_review">Needs review</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -5123,6 +5130,22 @@ export function BooksTab() {
                                 </p>
                               </div>
                               <div className="ml-4 flex items-center gap-3">
+                                {entry.needs_review && (
+                                  <span
+                                    title={
+                                      entry.review_reason === "unparsed_amount"
+                                        ? "Amount could not be read from the source"
+                                        : entry.review_reason === "ambiguous_amount"
+                                          ? "Source contained a range value — check the amount"
+                                          : entry.review_reason === "assumed_date"
+                                            ? "Date was assumed; check it matches the original"
+                                            : entry.review_reason === "zero_amount"
+                                              ? "Amount parsed as zero from a non-empty source"
+                                              : "Needs review"
+                                    }
+                                    className="inline-block h-2 w-2 rounded-full bg-amber-400"
+                                  />
+                                )}
                                 <button
                                   className="cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                   title="Change payment status"
