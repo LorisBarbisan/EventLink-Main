@@ -565,6 +565,40 @@ router.patch("/bulk", auth, async (req: Request, res: Response) => {
   }
 });
 
+// PATCH /api/earnings/bulk-review — clear needs_review on selected entries
+router.patch("/bulk-review", auth, async (req: Request, res: Response) => {
+  try {
+    const freelancerId = req.user!.id;
+    const { ids } = req.body as { ids: unknown };
+    if (!Array.isArray(ids) || ids.length === 0)
+      return res.status(400).json({ error: "ids must be a non-empty array" });
+    if (ids.length > 500) return res.status(400).json({ error: "Maximum 500 entries per request" });
+    const numIds = ids.map((id) => Number(id));
+    if (numIds.some((id) => !Number.isInteger(id) || id <= 0))
+      return res.status(400).json({ error: "ids must be positive integers" });
+
+    // Ownership check
+    const existing = await db
+      .select({ id: earnings_entries.id, freelancer_id: earnings_entries.freelancer_id })
+      .from(earnings_entries)
+      .where(and(inArray(earnings_entries.id, numIds), eq(earnings_entries.archived, false)));
+    const foreign = existing.filter((r) => r.freelancer_id !== freelancerId);
+    if (foreign.length > 0) return res.status(403).json({ error: "One or more entries not found" });
+
+    await db
+      .update(earnings_entries)
+      .set({ needs_review: false, review_reason: null, updated_at: new Date() })
+      .where(
+        and(inArray(earnings_entries.id, numIds), eq(earnings_entries.freelancer_id, freelancerId))
+      );
+
+    return res.json({ updated: numIds.length });
+  } catch (err) {
+    console.error("bulk-review error:", err);
+    return res.status(500).json({ error: "Failed to mark as reviewed" });
+  }
+});
+
 // PATCH /api/earnings/:id — update a manual entry
 router.patch("/:id", auth, async (req: Request, res: Response) => {
   try {

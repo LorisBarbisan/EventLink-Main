@@ -4005,6 +4005,18 @@ export function BooksTab() {
     onError: () => toast({ title: "Bulk update failed", variant: "destructive" }),
   });
 
+  const markReviewedMutation = useMutation({
+    mutationFn: (ids: number[]) =>
+      apiRequest("/api/earnings/bulk-review", { method: "PATCH", body: JSON.stringify({ ids }) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/earnings/summary"] });
+      setSelectedEntryIds(new Set());
+      toast({ title: "Marked as reviewed" });
+    },
+    onError: () => toast({ title: "Failed to mark as reviewed", variant: "destructive" }),
+  });
+
   const handleBulkApply = () => {
     const payload: { ids: number[]; status: string; date_mode: string; paid_date?: string } = {
       ids: Array.from(selectedEntryIds),
@@ -5064,6 +5076,24 @@ export function BooksTab() {
                         >
                           Apply
                         </Button>
+                        {(() => {
+                          const selectedFlagged = filteredEntries.filter(
+                            (e) => selectedEntryIds.has(e.id) && e.needs_review
+                          );
+                          return selectedFlagged.length > 0 ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 border-amber-300 text-xs text-amber-700 hover:bg-amber-50"
+                              disabled={markReviewedMutation.isPending}
+                              onClick={() =>
+                                markReviewedMutation.mutate(selectedFlagged.map((e) => e.id))
+                              }
+                            >
+                              Mark as reviewed ({selectedFlagged.length})
+                            </Button>
+                          ) : null;
+                        })()}
                         <button
                           className="ml-auto text-xs text-muted-foreground hover:text-foreground"
                           onClick={() => setSelectedEntryIds(new Set())}
