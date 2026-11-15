@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { JobSelect, type JobOption } from "./JobSelect";
 import {
   BarChart,
@@ -108,6 +108,95 @@ function fmtDate(d: string | null | undefined): string {
     "Dec",
   ];
   return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`;
+}
+
+// ── Month grouping helper + component ─────────────────────────────────────────
+
+function groupByMonth<T>(items: T[], dateKey: keyof T): { key: string; items: T[] }[] {
+  const map: Record<string, T[]> = {};
+  for (const item of items) {
+    const key = String(item[dateKey]).slice(0, 7);
+    (map[key] ??= []).push(item);
+  }
+  return Object.keys(map)
+    .sort()
+    .map((key) => ({ key, items: map[key] }));
+}
+
+function monthLabel(key: string): string {
+  const [y, m] = key.split("-");
+  return new Date(parseInt(y), parseInt(m) - 1).toLocaleString("en-GB", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+interface MonthSectionProps {
+  monthKey: string;
+  total: number | null;
+  accentClass: string;
+  headerClass: string;
+  storageKey: string;
+  children: React.ReactNode;
+  divider?: boolean;
+  selectAll?: React.ReactNode;
+}
+
+function MonthSection({
+  monthKey,
+  total,
+  accentClass,
+  headerClass,
+  storageKey,
+  children,
+  divider,
+  selectAll,
+}: MonthSectionProps) {
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(storageKey) !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try {
+      localStorage.setItem(storageKey, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  };
+  return (
+    <div>
+      <button
+        className={`flex w-full items-center justify-between border-b px-5 py-2 text-left ${headerClass}`}
+        onClick={toggle}
+      >
+        <div className="flex items-center gap-2">
+          <ChevronDown
+            className={`h-3.5 w-3.5 transition-transform ${open ? "" : "-rotate-90"} ${accentClass}`}
+          />
+          {selectAll && (
+            <span onClick={(e) => e.stopPropagation()} className="flex items-center">
+              {selectAll}
+            </span>
+          )}
+          <span className={`text-xs font-bold uppercase tracking-wide ${accentClass}`}>
+            {monthLabel(monthKey)}
+          </span>
+        </div>
+        {total != null && (
+          <span className={`text-xs font-semibold tabular-nums ${accentClass}`}>
+            {formatPence(total)}
+          </span>
+        )}
+      </button>
+      {open && children}
+      {divider && <div className="border-b" />}
+    </div>
+  );
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -1077,6 +1166,7 @@ function UnattachedInbox({ expenses }: { expenses: Expense[] }) {
 function ExpensesSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
@@ -1114,36 +1204,9 @@ function ExpensesSection() {
   const vatRegistered = Boolean(billingProfile?.vat_registered);
   const expenses = expensesData?.expenses ?? [];
 
-  // Group expenses by YYYY-MM month
-  const byMonth = expenses.reduce<Record<string, Expense[]>>((acc, e) => {
-    const key = e.expense_date.slice(0, 7);
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(e);
-    return acc;
-  }, {});
-
-  const monthKeys = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
-
   const categoryMap = Object.fromEntries(categoriesData.map((c) => [c.id, c.name]));
 
-  function monthLabel(key: string) {
-    const [y, m] = key.split("-");
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    return `${months[parseInt(m) - 1]} ${y}`;
-  }
+  const expenseMonths = groupByMonth(expenses, "expense_date").reverse();
 
   const openAdd = () => {
     setEditingExpense(null);
@@ -1198,8 +1261,7 @@ function ExpensesSection() {
             </div>
           ) : (
             <div>
-              {monthKeys.map((key, mi) => {
-                const monthExpenses = byMonth[key];
+              {expenseMonths.map(({ key, items: monthExpenses }, mi) => {
                 const monthTotal = monthExpenses.reduce(
                   (sum, e) =>
                     e.allowable
@@ -1211,16 +1273,15 @@ function ExpensesSection() {
                   0
                 );
                 return (
-                  <div key={key}>
-                    {/* Month header */}
-                    <div className="flex items-center justify-between border-b bg-amber-50/60 px-5 py-2 dark:bg-amber-950/20">
-                      <span className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
-                        {monthLabel(key)}
-                      </span>
-                      <span className="text-xs font-semibold tabular-nums text-amber-700 dark:text-amber-400">
-                        {formatPence(monthTotal)}
-                      </span>
-                    </div>
+                  <MonthSection
+                    key={key}
+                    monthKey={key}
+                    total={monthTotal}
+                    accentClass="text-amber-700 dark:text-amber-400"
+                    headerClass="bg-amber-50/60 dark:bg-amber-950/20"
+                    storageKey={`books-exp-month-${key}-${user?.id}`}
+                    divider={mi < expenseMonths.length - 1}
+                  >
                     {monthExpenses.map((expense, i) => {
                       const total = expense.net_amount_pence + expense.vat_amount_pence;
                       const allowableAmount = Math.round(
@@ -1286,8 +1347,7 @@ function ExpensesSection() {
                         </div>
                       );
                     })}
-                    {mi < monthKeys.length - 1 && <div className="border-b" />}
-                  </div>
+                  </MonthSection>
                 );
               })}
             </div>
@@ -1988,6 +2048,7 @@ function TimeSection() {
 function MileageSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<MileageTrip | null>(null);
   const [showPlaces, setShowPlaces] = useState(false);
@@ -2070,12 +2131,7 @@ function MileageSection() {
   const trips = tripsData?.trips ?? [];
   const totalPence = tripsData?.total_pence ?? 0;
 
-  // Group by month
-  const byMonth = trips.reduce<Record<string, MileageTrip[]>>((acc, t) => {
-    const key = t.trip_date.slice(0, 7);
-    (acc[key] ??= []).push(t);
-    return acc;
-  }, {});
+  const tripMonths = groupByMonth(trips, "trip_date").reverse();
 
   return (
     <div className="space-y-4">
@@ -2146,66 +2202,58 @@ function MileageSection() {
             </div>
           ) : (
             <div>
-              {Object.entries(byMonth)
-                .sort(([a], [b]) => b.localeCompare(a))
-                .map(([month, monthTrips], mi) => {
-                  const monthTotal = monthTrips.reduce((s, t) => s + t.amount_pence, 0);
-                  const [y, m] = month.split("-");
-                  const label = new Date(parseInt(y), parseInt(m) - 1).toLocaleString("en-GB", {
-                    month: "long",
-                    year: "numeric",
-                  });
-                  return (
-                    <div key={month}>
-                      <div className="flex items-center justify-between border-b bg-purple-50/60 px-5 py-2 dark:bg-purple-950/20">
-                        <span className="text-xs font-bold uppercase tracking-wide text-purple-700 dark:text-purple-400">
-                          {label}
-                        </span>
-                        <span className="text-xs font-semibold tabular-nums text-purple-700 dark:text-purple-400">
-                          {formatPence(monthTotal)}
-                        </span>
-                      </div>
-                      {monthTrips.map((trip, i) => (
-                        <div
-                          key={trip.id}
-                          className={`flex items-start justify-between px-5 py-3 ${i % 2 === 0 ? "bg-muted/20" : ""}`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">
-                              {trip.from_place} → {trip.to_place}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {fmtDate(trip.trip_date)} · {trip.miles} mi · {trip.purpose}
-                            </p>
-                          </div>
-                          <div className="ml-3 flex items-center gap-2">
-                            <span className="min-w-[72px] text-right text-sm font-semibold tabular-nums text-purple-700 dark:text-purple-300">
-                              {formatPence(trip.amount_pence)}
-                            </span>
-                            <button
-                              className="text-muted-foreground transition-colors hover:text-foreground"
-                              title="Edit"
-                              onClick={() => {
-                                setEditingTrip(trip);
-                                setDialogOpen(true);
-                              }}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              className="text-muted-foreground transition-colors hover:text-destructive"
-                              title="Remove"
-                              onClick={() => archiveMutation.mutate(trip.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
+              {tripMonths.map(({ key: month, items: monthTrips }, mi) => {
+                const monthTotal = monthTrips.reduce((s, t) => s + t.amount_pence, 0);
+                return (
+                  <MonthSection
+                    key={month}
+                    monthKey={month}
+                    total={monthTotal}
+                    accentClass="text-purple-700 dark:text-purple-400"
+                    headerClass="bg-purple-50/60 dark:bg-purple-950/20"
+                    storageKey={`books-mil-month-${month}-${user?.id}`}
+                    divider={mi < tripMonths.length - 1}
+                  >
+                    {monthTrips.map((trip, i) => (
+                      <div
+                        key={trip.id}
+                        className={`flex items-start justify-between px-5 py-3 ${i % 2 === 0 ? "bg-muted/20" : ""}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">
+                            {trip.from_place} → {trip.to_place}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {fmtDate(trip.trip_date)} · {trip.miles} mi · {trip.purpose}
+                          </p>
                         </div>
-                      ))}
-                      {mi < Object.keys(byMonth).length - 1 && <div className="border-b" />}
-                    </div>
-                  );
-                })}
+                        <div className="ml-3 flex items-center gap-2">
+                          <span className="min-w-[72px] text-right text-sm font-semibold tabular-nums text-purple-700 dark:text-purple-300">
+                            {formatPence(trip.amount_pence)}
+                          </span>
+                          <button
+                            className="text-muted-foreground transition-colors hover:text-foreground"
+                            title="Edit"
+                            onClick={() => {
+                              setEditingTrip(trip);
+                              setDialogOpen(true);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            className="text-muted-foreground transition-colors hover:text-destructive"
+                            title="Remove"
+                            onClick={() => archiveMutation.mutate(trip.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </MonthSection>
+                );
+              })}
             </div>
           )}
         </CardContent>
