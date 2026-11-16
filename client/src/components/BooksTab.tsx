@@ -1,3 +1,4 @@
+import { fmtDate as fmtSharedDate } from "@shared/dates";
 import React, { useEffect, useRef, useState } from "react";
 import { JobSelect, type JobOption } from "./JobSelect";
 import {
@@ -81,6 +82,7 @@ import { ImportWizard } from "./ImportWizard";
 import { ManualToggle } from "@/help/ManualPane";
 import { manualStore } from "@/help/manualStore";
 import { type GigForm, EMPTY_GIG_FORM, GigFormBody } from "./GigFormFields";
+const fmtDate = (d: string | null | undefined) => fmtSharedDate(d, "—");
 
 // ── Money helpers ──────────────────────────────────────────────────────────────
 
@@ -90,26 +92,6 @@ function formatPence(pence: number | null | undefined, currency = "GBP"): string
   const symbol =
     currency === "GBP" ? "£" : currency === "USD" ? "$" : currency === "EUR" ? "€" : `${currency} `;
   return `${symbol}${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function fmtDate(d: string | null | undefined): string {
-  if (!d) return "—";
-  const [y, m, day] = d.slice(0, 10).split("-");
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`;
 }
 
 // ── Month grouping helper + component ─────────────────────────────────────────

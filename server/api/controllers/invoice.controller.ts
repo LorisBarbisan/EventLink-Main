@@ -1,3 +1,4 @@
+import { fmtDate } from "@shared/dates";
 import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { parseRateToPence, deriveQuantity } from "../utils/invoice-parsing";
@@ -1161,26 +1162,6 @@ function formatMoney(pence: number, currency: string): string {
   const symbol =
     currency === "GBP" ? "£" : currency === "USD" ? "$" : currency === "EUR" ? "€" : `${currency} `;
   return `${symbol}${amount.toLocaleString("en-GB", { minimumFractionDigits: 2 })}`;
-}
-
-function fmtDate(d: string | null | undefined): string {
-  if (!d) return "";
-  const [y, m, day] = String(d).slice(0, 10).split("-");
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`;
 }
 
 function addDays(dateStr: string, days: number): string {

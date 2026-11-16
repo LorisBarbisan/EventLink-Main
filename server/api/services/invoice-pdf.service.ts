@@ -1,3 +1,4 @@
+import { fmtDate } from "@shared/dates";
 import PDFDocument from "pdfkit";
 import https from "https";
 import http from "http";
@@ -979,27 +980,6 @@ function formatMoney(pence: number | null | undefined, currency: string): string
   const symbol =
     currency === "GBP" ? "£" : currency === "USD" ? "$" : currency === "EUR" ? "€" : `${currency} `;
   return `${symbol}${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function fmtDate(d: string | Date | null | undefined): string {
-  if (!d) return "";
-  const s = typeof d === "string" ? d : d.toISOString().slice(0, 10);
-  const [y, m, day] = s.slice(0, 10).split("-");
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`;
 }
 
 function buildAddressLines(from: any, profile: FreelancerBillingProfile): string[] {

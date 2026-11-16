@@ -1,3 +1,4 @@
+import { fmtDate as fmtSharedDate } from "@shared/dates";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -13,6 +14,7 @@ import {
   Pencil,
   Plus,
 } from "lucide-react";
+const fmtDate = (d: string | null | undefined) => fmtSharedDate(d, "—");
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -68,26 +70,6 @@ interface Invoice {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fmtDate(d: string | null | undefined): string {
-  if (!d) return "—";
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const [y, m, day] = d.slice(0, 10).split("-");
-  return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`;
-}
 
 function fmtPence(p: number | null | undefined, currency = "GBP"): string {
   if (p == null) return "—";

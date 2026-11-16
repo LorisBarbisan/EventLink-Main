@@ -1,3 +1,4 @@
+import { fmtDate as fmtSharedDate } from "@shared/dates";
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Package, Plus, Paperclip, Trash2, Pencil, Upload } from "lucide-react";
+const fmtDate = (d: string | null | undefined) => fmtSharedDate(d, "—");
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -81,26 +83,6 @@ function formatPence(pence: number | null | undefined, currency = "GBP"): string
   const sym =
     currency === "GBP" ? "£" : currency === "USD" ? "$" : currency === "EUR" ? "€" : `${currency} `;
   return `${sym}${(pence / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function fmtDate(d: string | null | undefined): string {
-  if (!d) return "—";
-  const [y, m, day] = d.slice(0, 10).split("-");
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`;
 }
 
 const CATEGORY_LABELS: Record<KitCategory, string> = {
