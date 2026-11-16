@@ -1172,10 +1172,13 @@ export function CalendarTab({
               agendaDateFormat: (date: Date) => format(date, "EEE d MMM yyyy"),
             }}
             popup
-            tooltipAccessor={(event: any) =>
-              event.isAvailability
-                ? `${AVAIL_LABELS[event.availStatus]}${event.resource?.note ? ` · ${event.resource.note}` : ""}`
-                : `${event.title} — ${BOOKING_LABELS[event.status] ?? event.status}`
+            tooltipAccessor={
+              (event: any) =>
+                event.isAvailability
+                  ? `${AVAIL_LABELS[event.availStatus]}${event.resource?.note ? ` · ${event.resource.note}` : ""}`
+                  : event.status
+                    ? `${event.title} — ${BOOKING_LABELS[event.status] ?? event.status}`
+                    : event.title // gig titles already carry their status
             }
           />
         )}
