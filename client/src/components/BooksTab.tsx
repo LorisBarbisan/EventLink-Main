@@ -83,6 +83,7 @@ import { ImportWizard } from "./ImportWizard";
 import { ManualToggle } from "@/help/ManualPane";
 import { manualStore } from "@/help/manualStore";
 import { type GigForm, EMPTY_GIG_FORM, GigFormBody } from "./GigFormFields";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 const fmtDate = (d: string | null | undefined) => fmtSharedDate(d, "—");
 
 // ── Money helpers ──────────────────────────────────────────────────────────────
@@ -598,18 +599,16 @@ function ExpenseDialog({
             </div>
             <div className="space-y-1">
               <Label>Category</Label>
-              <Select value={form.category_id} onValueChange={(v) => set("category_id", v)}>
-                <SelectTrigger style={{ fontSize: "16px" }}>
-                  <SelectValue placeholder="Pick one" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={form.category_id}
+                onChange={(v) => set("category_id", v)}
+                options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
+                placeholder="Pick one"
+                searchPlaceholder="Type a category"
+                emptyLabel="No categories match"
+                triggerClassName="text-base"
+                aria-label="Category"
+              />
             </div>
           </div>
 
@@ -1103,24 +1102,24 @@ function UnattachedInbox({ expenses }: { expenses: Expense[] }) {
                     <p className="text-xs text-muted-foreground">{fmtDate(r.captured_at)}</p>
                   </div>
                   {expenses.length > 0 && (
-                    <select
-                      className="rounded border bg-background px-2 py-1 text-xs"
-                      defaultValue=""
-                      onChange={(e) => {
-                        const expId = parseInt(e.target.value);
+                    <SearchableSelect
+                      value=""
+                      onChange={(v) => {
+                        const expId = parseInt(v);
                         if (expId) attachMutation.mutate({ receiptId: r.id, expenseId: expId });
-                        e.target.value = "";
                       }}
-                    >
-                      <option value="" disabled>
-                        Attach to…
-                      </option>
-                      {expenses.slice(0, 20).map((exp) => (
-                        <option key={exp.id} value={exp.id}>
-                          {fmtDate(exp.expense_date)} · {exp.supplier || exp.description}
-                        </option>
-                      ))}
-                    </select>
+                      options={expenses.map((exp) => ({
+                        value: String(exp.id),
+                        label: exp.supplier || exp.description,
+                        sublabel: fmtDate(exp.expense_date),
+                        keywords: [exp.description, exp.supplier],
+                      }))}
+                      placeholder="Attach to…"
+                      searchPlaceholder="Type a supplier, description or date"
+                      emptyLabel="No expenses match"
+                      className="h-8 w-40 shrink-0 px-2 text-xs"
+                      aria-label="Attach receipt to expense"
+                    />
                   )}
                 </div>
               ))}

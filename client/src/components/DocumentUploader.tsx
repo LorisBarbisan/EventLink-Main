@@ -13,13 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -33,6 +26,7 @@ import {
   type CredentialStatus,
   type DocumentType,
 } from "@shared/credentials";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface Document {
   id: number;
@@ -445,9 +439,9 @@ export function DocumentUploader({
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Select
+              <SearchableSelect
                 value={selectedType}
-                onValueChange={(value) => {
+                onChange={(value) => {
                   setSelectedType(value);
                   if (value !== "Other") {
                     setCustomTypeName("");
@@ -459,18 +453,17 @@ export function DocumentUploader({
                   setIssuingBody("");
                   setReferenceNumber("");
                 }}
-              >
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Select document type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {documentTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {DOCUMENT_TYPE_LABELS[type] || type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={documentTypes.map((type) => ({
+                  value: type,
+                  label: DOCUMENT_TYPE_LABELS[type] || type,
+                  keywords: [type],
+                }))}
+                placeholder="Select document type"
+                searchPlaceholder="Type a document type"
+                emptyLabel="No document types match"
+                className="flex-1"
+                aria-label="Document type"
+              />
 
               <Button
                 variant="outline"

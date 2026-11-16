@@ -183,7 +183,7 @@ export function SearchableSelect({
             const isSelected = o.value === value;
             return (
               <li
-                key={`${isPinned ? "p" : "o"}-${o.value}`}
+                key={`${isPinned ? "p" : "o"}-${i}-${o.value}`}
                 id={optionId(i)}
                 data-index={i}
                 role="option"

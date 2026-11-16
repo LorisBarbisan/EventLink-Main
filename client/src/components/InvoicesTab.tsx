@@ -45,6 +45,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { fmtDate } from "@shared/dates";
 
 // ── Downloads (auth-aware) ────────────────────────────────────────────────────
 
@@ -937,10 +939,10 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
               <p data-help="books.invoices.linkJob" className="mb-2 text-sm font-medium">
                 Linked job
               </p>
-              <Select
-                value={selectedBookingId?.toString() ?? "none"}
-                onValueChange={(val) => {
-                  if (val === "none") {
+              <SearchableSelect
+                value={selectedBookingId?.toString() ?? ""}
+                onChange={(val) => {
+                  if (val === "") {
                     setSelectedBookingId(null);
                     return;
                   }
@@ -957,21 +959,23 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
                     }));
                   }
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a job to link…" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— No job linked —</SelectItem>
-                  {hiredBookings.map((b) => (
-                    <SelectItem key={b.booking.id} value={b.booking.id.toString()}>
-                      {b.job.title}
-                      {b.employer.companyName ? ` · ${b.employer.companyName}` : ""}
-                      {b.job.eventDate ? ` (${b.job.eventDate.slice(0, 10)})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={hiredBookings.map((b) => ({
+                  value: b.booking.id.toString(),
+                  label: b.job.title,
+                  sublabel: [
+                    b.employer.companyName,
+                    b.job.eventDate ? fmtDate(b.job.eventDate) : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · "),
+                  keywords: [b.employer.firstName, b.employer.lastName],
+                }))}
+                pinned={[{ value: "", label: "No job linked" }]}
+                placeholder="Select a job to link…"
+                searchPlaceholder="Type a job, company or date"
+                emptyLabel="No jobs match"
+                aria-label="Linked job"
+              />
               <p className="mt-1 text-xs text-muted-foreground">
                 Linking a job lets you send this invoice directly to the employer via EventLink
                 messages.
@@ -983,34 +987,35 @@ function InvoiceEditModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
           {clientOptions.length > 0 && currentStatus === "draft" && (
             <div>
               <p className="mb-2 text-sm font-medium">Client</p>
-              <Select
-                value={selectedClientId?.toString() ?? "none"}
-                onValueChange={(val) => {
-                  if (val === "none") {
+              <SearchableSelect
+                value={selectedClientId?.toString() ?? ""}
+                onChange={(val) => {
+                  if (val === "") {
                     setSelectedClientId(null);
                     setClientSource(null);
                     return;
                   }
                   applyClient(parseInt(val));
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pick a saved client to prefill…" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— No client selected —</SelectItem>
-                  {clientOptions
-                    .filter((c) => !(c as any).archived)
-                    .map((c) => (
-                      <SelectItem key={c.id} value={c.id.toString()}>
-                        {c.name}
-                        {c.last_invoiced
-                          ? ` · last invoiced ${new Date(c.last_invoiced).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
-                          : ""}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+                options={clientOptions
+                  .filter((c) => !(c as { archived?: boolean }).archived)
+                  .map((c) => ({
+                    value: c.id.toString(),
+                    label: c.name,
+                    sublabel: [
+                      c.contact_name,
+                      c.last_invoiced ? `last invoiced ${fmtDate(c.last_invoiced)}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · "),
+                    keywords: [c.contact_email, c.city, c.postcode],
+                  }))}
+                pinned={[{ value: "", label: "No client selected" }]}
+                placeholder="Pick a saved client to prefill…"
+                searchPlaceholder="Type a name, contact, email or postcode"
+                emptyLabel="No clients match"
+                aria-label="Client"
+              />
               {clientSource && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   Billing details prefilled from{" "}
@@ -2118,22 +2123,19 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
             {!sendingInvoice?.booking_id && (
               <div className="space-y-1">
                 <Label>Send to</Label>
-                <Select
+                <SearchableSelect
                   value={sendRecipientEmployerId?.toString() ?? ""}
-                  onValueChange={(val) => setSendRecipientEmployerId(parseInt(val))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a job / employer…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sendOptions.map((opt) => (
-                      <SelectItem key={opt.key} value={opt.employerUserId.toString()}>
-                        {opt.jobTitle}
-                        {opt.companyName ? ` · ${opt.companyName}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(val) => setSendRecipientEmployerId(parseInt(val))}
+                  options={sendOptions.map((opt) => ({
+                    value: opt.employerUserId.toString(),
+                    label: opt.jobTitle,
+                    sublabel: opt.companyName ?? undefined,
+                  }))}
+                  placeholder="Choose a job / employer…"
+                  searchPlaceholder="Type a job or company"
+                  emptyLabel="No jobs match"
+                  aria-label="Send to"
+                />
               </div>
             )}
             <div className="space-y-1">

@@ -53,6 +53,8 @@ import {
   XCircle,
 } from "lucide-react";
 import type { Job } from "@shared/types";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { fmtDate } from "@shared/dates";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   active: { label: "Live", color: "text-green-700", bg: "bg-green-100" },
@@ -833,22 +835,22 @@ function AllApplicationsView({ jobs, isLoading }: { jobs: Job[]; isLoading: bool
       {jobsWithApps.length > 1 && (
         <div className="flex items-center gap-2">
           <Label className="shrink-0 text-sm">Filter by job:</Label>
-          <Select
+          <SearchableSelect
             value={String(selectedJobId)}
-            onValueChange={(v) => setSelectedJobId(v === "all" ? "all" : parseInt(v))}
-          >
-            <SelectTrigger className="w-56">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All jobs</SelectItem>
-              {jobsWithApps.map((j) => (
-                <SelectItem key={j.id} value={String(j.id)}>
-                  {j.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={(v) => setSelectedJobId(v === "all" ? "all" : parseInt(v))}
+            options={jobsWithApps.map((j) => ({
+              value: String(j.id),
+              label: j.title,
+              sublabel: [j.location, j.event_date ? fmtDate(j.event_date) : null]
+                .filter(Boolean)
+                .join(" · "),
+            }))}
+            pinned={[{ value: "all", label: "All jobs" }]}
+            searchPlaceholder="Type a job, location or date"
+            emptyLabel="No jobs match"
+            className="w-64"
+            aria-label="Filter by job"
+          />
         </div>
       )}
       {filteredJobs.map((job) => (
