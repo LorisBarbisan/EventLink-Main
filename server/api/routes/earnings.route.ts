@@ -445,7 +445,7 @@ router.get("/:id", auth, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
-    const entry = await storage.getEarningsEntry(id);
+    const entry = await storage.getEarningsEntryWithClient(id);
     if (!entry || entry.freelancer_id !== req.user!.id)
       return res.status(404).json({ error: "Not found" });
     return res.json(entry);

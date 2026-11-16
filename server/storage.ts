@@ -861,8 +861,15 @@ export interface IStorage {
     freelancerId: number,
     opts?: { status?: string; clientId?: number; roleId?: number; archived?: boolean }
   ): Promise<EarningsEntry[]>;
-  listEarningsGigs(freelancerId: number, from: string, to: string): Promise<EarningsEntry[]>;
+  listEarningsGigs(
+    freelancerId: number,
+    from: string,
+    to: string
+  ): Promise<(EarningsEntry & { client_name: string | null })[]>;
   getEarningsEntry(id: number): Promise<EarningsEntry | undefined>;
+  getEarningsEntryWithClient(
+    id: number
+  ): Promise<(EarningsEntry & { client_name: string | null }) | undefined>;
   getEarningsEntryByBooking(bookingId: number): Promise<EarningsEntry | undefined>;
   getEarningsEntryByInvoice(invoiceId: number): Promise<EarningsEntry | undefined>;
   createEarningsEntry(data: InsertEarningsEntry): Promise<EarningsEntry>;
@@ -7026,10 +7033,15 @@ export class DatabaseStorage implements IStorage {
     return [...future, ...rest];
   }
 
-  async listEarningsGigs(freelancerId: number, from: string, to: string): Promise<EarningsEntry[]> {
+  async listEarningsGigs(
+    freelancerId: number,
+    from: string,
+    to: string
+  ): Promise<(EarningsEntry & { client_name: string | null })[]> {
     return db
-      .select()
+      .select({ ...getTableColumns(earnings_entries), client_name: earnings_clients.name })
       .from(earnings_entries)
+      .leftJoin(earnings_clients, eq(earnings_entries.client_id, earnings_clients.id))
       .where(
         and(
           eq(earnings_entries.freelancer_id, freelancerId),
@@ -7040,6 +7052,18 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(asc(earnings_entries.work_date));
+  }
+
+  async getEarningsEntryWithClient(
+    id: number
+  ): Promise<(EarningsEntry & { client_name: string | null }) | undefined> {
+    const [row] = await db
+      .select({ ...getTableColumns(earnings_entries), client_name: earnings_clients.name })
+      .from(earnings_entries)
+      .leftJoin(earnings_clients, eq(earnings_entries.client_id, earnings_clients.id))
+      .where(eq(earnings_entries.id, id))
+      .limit(1);
+    return row;
   }
 
   async getEarningsEntry(id: number): Promise<EarningsEntry | undefined> {
