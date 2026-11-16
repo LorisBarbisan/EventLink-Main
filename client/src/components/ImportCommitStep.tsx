@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
   FileText,
 } from "lucide-react";
 import type { ImportBatch } from "./ImportWizard";
+import { ImportRollbackDialog } from "./ImportRollbackDialog";
 
 interface Props {
   batch: ImportBatch;
@@ -72,7 +74,11 @@ export function ImportCommitStep({ batch, onBatchChange, onDone }: Props) {
   });
 
   const { mutate: commit, isPending: committing } = useMutation<ImportBatch, Error>({
-    mutationFn: () => apiRequest(`/api/imports/${batch.id}/commit`, { method: "POST" }),
+    // The endpoint replies { ok }, so fetch the batch the wizard renders from.
+    mutationFn: async () => {
+      await apiRequest(`/api/imports/${batch.id}/commit`, { method: "POST" });
+      return apiRequest(`/api/imports/${batch.id}`);
+    },
     onSuccess: (updated) => {
       toast({ title: `${updated.committed_count} record(s) committed successfully` });
       onBatchChange(updated);
@@ -81,15 +87,7 @@ export function ImportCommitStep({ batch, onBatchChange, onDone }: Props) {
       toast({ title: "Commit failed", description: err.message, variant: "destructive" }),
   });
 
-  const { mutate: rollback, isPending: rollingBack } = useMutation<ImportBatch, Error>({
-    mutationFn: () => apiRequest(`/api/imports/${batch.id}/rollback`, { method: "POST" }),
-    onSuccess: (updated) => {
-      toast({ title: "Import rolled back — all created records deleted." });
-      onBatchChange(updated);
-    },
-    onError: (err) =>
-      toast({ title: "Rollback failed", description: err.message, variant: "destructive" }),
-  });
+  const [confirmRollback, setConfirmRollback] = useState(false);
 
   // ── Committing in progress ──
 
@@ -113,8 +111,8 @@ export function ImportCommitStep({ batch, onBatchChange, onDone }: Props) {
           <div>
             <h3 className="text-lg font-semibold">Import committed</h3>
             <p className="text-sm text-muted-foreground">
-              Records are now visible in your books. You can roll back this import at any time to
-              delete them.
+              Records are now visible in your books. You can roll this import back at any time from
+              Import history.
             </p>
           </div>
         </div>
@@ -122,21 +120,20 @@ export function ImportCommitStep({ batch, onBatchChange, onDone }: Props) {
         <SummaryCard batch={batch} />
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
-          <Button variant="outline" onClick={() => rollback()} disabled={rollingBack}>
-            {rollingBack ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Rolling back…
-              </>
-            ) : (
-              <>
-                <Undo2 className="mr-2 h-4 w-4" />
-                Roll back import
-              </>
-            )}
+          <Button variant="outline" onClick={() => setConfirmRollback(true)}>
+            <Undo2 className="mr-2 h-4 w-4" />
+            Roll back import
           </Button>
           <Button onClick={onDone}>Done</Button>
         </div>
+        {confirmRollback && (
+          <ImportRollbackDialog
+            batch={batch}
+            open
+            onClose={() => setConfirmRollback(false)}
+            onRolledBack={onBatchChange}
+          />
+        )}
       </div>
     );
   }
@@ -150,7 +147,8 @@ export function ImportCommitStep({ batch, onBatchChange, onDone }: Props) {
           <Undo2 className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
           <p className="font-medium">Import rolled back</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            All records created by this import have been deleted.
+            The records this import created have been removed from your books. You can restore them
+            for 30 days.
           </p>
         </div>
         <div className="flex justify-end">

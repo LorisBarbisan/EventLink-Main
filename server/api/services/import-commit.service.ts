@@ -277,6 +277,99 @@ export async function rollbackBatch(batchId: number, freelancerId: number): Prom
   });
 }
 
+// ── importImpact ───────────────────────────────────────────────────────────────
+// What rolling a batch back would remove, and how much of it has been worked on
+// since: edited after commit, or linked to an EventLink booking (imports never
+// set booking_id, so any link was added later). Records are returned so the
+// client can offer them as a download before acting.
+
+export interface ImpactRecord {
+  table: "earnings_entries" | "expenses";
+  id: number;
+  date: string;
+  description: string;
+  amount_pence: number;
+  currency: string;
+  edited: boolean;
+  linked: boolean;
+}
+
+export async function importImpact(batchId: number, freelancerId: number) {
+  const [batch] = await db
+    .select()
+    .from(import_batches)
+    .where(and(eq(import_batches.id, batchId), eq(import_batches.freelancer_id, freelancerId)))
+    .limit(1);
+  if (!batch) throw Object.assign(new Error("Batch not found"), { httpStatus: 404 });
+
+  const created = await db
+    .select({ table: import_rows.created_record_table, id: import_rows.created_record_id })
+    .from(import_rows)
+    .where(and(eq(import_rows.batch_id, batchId), isNotNull(import_rows.created_record_id)));
+  const ids = (t: string) => created.filter((r) => r.table === t).map((r) => r.id as number);
+  const earningIds = ids("earnings_entries");
+  const expenseIds = ids("expenses");
+
+  // A record written during commit has updated_at at or just before committed_at;
+  // allow a minute of slack for a long commit.
+  const editedAfter = batch.committed_at
+    ? new Date(new Date(batch.committed_at).getTime() + 60_000)
+    : null;
+  const wasEdited = (updated: Date | string) =>
+    editedAfter != null && new Date(updated) > editedAfter;
+
+  const records: ImpactRecord[] = [];
+  if (earningIds.length) {
+    const rows = await db
+      .select()
+      .from(earnings_entries)
+      .where(
+        and(
+          inArray(earnings_entries.id, earningIds),
+          eq(earnings_entries.freelancer_id, freelancerId)
+        )
+      );
+    for (const e of rows) {
+      records.push({
+        table: "earnings_entries",
+        id: e.id,
+        date: e.work_date,
+        description: e.description,
+        amount_pence: e.gross_amount_pence,
+        currency: e.currency,
+        edited: wasEdited(e.updated_at),
+        linked: e.booking_id != null,
+      });
+    }
+  }
+  if (expenseIds.length) {
+    const rows = await db
+      .select()
+      .from(expenses)
+      .where(and(inArray(expenses.id, expenseIds), eq(expenses.freelancer_id, freelancerId)));
+    for (const x of rows) {
+      records.push({
+        table: "expenses",
+        id: x.id,
+        date: x.expense_date,
+        description: x.description,
+        amount_pence: x.net_amount_pence + x.vat_amount_pence,
+        currency: x.currency,
+        edited: wasEdited(x.updated_at),
+        linked: x.booking_id != null || x.earnings_entry_id != null,
+      });
+    }
+  }
+
+  return {
+    earnings: records.filter((r) => r.table === "earnings_entries").length,
+    expenses: records.filter((r) => r.table === "expenses").length,
+    edited: records.filter((r) => r.edited).length,
+    linked: records.filter((r) => r.linked).length,
+    records,
+  };
+}
+
 // ── Sweeper ────────────────────────────────────────────────────────────────────
 // Marks batches stuck in 'committing' as failed after 30 minutes.
 

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Request, Response } from "express";
-import { commitBatch, rollbackBatch } from "../services/import-commit.service";
+import { commitBatch, rollbackBatch, importImpact } from "../services/import-commit.service";
 
 // ── POST /api/imports/:id/commit ───────────────────────────────────────────────
 // Writes all approved rows to the ledger. Synchronous for now (runs in a single
@@ -52,5 +52,26 @@ export async function rollbackImport(req: Request, res: Response): Promise<void>
   } catch (err: any) {
     const status = err?.httpStatus ?? 500;
     res.status(status).json({ error: err?.message ?? "Rollback failed" });
+  }
+}
+
+// ── GET /api/imports/:id/impact ────────────────────────────────────────────────
+// What a rollback would remove and how much of it has been edited or linked since.
+
+export async function importImpactHandler(req: Request, res: Response): Promise<void> {
+  const userId = (req as any).user?.id;
+  const batchId = parseInt(req.params.id);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  if (isNaN(batchId)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  try {
+    res.json(await importImpact(batchId, userId));
+  } catch (err: any) {
+    res.status(err?.httpStatus ?? 500).json({ error: err?.message ?? "Failed" });
   }
 }

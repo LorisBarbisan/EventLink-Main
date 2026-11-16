@@ -22,6 +22,7 @@ import {
 import { ImportMappingStep } from "./ImportMappingStep";
 import { ImportReviewStep } from "./ImportReviewStep";
 import { ImportCommitStep } from "./ImportCommitStep";
+import { ImportRollbackDialog } from "./ImportRollbackDialog";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,8 @@ export interface ImportBatch {
   parse_progress: number;
   error: string | null;
   created_at: string;
+  committed_at?: string | null;
+  rolled_back_at?: string | null;
   full_fidelity_from: string | null;
   date_format: string | null;
 }
@@ -119,6 +122,9 @@ function HistoryList({
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [rollingBack, setRollingBack] = useState<ImportBatch | null>(null);
+  const fmtDay = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
   const { data: batches = [], isLoading } = useQuery<ImportBatch[]>({
     queryKey: ["/api/imports"],
@@ -179,7 +185,9 @@ function HistoryList({
           {batches.map((b) => (
             <Card
               key={b.id}
-              className="group cursor-pointer transition-colors hover:bg-muted/40"
+              className={`group cursor-pointer transition-colors hover:bg-muted/40 ${
+                b.status === "rolled_back" || b.status === "failed" ? "opacity-60" : ""
+              }`}
               onClick={() => onOpen(b)}
             >
               <CardContent className="flex items-center gap-3 p-4">
@@ -193,7 +201,10 @@ function HistoryList({
                     <span>{fmtBytes(b.size_bytes)}</span>
                     {b.row_count > 0 && <span>{b.row_count} rows</span>}
                     {b.committed_count > 0 && <span>{b.committed_count} committed</span>}
-                    <span>{new Date(b.created_at).toLocaleDateString()}</span>
+                    <span>{fmtDay(b.created_at)}</span>
+                    {b.status === "rolled_back" && b.rolled_back_at && (
+                      <span>rolled back {fmtDay(b.rolled_back_at)}</span>
+                    )}
                   </div>
                   {(b.status === "parsing" || b.status === "queued") && (
                     <Progress value={b.parse_progress} className="mt-2 h-1.5" />
@@ -209,28 +220,46 @@ function HistoryList({
                       Review
                     </div>
                   ) : b.status === "committed" ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRollingBack(b);
+                        }}
+                      >
+                        Roll back
+                      </Button>
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    </>
                   ) : b.status === "failed" ? (
                     <AlertCircle className="h-5 w-5 text-destructive" />
                   ) : b.status === "parsing" || b.status === "queued" ? (
                     <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
                   ) : null}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (confirm(`Delete "${b.file_name}"?`)) deleteImport(b.id);
-                    }}
-                    disabled={deleting}
-                    className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                    title="Delete import"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  {b.status !== "committed" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`Delete "${b.file_name}"?`)) deleteImport(b.id);
+                      }}
+                      disabled={deleting}
+                      className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                      title="Delete import"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+      )}
+      {rollingBack && (
+        <ImportRollbackDialog batch={rollingBack} open onClose={() => setRollingBack(null)} />
       )}
     </div>
   );
