@@ -1061,13 +1061,19 @@ export function CalendarTab({
 
   const handleSelectEvent = (event: any) => {
     if (event.isExternal) return;
+    // A job opens on its detail panel; editing is one click further, from there.
     if (event.isGig) {
-      setGigDialog(event.resource as GigEntry);
+      const gig = event.resource as GigEntry;
+      if (onJobDetail) onJobDetail(gig.id);
+      else setGigDialog(gig);
     } else if (event.isAvailability) {
       const dateObj = new Date(event.resource.date + "T12:00:00");
       setAvailDialog(dateObj);
     } else {
-      setBookingDialog(event.resource as FreelancerBooking);
+      const booking = event.resource as FreelancerBooking;
+      const entryId = booking.booking.earnings_entry_id;
+      if (onJobDetail && entryId) onJobDetail(entryId);
+      else setBookingDialog(booking);
     }
   };
 

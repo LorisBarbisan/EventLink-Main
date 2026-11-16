@@ -4046,6 +4046,11 @@ export function BooksTab() {
     setFromBooking(null);
     setJobDialogOpen(true);
   };
+  // A booking with an earnings entry opens on its job detail, like every other job.
+  const openBooking = (b: UnloggedBooking) => {
+    if (b.earnings_entry_id) setJobDetailEntryId(b.earnings_entry_id);
+    else setSelectedBooking(b);
+  };
   const openFromBooking = (b: UnloggedBooking) => {
     setEditingEntry(null);
     setFromBooking(b);
@@ -4458,32 +4463,86 @@ export function BooksTab() {
     );
   }
 
+  // Job detail and the dialogs it opens — rendered by every section that lists jobs.
+  const jobDialogs = (
+    <>
+      <JobDialog
+        open={jobDialogOpen}
+        onClose={() => {
+          setJobDialogOpen(false);
+          setFromBooking(null);
+        }}
+        editing={editingEntry}
+        clients={clients}
+        prefill={
+          fromBooking
+            ? {
+                description: fromBooking.job_title ?? "",
+                client_name: fromBooking.company_name ?? "",
+                work_date: fromBooking.event_date?.slice(0, 10) ?? "",
+                status: "paid",
+                paid_date: new Date().toISOString().slice(0, 10),
+              }
+            : undefined
+        }
+        jobApplicationId={fromBooking?.id}
+      />
+
+      {jobDetailEntryId !== null && (
+        <JobDetailDialog
+          earningsEntryId={jobDetailEntryId}
+          onClose={() => setJobDetailEntryId(null)}
+          onInvoice={() => {
+            setJobDetailEntryId(null);
+            createInvoiceForJob(jobDetailEntryId!);
+          }}
+          onOpenInvoice={(invoiceId) => {
+            setJobDetailEntryId(null);
+            setInvoicePrefill({ openInvoiceId: invoiceId });
+            setSection("invoices");
+          }}
+          onEdit={(entryId) => {
+            const entry = entries.find((e) => e.id === entryId);
+            if (entry) return openEdit(entry);
+            // Calendar jobs can sit outside the loaded earnings range.
+            apiRequest(`/api/earnings/${entryId}`)
+              .then((e: EarningsEntry) => openEdit(e))
+              .catch(() => toast({ title: "Could not open this job", variant: "destructive" }));
+          }}
+          onAddExpense={(entryId) => setExpenseFromJobId(entryId)}
+          onEditExpense={(expenseId) => setEditExpenseId(expenseId)}
+        />
+      )}
+
+      {expenseFromJobId !== null && (
+        <ExpenseDialog
+          open={true}
+          onClose={() => setExpenseFromJobId(null)}
+          editing={null}
+          categories={topLevelCategories}
+          vatRegistered={topLevelVatRegistered}
+          prefill={{ job_id: String(expenseFromJobId) }}
+        />
+      )}
+
+      {editExpenseId !== null && editExpenseData && (
+        <ExpenseDialog
+          open={true}
+          onClose={() => setEditExpenseId(null)}
+          editing={editExpenseData}
+          categories={topLevelCategories}
+          vatRegistered={topLevelVatRegistered}
+        />
+      )}
+    </>
+  );
+
   if (section === "calendar") {
     return (
       <div className="space-y-4">
         {sectionSwitcher}
         <CalendarTab onJobDetail={(entryId) => setJobDetailEntryId(entryId)} />
-        {jobDetailEntryId !== null && (
-          <JobDetailDialog
-            earningsEntryId={jobDetailEntryId}
-            onClose={() => setJobDetailEntryId(null)}
-            onInvoice={() => {
-              setJobDetailEntryId(null);
-              createInvoiceForJob(jobDetailEntryId!);
-            }}
-            onOpenInvoice={(invoiceId) => {
-              setJobDetailEntryId(null);
-              setInvoicePrefill({ openInvoiceId: invoiceId });
-              setSection("invoices");
-            }}
-            onEdit={(entryId) => {
-              const entry = entries.find((e) => e.id === entryId);
-              if (entry) openEdit(entry);
-            }}
-            onAddExpense={(entryId) => setExpenseFromJobId(entryId)}
-            onEditExpense={(expenseId) => setEditExpenseId(expenseId)}
-          />
-        )}
+        {jobDialogs}
       </div>
     );
   }
@@ -4792,7 +4851,7 @@ export function BooksTab() {
                             <div
                               key={`booking-${b.id}`}
                               className="flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40"
-                              onClick={() => setSelectedBooking(b)}
+                              onClick={() => openBooking(b)}
                             >
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-medium">{b.job_title}</p>
@@ -4890,7 +4949,7 @@ export function BooksTab() {
                           <div
                             key={`booking-tbc-${b.id}`}
                             className="flex cursor-pointer items-center justify-between px-5 py-3 transition-colors hover:bg-muted/40"
-                            onClick={() => setSelectedBooking(b)}
+                            onClick={() => openBooking(b)}
                           >
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-medium">{b.job_title}</p>
@@ -4982,7 +5041,7 @@ export function BooksTab() {
                       <div
                         key={`unlogged-${b.id}`}
                         className="flex cursor-pointer items-center justify-between border-l-4 border-amber-400 bg-amber-50/60 px-5 py-3 dark:bg-amber-950/20"
-                        onClick={() => setSelectedBooking(b)}
+                        onClick={() => openBooking(b)}
                       >
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">{b.job_title}</p>
@@ -5237,27 +5296,7 @@ export function BooksTab() {
         );
       })()}
 
-      <JobDialog
-        open={jobDialogOpen}
-        onClose={() => {
-          setJobDialogOpen(false);
-          setFromBooking(null);
-        }}
-        editing={editingEntry}
-        clients={clients}
-        prefill={
-          fromBooking
-            ? {
-                description: fromBooking.job_title ?? "",
-                client_name: fromBooking.company_name ?? "",
-                work_date: fromBooking.event_date?.slice(0, 10) ?? "",
-                status: "paid",
-                paid_date: new Date().toISOString().slice(0, 10),
-              }
-            : undefined
-        }
-        jobApplicationId={fromBooking?.id}
-      />
+      {jobDialogs}
       {bookingDetailDialog}
       {statusEditDialog}
 
@@ -5293,49 +5332,6 @@ export function BooksTab() {
           )}
         </DialogContent>
       </Dialog>
-
-      {jobDetailEntryId !== null && (
-        <JobDetailDialog
-          earningsEntryId={jobDetailEntryId}
-          onClose={() => setJobDetailEntryId(null)}
-          onInvoice={() => {
-            setJobDetailEntryId(null);
-            createInvoiceForJob(jobDetailEntryId!);
-          }}
-          onOpenInvoice={(invoiceId) => {
-            setJobDetailEntryId(null);
-            setInvoicePrefill({ openInvoiceId: invoiceId });
-            setSection("invoices");
-          }}
-          onEdit={(entryId) => {
-            const entry = entries.find((e) => e.id === entryId);
-            if (entry) openEdit(entry);
-          }}
-          onAddExpense={(entryId) => setExpenseFromJobId(entryId)}
-          onEditExpense={(expenseId) => setEditExpenseId(expenseId)}
-        />
-      )}
-
-      {expenseFromJobId !== null && (
-        <ExpenseDialog
-          open={true}
-          onClose={() => setExpenseFromJobId(null)}
-          editing={null}
-          categories={topLevelCategories}
-          vatRegistered={topLevelVatRegistered}
-          prefill={{ job_id: String(expenseFromJobId) }}
-        />
-      )}
-
-      {editExpenseId !== null && editExpenseData && (
-        <ExpenseDialog
-          open={true}
-          onClose={() => setEditExpenseId(null)}
-          editing={editExpenseData}
-          categories={topLevelCategories}
-          vatRegistered={topLevelVatRegistered}
-        />
-      )}
     </div>
   );
 }

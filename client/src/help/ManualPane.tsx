@@ -27,7 +27,7 @@ export function ManualToggle() {
       }`}
     >
       <BookOpen className="h-4 w-4" />
-      Manual
+      How to
     </button>
   );
 }
@@ -128,14 +128,14 @@ export function ManualPane() {
     <aside
       ref={paneRef}
       data-manual-pane
-      aria-label="Books manual"
+      aria-label="How to"
       className="sticky top-0 hidden h-screen w-[380px] shrink-0 flex-col self-start border-l bg-background lg:flex"
     >
       <div className="flex items-center justify-between border-b px-5 py-3">
         <h2 className="text-base font-semibold">{heading?.title ?? humanise(headingKey)}</h2>
         <button
           type="button"
-          aria-label="Close manual"
+          aria-label="Close How to"
           className="rounded p-1 text-muted-foreground hover:text-foreground"
           onClick={() => manualStore.setOpen(false)}
         >
