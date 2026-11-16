@@ -1,7 +1,6 @@
 import type { Request, Response } from "express";
 import ExcelJS from "exceljs";
 import { storage } from "../../storage";
-import { generateJWTToken } from "../utils/auth.util";
 import { sendContactReplyEmail, sendEmail } from "../utils/emailService";
 import { emailService } from "../utils/emailNotificationService";
 import { db } from "../config/db";
@@ -1304,69 +1303,6 @@ export async function adminUpdateDocumentDates(req: Request, res: Response) {
   } catch (error) {
     console.error("adminUpdateDocumentDates error:", error);
     res.status(500).json({ error: "Failed to update document dates" });
-  }
-}
-
-export async function bootstrapGrantAdminAccess(req: Request, res: Response) {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email is required" });
-    if (email.trim().toLowerCase() !== "admin@eventlink.one") {
-      return res.status(403).json({ error: "This endpoint is only for admin@eventlink.one" });
-    }
-    const user = await storage.getUserByEmail(email.trim().toLowerCase());
-    if (!user) return res.status(404).json({ error: "User not found with that email address." });
-    const updatedUser = await storage.updateUserRole(user.id, "admin");
-    const token = generateJWTToken(updatedUser);
-    res.json({
-      message: "Admin access granted successfully!",
-      token,
-      user: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        first_name: updatedUser.first_name,
-        last_name: updatedUser.last_name,
-        role: updatedUser.role,
-      },
-    });
-  } catch (error) {
-    console.error("Grant admin access error:", error);
-    res.status(500).json({ error: "Failed to grant admin access" });
-  }
-}
-
-export async function bootstrapCreateFirstAdmin(req: Request, res: Response) {
-  try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email is required" });
-    const existingAdmins = await storage.getAdminUsers();
-    const realAdmins = existingAdmins.filter((admin) => admin.role === "admin");
-    if (realAdmins.length > 0) {
-      return res
-        .status(400)
-        .json({ error: "Admin users already exist. Use the regular admin management interface." });
-    }
-    const user = await storage.getUserByEmail(email.trim().toLowerCase());
-    if (!user)
-      return res
-        .status(404)
-        .json({ error: "User not found with that email address. Please register first." });
-    const updatedUser = await storage.updateUserRole(user.id, "admin");
-    const token = generateJWTToken(updatedUser);
-    res.json({
-      message: "First admin created successfully! You can now use the admin dashboard.",
-      token,
-      user: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        first_name: updatedUser.first_name,
-        last_name: updatedUser.last_name,
-        role: updatedUser.role,
-      },
-    });
-  } catch (error) {
-    console.error("Bootstrap admin creation error:", error);
-    res.status(500).json({ error: "Failed to create first admin" });
   }
 }
 

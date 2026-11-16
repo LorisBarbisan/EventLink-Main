@@ -403,7 +403,6 @@ function AdminDashboardContent() {
   const [isSendingReply, setIsSendingReply] = useState(false);
 
   // Admin management state
-  const [isBootstrapping, setIsBootstrapping] = useState(false);
 
   useLocation();
 
@@ -1086,11 +1085,7 @@ function AdminDashboardContent() {
   };
 
   // Admin users query
-  const {
-    data: adminUsers,
-    isLoading: adminUsersLoading,
-    refetch: refetchAdminUsers,
-  } = useQuery({
+  const { data: adminUsers, isLoading: adminUsersLoading } = useQuery({
     queryKey: ["/api/admin/users/admins"],
     queryFn: () => apiRequest("/api/admin/users/admins"),
     retry: 1,
@@ -1222,46 +1217,6 @@ function AdminDashboardContent() {
       });
     } finally {
       setIsSendingReply(false);
-    }
-  };
-
-  // Bootstrap admin creation function
-  const handleBootstrapAdmin = async () => {
-    if (!user?.email) return;
-
-    setIsBootstrapping(true);
-    try {
-      const result = await apiRequest("/api/admin/create-first-admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user.email }),
-      });
-
-      // Store JWT token and updated user data from bootstrap response
-      if (result && result.token && result.user) {
-        localStorage.setItem("auth_token", result.token);
-        localStorage.setItem("user", JSON.stringify(result.user));
-      }
-
-      toast({
-        title: "Bootstrap Successful",
-        description: "You have been granted admin privileges!",
-      });
-
-      // Invalidate and refetch admin users list to ensure immediate update
-      await queryClient.invalidateQueries({ queryKey: ["/api/admin/users/admins"] });
-      refetchAdminUsers();
-
-      // Refresh the page to update authentication state
-      setTimeout(() => window.location.reload(), 1000);
-    } catch (error: any) {
-      toast({
-        title: "Bootstrap Failed",
-        description: error.response?.data?.error || "Failed to create first admin",
-        variant: "destructive",
-      });
-    } finally {
-      setIsBootstrapping(false);
     }
   };
 
@@ -4010,57 +3965,6 @@ function AdminDashboardContent() {
 
         {/* Admin Management Tab */}
         <TabsContent value="admin-management" className="space-y-6">
-          {/* Bootstrap Admin Creation - Top Priority */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 shrink-0" />
-                <span>First Admin Setup</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600 dark:text-blue-400" />
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                        Need to create the first admin user?
-                      </p>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">
-                        exist yet, use this bootstrap button to make yourself the first admin. This
-                        only works if you&apos;re logged in with a pre-approved email address.
-                      </p>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">
-                        <strong>Current user:</strong> {user?.email || "Not logged in"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handleBootstrapAdmin}
-                  data-testid="button-bootstrap-admin"
-                  disabled={isBootstrapping || !user?.email}
-                  className="w-full"
-                  variant="outline"
-                >
-                  {isBootstrapping ? (
-                    <>
-                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-current"></div>
-                      Creating First Admin...
-                    </>
-                  ) : (
-                    <>
-                      <Shield className="mr-2 h-4 w-4" />
-                      Create First Admin ({user?.email || "No user"})
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Current Admin Users List */}
           <Card>
             <CardHeader>

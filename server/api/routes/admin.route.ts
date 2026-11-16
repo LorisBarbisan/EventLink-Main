@@ -8,8 +8,6 @@ import {
   adminCheckGovuk,
   adminUpdateDocumentDates,
   getAdminDocuments,
-  bootstrapCreateFirstAdmin,
-  bootstrapGrantAdminAccess,
   bulkUpdateSubscription,
   exportAdminXLSX,
   getAdminJobDetail,
@@ -116,12 +114,6 @@ export function registerAdminRoutes(app: Express) {
   // Admin Documents — see all uploaded docs + fill in missing expiry dates
   app.get("/api/admin/documents", requireAdminAuth, getAdminDocuments);
   app.patch("/api/admin/documents/:id/dates", requireAdminAuth, adminUpdateDocumentDates);
-
-  // Bootstrap endpoint for initial admin setup (no auth required)
-  // Special override endpoint for admin@eventlink.one production access
-  app.post("/api/admin/grant-admin-access", bootstrapGrantAdminAccess);
-
-  app.post("/api/admin/create-first-admin", bootstrapCreateFirstAdmin);
 
   // Tax rates management (admin only)
   app.get("/api/admin/tax-rates", requireAdminAuth, adminListTaxRates);
