@@ -13,32 +13,6 @@ import {
   removeBookingFromPipeline,
 } from "../services/booking-lifecycle.service";
 
-// Get freelancer bookings (accepted applications)
-export async function getFreelancerBookings(req: Request, res: Response) {
-  try {
-    const freelancerId = parseInt(req.params.freelancerId);
-
-    // Check authorization - user can only view their own bookings or admin can view all
-    if (
-      !(req as any).user ||
-      ((req as any).user.id !== freelancerId && (req as any).user.role !== "admin")
-    ) {
-      return res.status(403).json({ error: "Not authorized to view these bookings" });
-    }
-
-    const applications = await storage.getFreelancerApplications(freelancerId);
-    // Include hired + completed applications so completed jobs remain visible
-    const bookings = applications.filter(
-      (app) => app.status === "hired" || (app.status as string) === "completed"
-    );
-
-    res.json(bookings);
-  } catch (error) {
-    console.error("Get freelancer bookings error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-}
-
 // Apply to job
 export async function applyToJob(req: Request, res: Response) {
   try {

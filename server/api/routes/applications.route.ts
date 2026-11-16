@@ -4,7 +4,6 @@ import {
   applyToJob,
   deleteApplication,
   getFreelancerApplications,
-  getFreelancerBookings,
   getJobApplications,
   getRecruiterApplications,
   getRecruiterHiddenApplications,
@@ -26,9 +25,6 @@ export function registerApplicationRoutes(app: Express) {
 
   // Invite freelancer to apply
   app.post("/api/applications/invite", authenticateJWT, resolveCompanyId, inviteFreelancer);
-
-  // Get freelancer bookings (accepted applications)
-  app.get("/api/freelancer/:freelancerId/bookings", authenticateJWT, getFreelancerBookings);
 
   // Apply to job
   app.post("/api/jobs/:jobId/apply", authenticateJWT, applyToJob);

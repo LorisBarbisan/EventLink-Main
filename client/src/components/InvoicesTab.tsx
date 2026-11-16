@@ -1581,27 +1581,6 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
     enabled: !!viewJobId,
   });
 
-  type LegacyBooking = {
-    id: number;
-    job_id?: number;
-    recruiter_id?: number;
-    job_title: string;
-    company_name?: string;
-    event_date?: string;
-  };
-  const { data: legacyBookings = [] } = useQuery<LegacyBooking[]>({
-    queryKey: ["/api/freelancer", user?.id, "bookings"],
-    enabled: !!user?.id,
-    queryFn: async () => {
-      const token = localStorage.getItem("auth_token");
-      const res = await fetch(`/api/freelancer/${user!.id}/bookings`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) return [];
-      return res.json();
-    },
-  });
-
   // Unified list of jobs the user can send an invoice to
   const sendOptions = (() => {
     const opts: Array<{
@@ -1617,19 +1596,6 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
         companyName: b.employer.companyName,
         employerUserId: b.booking.employerId,
       });
-    }
-    // Add legacy bookings whose recruiter isn't already covered
-    const coveredEmployerIds = new Set(hiredBookings.map((b) => b.booking.employerId));
-    for (const b of legacyBookings) {
-      if (b.recruiter_id && !coveredEmployerIds.has(b.recruiter_id)) {
-        opts.push({
-          key: `legacy-${b.id}`,
-          jobTitle: b.job_title,
-          companyName: b.company_name ?? null,
-          employerUserId: b.recruiter_id,
-        });
-        coveredEmployerIds.add(b.recruiter_id);
-      }
     }
     return opts;
   })();
