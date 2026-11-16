@@ -12,17 +12,17 @@
 //   • Honours credential_reminders_opt_out.
 //
 // Usage (DATABASE_URL pointing at the target DB):
-//   npx tsx server/scripts/credential-backfill-campaign.ts            # round 1, dry-run
-//   npx tsx server/scripts/credential-backfill-campaign.ts --send     # round 1, for real
-//   npx tsx server/scripts/credential-backfill-campaign.ts --round=2 --send --cap=300
+//   npx tsx server/scripts/archive/credential-backfill-campaign.ts            # round 1, dry-run
+//   npx tsx server/scripts/archive/credential-backfill-campaign.ts --send     # round 1, for real
+//   npx tsx server/scripts/archive/credential-backfill-campaign.ts --round=2 --send --cap=300
 // ============================================================
 
 import { and, eq, isNull, lte } from "drizzle-orm";
-import { db } from "../api/config/db";
+import { db } from "../../api/config/db";
 import { users, freelancer_documents, credential_backfill_campaign } from "@shared/schema";
 import type { DocumentType } from "@shared/schema";
 import { DOCUMENT_TYPE_META } from "@shared/schema";
-import { sendEmail } from "../api/utils/emailService";
+import { sendEmail } from "../../api/utils/emailService";
 
 const BASE_URL = process.env.FRONTEND_URL || "https://eventlink.one";
 

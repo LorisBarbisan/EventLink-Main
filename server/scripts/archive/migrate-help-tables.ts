@@ -7,11 +7,11 @@
 // future `drizzle-kit push`. It touches ONLY help objects — nothing else.
 //
 // Usage (from a folder linked to the Railway project):
-//   railway run npx tsx server/scripts/migrate-help-tables.ts
+//   railway run npx tsx server/scripts/archive/migrate-help-tables.ts
 // ============================================================
 
 import { sql } from "drizzle-orm";
-import { db } from "../api/config/db";
+import { db } from "../../api/config/db";
 
 const statements = [
   `CREATE TABLE IF NOT EXISTS help_user_state (

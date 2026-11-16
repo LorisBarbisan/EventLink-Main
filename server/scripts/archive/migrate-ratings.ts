@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db } from "../api/config/db";
+import { db } from "../../api/config/db";
 
 async function migrateRatings() {
   console.log("Starting ratings migration...");

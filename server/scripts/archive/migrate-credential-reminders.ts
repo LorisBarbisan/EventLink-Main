@@ -11,11 +11,11 @@
 // reads these objects.
 //
 // Usage (from a folder linked to the Railway project, or with DATABASE_URL set):
-//   railway run npx tsx server/scripts/migrate-credential-reminders.ts
+//   railway run npx tsx server/scripts/archive/migrate-credential-reminders.ts
 // ============================================================
 
 import { sql } from "drizzle-orm";
-import { db } from "../api/config/db";
+import { db } from "../../api/config/db";
 
 const statements = [
   `CREATE TABLE IF NOT EXISTS credential_reminders (

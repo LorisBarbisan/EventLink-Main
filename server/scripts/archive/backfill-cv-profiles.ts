@@ -15,11 +15,11 @@
 // Dry-run by default (prints what WOULD change). Pass --send to apply.
 //
 // Usage (DATABASE_URL set, or linked to the Railway project):
-//   npx tsx server/scripts/backfill-cv-profiles.ts
-//   railway run npx tsx server/scripts/backfill-cv-profiles.ts --send
+//   npx tsx server/scripts/archive/backfill-cv-profiles.ts
+//   railway run npx tsx server/scripts/archive/backfill-cv-profiles.ts --send
 // ============================================================
 
-import { storage } from "../storage";
+import { storage } from "../../storage";
 
 const USER_IDS = [629, 631, 632, 638, 640, 641, 643, 648];
 const SEND = process.argv.includes("--send");

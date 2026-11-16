@@ -13,13 +13,13 @@
 // regresses an existing booking's status.
 //
 // Usage (with DATABASE_URL pointing at the target database):
-//   npx tsx server/scripts/backfill-bookings.ts
+//   npx tsx server/scripts/archive/backfill-bookings.ts
 // ============================================================
 
 import { inArray, eq } from "drizzle-orm";
-import { db } from "../api/config/db";
+import { db } from "../../api/config/db";
 import { job_applications, jobs } from "@shared/schema";
-import { syncBookingForApplication } from "../api/services/booking-lifecycle.service";
+import { syncBookingForApplication } from "../../api/services/booking-lifecycle.service";
 
 async function backfillBookings() {
   console.log("Starting bookings backfill (invited + hired applications)…");

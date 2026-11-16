@@ -8,7 +8,6 @@ import {
   getMessageAttachments,
   getObjectAccess,
   getUploadURL,
-  reportAttachment,
   uploadCV,
 } from "../controllers/file.controller";
 import {
@@ -51,9 +50,6 @@ export function registerFileRoutes(app: Express) {
 
   // Download attachment (secure access)
   app.get("/api/attachments/:attachmentId/download", authenticateJWT, downloadAttachment);
-
-  // Report attachment
-  app.post("/api/attachments/:attachmentId/report", authenticateJWT, reportAttachment);
 
   // FREELANCER DOCUMENTS/CERTIFICATIONS
 

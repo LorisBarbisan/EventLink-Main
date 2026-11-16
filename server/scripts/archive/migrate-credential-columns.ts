@@ -13,11 +13,11 @@
 // the same way sign-in did when help_mode / the Stripe columns were missing.
 //
 // Usage (from a folder linked to the Railway project, or with DATABASE_URL set):
-//   railway run npx tsx server/scripts/migrate-credential-columns.ts
+//   railway run npx tsx server/scripts/archive/migrate-credential-columns.ts
 // ============================================================
 
 import { sql } from "drizzle-orm";
-import { db } from "../api/config/db";
+import { db } from "../../api/config/db";
 
 const statements = [
   `ALTER TABLE freelancer_documents ADD COLUMN IF NOT EXISTS issuing_body text`,
