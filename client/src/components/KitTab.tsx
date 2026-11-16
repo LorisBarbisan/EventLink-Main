@@ -24,6 +24,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Package, Plus, Paperclip, Trash2, Pencil, Upload } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { kitExpenseOffer, kitDisposalOffer } from "@shared/kit-tax";
 const fmtDate = (d: string | null | undefined) => fmtSharedDate(d, "—");
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -73,6 +74,9 @@ interface KitItem {
   disposal_date: string | null;
   disposal_proceeds_pence: number | null;
   disposal_notes: string | null;
+  expense_id: number | null;
+  expense_prompt_dismissed: boolean;
+  disposal_entry_id: number | null;
   archived: boolean;
   files?: KitItemFile[];
 }
@@ -198,10 +202,12 @@ function KitItemDialog({
   open,
   onClose,
   existing,
+  onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   existing?: KitItem;
+  onCreated?: (item: KitItem) => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -225,9 +231,10 @@ function KitItemDialog({
         body: JSON.stringify(payload),
       });
     },
-    onSuccess: () => {
+    onSuccess: (saved: KitItem) => {
       queryClient.invalidateQueries({ queryKey: ["/api/kit"] });
       toast({ title: existing ? "Item updated" : "Item added" });
+      if (!existing && saved?.id) onCreated?.(saved);
       onClose();
     },
     onError: () => toast({ title: "Save failed", variant: "destructive" }),
@@ -448,6 +455,171 @@ function KitFileRow({ itemId, file }: { itemId: number; file: KitItemFile }) {
 
 // ── Item detail panel ──────────────────────────────────────────────────────────
 
+// ── Purchase / sale → accounts ──────────────────────────────────────────────────
+// Kit never feeds the totals itself; these offers create the expense or income
+// entry that does, and link it. See shared/kit-tax.ts.
+
+function longDate(iso: string): string {
+  return new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function KitAccountsPanel({ item }: { item: KitItem }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selling, setSelling] = useState(false);
+  const [saleDate, setSaleDate] = useState(new Date().toISOString().slice(0, 10));
+  const [saleAmount, setSaleAmount] = useState("");
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/kit"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/earnings"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+  };
+  const post = (path: string) => apiRequest(`/api/kit/${item.id}/${path}`, { method: "POST" });
+
+  const addExpense = useMutation({
+    mutationFn: () => post("record-expense"),
+    onSuccess: () => {
+      refresh();
+      toast({ title: "Added to expenses" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+  const dismiss = useMutation({
+    mutationFn: () => post("dismiss-expense-prompt"),
+    onSuccess: refresh,
+  });
+  const addIncome = useMutation({
+    mutationFn: () => post("record-disposal"),
+    onSuccess: () => {
+      refresh();
+      toast({ title: "Added to income" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+  const markSold = useMutation({
+    mutationFn: () =>
+      apiRequest(`/api/kit/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "sold",
+          disposal_date: saleDate,
+          disposal_proceeds_pence: Math.round(parseFloat(saleAmount || "0") * 100),
+        }),
+      }),
+    onSuccess: () => {
+      setSelling(false);
+      refresh();
+    },
+    onError: () => toast({ title: "Save failed", variant: "destructive" }),
+  });
+
+  const expense = kitExpenseOffer(item);
+  const disposal = kitDisposalOffer(item);
+  const box = "rounded-md border bg-muted/40 p-3 text-sm";
+
+  return (
+    <div className="space-y-2">
+      {expense === "offer" && (
+        <div className={box}>
+          <p className="mb-2">
+            Record the {formatPence(item.purchase_price_pence, item.currency)} purchase as an
+            expense on {longDate(item.purchase_date!)} so it counts towards your tax?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => addExpense.mutate()} disabled={addExpense.isPending}>
+              Yes, add it
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => dismiss.mutate()}
+              disabled={dismiss.isPending}
+            >
+              No, already recorded
+            </Button>
+          </div>
+        </div>
+      )}
+      {(expense === "vehicle" || disposal === "vehicle") && (
+        <div className={box}>
+          Vehicles are not claimed as an ordinary expense. A car or van bought for work goes through
+          capital allowances (or simplified mileage), and selling one adjusts those allowances. Ask
+          your accountant how to treat it.
+        </div>
+      )}
+      {expense === "linked" && (
+        <p className="text-xs text-muted-foreground">Recorded as an expense.</p>
+      )}
+      {disposal === "offer" && (
+        <div className={box}>
+          <p className="mb-2">
+            Record the {formatPence(item.disposal_proceeds_pence, item.currency)} from selling it as
+            income on {longDate(item.disposal_date!)}? Selling kit you claimed as an expense is
+            taxable.
+          </p>
+          <Button size="sm" onClick={() => addIncome.mutate()} disabled={addIncome.isPending}>
+            Yes, add it
+          </Button>
+        </div>
+      )}
+      {disposal === "linked" && (
+        <p className="text-xs text-muted-foreground">Sale recorded as income.</p>
+      )}
+      {item.status === "in_service" &&
+        (selling ? (
+          <div className={box}>
+            <div className="mb-2 grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Date sold</Label>
+                <Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Sold for</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={saleAmount}
+                  onChange={(e) => setSaleAmount(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => markSold.mutate()}
+                disabled={!saleDate || markSold.isPending}
+              >
+                Mark as sold
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelling(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => setSelling(true)}
+          >
+            Sold it?
+          </Button>
+        ))}
+    </div>
+  );
+}
+
 function KitItemDetail({ item, onEdit }: { item: KitItem; onEdit: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -556,6 +728,8 @@ function KitItemDetail({ item, onEdit }: { item: KitItem; onEdit: () => void }) 
           </>
         )}
       </div>
+
+      <KitAccountsPanel item={item} />
 
       {/* Files */}
       <div>
@@ -738,6 +912,11 @@ export function KitTab() {
                         {formatPence(item.purchase_price_pence, item.currency)}
                       </span>
                     )}
+                    {kitExpenseOffer(item) === "offer" && (
+                      <Badge variant="outline" className="text-xs">
+                        Not in expenses
+                      </Badge>
+                    )}
                     <Badge
                       variant="secondary"
                       className={`text-xs capitalize ${STATUS_COLORS[item.status]}`}
@@ -773,6 +952,7 @@ export function KitTab() {
             setEditing(undefined);
           }}
           existing={editing}
+          onCreated={(created) => setExpanded(created.id)}
         />
       )}
     </div>

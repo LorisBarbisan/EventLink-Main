@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { storage } from "../../storage";
 import { ObjectStorageService } from "../utils/object-storage";
 import { randomUUID } from "crypto";
+import { kitExpenseOffer, kitDisposalOffer } from "@shared/kit-tax";
 
 // ── List ──────────────────────────────────────────────────────────────────────
 
@@ -116,6 +117,123 @@ export async function updateKitItem(req: Request, res: Response) {
     return res.json(updated);
   } catch (err) {
     console.error("updateKitItem error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+// ── Record purchase as expense / sale as income ───────────────────────────────
+// Links, not sums: the expense or earnings entry carries the money and the kit
+// item points at it, so nothing is counted twice. Vehicles are refused here as
+// well as in the UI — they go through capital allowances.
+
+async function ownedItem(req: Request, res: Response) {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return null;
+  }
+  const item = await storage.getKitItem(id);
+  if (!item) {
+    res.status(404).json({ error: "Not found" });
+    return null;
+  }
+  if (item.freelancer_id !== req.user!.id) {
+    res.status(403).json({ error: "Forbidden" });
+    return null;
+  }
+  return item;
+}
+
+export async function recordKitExpense(req: Request, res: Response) {
+  try {
+    const item = await ownedItem(req, res);
+    if (!item) return;
+    const offer = kitExpenseOffer(item);
+    if (offer === "vehicle") {
+      return res.status(422).json({
+        error: "Vehicles go through capital allowances, not an ordinary expense.",
+      });
+    }
+    if (offer === "linked") return res.status(409).json({ error: "Already recorded" });
+    if (offer !== "offer") {
+      return res.status(422).json({ error: "Add a purchase price and date first." });
+    }
+
+    const categories = await storage.listExpenseCategories(item.freelancer_id);
+    const category =
+      categories.find((c) => c.normalised_name === "tools and consumables") ??
+      categories.find((c) => c.normalised_name === "other");
+
+    const expense = await storage.createExpense({
+      freelancer_id: item.freelancer_id,
+      category_id: category?.id ?? null,
+      source: "manual",
+      supplier: item.supplier,
+      description: `Kit: ${item.name}`,
+      expense_date: item.purchase_date!,
+      net_amount_pence: item.purchase_price_pence!,
+      vat_amount_pence: 0,
+      currency: item.currency,
+      business_use_percent: item.business_use_percent,
+      notes: "Recorded from the kit register.",
+    });
+    const updated = await storage.updateKitItem(item.id, { expense_id: expense.id });
+    return res.status(201).json({ item: updated, expense });
+  } catch (err) {
+    console.error("recordKitExpense error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+export async function dismissKitExpensePrompt(req: Request, res: Response) {
+  try {
+    const item = await ownedItem(req, res);
+    if (!item) return;
+    const updated = await storage.updateKitItem(item.id, { expense_prompt_dismissed: true });
+    return res.json(updated);
+  } catch (err) {
+    console.error("dismissKitExpensePrompt error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+export async function recordKitDisposal(req: Request, res: Response) {
+  try {
+    const item = await ownedItem(req, res);
+    if (!item) return;
+    const offer = kitDisposalOffer(item);
+    if (offer === "vehicle") {
+      return res.status(422).json({
+        error: "Vehicle sales go through capital allowances, not ordinary income.",
+      });
+    }
+    if (offer === "linked") return res.status(409).json({ error: "Already recorded" });
+    if (offer !== "offer") {
+      return res.status(422).json({ error: "Mark the item sold with a date and proceeds first." });
+    }
+
+    const proceeds = item.disposal_proceeds_pence!;
+    const date = item.disposal_date!;
+    const entry = await storage.createEarningsEntry({
+      freelancer_id: item.freelancer_id,
+      source: "manual",
+      description: `Sale of kit: ${item.name}`,
+      work_date: date,
+      quantity: "1",
+      unit: "job",
+      unit_amount_pence: proceeds,
+      gross_amount_pence: proceeds,
+      deductions_pence: 0,
+      currency: item.currency,
+      status: "paid",
+      paid_date: date,
+      paid_amount_pence: proceeds,
+      notes: "Recorded from the kit register.",
+    });
+    const updated = await storage.updateKitItem(item.id, { disposal_entry_id: entry.id });
+    return res.status(201).json({ item: updated, entry });
+  } catch (err) {
+    console.error("recordKitDisposal error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 }

@@ -1607,6 +1607,13 @@ export const kit_items = pgTable(
     disposal_date: date("disposal_date"),
     disposal_proceeds_pence: bigint("disposal_proceeds_pence", { mode: "number" }),
     disposal_notes: text("disposal_notes"),
+    // Links to the records that carry the money (see shared/kit-tax.ts). Kit
+    // values never feed totals directly. Migration 0037.
+    expense_id: integer("expense_id").references(() => expenses.id, { onDelete: "set null" }),
+    expense_prompt_dismissed: boolean("expense_prompt_dismissed").notNull().default(false),
+    disposal_entry_id: integer("disposal_entry_id").references(() => earnings_entries.id, {
+      onDelete: "set null",
+    }),
     archived: boolean("archived").notNull().default(false),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

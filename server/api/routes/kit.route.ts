@@ -7,6 +7,9 @@ import {
   createKitItem,
   updateKitItem,
   archiveKitItem,
+  recordKitExpense,
+  dismissKitExpensePrompt,
+  recordKitDisposal,
   listKitFiles,
   uploadKitFile,
   downloadKitFile,
@@ -21,6 +24,9 @@ router.post("/", auth, createKitItem);
 router.get("/:id", auth, getKitItem);
 router.patch("/:id", auth, updateKitItem);
 router.delete("/:id/archive", auth, archiveKitItem);
+router.post("/:id/record-expense", auth, recordKitExpense);
+router.post("/:id/dismiss-expense-prompt", auth, dismissKitExpensePrompt);
+router.post("/:id/record-disposal", auth, recordKitDisposal);
 
 router.get("/:id/files", auth, listKitFiles);
 router.post("/:id/files", auth, uploadKitFile);
