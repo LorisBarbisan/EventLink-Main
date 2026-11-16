@@ -76,7 +76,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
           ws.send(JSON.stringify({ type: "authenticate", userId: user.id }));
         };
 
-        ws.onmessage = async event => {
+        ws.onmessage = async (event) => {
           try {
             const data = JSON.parse(event.data);
 
@@ -99,7 +99,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
             }
 
             // Notify all subscribers (they decide how to handle the message)
-            subscribersRef.current.forEach(callback => {
+            subscribersRef.current.forEach((callback) => {
               try {
                 callback(data);
               } catch (error) {
@@ -117,7 +117,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 
               case "badge_counts_update":
                 if (data.counts) {
-                  let updatedCounts = { ...data.counts };
+                  const updatedCounts = { ...data.counts };
                   const currentPath = window.location.pathname;
                   const currentHash = window.location.hash;
 
@@ -186,7 +186,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
                 ) {
                   apiRequest("/api/notifications/mark-category-read/contact_messages", {
                     method: "PATCH",
-                  }).catch(() => {});
+                  }).catch((err) =>
+                    console.warn("[notifications] mark contact_messages read failed", err)
+                  );
                 }
                 break;
               case "new_feedback":
@@ -204,7 +206,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
                 ) {
                   apiRequest("/api/notifications/mark-category-read/feedback", {
                     method: "PATCH",
-                  }).catch(() => {});
+                  }).catch((err) => console.warn("[notifications] mark feedback read failed", err));
                 }
                 break;
               default:
@@ -227,7 +229,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
           }
         };
 
-        ws.onerror = error => {
+        ws.onerror = (error) => {
           console.error("❌ WebSocket error:", error);
         };
       } catch (error) {

@@ -344,7 +344,7 @@ export function HelpProvider({ children }: { children: React.ReactNode }) {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
           body: JSON.stringify({ mode: m }),
-        }).catch(() => {});
+        }).catch((err) => console.warn("[help] saving help mode failed", err));
       }
     },
     [persist]

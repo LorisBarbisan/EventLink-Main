@@ -21,7 +21,9 @@ export async function getGuestApplicationView(req: Request, res: Response) {
     }
 
     // Mark as viewed (non-blocking)
-    storage.markGuestApplicationTokenViewed(tokenHash).catch(() => {});
+    storage
+      .markGuestApplicationTokenViewed(tokenHash)
+      .catch((err) => console.error("[guest-application] mark viewed failed:", err));
 
     const application = await storage.getJobApplicationById(tokenRow.application_id);
     if (!application) {

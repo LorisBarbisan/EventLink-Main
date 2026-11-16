@@ -121,7 +121,10 @@ export async function uploadBillingLogo(req: Request, res: Response) {
     // Delete old logo from storage if one existed
     const existing = await storage.getBillingProfile(user.id);
     if (existing?.logo_url && !existing.logo_url.startsWith("http")) {
-      ObjectStorageService.deleteObject(existing.logo_url).catch(() => {});
+      const oldLogo = existing.logo_url;
+      ObjectStorageService.deleteObject(oldLogo).catch((err) =>
+        console.error(`[invoices] deleting old logo ${oldLogo} failed (orphaned object):`, err)
+      );
     }
 
     await storage.upsertBillingProfile(user.id, { logo_url: objectKey });

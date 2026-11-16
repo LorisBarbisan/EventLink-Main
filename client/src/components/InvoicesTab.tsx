@@ -1763,10 +1763,21 @@ export function InvoicesTab({ prefillBooking }: { prefillBooking?: InvoicePrefil
         });
         // For manual jobs, write invoice_id back onto the earnings entry immediately
         if (prefillBooking.earningsEntryId) {
-          apiRequest(`/api/earnings/${prefillBooking.earningsEntryId}`, {
+          const entryId = prefillBooking.earningsEntryId;
+          apiRequest(`/api/earnings/${entryId}`, {
             method: "PATCH",
             body: JSON.stringify({ invoice_id: patched.id }),
-          }).catch(() => {});
+          }).catch((err) => {
+            console.error(
+              `[invoices] linking invoice ${patched.id} to entry ${entryId} failed`,
+              err
+            );
+            toast({
+              title: "Invoice created, but not linked to the job",
+              description: "Open the job in Books and link it to this invoice.",
+              variant: "destructive",
+            });
+          });
         }
         queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
         setEditingInvoice(patched);
