@@ -843,15 +843,28 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       { header: "Category", type: "text" },
       { header: "Purchase date", type: "date" },
       { header: "Purchase price", type: "money" },
+      // The expense date when the purchase is linked to an expense; blank means the
+      // purchase may not be in the accounts. Kit money is never added to a total.
+      { header: "Recorded as expense", type: "date" },
       { header: "Serial", type: "text" },
       { header: "Status", type: "text" },
       { header: "Notes", type: "text" },
     ];
+    const linkedExpenseDates = new Map<number, string>();
+    await Promise.all(
+      kit
+        .filter((item) => item.expense_id != null)
+        .map(async (item) => {
+          const exp = await storage.getExpense(item.expense_id!);
+          if (exp && !exp.archived) linkedExpenseDates.set(item.id, exp.expense_date);
+        })
+    );
     const kitRows = kit.map((item) => [
       item.name,
       item.category,
       item.purchase_date ? new Date(item.purchase_date + "T00:00:00Z") : null,
       item.purchase_price_pence != null ? item.purchase_price_pence / 100 : null,
+      linkedExpenseDates.get(item.id) ?? null,
       item.serial_number ?? "",
       item.status,
       item.condition_notes ?? "",
