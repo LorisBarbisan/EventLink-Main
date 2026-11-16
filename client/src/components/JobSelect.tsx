@@ -1,13 +1,9 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
+import { fmtDate } from "@shared/dates";
 
 export interface JobOption {
   id: number;
@@ -18,6 +14,9 @@ export interface JobOption {
   booking_id: number | null;
   work_status: string | null;
   job_ref: string | null;
+  venue: string | null;
+  venue_address: string | null;
+  invoice_number: string | null;
 }
 
 interface JobSelectProps {
@@ -26,7 +25,42 @@ interface JobSelectProps {
   label?: string;
 }
 
-const today = new Date().toISOString().slice(0, 10);
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "12–14 Nov 2026" within a month, otherwise both dates in full. */
+function fmtRange(start: string, end: string | null): string {
+  if (!end || end === start) return fmtDate(start);
+  const [sy, sm, sd] = start.split("-");
+  const [ey, em, ed] = end.split("-");
+  if (sy === ey && sm === em)
+    return `${parseInt(sd)}–${parseInt(ed)} ${MONTHS[parseInt(em) - 1]} ${ey}`;
+  return `${fmtDate(start)} – ${fmtDate(end)}`;
+}
+
+const NOT_LINKED: SearchableOption[] = [{ value: "", label: "Not linked to a job" }];
+
+export function toJobOption(j: JobOption, today: string): SearchableOption {
+  const venue = j.venue?.trim();
+  const label =
+    venue && !j.description.toLowerCase().includes(venue.toLowerCase())
+      ? `${j.description} — ${venue}`
+      : j.description;
+  const upcoming = j.work_status === "confirmed" && j.work_date >= today;
+  const sublabel = [
+    j.client_name,
+    fmtRange(j.work_date, j.work_end_date),
+    j.invoice_number ?? j.job_ref,
+    upcoming ? "Confirmed" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return {
+    value: String(j.id),
+    label,
+    sublabel,
+    keywords: [j.job_ref, j.invoice_number, j.venue_address],
+  };
+}
 
 export function JobSelect({ value, onChange, label = "Link to a job (optional)" }: JobSelectProps) {
   const { data: jobOptions = [] } = useQuery<JobOption[]>({
@@ -34,41 +68,27 @@ export function JobSelect({ value, onChange, label = "Link to a job (optional)" 
     queryFn: () => apiRequest("/api/earnings/jobs"),
   });
 
-  if (jobOptions.length === 0) {
-    return (
-      <div className="space-y-1">
-        <Label>{label}</Label>
-        <Select disabled>
-          <SelectTrigger style={{ fontSize: "16px" }} className="text-muted-foreground">
-            <SelectValue placeholder="No jobs added yet" />
-          </SelectTrigger>
-          <SelectContent />
-        </Select>
-      </div>
-    );
-  }
+  // Keeps the server's order: future confirmed work first, then most recent.
+  const options = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return jobOptions.map((j) => toJobOption(j, today));
+  }, [jobOptions]);
 
   return (
     <div className="space-y-1">
       <Label>{label}</Label>
-      <Select value={value} onValueChange={(v) => onChange(v === "none" ? "" : v)}>
-        <SelectTrigger style={{ fontSize: "16px" }}>
-          <SelectValue placeholder="Not linked to a job" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none">— Not linked —</SelectItem>
-          {jobOptions.map((j) => (
-            <SelectItem key={j.id} value={String(j.id)}>
-              {j.job_ref ? `[${j.job_ref}] ` : ""}
-              {j.description}
-              {j.client_name ? ` · ${j.client_name}` : ""}
-              {" · "}
-              {j.work_date}
-              {j.work_status === "confirmed" && j.work_date >= today ? " ✓" : ""}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SearchableSelect
+        value={value}
+        onChange={onChange}
+        options={options}
+        pinned={NOT_LINKED}
+        disabled={jobOptions.length === 0}
+        placeholder={jobOptions.length === 0 ? "No jobs added yet" : "Not linked to a job"}
+        searchPlaceholder="Type a job, client, venue or invoice number"
+        emptyLabel="No jobs match"
+        aria-label={label}
+        triggerClassName="text-base"
+      />
     </div>
   );
 }

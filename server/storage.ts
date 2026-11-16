@@ -6992,6 +6992,9 @@ export class DatabaseStorage implements IStorage {
       booking_id: number | null;
       work_status: string | null;
       job_ref: string | null;
+      venue: string | null;
+      venue_address: string | null;
+      invoice_number: string | null;
     }[]
   > {
     const today = new Date().toISOString().slice(0, 10);
@@ -7005,9 +7008,13 @@ export class DatabaseStorage implements IStorage {
         booking_id: earnings_entries.booking_id,
         work_status: earnings_entries.work_status,
         job_ref: earnings_entries.job_ref,
+        venue: earnings_entries.venue,
+        venue_address: earnings_entries.venue_address,
+        invoice_number: invoices.invoice_number,
       })
       .from(earnings_entries)
       .leftJoin(earnings_clients, eq(earnings_entries.client_id, earnings_clients.id))
+      .leftJoin(invoices, eq(earnings_entries.invoice_id, invoices.id))
       .where(
         and(eq(earnings_entries.freelancer_id, freelancerId), eq(earnings_entries.archived, false))
       )
