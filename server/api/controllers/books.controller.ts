@@ -9,7 +9,23 @@ import {
   type StudentLoanPlan,
   STUDENT_LOAN_PLANS,
 } from "@shared/tax-estimate";
-import { createWorkbook, addTypedSheet, streamWorkbook, type ColSpec } from "../utils/xlsx";
+import {
+  createWorkbook,
+  addTypedSheet,
+  addSummarySheet,
+  streamWorkbook,
+  type ColSpec,
+} from "../utils/xlsx";
+
+/** "2026-04-06" → "6 April 2026". */
+function fmtLongDate(iso: string): string {
+  return new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 function taxYearParams(req: Request): { from: string; to: string } {
   const ty = currentTaxYear();
@@ -533,63 +549,68 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     ];
 
     // ── Sheet 1: Summary ─────────────────────────────────────────────────────────
-    const summaryWs = wb.addWorksheet("Summary", {
-      properties: { tabColor: { argb: "FFD8690E" } },
-    });
     const netPence = (arr: typeof filteredEntries) =>
       arr.reduce((s, e) => s + e.gross_amount_pence - (e.deductions_pence ?? 0), 0);
     const receivedPence = netPence(cashEntries);
-    const totalExpensesPence = expenses.reduce((s, e) => {
-      const total = e.net_amount_pence + e.vat_amount_pence;
-      return s + Math.round((total * e.business_use_percent) / 100);
-    }, 0);
+    const allowablePence = (e: (typeof expenses)[number]) =>
+      Math.round(((e.net_amount_pence + e.vat_amount_pence) * e.business_use_percent) / 100);
+    const totalExpensesPence = expenses.reduce((s, e) => s + allowablePence(e), 0);
     const totalMileagePence = trips.reduce((s, t) => s + t.amount_pence, 0);
-    // Summary rows: [label, value, valueType]
-    type SummaryRow = [
-      string,
-      string | number | Date,
-      "text" | "money" | "date" | "count" | "spacer",
-    ];
-    const summaryRows: SummaryRow[] = [
-      ["Period", `${from} to ${to}`, "text"],
-      ["Generated", new Date(new Date().toDateString() + " UTC"), "date"],
-      ["", "", "spacer"],
-      ["Received in period (cash basis)", receivedPence / 100, "money"],
-      ["", "", "spacer"],
-      ["Expenses (allowable)", totalExpensesPence / 100, "money"],
-      ["Mileage", totalMileagePence / 100, "money"],
+    const generated = new Date().toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    addSummarySheet(
+      wb,
+      "Summary",
+      {
+        title: "Books summary",
+        subtitle: `${fmtLongDate(from)} to ${fmtLongDate(to)}`,
+        meta: `Generated ${generated}. Cash basis.`,
+      },
       [
-        "Net profit — cash basis (estimate)",
-        (receivedPence - totalExpensesPence - totalMileagePence) / 100,
-        "money",
+        {
+          heading: "Income",
+          lines: [
+            { label: "Received in period (cash basis)", value: receivedPence / 100, bold: true },
+          ],
+        },
+        {
+          heading: "Expenses",
+          lines: [
+            { label: "Expenses (allowable)", value: totalExpensesPence / 100 },
+            { label: "Mileage", value: totalMileagePence / 100 },
+            {
+              label: "Total expenses",
+              value: (totalExpensesPence + totalMileagePence) / 100,
+              bold: true,
+            },
+          ],
+        },
+        {
+          heading: "Result",
+          lines: [
+            {
+              label: "Net profit (estimate)",
+              value: (receivedPence - totalExpensesPence - totalMileagePence) / 100,
+              bold: true,
+            },
+          ],
+        },
+        {
+          heading: "Records",
+          lines: [
+            { label: "Earnings entries", value: String(filteredEntries.length), text: true },
+            { label: "Expense records", value: String(expenses.length), text: true },
+            { label: "Mileage trips", value: String(trips.length), text: true },
+            { label: "Invoices", value: String(filteredInvoices.length), text: true },
+            { label: "Kit items", value: String(kit.length), text: true },
+          ],
+        },
       ],
-      ["", "", "spacer"],
-      ["Earnings entries", filteredEntries.length, "count"],
-      ["Expense records", expenses.length, "count"],
-      ["Mileage trips", trips.length, "count"],
-      ["Invoices", filteredInvoices.length, "count"],
-      ["Kit items", kit.length, "count"],
-      ["", "", "spacer"],
-      ["Disclaimer", DISCLAIMER, "text"],
-    ];
-    for (const [label, value, vtype] of summaryRows) {
-      const row = summaryWs.addRow([label, value]);
-      if (vtype === "spacer") continue;
-      if (label === "Disclaimer") {
-        row.getCell(1).font = { bold: true };
-        row.getCell(2).alignment = { wrapText: true };
-      } else if (vtype === "money") {
-        row.getCell(1).font = { bold: true };
-        row.getCell(2).numFmt = "£#,##0.00";
-        row.getCell(2).alignment = { horizontal: "right" };
-      } else if (vtype === "date") {
-        row.getCell(2).numFmt = "dd/mm/yyyy";
-      }
-    }
-    summaryWs.getColumn(1).width = 38;
-    summaryWs.getColumn(2).width = 24;
-    // Disclaimer row is last — set a tall row height for wrapped text
-    summaryWs.getRow(summaryRows.length).height = 40;
+      DISCLAIMER
+    );
 
     // ── Sheet 2: Earnings ─────────────────────────────────────────────────────────
     // currencyFrom index: col 6 (0-based) = Currency column → used for Gross/Deductions/Net formatting
@@ -658,9 +679,10 @@ export async function booksExportWorkbook(req: Request, res: Response) {
         deductions: number,
         _currency = "GBP"
       ) => {
-        const fmt = `£#,##0.00`;
+        // Styled to match addTypedSheet's totals row: soft orange, bold navy, orange rule.
+        const fmt = "£#,##0.00;[Red]-£#,##0.00";
         const r = earningsWs.addRow([
-          null,
+          label,
           null,
           null,
           null,
@@ -670,22 +692,24 @@ export async function booksExportWorkbook(req: Request, res: Response) {
           gross,
           deductions,
           net,
-          label,
+          null,
           null,
           null,
           null,
         ]);
-        r.getCell(8).numFmt = fmt;
-        r.getCell(9).numFmt = fmt;
-        r.getCell(10).numFmt = fmt;
-        r.getCell(8).alignment = { horizontal: "right" };
-        r.getCell(9).alignment = { horizontal: "right" };
-        r.getCell(10).alignment = { horizontal: "right" };
-        r.getCell(11).font = { italic: true, color: { argb: "FF6B7280" } };
-        r.font = { bold: true };
-        r.getCell(8).border = { top: { style: "thin", color: { argb: "FFB85C0A" } } };
-        r.getCell(9).border = { top: { style: "thin", color: { argb: "FFB85C0A" } } };
-        r.getCell(10).border = { top: { style: "thin", color: { argb: "FFB85C0A" } } };
+        r.height = 22;
+        r.eachCell({ includeEmpty: true }, (cell, i) => {
+          if (i > earningsCols.length) return;
+          cell.font = { bold: true, size: 10, color: { argb: "FF1E3A5F" } };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF4E8" } };
+          cell.border = { top: { style: "medium", color: { argb: "FFD8690E" } } };
+          if (i >= 8 && i <= 10) {
+            cell.numFmt = fmt;
+            cell.alignment = { horizontal: "right", indent: 1, vertical: "middle" };
+          } else {
+            cell.alignment = { horizontal: "left", indent: 1, vertical: "middle" };
+          }
+        });
         return r;
       };
       const gbpCash = cashEntries.filter((e) => (e.currency ?? "GBP") === "GBP");
@@ -732,7 +756,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
         e.notes ?? "",
       ];
     });
-    addTypedSheet(wb, "Expenses", expensesCols, expensesRows);
+    addTypedSheet(wb, "Expenses", expensesCols, expensesRows, { totalLabel: "Total" });
 
     // ── Sheet 4: Mileage ──────────────────────────────────────────────────────────
     const mileageCols: ColSpec[] = [
@@ -755,7 +779,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       t.amount_pence / 100,
       t.notes ?? "",
     ]);
-    addTypedSheet(wb, "Mileage", mileageCols, mileageRows);
+    addTypedSheet(wb, "Mileage", mileageCols, mileageRows, { totalLabel: "Total" });
 
     // ── Sheet 5: Invoices ─────────────────────────────────────────────────────────
     const invoicesCols: ColSpec[] = [
@@ -784,7 +808,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
         inv.status,
       ];
     });
-    addTypedSheet(wb, "Invoices", invoicesCols, invoicesRows);
+    addTypedSheet(wb, "Invoices", invoicesCols, invoicesRows, { totalLabel: "Total" });
 
     // ── Sheet 6: Kit ──────────────────────────────────────────────────────────────
     const kitCols: ColSpec[] = [
@@ -805,7 +829,9 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       item.status,
       item.condition_notes ?? "",
     ]);
-    addTypedSheet(wb, "Kit", kitCols, kitRows);
+    // The kit register is not period-bound: a purchase is an expense in the year it
+    // was paid for, but the item persists until sold. Hence no "for this period".
+    addTypedSheet(wb, "Kit", kitCols, kitRows, { emptyLabel: "No kit recorded." });
 
     // ── Stream response ───────────────────────────────────────────────────────────
     const filename = `eventlink-books-${from}-to-${to}.xlsx`;
