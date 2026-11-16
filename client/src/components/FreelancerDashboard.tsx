@@ -332,7 +332,16 @@ export default function SimplifiedFreelancerDashboard() {
       : window.location.search.replace(/^\?/, "");
     const urlParams = new URLSearchParams(search);
     const tabParam = urlParams.get("tab");
-    return tabParam || "profile";
+    if (tabParam) return tabParam;
+    // Landing on the dashboard opens Books on its Overview, not the last section visited.
+    if (!urlParams.get("section")) {
+      try {
+        sessionStorage.removeItem("booksTab.section");
+      } catch {
+        /* sessionStorage unavailable */
+      }
+    }
+    return "books";
   });
 
   const completeHelpMain = useHelpComplete();
@@ -416,6 +425,10 @@ export default function SimplifiedFreelancerDashboard() {
   });
   if (!profileQueryLoading) profileHasEverLoaded.current = true;
   const booksAccess = useBooksAccess();
+  // Books is hidden outside the UK; don't leave those freelancers on an empty tab.
+  useEffect(() => {
+    if (activeTab === "books" && booksAccess === "unavailable") setActiveTab("profile");
+  }, [activeTab, booksAccess]);
   const profileLoading = profileQueryLoading && !profileHasEverLoaded.current;
 
   const [profileIsPublic, setProfileIsPublic] = useState<boolean>(true);
