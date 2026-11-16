@@ -7,13 +7,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CountrySelect } from "@/components/ui/country-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
@@ -414,21 +407,18 @@ export default function MyPostedJobs() {
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="currency">Currency</Label>
-                    <Select
+                    <SearchableSelect
                       value={form.currency}
-                      onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}
-                    >
-                      <SelectTrigger id="currency">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CURRENCIES.map((c) => (
-                          <SelectItem key={c.code} value={c.code}>
-                            {c.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={(v) => setForm((f) => ({ ...f, currency: v }))}
+                      id="currency"
+                      options={CURRENCIES.map((c) => ({
+                        value: c.code,
+                        label: c.label,
+                        keywords: [c.symbol],
+                      }))}
+                      searchPlaceholder="Type a currency code or symbol"
+                      emptyLabel="No currencies match"
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="rate">Rate * ({currencySymbol})</Label>

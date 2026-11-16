@@ -5,18 +5,12 @@ import { CountrySelect } from "@/components/ui/country-select";
 import { GlobalLocationInput } from "@/components/ui/global-location-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { usePersistentState } from "@/hooks/usePersistentState";
 import type { JobFormData } from "@shared/types";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const CURRENCIES = [
   { code: "GBP", symbol: "£", label: "GBP (£)" },
@@ -156,21 +150,18 @@ export function JobForm({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
             <Label htmlFor="job-currency">Currency</Label>
-            <Select
+            <SearchableSelect
               value={formData.currency || "GBP"}
-              onValueChange={(v) => handleInputChange("currency", v)}
-            >
-              <SelectTrigger id="job-currency">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CURRENCIES.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={(v) => handleInputChange("currency", v)}
+              id="job-currency"
+              options={CURRENCIES.map((c) => ({
+                value: c.code,
+                label: c.label,
+                keywords: [c.symbol],
+              }))}
+              searchPlaceholder="Type a currency code or symbol"
+              emptyLabel="No currencies match"
+            />
           </div>
           <div>
             <Label htmlFor="job-rate" data-help="form.postJob.rate">

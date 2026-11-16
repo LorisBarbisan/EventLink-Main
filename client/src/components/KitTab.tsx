@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Package, Plus, Paperclip, Trash2, Pencil, Upload } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 const fmtDate = (d: string | null | undefined) => fmtSharedDate(d, "—");
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -250,18 +251,17 @@ function KitItemDialog({
             </div>
             <div>
               <Label>Category</Label>
-              <Select value={form.category} onValueChange={set("category")}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(CATEGORY_LABELS) as KitCategory[]).map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {CATEGORY_LABELS[c]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={form.category}
+                onChange={set("category")}
+                options={(Object.keys(CATEGORY_LABELS) as KitCategory[]).map((c) => ({
+                  value: c,
+                  label: CATEGORY_LABELS[c],
+                }))}
+                searchPlaceholder="Type a category"
+                emptyLabel="No categories match"
+                aria-label="Category"
+              />
             </div>
             <div>
               <Label>Status</Label>

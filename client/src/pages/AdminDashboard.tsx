@@ -87,6 +87,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface FeedbackItem {
   id: number;
@@ -3701,19 +3702,17 @@ function AdminDashboardContent() {
                   onChange={(e) => setDocsSearch(e.target.value)}
                   className="lg:max-w-xs"
                 />
-                <Select value={docsType} onValueChange={setDocsType}>
-                  <SelectTrigger className="h-9 w-full lg:w-[180px]">
-                    <SelectValue placeholder="All types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All types</SelectItem>
-                    {DOCUMENT_TYPES.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={docsType}
+                  onChange={setDocsType}
+                  options={DOCUMENT_TYPES.map((t) => ({ value: t, label: t }))}
+                  pinned={[{ value: "all", label: "All types" }]}
+                  placeholder="All types"
+                  searchPlaceholder="Type a document type"
+                  emptyLabel="No types match"
+                  className="h-9 w-full lg:w-[180px]"
+                  aria-label="Document type"
+                />
                 <Select value={docsStatus} onValueChange={setDocsStatus}>
                   <SelectTrigger className="h-9 w-full lg:w-[170px]">
                     <SelectValue placeholder="All statuses" />
