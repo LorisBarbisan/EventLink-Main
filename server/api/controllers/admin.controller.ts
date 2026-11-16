@@ -1,5 +1,11 @@
 import type { Request, Response } from "express";
-import ExcelJS from "exceljs";
+import {
+  addTypedSheet,
+  createWorkbook,
+  streamWorkbook,
+  type ColSpec,
+  type ColType,
+} from "../utils/xlsx";
 import { storage } from "../../storage";
 import { sendContactReplyEmail, sendEmail } from "../utils/emailService";
 import { emailService } from "../utils/emailNotificationService";
@@ -669,55 +675,16 @@ export async function notifyFreelancersForJob(req: Request, res: Response) {
 
 // --- XLSX Export Helpers ---
 
-function fmtDate(d: unknown): string {
-  if (!d) return "";
-  try {
-    return new Date(d as string).toISOString().slice(0, 10);
-  } catch {
-    return String(d);
-  }
+/** Timestamp → "YYYY-MM-DD", which addTypedSheet turns into a real date cell. */
+function isoDay(d: unknown): string | null {
+  if (!d) return null;
+  const t = new Date(d as string);
+  return Number.isNaN(t.getTime()) ? null : t.toISOString().slice(0, 10);
 }
 
-function str(v: unknown): string {
-  if (v === null || v === undefined) return "";
-  return String(v);
-}
-
-/** Apply bold header style and auto-fit column widths to a worksheet. */
-function styleSheet(ws: ExcelJS.Worksheet, headers: string[]) {
-  const headerRow = ws.getRow(1);
-  headerRow.eachCell((cell) => {
-    cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD8690E" } };
-    cell.alignment = { vertical: "middle" };
-    cell.border = {
-      bottom: { style: "thin", color: { argb: "FFB85C0A" } },
-    };
-  });
-  headerRow.height = 20;
-
-  // Auto-fit column widths based on header label length (with generous min/max)
-  headers.forEach((h, i) => {
-    ws.getColumn(i + 1).width = Math.min(Math.max(h.length + 4, 12), 40);
-  });
-
-  ws.views = [{ state: "frozen", ySplit: 1 }];
-}
-
-/** Add a sheet with headers + data rows, returning the worksheet. */
-function addSheet(
-  wb: ExcelJS.Workbook,
-  name: string,
-  headers: string[],
-  rows: unknown[][]
-): ExcelJS.Worksheet {
-  const ws = wb.addWorksheet(name);
-  ws.addRow(headers);
-  for (const row of rows) {
-    ws.addRow(row.map(str));
-  }
-  styleSheet(ws, headers);
-  return ws;
+/** Column specs from headers; anything not listed in `types` is text. */
+function cols(headers: string[], types: Record<string, ColType> = {}): ColSpec[] {
+  return headers.map((header) => ({ header, type: types[header] ?? "text" }));
 }
 
 // Export all admin dashboard data as a multi-sheet XLSX workbook
@@ -751,44 +718,40 @@ export async function exportAdminXLSX(req: Request, res: Response) {
         .map((r: any) => [r.user_id, r.country as string])
     );
 
-    const wb = new ExcelJS.Workbook();
-    wb.creator = "EventLink Admin";
-    wb.created = new Date();
+    const wb = createWorkbook();
 
     // Sheet 1 — Overview
-    addSheet(
-      wb,
-      "Overview",
-      ["Metric", "Value"],
-      [
-        ["Total Users", analytics.users.total],
-        ["Active Users", analytics.users.active],
-        ["New Users This Month", analytics.users.thisMonth],
-        ["Total Jobs", analytics.jobs.total],
-        ["Active Jobs", analytics.jobs.active],
-        ["New Jobs This Month", analytics.jobs.thisMonth],
-        ["Pending Feedback", analytics.feedback.pending],
-        ["Total Applications", analytics.applications.total],
-        ["Hired Applications", analytics.applications.hired],
-        ["Applications This Month", analytics.applications.thisMonth],
-      ]
-    );
+    addTypedSheet(wb, "Overview", cols(["Metric", "Value"], { Value: "number" }), [
+      ["Total Users", analytics.users.total],
+      ["Active Users", analytics.users.active],
+      ["New Users This Month", analytics.users.thisMonth],
+      ["Total Jobs", analytics.jobs.total],
+      ["Active Jobs", analytics.jobs.active],
+      ["New Jobs This Month", analytics.jobs.thisMonth],
+      ["Pending Feedback", analytics.feedback.pending],
+      ["Total Applications", analytics.applications.total],
+      ["Hired Applications", analytics.applications.hired],
+      ["Applications This Month", analytics.applications.thisMonth],
+    ]);
 
     // Sheet 2 — Users
-    addSheet(
+    addTypedSheet(
       wb,
       "Users",
-      [
-        "ID",
-        "Full Name",
-        "Email",
-        "Role",
-        "Country",
-        "Status",
-        "Email Verified",
-        "Join Date",
-        "Profile Status",
-      ],
+      cols(
+        [
+          "ID",
+          "Full Name",
+          "Email",
+          "Role",
+          "Country",
+          "Status",
+          "Email Verified",
+          "Join Date",
+          "Profile Status",
+        ],
+        { ID: "number", "Join Date": "date" }
+      ),
       (usersResult.users || []).map((u: any) => [
         u.id,
         `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim(),
@@ -797,28 +760,31 @@ export async function exportAdminXLSX(req: Request, res: Response) {
         u.profile_country ?? recruiterCountryByUserId.get(u.id) ?? "",
         u.status ?? "",
         u.email_verified ? "Yes" : "No",
-        fmtDate(u.created_at),
+        isoDay(u.created_at),
         u.profile_status ?? "",
       ])
     );
 
     // Sheet 3 — Jobs
-    addSheet(
+    addTypedSheet(
       wb,
       "Jobs",
-      [
-        "ID",
-        "Title",
-        "Company",
-        "Location",
-        "Status",
-        "Type",
-        "Applications",
-        "Hired",
-        "Posted By",
-        "Poster Email",
-        "Created Date",
-      ],
+      cols(
+        [
+          "ID",
+          "Title",
+          "Company",
+          "Location",
+          "Status",
+          "Type",
+          "Applications",
+          "Hired",
+          "Posted By",
+          "Poster Email",
+          "Created Date",
+        ],
+        { ID: "number", Applications: "number", Hired: "number", "Created Date": "date" }
+      ),
       (jobsResult.jobs || []).map((j: any) => [
         j.id,
         j.title ?? "",
@@ -830,15 +796,18 @@ export async function exportAdminXLSX(req: Request, res: Response) {
         j.hired_count ?? 0,
         j.recruiter_name ?? "",
         j.recruiter_email ?? "",
-        fmtDate(j.created_at),
+        isoDay(j.created_at),
       ])
     );
 
     // Sheet 4 — Feedback
-    addSheet(
+    addTypedSheet(
       wb,
       "Feedback",
-      ["ID", "Type", "Status", "User Email", "Description", "Admin Response", "Created Date"],
+      cols(
+        ["ID", "Type", "Status", "User Email", "Description", "Admin Response", "Created Date"],
+        { ID: "number", "Created Date": "date" }
+      ),
       (feedbackList || []).map((f: any) => [
         f.id,
         f.type ?? "",
@@ -846,15 +815,18 @@ export async function exportAdminXLSX(req: Request, res: Response) {
         f.user?.email ?? "",
         f.description ?? "",
         f.admin_response ?? "",
-        fmtDate(f.created_at),
+        isoDay(f.created_at),
       ])
     );
 
     // Sheet 5 — Contact Messages
-    addSheet(
+    addTypedSheet(
       wb,
       "Contact Messages",
-      ["ID", "Name", "Email", "Subject", "Message", "Status", "Replied", "Created Date"],
+      cols(["ID", "Name", "Email", "Subject", "Message", "Status", "Replied", "Created Date"], {
+        ID: "number",
+        "Created Date": "date",
+      }),
       (contactList || []).map((m: any) => [
         m.id,
         m.name ?? "",
@@ -863,25 +835,28 @@ export async function exportAdminXLSX(req: Request, res: Response) {
         m.message ?? "",
         m.status ?? "",
         m.replied_at ? "Yes" : "No",
-        fmtDate(m.created_at),
+        isoDay(m.created_at),
       ])
     );
 
     // Sheet 6 — Ratings (Moderation)
-    addSheet(
+    addTypedSheet(
       wb,
       "Ratings",
-      [
-        "ID",
-        "Rating",
-        "Comment",
-        "Status",
-        "Flagged",
-        "Employer Email",
-        "Job Title",
-        "Admin Notes",
-        "Created Date",
-      ],
+      cols(
+        [
+          "ID",
+          "Rating",
+          "Comment",
+          "Status",
+          "Flagged",
+          "Employer Email",
+          "Job Title",
+          "Admin Notes",
+          "Created Date",
+        ],
+        { ID: "number", Rating: "number", "Created Date": "date" }
+      ),
       (ratingsAll || []).map((r: any) => [
         r.id,
         r.overall_rating ?? "",
@@ -891,32 +866,30 @@ export async function exportAdminXLSX(req: Request, res: Response) {
         r.recruiter?.email ?? "",
         r.job_title ?? "",
         r.admin_notes ?? "",
-        fmtDate(r.created_at),
+        isoDay(r.created_at),
       ])
     );
 
     // Sheet 7 — Admin Management
-    addSheet(
+    addTypedSheet(
       wb,
       "Admin Management",
-      ["ID", "Full Name", "Email", "Role", "Status", "Join Date"],
+      cols(["ID", "Full Name", "Email", "Role", "Status", "Join Date"], {
+        ID: "number",
+        "Join Date": "date",
+      }),
       (adminUsers || []).map((a: any) => [
         a.id,
         `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim(),
         a.email,
         a.role ?? "",
         a.status ?? "",
-        fmtDate(a.created_at),
+        isoDay(a.created_at),
       ])
     );
 
     const filename = `eventlink_admin_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    );
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    await wb.xlsx.write(res);
+    await streamWorkbook(wb, res, filename);
     res.end();
   } catch (error) {
     console.error("Admin XLSX export error:", error);
