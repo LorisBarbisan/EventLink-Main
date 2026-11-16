@@ -46,8 +46,10 @@ export function ImportMappingStep({ batch, onDone }: Props) {
         }),
       });
 
-      // 2. Enqueue parse job (advances to 'queued')
-      return apiRequest(`/api/imports/${batch.id}/parse`, { method: "POST" });
+      // 2. Enqueue parse job (advances to 'queued'). It replies with { batchId, jobId,
+      // status }, not the batch, so fetch the batch the wizard renders from.
+      await apiRequest(`/api/imports/${batch.id}/parse`, { method: "POST" });
+      return apiRequest(`/api/imports/${batch.id}`);
     },
     onSuccess: (updated) => onDone(updated),
     onError: (err) =>

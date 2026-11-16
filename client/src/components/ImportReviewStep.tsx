@@ -139,21 +139,23 @@ function ParseProgress({
     }
   }, [polledBatch?.status]);
 
+  const current = polledBatch ?? batch;
+
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
       <RefreshCw className="h-10 w-10 animate-spin text-primary" />
       <div>
         <p className="text-lg font-medium">
-          {batch.status === "queued" ? "Waiting to parse…" : "Parsing file…"}
+          {current.status === "queued" ? "Waiting to parse…" : "Parsing file…"}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           This may take a moment depending on the file size.
         </p>
       </div>
-      {batch.parse_progress > 0 && (
+      {current.parse_progress > 0 && (
         <div className="w-full max-w-sm">
-          <Progress value={batch.parse_progress} className="h-2" />
-          <p className="mt-1 text-xs text-muted-foreground">{batch.parse_progress}%</p>
+          <Progress value={current.parse_progress} className="h-2" />
+          <p className="mt-1 text-xs text-muted-foreground">{current.parse_progress}%</p>
         </div>
       )}
     </div>
