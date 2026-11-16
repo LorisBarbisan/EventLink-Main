@@ -4502,7 +4502,9 @@ export function BooksTab() {
             setSection("invoices");
           }}
           onEdit={(entryId) => {
-            const entry = entries.find((e) => e.id === entryId);
+            // `entries` is destructured below the section early-returns, so it is
+            // uninitialised in the calendar view; read the query result instead.
+            const entry = data?.entries.find((e) => e.id === entryId);
             if (entry) return openEdit(entry);
             // Calendar jobs can sit outside the loaded earnings range.
             apiRequest(`/api/earnings/${entryId}`)
