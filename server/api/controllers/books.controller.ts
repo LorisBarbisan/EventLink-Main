@@ -16,6 +16,7 @@ import {
   streamWorkbook,
   type ColSpec,
 } from "../utils/xlsx";
+import { addQuartersSheet } from "../utils/hmrc-quarters-sheet";
 
 /** "2026-04-06" → "6 April 2026". */
 function fmtLongDate(iso: string): string {
@@ -612,7 +613,33 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       DISCLAIMER
     );
 
-    // ── Sheet 2: Earnings ─────────────────────────────────────────────────────────
+    // ── Sheet 2: HMRC quarters ───────────────────────────────────────────────────
+    // Same records as the Summary, so for a full tax year the quarters total to it.
+    const quartersYear = taxYearForDate(from);
+    const fullYear = from === quartersYear.from && to === quartersYear.to;
+    addQuartersSheet(
+      wb,
+      quartersYear,
+      cashEntries.map((e) => ({
+        date: e.paid_date as string,
+        amount_pence: e.gross_amount_pence - (e.deductions_pence ?? 0),
+      })),
+      [
+        ...expenses
+          .filter((e) => e.expense_date)
+          .map((e) => ({ date: e.expense_date as string, amount_pence: allowablePence(e) })),
+        ...trips
+          .filter((t) => t.trip_date)
+          .map((t) => ({ date: t.trip_date as string, amount_pence: t.amount_pence })),
+      ],
+      {
+        note: fullYear
+          ? undefined
+          : `This export covers ${fmtLongDate(from)} to ${fmtLongDate(to)}, so records outside that range are not counted.`,
+      }
+    );
+
+    // ── Sheet 3: Earnings ─────────────────────────────────────────────────────────
     // currencyFrom index: col 6 (0-based) = Currency column → used for Gross/Deductions/Net formatting
     const earningsCols: ColSpec[] = [
       { header: "Date", type: "date" },
@@ -721,7 +748,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
       );
     }
 
-    // ── Sheet 3: Expenses ─────────────────────────────────────────────────────────
+    // ── Sheet 4: Expenses ─────────────────────────────────────────────────────────
     const expensesCols: ColSpec[] = [
       { header: "Date", type: "date" },
       { header: "Supplier", type: "text" },
@@ -758,7 +785,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     });
     addTypedSheet(wb, "Expenses", expensesCols, expensesRows, { totalLabel: "Total" });
 
-    // ── Sheet 4: Mileage ──────────────────────────────────────────────────────────
+    // ── Sheet 5: Mileage ──────────────────────────────────────────────────────────
     const mileageCols: ColSpec[] = [
       { header: "Date", type: "date" },
       { header: "From", type: "text" },
@@ -781,7 +808,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     ]);
     addTypedSheet(wb, "Mileage", mileageCols, mileageRows, { totalLabel: "Total" });
 
-    // ── Sheet 5: Invoices ─────────────────────────────────────────────────────────
+    // ── Sheet 6: Invoices ─────────────────────────────────────────────────────────
     const invoicesCols: ColSpec[] = [
       { header: "Number", type: "text" },
       { header: "Client", type: "text" },
@@ -810,7 +837,7 @@ export async function booksExportWorkbook(req: Request, res: Response) {
     });
     addTypedSheet(wb, "Invoices", invoicesCols, invoicesRows, { totalLabel: "Total" });
 
-    // ── Sheet 6: Kit ──────────────────────────────────────────────────────────────
+    // ── Sheet 7: Kit ──────────────────────────────────────────────────────────────
     const kitCols: ColSpec[] = [
       { header: "Item", type: "text" },
       { header: "Category", type: "text" },
