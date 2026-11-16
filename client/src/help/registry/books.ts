@@ -43,6 +43,23 @@ const entries: HelpEntry[] = [
     minVisits: 2,
     maxVisits: 12,
     version: 2,
+    detail: {
+      paragraphs: [
+        "Earnings is the record of work you've done and what you were paid for it. Each line is one job: a date, a description, a client and a gross amount, with a status that tracks it from finished to paid.",
+        "Jobs are grouped by month, newest first, and each month shows its own total. Only work dated today or earlier appears here — upcoming work lives in My Jobs until the date passes.",
+        "The figures here feed your tax-year totals, the charts on the Overview and the tax estimate. Anything flagged for review is left out of those totals until you've checked it.",
+      ],
+      canDo: [
+        "Filter the list by status, or show only the entries that need review",
+        "Collapse a month you're not working in; it stays collapsed next time",
+        "Select several jobs and change their status together",
+        "Open any line to see the brief, hours, receipts, mileage and invoice for that job",
+      ],
+      cannotDo: [
+        "See future work here — it appears once its date has passed",
+        "Delete a job that came from an EventLink booking; only ones you added yourself can be removed",
+      ],
+    },
   },
   {
     key: "books.earnings.sync",
@@ -55,20 +72,43 @@ const entries: HelpEntry[] = [
     minVisits: 1,
     maxVisits: 10,
     version: 1,
-  },
-  {
-    key: "books.earnings.addGig",
-    scope: "action",
-    body: "Log a gig that wasn't booked through EventLink, such as a direct hire or cash job.",
-    audience: ["freelancer"],
-    version: 1,
+    detail: {
+      manualOrder: 20,
+      paragraphs: [
+        "Sync looks at every EventLink booking you've been hired for and makes sure each one has an earnings line. Bookings that are missing one get it, lines whose job has finished move on to the right status, and anything already in order is left alone.",
+        "It runs by itself when you open Books and a past booking has no line, so most of the time you won't need it. Press it if something you know you worked isn't showing.",
+      ],
+      canDo: ["Run it as often as you like — it never creates a second line for the same booking"],
+      cannotDo: [
+        "Bring in work booked outside EventLink — add that yourself, or use Import for a batch",
+      ],
+      seeAlso: ["books.earnings.addJob"],
+    },
   },
   {
     key: "books.earnings.logPayment",
     scope: "action",
+    title: "Recording a payment",
     body: "Mark an expected earning as received so your outstanding total stays accurate.",
     audience: ["freelancer"],
     version: 1,
+    detail: {
+      manualOrder: 40,
+      paragraphs: [
+        "Press the status badge on a line to change it. Choosing Paid asks for the date the money arrived and the amount, which defaults to the gross figure.",
+        "The paid date matters more than the work date: your tax figures count income in the year you were paid, so a job worked in March and paid in April belongs to the April side of the tax year.",
+        "If the client paid less than the gross — a deduction, a fee, a part payment — enter what actually arrived.",
+      ],
+      canDo: [
+        "Set a paid date in the past",
+        "Mark many jobs paid at once from the selection bar, using the work date, the end of the following month, or a date you choose",
+        "Undo a bulk change from the notice that appears for 30 seconds afterwards",
+      ],
+      cannotDo: [
+        "Change the status of a job linked to an invoice from here — mark the invoice paid in Invoices and the job follows",
+      ],
+      seeAlso: ["books.earnings.status"],
+    },
   },
 
   // ── Expenses ───────────────────────────────────────────────────────────────
@@ -258,9 +298,25 @@ const entries: HelpEntry[] = [
   {
     key: "books.earnings.addJob",
     scope: "action",
+    title: "Adding a job",
     body: "Records work you found outside EventLink so it counts towards your earnings and tax estimate.",
     audience: ["freelancer"],
     version: 1,
+    detail: {
+      manualOrder: 10,
+      paragraphs: [
+        "Use this for anything you were booked for directly — a client who rang you, a cash job, a day for a crew you know. Give it a date, a description and the gross amount; a client and a job reference are optional but make it easier to invoice and find later.",
+        "A job dated in the future goes into My Jobs as upcoming work. Once its date passes it moves into Earnings as Expected.",
+      ],
+      canDo: [
+        "Save the client once and pick them from the list next time",
+        "Remove a job you added yourself if you entered it by mistake",
+      ],
+      cannotDo: [
+        "Add EventLink bookings by hand — Sync brings those in, and adding them yourself would count them twice",
+      ],
+      seeAlso: ["books.earnings.sync"],
+    },
   },
 
   // ── Calendar ───────────────────────────────────────────────────────────────
@@ -320,13 +376,45 @@ const entries: HelpEntry[] = [
     body: "Expected is work you've done but not billed, Invoiced is sent and waiting, Overdue is past its due date, and Paid is money received.",
     audience: ["freelancer"],
     version: 1,
+    detail: {
+      manualOrder: 30,
+      paragraphs: [
+        "A job usually moves Expected → Invoiced → Paid. Overdue means an invoice has passed its due date without payment; it goes back to Paid once the money arrives.",
+        "Your totals can be counted two ways. On cash basis only Paid work counts, in the year it was paid — work that's done but not yet received sits outside the total until it arrives. On accruals, a job counts once it's invoiced, whether or not you've been paid.",
+      ],
+      canDo: [
+        "Change several statuses at once: tick the lines, or tick a month to select all of it, then pick a status in the bar that appears",
+        "Filter the list to a single status from the menu in the section header",
+      ],
+      cannotDo: [
+        "Change a job linked to an invoice from here — the invoice controls its status, and a bulk change skips those lines and tells you so",
+        "Change more than 500 jobs in one go",
+      ],
+      seeAlso: ["books.earnings.logPayment"],
+    },
   },
   {
     key: "books.earnings.needsReview",
     scope: "field",
+    title: "Entries that need review",
     body: "The amount couldn't be read cleanly from the source — worth checking this one against your own records.",
     audience: ["freelancer"],
     version: 1,
+    detail: {
+      manualOrder: 50,
+      paragraphs: [
+        "An amber dot on a line means it came in from an import and something about it was uncertain. Point at the dot to see why: the amount couldn't be read, the source had a range like £250–300, the amount came out as zero, or there was no date and one had to be assumed.",
+        "Flagged lines are left out of your totals and the tax estimate until you've checked them, so an unchecked figure never quietly changes what you owe. The notice on the Overview says how many are waiting; pressing it shows just those lines.",
+        "To clear one, open it, correct anything that's wrong and save — or, if it was right all along, select it and choose Mark as reviewed.",
+      ],
+      canDo: [
+        "Show only flagged lines with the Needs review filter",
+        "Mark several as reviewed at once from the selection bar",
+        "Run Backfill on the Overview to clear lines from older imports that were flagged even though nothing was wrong with them",
+      ],
+      cannotDo: ["Include a flagged line in your totals before it's been reviewed"],
+      seeAlso: ["books.section.import"],
+    },
   },
 
   // ── Import ─────────────────────────────────────────────────────────────────

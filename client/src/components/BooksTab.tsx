@@ -5195,6 +5195,7 @@ export function BooksTab() {
                               <div className="ml-4 flex items-center gap-3">
                                 {entry.needs_review && (
                                   <span
+                                    data-help="books.earnings.needsReview"
                                     title={
                                       entry.review_reason === "unparsed_amount"
                                         ? "Amount could not be read from the source"
@@ -5210,6 +5211,7 @@ export function BooksTab() {
                                   />
                                 )}
                                 <button
+                                  data-help="books.earnings.status"
                                   className="cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                   title="Change payment status"
                                   onClick={(e) => {
