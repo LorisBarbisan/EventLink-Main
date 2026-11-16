@@ -1,41 +1,66 @@
 /**
  * Shared ExcelJS helpers for EventLink workbook exports.
  *
- * Usage:
- *   const wb = createWorkbook();
- *   addTypedSheet(wb, "Earnings", earningsCols, earningsRows);
- *   await streamWorkbook(wb, res, "eventlink-books-2026-04-06-to-2027-04-05.xlsx");
+ * Exports: createWorkbook, addTypedSheet (with optional SheetOpts),
+ * addSummarySheet, streamWorkbook, ColSpec, ColType, SheetOpts.
+ *
+ * Design rules, unchanged from before:
+ *   - No formulas anywhere. Totals are typed values.
+ *   - Nothing exotic: fills, borders, number formats and column widths only,
+ *     all of which render identically in Excel, LibreOffice, Numbers and
+ *     Google Sheets.
+ *   - Real typed cells — Date objects for dates, numbers for money.
  */
 
 import ExcelJS from "exceljs";
 import type { Response } from "express";
 
-// Brand colours
-const HEADER_BG = "FFD8690E"; // --primary
-const HEADER_BORDER = "FFB85C0A"; // darker amber
-const HEADER_FG = "FFFFFFFF";
-const TOTALS_BORDER = "FFB85C0A";
-
-export type ColType = "text" | "date" | "money" | "number" | "percent";
-
-export interface ColSpec {
-  header: string;
-  type: ColType;
-  /** If true, include this column in the totals row */
-  total?: boolean;
-  /**
-   * Index (0-based) of the column in the same row that holds the ISO currency
-   * code (GBP/EUR/USD). When set on a money column the per-cell numFmt is
-   * derived from that row's currency rather than a fixed format.
-   */
-  currencyFrom?: number;
-}
+// ── Palette ──────────────────────────────────────────────────────────────────
+// Navy is the app's signed-in header; orange is --primary. The pairing is the
+// product's, not a spreadsheet convention.
+const NAVY = "FF1E3A5F";
+const ORANGE = "FFD8690E";
+const ORANGE_SOFT = "FFFFF4E8"; // totals fill
+const ZEBRA = "FFF7F9FC"; // alternate row fill
+const HAIRLINE = "FFE3E8EF"; // row separator
+const MUTED = "FF6B7280"; // subtitles, empty states, notes
+const INK = "FF111827"; // body text
 
 const CURRENCY_FMT: Record<string, string> = {
   GBP: "£#,##0.00",
   EUR: "€#,##0.00",
   USD: "$#,##0.00",
 };
+
+export type ColType = "text" | "date" | "money" | "number" | "percent";
+
+export interface ColSpec {
+  header: string;
+  type: ColType;
+  /** Include this column in the totals row. */
+  total?: boolean;
+  /** 0-based index of the column holding this row's ISO currency code. */
+  currencyFrom?: number;
+}
+
+export interface SheetOpts {
+  /** Large heading above the table. */
+  title?: string;
+  /** One muted line under the title. */
+  subtitle?: string;
+  /** Label for the totals row's first cell. Default "Total". */
+  totalLabel?: string;
+  /** Shown when there are no rows. */
+  emptyLabel?: string;
+  /**
+   * Freeze the first column as well as the header. Deliberately unused: Excel
+   * renders a two-way split with an autofilter in the frozen row as a doubled
+   * header (LibreOffice does not, which is how it was missed). Freeze rows only.
+   */
+  freezeFirstCol?: boolean;
+  /** Tab colour. Defaults to orange. */
+  tabColor?: string;
+}
 
 type CellValue = string | number | Date | null | undefined;
 
@@ -46,108 +71,234 @@ export function createWorkbook(): ExcelJS.Workbook {
   return wb;
 }
 
-/**
- * Add a typed sheet to `wb`.
- * - header row: bold white on brand orange, frozen, autofilter
- * - dates: real Date cells, dd/mm/yyyy
- * - money: number cells, #,##0.00, right-aligned
- * - totals row: typed values (not formulas), bold, thin top border
- * - column widths: fit to longest value, clamped 10–45
- * - printing: landscape, fit-to-width
- */
 export function addTypedSheet(
   wb: ExcelJS.Workbook,
   name: string,
   cols: ColSpec[],
-  rows: CellValue[][]
+  rows: CellValue[][],
+  opts: SheetOpts = {}
 ): ExcelJS.Worksheet {
-  const ws = wb.addWorksheet(name);
+  const titleRows = opts.title ? (opts.subtitle ? 3 : 2) : 0;
 
-  // ── Header row ────────────────────────────────────────────────────────────────
-  ws.addRow(cols.map((c) => c.header));
-  const headerRow = ws.getRow(1);
-  headerRow.height = 20;
-  headerRow.eachCell((cell) => {
-    cell.font = { bold: true, color: { argb: HEADER_FG } };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_BG } };
-    cell.alignment = { vertical: "middle" };
-    cell.border = { bottom: { style: "thin", color: { argb: HEADER_BORDER } } };
+  const ws = wb.addWorksheet(name, {
+    views: [
+      {
+        state: "frozen",
+        ySplit: titleRows + 1,
+        xSplit: opts.freezeFirstCol ? 1 : 0,
+      },
+    ],
+    pageSetup: {
+      orientation: "landscape",
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      printTitlesRow: `1:${titleRows + 1}`,
+      margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 },
+    },
   });
-  ws.views = [{ state: "frozen", ySplit: 1 }];
+  ws.properties.defaultRowHeight = 18;
+  ws.properties.tabColor = { argb: opts.tabColor ?? ORANGE };
 
-  // ── Data rows or empty-state message ─────────────────────────────────────────
-  if (rows.length === 0) {
-    const emptyRow = ws.addRow(["No records for this period."]);
-    ws.mergeCells(2, 1, 2, cols.length);
-    emptyRow.getCell(1).font = { italic: true, color: { argb: "FF9CA3AF" } };
-    emptyRow.getCell(1).alignment = { horizontal: "left" };
-    return ws;
+  // ── Title block ────────────────────────────────────────────────────────────
+  if (opts.title) {
+    const t = ws.addRow([opts.title]);
+    t.height = 24;
+    t.getCell(1).font = { bold: true, size: 14, color: { argb: NAVY } };
+    if (opts.subtitle) {
+      const s = ws.addRow([opts.subtitle]);
+      s.getCell(1).font = { size: 9, italic: true, color: { argb: MUTED } };
+    }
+    ws.addRow([]);
   }
 
-  for (const row of rows) {
+  // ── Header row ─────────────────────────────────────────────────────────────
+  const headerRow = ws.addRow(cols.map((c) => c.header));
+  const headerRowNum = headerRow.number;
+  headerRow.height = 26;
+  headerRow.eachCell((cell, i) => {
+    const col = cols[i - 1];
+    cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
+    cell.alignment = {
+      vertical: "middle",
+      horizontal: isNumeric(col?.type) ? "right" : "left",
+      indent: 1,
+    };
+    cell.border = { bottom: { style: "medium", color: { argb: ORANGE } } };
+  });
+
+  // ── Empty state ────────────────────────────────────────────────────────────
+  if (rows.length === 0) {
+    const e = ws.addRow([opts.emptyLabel ?? "No records for this period."]);
+    ws.mergeCells(e.number, 1, e.number, cols.length);
+    e.height = 22;
+    e.getCell(1).font = { italic: true, color: { argb: MUTED } };
+    e.getCell(1).alignment = { horizontal: "left", indent: 1, vertical: "middle" };
+    setWidths(ws, cols, rows);
+    return ws; // no autofilter, no totals row
+  }
+
+  // ── Data rows ──────────────────────────────────────────────────────────────
+  rows.forEach((row, ri) => {
     const wsRow = ws.addRow(row.map((v, i) => typedValue(v, cols[i]?.type ?? "text")));
-    wsRow.eachCell((cell, colNum) => {
-      const col = cols[colNum - 1];
-      const currency = col?.currencyFrom != null ? String(row[col.currencyFrom] ?? "") : undefined;
+    wsRow.height = 18;
+    wsRow.eachCell({ includeEmpty: true }, (cell, i) => {
+      const col = cols[i - 1];
+      if (!col) return;
+      if (ri % 2 === 1) {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ZEBRA } };
+      }
+      cell.border = { bottom: { style: "thin", color: { argb: HAIRLINE } } };
+      cell.font = { size: 10, color: { argb: INK } };
+      const currency = col.currencyFrom != null ? String(row[col.currencyFrom] ?? "") : undefined;
       applyColFormat(cell, col, currency);
     });
+  });
+
+  // ── Totals row ─────────────────────────────────────────────────────────────
+  if (cols.some((c) => c.total)) {
+    ws.addRow([]); // separator
+    const data = cols.map((c, i) => {
+      if (c.total) {
+        return rows.reduce(
+          (s, row) => s + (typeof row[i] === "number" ? (row[i] as number) : 0),
+          0
+        );
+      }
+      return i === 0 ? (opts.totalLabel ?? "Total") : null;
+    });
+    const tr = ws.addRow(data);
+    tr.height = 22;
+    tr.eachCell({ includeEmpty: true }, (cell, i) => {
+      const col = cols[i - 1];
+      if (!col) return;
+      cell.font = { bold: true, size: 10, color: { argb: NAVY } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ORANGE_SOFT } };
+      cell.border = { top: { style: "medium", color: { argb: ORANGE } } };
+      if (col.total) {
+        const currency =
+          col.currencyFrom != null ? String(rows[0]?.[col.currencyFrom] ?? "") : undefined;
+        applyColFormat(cell, col, currency);
+      } else {
+        cell.alignment = { horizontal: "left", indent: 1, vertical: "middle" };
+      }
+    });
   }
 
-  // ── Totals row ────────────────────────────────────────────────────────────────
-  const moneyTotals = cols.some((c) => c.total && c.type === "money");
-  if (moneyTotals) {
-    ws.addRow([]); // blank separator
-    const totalsData = cols.map((c) => {
-      if (!c.total || c.type !== "money") return null;
-      let sum = 0;
-      for (const row of rows) {
-        const v = row[cols.indexOf(c)];
-        if (typeof v === "number") sum += v;
+  ws.autoFilter = {
+    from: { row: headerRowNum, column: 1 },
+    to: { row: headerRowNum, column: cols.length },
+  };
+
+  setWidths(ws, cols, rows);
+  return ws;
+}
+
+/**
+ * A label/value summary sheet — navy section bars, muted rows, soft-orange
+ * totals. `sections` is a list of [heading, lines] where each line is
+ * [label, value, { bold?, text? }].
+ */
+export function addSummarySheet(
+  wb: ExcelJS.Workbook,
+  name: string,
+  header: { title: string; subtitle?: string; meta?: string },
+  sections: Array<{
+    heading: string;
+    lines: Array<{ label: string; value: number | string; bold?: boolean; text?: boolean }>;
+  }>,
+  footnote?: string
+): ExcelJS.Worksheet {
+  const ws = wb.addWorksheet(name, {
+    views: [{ state: "frozen", ySplit: 4 }],
+    pageSetup: {
+      orientation: "portrait",
+      fitToPage: true,
+      margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 },
+    },
+  });
+  ws.properties.tabColor = { argb: NAVY };
+  ws.properties.defaultRowHeight = 18;
+  ws.getColumn(1).width = 42;
+  ws.getColumn(2).width = 20;
+
+  const t = ws.addRow([header.title]);
+  t.height = 30;
+  t.getCell(1).font = { bold: true, size: 18, color: { argb: NAVY } };
+  if (header.subtitle) {
+    ws.addRow([header.subtitle]).getCell(1).font = { size: 10, color: { argb: MUTED } };
+  }
+  if (header.meta) {
+    ws.addRow([header.meta]).getCell(1).font = { size: 9, italic: true, color: { argb: MUTED } };
+  }
+  ws.addRow([]);
+
+  for (const section of sections) {
+    const h = ws.addRow([section.heading]);
+    h.height = 24;
+    ws.mergeCells(h.number, 1, h.number, 2);
+    h.getCell(1).font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
+    h.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
+    h.getCell(1).alignment = { vertical: "middle", indent: 1 };
+    h.getCell(1).border = { bottom: { style: "medium", color: { argb: ORANGE } } };
+
+    for (const line of section.lines) {
+      const r = ws.addRow([line.label, line.value]);
+      r.height = 18;
+      const colour = line.bold ? NAVY : INK;
+      r.getCell(1).font = { size: 10, bold: !!line.bold, color: { argb: colour } };
+      r.getCell(1).alignment = { indent: line.bold ? 1 : 2, vertical: "middle" };
+      r.getCell(2).font = { size: 10, bold: !!line.bold, color: { argb: colour } };
+      r.getCell(2).numFmt = line.text ? "@" : CURRENCY_FMT.GBP;
+      r.getCell(2).alignment = { horizontal: "right", indent: 1, vertical: "middle" };
+      if (line.bold) {
+        for (const c of [r.getCell(1), r.getCell(2)]) {
+          c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ORANGE_SOFT } };
+          c.border = { top: { style: "thin", color: { argb: ORANGE } } };
+        }
+      } else {
+        for (const c of [r.getCell(1), r.getCell(2)]) {
+          c.border = { bottom: { style: "thin", color: { argb: HAIRLINE } } };
+        }
       }
-      return sum;
-    });
-    const totalsRow = ws.addRow(totalsData);
-    totalsRow.eachCell({ includeEmpty: false }, (cell, colNum) => {
-      const col = cols[colNum - 1];
-      if (col?.type === "money") {
-        applyColFormat(cell, col);
-      }
-      cell.font = { bold: true };
-      cell.border = { top: { style: "thin", color: { argb: TOTALS_BORDER } } };
-    });
+    }
+    ws.addRow([]);
   }
 
-  // Auto-filter on header row (only when there are data rows)
-  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };
+  if (footnote) {
+    const f = ws.addRow([footnote]);
+    ws.mergeCells(f.number, 1, f.number, 2);
+    f.height = 42;
+    f.getCell(1).font = { size: 9, italic: true, color: { argb: MUTED } };
+    f.getCell(1).alignment = { wrapText: true, vertical: "top", indent: 1 };
+  }
 
-  // ── Column widths (fit to data, not header) ───────────────────────────────────
+  return ws;
+}
+
+// ── Internals ────────────────────────────────────────────────────────────────
+
+function isNumeric(t?: ColType) {
+  return t === "money" || t === "number" || t === "percent";
+}
+
+function setWidths(ws: ExcelJS.Worksheet, cols: ColSpec[], rows: CellValue[][]) {
   cols.forEach((col, i) => {
-    const colNum = i + 1;
-    let maxLen = col.header.length;
+    let max = col.header.length;
     for (const row of rows) {
       const v = row[i];
       if (v == null) continue;
       const len =
         v instanceof Date
-          ? 10
-          : col.type === "money" || col.type === "number"
-            ? String(typeof v === "number" ? v.toFixed(2) : v).length
+          ? 11
+          : typeof v === "number"
+            ? v.toFixed(2).length + 3 // room for the currency symbol and separators
             : String(v).length;
-      if (len > maxLen) maxLen = len;
+      if (len > max) max = len;
     }
-    ws.getColumn(colNum).width = Math.min(Math.max(maxLen + 2, 10), 45);
+    ws.getColumn(i + 1).width = Math.min(Math.max(max + 4, 12), 46);
   });
-
-  // ── Print settings ────────────────────────────────────────────────────────────
-  ws.pageSetup = {
-    orientation: "landscape",
-    fitToPage: true,
-    fitToWidth: 1,
-    fitToHeight: 0,
-    printTitlesRow: "1:1",
-  };
-
-  return ws;
 }
 
 function typedValue(v: CellValue, type: ColType): CellValue {
@@ -157,22 +308,32 @@ function typedValue(v: CellValue, type: ColType): CellValue {
     if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) return new Date(v + "T00:00:00Z");
     return null;
   }
-  if (type === "money" || type === "number") {
+  if (isNumeric(type)) {
     const n = typeof v === "number" ? v : parseFloat(String(v));
     return isNaN(n) ? null : n;
   }
   return String(v);
 }
 
-function applyColFormat(cell: ExcelJS.Cell, col: ColSpec | undefined, currency?: string) {
-  if (!col) return;
+function applyColFormat(cell: ExcelJS.Cell, col: ColSpec, currency?: string) {
+  const right = { horizontal: "right" as const, indent: 1, vertical: "middle" as const };
+  const left = { horizontal: "left" as const, indent: 1, vertical: "middle" as const };
+
   if (col.type === "date") {
-    cell.numFmt = "dd/mm/yyyy";
+    cell.numFmt = "dd mmm yyyy";
+    cell.alignment = left;
   } else if (col.type === "money") {
-    cell.numFmt = (currency && CURRENCY_FMT[currency]) ?? "#,##0.00";
-    cell.alignment = { horizontal: "right" };
+    const base = (currency && CURRENCY_FMT[currency]) ?? CURRENCY_FMT.GBP;
+    cell.numFmt = `${base};[Red]-${base}`; // negatives in red, same symbol
+    cell.alignment = right;
   } else if (col.type === "number") {
-    cell.alignment = { horizontal: "right" };
+    cell.numFmt = "#,##0";
+    cell.alignment = right;
+  } else if (col.type === "percent") {
+    cell.numFmt = '0"%"';
+    cell.alignment = right;
+  } else {
+    cell.alignment = left;
   }
 }
 
