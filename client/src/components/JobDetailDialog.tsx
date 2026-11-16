@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Pencil,
   Plus,
+  Info,
 } from "lucide-react";
 const fmtDate = (d: string | null | undefined) => fmtSharedDate(d, "—");
 
@@ -33,6 +34,36 @@ interface JobEntry {
   work_status?: string | null;
   standard_hours_per_day?: number | null;
   overtime_rate_pence?: number | null;
+  venue?: string | null;
+  venue_address?: string | null;
+  call_time?: string | null;
+  notes?: string | null;
+  job_ref?: string | null;
+  unit?: string | null;
+  quantity?: string | number | null;
+  unit_amount_pence?: number | null;
+}
+
+interface BookingDetail {
+  booking: {
+    agreedRate: string | null;
+    callTime: string | null;
+    venueAddress: string | null;
+    employerNotes: string | null;
+  };
+  job: {
+    id: number;
+    title: string;
+    location: string | null;
+    eventDate: string | null;
+    payRate: string | null;
+    description: string | null;
+  };
+  employer: {
+    firstName: string | null;
+    lastName: string | null;
+    companyName: string | null;
+  } | null;
 }
 
 interface Expense {
@@ -180,6 +211,12 @@ export function JobDetailDialog({
     enabled: !!entry?.invoice_id,
   });
 
+  const { data: booking } = useQuery<BookingDetail>({
+    queryKey: ["/api/bookings", entry?.booking_id],
+    queryFn: () => apiRequest(`/api/bookings/${entry!.booking_id}`),
+    enabled: !!entry?.booking_id,
+  });
+
   const expenseList = expensesData?.expenses ?? [];
   const tripList = mileageData?.trips ?? [];
   const totalExpensePence = expenseList.reduce(
@@ -216,7 +253,9 @@ export function JobDetailDialog({
                 {entry.description ?? "Booked job"}
               </DialogTitle>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                {entry.client_name ? `${entry.client_name} · ` : ""}
+                {(entry.client_name ?? booking?.employer?.companyName)
+                  ? `${entry.client_name ?? booking?.employer?.companyName} · `
+                  : ""}
                 {dateRange}
               </p>
             </div>
@@ -247,6 +286,8 @@ export function JobDetailDialog({
         </DialogHeader>
 
         <div className="mt-2 divide-y rounded-md border">
+          <JobDetailsRow entry={entry} booking={booking} />
+
           {/* Money */}
           <SectionRow icon={<PoundSterling className="h-4 w-4" />} label="Money">
             <div className="space-y-1">
@@ -404,7 +445,7 @@ export function JobDetailDialog({
           {/* Documents — only for platform bookings */}
           {entry.booking_id && (
             <SectionRow icon={<FileText className="h-4 w-4" />} label="Documents">
-              <DocumentsSection bookingId={entry.booking_id} />
+              <DocumentsSection jobId={booking?.job.id} />
             </SectionRow>
           )}
         </div>
@@ -420,6 +461,77 @@ export function JobDetailDialog({
   );
 }
 
+// ── Details: what was entered on the job, filled in from the booking ─────────
+
+const UNIT_LABEL: Record<string, string> = { day: "day", hour: "hour", job: "job" };
+
+function JobDetailsRow({ entry, booking }: { entry: JobEntry; booking?: BookingDetail }) {
+  const employerName = booking?.employer
+    ? [booking.employer.firstName, booking.employer.lastName].filter(Boolean).join(" ")
+    : "";
+  const callTime = entry.call_time || booking?.booking.callTime;
+  const venue = [entry.venue, entry.venue_address || booking?.booking.venueAddress]
+    .filter(Boolean)
+    .join(", ");
+  const where = venue || booking?.job.location || "";
+  const qty = entry.quantity != null ? Number(entry.quantity) : null;
+  const rate =
+    entry.unit && qty && entry.unit_amount_pence
+      ? `${qty} ${UNIT_LABEL[entry.unit] ?? entry.unit}${qty === 1 ? "" : "s"} × ${fmtPence(entry.unit_amount_pence, entry.currency)}`
+      : booking?.booking.agreedRate || booking?.job.payRate || "";
+  const client = entry.client_name || booking?.employer?.companyName;
+  const contact = booking && employerName && employerName !== client ? employerName : "";
+
+  const rows: [string, string][] = [
+    ["Client", [client, contact].filter(Boolean).join(" · ")],
+    ["Call time", callTime ?? ""],
+    ["Where", where],
+    ["Rate", rate],
+    ["Reference", entry.job_ref ?? ""],
+  ].filter(([, v]) => v) as [string, string][];
+
+  const brief = booking?.job.description?.trim();
+  const notes = entry.notes?.trim();
+  const employerNotes = booking?.booking.employerNotes?.trim();
+
+  if (!rows.length && !brief && !notes && !employerNotes) return null;
+
+  return (
+    <SectionRow icon={<Info className="h-4 w-4" />} label="Details">
+      <div className="space-y-2">
+        {rows.length > 0 && (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+            {rows.map(([k, v]) => (
+              <div key={k} className="contents">
+                <dt className="text-xs text-muted-foreground">{k}</dt>
+                <dd className="min-w-0 break-words">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        {employerNotes && (
+          <div>
+            <p className="text-xs text-muted-foreground">From the employer</p>
+            <p className="whitespace-pre-line text-sm">{employerNotes}</p>
+          </div>
+        )}
+        {brief && (
+          <details className="text-sm">
+            <summary className="cursor-pointer text-xs text-muted-foreground">Job brief</summary>
+            <p className="mt-1 whitespace-pre-line">{brief}</p>
+          </details>
+        )}
+        {notes && (
+          <div>
+            <p className="text-xs text-muted-foreground">Your notes</p>
+            <p className="whitespace-pre-line text-sm">{notes}</p>
+          </div>
+        )}
+      </div>
+    </SectionRow>
+  );
+}
+
 // ── Documents sub-section ─────────────────────────────────────────────────────
 
 interface JobDoc {
@@ -429,14 +541,7 @@ interface JobDoc {
   downloadUrl: string | null;
 }
 
-function DocumentsSection({ bookingId }: { bookingId: number }) {
-  const { data: booking } = useQuery<{ job: { id: number } }>({
-    queryKey: ["/api/bookings", bookingId],
-    queryFn: () => apiRequest(`/api/bookings/${bookingId}`),
-  });
-
-  const jobId = booking?.job?.id;
-
+function DocumentsSection({ jobId }: { jobId: number | undefined }) {
   const { data: docs = [] } = useQuery<JobDoc[]>({
     queryKey: ["/api/job", jobId, "documents"],
     queryFn: () => apiRequest(`/api/job/${jobId}/documents`),

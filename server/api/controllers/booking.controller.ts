@@ -276,9 +276,22 @@ export async function getBookingById(req: Request, res: Response) {
       return res.status(404).json({ error: "Booking not found or access denied" });
     }
 
+    const [employer] = await db
+      .select({
+        id: users.id,
+        firstName: users.first_name,
+        lastName: users.last_name,
+        companyName: recruiter_profiles.company_name,
+      })
+      .from(users)
+      .leftJoin(recruiter_profiles, eq(recruiter_profiles.user_id, users.id))
+      .where(eq(users.id, row.booking.employerId))
+      .limit(1);
+
     const result = {
       ...row,
       freelancer: { ...row.freelancer, phone: NO_PHONE },
+      employer: employer ?? null,
     };
 
     const history = await db
