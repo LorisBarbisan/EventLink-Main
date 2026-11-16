@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import type { BookingStatus, EarningsEntry } from "@shared/schema";
 
 export type JobPhase = "upcoming" | "awaiting_payment" | "paid" | "cancelled";
 
@@ -7,11 +8,11 @@ export interface FreelancerJob {
     id: number;
     jobId: number;
     employerId: number;
-    status: string;
+    status: BookingStatus;
     agreedRate: string | null;
     currency: string | null;
     earnings_entry_id: number | null;
-    entry_status: string | null;
+    entry_status: EarningsEntry["status"] | null;
     entry_gross_pence: number | null;
     entry_paid_pence: number | null;
     entry_paid_date: string | null;
@@ -47,7 +48,7 @@ function derivePhase(hb: Omit<FreelancerJob, "phase">): JobPhase {
 export function useFreelancerJobs() {
   return useQuery<FreelancerJob[]>({
     queryKey: ["/api/bookings/freelancer"],
-    select: (raw: any[]) =>
+    select: (raw) =>
       raw.map((item) => {
         const base = { booking: item.booking, job: item.job, employer: item.employer };
         return { ...base, phase: derivePhase(base) };

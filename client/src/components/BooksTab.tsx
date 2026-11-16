@@ -1,4 +1,5 @@
 import { fmtDate as fmtSharedDate } from "@shared/dates";
+import type { BookingStatus } from "@shared/schema";
 import React, { useEffect, useRef, useState } from "react";
 import { JobSelect, type JobOption } from "./JobSelect";
 import {
@@ -3570,6 +3571,8 @@ function OverviewSection() {
 
 // ── Top-level tabs ─────────────────────────────────────────────────────────────
 
+const ACTIVE_BOOKING_STATUSES: readonly BookingStatus[] = ["confirmed", "briefed", "completed"];
+
 type UnloggedBooking = {
   id: number;
   job_id?: number;
@@ -3579,29 +3582,10 @@ type UnloggedBooking = {
   event_date?: string;
   rate?: string;
   location?: string;
-  status?: string;
+  status?: BookingStatus;
   earnings_entry_id?: number | null;
   entry_gross_pence?: number | null;
 };
-
-interface HiredBooking {
-  booking: {
-    id: number;
-    jobId: number;
-    employerId: number;
-    status: string;
-    agreedRate: string | null;
-    earnings_entry_id: number | null;
-  };
-  job: { id: number; title: string; eventDate: string | null; endDate?: string | null };
-  employer: {
-    id: number;
-    firstName: string | null;
-    lastName: string | null;
-    companyName: string | null;
-    profilePicture?: string | null;
-  };
-}
 
 export interface HiredBookingForCalendar {
   bookingId: number;
@@ -3774,8 +3758,8 @@ export function BooksTab() {
   const { data: hiredBookings = [] } = useFreelancerJobs();
 
   // Derive allBookings from hiredBookings — /api/bookings/freelancer now includes earnings_entry_id
-  const allBookings: UnloggedBooking[] = (hiredBookings as unknown as HiredBooking[])
-    .filter((hb) => ["confirmed", "briefed", "completed"].includes(hb.booking.status))
+  const allBookings: UnloggedBooking[] = hiredBookings
+    .filter((hb) => ACTIVE_BOOKING_STATUSES.includes(hb.booking.status))
     .map((hb) => ({
       id: hb.booking.id,
       job_id: hb.booking.jobId,
@@ -3785,7 +3769,7 @@ export function BooksTab() {
       rate: hb.booking.agreedRate ?? undefined,
       status: hb.booking.status,
       earnings_entry_id: hb.booking.earnings_entry_id ?? undefined,
-      entry_gross_pence: (hb.booking as any).entry_gross_pence ?? null,
+      entry_gross_pence: hb.booking.entry_gross_pence ?? null,
     }));
 
   // Lightweight invoice lookup by job/booking id
@@ -3890,16 +3874,16 @@ export function BooksTab() {
   // A booking with status "completed" goes to Earnings even if its event_date is in the future
   // (e.g. the repair loop advanced the status before the event date arrived).
   const upcomingHired = allBookings.filter(
-    (b: any) => b.status !== "completed" && (!b.event_date || new Date(b.event_date) >= today)
+    (b) => b.status !== "completed" && (!b.event_date || new Date(b.event_date) >= today)
   );
   // Past work with no entry — edge case after backfill, but kept as a safety net
   const unloggedBookings = allBookings.filter(
-    (b: any) => !b.earnings_entry_id && b.event_date && new Date(b.event_date) < today
+    (b) => !b.earnings_entry_id && !!b.event_date && new Date(b.event_date) < today
   );
   // Past bookings with no entry yet — show "Log payment" in Earnings
   // Once an entry exists, the booking falls through to completedEntries (full display with amount)
   const awaitingPaymentHired = allBookings.filter(
-    (b: any) => !b.earnings_entry_id && b.event_date && new Date(b.event_date) < today
+    (b) => !b.earnings_entry_id && !!b.event_date && new Date(b.event_date) < today
   );
 
   // Auto-backfill: when past bookings have no entry, run repair once so they appear as entries
@@ -4752,7 +4736,7 @@ export function BooksTab() {
 
               const todayStr = new Date().toISOString().slice(0, 10);
               const items: JobItem[] = [
-                ...upcomingHired.map((b: any) => ({
+                ...upcomingHired.map((b) => ({
                   kind: "booking" as const,
                   date: b.event_date ?? "9999-12-31",
                   data: b,
@@ -4995,7 +4979,7 @@ export function BooksTab() {
                   </div>
                 ) : (
                   <div>
-                    {awaitingPaymentHired.map((b: any) => (
+                    {awaitingPaymentHired.map((b) => (
                       <div
                         key={`unlogged-${b.id}`}
                         className="flex cursor-pointer items-center justify-between border-l-4 border-amber-400 bg-amber-50/60 px-5 py-3 dark:bg-amber-950/20"

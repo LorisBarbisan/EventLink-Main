@@ -506,7 +506,7 @@ export async function registerRoutes(
         storage.getAllJobsSortedByDate(),
       ]);
 
-      const activeJobs = allJobs.filter((j: any) => j.status === "active");
+      const activeJobs = allJobs.filter((j) => j.status === "active");
 
       const today = new Date().toISOString().slice(0, 10);
 
