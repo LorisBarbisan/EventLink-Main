@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import eventlinkLogo from "@assets/E8-Logo-Orange-New.png";
+import eventlinkLogo from "@/assets/E8-Logo-Orange-New.png";
 import { ArrowRight, Briefcase } from "lucide-react";
 import { Link } from "wouter";
 
