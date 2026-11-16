@@ -1,6 +1,4 @@
-import { useState, useRef, useEffect } from "react";
-import { Check, ChevronDown, Search } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
 
 export interface Country {
   code: string;
@@ -214,6 +212,15 @@ interface CountrySelectProps {
   className?: string;
 }
 
+const COUNTRY_OPTIONS: SearchableOption[] = COUNTRIES.map((c) => ({
+  value: c.name,
+  label: c.name,
+  keywords: [c.code],
+  icon: <span className="text-base leading-none">{getFlagEmoji(c.code)}</span>,
+}));
+
+const ALL_COUNTRIES: SearchableOption[] = [{ value: "", label: "All Countries" }];
+
 export function CountrySelect({
   value,
   onChange,
@@ -222,119 +229,20 @@ export function CountrySelect({
   id,
   className,
 }: CountrySelectProps) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  const filtered = search
-    ? COUNTRIES.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
-    : COUNTRIES;
-
-  const selected = COUNTRIES.find((c) => c.name === value);
-
-  useEffect(() => {
-    if (open) setTimeout(() => searchRef.current?.focus(), 50);
-  }, [open]);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch("");
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
   return (
-    <div ref={containerRef} className={cn("relative", className)}>
-      <button
-        id={id}
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={cn(
-          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-          !value && "text-muted-foreground"
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span className="flex items-center gap-2 truncate">
-          {selected ? (
-            <>
-              <span className="text-base leading-none">{getFlagEmoji(selected.code)}</span>
-              {selected.name}
-            </>
-          ) : (
-            placeholder
-          )}
-        </span>
-        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-      </button>
-
-      {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg">
-          <div className="flex items-center border-b px-3 py-2">
-            <Search className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
-            <input
-              ref={searchRef}
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-              placeholder="Search countries..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <ul role="listbox" className="max-h-60 overflow-y-auto py-1">
-            {!search && (
-              <li
-                role="option"
-                aria-selected={!value}
-                className={cn(
-                  "flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  !value && "bg-accent/50"
-                )}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onChange("");
-                  setOpen(false);
-                  setSearch("");
-                }}
-              >
-                <span className="flex-1">All Countries</span>
-                {!value && <Check className="h-4 w-4 shrink-0 text-primary" />}
-              </li>
-            )}
-            {filtered.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-muted-foreground">No countries found.</li>
-            ) : (
-              filtered.map((c) => (
-                <li
-                  key={c.code}
-                  role="option"
-                  aria-selected={value === c.name}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground",
-                    value === c.name && "bg-accent/50"
-                  )}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onChange(c.name);
-                    setOpen(false);
-                    setSearch("");
-                  }}
-                >
-                  <span className="text-base leading-none">{getFlagEmoji(c.code)}</span>
-                  <span className="flex-1">{c.name}</span>
-                  {value === c.name && <Check className="h-4 w-4 shrink-0 text-primary" />}
-                </li>
-              ))
-            )}
-          </ul>
-        </div>
-      )}
-    </div>
+    <SearchableSelect
+      id={id}
+      className={className}
+      value={value}
+      onChange={onChange}
+      options={COUNTRY_OPTIONS}
+      pinned={ALL_COUNTRIES}
+      hidePinnedWhileSearching
+      placeholder={placeholder}
+      searchPlaceholder="Search countries..."
+      emptyLabel="No countries found."
+      minOptionsForSearch={0}
+    />
   );
 }
 
