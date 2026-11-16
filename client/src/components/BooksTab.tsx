@@ -80,6 +80,9 @@ import { CalendarTab } from "./CalendarTab";
 import { JobDetailDialog } from "./JobDetailDialog";
 import { ClientsTab } from "./ClientsTab";
 import { ImportWizard } from "./ImportWizard";
+import { RecentlyRemoved } from "./RecentlyRemoved";
+import { StartAgainCard } from "./StartAgainCard";
+import { matchesOrigin, ORIGIN_OPTIONS, type OriginFilter } from "@/lib/origin";
 import { ManualToggle } from "@/help/ManualPane";
 import { manualStore } from "@/help/manualStore";
 import { type GigForm, EMPTY_GIG_FORM, GigFormBody } from "./GigFormFields";
@@ -1193,7 +1196,8 @@ function ExpensesSection() {
   });
 
   const vatRegistered = Boolean(billingProfile?.vat_registered);
-  const expenses = expensesData?.expenses ?? [];
+  const [originFilter, setOriginFilter] = useState<OriginFilter>("all");
+  const expenses = (expensesData?.expenses ?? []).filter((e) => matchesOrigin(e, originFilter));
 
   const categoryMap = Object.fromEntries(categoriesData.map((c) => [c.id, c.name]));
 
@@ -1241,6 +1245,23 @@ function ExpensesSection() {
                   {expenses.length}
                 </span>
               )}
+              <div onClick={(e) => e.stopPropagation()}>
+                <Select
+                  value={originFilter}
+                  onValueChange={(v) => setOriginFilter(v as OriginFilter)}
+                >
+                  <SelectTrigger className="h-6 w-32 border-amber-200 bg-white/90 text-xs text-amber-900">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ORIGIN_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <Button
               size="sm"
@@ -1266,6 +1287,10 @@ function ExpensesSection() {
                   </div>
                 ))}
               </div>
+            ) : expenses.length === 0 && originFilter !== "all" ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No expenses from this source.
+              </p>
             ) : expenses.length === 0 ? (
               <div className="py-10 text-center">
                 <Receipt className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
@@ -1387,6 +1412,7 @@ function ExpensesSection() {
         categories={categoriesData}
         vatRegistered={vatRegistered}
       />
+      <RecentlyRemoved table="expenses" />
     </div>
   );
 }
@@ -3738,6 +3764,7 @@ export function BooksTab() {
 
   // ── Earnings status filter + bulk-select state ───────────────────────────────
   const [earningsFilter, setEarningsFilter] = useState<string>("all");
+  const [earningsOrigin, setEarningsOrigin] = useState<OriginFilter>("all");
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<number>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<string>("paid");
   const [bulkDateMode, setBulkDateMode] = useState<
@@ -4563,6 +4590,7 @@ export function BooksTab() {
       <div className="space-y-4">
         {sectionSwitcher}
         <ImportWizard />
+        <StartAgainCard />
       </div>
     );
   }
@@ -4978,12 +5006,13 @@ export function BooksTab() {
       {(() => {
         const today = new Date().toISOString().slice(0, 10);
         const completedEntries = entries.filter((e) => e.work_date <= today);
-        const filteredEntries =
+        const filteredEntries = (
           earningsFilter === "all"
             ? completedEntries
             : earningsFilter === "needs_review"
               ? entries.filter((e) => e.needs_review)
-              : completedEntries.filter((e) => e.status === earningsFilter);
+              : completedEntries.filter((e) => e.status === earningsFilter)
+        ).filter((e) => matchesOrigin(e, earningsOrigin));
         const earningsTotal = filteredEntries.reduce((s, e) => s + (e.gross_amount_pence ?? 0), 0);
         const earningsMonths = groupByMonth(filteredEntries, "work_date").reverse();
         return (
@@ -5025,6 +5054,24 @@ export function BooksTab() {
                       <SelectItem value="paid">Paid</SelectItem>
                       <SelectItem value="overdue">Overdue</SelectItem>
                       <SelectItem value="needs_review">Needs review</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={earningsOrigin}
+                    onValueChange={(v) => setEarningsOrigin(v as OriginFilter)}
+                  >
+                    <SelectTrigger
+                      className="h-6 w-32 text-xs"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ORIGIN_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -5334,6 +5381,7 @@ export function BooksTab() {
           )}
         </DialogContent>
       </Dialog>
+      <RecentlyRemoved table="earnings" />
     </div>
   );
 }

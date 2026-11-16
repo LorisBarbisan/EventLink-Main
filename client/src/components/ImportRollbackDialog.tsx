@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { invalidateBooks } from "@/lib/invalidate-books";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -102,9 +103,7 @@ export function ImportRollbackDialog({
       return apiRequest(`/api/imports/${batch.id}`);
     },
     onSuccess: (updated) => {
-      for (const key of ["/api/imports", "/api/earnings", "/api/expenses", "/api/books"]) {
-        queryClient.invalidateQueries({ queryKey: [key] });
-      }
+      invalidateBooks(queryClient);
       toast({ title: "Import rolled back", description: "You can restore records for 30 days." });
       onRolledBack?.(updated);
       onClose();
