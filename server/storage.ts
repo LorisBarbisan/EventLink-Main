@@ -7427,7 +7427,7 @@ export class DatabaseStorage implements IStorage {
   async archiveExpense(id: number, freelancerId: number): Promise<void> {
     await db
       .update(expenses)
-      .set({ archived: true, updated_at: new Date() })
+      .set({ archived: true, archived_at: new Date(), updated_at: new Date() })
       .where(and(eq(expenses.id, id), eq(expenses.freelancer_id, freelancerId)));
   }
 

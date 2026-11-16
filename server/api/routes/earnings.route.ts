@@ -707,11 +707,12 @@ router.delete("/:id/archive", auth, async (req: Request, res: Response) => {
     if (!existing) return res.status(404).json({ error: "Not found" });
     if (existing.freelancer_id !== freelancerId)
       return res.status(403).json({ error: "Forbidden" });
-    if (existing.source !== "manual") {
-      return res.status(409).json({ error: "Only manual entries can be deleted" });
+    if (existing.source !== "manual" && existing.source !== "imported") {
+      return res.status(409).json({ error: "Only entries you added or imported can be deleted" });
     }
 
-    await storage.updateEarningsEntry(id, { archived: true });
+    // archived_at makes it restorable from Recently removed for 30 days.
+    await storage.updateEarningsEntry(id, { archived: true, archived_at: new Date() });
     storage
       .appendAuditLog({
         freelancer_id: freelancerId,

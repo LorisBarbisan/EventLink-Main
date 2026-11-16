@@ -40,7 +40,12 @@ async function resolveCategoryId(name: string, freelancerId: number): Promise<nu
 // PR 5 (real parser) populates row.parsed with well-typed fields and replaces
 // these stubs with the real insert logic.
 
+// Writes go through the commit transaction (tx), so a crash part-way through
+// leaves nothing behind.
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 async function writeRecord(
+  tx: Tx,
   row: ImportRow,
   freelancerId: number
 ): Promise<{ table: string; id: number } | null> {
@@ -71,11 +76,12 @@ async function writeRecord(
       reviewReason = "assumed_date";
     }
 
-    const [entry] = await db
+    const [entry] = await tx
       .insert(earnings_entries)
       .values({
         freelancer_id: freelancerId,
-        source: "manual",
+        source: "imported",
+        import_batch_id: row.batch_id,
         description,
         work_date: workDate,
         gross_amount_pence: grossPence,
@@ -99,11 +105,12 @@ async function writeRecord(
     const categoryName = typeof parsed.category_name === "string" ? parsed.category_name : null;
     const categoryId = categoryName ? await resolveCategoryId(categoryName, freelancerId) : null;
 
-    const [expense] = await db
+    const [expense] = await tx
       .insert(expenses)
       .values({
         freelancer_id: freelancerId,
-        source: "bank",
+        source: "imported",
+        import_batch_id: row.batch_id,
         description,
         expense_date: expenseDate,
         net_amount_pence: netPence,
@@ -172,7 +179,7 @@ export async function commitBatch(batchId: number, freelancerId: number): Promis
 
     await db.transaction(async (tx) => {
       for (const row of approvedRows) {
-        const result = await writeRecord(row, freelancerId);
+        const result = await writeRecord(tx, row, freelancerId);
         if (result) {
           await tx
             .update(import_rows)
@@ -209,7 +216,7 @@ export async function commitBatch(batchId: number, freelancerId: number): Promis
 }
 
 // ── rollbackBatch ──────────────────────────────────────────────────────────────
-// Deletes every record that was created during commitBatch(), identified by
+// Archives (never deletes) every record that was created during commitBatch(), identified by
 // created_record_table / created_record_id on each row. Only records this batch
 // created are touched — existing records with the same IDs are not deleted
 // (there is no ID overlap risk because we only track IDs we inserted).
@@ -248,14 +255,34 @@ export async function rollbackBatch(batchId: number, freelancerId: number): Prom
   }
 
   await db.transaction(async (tx) => {
-    // Delete from each ledger table
+    // Archive, not delete: restorable for 30 days from Recently removed, then
+    // hard-deleted by the nightly sweep. Scoped to this freelancer as well as
+    // to the ids this batch created.
+    const now = new Date();
+    const archive = {
+      archived: true,
+      archived_at: now,
+      archived_by_batch_id: batchId,
+      updated_at: now,
+    };
     if (byTable["earnings_entries"]?.length) {
       await tx
-        .delete(earnings_entries)
-        .where(inArray(earnings_entries.id, byTable["earnings_entries"]));
+        .update(earnings_entries)
+        .set(archive)
+        .where(
+          and(
+            inArray(earnings_entries.id, byTable["earnings_entries"]),
+            eq(earnings_entries.freelancer_id, freelancerId)
+          )
+        );
     }
     if (byTable["expenses"]?.length) {
-      await tx.delete(expenses).where(inArray(expenses.id, byTable["expenses"]));
+      await tx
+        .update(expenses)
+        .set(archive)
+        .where(
+          and(inArray(expenses.id, byTable["expenses"]), eq(expenses.freelancer_id, freelancerId))
+        );
     }
 
     // Clear tracking columns on the rows

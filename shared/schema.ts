@@ -1469,7 +1469,19 @@ export const earnings_entries = pgTable(
       onDelete: "set null",
     }),
     role_id: integer("role_id").references(() => earnings_roles.id, { onDelete: "set null" }),
-    source: text("source").notNull().default("manual").$type<"booking" | "invoice" | "manual">(),
+    source: text("source")
+      .notNull()
+      .default("manual")
+      .$type<"booking" | "invoice" | "manual" | "imported">(),
+    // Undo and provenance (migration 0038). Archived rows are hard-deleted by a
+    // nightly sweep 30 days after archived_at.
+    archived_at: timestamp("archived_at", { withTimezone: true }),
+    archived_by_batch_id: integer("archived_by_batch_id").references(() => import_batches.id, {
+      onDelete: "set null",
+    }),
+    import_batch_id: integer("import_batch_id").references(() => import_batches.id, {
+      onDelete: "set null",
+    }),
     booking_id: integer("booking_id").references(() => bookings.id, { onDelete: "set null" }),
     invoice_id: integer("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
     description: text("description").notNull(),
@@ -1684,7 +1696,19 @@ export const expenses = pgTable(
     earnings_entry_id: integer("earnings_entry_id").references(() => earnings_entries.id, {
       onDelete: "set null",
     }),
-    source: text("source").notNull().default("manual").$type<"manual" | "receipt" | "bank">(),
+    source: text("source")
+      .notNull()
+      .default("manual")
+      .$type<"manual" | "receipt" | "bank" | "imported">(),
+    // Undo and provenance (migration 0038). Archived rows are hard-deleted by a
+    // nightly sweep 30 days after archived_at.
+    archived_at: timestamp("archived_at", { withTimezone: true }),
+    archived_by_batch_id: integer("archived_by_batch_id").references(() => import_batches.id, {
+      onDelete: "set null",
+    }),
+    import_batch_id: integer("import_batch_id").references(() => import_batches.id, {
+      onDelete: "set null",
+    }),
     supplier: text("supplier"),
     description: text("description").notNull(),
     expense_date: date("expense_date").notNull(),

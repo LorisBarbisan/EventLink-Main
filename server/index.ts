@@ -15,6 +15,8 @@ import { registerCredentialReminderScheduler } from "./api/services/credential-r
 import { registerCalendarScheduler } from "./api/services/calendarScheduler.service";
 import { sweepStuckParseJobs } from "./api/services/import-parse-worker.service";
 import { sweepStuckCommits } from "./api/services/import-commit.service";
+import { sweepArchived } from "./api/services/undo.service";
+import cron from "node-cron";
 import { seedSystemMappings } from "./api/services/import-seed.service";
 import { ensureAdditiveSchema } from "./api/utils/ensure-additive-schema";
 
@@ -215,6 +217,15 @@ app.use((req, res, next) => {
       );
     },
     15 * 60 * 1000
+  );
+
+  // Hard-delete earnings/expenses archived more than 30 days ago, nightly 03:30 UK
+  cron.schedule(
+    "30 3 * * *",
+    () => {
+      sweepArchived().catch((err) => console.error("[undo-sweep] failed:", err));
+    },
+    { timezone: "Europe/London" }
   );
 
   // OG tag middleware for social media crawlers (must be before Vite catch-all)
