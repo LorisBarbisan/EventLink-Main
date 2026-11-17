@@ -83,6 +83,7 @@ import { ImportWizard } from "./ImportWizard";
 import { RecentlyRemoved } from "./RecentlyRemoved";
 import { StartAgainCard } from "./StartAgainCard";
 import { matchesOrigin, ORIGIN_OPTIONS, type OriginFilter } from "@/lib/origin";
+import { isBooksCurrency } from "@shared/expense-totals";
 import { ManualToggle } from "@/help/ManualPane";
 import { manualStore } from "@/help/manualStore";
 import { type GigForm, EMPTY_GIG_FORM, GigFormBody } from "./GigFormFields";
@@ -1172,6 +1173,13 @@ const EARNINGS_STATUS_OPTIONS = [
   { value: "paid", label: "Paid" },
   { value: "overdue", label: "Overdue" },
   { value: "needs_review", label: "Needs review" },
+  { value: "other_currency", label: "Other currency" },
+];
+
+const CURRENCY_OPTIONS = [
+  { value: "all", label: "All currencies" },
+  { value: "gbp", label: "Pounds only" },
+  { value: "other", label: "Other currencies" },
 ];
 
 function ListFilters({
@@ -1233,7 +1241,7 @@ function FilterSelect({
   );
 }
 
-function ExpensesSection() {
+function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -1273,7 +1281,16 @@ function ExpensesSection() {
 
   const vatRegistered = Boolean(billingProfile?.vat_registered);
   const [originFilter, setOriginFilter] = useState<OriginFilter>("all");
-  const expenses = (expensesData?.expenses ?? []).filter((e) => matchesOrigin(e, originFilter));
+  const [currencyFilter, setCurrencyFilter] = useState(initialCurrency);
+  const expenses = (expensesData?.expenses ?? [])
+    .filter((e) => matchesOrigin(e, originFilter))
+    .filter((e) =>
+      currencyFilter === "gbp"
+        ? isBooksCurrency(e.currency)
+        : currencyFilter === "other"
+          ? !isBooksCurrency(e.currency)
+          : true
+    );
 
   const categoryMap = Object.fromEntries(categoriesData.map((c) => [c.id, c.name]));
 
@@ -1343,13 +1360,25 @@ function ExpensesSection() {
         </div>
         {sectionOpen && (
           <CardContent className="p-0">
-            <ListFilters active={originFilter !== "all"} onClear={() => setOriginFilter("all")}>
+            <ListFilters
+              active={originFilter !== "all" || currencyFilter !== "all"}
+              onClear={() => {
+                setOriginFilter("all");
+                setCurrencyFilter("all");
+              }}
+            >
               <FilterSelect
                 label="Source"
                 helpKey="books.earnings.filterOrigin"
                 value={originFilter}
                 onChange={(v) => setOriginFilter(v as OriginFilter)}
                 options={ORIGIN_OPTIONS}
+              />
+              <FilterSelect
+                label="Currency"
+                value={currencyFilter}
+                onChange={setCurrencyFilter}
+                options={CURRENCY_OPTIONS}
               />
             </ListFilters>
             {isLoading ? (
@@ -1361,9 +1390,9 @@ function ExpensesSection() {
                   </div>
                 ))}
               </div>
-            ) : expenses.length === 0 && originFilter !== "all" ? (
+            ) : expenses.length === 0 && (originFilter !== "all" || currencyFilter !== "all") ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                No expenses from this source.
+                No expenses match these filters.
               </p>
             ) : expenses.length === 0 ? (
               <div className="py-10 text-center">
@@ -2686,7 +2715,11 @@ function SetAsideCard({ taxData }: { taxData: TaxEstimateData }) {
   );
 }
 
-function OverviewSection() {
+function OverviewSection({
+  onShowOtherCurrency,
+}: {
+  onShowOtherCurrency?: (kind: "earnings" | "expenses") => void;
+}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [downloading, setDownloading] = useState(false);
@@ -3049,6 +3082,30 @@ function OverviewSection() {
                   Totals and the tax estimate are in pounds. Record the sterling amount that reached
                   or left your bank, so these count.
                 </p>
+                {onShowOtherCurrency && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {(data.other_currency_earnings ?? 0) > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 border-amber-300 text-xs text-amber-900 hover:bg-amber-100"
+                        onClick={() => onShowOtherCurrency("earnings")}
+                      >
+                        Show the earnings
+                      </Button>
+                    )}
+                    {(data.other_currency_expenses ?? 0) > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 border-amber-300 text-xs text-amber-900 hover:bg-amber-100"
+                        onClick={() => onShowOtherCurrency("expenses")}
+                      >
+                        Show the expenses
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -3895,6 +3952,8 @@ export function BooksTab() {
   // ── Earnings status filter + bulk-select state ───────────────────────────────
   const [earningsFilter, setEarningsFilter] = useState<string>("all");
   const [earningsOrigin, setEarningsOrigin] = useState<OriginFilter>("all");
+  // Set by Overview's currency notice to open Expenses already filtered
+  const [expensesCurrency, setExpensesCurrency] = useState("all");
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<number>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<string>("paid");
   const [bulkDateMode, setBulkDateMode] = useState<
@@ -4579,7 +4638,17 @@ export function BooksTab() {
     return (
       <div className="space-y-4">
         {sectionSwitcher}
-        <OverviewSection />
+        <OverviewSection
+          onShowOtherCurrency={(kind) => {
+            if (kind === "earnings") {
+              setEarningsFilter("other_currency");
+              setSection("earnings");
+            } else {
+              setExpensesCurrency("other");
+              setSection("expenses");
+            }
+          }}
+        />
       </div>
     );
   }
@@ -4588,7 +4657,7 @@ export function BooksTab() {
     return (
       <div className="space-y-4">
         {sectionSwitcher}
-        <ExpensesSection />
+        <ExpensesSection key={expensesCurrency} initialCurrency={expensesCurrency} />
       </div>
     );
   }
@@ -5141,7 +5210,9 @@ export function BooksTab() {
             ? completedEntries
             : earningsFilter === "needs_review"
               ? entries.filter((e) => e.needs_review)
-              : completedEntries.filter((e) => e.status === earningsFilter)
+              : earningsFilter === "other_currency"
+                ? entries.filter((e) => !isBooksCurrency(e.currency))
+                : completedEntries.filter((e) => e.status === earningsFilter)
         ).filter((e) => matchesOrigin(e, earningsOrigin));
         const earningsTotal = filteredEntries.reduce((s, e) => s + (e.gross_amount_pence ?? 0), 0);
         const earningsMonths = groupByMonth(filteredEntries, "work_date").reverse();
