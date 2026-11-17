@@ -304,17 +304,17 @@ const entries: HelpEntry[] = [
     key: "books.earnings.addJob",
     scope: "action",
     title: "Adding a job",
-    body: "Records work you found outside EventLink so it counts towards your earnings and tax estimate.",
+    body: "Records work you procured outside EventLink so it counts towards your earnings and tax estimate.",
     audience: ["freelancer"],
-    version: 1,
+    version: 2,
     detail: {
       manualOrder: 10,
       paragraphs: [
         "Use this for anything you were booked for directly — a client who rang you, a cash job, a day for a crew you know. Give it a date, a description and the gross amount; a client and a job reference are optional but make it easier to invoice and find later.",
-        "A job dated in the future goes into My Jobs as upcoming work. Once its date passes it moves into Earnings as Expected.",
+        "A job dated in the future goes into My Jobs as upcoming work. Once its date passes, it moves into Earnings.",
       ],
       canDo: [
-        "Save the client once and pick them from the list next time",
+        "Save the client's details once and pick them from the list next time",
         "Remove a job you added yourself if it's not going to happen",
       ],
       cannotDo: [
