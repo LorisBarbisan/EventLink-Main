@@ -6,7 +6,9 @@ import {
   earnings_entries,
   expenses,
   expense_categories,
+  receipts,
 } from "@shared/schema";
+import { earningDiffersFromImport, expenseDiffersFromImport, type Parsed } from "./import-diff";
 import type { ImportRow } from "@shared/schema";
 
 // ── Category resolver ─────────────────────────────────────────────────────────
@@ -306,8 +308,10 @@ export async function rollbackBatch(batchId: number, freelancerId: number): Prom
 
 // ── importImpact ───────────────────────────────────────────────────────────────
 // What rolling a batch back would remove, and how much of it has been worked on
-// since: edited after commit, or linked to an EventLink booking (imports never
-// set booking_id, so any link was added later). Records are returned so the
+// since. "Edited" compares each record with what commit wrote from the file
+// (see writeRecord), so housekeeping such as clearing the review flag does not
+// count — only changes that carry work the file never had. "Linked" means an
+// EventLink booking (imports never set one). Records are returned so the
 // client can offer them as a download before acting.
 
 export interface ImpactRecord {
@@ -330,20 +334,19 @@ export async function importImpact(batchId: number, freelancerId: number) {
   if (!batch) throw Object.assign(new Error("Batch not found"), { httpStatus: 404 });
 
   const created = await db
-    .select({ table: import_rows.created_record_table, id: import_rows.created_record_id })
+    .select({
+      table: import_rows.created_record_table,
+      id: import_rows.created_record_id,
+      parsed: import_rows.parsed,
+    })
     .from(import_rows)
     .where(and(eq(import_rows.batch_id, batchId), isNotNull(import_rows.created_record_id)));
   const ids = (t: string) => created.filter((r) => r.table === t).map((r) => r.id as number);
   const earningIds = ids("earnings_entries");
   const expenseIds = ids("expenses");
 
-  // A record written during commit has updated_at at or just before committed_at;
-  // allow a minute of slack for a long commit.
-  const editedAfter = batch.committed_at
-    ? new Date(new Date(batch.committed_at).getTime() + 60_000)
-    : null;
-  const wasEdited = (updated: Date | string) =>
-    editedAfter != null && new Date(updated) > editedAfter;
+  const parsedFor = (t: string, id: number) =>
+    (created.find((r) => r.table === t && r.id === id)?.parsed ?? {}) as Parsed;
 
   const records: ImpactRecord[] = [];
   if (earningIds.length) {
@@ -364,7 +367,7 @@ export async function importImpact(batchId: number, freelancerId: number) {
         description: e.description,
         amount_pence: e.gross_amount_pence,
         currency: e.currency,
-        edited: wasEdited(e.updated_at),
+        edited: earningDiffersFromImport(e, parsedFor("earnings_entries", e.id)),
         linked: e.booking_id != null,
       });
     }
@@ -374,6 +377,14 @@ export async function importImpact(batchId: number, freelancerId: number) {
       .select()
       .from(expenses)
       .where(and(inArray(expenses.id, expenseIds), eq(expenses.freelancer_id, freelancerId)));
+    const withReceipts = new Set(
+      (
+        await db
+          .select({ id: receipts.expense_id })
+          .from(receipts)
+          .where(inArray(receipts.expense_id, expenseIds))
+      ).map((r) => r.id)
+    );
     for (const x of rows) {
       records.push({
         table: "expenses",
@@ -382,7 +393,7 @@ export async function importImpact(batchId: number, freelancerId: number) {
         description: x.description,
         amount_pence: x.net_amount_pence + x.vat_amount_pence,
         currency: x.currency,
-        edited: wasEdited(x.updated_at),
+        edited: expenseDiffersFromImport(x, parsedFor("expenses", x.id), withReceipts.has(x.id)),
         linked: x.booking_id != null || x.earnings_entry_id != null,
       });
     }
