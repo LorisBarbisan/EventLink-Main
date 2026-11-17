@@ -19,6 +19,10 @@ import {
   parseAmountPence,
   parseCsvText,
   inferColumnMap,
+  looksDelimited,
+  rowsFromText,
+  largestHtmlTable,
+  legacyDocText,
   type ColumnMap,
 } from "./import-parse-utils";
 
@@ -203,24 +207,7 @@ function applyMapping(
 async function readCsv(buffer: Buffer): Promise<ReadResult> {
   // Our own reader rather than ExcelJS's, which converts date-like strings to
   // Date objects by guessing (08/05/2026 can come back as 5 August).
-  const table = parseCsvText(buffer.toString("utf8"));
-  if (table.length === 0) return { rows: [], headerless: false };
-
-  const firstRowValues = table[0];
-  const isHeaderless = detectHeaderless(firstRowValues);
-  const headers: string[] = isHeaderless
-    ? firstRowValues.map((_, i) => String.fromCharCode(65 + i)) // A, B, C…
-    : firstRowValues;
-
-  const rows: RawRow[] = [];
-  for (const cells of table.slice(isHeaderless ? 0 : 1)) {
-    const obj: RawRow = {};
-    headers.forEach((h, i) => {
-      if (h) obj[h] = cells[i] ?? "";
-    });
-    if (Object.values(obj).some((v) => v !== "")) rows.push(obj);
-  }
-  return { rows, headerless: isHeaderless };
+  return tableToRead(parseCsvText(buffer.toString("utf8")));
 }
 
 function cellToString(cell: ExcelJS.Cell): string {
@@ -292,11 +279,17 @@ async function readXlsx(buffer: Buffer): Promise<ReadResult> {
 
 // AI-powered PDF extraction — falls back to regex heuristic if OPENAI_API_KEY is absent.
 // All rows are tagged with low_confidence_extraction to prevent bulk-approve.
-async function readPdf(buffer: Buffer): Promise<{ rows: RawRow[]; aiExtracted: boolean }> {
+async function readPdf(buffer: Buffer): Promise<ReadResult> {
   const data = await pdfParse(buffer);
-  const text = data.text;
+  return readTextDocument(data.text);
+}
 
-  // Try AI extraction first
+/**
+ * Rows from a document's text (PDF, Word, free-form .txt): AI extraction when
+ * configured, otherwise any line that starts with a date and ends with an
+ * amount. All rows from here are low-confidence and cannot be bulk-approved.
+ */
+async function readTextDocument(text: string): Promise<ReadResult> {
   if (process.env.OPENAI_API_KEY) {
     try {
       const aiRows = await extractRowsFromPdf(text);
@@ -308,37 +301,51 @@ async function readPdf(buffer: Buffer): Promise<{ rows: RawRow[]; aiExtracted: b
             Amount: r.amount ?? "",
             ...(r.reference ? { Reference: r.reference } : {}),
           })),
+          headerless: false,
           aiExtracted: true,
         };
       }
     } catch (err) {
-      console.warn("[import-pdf-ai] AI extraction failed, falling back to regex:", String(err));
+      console.warn(
+        "[import-pdf-ai] AI extraction failed, falling back to text rules:",
+        String(err)
+      );
     }
   }
+  return { rows: rowsFromText(text), headerless: false, aiExtracted: true };
+}
 
-  // Regex fallback (headerless bank statement layout)
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
+/** A table of cells (first row headers, unless it is data) → raw rows. */
+function tableToRead(table: string[][]): ReadResult {
+  if (table.length === 0) return { rows: [], headerless: false };
+  const isHeaderless = detectHeaderless(table[0]);
+  const headers = isHeaderless ? table[0].map((_, i) => String.fromCharCode(65 + i)) : table[0];
   const rows: RawRow[] = [];
-  const datePrefix = /^(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}-\d{2}-\d{2})/;
-
-  for (const line of lines) {
-    if (!datePrefix.test(line)) continue;
-    const parts = line
-      .split(/\s{2,}/)
-      .map((p) => p.trim())
-      .filter(Boolean);
-    if (parts.length < 2) continue;
-    rows.push({
-      Date: parts[0] ?? "",
-      Description: parts[1] ?? "",
-      Amount: parts[parts.length - 1] ?? "",
+  for (const cells of table.slice(isHeaderless ? 0 : 1)) {
+    const obj: RawRow = {};
+    headers.forEach((h, i) => {
+      if (h) obj[h] = cells[i] ?? "";
     });
+    if (Object.values(obj).some((v) => v !== "")) rows.push(obj);
   }
+  return { rows, headerless: isHeaderless };
+}
 
-  return { rows, aiExtracted: false };
+/** Word .docx: its largest table if it has one, otherwise its text. */
+async function readDocx(buffer: Buffer): Promise<ReadResult> {
+  const mammoth = await import("mammoth");
+  const { value: html } = await mammoth.convertToHtml({ buffer });
+  const table = largestHtmlTable(html);
+  if (table.length >= 2 && table[0].length >= 2) return tableToRead(table);
+  const { value: text } = await mammoth.extractRawText({ buffer });
+  return readTextDocument(text);
+}
+
+/** Plain text: a CSV-style table if it is laid out as one, otherwise free text. */
+async function readTxt(buffer: Buffer): Promise<ReadResult> {
+  const text = buffer.toString("utf8");
+  if (looksDelimited(text)) return tableToRead(parseCsvText(text));
+  return readTextDocument(text);
 }
 
 // ── Main entry point ──────────────────────────────────────────────────────────
@@ -361,9 +368,27 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
     //    Windows with Excel installed reports .csv files as application/vnd.ms-excel,
     //    so MIME type alone is not reliable.
     let readResult: ReadResult;
-    if (batch.mime_type === "application/pdf") {
-      const { rows: pdfRows, aiExtracted } = await readPdf(buffer);
-      readResult = { rows: pdfRows, headerless: false, aiExtracted };
+    const ext = batch.file_name.split(".").pop()?.toLowerCase() ?? "";
+    const isOle2Magic =
+      buffer[0] === 0xd0 && buffer[1] === 0xcf && buffer[2] === 0x11 && buffer[3] === 0xe0;
+    if (batch.mime_type === "application/pdf" || ext === "pdf") {
+      readResult = await readPdf(buffer);
+    } else if (
+      ext === "docx" ||
+      batch.mime_type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ) {
+      readResult = await readDocx(buffer);
+    } else if (ext === "doc" || batch.mime_type === "application/msword") {
+      if (!isOle2Magic) {
+        // Some ".doc" files are really RTF, HTML or text saved with that name
+        readResult = await readTextDocument(
+          buffer.toString("utf8").replace(/\\[a-z]+-?\d* ?|[{}]/g, " ")
+        );
+      } else {
+        readResult = await readTextDocument(legacyDocText(buffer));
+      }
+    } else if (ext === "txt" || batch.mime_type === "text/plain") {
+      readResult = await readTxt(buffer);
     } else {
       const magic4 = buffer.slice(0, 4);
       const isZip =
@@ -391,7 +416,7 @@ export async function parseImportFile(batchId: number, jobId: string): Promise<v
         .set({
           status: "failed",
           error:
-            "No data rows found in the file. Check the file has at least one header row and one data row.",
+            "No transactions found in the file. A spreadsheet or table needs a header row and at least one data row; a document needs lines that start with a date and end with an amount.",
           updated_at: new Date(),
         })
         .where(eq(import_batches.id, batchId));

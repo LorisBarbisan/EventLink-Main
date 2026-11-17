@@ -268,12 +268,15 @@ function HistoryList({
 
 // ── Upload step ───────────────────────────────────────────────────────────────
 
-const ACCEPTED = ".csv,.xlsx,.pdf";
+const ACCEPTED = ".csv,.xlsx,.pdf,.txt,.doc,.docx";
 const ACCEPTED_TYPES = [
   "text/csv",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-excel",
   "application/pdf",
+  "text/plain",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
 /**
@@ -286,6 +289,10 @@ function mimeFor(file: File): string {
   if (ext === "csv") return "text/csv";
   if (ext === "xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   if (ext === "pdf") return "application/pdf";
+  if (ext === "txt") return "text/plain";
+  if (ext === "doc") return "application/msword";
+  if (ext === "docx")
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   return file.type;
 }
 
@@ -355,7 +362,8 @@ function UploadStep({ onUploaded }: { onUploaded: (batch: ImportBatch) => void }
     if (!ACCEPTED_TYPES.includes(mimeFor(file))) {
       toast({
         title: "Unsupported file type",
-        description: "Please upload a CSV, Excel (.xlsx) or PDF file.",
+        description:
+          "Please upload a CSV, Excel (.xlsx), PDF, Word (.doc / .docx) or text (.txt) file.",
         variant: "destructive",
       });
       return;
@@ -378,7 +386,7 @@ function UploadStep({ onUploaded }: { onUploaded: (batch: ImportBatch) => void }
       <div>
         <h3 className="text-lg font-semibold">Upload your file</h3>
         <p className="text-sm text-muted-foreground">
-          Supported: CSV, Excel (.xlsx / .xls), PDF. Max 20 MB.
+          Supported: CSV, Excel (.xlsx), PDF, Word (.doc / .docx) and text (.txt). Max 20 MB.
         </p>
       </div>
 
@@ -405,7 +413,7 @@ function UploadStep({ onUploaded }: { onUploaded: (batch: ImportBatch) => void }
           <>
             <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
             <p className="font-medium">Drop a file here, or click to browse</p>
-            <p className="mt-1 text-sm text-muted-foreground">CSV · Excel · PDF</p>
+            <p className="mt-1 text-sm text-muted-foreground">CSV · Excel · PDF · Word · Text</p>
           </>
         )}
       </div>

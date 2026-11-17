@@ -26,6 +26,7 @@ function detectSource(fileName: string, mimeType: string): ImportSource {
   )
     return "spreadsheet";
   if (mimeType === "text/csv" || ext === "csv") return "bank_csv";
+  if (ext === "txt" || ext === "doc" || ext === "docx") return "unknown";
   return "unknown";
 }
 
@@ -55,9 +56,14 @@ export async function uploadImport(req: Request, res: Response): Promise<void> {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/pdf",
     "application/vnd.ms-excel",
+    "text/plain",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ];
   if (!ALLOWED_TYPES.includes(mimeType)) {
-    res.status(400).json({ error: "Unsupported file type. Upload a CSV, Excel or PDF." });
+    res
+      .status(400)
+      .json({ error: "Unsupported file type. Upload a CSV, Excel, PDF, Word or text file." });
     return;
   }
 

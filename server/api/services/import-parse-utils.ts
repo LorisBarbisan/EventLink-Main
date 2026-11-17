@@ -207,3 +207,125 @@ export function inferColumnMap(headers: string[]): ColumnMap {
   }
   return map;
 }
+
+// ── Documents: Word, plain text ───────────────────────────────────────────────
+
+/**
+ * Whether plain text is laid out as a table (CSV, tab- or semicolon-separated):
+ * at least two lines, and most lines split into the same number (2+) of cells.
+ */
+export function looksDelimited(text: string): boolean {
+  const table = parseCsvText(text);
+  if (table.length < 2) return false;
+  const width = table[0].length;
+  if (width < 2) return false;
+  const same = table.filter((r) => r.length === width).length;
+  return same / table.length >= 0.8;
+}
+
+const AMOUNT_TOKEN = /^\(?-?[£$€]?-?[\d,]*\.?\d+\)?(?:\s?(?:CR|DR))?-?$/i;
+const DATE_PREFIX =
+  /^(\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}[\s-][A-Za-z]{3,9}[\s-]\d{2,4})\s+/;
+
+/**
+ * Transaction rows from free text (a statement pasted into a document, or a
+ * PDF without AI extraction): any line that starts with a date and ends with
+ * an amount. Columns may be separated by single spaces.
+ */
+export function rowsFromText(
+  text: string
+): { Date: string; Description: string; Amount: string }[] {
+  const rows: { Date: string; Description: string; Amount: string }[] = [];
+  for (const rawLine of text.split(/\r?\n/)) {
+    // Leading stray characters (bullets, binary left over from a .doc) are dropped.
+    const line = rawLine
+      .replace(/\t/g, "  ")
+      .replace(/^[^0-9A-Za-z]+/, "")
+      .trim();
+    const m = line.match(DATE_PREFIX);
+    if (!m) continue;
+    const rest = line.slice(m[0].length).trim();
+    // Columns separated by 2+ spaces: description first, amount last
+    const parts = rest.split(/\s{2,}/).filter(Boolean);
+    let description: string;
+    let amount: string;
+    if (parts.length >= 2 && AMOUNT_TOKEN.test(parts[parts.length - 1])) {
+      description = parts[0];
+      amount = parts[parts.length - 1];
+    } else {
+      const tokens = rest.split(/\s+/);
+      const last = tokens[tokens.length - 1] ?? "";
+      if (tokens.length < 2 || !AMOUNT_TOKEN.test(last)) continue;
+      amount = last;
+      description = tokens.slice(0, -1).join(" ");
+      // Drop a trailing running balance written as a second amount
+      const prev = tokens[tokens.length - 2] ?? "";
+      if (tokens.length > 2 && AMOUNT_TOKEN.test(prev) && /[.,]\d{2}$/.test(prev)) {
+        amount = prev;
+        description = tokens.slice(0, -2).join(" ");
+      }
+    }
+    if (!description) continue;
+    rows.push({ Date: m[1], Description: description, Amount: amount });
+  }
+  return rows;
+}
+
+const decodeEntities = (s: string) =>
+  s
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** The largest table in an HTML document (as mammoth produces from .docx). */
+export function largestHtmlTable(html: string): string[][] {
+  let best: string[][] = [];
+  for (const table of html.match(/<table[\s\S]*?<\/table>/gi) ?? []) {
+    const rows = (table.match(/<tr[\s\S]*?<\/tr>/gi) ?? [])
+      .map((tr) => (tr.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) ?? []).map(decodeEntities))
+      .filter((r) => r.some((c) => c !== ""));
+    if (rows.length > best.length) best = rows;
+  }
+  return best;
+}
+
+/**
+ * Best-effort text from a legacy Word .doc (binary). Word 97–2003 stores body
+ * text as runs of UTF-16LE or 8-bit characters; this keeps readable runs and
+ * drops the binary between them. Tables come out as lines of text.
+ */
+export function legacyDocText(buffer: Buffer): string {
+  const runs: string[] = [];
+  // UTF-16LE runs
+  let cur = "";
+  for (let i = 0; i + 1 < buffer.length; i += 2) {
+    const code = buffer[i] | (buffer[i + 1] << 8);
+    const ok =
+      (code >= 0x20 && code < 0x7f) ||
+      code === 0x0d ||
+      code === 0x09 ||
+      (code >= 0xa0 && code < 0x2000) ||
+      code === 0x20ac;
+    if (ok) cur += code === 0x0d ? "\n" : code === 0x09 ? "  " : String.fromCharCode(code);
+    else {
+      if (cur.replace(/\s/g, "").length >= 6) runs.push(cur);
+      cur = "";
+    }
+  }
+  if (cur.replace(/\s/g, "").length >= 6) runs.push(cur);
+  let text = runs.join("\n");
+  // 8-bit fallback when the document stored its text compressed
+  if (text.replace(/\s/g, "").length < 20) {
+    text = (buffer.toString("latin1").match(/[\x20-\x7e\xa0-\xff\t\r\n]{6,}/g) ?? [])
+      .join("\n")
+      .replace(/\r/g, "\n")
+      .replace(/\t/g, "  ");
+  }
+  return text;
+}
