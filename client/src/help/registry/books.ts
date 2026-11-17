@@ -46,7 +46,7 @@ const entries: HelpEntry[] = [
     detail: {
       paragraphs: [
         "Earnings is the record of work you've done and what you were paid for it. Each line is one job: a date, a description, a client and a gross amount, with a status that tracks it from finished to paid.",
-        "Jobs are grouped by month, newest first, and each month shows its own total. Only work dated today or earlier appears here — upcoming work lives in My Jobs until the date passes.",
+        "Jobs are grouped by month, newest first, and each month shows its own total. This list shows work dated today or earlier; upcoming jobs are in My jobs, above it, and move here once their date passes.",
         "The figures here feed your tax-year totals, the charts on the Overview and the tax estimate. Anything flagged for review is left out of those totals until you've checked it.",
       ],
       canDo: [
@@ -56,8 +56,7 @@ const entries: HelpEntry[] = [
         "Open any line to see the brief, hours, receipts, mileage and invoice for that job",
       ],
       cannotDo: [
-        "See future work here — it appears once its date has passed",
-        "Delete a job that came from an EventLink booking; only ones you added yourself can be removed",
+        "See upcoming jobs in this list — they're in My jobs, above it, until their date passes",
       ],
     },
   },

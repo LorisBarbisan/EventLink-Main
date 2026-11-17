@@ -5323,7 +5323,7 @@ export function BooksTab() {
                                 >
                                   <Clock className="h-3.5 w-3.5" />
                                 </button>
-                                {entry.source === "manual" && (
+                                {(entry.source === "manual" || entry.source === "imported") && (
                                   <button
                                     className="text-muted-foreground transition-colors hover:text-destructive"
                                     title="Remove"
