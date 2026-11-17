@@ -9,7 +9,7 @@
 
 import { and, eq, gte, isNotNull, isNull, lt, ne, or, sql, desc } from "drizzle-orm";
 import { db } from "../config/db";
-import { earnings_entries, expenses, import_batches } from "@shared/schema";
+import { bookings, earnings_entries, expenses, import_batches } from "@shared/schema";
 
 export const RETENTION_DAYS = 30;
 
@@ -30,8 +30,15 @@ export interface RemovedRecord {
   restore_until: string;
 }
 
-function removedBy(batchFile: string | null, archivedByBatch: number | null): string {
+function removedBy(
+  batchFile: string | null,
+  archivedByBatch: number | null,
+  bookingStatus?: string | null
+): string {
   if (archivedByBatch != null) return `Import rolled back${batchFile ? `: ${batchFile}` : ""}`;
+  // Cancelling a booking archives its earnings line: say so, or it reads as
+  // something the freelancer deleted.
+  if (bookingStatus === "cancelled") return "Booking cancelled";
   return "Removed";
 }
 
@@ -54,9 +61,11 @@ export async function listRemoved(
         archived_at: earnings_entries.archived_at,
         batch_id: earnings_entries.archived_by_batch_id,
         batch_file: import_batches.file_name,
+        booking_status: bookings.status,
       })
       .from(earnings_entries)
       .leftJoin(import_batches, eq(earnings_entries.archived_by_batch_id, import_batches.id))
+      .leftJoin(bookings, eq(earnings_entries.booking_id, bookings.id))
       .where(
         and(
           eq(earnings_entries.freelancer_id, freelancerId),
@@ -74,7 +83,7 @@ export async function listRemoved(
       amount_pence: r.amount_pence,
       currency: r.currency,
       archived_at: r.archived_at!.toISOString(),
-      removed_by: removedBy(r.batch_file, r.batch_id),
+      removed_by: removedBy(r.batch_file, r.batch_id, r.booking_status),
       restore_until: restoreUntil(r.archived_at!),
     }));
   }

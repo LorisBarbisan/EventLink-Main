@@ -29,7 +29,14 @@ export interface TaxBands {
   niUpperRatePct: number; // 2%
   /** Small Profits Threshold: below it, Class 2 NI is voluntary */
   smallProfitsThresholdPence: number;
-  /** Voluntary Class 2 NI, pence per week */
+  /**
+   * Voluntary Class 2 NI, pence per week (GOV.UK, "Self-employed National
+   * Insurance rates"). Not Class 3: the NI rates table lists Class 3 (£18.40/wk
+   * in 2026/27) as "voluntary", but that route is for people who are not
+   * self-employed. A self-employed person below the Small Profits Threshold
+   * buys the qualifying year with voluntary Class 2 at this rate. HMRC counts
+   * 52 weeks, so the yearly figure is weekly × 52.
+   */
   class2WeeklyPence: number;
 }
 
@@ -63,7 +70,7 @@ export const BANDS_2025_26: TaxBands = {
 export const BANDS_2026_27: TaxBands = {
   ...BANDS_2024_25,
   taxYear: "2026/27",
-  // VERIFY against HMRC's published 2026/27 rates before relying on these
+  // Checked against GOV.UK, 17 Nov 2026
   smallProfitsThresholdPence: 710_500, // £7,105
   class2WeeklyPence: 365, // £3.65
 };
