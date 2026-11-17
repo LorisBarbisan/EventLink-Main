@@ -129,8 +129,14 @@ const HEADER_FINGERPRINTS: HeaderFingerprint[] = [
 // If the first row looks like data (a cell parses as a date, another as a
 // number) and no cell looks like a column label, treat the file as headerless.
 
-function looksLikeDate(s: string): boolean {
-  return /^\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}$/.test(s.trim());
+// Excel cells arrive as ISO (the reader converts real dates); CSVs as typed.
+export function looksLikeDate(s: string): boolean {
+  const t = s.trim();
+  return (
+    /^\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}$/.test(t) ||
+    /^\d{4}-\d{2}-\d{2}$/.test(t) ||
+    /^\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}$/.test(t)
+  );
 }
 
 function looksLikeNumber(s: string): boolean {
@@ -192,6 +198,9 @@ export function detectProfitAndLoss(rows: { [col: string]: string }[]): boolean 
   if (rows.length < 3) return false;
   const cols = Object.keys(rows[0]);
   if (cols.length < 2) return false;
+
+  // A transaction list has a date column; a P&L report never does.
+  if (cols.some((c) => /\bdate\b/i.test(c))) return false;
 
   const firstCol = cols[0];
   const firstColValues = rows.map((r) => (r[firstCol] ?? "").trim()).filter(Boolean);

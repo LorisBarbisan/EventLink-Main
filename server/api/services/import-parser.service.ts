@@ -1,6 +1,5 @@
 import ExcelJS from "exceljs";
 import { createRequire } from "module";
-import { Readable } from "stream";
 import { and, eq } from "drizzle-orm";
 import { db } from "../config/db";
 import { import_batches, import_rows } from "@shared/schema";
@@ -15,6 +14,13 @@ import {
   headerlessColumnMap,
 } from "./import-source-detect.service";
 import { extractRowsFromPdf } from "./import-pdf-ai.service";
+import {
+  parseDate,
+  parseAmountPence,
+  parseCsvText,
+  inferColumnMap,
+  type ColumnMap,
+} from "./import-parse-utils";
 
 // pdf-parse is CJS-only; use createRequire so the function is always callable
 // regardless of the project's ESM/CJS module resolution.
@@ -55,105 +61,9 @@ interface ClassifiedRow {
   issues: string[];
 }
 
-// ── Date normalisation ────────────────────────────────────────────────────────
-
-const MONTH_NAMES: Record<string, number> = {
-  jan: 1,
-  feb: 2,
-  mar: 3,
-  apr: 4,
-  may: 5,
-  jun: 6,
-  jul: 7,
-  aug: 8,
-  sep: 9,
-  oct: 10,
-  nov: 11,
-  dec: 12,
-};
-
-function parseDate(raw: string, hint?: string | null): string | null {
-  const s = raw.trim();
-  if (!s) return null;
-
-  // ISO already
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-  // Hint-guided: "DD/MM/YYYY" or "MM/DD/YYYY"
-  const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (slashMatch) {
-    const [, a, b, yr] = slashMatch;
-    const year =
-      yr.length === 2
-        ? parseInt(yr) > 50
-          ? 1900 + parseInt(yr)
-          : 2000 + parseInt(yr)
-        : parseInt(yr);
-    const [day, month] =
-      hint === "MM/DD/YYYY" ? [parseInt(b), parseInt(a)] : [parseInt(a), parseInt(b)]; // default DD/MM/YYYY (UK)
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-
-  // DD-MM-YYYY or YYYY-MM-DD with dashes (already handled above for 4-digit year first)
-  const dashMatch = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
-  if (dashMatch) {
-    const [, a, b, yr] = dashMatch;
-    const year =
-      yr.length === 2
-        ? parseInt(yr) > 50
-          ? 1900 + parseInt(yr)
-          : 2000 + parseInt(yr)
-        : parseInt(yr);
-    const day = parseInt(a);
-    const month = parseInt(b);
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-
-  // "01 Jan 2024" or "1 January 2024"
-  const longMatch = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
-  if (longMatch) {
-    const day = parseInt(longMatch[1]);
-    const month = MONTH_NAMES[longMatch[2].toLowerCase().slice(0, 3)];
-    const year = parseInt(longMatch[3]);
-    if (!month) return null;
-    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-
-  // "Jan 01, 2024" or "January 1, 2024"
-  const usLongMatch = s.match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/);
-  if (usLongMatch) {
-    const month = MONTH_NAMES[usLongMatch[1].toLowerCase().slice(0, 3)];
-    const day = parseInt(usLongMatch[2]);
-    const year = parseInt(usLongMatch[3]);
-    if (!month) return null;
-    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  }
-
-  return null;
-}
-
-// ── Amount parsing ────────────────────────────────────────────────────────────
-// Strips currency symbols and thousands separators; returns integer pence.
-// Negative values indicate a debit/expense.
-
-function parseAmountPence(raw: string): number | null {
-  if (!raw.trim()) return null;
-  const cleaned = raw
-    .replace(/[£$€¥₹]/g, "")
-    .replace(/,/g, "")
-    .trim();
-  const n = parseFloat(cleaned);
-  if (isNaN(n)) return null;
-  return Math.round(n * 100);
-}
-
 // ── Column mapping application ────────────────────────────────────────────────
 // column_map keys are canonical field names; values are source header names.
 // e.g. { "date": "Transaction Date", "amount": "Amount (GBP)", ... }
-
-type ColumnMap = Record<string, string | null>;
 
 function applyMapping(
   raw: RawRow,
@@ -197,12 +107,17 @@ function applyMapping(
     parsed.description = desc;
   }
 
-  // Category — try to map the source category to an EventLink category name
-  const rawCategory = get("category") || get("account") || get("type");
-  if (rawCategory && categoryMap) {
-    const mapped = categoryMap[rawCategory] ?? categoryMap[rawCategory.toLowerCase()];
-    if (mapped) parsed.category_name = mapped;
-    else issues.push(`unmapped_category:${rawCategory}`);
+  // Category — a saved category map wins; otherwise pass the source name through
+  // and commit matches it to an EventLink category by name (unmatched → none).
+  const rawCategory = columnMap["category"] ? get("category") : "";
+  if (rawCategory) {
+    if (categoryMap) {
+      const mapped = categoryMap[rawCategory] ?? categoryMap[rawCategory.toLowerCase()];
+      if (mapped) parsed.category_name = mapped;
+      else issues.push(`unmapped_category:${rawCategory}`);
+    } else {
+      parsed.category_name = rawCategory;
+    }
   }
 
   // Amount — try combined amount first, then separate credit/debit
@@ -283,89 +198,38 @@ function applyMapping(
   return { raw, parsed, target, confidence, issues };
 }
 
-// ── Heuristic mapping (no saved mapping available) ───────────────────────────
-// Attempts to build a reasonable column_map from the headers alone by matching
-// common header names. Returns a map; confidence will be lower for all rows.
-
-function inferColumnMap(headers: string[]): ColumnMap {
-  const map: ColumnMap = {};
-  const DATE_PATTERNS = [
-    "date",
-    "posted",
-    "transaction date",
-    "value date",
-    "booking date",
-    "trans date",
-  ];
-  const DESC_PATTERNS = [
-    "description",
-    "details",
-    "narrative",
-    "payee",
-    "memo",
-    "particulars",
-    "transaction details",
-  ];
-  const AMOUNT_PATTERNS = ["amount", "value", "gbp amount", "eur amount", "usd amount"];
-  const CREDIT_PATTERNS = ["credit", "in", "deposit", "money in", "paid in"];
-  const DEBIT_PATTERNS = ["debit", "out", "withdrawal", "money out", "paid out"];
-  const REF_PATTERNS = ["reference", "ref", "transaction id", "transaction ref", "cheque no"];
-
-  for (const header of headers) {
-    const h = header.toLowerCase().trim();
-    if (!map["date"] && DATE_PATTERNS.some((p) => h.includes(p))) map["date"] = header;
-    else if (!map["description"] && DESC_PATTERNS.some((p) => h.includes(p)))
-      map["description"] = header;
-    else if (!map["amount"] && AMOUNT_PATTERNS.some((p) => h === p || h.includes(p)))
-      map["amount"] = header;
-    else if (!map["credit"] && CREDIT_PATTERNS.some((p) => h === p || h.includes(p)))
-      map["credit"] = header;
-    else if (!map["debit"] && DEBIT_PATTERNS.some((p) => h === p || h.includes(p)))
-      map["debit"] = header;
-    else if (!map["reference"] && REF_PATTERNS.some((p) => h.includes(p)))
-      map["reference"] = header;
-  }
-
-  return map;
-}
-
 // ── File readers ──────────────────────────────────────────────────────────────
 
 async function readCsv(buffer: Buffer): Promise<ReadResult> {
-  const workbook = new ExcelJS.Workbook();
-  const stream = Readable.from(buffer);
-  await workbook.csv.read(stream);
-  const sheet = workbook.worksheets[0];
-  if (!sheet) return { rows: [], headerless: false };
+  // Our own reader rather than ExcelJS's, which converts date-like strings to
+  // Date objects by guessing (08/05/2026 can come back as 5 August).
+  const table = parseCsvText(buffer.toString("utf8"));
+  if (table.length === 0) return { rows: [], headerless: false };
 
-  // Read first row to detect headerless
-  const firstRowValues: string[] = [];
-  sheet.getRow(1).eachCell((cell) => firstRowValues.push(String(cell.value ?? "").trim()));
-
+  const firstRowValues = table[0];
   const isHeaderless = detectHeaderless(firstRowValues);
-
   const headers: string[] = isHeaderless
     ? firstRowValues.map((_, i) => String.fromCharCode(65 + i)) // A, B, C…
     : firstRowValues;
 
   const rows: RawRow[] = [];
-  const startRow = isHeaderless ? 1 : 2;
-
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber < startRow) return;
+  for (const cells of table.slice(isHeaderless ? 0 : 1)) {
     const obj: RawRow = {};
-    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-      const header = headers[colNumber - 1];
-      if (header) obj[header] = String(cell.value ?? "").trim();
+    headers.forEach((h, i) => {
+      if (h) obj[h] = cells[i] ?? "";
     });
     if (Object.values(obj).some((v) => v !== "")) rows.push(obj);
-  });
-
+  }
   return { rows, headerless: isHeaderless };
 }
 
 function cellToString(cell: ExcelJS.Cell): string {
-  const v = cell.value;
+  let v = cell.value as unknown;
+  // Formula cells carry their value in .result; hyperlinks in .text
+  if (v && typeof v === "object" && "result" in (v as object))
+    v = (v as { result: unknown }).result;
+  if (v && typeof v === "object" && "text" in (v as object) && !("richText" in (v as object)))
+    v = (v as { text: unknown }).text;
   if (v instanceof Date) return v.toISOString().slice(0, 10);
   if (typeof v === "object" && v !== null && "richText" in v) {
     return (v as ExcelJS.CellRichTextValue).richText.map((r) => r.text).join("");
