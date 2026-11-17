@@ -113,79 +113,85 @@ export function ImportRollbackDialog({
   });
 
   const total = impact ? impact.earnings + impact.expenses : 0;
-  const parts = impact
-    ? [
-        impact.earnings ? plural(impact.earnings, "earning") : null,
-        impact.expenses ? plural(impact.expenses, "expense") : null,
-      ].filter(Boolean)
-    : [];
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md gap-5">
         <DialogHeader>
           <DialogTitle>Roll back this import?</DialogTitle>
-          <DialogDescription>{batch.file_name}</DialogDescription>
+          <DialogDescription className="truncate">
+            Everything created from{" "}
+            <span className="font-medium text-foreground">{batch.file_name}</span> will be removed.
+          </DialogDescription>
         </DialogHeader>
 
         {isLoading || !impact ? (
-          <p className="py-4 text-sm text-muted-foreground">Checking what this import created…</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Checking what this import created…
+          </p>
+        ) : total === 0 ? (
+          <p className="text-sm">This import has no records left in your books.</p>
         ) : (
-          <div className="space-y-3 text-sm">
-            <p>
-              {total === 0
-                ? "This import has no records left in your books."
-                : `${plural(total, "record")} will be removed: ${parts.join(", ")}.`}
-            </p>
-            {impact.edited > 0 && (
-              <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>
-                  <strong>
-                    {impact.edited} of them {impact.edited === 1 ? "has" : "have"} been edited since
-                    the import
-                  </strong>
-                  {impact.linked > 0 &&
-                    ` — ${impact.linked} ${impact.linked === 1 ? "is" : "are"} linked to EventLink jobs`}
-                  . Those hold work the file never had.
-                </p>
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { n: impact.earnings, label: impact.earnings === 1 ? "earning" : "earnings" },
+                { n: impact.expenses, label: impact.expenses === 1 ? "expense" : "expenses" },
+              ].map((c) => (
+                <div key={c.label} className="rounded-md border bg-muted/40 px-3 py-2">
+                  <p className="text-xl font-semibold tabular-nums">{c.n}</p>
+                  <p className="text-xs text-muted-foreground">{c.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {(impact.edited > 0 || impact.linked > 0) && (
+              <div className="flex gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="space-y-1">
+                  <p className="font-medium">
+                    {impact.edited > 0
+                      ? `${impact.edited} ${impact.edited === 1 ? "has" : "have"} been changed since the import`
+                      : `${plural(impact.linked, "record")} ${impact.linked === 1 ? "is" : "are"} linked to EventLink jobs`}
+                  </p>
+                  <p className="text-amber-900/80 dark:text-amber-200/80">
+                    {impact.edited > 0 && impact.linked > 0
+                      ? `${impact.linked} ${impact.linked === 1 ? "is" : "are"} linked to EventLink jobs. `
+                      : ""}
+                    Payments, corrections, clients or receipts you added go with them.
+                  </p>
+                </div>
               </div>
             )}
-            {impact.edited === 0 && impact.linked > 0 && (
-              <p className="text-amber-700 dark:text-amber-300">
-                {plural(impact.linked, "record")} {impact.linked === 1 ? "is" : "are"} linked to
-                EventLink jobs.
-              </p>
-            )}
-            <p className="text-muted-foreground">
-              Nothing else in your books changes. You can restore these records for 30 days.
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => downloadRecords(batch, impact.records)}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download these records first
+            </Button>
+
+            <p className="text-xs text-muted-foreground">
+              Nothing else in your books changes. Removed records can be restored from Recently
+              removed for 30 days.
             </p>
           </div>
         )}
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!impact || total === 0}
-            onClick={() => impact && downloadRecords(batch, impact.records)}
-          >
-            <Download className="mr-1.5 h-4 w-4" />
-            Download these records first
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
           </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => rollback.mutate()}
-              disabled={!impact || rollback.isPending}
-            >
-              {rollback.isPending && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
-              Roll back
-            </Button>
-          </div>
+          <Button
+            variant="destructive"
+            onClick={() => rollback.mutate()}
+            disabled={!impact || rollback.isPending}
+          >
+            {rollback.isPending && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+            Roll back {impact && total > 0 ? plural(total, "record") : "import"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
