@@ -1376,6 +1376,7 @@ function ExpensesSection({ initialCurrency = "all" }: { initialCurrency?: string
               />
               <FilterSelect
                 label="Currency"
+                helpKey="books.expenses.filterCurrency"
                 value={currencyFilter}
                 onChange={setCurrencyFilter}
                 options={CURRENCY_OPTIONS}
@@ -3072,7 +3073,10 @@ function OverviewSection({
               : null,
           ].filter(Boolean);
           return (
-            <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+            <div
+              data-help="books.overview.otherCurrency"
+              className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30"
+            >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
               <div>
                 <p className="text-sm font-medium text-amber-900 dark:text-amber-200">

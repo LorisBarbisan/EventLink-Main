@@ -805,7 +805,9 @@ function FreelancerProfileFields({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <Label htmlFor="country">Country *</Label>
+          <Label htmlFor="country" data-help="form.profile.country">
+            Country *
+          </Label>
           <CountrySelect
             id="country"
             value={formData.country}

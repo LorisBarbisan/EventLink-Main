@@ -48,9 +48,10 @@ const entries: HelpEntry[] = [
         "Earnings is the record of work you've done and what you were paid for it. Each line is one job: a date, a description, a client and a gross amount, with a status that tracks it from finished to paid.",
         "Jobs are grouped by month, newest first, and each month shows its own total. This list shows work dated today or earlier; upcoming jobs are in My jobs, above it, and move here once their date passes.",
         "The figures here feed your tax-year totals, the charts on the Overview and the tax estimate. Anything flagged for review is left out of those totals until you've checked it.",
+        "Totals are in pounds. A job paid in another currency is listed here but not added to any total, because the books hold no exchange rate; Overview tells you how many there are. Record the sterling amount that reached your bank and it counts.",
       ],
       canDo: [
-        "Filter the list by status, or show only the entries that need review",
+        "Filter the list by status, or show only the entries that need review or are in another currency",
         "Collapse a month you're not working in; it stays collapsed next time",
         "Select several jobs and change their status together",
         "Open any line to see the brief, hours, receipts, mileage and invoice for that job",
@@ -471,6 +472,7 @@ const entries: HelpEntry[] = [
       paragraphs: [
         "The pack opens on a summary of the tax year, followed by a sheet showing each MTD quarter and the year to date, then one sheet for each kind of record you keep: earnings, expenses, mileage, invoices and kit.",
         "The quarters sheet counts income by the date you were paid, not the date you worked. A quarter can therefore show less than the earnings sheet suggests for the same months, and work still waiting to be paid does not appear in it at all.",
+        "Records in other currencies appear on their sheets but are not added to any total, and the Summary says how many were left out — so your accountant can see what still needs a sterling figure.",
         "There are no formulas anywhere in the file, so it opens the same way in Excel, Numbers, LibreOffice or Google Sheets, and you or your accountant can edit it without breaking anything.",
       ],
     },
@@ -523,6 +525,9 @@ const entries: HelpEntry[] = [
     version: 1,
     detail: {
       manualOrder: 30,
+      paragraphs: [
+        "Mark an item sold with the date and price, and you're offered the proceeds as income on that date. If you've already recorded the sale yourself, choose \"No, already recorded\" and you won't be asked again.",
+      ],
     },
   },
 
@@ -576,6 +581,9 @@ const entries: HelpEntry[] = [
     version: 1,
     detail: {
       manualOrder: 50,
+      paragraphs: [
+        'Anything removed from your earnings or expenses lands here for 30 days: lines you deleted, imports you rolled back, records cleared by Start again — and the earnings line of a booking that was cancelled, marked "Booking cancelled". Restore one and it goes straight back into your totals.',
+      ],
     },
   },
   {
@@ -602,6 +610,39 @@ const entries: HelpEntry[] = [
         "Undo it after 30 days",
       ],
       seeAlso: ["books.import.rollback", "books.import.removed"],
+    },
+  },
+
+  // ── Currency and country (help registry update, 17 Nov 2026) ─────────────
+
+  {
+    key: "books.overview.otherCurrency",
+    scope: "feature",
+    title: "Other currencies",
+    body: "Totals and the tax estimate are in pounds, so records in other currencies are listed but not counted until you give the sterling amount.",
+    audience: ["freelancer"],
+    version: 1,
+    detail: {
+      paragraphs: [
+        "Your books work in pounds, because that is what HMRC taxes. A job paid in euros, or a cost paid in dollars, is kept and listed, but it is not added to your earnings, your expenses or the tax estimate — EventLink holds no exchange rate, and guessing one would put the wrong figure in front of HMRC.",
+        "The figure HMRC wants is the sterling amount that actually reached or left your bank. Edit the record with that amount in pounds and it counts from then on. Use the buttons on the notice to see exactly which records are waiting.",
+      ],
+      canDo: [
+        "See which earnings or expenses are in another currency, in one click",
+        "Make one count by recording the sterling amount your bank received or paid",
+      ],
+      cannotDo: ["Convert currencies automatically — the books hold no exchange rate"],
+      seeAlso: ["books.expenses.filterCurrency"],
+    },
+  },
+  {
+    key: "books.expenses.filterCurrency",
+    scope: "field",
+    body: "Show all expenses, only those in pounds, or only those in another currency — which are not counted until you record them in pounds.",
+    audience: ["freelancer"],
+    version: 1,
+    detail: {
+      manualOrder: 40,
     },
   },
 ];

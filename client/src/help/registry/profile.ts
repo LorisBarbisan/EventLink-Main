@@ -57,6 +57,12 @@ const entries: HelpEntry[] = [
     version: 1,
   },
   {
+    key: "form.profile.country",
+    scope: "field",
+    body: "Where you're based. Books, the tax estimate and Self Assessment tools are for UK-based freelancers; outside the UK they're hidden, but anything you recorded stays downloadable.",
+    version: 1,
+  },
+  {
     key: "form.profile.location",
     scope: "field",
     body: "Your base, used to match you to work within travelling distance.",
