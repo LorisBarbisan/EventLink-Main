@@ -271,7 +271,7 @@ function ReviewTable({
   const totalApproved = counts.approved;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-help="books.import.review">
       <div>
         <h3 className="text-lg font-semibold">Review rows</h3>
         <p className="text-sm text-muted-foreground">

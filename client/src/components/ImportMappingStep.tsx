@@ -74,7 +74,9 @@ export function ImportMappingStep({ batch, onDone }: Props) {
         {/* Date format */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Date format</CardTitle>
+            <CardTitle className="text-sm font-medium" data-help="books.import.dateFormat">
+              Date format
+            </CardTitle>
             <CardDescription className="text-xs">
               How dates are written in the file (e.g. 01/02/2024 is ambiguous — choose the right
               interpretation).

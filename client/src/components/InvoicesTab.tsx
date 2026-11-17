@@ -1484,6 +1484,7 @@ function InvoiceRow({
               onClick={() => onCorrect(invoice.id)}
               className="text-muted-foreground transition-colors hover:text-foreground"
               title="Correct this invoice"
+              data-help="books.invoices.correct"
             >
               <FilePen className="h-4 w-4" />
             </button>

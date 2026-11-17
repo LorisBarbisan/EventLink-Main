@@ -91,6 +91,7 @@ function StatusBadge({ status }: { status: BookingStatus }) {
   const config = STATUS_CONFIG[status];
   return (
     <span
+      data-help={`bookings.status.${status}`}
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.bg} ${config.color}`}
     >
       {config.label}

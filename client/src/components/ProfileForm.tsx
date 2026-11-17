@@ -786,15 +786,17 @@ function FreelancerProfileFields({
             required
           />
         </div>
-        <GlobalLocationInput
-          id="location"
-          label="City / Location *"
-          value={formData.location}
-          onChange={onLocationChange}
-          placeholder="Start typing a city..."
-          data-testid="input-location"
-          required
-        />
+        <div data-help="form.profile.location">
+          <GlobalLocationInput
+            id="location"
+            label="City / Location *"
+            value={formData.location}
+            onChange={onLocationChange}
+            placeholder="Start typing a city..."
+            data-testid="input-location"
+            required
+          />
+        </div>
       </div>
 
       {countryNeedsStateProvince(formData.country) && (
@@ -827,7 +829,7 @@ function FreelancerProfileFields({
         </div>
       </div>
 
-      <div>
+      <div data-help="form.profile.skills">
         <Label>Skills (Optional)</Label>
         <div className="mb-2 flex gap-2">
           <Input

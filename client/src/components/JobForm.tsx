@@ -136,7 +136,7 @@ export function JobForm({
           </div>
         </div>
 
-        <div>
+        <div data-help="form.postJob.location">
           <GlobalLocationInput
             id="job-location"
             label="City / Location *"

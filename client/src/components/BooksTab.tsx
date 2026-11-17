@@ -622,7 +622,9 @@ function ExpenseDialog({
             if (!isVehicleCategory) return null;
             return (
               <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
-                <p className="font-semibold">Recording a car? Capital allowances apply.</p>
+                <p data-help="tax.vehicleCapitalAllowance" className="font-semibold">
+                  Recording a car? Capital allowances apply.
+                </p>
                 <p className="mt-0.5">
                   Under HMRC&apos;s cash basis, cars are not deductible as an ordinary expense —
                   they go through capital allowances at a writing-down rate based on CO₂ emissions.
@@ -633,7 +635,10 @@ function ExpenseDialog({
                   <span className="font-medium">Vans are fine here</span> — a commercial van is
                   deductible under cash basis. If this is a van, carry on.
                 </p>
-                <p className="mt-0.5 text-amber-700 dark:text-amber-300">
+                <p
+                  data-help="tax.mileageOrCosts"
+                  className="mt-0.5 text-amber-700 dark:text-amber-300"
+                >
                   Also note: if you claim simplified mileage on a vehicle, you cannot also claim
                   running costs or capital allowances for the same vehicle.
                 </p>
@@ -1323,6 +1328,7 @@ function ExpensesSection() {
               )}
             </div>
             <Button
+              data-help="books.expenses.addExpense"
               size="sm"
               className="h-7 bg-white text-xs text-amber-700 hover:bg-amber-50"
               onClick={(e) => {
@@ -2284,6 +2290,7 @@ function MileageSection() {
               )}
             </div>
             <Button
+              data-help="books.mileage.addTrip"
               size="sm"
               className="h-7 bg-white text-xs text-purple-700 hover:bg-purple-50"
               onClick={() => {
@@ -2618,7 +2625,7 @@ function SetAsideCard({ taxData }: { taxData: TaxEstimateData }) {
   const isPast = janDeadline < now;
 
   return (
-    <Card className="overflow-hidden">
+    <Card data-help="tax.paymentsOnAccount" className="overflow-hidden">
       <div className="border-l-4 border-sky-500 bg-sky-50/40 px-5 py-3 dark:bg-sky-950/20">
         <p className="font-semibold">Set aside each month</p>
         <p className="text-xs text-muted-foreground">
@@ -2914,7 +2921,10 @@ function OverviewSection() {
   return (
     <div className="space-y-4">
       {/* ── Period label ── */}
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <p
+        data-help="tax.cashBasis"
+        className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+      >
         {fmtDate(data.from)} – {fmtDate(data.to)} · cash basis
       </p>
 
@@ -2973,7 +2983,7 @@ function OverviewSection() {
             </p>
             {taxData.scotland && <p className="mt-0.5 text-xs text-blue-400">Scottish IT</p>}
             {taxData.adjustedPersonalAllowancePence < 1_257_000 && (
-              <p className="mt-0.5 text-xs text-amber-400">
+              <p data-help="tax.personalAllowance" className="mt-0.5 text-xs text-amber-400">
                 PA tapered to {formatPence(taxData.adjustedPersonalAllowancePence)}
               </p>
             )}
@@ -3124,7 +3134,7 @@ function OverviewSection() {
             {taxData && (
               <>
                 <div className="flex items-baseline justify-between bg-slate-50 px-5 py-2.5 dark:bg-slate-900/40">
-                  <p className="text-sm text-muted-foreground">
+                  <p data-help="tax.estimate" className="text-sm text-muted-foreground">
                     Est. tax &amp; NI ({taxData.effectiveRatePct}%)
                   </p>
                   <span className="font-semibold tabular-nums text-red-600 dark:text-red-400">
@@ -3160,7 +3170,7 @@ function OverviewSection() {
                 {taxData.pensionGrossPence > 0 && (
                   <div className="flex items-baseline justify-between bg-emerald-50 px-5 py-2.5 dark:bg-emerald-950/30">
                     <div>
-                      <p className="text-sm text-muted-foreground">
+                      <p data-help="tax.pension" className="text-sm text-muted-foreground">
                         Pension contribution (gross {formatPence(taxData.pensionGrossPence)})
                       </p>
                       <p className="text-xs text-muted-foreground">IT saving — NI unchanged</p>
@@ -3173,7 +3183,7 @@ function OverviewSection() {
                 {taxData.giftAidGrossPence > 0 && (
                   <div className="flex items-baseline justify-between bg-emerald-50 px-5 py-2.5 dark:bg-emerald-950/30">
                     <div>
-                      <p className="text-sm text-muted-foreground">
+                      <p data-help="tax.giftAid" className="text-sm text-muted-foreground">
                         Gift Aid (gross {formatPence(taxData.giftAidGrossPence)})
                       </p>
                       <p className="text-xs text-muted-foreground">Extends basic rate band</p>
@@ -3186,7 +3196,9 @@ function OverviewSection() {
                 {taxData.lossReliefPence > 0 && (
                   <div className="flex items-baseline justify-between bg-amber-50 px-5 py-2.5 dark:bg-amber-950/30">
                     <div>
-                      <p className="text-sm text-muted-foreground">Losses carried forward</p>
+                      <p data-help="tax.losses" className="text-sm text-muted-foreground">
+                        Losses carried forward
+                      </p>
                       <p className="text-xs text-muted-foreground">IT only — NI unchanged</p>
                     </div>
                     <span className="font-semibold tabular-nums text-amber-700 dark:text-amber-400">
@@ -3197,7 +3209,10 @@ function OverviewSection() {
                 {taxData.marriageAllowancePenceDelta !== 0 && (
                   <div className="flex items-baseline justify-between bg-rose-50 px-5 py-2.5 dark:bg-rose-950/30">
                     <div>
-                      <p className="text-sm text-muted-foreground">
+                      <p
+                        data-help="tax.marriageAllowance"
+                        className="text-sm text-muted-foreground"
+                      >
                         Marriage Allowance (
                         {marriageAllowance === "receiving" ? "receiving" : "giving"})
                       </p>
@@ -3218,7 +3233,7 @@ function OverviewSection() {
                 {taxData.hicbcPence > 0 && (
                   <div className="flex items-baseline justify-between bg-red-50 px-5 py-2.5 dark:bg-red-950/30">
                     <div>
-                      <p className="text-sm text-muted-foreground">
+                      <p data-help="tax.hicbc" className="text-sm text-muted-foreground">
                         High Income Child Benefit Charge
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -3289,7 +3304,10 @@ function OverviewSection() {
         </div>
         <CardContent className="space-y-3 py-4">
           <div className="flex items-center gap-3">
-            <label className="w-48 shrink-0 text-sm text-muted-foreground">
+            <label
+              data-help="tax.estimate.otherIncome"
+              className="w-48 shrink-0 text-sm text-muted-foreground"
+            >
               Other income this year
             </label>
             <div className="relative">
@@ -3316,7 +3334,9 @@ function OverviewSection() {
             <p className="text-xs text-muted-foreground">salary, pension, rental, etc.</p>
           </div>
           <div className="flex items-center gap-3">
-            <label className="w-48 shrink-0 text-sm text-muted-foreground">Scottish taxpayer</label>
+            <label data-help="tax.scotland" className="w-48 shrink-0 text-sm text-muted-foreground">
+              Scottish taxpayer
+            </label>
             <input
               type="checkbox"
               className="h-4 w-4 rounded"
@@ -3333,7 +3353,9 @@ function OverviewSection() {
             <p className="text-xs text-muted-foreground">uses Scottish Income Tax rates</p>
           </div>
           <div className="space-y-1.5">
-            <p className="text-sm text-muted-foreground">Student loan plan(s)</p>
+            <p data-help="tax.studentLoan" className="text-sm text-muted-foreground">
+              Student loan plan(s)
+            </p>
             <div className="flex flex-wrap gap-2">
               {(
                 [
@@ -3405,7 +3427,7 @@ function OverviewSection() {
             </p>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">
+            <label data-help="tax.workingFromHome" className="text-sm text-muted-foreground">
               Working from home (HMRC flat rate)
             </label>
             <div className="flex gap-2">
@@ -3437,7 +3459,7 @@ function OverviewSection() {
                 );
               })}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p data-help="tax.mileage" className="text-xs text-muted-foreground">
               Reduces profit for both IT and NI · simplified expenses (SA103F)
             </p>
           </div>
@@ -3518,7 +3540,7 @@ function OverviewSection() {
                 className="w-full rounded-md border bg-background py-1.5 pl-7 pr-2 text-sm tabular-nums"
               />
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p data-help="tax.estimate.adjustedNetIncome" className="text-xs text-muted-foreground">
               High Income Child Benefit Charge applies if adjusted net income exceeds £60,000
             </p>
           </div>
@@ -3584,8 +3606,10 @@ function OverviewSection() {
       {quarterlyData && (
         <Card className="overflow-hidden">
           <div className="border-l-4 border-indigo-500 bg-indigo-50/50 px-5 py-3 dark:bg-indigo-950/20">
-            <p className="font-semibold">MTD quarters — {quarterlyData.tax_year}</p>
-            <p className="text-xs text-muted-foreground">
+            <p data-help="tax.quarters" className="font-semibold">
+              MTD quarters — {quarterlyData.tax_year}
+            </p>
+            <p data-help="tax.mtd" className="text-xs text-muted-foreground">
               Making Tax Digital quarters · cash basis
             </p>
           </div>
@@ -3649,6 +3673,7 @@ function OverviewSection() {
         </div>
         <CardContent className="py-3">
           <Button
+            data-help="books.export.workbook"
             size="sm"
             disabled={downloading}
             onClick={() => downloadWithAuth("/api/books/export.xlsx", setDownloading)}
@@ -5153,6 +5178,7 @@ export function BooksTab() {
                   <div>
                     {awaitingPaymentHired.map((b) => (
                       <div
+                        data-help="books.earnings.logPayment"
                         key={`unlogged-${b.id}`}
                         className="flex cursor-pointer items-center justify-between border-l-4 border-amber-400 bg-amber-50/60 px-5 py-3 dark:bg-amber-950/20"
                         onClick={() => openBooking(b)}

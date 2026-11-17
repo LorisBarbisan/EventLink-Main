@@ -246,11 +246,17 @@ function CalendarSyncPanel({
             </div>
             <div className="flex items-center gap-3">
               {needsReconnect ? (
-                <Button size="sm" variant="outline" onClick={() => onConnect(status.provider!)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-help="books.calendar.connect"
+                  onClick={() => onConnect(status.provider!)}
+                >
                   Reconnect
                 </Button>
               ) : (
                 <Button
+                  data-help="books.calendar.connect"
                   size="sm"
                   onClick={onSync}
                   disabled={syncing}
@@ -350,6 +356,7 @@ function CalendarSyncPanel({
               Connect Google Calendar
             </Button>
             <Button
+              data-help="books.calendar.connect"
               variant="outline"
               size="sm"
               className="gap-2"
@@ -461,6 +468,7 @@ function AvailabilityDialog({
         {/* Mode toggle */}
         <div className="flex gap-1 rounded-md border p-1">
           <button
+            data-help="books.calendar.markAvailability"
             className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ${mode === "availability" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
             onClick={() => setMode("availability")}
           >

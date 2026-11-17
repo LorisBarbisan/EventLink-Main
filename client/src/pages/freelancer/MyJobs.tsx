@@ -249,6 +249,7 @@ export default function MyJobs() {
                     </p>
                   </div>
                   <span
+                    data-help={`bookings.status.${booking.status}`}
                     className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusConfig.bg} ${statusConfig.color}`}
                   >
                     {statusConfig.label}
