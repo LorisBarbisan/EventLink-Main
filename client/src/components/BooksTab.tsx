@@ -1157,6 +1157,77 @@ function UnattachedInbox({ expenses }: { expenses: Expense[] }) {
 
 // ── Expenses section ──────────────────────────────────────────────────────────
 
+// ── List filters ───────────────────────────────────────────────────────────────
+// A labelled filter row at the top of an opened list (Earnings, Expenses).
+
+const EARNINGS_STATUS_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "expected", label: "Expected" },
+  { value: "invoiced", label: "Invoiced" },
+  { value: "paid", label: "Paid" },
+  { value: "overdue", label: "Overdue" },
+  { value: "needs_review", label: "Needs review" },
+];
+
+function ListFilters({
+  active,
+  onClear,
+  children,
+}: {
+  active: boolean;
+  onClear: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b bg-muted/30 px-5 py-2.5">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Filter
+      </span>
+      {children}
+      {active && (
+        <button
+          className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+          onClick={onClear}
+        >
+          Clear filters
+        </button>
+      )}
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+  helpKey,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  helpKey?: string;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger data-help={helpKey} className="h-8 w-40 bg-background text-sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </label>
+  );
+}
+
 function ExpensesSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1245,26 +1316,11 @@ function ExpensesSection() {
                   {expenses.length}
                 </span>
               )}
-              <div onClick={(e) => e.stopPropagation()}>
-                <Select
-                  value={originFilter}
-                  onValueChange={(v) => setOriginFilter(v as OriginFilter)}
-                >
-                  <SelectTrigger
-                    data-help="books.earnings.filterOrigin"
-                    className="h-6 w-32 border-amber-200 bg-white/90 text-xs text-amber-900"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ORIGIN_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {originFilter !== "all" && (
+                <span className="rounded-full bg-white/90 px-2 py-0.5 text-xs font-medium text-amber-800">
+                  Filtered
+                </span>
+              )}
             </div>
             <Button
               size="sm"
@@ -1281,6 +1337,15 @@ function ExpensesSection() {
         </div>
         {sectionOpen && (
           <CardContent className="p-0">
+            <ListFilters active={originFilter !== "all"} onClear={() => setOriginFilter("all")}>
+              <FilterSelect
+                label="Source"
+                helpKey="books.earnings.filterOrigin"
+                value={originFilter}
+                onChange={(v) => setOriginFilter(v as OriginFilter)}
+                options={ORIGIN_OPTIONS}
+              />
+            </ListFilters>
             {isLoading ? (
               <div className="space-y-2 p-4">
                 {[1, 2, 3].map((i) => (
@@ -5043,46 +5108,37 @@ export function BooksTab() {
                       {formatPence(earningsTotal)}
                     </span>
                   )}
-                  <Select value={earningsFilter} onValueChange={setEarningsFilter}>
-                    <SelectTrigger
-                      className="h-6 w-28 text-xs"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="expected">Expected</SelectItem>
-                      <SelectItem value="invoiced">Invoiced</SelectItem>
-                      <SelectItem value="paid">Paid</SelectItem>
-                      <SelectItem value="overdue">Overdue</SelectItem>
-                      <SelectItem value="needs_review">Needs review</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={earningsOrigin}
-                    onValueChange={(v) => setEarningsOrigin(v as OriginFilter)}
-                  >
-                    <SelectTrigger
-                      data-help="books.earnings.filterOrigin"
-                      className="h-6 w-32 text-xs"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ORIGIN_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {(earningsFilter !== "all" || earningsOrigin !== "all") && (
+                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                      Filtered
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
             {earningsOpen && (
               <CardContent className="p-0">
+                <ListFilters
+                  active={earningsFilter !== "all" || earningsOrigin !== "all"}
+                  onClear={() => {
+                    setEarningsFilter("all");
+                    setEarningsOrigin("all");
+                  }}
+                >
+                  <FilterSelect
+                    label="Status"
+                    value={earningsFilter}
+                    onChange={setEarningsFilter}
+                    options={EARNINGS_STATUS_OPTIONS}
+                  />
+                  <FilterSelect
+                    label="Source"
+                    helpKey="books.earnings.filterOrigin"
+                    value={earningsOrigin}
+                    onChange={(v) => setEarningsOrigin(v as OriginFilter)}
+                    options={ORIGIN_OPTIONS}
+                  />
+                </ListFilters>
                 {filteredEntries.length === 0 && awaitingPaymentHired.length === 0 ? (
                   <div className="flex items-center gap-2 px-5 py-4 text-sm text-muted-foreground">
                     <BookOpen className="h-4 w-4" />
