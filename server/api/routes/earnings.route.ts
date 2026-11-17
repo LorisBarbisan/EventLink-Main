@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
+import { requireUkFreelancer } from "../middleware/uk-freelancer.middleware";
 import { backfillEarningsForFreelancer } from "../services/earnings.service";
 import { storage, normaliseClientName } from "../../storage";
 import { db } from "../config/db";
@@ -17,7 +18,7 @@ import {
 } from "../controllers/time-entries.controller";
 
 const router = Router();
-const auth = [authenticateJWT, requireRole("freelancer")];
+const auth = [authenticateJWT, requireRole("freelancer"), requireUkFreelancer];
 
 // GET /api/earnings/jobs — lightweight job list for the expense/mileage selectors
 router.get("/jobs", auth, async (req: Request, res: Response) => {

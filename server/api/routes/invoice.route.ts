@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { authenticateJWT } from "../middleware/auth.middleware";
 import { requireRole } from "../middleware/role.middleware";
+import { requireUkFreelancer, requireUkOrOwnRecords } from "../middleware/uk-freelancer.middleware";
 import {
   getBillingProfile,
   upsertBillingProfile,
@@ -29,7 +30,9 @@ import {
 
 export function registerInvoiceRoutes(app: Express) {
   const auth = [authenticateJWT];
-  const freelancer = [...auth, requireRole("freelancer")];
+  const freelancer = [...auth, requireRole("freelancer"), requireUkFreelancer];
+  // Exports of your own records stay available after moving abroad
+  const ownRecords = [...auth, requireRole("freelancer"), requireUkOrOwnRecords];
 
   // Billing profile
   app.get("/api/billing-profile", ...freelancer, getBillingProfile);
@@ -40,7 +43,7 @@ export function registerInvoiceRoutes(app: Express) {
 
   // Invoice CRUD
   app.get("/api/invoices", ...freelancer, listInvoices);
-  app.get("/api/invoices/export", ...freelancer, exportInvoicesCSV);
+  app.get("/api/invoices/export", ...ownRecords, exportInvoicesCSV);
   app.get("/api/invoices/:id", ...freelancer, getInvoice);
   app.post("/api/invoices", ...freelancer, createBlankInvoice);
   app.post("/api/invoices/from-booking/:bookingId", ...freelancer, createInvoiceFromBooking);

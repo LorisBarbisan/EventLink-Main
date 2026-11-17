@@ -2,23 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 
-// Canonical DB value is "United Kingdom"; accept common variants defensively.
-const UK_COUNTRY_VALUES = new Set([
-  "united kingdom",
-  "uk",
-  "gb",
-  "gbr",
-  "great britain",
-  "england",
-  "scotland",
-  "wales",
-  "northern ireland",
-]);
-
-export function isUkCountry(country: unknown): boolean {
-  if (typeof country !== "string") return false;
-  return UK_COUNTRY_VALUES.has(country.trim().toLowerCase());
-}
+// One rule for UK, shared with the server gate.
+export { isUkCountry } from "@shared/uk-country";
+import { isUkCountry } from "@shared/uk-country";
 
 /**
  * Visibility state for the insurance offers button:

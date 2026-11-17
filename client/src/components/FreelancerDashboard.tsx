@@ -54,6 +54,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { ApplicationCard } from "./ApplicationCard";
 import { BooksTab } from "./BooksTab";
+import { BooksHiddenNotice } from "@/components/BooksRecordsNotice";
 import { useBooksAccess } from "@/hooks/useBooksAccess";
 
 import { MessagingInterface } from "./MessagingInterface";
@@ -717,6 +718,7 @@ export default function SimplifiedFreelancerDashboard() {
 
         {/* Profile Tab */}
         <TabsContent value="profile">
+          {booksAccess === "unavailable" && <BooksHiddenNotice />}
           {profileLoading ? (
             <div className="flex justify-center p-8">Loading profile...</div>
           ) : (
@@ -932,6 +934,8 @@ export default function SimplifiedFreelancerDashboard() {
                   Go to Edit Profile
                 </Button>
               </div>
+            ) : booksAccess === "loading" ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">Loading…</div>
             ) : (
               <BooksTab />
             )}

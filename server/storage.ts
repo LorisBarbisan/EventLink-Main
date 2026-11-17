@@ -900,6 +900,9 @@ export interface IStorage {
     };
   }>;
 
+  /** Whether the freelancer has any earnings or expenses recorded (for export access). */
+  hasBooksRecords(freelancerId: number): Promise<boolean>;
+
   // Kit items
   listKitItems(freelancerId: number, includeDisposed?: boolean): Promise<KitItem[]>;
   getKitItem(id: number): Promise<KitItem | undefined>;
@@ -7273,6 +7276,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ── Kit items ─────────────────────────────────────────────────────────────────
+
+  async hasBooksRecords(freelancerId: number): Promise<boolean> {
+    const [e] = await db
+      .select({ id: earnings_entries.id })
+      .from(earnings_entries)
+      .where(eq(earnings_entries.freelancer_id, freelancerId))
+      .limit(1);
+    if (e) return true;
+    const [x] = await db
+      .select({ id: expenses.id })
+      .from(expenses)
+      .where(eq(expenses.freelancer_id, freelancerId))
+      .limit(1);
+    return !!x;
+  }
 
   async listKitItems(freelancerId: number, includeDisposed = false): Promise<KitItem[]> {
     const conditions = [eq(kit_items.freelancer_id, freelancerId), eq(kit_items.archived, false)];

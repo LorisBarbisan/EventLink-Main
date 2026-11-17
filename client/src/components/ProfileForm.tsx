@@ -54,6 +54,8 @@ import {
 import { ShareProfileButton } from "@/components/ShareProfileButton";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RatingDisplay } from "./StarRating";
+import { LeavingUkDialog } from "@/components/BooksRecordsNotice";
+import { isUkCountry } from "@shared/uk-country";
 
 const DRAFT_STORAGE_KEY_PREFIX = "eventlink_profile_draft_";
 
@@ -246,6 +248,8 @@ export function ProfileForm({
       );
     })();
 
+  const [confirmLeavingUk, setConfirmLeavingUk] = useState(false);
+
   const handleSave = async () => {
     if (userType === "freelancer") {
       const fd = formData as FreelancerFormData;
@@ -278,6 +282,20 @@ export function ProfileForm({
         return;
       }
     }
+    // Moving a freelancer out of the UK hides their Books: ask first, and
+    // offer the workbook before it goes.
+    if (
+      userType === "freelancer" &&
+      isUkCountry((profile as { country?: unknown } | null | undefined)?.country) &&
+      !isUkCountry((formData as FreelancerFormData).country)
+    ) {
+      setConfirmLeavingUk(true);
+      return;
+    }
+    await saveNow();
+  };
+
+  const saveNow = async () => {
     try {
       await onSave(formData);
       try {
@@ -366,6 +384,15 @@ export function ProfileForm({
 
   return (
     <Card>
+      <LeavingUkDialog
+        open={confirmLeavingUk}
+        newCountry={(formData as FreelancerFormData).country ?? ""}
+        onCancel={() => setConfirmLeavingUk(false)}
+        onConfirm={() => {
+          setConfirmLeavingUk(false);
+          void saveNow();
+        }}
+      />
       <ConfirmDialog
         open={showConfirmDialog}
         onOpenChange={setShowConfirmDialog}

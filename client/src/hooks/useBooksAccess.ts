@@ -1,21 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
-import { isUkCountry } from "@/hooks/useIsUkFreelancer";
+import { isUkCountry, isCountryUnset } from "@shared/uk-country";
 
 /**
  * Access state for the Books tab (UK-specific tax surfaces):
- * - "available"     → UK freelancer; show Books tab normally.
- * - "needs-country" → freelancer hasn't set their country yet; show a prompt.
- * - "unavailable"   → non-UK freelancer; hide the Books tab.
+ * - "loading"       → profile not known yet: keep the tab (no flicker) but
+ *                     don't mount Books until the answer is in.
+ * - "available"     → UK freelancer, or the profile could not be loaded
+ *                     (offline, server error): let the server decide.
+ * - "needs-country" → no profile yet, or no country on it: show the prompt.
+ * - "unavailable"   → non-UK freelancer, employer or admin: hide the tab.
  */
-export type BooksAccess = "available" | "needs-country" | "unavailable";
+export type BooksAccess = "loading" | "available" | "needs-country" | "unavailable";
 
 export function useBooksAccess(): BooksAccess {
   const { user } = useAuth();
   const isFreelancer = user?.role === "freelancer";
 
-  const { data: profile, isLoading } = useQuery({
+  const {
+    data: profile,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["/api/freelancer/profile", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -26,11 +34,15 @@ export function useBooksAccess(): BooksAccess {
   });
 
   if (!isFreelancer) return "unavailable";
-  if (isLoading) return "available"; // optimistic while loading — avoids flicker
+  if (isLoading) return "loading";
+
+  if (isError) {
+    // 404 means there is no profile yet; anything else is a failed request,
+    // which must not tell someone with a country set to go and set one.
+    return (error as { status?: number })?.status === 404 ? "needs-country" : "available";
+  }
 
   const country = (profile as { country?: unknown } | null)?.country;
-
-  if (country === null || country === undefined) return "needs-country";
-  if (isUkCountry(country)) return "available";
-  return "unavailable";
+  if (isCountryUnset(country)) return "needs-country";
+  return isUkCountry(country) ? "available" : "unavailable";
 }
