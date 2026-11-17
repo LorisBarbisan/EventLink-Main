@@ -22,6 +22,11 @@ ALTER TABLE expenses DROP CONSTRAINT IF EXISTS expenses_source_check;
 ALTER TABLE expenses ADD CONSTRAINT expenses_source_check
   CHECK (source IN ('manual', 'receipt', 'bank', 'imported'));
 
+-- earnings_entries.source has one too (migration 0022).
+ALTER TABLE earnings_entries DROP CONSTRAINT IF EXISTS earnings_entries_source_check;
+ALTER TABLE earnings_entries ADD CONSTRAINT earnings_entries_source_check
+  CHECK (source IN ('booking', 'invoice', 'manual', 'imported'));
+
 -- Backfill provenance from import_rows while the links still exist.
 UPDATE earnings_entries e
 SET source = 'imported', import_batch_id = r.batch_id
