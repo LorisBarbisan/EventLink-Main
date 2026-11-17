@@ -320,7 +320,7 @@ const entries: HelpEntry[] = [
       ],
       canDo: [
         "Save the client once and pick them from the list next time",
-        "Remove a job you added yourself if you entered it by mistake",
+        "Remove a job you added yourself if it's not going to happen",
       ],
       cannotDo: [
         "Add EventLink bookings by hand — Sync brings those in, and adding them yourself would count them twice",
